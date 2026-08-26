@@ -47,40 +47,43 @@
 
         <!-- Hareket tablosu -->
         <Border Grid.Row="1" Classes="Table" Margin="0,16,0,0" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-            <DockPanel>
+                <!-- MAS-04: baslik ve govde AYNI yatay kaydiriciyi paylasir -> yana kaydirinca hiza bozulmaz. -->
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <DockPanel HorizontalAlignment="Left">
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,*,Auto">
-                        <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130"/>
-                        <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
-                        <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="90"/>
-                        <SelectableTextBlock Grid.Column="3" Text="MALZEME" MinWidth="160"/>
-                        <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="60"/>
-                        <SelectableTextBlock Grid.Column="5" Text="MİKTAR" MinWidth="100"/>
-                        <SelectableTextBlock Grid.Column="6" Text="BİRİM" MinWidth="70"/>
-                        <SelectableTextBlock Grid.Column="7" Text="DEPO / ŞANTİYE" MinWidth="150"/>
-                        <SelectableTextBlock Grid.Column="8" Text="NOT / BELGE" MinWidth="120"/>
-                        <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90"/>
+                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130" MaxWidth="130"/>
+                        <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="90" MaxWidth="90"/>
+                        <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="90" MaxWidth="90"/>
+                        <SelectableTextBlock Grid.Column="3" Text="MALZEME" MinWidth="160" MaxWidth="160"/>
+                        <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="60" MaxWidth="60"/>
+                        <SelectableTextBlock Grid.Column="5" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
+                        <SelectableTextBlock Grid.Column="6" Text="BİRİM" MinWidth="70" MaxWidth="70"/>
+                        <SelectableTextBlock Grid.Column="7" Text="DEPO / ŞANTİYE" MinWidth="150" MaxWidth="150"/>
+                        <SelectableTextBlock Grid.Column="8" Text="NOT / BELGE" MinWidth="120" MaxWidth="120"/>
+                        <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90" MaxWidth="90"/>
                     </Grid>
                 </Border>
                 <ListBox Classes="Table" ItemsSource="{Binding Movements}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="m:StockMovementRow">
-                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,*,Auto">
-                                <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="3" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="5" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                <SelectableTextBlock Grid.Column="6" Text="{Binding Unit}" MinWidth="70" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="7" Text="{Binding LocationFlowText}" MinWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <SelectableTextBlock Grid.Column="8" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" VerticalAlignment="Center" Classes="Helper" IsVisible="{Binding IsReversed}"/>
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"/>
+                                <SelectableTextBlock Grid.Column="3" Text="{Binding Name}" MinWidth="160" MaxWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}"/>
+                                <SelectableTextBlock Grid.Column="5" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}"/>
+                                <SelectableTextBlock Grid.Column="6" Text="{Binding Unit}" MinWidth="70" MaxWidth="70" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Unit}"/>
+                                <SelectableTextBlock Grid.Column="7" Text="{Binding LocationFlowText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LocationFlowText}"/>
+                                <SelectableTextBlock Grid.Column="8" Text="{Binding NoteText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="{Binding NoteText}"/>
+                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Classes="Helper" IsVisible="{Binding IsReversed}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
+          </ScrollViewer>
         </Border>
 
         <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>

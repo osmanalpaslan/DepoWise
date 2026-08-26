@@ -32,7 +32,7 @@
                 <Border Classes="Table" IsVisible="{Binding HasRows}">
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ColumnDefinitions="150,90,*,110,150,140">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="150,90,*,110,150,140">
                                 <SelectableTextBlock Grid.Column="0" Text="BELGE NO"/>
                                 <SelectableTextBlock Grid.Column="1" Text="TARİH"/>
                                 <SelectableTextBlock Grid.Column="2" Text="TALEP EDEN / ŞUBE"/>
@@ -45,7 +45,7 @@
                             <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="req:RequestOperationRow">
-                                        <Grid ColumnDefinitions="150,90,*,110,150,140">
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="150,90,*,110,150,140">
                                             <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" VerticalAlignment="Center"/>
                                             <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" VerticalAlignment="Center"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>

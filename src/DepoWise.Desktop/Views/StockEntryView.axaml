@@ -207,27 +207,27 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="80"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="80" MaxWidth="80"/>
                             <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="3" Text="YÖN" MinWidth="60"/>
-                            <SelectableTextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="3" Text="YÖN" MinWidth="60" MaxWidth="60"/>
+                            <SelectableTextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80" MaxWidth="80"/>
                             <SelectableTextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Movements}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}" />
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" />
                                     <SelectableTextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <StackPanel Grid.Column="7" MinWidth="80" VerticalAlignment="Center">
                                         <Button Classes="Ghost" Content="İptal" IsVisible="{Binding CanReverse}"

@@ -81,26 +81,26 @@
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                             <SelectableTextBlock Grid.Column="1" Text="ÜNVAN" MinWidth="200"/>
-                            <SelectableTextBlock Grid.Column="2" Text="TİP" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="3" Text="VERGİ/TCKN" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="130"/>
-                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TİP" MinWidth="150" MaxWidth="150"/>
+                            <SelectableTextBlock Grid.Column="3" Text="VERGİ/TCKN" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="130" MaxWidth="130"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:PartyListRow">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Party.Code}" MinWidth="110" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Party.Code}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.Code}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Party.Title}" MinWidth="200" VerticalAlignment="Center"
                                                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.Title}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Party.TypeText}" MinWidth="150" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Party.TaxIdText}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BalanceText}" MinWidth="130" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Party.StatusText}" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Party.TypeText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.TypeText}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Party.TaxIdText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.TaxIdText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BalanceText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Party.StatusText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>
@@ -281,26 +281,26 @@
                     <Border Classes="Table" MinHeight="220">
                         <DockPanel>
                             <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90" MaxWidth="90"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80" MaxWidth="80"/>
                                     <SelectableTextBlock Grid.Column="2" Text="AÇIKLAMA" MinWidth="120"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="BORÇ" MinWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="ALACAK" MinWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="BAKİYE" MinWidth="90"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="BORÇ" MinWidth="80" MaxWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="ALACAK" MinWidth="80" MaxWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="BAKİYE" MinWidth="90" MaxWidth="90"/>
                                 </Grid>
                             </Border>
                             <ListBox Classes="Table" ItemsSource="{Binding Ledger}" SelectedItem="{Binding SelectedEntry}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="acc:PartyStatementRow">
-                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Entry.DateText}" MinWidth="90" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Entry.TypeText}" MinWidth="80" VerticalAlignment="Center"/>
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Entry.DateText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Entry.DateText}" />
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Entry.TypeText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Entry.TypeText}" />
                                             <SelectableTextBlock Grid.Column="2" Text="{Binding Entry.Description}" MinWidth="120" VerticalAlignment="Center"
                                                                  TextTrimming="CharacterEllipsis"/>
-                                            <SelectableTextBlock Grid.Column="3" Text="{Binding Entry.Debit, StringFormat={}{0:0.##}}" MinWidth="80" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="4" Text="{Binding Entry.Credit, StringFormat={}{0:0.##}}" MinWidth="80" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="5" Text="{Binding RunningBalance, StringFormat={}{0:0.##}}" MinWidth="90" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="{Binding Entry.Debit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="{Binding Entry.Credit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="5" Text="{Binding RunningBalance, StringFormat={}{0:0.##}}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>

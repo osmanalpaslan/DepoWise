@@ -72,25 +72,25 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="2" Text="MİN" MinWidth="80"/>
-                            <SelectableTextBlock Grid.Column="3" Text="İMZA" MinWidth="80"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="2" Text="MİN" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="3" Text="İMZA" MinWidth="80" MaxWidth="80"/>
                             <SelectableTextBlock Grid.Column="4" Text="NOTLAR" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="130"/>
+                            <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="130" MaxWidth="130"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="upd:ReleaseRow">
-                                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Version}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding SizeDisplay}" MinWidth="90" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MinSupportedVersion}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding SignedDisplay}" MinWidth="80" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Version}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Version}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding SizeDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SizeDisplay}" />
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MinSupportedVersion}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MinSupportedVersion}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding SignedDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SignedDisplay}" />
                                     <SelectableTextBlock Grid.Column="4" Text="{Binding NotesDisplay}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

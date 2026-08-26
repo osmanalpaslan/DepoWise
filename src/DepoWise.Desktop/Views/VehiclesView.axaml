@@ -266,7 +266,7 @@
               <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <DockPanel HorizontalAlignment="Left">
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid>
+                        <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -312,13 +312,13 @@
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=chassisNo}"/>
                             <local:SortHeader Grid.Column="13" Text="MOTOR NO" ColumnKey="engineNo" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=engineNo}"/>
-                            <SelectableTextBlock Grid.Column="14" Text="BAKIM/MUAYENE" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="14" Text="BAKIM/MUAYENE" MinWidth="120" MaxWidth="120"/>
                         </Grid>
                     </Border>
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml aynı yorum.
                          Kolon 14 (BAKIM/MUAYENE) hesaplanan uyarı rozetidir, ColumnKey/filtre YOK. -->
                     <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,6">
-                        <Grid>
+                        <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -336,7 +336,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <ContentControl Grid.Column="0" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="0" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=internalCode}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=internalCode}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=internalCode}"
@@ -349,7 +349,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="1" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="1" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=plate}"
@@ -362,7 +362,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="2" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="2" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=productionYear}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=productionYear}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=productionYear}"
@@ -375,7 +375,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="3" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="3" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=meter}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=meter}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=meter}"
@@ -388,7 +388,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="4" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="4" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"
@@ -401,7 +401,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="5" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="5" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=statusNote}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=statusNote}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=statusNote}"
@@ -414,7 +414,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="6" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="6" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=vehicleType}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=vehicleType}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=vehicleType}"
@@ -427,7 +427,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="7" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="7" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"
@@ -440,7 +440,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="8" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="8" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"
@@ -453,7 +453,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="9" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="9" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=model}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=model}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=model}"
@@ -466,7 +466,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="10" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="10" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=branch}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=branch}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=branch}"
@@ -479,7 +479,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="11" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="11" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=driver}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=driver}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=driver}"
@@ -492,7 +492,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="12" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="12" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=chassisNo}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=chassisNo}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=chassisNo}"
@@ -505,7 +505,7 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <ContentControl Grid.Column="13" Margin="4,0" HorizontalContentAlignment="Stretch"
+                            <ContentControl Grid.Column="13" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=engineNo}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=engineNo}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=engineNo}"
@@ -525,7 +525,7 @@
                              DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:VehicleRow">
-                                <Grid>
+                                <Grid ctrl:ColumnRules.Enabled="True">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>

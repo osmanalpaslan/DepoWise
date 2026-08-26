@@ -57,9 +57,11 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GridColumnVm">
+                                    <!-- MAS-04: kenarlık 0 → başlık yazısı, ALTINDAKİ veri hücresiyle
+                                         (Padding="8,6") tam aynı noktadan başlar. -->
                                     <Grid IsVisible="{Binding IsVisible}" Width="{Binding Width}" ColumnDefinitions="*,6">
                                         <Button Grid.Column="0" Classes="Ghost" HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Left" Padding="8,4"
+                                                HorizontalContentAlignment="Left" Padding="8,4" BorderThickness="0"
                                                 Command="{Binding SortCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="4">
                                                 <SelectableTextBlock Text="{Binding Label}" FontWeight="SemiBold"
@@ -71,6 +73,8 @@
                                         <!-- Sürükleyerek genişlet/daralt (kod-arkası Thumb.DragDelta işler). -->
                                         <Thumb Grid.Column="1" Width="6" Background="Transparent"
                                                Cursor="SizeWestEast"/>
+                                        <Border Grid.Column="1" Width="1" HorizontalAlignment="Right"
+                                                IsHitTestVisible="False" Background="{DynamicResource BorderSubtleBrush}"/>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -85,8 +89,13 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GridColumnVm">
-                                    <TextBox IsVisible="{Binding IsVisible}" Width="{Binding Width}" Classes="Search"
-                                             Margin="2,0" Text="{Binding Filter, Mode=TwoWay}" PlaceholderText="{Binding Hint}"/>
+                                    <!-- MAS-04: Margin kolonu GENISLETIYORDU: kolon basina +4 px, kayma birikiyordu.
+                                         Artik genislik Border uzerinde sabit, bosluk ICERIDE kaliyor; kolon siniri korunur. -->
+                                    <Border IsVisible="{Binding IsVisible}" Width="{Binding Width}" Padding="2,0"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                                        <TextBox Classes="Search" HorizontalAlignment="Stretch"
+                                                 Text="{Binding Filter, Mode=TwoWay}" PlaceholderText="{Binding Hint}"/>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -103,9 +112,11 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GridCellVm">
-                                    <SelectableTextBlock Text="{Binding Text}" Padding="8,6" FontWeight="Bold"
-                                                         IsVisible="{Binding Column.IsVisible}" Width="{Binding Column.Width}"
-                                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <Border IsVisible="{Binding Column.IsVisible}" Width="{Binding Column.Width}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                                        <SelectableTextBlock Text="{Binding Text}" Padding="8,6" FontWeight="Bold"
+                                                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -121,11 +132,12 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:GridCellVm">
-                                            <SelectableTextBlock Text="{Binding Text}" Padding="8,6"
-                                                                 IsVisible="{Binding Column.IsVisible}"
-                                                                 Width="{Binding Column.Width}"
-                                                                 VerticalAlignment="Center"
-                                                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Text}"/>
+                                            <Border IsVisible="{Binding Column.IsVisible}" Width="{Binding Column.Width}"
+                                                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                                                <SelectableTextBlock Text="{Binding Text}" Padding="8,6"
+                                                                     VerticalAlignment="Center"
+                                                                     TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Text}"/>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

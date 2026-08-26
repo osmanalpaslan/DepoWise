@@ -130,7 +130,7 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid>
+                        <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
@@ -146,7 +146,7 @@
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="inf:VehicleTemplateRow">
-                                <Grid>
+                                <Grid ctrl:ColumnRules.Enabled="True">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>

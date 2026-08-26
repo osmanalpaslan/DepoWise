@@ -25,20 +25,20 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="DOSYA" MinWidth="240"/>
-                            <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="2" Text="TARİH" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="3" Text="" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TARİH" MinWidth="150" MaxWidth="150"/>
+                            <SelectableTextBlock Grid.Column="3" Text="" MinWidth="120" MaxWidth="120"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:BackupRowVm">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="{Binding FileName}" MinWidth="240" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding SizeText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding SizeText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SizeText}" />
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
                                     <Button Grid.Column="3" Classes="Secondary" Content="Geri Yükle" MinWidth="120"
                                             Command="{Binding $parent[ItemsControl].((vm:BackupViewModel)DataContext).RestoreCommand}"
                                             CommandParameter="{Binding}"/>

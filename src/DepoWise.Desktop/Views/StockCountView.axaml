@@ -67,20 +67,20 @@
                     <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasCountLines}">
                         <DockPanel>
                             <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,0">
-                                    <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,0">
+                                    <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90" MaxWidth="90"/>
                                     <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="SİSTEM" MinWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="SAYILAN" MinWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="FARK" MinWidth="70"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="" MinWidth="70"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="SİSTEM" MinWidth="80" MaxWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="SAYILAN" MinWidth="80" MaxWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="FARK" MinWidth="70" MaxWidth="70"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="" MinWidth="70" MaxWidth="70"/>
                                 </Grid>
                             </Border>
                             <ScrollViewer>
                                 <ItemsControl ItemsSource="{Binding CountLines}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StockCountViewModel+CountLineVm">
-                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,4">
+                                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,4">
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 <SelectableTextBlock Grid.Column="2" Text="{Binding SystemText}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -110,22 +110,22 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,*">
-                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,*">
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
                             <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="2" Text="YÖN" MinWidth="60"/>
-                            <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="2" Text="YÖN" MinWidth="60" MaxWidth="60"/>
+                            <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
                             <SelectableTextBlock Grid.Column="4" Text="GEREKÇE" MinWidth="140"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Adjustments}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,*">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,*">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
                                     <SelectableTextBlock Grid.Column="4" Text="{Binding NoteText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>

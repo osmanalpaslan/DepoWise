@@ -134,25 +134,25 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,*,*,Auto,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="KULLANICI" MinWidth="150"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,*,*,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="KULLANICI" MinWidth="150" MaxWidth="150"/>
                             <SelectableTextBlock Grid.Column="1" Text="AD SOYAD" MinWidth="150"/>
                             <SelectableTextBlock Grid.Column="2" Text="PERSONEL" MinWidth="140"/>
                             <SelectableTextBlock Grid.Column="3" Text="ROLLER" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="4" Text="ŞUBE" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="4" Text="ŞUBE" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="70" MaxWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sec:UserRow">
-                                <Grid ColumnDefinitions="Auto,*,*,*,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Username}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,*,*,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Username}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Username}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding FullName}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding PersonnelDisplay}" MinWidth="140" VerticalAlignment="Center"/>
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding Roles}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BranchDisplay}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BranchDisplay}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BranchDisplay}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="70" MaxWidth="70" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

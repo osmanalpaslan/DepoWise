@@ -59,28 +59,28 @@
         <Border Grid.Row="4" Classes="Table" Margin="0,8,0,0" IsVisible="{Binding HasRows}">
             <DockPanel>
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-                        <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110"/>
+                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                        <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                         <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="200"/>
-                        <SelectableTextBlock Grid.Column="2" Text="ATANMAMIŞ" MinWidth="110"/>
-                        <SelectableTextBlock Grid.Column="3" Text="DAĞITILACAK" MinWidth="140"/>
-                        <SelectableTextBlock Grid.Column="4" Text="KALAN" MinWidth="100"/>
-                        <SelectableTextBlock Grid.Column="5" Text="" MinWidth="80"/>
+                        <SelectableTextBlock Grid.Column="2" Text="ATANMAMIŞ" MinWidth="110" MaxWidth="110"/>
+                        <SelectableTextBlock Grid.Column="3" Text="DAĞITILACAK" MinWidth="140" MaxWidth="140"/>
+                        <SelectableTextBlock Grid.Column="4" Text="KALAN" MinWidth="100" MaxWidth="100"/>
+                        <SelectableTextBlock Grid.Column="5" Text="" MinWidth="80" MaxWidth="80"/>
                     </Grid>
                 </Border>
                 <ListBox Classes="Table" ItemsSource="{Binding Lines}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:StockDistributeViewModel+UnassignedLineVm">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-                                <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="110" VerticalAlignment="Center"/>
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}" />
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <SelectableTextBlock Grid.Column="2" Text="{Binding AvailableText}" MinWidth="110" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding AvailableText}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AvailableText}" />
                                 <!-- Negatif kalan (ADR-086 devralınan eksik stok) dağıtılamaz → alan kapalı. -->
                                 <NumericUpDown Grid.Column="3" Classes="Field" MinWidth="140" Minimum="0"
                                                Maximum="{Binding Available}" Value="{Binding Amount, Mode=TwoWay}"
                                                FormatString="0.##" ShowButtonSpinner="False"
                                                IsEnabled="{Binding CanDistribute}"/>
-                                <SelectableTextBlock Grid.Column="4" Text="{Binding RemainingText}" MinWidth="100" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Grid.Column="4" Text="{Binding RemainingText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RemainingText}" />
                                 <Button Grid.Column="5" Classes="Ghost" Content="Tümü" MinWidth="80"
                                         IsEnabled="{Binding CanDistribute}"
                                         Command="{Binding $parent[ItemsControl].((vm:StockDistributeViewModel)DataContext).FillAllCommand}"

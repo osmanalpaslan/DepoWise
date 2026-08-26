@@ -1,6 +1,20 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (beşinci tur — canlı kullanımda bildirilen iki gerçek sorun kapatıldı)
+> Son güncelleme: 2026-08-26 (altıncı tur — liste tablolarında kolon hizası)
+
+## ✅ Bu turda KAPATILAN (2026-08-26, altıncı tur — kullanıcı bildirimi)
+
+- **MAS-04 — Liste tablolarında kolon adları, filtre kutuları ve veriler aynı hizada değildi.**
+  Dört ayrı kusur vardı: (1) filtre hücresindeki dış boşluk kolonu genişletip kaymayı **biriktiriyordu**,
+  (2) hücrelerin **üst sınırı yoktu** → uzun değer gövdedeki kolonu genişletiyordu, (3) üç ekranda
+  başlık ile gövde **ayrı** yatay kayıyordu, (4) üç ekranda başlık ile veri satırının **kolon sayısı
+  farklıydı** (Talepler'de başlık 5 / veri 7). **31 tablo ekranının tamamı** düzeltildi; kullanıcının
+  seçimiyle sütun ayırıcı çizgileri eklendi. ADR-157.
+
+  **Bilinçli istisnalar:** esnek (`*`) kolonlar ve `SharedSizeGroup` kullanan kolonlar (orada kolonu
+  Avalonia zaten eşitler); yazı olmayan hücreler — buton · sayı kutusu · durum rozeti — çünkü sabit
+  genişlik etiketi kırpardı. Bunların 5'i son kolondadır (kayma sonraki kolonlara yayılmaz),
+  ikisi Talepler'in rozet kolonlarıdır.
 
 ## ✅ Bu turda KAPATILANLAR (2026-08-26, beşinci tur — kullanıcı bildirimi)
 

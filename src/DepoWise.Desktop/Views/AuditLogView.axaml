@@ -35,28 +35,31 @@
 
         <Panel Grid.Row="2" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                <DockPanel>
+                <!-- MAS-04: baslik ve govde AYNI yatay kaydiriciyi paylasir -> yana kaydirinca hiza bozulmaz. -->
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <DockPanel HorizontalAlignment="Left">
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="2" Text="KAYIT" MinWidth="220"/>
-                            <SelectableTextBlock Grid.Column="3" Text="İŞLEM" MinWidth="120"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="150" MaxWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="160" MaxWidth="160"/>
+                            <SelectableTextBlock Grid.Column="2" Text="KAYIT" MinWidth="220" MaxWidth="220"/>
+                            <SelectableTextBlock Grid.Column="3" Text="İŞLEM" MinWidth="120" MaxWidth="120"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="db:AuditLogRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="160" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding EntityType}" MinWidth="220" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding ActionText}" MinWidth="120" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="160" MaxWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding UserText}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding EntityType}" MinWidth="220" MaxWidth="220" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding EntityType}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding ActionText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ActionText}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </DockPanel>
+              </ScrollViewer>
             </Border>
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>

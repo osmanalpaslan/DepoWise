@@ -142,9 +142,9 @@
                             <ListBox Classes="Table" ItemsSource="{Binding Summary}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:PermissionsViewModel+SummaryRow">
-                                        <Grid ColumnDefinitions="*,Auto">
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto">
                                             <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="220" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Actions}" MinWidth="240" VerticalAlignment="Center"
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Actions}" MinWidth="240" MaxWidth="240" VerticalAlignment="Center"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         </Grid>
                                     </DataTemplate>
@@ -157,7 +157,7 @@
                 <Border Classes="Table">
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ColumnDefinitions="*,90,90,90,90">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,90,90,90,90">
                                 <SelectableTextBlock Grid.Column="0" Text="EKRAN / MODÜL" MinWidth="200"/>
                                 <SelectableTextBlock Grid.Column="1" Text="Görüntüle" TextAlignment="Center"/>
                                 <SelectableTextBlock Grid.Column="2" Text="Ekle" TextAlignment="Center"/>

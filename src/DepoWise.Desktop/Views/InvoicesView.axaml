@@ -79,26 +79,26 @@
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="120"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="120" MaxWidth="120"/>
                             <SelectableTextBlock Grid.Column="2" Text="CARİ" MinWidth="200"/>
-                            <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="4" Text="TUTAR" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="4" Text="TUTAR" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="90" MaxWidth="90"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:InvoiceListRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceNo}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DirectionText}" MinWidth="120" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceNo}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding InvoiceNo}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DirectionText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding PartyTitle}" MinWidth="200" VerticalAlignment="Center"
                                                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PartyTitle}"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding GrandTotal, StringFormat='{}{0:0.00}'}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="90" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding GrandTotal, StringFormat='{}{0:0.00}'}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>

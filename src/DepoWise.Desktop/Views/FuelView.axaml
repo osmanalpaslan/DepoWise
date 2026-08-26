@@ -82,7 +82,7 @@
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDist}">
                             <DockPanel>
                                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                    <Grid>
+                                    <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                             <ColumnDefinition Width="*"/>
@@ -90,6 +90,7 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
                                         <SelectableTextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
@@ -97,12 +98,13 @@
                                         <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="6" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:FuelRow">
-                                            <Grid>
+                                            <Grid ctrl:ColumnRules.Enabled="True">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                                     <ColumnDefinition Width="*"/>
@@ -118,7 +120,7 @@
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="6" Text="{Binding StatusText}" MinWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
+                                                <SelectableTextBlock Grid.Column="6" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -195,23 +197,25 @@
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDepot}">
                             <DockPanel>
                                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                    <Grid>
+                                    <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
                                         <SelectableTextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}" SelectedItem="{Binding SelectedDepotEntry}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="op:FuelDepotRow">
-                                            <Grid>
+                                            <Grid ctrl:ColumnRules.Enabled="True">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
@@ -223,7 +227,7 @@
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
                                                 <SelectableTextBlock Grid.Column="2" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>

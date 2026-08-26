@@ -35,36 +35,39 @@
 
         <Panel Grid.Row="2" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                <DockPanel>
+                <!-- MAS-04: baslik ve govde AYNI yatay kaydiriciyi paylasir -> yana kaydirinca hiza bozulmaz. -->
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <DockPanel HorizontalAlignment="Left">
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,*">
-                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130"/>
-                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="140"/>
-                            <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="180"/>
-                            <SelectableTextBlock Grid.Column="3" Text="ESKİ" MinWidth="80"/>
-                            <SelectableTextBlock Grid.Column="4" Text="YENİ" MinWidth="80"/>
-                            <SelectableTextBlock Grid.Column="5" Text="FARK" MinWidth="80"/>
-                            <SelectableTextBlock Grid.Column="6" Text="SONUÇ" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="7" Text="UYARI" MinWidth="160"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130" MaxWidth="130"/>
+                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="140" MaxWidth="140"/>
+                            <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="180" MaxWidth="180"/>
+                            <SelectableTextBlock Grid.Column="3" Text="ESKİ" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="4" Text="YENİ" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="5" Text="FARK" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="6" Text="SONUÇ" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="7" Text="UYARI" MinWidth="160" MaxWidth="160"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockChangeLogRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,*">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="140" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MaterialText}" MinWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding OldText}" MinWidth="80" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NewText}" MinWidth="80" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DiffText}" MinWidth="80" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding OutcomeText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="7" Text="{Binding WarningPreview}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="140" MaxWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding UserText}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MaterialText}" MinWidth="180" MaxWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MaterialText}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding OldText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OldText}"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NewText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NewText}"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DiffText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DiffText}"/>
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding OutcomeText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OutcomeText}"/>
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding WarningPreview}" MinWidth="160" MaxWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="{Binding WarningPreview}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </DockPanel>
+              </ScrollViewer>
             </Border>
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>

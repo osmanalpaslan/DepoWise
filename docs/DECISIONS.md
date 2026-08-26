@@ -2151,3 +2151,66 @@ kayıtların görünümünü **hiç değiştirmez**.
 **Senkron.** `stock_documents` senkron tablo listesindedir ve paket `SELECT *` ile üretilir →
 `doc_date` ve `created_at` olduğu gibi taşınır. Senkron zamanı işlem tarihinin yerine geçmez;
 aynı paketin tekrar uygulanması tarihleri değiştirmez (testler `IST14`, `IST15`).
+
+---
+
+## ADR-157 — MAS-04: liste tablolarında kolon hizası (2026-08-26, altıncı tur)
+
+**Kullanıcı bildirimi (canlı kullanım, ekran görüntüsüyle).** "Kolon adları ve aynı kolondaki filtre
+hücreleri, tablo başlıkları ile aynı hizada olmalı; diğer verilerin kısımlarına taşmamalı. Bir Excel
+tablosu gibi olmalı. Sütunlar kendi sınırlarını korumalı."
+
+### Kök neden — TEK bir sebep değil, dört ayrı kusur
+
+1. **Biriken kayma (asıl şikâyet).** Başlık, filtre ve veri satırları aynı genişliği okuyordu
+   (`ColWidths`, `MinWidth = MaxWidth`), ama filtre hücresinde ayrıca `Margin="4,0"` vardı.
+   `Margin` sabitlenmiş genişliğin **DIŞINA** eklenir → filtre kolonu `W+8`, diğerleri `W`.
+   Fark her kolonda birikiyordu (4. kolonda ~30 px). Aynı kusur Raporlar ekranının ortak
+   tablosunda `Margin="2,0"` olarak da vardı (+4 px/kolon).
+2. **Üst sınırsız hücreler.** Birçok ekranda hücrelerde yalnız `MinWidth` vardı. Uzun bir değer
+   GÖVDEDEKİ kolonu genişletiyor, başlık sabit kalıyordu.
+3. **Ayrı yatay kaydırma.** Stok Hareketleri / Stok Değişiklik Kaydı / Denetim Kaydı'nda başlık
+   Border'ı ile gövde ListBox'ı ayrı kayıyordu → yana kaydırınca hiza tamamen kopuyordu.
+4. **Başlık/gövde kolon sayısı uyuşmazlığı.** Talepler'de başlık **5**, veri satırı **7** kolondu
+   (iki durum rozetinin başlığı hiç yoktu). Yakıt (iki tablo) ve Muayene'de de birer kolon eksikti.
+
+### Kararlar
+
+- **`Margin` → `Padding`.** İç boşluk `MinWidth = MaxWidth` sınırının İÇİNDE kalır; görsel boşluk
+  korunur ama kolon büyümez. 35 filtre hücresi + ortak rapor tablosu.
+- **Her düz yazı hücresine üst sınır** (`MaxWidth = MinWidth`) + `TextTrimming` + tam değeri gösteren
+  ipucu balonu. Böylece "sütun kendi sınırını korur" ve taşma yerine "…" olur.
+- **Esnek (`*`) kolonlara ve `SharedSizeGroup` kullanan kolonlara DOKUNULMADI.** İlkinde yer varken
+  yazıyı kesmek yanlış olurdu; ikincisinde kolonları zaten Avalonia eşitliyor.
+- **Yazı olmayan hücrelere (buton · sayı kutusu · durum rozeti) sabit genişlik VERİLMEDİ** — etiketi
+  kırpardı. Bunların çoğu son kolondadır, yani kayma sonraki kolonlara yayılmaz.
+- **Başlık ve gövde tek yatay kaydırıcıyı paylaşır** (Malzemeler'de kanıtlanmış desen üç ekrana daha
+  taşındı).
+- **Eksik başlık kolonları tamamlandı**: Talepler → ÖNCELİK / DURUM / OPERASYON; Yakıt (×2) ve
+  Muayene → eksik son kolon.
+- **Başlık yazısı ile veri yazısı aynı noktadan başlar**: başlık düğmesinin kenarlığı (1 px) ve sol
+  iç boşluğu (2 px) sıfırlandı. Kolon ayırıcısı artık ayrı çizildiği için başlığın kendi kutu
+  çizgisine gerek kalmadı.
+
+### `ColumnRules` — sütun ayırıcı çizgileri (kullanıcının seçimi)
+
+Ayırıcılar **konum hesaplamaz**: her çizgi ilgili kolonun İÇİNE `HorizontalAlignment="Right"` ile
+eklenir, yerini `Grid`'in kendisi belirler. Bu yüzden kolon sürüklenince, kolon gizlenince veya tablo
+yana kaydırılınca çizgi kendiliğinden doğru kalır — **senkronu bozulabilecek ikinci bir konum kaynağı
+yoktur**. Gizli kolonun çizgisi de gizlenir (yoksa 0 px'lik kolon 1 px kalıntı çizgi gösterirdi).
+Çizgi `IsHitTestVisible="False"`'dır: satır seçimi ve metin kopyalama bozulmaz.
+
+Çizgiler yerleşim turu bittikten sonra kuyruğa alınarak eklenir ve ekleme `try/catch` içindedir:
+bu özellik **tamamen görseldir**, beklenmedik bir durumda çizgi çizilmemesi kabul edilebilir ama
+çalışan bir ekranın çökmesi kabul edilemez. Burada iş mantığı yoktur, dolayısıyla gizlenen bir
+veri/işlem hatası olamaz.
+
+### Kapsam
+
+**31 tablo ekranının tamamı.** Kullanıcı "bunun gibi bütün tablo ve ekranlarda" dediği için düzeltme
+yalnız şikâyet edilen ekranla sınırlandırılmadı.
+
+### Web
+
+**Değiştirilmedi.** Web gerçek bir HTML `<table>` kullanır; başlık, filtre ve veri hücreleri aynı
+tablonun içindedir ve tarayıcı kolonları kendisi hizalar. Orada bu kusur yoktur.

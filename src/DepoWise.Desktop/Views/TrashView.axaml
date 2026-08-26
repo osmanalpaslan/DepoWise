@@ -32,20 +32,20 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="TÜR" MinWidth="140"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="TÜR" MinWidth="140" MaxWidth="140"/>
                             <SelectableTextBlock Grid.Column="1" Text="KAYIT" MinWidth="220"/>
-                            <SelectableTextBlock Grid.Column="2" Text="SİLİNME" MinWidth="140"/>
-                            <SelectableTextBlock Grid.Column="3" Text="" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="2" Text="SİLİNME" MinWidth="140" MaxWidth="140"/>
+                            <SelectableTextBlock Grid.Column="3" Text="" MinWidth="100" MaxWidth="100"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrashRowVm">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding TableText}" MinWidth="140" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding TableText}" MinWidth="140" MaxWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TableText}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" MinWidth="220" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="140" MaxWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
                                     <Button Grid.Column="3" Classes="Secondary" Content="↺ Geri Yükle" MinWidth="100"
                                             Command="{Binding $parent[ItemsControl].((vm:TrashViewModel)DataContext).RestoreCommand}"
                                             CommandParameter="{Binding}"/>

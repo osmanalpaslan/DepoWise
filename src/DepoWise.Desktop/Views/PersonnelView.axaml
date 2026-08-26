@@ -114,12 +114,12 @@
                     <TextBox Classes="Search" DockPanel.Dock="Top" Margin="0,0,0,8"
                              Text="{Binding Search}" PlaceholderText="Personel ara (ad / unvan / telefon)"/>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="*,*,Auto,Auto,Auto">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="AD SOYAD" MinWidth="180"/>
                             <SelectableTextBlock Grid.Column="1" Text="UNVAN" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="2" Text="ERİŞİM" MinWidth="180"/>
-                            <SelectableTextBlock Grid.Column="3" Text="TELEFON" MinWidth="130"/>
-                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="2" Text="ERİŞİM" MinWidth="180" MaxWidth="180"/>
+                            <SelectableTextBlock Grid.Column="3" Text="TELEFON" MinWidth="130" MaxWidth="130"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
                     <!-- Tek tık = seçim. Çift tık = düzenleme formu (Malzemeler/Araçlar ile AYNI davranış). -->
@@ -127,12 +127,12 @@
                              DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PersonnelRowVm">
-                                <Grid ColumnDefinitions="*,*,Auto,Auto,Auto">
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="{Binding FullName}" MinWidth="180" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Title}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding AccessBadge}" MinWidth="180" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding AccessBadge}" MinWidth="180" MaxWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AccessBadge}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Phone}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Phone}" />
+                                    <SelectableTextBlock Grid.Column="4" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"
                                                Text="{Binding IsActive, Converter={x:Static vm:ActiveTextConverter.Instance}}"/>
                                 </Grid>
                             </DataTemplate>

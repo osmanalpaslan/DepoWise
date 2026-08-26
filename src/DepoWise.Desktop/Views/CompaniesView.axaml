@@ -86,21 +86,21 @@
                 <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="FİRMA" MinWidth="200"/>
-                                <SelectableTextBlock Grid.Column="1" Text="VERGİ NO" MinWidth="130"/>
-                                <SelectableTextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
-                                <SelectableTextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
+                                <SelectableTextBlock Grid.Column="1" Text="VERGİ NO" MinWidth="130" MaxWidth="130"/>
+                                <SelectableTextBlock Grid.Column="2" Text="TELEFON" MinWidth="130" MaxWidth="130"/>
+                                <SelectableTextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80" MaxWidth="80"/>
                             </Grid>
                         </Border>
                         <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="org:CompanyRow">
-                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto">
                                         <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                        <SelectableTextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TaxDisplay}" />
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Phone}" />
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding UserCount}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

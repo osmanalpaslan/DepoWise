@@ -85,24 +85,24 @@
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110"/>
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                             <SelectableTextBlock Grid.Column="1" Text="HESAP ADI" MinWidth="200"/>
-                            <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="3" Text="BAKİYE" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="3" Text="BAKİYE" MinWidth="150" MaxWidth="150"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:FinanceAccountRow">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Account.Code}" MinWidth="110" VerticalAlignment="Center"/>
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Account.Code}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.Code}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Account.Name}" MinWidth="200" VerticalAlignment="Center"
                                                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.Name}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Account.KindText}" MinWidth="90" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BalanceText}" MinWidth="150" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Account.StatusText}" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Account.KindText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.KindText}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BalanceText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Account.StatusText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>
@@ -275,19 +275,19 @@
                 <Border Grid.Row="1" Classes="Table" Margin="0,12,0,0">
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                                <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90"/>
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90" MaxWidth="90"/>
                                 <SelectableTextBlock Grid.Column="1" Text="TÜR / AÇIKLAMA" MinWidth="140"/>
-                                <SelectableTextBlock Grid.Column="2" Text="GİRİŞ" MinWidth="90"/>
-                                <SelectableTextBlock Grid.Column="3" Text="ÇIKIŞ" MinWidth="90"/>
-                                <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="100"/>
+                                <SelectableTextBlock Grid.Column="2" Text="GİRİŞ" MinWidth="90" MaxWidth="90"/>
+                                <SelectableTextBlock Grid.Column="3" Text="ÇIKIŞ" MinWidth="90" MaxWidth="90"/>
+                                <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="100" MaxWidth="100"/>
                             </Grid>
                         </Border>
                         <ListBox Classes="Table" ItemsSource="{Binding Statement}" SelectedItem="{Binding SelectedTxn}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="acc:FinanceStatementRow">
-                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Txn.DateText}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Txn.DateText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Txn.DateText}" />
                                         <StackPanel Grid.Column="1" MinWidth="140" VerticalAlignment="Center">
                                             <SelectableTextBlock Text="{Binding Txn.TypeText}"/>
                                             <SelectableTextBlock Text="{Binding Txn.Description}" Classes="Helper"
@@ -295,9 +295,9 @@
                                             <SelectableTextBlock Text="İPTAL EDİLDİ" Classes="Error"
                                                                  IsVisible="{Binding Txn.IsReversed}"/>
                                         </StackPanel>
-                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Txn.In, StringFormat='{}{0:0.00}'}" MinWidth="90" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="{Binding Txn.Out, StringFormat='{}{0:0.00}'}" MinWidth="90" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="{Binding RunningBalance, StringFormat='{}{0:0.00}'}" MinWidth="100" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Txn.In, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding Txn.Out, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding RunningBalance, StringFormat='{}{0:0.00}'}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

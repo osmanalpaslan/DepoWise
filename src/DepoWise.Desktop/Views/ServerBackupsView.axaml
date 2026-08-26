@@ -33,21 +33,21 @@
         <Border Grid.Row="2" Classes="Table" Margin="0,16,0,0" IsVisible="{Binding HasRows}">
             <DockPanel>
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                    <Grid ColumnDefinitions="*,*,Auto,Auto">
+                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="MAKİNE" MinWidth="160"/>
                         <SelectableTextBlock Grid.Column="1" Text="DOSYA" MinWidth="220"/>
-                        <SelectableTextBlock Grid.Column="2" Text="TARİH" MinWidth="150"/>
-                        <SelectableTextBlock Grid.Column="3" Text="BOYUT" MinWidth="100"/>
+                        <SelectableTextBlock Grid.Column="2" Text="TARİH" MinWidth="150" MaxWidth="150"/>
+                        <SelectableTextBlock Grid.Column="3" Text="BOYUT" MinWidth="100" MaxWidth="100"/>
                     </Grid>
                 </Border>
                 <ListBox Classes="Table" ItemsSource="{Binding Items}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:ServerBackupRowVm">
-                            <Grid ColumnDefinitions="*,*,Auto,Auto">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Machine}" MinWidth="160" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding FileName}" MinWidth="220" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <SelectableTextBlock Grid.Column="3" Text="{Binding SizeText}" MinWidth="100" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                <SelectableTextBlock Grid.Column="3" Text="{Binding SizeText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SizeText}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

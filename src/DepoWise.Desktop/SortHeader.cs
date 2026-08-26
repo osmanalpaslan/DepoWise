@@ -51,10 +51,16 @@ public sealed class SortHeader : Grid
         stack.Children.Add(_label);
         stack.Children.Add(_arrow);
 
+        // ⭐ MAS-04 (kullanıcı bildirimi 2026-08-26) — HİZA: başlık yazısı, ALTINDAKİ veri hücresiyle
+        // TAM AYNI noktadan başlamalı. Veri hücresi düz bir metindir (kenarlık/iç boşluk yok); başlık ise
+        // "Ghost" butonudur ve tema ona 1 px kenarlık verir. Kenarlık + 2 px iç boşluk, başlık yazısını
+        // veriden 3 px sağa kaydırıyordu. Kolon AYIRICISI artık ayrı çiziliyor (ctrl:ColumnRules), bu
+        // yüzden her başlığın kendi kutu çizgisine gerek yok: kenarlık 0, sol iç boşluk 0.
         _button = new Button
         {
             Content = stack,
-            Padding = new Thickness(2, 4),
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
         };

@@ -158,12 +158,14 @@
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                                 <DockPanel>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
-                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130" MaxWidth="130"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60" MaxWidth="60"/>
                                             <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
-                                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="ÖNCELİK" MinWidth="90" MaxWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="110" MaxWidth="110"/>
+                                            <SelectableTextBlock Grid.Column="6" Text="OPERASYON" MinWidth="150" MaxWidth="150"/>
                                         </Grid>
                                     </Border>
                                     <!-- Tek tik = secim. Cift tik = duzenleme formu (Malzemeler/Araclar ile AYNI davranis). -->
@@ -173,10 +175,10 @@
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <!-- Kolon 4: ONAY durumu · Kolon 5: OPERASYON durumu (Faz 1, madde 15-16).
                                                      İkisi AYRI rozettir; operasyon yoksa "—" görünür. -->
-                                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
-                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
+                                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DocNo}" />
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ItemCount}" />
                                                     <SelectableTextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                     <ctrl:StatusBadge Grid.Column="4" MinWidth="90" VerticalAlignment="Center" Kind="{Binding PriorityKind}" Text="{Binding PriorityText}"
                                                                       ToolTip.Tip="Öncelik"/>
@@ -264,10 +266,10 @@
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasPending}">
                                 <DockPanel>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                                        <Grid ColumnDefinitions="Auto,Auto,Auto,*">
-                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
-                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*">
+                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130" MaxWidth="130"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60" MaxWidth="60"/>
                                             <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
                                         </Grid>
                                     </Border>
@@ -275,10 +277,10 @@
                                              DoubleTapped="OnRowDoubleTapped">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
-                                                <Grid ColumnDefinitions="Auto,Auto,Auto,*">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
-                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
+                                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DocNo}" />
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ItemCount}" />
                                                     <SelectableTextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 </Grid>
                                             </DataTemplate>

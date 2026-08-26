@@ -37,28 +37,28 @@
             <Border Classes="Table" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="MAKİNE" MinWidth="150"/>
-                            <SelectableTextBlock Grid.Column="1" Text="ŞUBE" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="2" Text="IPv4" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="3" Text="IPv6" MinWidth="180"/>
-                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="5" Text="SON GÖRÜLME" MinWidth="140"/>
-                            <SelectableTextBlock Grid.Column="6" Text="KAYIT" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="190"/>
+                            <SelectableTextBlock Grid.Column="1" Text="ŞUBE" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="2" Text="IPv4" MinWidth="120" MaxWidth="120"/>
+                            <SelectableTextBlock Grid.Column="3" Text="IPv6" MinWidth="180" MaxWidth="180"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="5" Text="SON GÖRÜLME" MinWidth="140" MaxWidth="140"/>
+                            <SelectableTextBlock Grid.Column="6" Text="KAYIT" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="190" MaxWidth="190"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Devices}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sync:DeviceRow">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding BranchText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Ip4Text}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Ip6Text}" MinWidth="180" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding LastSeenText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding CreatedText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding BranchText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BranchText}" />
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Ip4Text}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Ip4Text}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Ip6Text}" MinWidth="180" MaxWidth="180" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding LastSeenText}" MinWidth="140" MaxWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LastSeenText}" />
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding CreatedText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CreatedText}" />
                                     <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" MinWidth="190">
                                         <Button Classes="Secondary" Content="Aktifleştir" IsVisible="{Binding CanActivate}"
                                                 Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).ActivateCommand}"

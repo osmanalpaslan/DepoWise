@@ -69,23 +69,23 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                 <ColumnDefinition Width="*" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                             </Grid.ColumnDefinitions>
-                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90" MaxWidth="90"/>
                             <SelectableTextBlock Grid.Column="1" Text="AD"/>
-                            <SelectableTextBlock Grid.Column="2" Text="DURUM" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="3" Text="STOK" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="2" Text="DURUM" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="3" Text="STOK" MinWidth="70" MaxWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Rows}" MaxHeight="180">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:GalleryRow">
-                                <Grid>
+                                <Grid ctrl:ColumnRules.Enabled="True">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                         <ColumnDefinition Width="*" SharedSizeGroup="c2"/>
