@@ -16,8 +16,8 @@
 | 2 | Her ekrana özel **Ekran Araçları** menüsü (kayıt geçmişi + ekran bilgisi) + `btn-screen-log` yetkisi | ✅ bitti | **ADR-163** |
 | 3+ | — | ⏳ kullanıcıdan bekleniyor | — |
 
-**Yayın durumu:** ⛔ **yayınlanmadı.** Son yayın API v172 · web v197 · masaüstü 1.0.158 (Aurora Cam v4).
-Yukarıdaki maddeler yerelde/git'te hazır; yayın kullanıcı "artık yayınla" diyene kadar YAPILMAZ.
+**Yayın durumu:** ✅ **yayınlandı — 2026-08-27:** API **v173** · web **v198** · masaüstü **1.0.159**.
+Kullanıcı 1. ve 2. madde bitince yayın istedi; sonraki maddeler yine biriktirilip toplu yayınlanır.
 
 ---
 
