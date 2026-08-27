@@ -28,7 +28,7 @@
 else
 {
 @* ⭐ RPR-07: aynı bileşen iki ekran olarak çalışır; kullanıcı hangisinde olduğunu başlıktan görür. *@
-<MudText Typo="Typo.h5">@(_manager ? "Yönetici Raporları" : "Operasyon Raporları")</MudText>
+<MudText Typo="Typo.h5" Class="dw-pagetitle">@(_manager ? "Yönetici Raporları" : "Operasyon Raporları")</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
     @(_manager
         ? "Yetkili olduğunuz şubeler — şube seçimi yapılabilir."

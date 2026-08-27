@@ -11,7 +11,7 @@
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5">Stok Hareketleri</MudText>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Stok Hareketleri</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(Filtered.Any() ? $" · {Filtered.Count()} hareket" : "")</MudText>
     </div>
 </div>
@@ -49,6 +49,26 @@
     </MudGrid>
 </MudPaper>
 
+@* E2.4/ZB-3: özet YALNIZ ekranda görünen (filtrelenmiş) liste üzerinden hesaplanır — bu yüzden
+   kutu etiketlerinde "filtreyle" yazar. Sunucuya ek sorgu YAPILMAZ. *@
+@if (_rows is not null && Filtered.Any())
+{
+    <div class="dw-summary">
+        <div class="dw-summary-box">
+            <span class="dw-summary-num">@Filtered.Count().ToString("N0")</span>
+            <span class="dw-summary-cap">hareket<br />(filtreyle)</span>
+        </div>
+        <div class="dw-summary-box">
+            <span class="dw-summary-num" style="color:var(--mud-palette-success);">@ToplamYon(1).ToString("0.##")</span>
+            <span class="dw-summary-cap">toplam giriş<br />(filtreyle)</span>
+        </div>
+        <div class="dw-summary-box">
+            <span class="dw-summary-num" style="color:var(--mud-palette-error);">@ToplamYon(-1).ToString("0.##")</span>
+            <span class="dw-summary-cap">toplam çıkış<br />(filtreyle)</span>
+        </div>
+    </div>
+}
+
 <MudPaper Class="pa-4" Elevation="2">
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     @* G1-07: yükleme hatası ile "gerçekten boş sonuç" birbirinden ayrılır — eskiden hata da boş liste görünüyordu. *@
@@ -66,8 +86,13 @@
             </HeaderContent>
             <RowTemplate>
                 @{ var qty = Dec(context, "quantity"); var dir = Int(context, "direction"); var signed = dir < 0 ? -Math.Abs(qty) : Math.Abs(qty); }
-                <MudTd DataLabel="Tarih">@DateText(context)</MudTd>
-                <MudTd DataLabel="Tip">@TypeText(Str(context, "movementType"))</MudTd>
+                <MudTd DataLabel="Tarih" Class="mud-text-secondary" Style="font-size:12px; font-variant-numeric:tabular-nums;">@DateText(context)</MudTd>
+                @* E2.4/ZB-8: tür rozeti. Renk YÖNDEN okunur (giriş/çıkış) — yeni sınıflandırma yok. *@
+                <MudTd DataLabel="Tip">
+                    <span class="dw-badge @(dir > 0 ? "dw-badge-ok" : dir < 0 ? "dw-badge-error" : "dw-badge-muted")">
+                        <span>@TypeText(Str(context, "movementType"))</span>
+                    </span>
+                </MudTd>
                 <MudTd DataLabel="Kod">@Str(context, "code")</MudTd>
                 <MudTd DataLabel="Malzeme">@Str(context, "name")</MudTd>
                 <MudTd DataLabel="Miktar" Style="text-align:right;font-weight:600;">
@@ -84,6 +109,12 @@
 
 @code {
     private JsonElement[]? _rows;
+
+    /// <summary>E2.4/ZB-3: filtrelenmiş listedeki verilen yöndeki (giriş=+1 / çıkış=-1) miktar toplamı.
+    /// Yalnız ekrandaki veriden hesaplanır; sunucuya ek istek YOKTUR.</summary>
+    private decimal ToplamYon(int yon)
+        => Filtered.Where(r => Math.Sign(Int(r, "direction")) == yon)
+                   .Sum(r => Math.Abs(Dec(r, "quantity")));
     private DateTime? _from, _to;
     private string _search = "";
     private bool _busy;

@@ -8,7 +8,7 @@
 
 <div class="d-flex align-center mb-3">
     <MudIcon Icon="@Icons.Material.Filled.DeleteSweep" Color="Color.Warning" Class="mr-2" />
-    <MudText Typo="Typo.h5">Çöp Kutusu</MudText>
+    <MudText Typo="Typo.h5" Class="dw-pagetitle">Çöp Kutusu</MudText>
 </div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
     Silinen tanım kayıtları (malzeme, araç, personel, şube, marka, kategori...). Güvenlik için parolanızı
@@ -40,7 +40,8 @@ else
             <MudTable Items="_items" Dense="true" Hover="true" Striped="true" T="TrashRow">
                 <HeaderContent><MudTh>TÜR</MudTh><MudTh>AD / KOD</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
-                    <MudTd>@TableLabel(context.Table)</MudTd>
+                    @* E5.9/ZB-8: tür nötr rozet (bilgi, uyarı değil). *@
+                    <MudTd><span class="dw-badge dw-badge-muted"><span>@TableLabel(context.Table)</span></span></MudTd>
                     <MudTd>@(string.IsNullOrEmpty(context.Label) ? "—" : context.Label)</MudTd>
                     <MudTd Style="text-align:right">
                         @* DEN-F1: "Geri Yükle" özel bir yetkidir (btn-restore) ve sunucu bunu zaten zorluyor

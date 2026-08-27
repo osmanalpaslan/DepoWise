@@ -12,7 +12,7 @@
     <div>
         @* G2-01: düzenlemede "Yeni Kayıt" yazıyordu (yalnız _isNew'e bakıyordu) — kart içi başlık doğru
            olduğu hâlde sayfa başlığı yanlıştı. Artık yeni kayıt / düzenleme ayrımı başlığa da yansıyor. *@
-        <MudText Typo="Typo.h5">@(_isNew ? (_isEditRoute ? "Malzeme — Düzenle" : "Malzeme — Yeni Kayıt") : "Malzeme Listesi")</MudText>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">@(_isNew ? (_isEditRoute ? "Malzeme — Düzenle" : "Malzeme — Yeni Kayıt") : "Malzeme Listesi")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
     @* W4-B1: birincil eylem sağda. forceLoad ZORUNLU — /materials ve /materials/new AYNI bileşendir

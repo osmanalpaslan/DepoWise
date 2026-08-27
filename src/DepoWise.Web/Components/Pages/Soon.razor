@@ -1,7 +1,17 @@
 @page "/soon/{Area}"
 
-<MudText Typo="Typo.h5" GutterBottom="true">@Title</MudText>
-<MudAlert Severity="Severity.Info">Bu ekran masaüstü uygulamasındaki ile birebir olacak şekilde web'e ekleniyor.</MudAlert>
+<MudText Typo="Typo.h5" GutterBottom="true" Class="dw-pagetitle">@Title</MudText>
+
+@* E6.8/ZB-5: uyarı kutusu yerine boş durum deseni (Home'daki kesikli çerçeveyle aynı dil).
+   Labels sözlüğü ve route DEĞİŞMEDİ; yalnız görünüm. *@
+<MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center"
+          Style="border:1px dashed var(--mud-palette-lines-default); border-radius:16px; background:transparent;">
+    <MudIcon Icon="@Icons.Material.Outlined.Schedule" Color="Color.Primary" Style="font-size:44px;" />
+    <MudText Typo="Typo.h6" Class="mt-3">@Title yakında</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1" Align="Align.Center">
+        Bu ekran masaüstüyle birebir olacak şekilde web'e ekleniyor.
+    </MudText>
+</MudPaper>
 
 @code {
     [Parameter] public string Area { get; set; } = "";

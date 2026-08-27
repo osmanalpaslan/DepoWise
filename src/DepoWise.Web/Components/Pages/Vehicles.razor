@@ -10,7 +10,7 @@
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
     @* E1.2/ZB-1: birincil eylem sağda. forceLoad ZORUNLU — /vehicles ile /vehicles/new AYNI bileşendir. *@

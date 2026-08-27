@@ -2336,3 +2336,55 @@ listelenmeli, ya da muafiyet listesine **gerekçesiyle** yazılmalı → "sessiz
   gelir; kapsam değişikliği ayrı bir karardır, bu turda dokunulmadı.
 - **Ön muhasebe raporlarında tarih süzgeci SQL'de yok** — katalog da bu raporlarda Date filtresi
   tanımlamıyor (`ReportFilterParityTests` bunu zaten kilitliyor). Tutarlı; değiştirilmedi.
+
+---
+
+## ADR-161 — Web "Aurora Cam v4" tasarım paketi (2026-08-27)
+
+**Karar.** Kullanıcının tasarım aracıyla hazırladığı web paketi uygulandı. Kapsam **yalnız web**;
+`src/DepoWise.Desktop/` içinde **sıfır diff** (doğrulandı).
+
+### Uygulananlar
+| Adım | Ne yapıldı |
+|---|---|
+| 1 | `/api/materials/grid` yanıtına **eklemeli** `summary` (kritik/kategori/stok değeri) + web `ApiClient.GridSummary` (savunmacı okuma) |
+| 2 | `app.css` sonuna **§16** (Aurora Cam kabuk + Komuta tablo dili) ve **§17** (ZB-1…ZB-10 ekran desenleri) |
+| 3 | `MainLayout` kullanıcı rozetinde baş harf avatarı |
+| 4 | Ana ekran · **Malzemeler** (özet şeridi, Yeni Malzeme, kritik satır, stok barı) · **Araçlar** (Yeni Araç, özet, bakım/muayene rozeti) · **Günlük Faaliyet** · **Stok Hareketleri** (özet + tür rozeti) · **Soon** (boş durum) · **Çöp Kutusu** (tür rozeti) · **47 ekranda ZB-1 başlık tipografisi** |
+
+**Neden bu kadarı yeterli:** §16+§17 ortak sınıflardan geçtiği için **44 ekranın tamamı** markup'a
+dokunulmadan yeni dili giyer (kehribar başlık bandı, çökük filtre satırı, zebra/hover, kompakt
+sayfalama, degradeli birincil buton, camsı üst bar, hap menü). E1–E6'daki kalan maddeler bu dilin
+üzerine ince ayardır.
+
+### Pakette bulunan ve UYARLANAN nokta (paketin kendi 5. kuralı gereği)
+Paketin §17 bloğu **`.dw-badge` TABANINI yeniden tanımlıyordu.** Projede §9.4'te zaten olgun bir rozet
+sistemi var (`.dw-badge` + `-ok/-warn/-error/-muted`) ve Araç Listesi durum kolonu onu kullanıyor.
+Paketin tanımı sonradan geldiği için mevcut rozetleri **eziyordu**: sabit `21px` yükseklik kayboluyor,
+punto `.7rem→11px`, kalınlık `600→700` → tablo hücresinde büyüyüp hizadan çıkıyordu. Taban §9.4'te
+bırakıldı; paketin kısa adları (`.ok/.warn/.err/.mut`) mevcut renklere **takma ad** olarak bağlandı.
+
+Çakışan diğer 13 seçici tek tek incelendi ve **kasıtlı** oldukları doğrulandı (üst bar, menü,
+sayfalama, birincil buton, diyalog, sekme, kullanıcı rozeti). `.dw-grid tbody td:first-child`'da v3'ün
+**sabitlenmiş (sticky) ilk kolon** kuralı korunuyor — v4 yalnız renk/kalınlık yazıyor.
+
+### Bilinçli UYGULANMAYANLAR (gerekçeli)
+- **Günlük Faaliyet — tarih aralığı + "bugün/bu hafta/bu ay" kısayolları.** Ekranda tarih aralığı
+  filtresi YOK (tarih kolonu bilinçli filtresiz) ve paket "sunucuya yeni parametre gerekmez" diyor →
+  var olmayan bir filtreyi doldurmak mümkün değil. Uydurulmadı.
+- **Araçlar — "bakımı geciken" / "muayenesi yaklaşan" ayrımı.** `/api/vehicles/alerts` yalnız
+  "Bakım"/"Muayene" etiketi döner; GECİKEN ile YAKLAŞAN ayrımı veride yoktur. Paketin "yeni eşik
+  uydurma" kuralı gereği ayrım icat edilmedi; tek seviye "uyarı" rozeti ve dürüst kutu adları kullanıldı.
+- **Kota Ekranı — kullanım mini-barı.** Kota verisi sunucudan hazır METİN olarak gelir ("3/10");
+  yüzde için metin ayrıştırmak kırılgan olurdu. Mevcut renkli çipler doluluk bilgisini zaten veriyor.
+- **Talepler/Kota vb. — MudChip → `.dw-badge` dönüşümü.** Bu ekranlar rozet İŞLEVİNİ zaten `MudChip`
+  ile karşılıyor; dönüştürmek görsel tercih uğruna regresyon riski demekti. Paketin 5. kuralı
+  ("deseni gerçek yapıya uyarla") uygulandı.
+
+### Doğrulama
+Üç Release derleme 0 hata · masaüstünde sıfır diff · `app.css` tarayıcıda ayrıştı (308 kural, yeni
+desenler canlı) · kimlik gerektirmeyen rotalar 200 ve Blazor hata kutusu yok · tam test seti.
+
+**Görsel doğrulamanın sınırı (dürüstçe):** web'e giriş yapılamadığı için kimlik arkasındaki ekranlar
+gözle tek tek denetlenemedi. Bu yüzden markup değişiklikleri bilinçli olarak DAR tutuldu ve ekran
+yapısını yeniden kuran maddeler yerine sınıf/eklemeli değişiklikler tercih edildi.

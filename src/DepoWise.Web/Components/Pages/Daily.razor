@@ -10,7 +10,7 @@
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5">Günlük Faaliyet</MudText>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Günlük Faaliyet</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
 </div>
@@ -18,7 +18,8 @@
 @if (Auth.CanCreate("daily_activity"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:880px;">
-        <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ KAYIT</MudText>
+        @* E1.3/ZB-6: bölüm başlığı ortak forma dili (.dw-formsection). *@
+        <div class="dw-formsection" style="border-top:none; margin-top:0; padding-top:0;">YENİ KAYIT</div>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3">
                 <MudSelect T="string" @bind-Value="_kind" Label="Kayıt Tipi" Margin="Margin.Dense" Variant="Variant.Outlined">
@@ -110,7 +111,10 @@
             </MudGrid>
             @if (_lines.Count > 0)
             {
-                <MudSimpleTable Dense="true" Class="mt-1" Style="max-width:520px;">
+                @* E1.3/ZB-4: kalem listesi kart içinde, başlık bandıyla. *@
+                <MudPaper Elevation="0" Class="dw-card mt-2" Style="max-width:520px;">
+                    <div class="dw-card-head">EKLENEN MALZEMELER</div>
+                <MudSimpleTable Dense="true" Style="max-width:520px;">
                     <tbody>
                         @foreach (var l in _lines)
                         {
@@ -130,6 +134,7 @@
                         }
                     </tbody>
                 </MudSimpleTable>
+                </MudPaper>
             }
         }
 
