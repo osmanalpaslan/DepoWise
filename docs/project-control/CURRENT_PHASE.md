@@ -1,6 +1,48 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (kapsamlı rapor denetimi — 3 kusur bulundu ve düzeltildi) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (web Aurora Cam v4 tasarım paketi + toplu yayın) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## ✅ TAMAMLANAN — WEB "AURORA CAM v4" TASARIM PAKETİ (2026-08-27)
+
+Karar: **ADR-161** · Kaynak: kullanıcının tasarım aracıyla hazırladığı paket. **Kapsam yalnız web**;
+`src/DepoWise.Desktop/` içinde **sıfır diff** (doğrulandı).
+
+| Adım | Ne yapıldı |
+|---|---|
+| Stil katmanı | `app.css` §16 (Aurora Cam kabuk + Komuta tablo dili) + §17 (ZB-1…ZB-10) → **44 ekran** markup'a dokunulmadan yeni dili giydi |
+| Yeni özellik | `/api/materials/grid` → **eklemeli** `summary` (kritik / kategori / stok değeri); liste, Excel ve özet artık AYNI filtre kurulumunu paylaşır |
+| Kabuk | Kullanıcı rozetinde baş harf avatarı |
+| Ekranlar | Ana ekran · Malzemeler (özet şeridi + Yeni Malzeme + kritik satır + stok barı) · Araçlar · Günlük Faaliyet · Stok Hareketleri · Soon · Çöp Kutusu · **47 ekranda ZB-1 başlık tipografisi** |
+
+**Diff disiplini:** 43 ekranda değişiklik **tek satır** (başlık sınıfı); yalnız 4 ekranda daha geniş
+düzenleme. Ekran yapısını yeniden kuran maddeler yerine sınıf/eklemeli değişiklikler tercih edildi.
+
+### Pakette bulunan ve UYARLANAN nokta
+Paketin §17 bloğu `.dw-badge` **tabanını** yeniden tanımlıyordu; projede §9.4'te zaten olgun bir rozet
+sistemi var ve Araç Listesi onu kullanıyor. Paketin tanımı mevcut rozetleri **eziyordu** (21px yükseklik
+kaybı, punto/kalınlık değişimi → tablo hücresinde hizadan çıkma). Taban korundu, paketin kısa adları
+takma ad olarak bağlandı. Çakışan diğer 13 seçici incelendi: hepsi kasıtlı; `.dw-grid` **sticky ilk
+kolon** kuralı korunuyor.
+
+### Bilinçli uygulanmayanlar
+Günlük Faaliyet tarih kısayolları (ekranda tarih aralığı filtresi yok) · Araçlarda "geciken/yaklaşan"
+ayrımı (veri bu ayrımı vermiyor) · Kota mini-barı (kota hazır METİN geliyor) · MudChip→`.dw-badge`
+dönüşümleri (rozet işlevi zaten karşılanıyor). Hepsi ADR-161'de gerekçeli.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Release derleme | masaüstü · API · web → **0 hata** |
+| Tam test seti | **2660 geçti / 0 başarısız / 37 atlandı** |
+| CSS | Tarayıcıda ayrıştı — 308 kural, yeni desenler canlı, MudBlazor'dan sonra yükleniyor |
+| Rota | Kimlik gerektirmeyen rotalar 200, Blazor hata kutusu yok |
+| Masaüstü | **Sıfır diff** |
+| Migration | **Gerekmedi** (şema 72) |
+
+**Görsel doğrulamanın sınırı:** web'e giriş yapılamadığı için kimlik arkasındaki ekranlar gözle tek tek
+denetlenemedi. Markup değişiklikleri bu yüzden bilinçli olarak dar tutuldu.
 
 ---
 
