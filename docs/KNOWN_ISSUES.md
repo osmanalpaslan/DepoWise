@@ -1,6 +1,26 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-27 (TSN — tanım senkronu marka/üst kategori bağını siliyordu)
+> Son güncelleme: 2026-08-27 (RPR-V — çekme sonrası stok bakiyesi hesaplanmıyordu)
+
+## ✅ KAPATILAN (2026-08-27 — kapsamlı rapor denetimi)
+
+- **RPR-V1 — Stok bakiyesi çok makineli kullanımda SIFIR kalıyordu.** `stock_balances` türetilmiş
+  veridir ve senkron paketinde taşınmaz (otoriter kaynak hareket defteridir); sunucu push sonrası
+  kendi tarafında hesaplıyordu ama **masaüstü çekme sonrası hesaplamıyordu**. Başka makinede/web'de
+  girilen hareketler cihaza iniyor, hareket ekranında görünüyor, fakat **Stok Durumu raporu sıfır,
+  malzeme listesinin STOK kolonu 0** kalıyordu. Artık çekmenin indiği tek noktada defterden
+  yeniden hesaplanıyor. ADR-160.
+
+- **RPR-V3 — «Depo Girişi» raporu yanıltıcı adlandırılmıştı.** Yalnız YAKIT deposu girişlerini
+  gösteriyor; malzeme girişleri «Stok Hareketleri» raporundadır. Ad «Yakıt Depo Girişi» oldu ve
+  açıklama doğru rapora yönlendiriyor (uygulamanın geri kalanı zaten böyle diyordu). ADR-160.
+
+- **RPR-T4 — Sonraki tarihi girilmemiş muayene/sigorta belgesi raporda hiç görünmüyordu.** Tarih
+  süzgeci NULL'ı eliyordu; belge ekranda duruyor, raporda hiçbir aralıkta çıkmıyordu. ADR-160.
+
+  **Kapsamlı tarama sonucu:** kalan 21 raporun tamamı normal yoldan girilen veriyi gösteriyor
+  (`RaporKapsamliTaramaTests` — 64 test).
+
 
 ## ✅ KAPATILAN (2026-08-27 — kullanıcı bildirimi)
 

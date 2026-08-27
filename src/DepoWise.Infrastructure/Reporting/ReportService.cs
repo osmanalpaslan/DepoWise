@@ -851,7 +851,7 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
         // Kolon-tipi: Litre(3) + Birim Fiyat(4) + Tutar(5) sayısal; kalanlar metin.
         var numeric = new[] { false, false, false, true, true, true, false, false };
 
-        return new TableModel("Depo Girişi Raporu", new[]
+        return new TableModel("Yakıt Depo Girişi Raporu", new[]   // RPR-V3: katalog adıyla aynı (yalnız YAKIT deposu)
         {
             "Şube", "Tarih", "Tedarikçi", "Litre", "Birim Fiyat", "Tutar", "Fatura No", "Para Birimi",
         }, rows, numeric, totalRow);
@@ -1184,6 +1184,29 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
         return sb;
     }
 
+    /// <summary>
+    /// ⭐ RPR-T4 (kapsamlı rapor taraması 2026-08-27) — TARİHİ BOŞ OLABİLEN kolon için tarih süzgeci.
+    ///
+    /// <b>Kapatılan hata.</b> <see cref="DateFilter"/> düz karşılaştırma yazar ve SQL'de <c>NULL</c>
+    /// karşılaştırması DAİMA false döner. Muayene/Sigorta raporu "sonraki tarih" üzerinden süzüyor,
+    /// bu alan ise ekranda İSTEĞE BAĞLI: sonraki tarihi girilmemiş bir belge <b>hiçbir tarih
+    /// aralığında listelenmiyordu</b> — ekranda duruyor, raporda hiç yok. Kullanıcı bunu "girdiğim
+    /// kayıt raporda çıkmıyor" olarak yaşar.
+    ///
+    /// Raporun kendi sıralaması (<c>ORDER BY (next_date IS NULL), …</c>) ve durum hesabı
+    /// (<c>next is null → Normal</c>) bu satırların VAR OLMASINI zaten bekliyordu; eksik olan tek şey
+    /// süzgecin NULL'a izin vermesiydi. Tarihi olan kayıtlar için davranış AYNIDIR.
+    /// </summary>
+    private static string DateFilterNullable(ReportRequest req, string col)
+    {
+        if (req.FromDate is null && req.ToDate is null) return "";
+        var kosul = "";
+        if (req.FromDate is not null) kosul += $" AND {col} >= @from";
+        if (req.ToDate is not null) kosul += $" AND {col} <= @to";
+        // "Tarihi yok" ya da "aralıkta" — tarihi olanlar için sonuç değişmez.
+        return $" AND ({col} IS NULL OR (1=1{kosul}))";
+    }
+
     private static void BindDates(DbCommand cmd, ReportRequest req)
     {
         if (req.FromDate is not null) cmd.AddWithValue("@from", req.FromDate.Value);
@@ -1242,7 +1265,7 @@ JOIN vehicles v ON v.id = vi.vehicle_id AND v.company_id = vi.company_id AND v.i
 LEFT JOIN branches br ON br.id = v.branch_id AND br.company_id = v.company_id
 WHERE vi.company_id=@c AND vi.is_deleted=0"
             + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn
-            + DateFilter(req, "vi.next_date") + @"
+            + DateFilterNullable(req, "vi.next_date") + @"
 ORDER BY (vi.next_date IS NULL), vi.next_date, v.internal_code;";
         cmd.AddWithValue("@c", companyId);
         ReportScope.BindBranch(cmd, s, req);

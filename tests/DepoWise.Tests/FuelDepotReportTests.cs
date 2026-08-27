@@ -61,7 +61,9 @@ public class FuelDepotReportTests : IDisposable
     public void Rapor_TemelYapi_TarihDisiHaric()
     {
         var t = Run();
-        Assert.Equal("Depo Girişi Raporu", t.Title);
+        // RPR-V3 (2026-08-27): ad "Yakıt Depo Girişi" oldu — rapor yalnız YAKIT deposunu gösteriyor,
+        // eski ad malzeme girişi arayan kullanıcıyı yanıltıyordu (uygulamanın geri kalanı zaten böyle diyordu).
+        Assert.Equal("Yakıt Depo Girişi Raporu", t.Title);
         Assert.Equal(8, t.Headers.Count);
         Assert.Equal(3, t.Rows.Count);        // e1,e2,e3 (e4 tarih dışı)
         Assert.NotNull(t.Numeric);

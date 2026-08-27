@@ -182,10 +182,16 @@ public static class ReportCatalog
         // Depo Girişi — ortak standarda taşındı (kullanıcı isteği 2026-08-08): depoya alınan yakıt alım kayıtları;
         // Şube (op_branch_id) + Tedarikçi + Litre/Birim Fiyat/Tutar (NumCell) + pinned toplam (litre+tutar+ağırlıklı
         // ort. fiyat). Filtreler: Tarih + Şube(yetkili) + Tedarikçi.
-        new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt: tedarikçi, litre, birim fiyat, tutar",
+        // ⭐ RPR-V3 (kullanıcı bildirimi 2026-08-27) — AD DÜZELTİLDİ: "Depo Girişi" → "Yakıt Depo Girişi".
+        // Bu rapor YALNIZ `fuel_depot_entries` okur, yani yakıt deposuna alınan yakıttır. Kullanıcı
+        // MALZEME deposuna giriş yapıp bu rapora baktı ve boş buldu — ad yanıltıyordu. Uygulamanın
+        // geri kalanı (Excel sayfa adı, İçe/Dışa Aktarım ekranı, Yakıt ekranı) zaten "Yakıt Depo Girişi"
+        // diyordu; tutarsız olan yalnız katalogdu. Açıklama artık malzeme girişlerinin hangi raporda
+        // olduğunu da SÖYLER, böylece aynı arayış tekrar boşa çıkmaz.
+        new ReportDescriptor("fuel-depot", "Yakıt Depo Girişi", "Yakıt deposuna alınan yakıt: tedarikçi, litre, birim fiyat, tutar",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Supplier, true, ExportStandard,
-            InfoNote: "Depoya alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            InfoNote: "Yakıt deposuna alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez. ⚠️ MALZEME deposuna yapılan giriş/çıkışlar bu raporda DEĞİL, «Stok Hareketleri» raporundadır.",
             DataModule: "fuel"),
         // Talep Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her talep TEK satır (belge listesi);
         // şube/talep eden/onaylayan/açıklama gösterilir, kalem sayısı derived-table'dan (correlated subquery YOK).

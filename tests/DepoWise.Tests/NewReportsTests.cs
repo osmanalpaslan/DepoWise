@@ -229,13 +229,33 @@ public class NewReportsTests : IDisposable
         Assert.All(Kolon(t, 1), x => Assert.Equal("AR-002 - 06XYZ", x));
     }
 
+    /// <summary>
+    /// Boş sonuçta ekran çökmez: satır yok ama kolonlar durur.
+    ///
+    /// ⚠️ RPR-T4 (2026-08-27): boşluk artık UZAK TARİH ARALIĞIYLA üretilemez. "Sonraki tarih"i
+    /// girilmemiş belgeler (tohumdaki I4 kalibrasyonu) bilinçli olarak HER aralıkta listelenir —
+    /// eskiden hiçbir aralıkta görünmüyorlardı ve kullanıcı girdiği belgeyi raporda hiç bulamıyordu.
+    /// Testin AMACI değişmedi; boşluk artık belgesi olmayan bir araç süzgeciyle üretiliyor.
+    /// </summary>
     [Fact]
     public void RPR10_Bos_Sonuc_Patlamaz()
     {
         var t = _reports.Inspections(_admin,
-            new ReportRequest(Executed: true, FromDate: Now + 5000 * Gun, ToDate: Now + 5001 * Gun));
+            new ReportRequest(Executed: true, VehicleIds: new[] { "BELGESIZ-ARAC" }));
         Assert.Empty(t.Rows);
         Assert.Equal(9, t.Headers.Count);   // boş sonuçta da kolonlar durur (ekran çökmez)
+    }
+
+    /// <summary>⭐ RPR-T4: "sonraki tarih"i BOŞ belge, tarih aralığı ne olursa olsun listelenir.
+    /// Tohumdaki I4 (kalibrasyon, iki tarihi de NULL) bunun canlı örneğidir.</summary>
+    [Fact]
+    public void RPR10b_Sonraki_Tarihi_Bos_Belge_Her_Aralikta_Listelenir()
+    {
+        var uzak = _reports.Inspections(_admin,
+            new ReportRequest(Executed: true, FromDate: Now + 5000 * Gun, ToDate: Now + 5001 * Gun));
+
+        Assert.NotEmpty(uzak.Rows);
+        Assert.All(uzak.Rows, r => Assert.Equal("", (string?)r[4] ?? ""));   // "Sonraki" kolonu boş
     }
 
     [Fact]

@@ -39,8 +39,13 @@ internal static class SyncFailureClassifier
 /// <summary>
 /// İş verisi GERİ-ÇEKME (server → masaüstü): firmanın sunucudaki iş verisini çeker ve YEREL DB'ye uygular (LWW).
 /// Böylece bu makine, AYNI firmadaki DİĞER makinelerin girdiği veriyi görür (çok makineli görünürlük).
-/// Push'un simetriğidir; birlikte çalışır. NOT: stock_balances (türetilmiş) hariç tutulur — sunucu-otoriteli
-/// bakiye hesabı 2b'de gelecek (o zamana kadar bakiye yereldeki hareketlerden hesaplanır). Çevrimdışı → sessiz.
+/// Push'un simetriğidir; birlikte çalışır. Çevrimdışı → sessiz.
+///
+/// ⚠️ BAKİYE (RPR-V1, 2026-08-27): <c>stock_balances</c> TÜRETİLMİŞ veridir ve senkron paketinde
+/// TAŞINMAZ (bkz. <see cref="BusinessSyncService.Tables"/> — SNK-11 ile listeden çıkarıldı);
+/// otoriter kaynak <c>stock_movements</c> defteridir. Bakiye, çekilen veri yerele uygulandıktan
+/// SONRA defterden yeniden hesaplanır — bu artık <see cref="BusinessSyncService.ApplyPull"/>
+/// içindedir, yani çağıranın hatırlamasına bağlı DEĞİLDİR.
 /// </summary>
 public static class BusinessSyncPullService
 {
@@ -51,8 +56,9 @@ public static class BusinessSyncPullService
     /// başarısızlık türü. Metot imzaları DEĞİŞMEDİ (5 çağıran etkilenmesin); bilgi bu özellikle taşınır.
     /// Başarıda ve hiç istek denenmediğinde <see cref="SyncFailureKind.None"/>.</summary>
     public static SyncFailureKind LastFailure { get; private set; } = SyncFailureKind.None;
-    // Senkron 2b sonrası: stock_balances artık SUNUCU-OTORİTELİ (push sonrası sunucu hareketlerden hesaplar) →
-    // geri-çekmede uygulanır (LWW; sunucunun birleşik/doğru bakiyesi gelir). Hariç tablo kalmadı.
+    // Uygulama sırasında ATLANACAK tablo yok. (Dikkat: bu, stock_balances'ın çekmeyle GELDİĞİ anlamına
+    // GELMEZ — o tablo sunucunun ürettiği pakette zaten yoktur; bakiye ApplyPull sonunda defterden
+    // hesaplanır. Eski yorum bunun tersini söylüyordu ve hatayı gizliyordu — RPR-V1.)
     private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
 
     /// <summary>Sunucudan firmanın iş snapshot'ını çekip yerele uygular. Hata → sessiz (best-effort).
@@ -83,7 +89,7 @@ public static class BusinessSyncPullService
             { LastFailure = SyncFailureKind.Permanent; await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
             if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return false; }
             var json = await resp.Content.ReadAsStringAsync();
-            // Trusted sunucu verisi → yerele uygula (yazma-yetkisi filtresi yok); stock_balances hariç.
+            // Trusted sunucu verisi → yerele uygula (yazma-yetkisi filtresi yok).
             // Ağır JSON parse + upsert döngüsü ARKA PLANDA (arayüzü bloklamasın).
             await Task.Run(() =>
             {

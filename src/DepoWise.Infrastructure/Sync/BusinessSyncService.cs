@@ -810,7 +810,36 @@ public sealed class BusinessSyncService
     /// yerelde koşulsuz uygulanır. Aksi halde makinede daha yeni bir düzenleme, web'de silinmiş kaydı "diriltiyordu".
     /// (Bu yalnız PULL yönünde geçerlidir; push'ta normal LWW korunur.)</summary>
     public ApplyResult ApplyPull(string companyId, JsonElement payload, ISet<string>? excludeTables = null)
-        => ApplyCore(companyId, payload, null, excludeTables, serverAuthoritativeDeletes: true);
+    {
+        var sonuc = ApplyCore(companyId, payload, null, excludeTables, serverAuthoritativeDeletes: true);
+
+        // ⭐ RPR-V1 (kullanıcı bildirimi 2026-08-27) — ÇEKME SONRASI BAKİYE DEFTERDEN YENİDEN HESAPLANIR.
+        //
+        // <b>Kapatılan hata.</b> `stock_balances` TÜRETİLMİŞ veridir; SNK-11 ile senkron paketinden
+        // ÇIKARILDI (otoriter kaynak `stock_movements` defteridir ve sunucu her push sonrası kendi
+        // tarafında yeniden hesaplar — Program.cs → RecomputeBalances). Ama ÇEKME tarafında karşılığı
+        // YOKTU: başka bir makinede ya da web'de girilen hareketler cihaza iniyor, "Stok Hareketleri"
+        // ekranında ve raporunda görünüyor, fakat BAKİYE 0 kalıyordu. Kullanıcıya yansıması:
+        // Stok Durumu raporu boş/sıfır · malzeme listesinin STOK kolonu 0 · düşük stok uyarıları çalışmıyor.
+        //
+        // <b>Neden BURADA:</b> çekilen verinin yerele indiği TEK nokta burasıdır. Çağıranın (bugün
+        // masaüstü) hatırlamasına bırakılırsa aynı hata yarın başka bir çağıranla geri döner.
+        //
+        // <b>Neden güvenli:</b> hesaplama yalnız defterden türetir (Σ yön × miktar), idempotenttir ve
+        // hiçbir operasyonel kayda dokunmaz — sunucunun push sonrası yaptığının birebir aynısıdır,
+        // dolayısıyla iki taraf aynı değeri üretir. Ters kayıtlar (iptal) defterde olduğu için
+        // otomatik olarak düşülür.
+        //
+        // <b>Neden koşullu:</b> hesaplama defterin tamamını okur; her boş turda çalıştırmak gereksiz
+        // yüktür. Yalnız gerçekten satır uygulandıysa çalışır.
+        if (sonuc.Upserted > 0)
+        {
+            try { new Materials.StockService(_factory, _clock).RecomputeBalances(companyId); }
+            catch { /* defter yine doğrudur; bir sonraki çekme düzeltir — senkron turu bu yüzden kırılmaz */ }
+        }
+
+        return sonuc;
+    }
 
     private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable,
         ISet<string>? excludeTables = null, bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false,

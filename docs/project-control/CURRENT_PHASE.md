@@ -1,6 +1,32 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (TSN tanım senkronu hatası + M6/M7 tasarım paketi tamamlandı ve yayınlandı) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (kapsamlı rapor denetimi — 3 kusur bulundu ve düzeltildi) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## ✅ TAMAMLANAN — KAPSAMLI RAPOR DENETİMİ (2026-08-27)
+
+Karar: **ADR-160** · Kullanıcı: *"Raporların hepsini kapsamlı analiz etmeni istiyorum. Giriş-Çıkış
+ekranından bir sürü depo girişi yaptım ama depo girişi raporunda hiçbiri listelenmiyor."*
+
+| # | Kusur | Kullanıcıya yansıması | Düzeltme |
+|---|---|---|---|
+| 1 | Çekme sonrası **stok bakiyesi hesaplanmıyordu** (`stock_balances` türetilmiş, senkronda taşınmaz) | Stok Durumu raporu **sıfır** · malzeme listesi STOK kolonu 0 · düşük stok uyarısı çalışmıyor | `ApplyPull` artık defterden yeniden hesaplıyor |
+| 2 | **«Depo Girişi»** raporu yalnız YAKIT deposunu gösteriyor ama adı bunu söylemiyordu | Malzeme girişi yapan kullanıcı raporu boş buluyor | Ad **«Yakıt Depo Girişi»** · açıklama «Stok Hareketleri»ne yönlendiriyor |
+| 3 | **Sonraki tarihi boş** muayene/sigorta belgesi hiçbir aralıkta listelenmiyordu | Ekranda duran belge raporda yok | Tarih süzgeci NULL'a izin veriyor (yalnız bu rapor) |
+
+**Kalan 21 rapor temiz.** `RaporKapsamliTaramaTests` tek firmaya her modülden birer normal kayıt
+girer ve katalogdaki HER raporu çalıştırıp en az bir satır döndüğünü, kolonların dolu olduğunu ve
+satır/kolon sayısının uyuştuğunu doğrular. Yeni rapor eklenirse **otomatik kapsanır**.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Yeniden üretim | 3 kusurun üçü de düzeltmeden ÖNCE testle gösterildi |
+| Mutasyon | 2/2 yakalandı (bakiye hesabı kapatıldı · NULL toleransı kaldırıldı) |
+| Yeni test | **70** (`RaporVeriGorunurlukTests` 6 + `RaporKapsamliTaramaTests` 64) |
+| Release derleme | masaüstü · API · web → **0 hata** |
+| Migration | **Gerekmedi** (şema 72) |
 
 ---
 

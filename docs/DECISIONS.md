@@ -2280,3 +2280,59 @@ kayıp). Güvenli çözüm: kullanıcı o modeli yeniden ekler — `LookupServic
 göre tekilleştirdiği için NULL markalı eski satırla çakışmaz, doğru yeni kayıt açılır ve **hiçbir şey
 silinmez**. Çıkarıma dayalı otomatik onarım (araç kayıtlarından markayı türetme) mevcut veriyi
 değiştireceği için yapılmadı.
+
+---
+
+## ADR-160 — RPR-V: çekme sonrası stok bakiyesi hesaplanmıyordu (2026-08-27)
+
+**Kullanıcının bildirdiği.** *"Giriş-Çıkış ekranından bir sürü depo girişi yaptım ama depo girişi
+raporunda hiçbiri listelenmiyor."* Talep: tüm raporların kapsamlı analizi.
+
+**Bulunan üç kusur** (üçü de gerçek HTTP/servis yolu üzerinde yeniden üretildi):
+
+### 1) Bakiye çok makinede SIFIR kalıyordu — asıl kusur
+
+`stock_balances` **türetilmiş** veridir ve SNK-11 ile senkron paketinden çıkarılmıştır (otoriter
+kaynak `stock_movements` defteridir; sunucu her push sonrası kendi tarafında yeniden hesaplar —
+`Program.cs` → `RecomputeBalances`). **Çekme tarafında karşılığı yoktu.** Sonuç: başka bir makinede
+ya da web'de girilen hareketler cihaza iniyor, "Stok Hareketleri" ekranında ve raporunda görünüyor,
+fakat **bakiye 0 kalıyordu**.
+
+Kullanıcıya yansıması: **Stok Durumu raporu sıfır · malzeme listesinin STOK kolonu 0 · düşük stok
+uyarıları çalışmıyor.**
+
+**Düzeltme.** `BusinessSyncService.ApplyPull` — çekilen verinin yerele indiği TEK nokta — uygulama
+sonrası bakiyeyi defterden yeniden hesaplar (yalnız satır uygulandıysa). Hesap idempotenttir,
+operasyonel hiçbir kayda dokunmaz ve sunucunun push sonrası yaptığının birebir aynısıdır → iki taraf
+aynı değeri üretir. Ters kayıtlar (iptal) defterde olduğu için otomatik düşülür.
+
+### 2) "Depo Girişi" raporunun adı yanıltıyordu
+
+O rapor yalnız `fuel_depot_entries` okur — yani **yakıt** deposuna alınan yakıttır. Kullanıcı MALZEME
+deposuna giriş yapıp bu rapora baktı ve boş buldu. Uygulamanın geri kalanı (Excel sayfa adı,
+İçe/Dışa Aktarım ekranı, Yakıt ekranı) zaten **"Yakıt Depo Girişi"** diyordu; tutarsız olan yalnız
+katalogdu. Ad düzeltildi, açıklama malzeme girişlerinin **«Stok Hareketleri»** raporunda olduğunu
+artık söylüyor.
+
+### 3) Sonraki tarihi girilmemiş muayene/sigorta belgesi raporda hiç görünmüyordu
+
+Rapor `vi.next_date` üzerinden süzüyor; SQL'de `NULL` karşılaştırması daima false döner. "Sonraki
+tarih" ekranda İSTEĞE BAĞLI olduğu için böyle bir belge **hiçbir tarih aralığında** listelenmiyordu.
+Raporun kendi sıralaması (`ORDER BY (next_date IS NULL), …`) ve durum hesabı (`next is null → Normal`)
+bu satırların var olmasını zaten bekliyordu — eksik olan tek şey süzgecin NULL'a izin vermesiydi.
+Yeni `DateFilterNullable` yalnız bu raporda kullanılır; tarihi olan kayıtlarda davranış AYNIDIR.
+
+### Kapsamlı tarama — kalan 21 rapor temiz
+
+`RaporKapsamliTaramaTests`: tek firmaya her modülden birer normal kayıt girilir ve **katalogdaki HER
+rapor** çalıştırılıp en az bir satır döndürdüğü, kolonlarının dolu olduğu ve satır/kolon sayısının
+uyuştuğu doğrulanır. Kataloğa yeni rapor eklenirse test onu **otomatik kapsar**: ya veri üretilip
+listelenmeli, ya da muafiyet listesine **gerekçesiyle** yazılmalı → "sessizce boş rapor" eklenemez.
+
+**Ölçüm:** 21 rapor · 64 tarama testi · yalnız 1 kusur (madde 3) bulundu; kalanı doğru çalışıyor.
+
+### İncelenip DEĞİŞTİRİLMEYENLER
+- **Stok Sayım raporunda şube süzgeci yok** — sayım belgesi zaten şube bazlıdır ve rapor belgeden
+  gelir; kapsam değişikliği ayrı bir karardır, bu turda dokunulmadı.
+- **Ön muhasebe raporlarında tarih süzgeci SQL'de yok** — katalog da bu raporlarda Date filtresi
+  tanımlamıyor (`ReportFilterParityTests` bunu zaten kilitliyor). Tutarlı; değiştirilmedi.
