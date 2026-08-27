@@ -39,6 +39,8 @@ public sealed class BusinessSyncService
         "vehicle_types",
         "vehicle_categories",
         "vehicle_models",
+        // EKP-01 (ADR-166): ekipman türleri — lookup sınıfı (LWW); equipment ondan SONRA gelir (FK).
+        "equipment_types",
         "maintenance_definitions",
         "personnel_titles",          // unvan sabit tanımları (personel formundaki liste)
         // SIF-06 (2026-08-18): ŞABLONLAR. Bunlar senkronda HİÇ taşınmıyordu — ne bu listede ne de
@@ -61,6 +63,9 @@ public sealed class BusinessSyncService
         // ⚠️ TABLO KALDIRILMADI: yerel SQLite'ta ve sunucuda aynen duruyor; masaüstü çevrimdışı stok
         // işlemleri ve bakiye görüntüleme bundan ETKİLENMEZ (SNK-11 yalnız senkron paketini ilgilendirir).
         "vehicles",
+        // EKP-01 (ADR-166): ekipman kartları — araçlarla aynı sınıf iş verisi (tanımsal kart, LWW uygun).
+        // FK: equipment_types YUKARIDA; branches pakette değil (sunucu-otoriteli ayna) — vehicles.branch_id ile aynı durum.
+        "equipment",
         // SNK-A3 (denetim 2026-08-18): MUAYENE / SİGORTA. Ekran iki platformda da var (AppScreens: Both) ve
         // InspectionService yerele yazıyor, ama tablo senkron listesinde YOKTU → masaüstünde girilen
         // muayene/sigorta/kasko kaydı web'de HİÇ görünmüyordu (ve tersi). SIF-06 (şablonlar) ile aynı sınıf.
@@ -130,6 +135,7 @@ public sealed class BusinessSyncService
         ["vehicle_types"] = "definitions",
         ["vehicle_categories"] = "definitions",
         ["vehicle_models"] = "definitions",
+        ["equipment_types"] = "definitions",   // EKP-01: tür tanımı (vehicle_types gibi Tanımlar modülünde)
         ["maintenance_definitions"] = "maintenance",
         ["personnel_titles"] = "personnel",   // unvan tanımları personel modülüne bağlı
         // SIF-06: şablonlar kendi modüllerine bağlı — push yetki kapısı ATLANMAZ (kullanıcı ancak
@@ -143,6 +149,7 @@ public sealed class BusinessSyncService
         ["stock_movements"] = "stock",
         ["stock_documents"] = "stock",
         ["vehicles"] = "vehicles",
+        ["equipment"] = "equipment",   // EKP-01: push yetki kapısı — equipment modülü Create/Edit ister
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",

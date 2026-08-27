@@ -18,7 +18,7 @@ public sealed class TrashService
     private static readonly Dictionary<string, string> Tables = new(StringComparer.Ordinal)
     {
         ["materials"] = "name", ["vehicles"] = "internal_code", ["personnel"] = "full_name",
-        ["branches"] = "name", ["projects"] = "name", ["suppliers"] = "name", ["brands"] = "name", ["units"] = "name",
+        ["branches"] = "name", ["projects"] = "name", ["equipment"] = "name", ["suppliers"] = "name", ["brands"] = "name", ["units"] = "name",
         ["material_categories"] = "name", ["vehicle_templates"] = "name",
         ["vehicle_types"] = "name", ["vehicle_categories"] = "name", ["vehicle_models"] = "name",
         ["maintenance_definitions"] = "name",

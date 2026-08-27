@@ -2507,3 +2507,23 @@ Ayrıntılı kalıcı kayıt: `docs/project-control/PRJ_01_PROJE_SANTIYE.md`.
 
 Bilinçli ALINMAYAN kararlar (ürün): belge türü sabit listesi · sürümleme · geçerlilik uyarısı ·
 çöp kutusundan geri getirme. Ayrıntı: `docs/project-control/EVRAK_01_EVRAK_BELGE_YONETIMI.md`.
+
+---
+
+## ADR-166 — Varlık / Ekipman Yönetimi — EKP-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 1/SIRA 3 + kullanıcı kararları PK-E1..E3
+
+### Karar
+- **PK-E1 — AYRI `equipment` tablosu** (vehicles genelleştirilMEDİ): "vehicle" 93 dosyada; tür filtresini
+  her araç sorgusuna eklemek canlı sistemde sessiz-bozulma riskiydi. Hiçbir araç kaydı taşınmadı;
+  EKP12 araç şemalarında ekipman izi olmadığını kilitler.
+- **PK-E2** bakım entegrasyonu ilk sürümde YOK (F öncesi ayrı küçük iş: bakım tablolarına eklemeli
+  equipment_id — tek sistem, kopya yok) · **PK-E3** yakıt/muayene ekipmana uygulanmaz.
+- Migration075 yalnız CREATE (equipment_types + equipment) — EKP10/11 kanıtlı; canlıya uygulanmadı.
+- **Yerel + senkronlu** (araç deseni): BusinessSync.Tables'a FK sıralı eklendi; push kapısı equipment
+  modülü. EKP9: uçtan uca taşıma + idempotent tekrar + firma karışmazlığı.
+- Yeni `equipment` yetki modülü (deny-by-default) + BranchAccess kapsamı (EKP5/6) + soft delete/Çöp
+  Kutusu + ekran logu + Tanımlar'da "Ekipman — Türler" + Excel dışa aktarımı (liste kuralı 2) +
+  Evrak'a "Ekipman" bağlı kayıt türü.
+
+Ayrıntı: `docs/project-control/EKP_01_VARLIK_EKIPMAN.md`.

@@ -1114,6 +1114,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Şube tanımları ve atanmış kullanıcılar";
                 break;
             // PRJ-01 (ADR-164): Projeler — sunucu-otoriteli; yetki branches modülü (PK-C4).
+            // EKP-01 (ADR-166): Ekipman — araçtan ayrı varlık kartları; yerel + senkron.
+            case "equipment":
+                CurrentPage = new EquipmentViewModel(_session);
+                CurrentTitle = "Ekipman";
+                CurrentContext = "Ekipman kartları (jeneratör, kompresör, konteyner...)";
+                break;
             // EVR-01 (ADR-165): Evrak/Belgeler — sunucu-otoriteli; yetki files modülü.
             case "documents":
                 CurrentPage = new DocumentsViewModel(_session);

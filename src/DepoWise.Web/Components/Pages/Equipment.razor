@@ -1,0 +1,201 @@
+@page "/equipment"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ EKP-01 (ADR-166, 2026-08-28) — EKİPMAN ═══
+    Araçtan AYRI varlık kartları (PK-E1). Yetki: equipment modülü + BranchAccess kapsamı (SUNUCUDA).
+    Bakım/yakıt/muayene entegrasyonu bilinçli KAPSAM DIŞI (PK-E2/E3) — araç zincirine dokunulmadı.
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Ekipman</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("equipment"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ EKİPMAN" : "EKİPMAN DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Ekipman Kodu *" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="Kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4">
+                <LookupSelect Label="Ekipman Türü" @bind-Value="_typeId" Items="_types"
+                              CreatePath="/api/lookups/equipment_types" CreateField="name" OnAdded="ReloadTypes" />
+            </MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("active")">Aktif</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("passive")">Pasif</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("maintenance")">Bakımda</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye / Saha" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="5"><MudTextField @bind-Value="_serialNo" Label="Seri No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_location" Label="Konum" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_statusNote" Label="Durum Notu" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_description" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h6">Ekipman Listesi</MudText><MudSpacer />
+        <MudSelect T="string" @bind-Value="_filterStatus" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Clearable="true" @bind-Value:after="Load" Style="min-width:140px;">
+            <MudSelectItem T="string" Value="@("active")">Aktif</MudSelectItem>
+            <MudSelectItem T="string" Value="@("passive")">Pasif</MudSelectItem>
+            <MudSelectItem T="string" Value="@("maintenance")">Bakımda</MudSelectItem>
+        </MudSelect>
+        <MudTextField @bind-Value="_search" Label="Ara (kod / ad / seri / tür / şube)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:250px;" />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Aktif filtrelerle TÜM sonucu Excel dosyası olarak indirir (yalnız ekrandaki sayfayı değil).">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+            </MudTooltip>
+        }
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz ekipman tanımlanmadı.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent>
+                <MudTh>KOD</MudTh><MudTh>AD</MudTh><MudTh>TÜR</MudTh><MudTh>DURUM</MudTh>
+                <MudTh>ŞUBE/ŞANTİYE</MudTh><MudTh>SERİ NO</MudTh><MudTh>KONUM</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><b>@Str(context, "code")</b></MudTd>
+                <MudTd>@Str(context, "name")</MudTd>
+                <MudTd>@Str(context, "typeName")</MudTd>
+                <MudTd><span class="dw-badge @StatusBadge(Str(context, "status"))">@Str(context, "statusDisplay")</span></MudTd>
+                <MudTd>@Str(context, "branchName")</MudTd>
+                <MudTd>@Str(context, "serialNo")</MudTd>
+                <MudTd>@Str(context, "location")</MudTd>
+                <MudTd>
+                    <MudStack Row="true" Spacing="1">
+                        @if (Auth.CanEdit("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
+                        @if (Auth.CanDelete("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string? _editId, _typeId, _branchId, _filterStatus;
+    private long _editVersion;
+    private string _code = "", _name = "", _status = "active", _statusNote = "", _serialNo = "", _location = "", _description = "", _search = "";
+    private List<ApiClient.Opt> _types = new();
+    private List<ApiClient.Opt> _branches = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadTypes("");
+        try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        await Load();
+    }
+
+    private async Task ReloadTypes(string _)
+    { try { _types = await Api.OptionsAsync("/api/lookups/equipment_types", "id", "name"); } catch { } }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        if (!string.IsNullOrEmpty(_filterStatus)) q.Add("status=" + Uri.EscapeDataString(_filterStatus));
+        try { _rows = await Api.GetArrayAsync("/api/equipment" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu ekipmanı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+        _code = Str(d, "code"); _name = Str(d, "name");
+        _typeId = NullS(d, "typeId"); _branchId = NullS(d, "branchId");
+        _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
+        _statusNote = Str(d, "statusNote"); _serialNo = Str(d, "serialNo");
+        _location = Str(d, "location"); _description = Str(d, "description");
+        _msg = null;
+    }
+
+    private async Task Save()
+    {
+        _err = true; _msg = null;
+        if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Ekipman eklensin mi?" : "Ekipman güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            var body = new
+            {
+                code = _code.Trim(), name = _name.Trim(), typeId = _typeId, status = _status,
+                statusNote = _statusNote, branchId = _branchId, serialNo = _serialNo,
+                location = _location, description = _description,
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null,
+            };
+            var err = _editId is null ? await Api.PostAsync("/api/equipment", body) : await Api.PutAsync($"/api/equipment/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ExportExcel()
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        if (!string.IsNullOrEmpty(_filterStatus)) q.Add("status=" + Uri.EscapeDataString(_filterStatus));
+        var (bytes, name) = await Api.GetFileAsync("/api/equipment/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), "Ekipman.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu ekipman silinsin mi? (Çöp Kutusu'ndan geri alınabilir.)", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/equipment/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null; await Load();
+    }
+
+    private void Clear()
+    { _err = false; _editId = null; _editVersion = 0; _code = ""; _name = ""; _typeId = null; _branchId = null; _status = "active"; _statusNote = ""; _serialNo = ""; _location = ""; _description = ""; }
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "passive" => "dw-badge-muted", "maintenance" => "dw-badge-warn", _ => "dw-badge-ok",
+    };
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+}

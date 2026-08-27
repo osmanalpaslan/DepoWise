@@ -1219,6 +1219,31 @@ app.MapPut("/api/documents/{id}", (HttpContext c, string id, DocumentMetaDto d) 
         new DepoWise.Infrastructure.Files.DocumentMeta(d.Title, d.DocType, d.ValidFrom, d.ValidUntil, d.Description))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/documents/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Documents.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ═══ EKP-01 (ADR-166, 2026-08-28) — EKİPMAN ═══
+// Yetki: equipment modülü + BranchAccess kapsamı — SERVİSTE. Araç uçlarına dokunulmadı.
+app.MapGet("/api/equipment", (HttpContext c, string? search, string? typeId, string? status) =>
+    S(c) is { } s ? Results.Ok(svc.Equipment.List(s, search, typeId, status).Select(e => new
+    {
+        id = e.Id, code = e.Code, name = e.Name, typeId = e.TypeId, typeName = e.TypeDisplay,
+        status = e.Status, statusDisplay = e.StatusDisplay, statusNote = e.StatusNote,
+        branchId = e.BranchId, branchName = e.BranchDisplay, serialNo = e.SerialNo,
+        location = e.Location, description = e.Description, version = e.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/equipment", (HttpContext c, EquipmentDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Equipment.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/equipment/{id}", (HttpContext c, string id, EquipmentDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/equipment/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/equipment/export", (HttpContext c, string? search, string? typeId, string? status) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi
+    var rows = svc.Equipment.List(s, search, typeId, status);   // filtrelenmiş TÜM sonuç (sayfalama yok)
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Equipment.EquipmentService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Ekipman.xlsx");
+}).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff), expectedVersion: d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
@@ -3798,6 +3823,14 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// EKP-01: kod+ad zorunlu, kalanı opsiyonel. Version = düzenleme kilidi jetonu (null = kontrol yok).
+record EquipmentDto(string Code, string Name, string? TypeId = null, string? Status = null,
+    string? StatusNote = null, string? BranchId = null, string? SerialNo = null,
+    string? Location = null, string? Description = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.Equipment.NewEquipment ToNew()
+        => new(Code, Name, TypeId, Status, StatusNote, BranchId, SerialNo, Location, Description);
+}
 // EVR-01: belge META düzenleme gövdesi (dosya içeriği bu uçtan DEĞİŞMEZ).
 record DocumentMetaDto(string Title, string? DocType = null, long? ValidFrom = null, long? ValidUntil = null, string? Description = null);
 record ProjectDto(string Name, string? Status = null, long? StartDate = null, long? EndDate = null,

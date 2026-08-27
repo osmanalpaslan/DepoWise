@@ -1,16 +1,17 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (EVR-01 Evrak/Belge tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (EKP-01 Varlık/Ekipman tamamlandı — FAZ 1 bitti, yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
 
-FAZ 1/SIRA 1 **C — Proje/Şantiye** ✅ (ADR-164) · SIRA 2 **A — Evrak/Belge** ✅ (ADR-165, 2026-08-28,
-EvrakTests 12/12). İkisi de **canlıya YAYINLANMADI**: Migration073+074 deploy anında koşacağından
-yayın AYRI onay ister; deploy öncesi/sonrası canlı salt-okunur sayım alınacak.
-Sıradaki: **E — Varlık/Ekipman** (önce araç/varlık model kararı). Tek doğru kaynak: MASTER_ROADMAP.md
-+ PRJ_01_PROJE_SANTIYE.md + EVRAK_01_EVRAK_BELGE_YONETIMI.md.
+**FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
+E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:
+Migration073+074+075 deploy anında koşacağından yayın AYRI onay ister; deploy öncesi/sonrası canlı
+salt-okunur sayım alınacak. ⚠️ Yayında üç yeni yetki kapalı gelir: Ekipman modülü (+ Evrak'ın files
+modülü mevcut) — rollere açılmalı. Sıradaki: **B — Zimmet** (önce ürün soruları: stok ilişkisi, devir).
+Tek doğru kaynak: MASTER_ROADMAP.md + PRJ_01/EVRAK_01/EKP_01 kontrol belgeleri.
 
 ---
 ## 🔨 DEVAM EDEN — "EKSİK ALANLAR" LİSTESİ (kullanıcı maddeleri, 2026-08-27)

@@ -46,6 +46,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Add("Malzeme — Tedarikçiler", "suppliers", s => L.List(s, "suppliers"), (s, n) => L.AddSupplier(s, n));
         // ── ARAÇ tanımları ──
         Add("Araç — Tipler", "vehicle_types", s => L.List(s, "vehicle_types"), (s, n) => L.AddVehicleType(s, n));
+        Add("Ekipman — Türler", "equipment_types", s => L.List(s, "equipment_types"), (s, n) => L.AddEquipmentType(s, n));   // EKP-01
         Add("Araç — Kategoriler", "vehicle_categories", s => L.List(s, "vehicle_categories"), (s, n) => L.AddVehicleCategory(s, n));
         Add("Araç — Markalar", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
         // NOT: "Genel — Şube / Şantiye" girdisi KALDIRILDI (2026-08-09). Şube/Şantiye tanımları

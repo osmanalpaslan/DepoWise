@@ -124,6 +124,7 @@ public sealed class TrashRowVm
             "suppliers" => "Tedarikçi", "brands" => "Marka", "units" => "Birim",
             "material_categories" => "Kategori", "vehicle_templates" => "Araç Şablonu",
             "vehicle_types" => "Makine Tipi", "vehicle_categories" => "Araç Kategorisi",
+            "equipment" => "Ekipman", "equipment_types" => "Ekipman Türü",   // EKP-01
             "vehicle_models" => "Model", "maintenance_definitions" => "Bakım Tanımı", _ => t.Table
         };
     }

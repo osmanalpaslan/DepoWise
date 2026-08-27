@@ -103,6 +103,7 @@ public static class AppScreens
         new AppScreenGroup("Uyarılar",            "🔔", "alerts"),
         new AppScreenGroup("Malzemeler",          "📦", "materials",       "section:malzemestok"),
         new AppScreenGroup("Araçlar",             "🚚", "vehicles",        "section:operasyon"),
+        new AppScreenGroup("Ekipman",             "⚙️", "equipment",       "section:operasyon"),   // EKP-01 (ADR-166)
         new AppScreenGroup("Günlük Faaliyet",     "📋", "daily_activity",  "section:operasyon"),
         new AppScreenGroup("Bakım Takibi",        "🔧", "maintenance",     "section:operasyon"),
         new AppScreenGroup("Yakıt",               "⛽", "fuel",            "section:operasyon"),
@@ -205,6 +206,8 @@ public static class AppScreens
         new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
         // PRJ-01 (ADR-164): Projeler — yetki modülü branches (PK-C4: ayrı kapı yok).
         new AppScreen("projects", "branches", "Şube ve Personel", "Projeler", Both, "projects", "projects"),
+        // EKP-01 (ADR-166): Ekipman — araçtan ayrı varlık kartları.
+        new AppScreen("equipment", "equipment", "Ekipman", "Ekipman Listesi", Both, "equipment", "equipment"),
         // EVR-01 (ADR-165): merkezi Evrak/Belge ekranı — yetki modülü files ("Dosya / Fotoğraf").
         new AppScreen("documents", "files", "Evrak", "Evrak / Belgeler", Both, "documents", "documents"),
         new AppScreen("personnel", "personnel", "Şube ve Personel", "Personel Girişi", Both, "personnel", "personnel"),

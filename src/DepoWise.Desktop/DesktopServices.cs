@@ -94,6 +94,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Settings.UserListPreferenceService ListPrefs { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
+    public static DepoWise.Infrastructure.Equipment.EquipmentService Equipment { get; private set; } = null!;   // EKP-01
     public static IFileStorageProvider Storage { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
@@ -204,6 +205,7 @@ public static class DesktopServices
         PersonnelImport = new PersonnelImportService(Personnel, PersonnelTitles, Users, Lookups);
         Storage = new LocalFileStorageProvider();
         Files = new FileService(Factory, Storage, clock);
+        Equipment = new DepoWise.Infrastructure.Equipment.EquipmentService(Factory, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

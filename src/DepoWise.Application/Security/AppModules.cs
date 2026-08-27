@@ -60,6 +60,7 @@ public static class AppModules
         ("material_templates", "Malzeme Şablonları"),
         ("stock", "Stok İşlemleri"),
         ("vehicles", "Araçlar"),
+        ("equipment", "Ekipman"),   // EKP-01 (ADR-166): araçtan AYRI varlık/ekipman modülü
         ("maintenance", "Bakım"),
         ("inspection", "Muayene / Sigorta"),
         ("fuel", "Yakıt"),

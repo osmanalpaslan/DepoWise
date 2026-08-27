@@ -38,6 +38,7 @@ public sealed class LookupService
 
     // ── Araç tanımları ──
     public string AddVehicleType(SessionContext s, string name) => Insert(s, "vehicle_types", name);
+    public string AddEquipmentType(SessionContext s, string name) => Insert(s, "equipment_types", name);   // EKP-01
     public string AddVehicleCategory(SessionContext s, string name) => Insert(s, "vehicle_categories", name);
     public string AddVehicleBrand(SessionContext s, string name) => Insert(s, "brands", name, ("brand_type", "vehicle"));
     public string AddVehicleModel(SessionContext s, string brandId, string name)
@@ -328,7 +329,7 @@ ORDER BY name;";
     private static void EnsureKnownTable(string table)
     {
         if (table is not ("material_categories" or "brands" or "units" or "suppliers"
-            or "vehicle_types" or "vehicle_categories" or "vehicle_models" or "branches"))
+            or "vehicle_types" or "vehicle_categories" or "vehicle_models" or "equipment_types" or "branches"))
             throw new ArgumentException($"Bilinmeyen tanım tablosu: {table}");
     }
 

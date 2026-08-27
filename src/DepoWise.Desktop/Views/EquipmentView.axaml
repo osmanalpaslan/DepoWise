@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:ekp="using:DepoWise.Infrastructure.Equipment"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.EquipmentView"
+             x:DataType="vm:EquipmentViewModel">
+
+    <!-- EKP-01 (ADR-166): Ekipman — araçtan AYRI varlık kartları; yerel çalışır (çevrimdışı dahil), senkron taşır. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Ekipman"
+                      PrimaryActionText="Yeni Ekipman" PrimaryActionCommand="{Binding NewEquipmentCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: kod / ad / seri / tür / şube"/>
+                    <ComboBox Classes="Field" Width="120" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder (yalnız ekrandakini değil)."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni/Düzenle formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Ekipman Kodu" IsRequired="True" Width="150">
+                        <TextBox Classes="Field" Text="{Binding FormCode}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Ad" IsRequired="True" Width="240">
+                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Ekipman Türü" Width="190" HelpText="Yeni tür: Ayarlar → Tanımlar → Ekipman — Türler.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding FormType}"
+                                        PlaceholderText="Tür seç / ara..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Durum" Width="130">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Şube / Şantiye / Saha" Width="240">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                        PlaceholderText="Şube seç / ara... (boş olabilir)"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Seri No" Width="180">
+                        <TextBox Classes="Field" Text="{Binding FormSerialNo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Konum" Width="200">
+                        <TextBox Classes="Field" Text="{Binding FormLocation}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Durum Notu" Width="180">
+                        <TextBox Classes="Field" Text="{Binding FormStatusNote}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Açıklama" Width="800">
+                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,320">
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="100" MaxWidth="100"/>
+                                <SelectableTextBlock Grid.Column="1" Text="AD" MinWidth="160"/>
+                                <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="110" MaxWidth="110"/>
+                                <SelectableTextBlock Grid.Column="3" Text="DURUM" MinWidth="80" MaxWidth="80"/>
+                                <SelectableTextBlock Grid.Column="4" Text="ŞUBE/ŞANTİYE" MinWidth="140" MaxWidth="140"/>
+                                <SelectableTextBlock Grid.Column="5" Text="SERİ NO" MinWidth="110" MaxWidth="110"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="ekp:EquipmentRow">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding TypeDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding StatusDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding BranchDisplay}" MinWidth="140" MaxWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BranchDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="{Binding SerialDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SerialDisplay}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Ekipman yok" Message="Henüz ekipman tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Detay -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <SelectableTextBlock Text="{Binding Selected.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                            <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                        </StackPanel>
+                        <Border Classes="Divider"/>
+                        <SelectableTextBlock Text="{Binding Selected.Code}" Classes="Body"/>
+                        <SelectableTextBlock Text="{Binding Selected.TypeDisplay}" Classes="Body"/>
+                        <SelectableTextBlock Text="{Binding Selected.StatusDisplay}" Classes="Body"/>
+                        <SelectableTextBlock Text="{Binding Selected.BranchDisplay}" Classes="Body"/>
+                        <SelectableTextBlock Text="{Binding Selected.SerialDisplay}" Classes="Helper"/>
+                        <SelectableTextBlock Text="{Binding Selected.Location}" Classes="Helper" TextWrapping="Wrap"
+                                   IsVisible="{Binding Selected.Location, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
+                                   IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+                <SelectableTextBlock Text="Detay için bir ekipman seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

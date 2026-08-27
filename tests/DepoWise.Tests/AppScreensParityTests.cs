@@ -293,6 +293,7 @@ public class AppScreensParityTests
             ("Uyarılar", new[] { "alerts" }),
             ("Malzemeler", new[] { "materials", "materials:new", "stock", "stock:movements", "stock:count", "material_templates:templates", "stock:distribute" }),
             ("Araçlar", new[] { "vehicles", "vehicles:new", "vehicle_templates:templates", "inspection" }),
+            ("Ekipman", new[] { "equipment" }),   // EKP-01 (ADR-166)
             ("Günlük Faaliyet", new[] { "daily_activity" }),
             ("Bakım Takibi", new[] { "maintenance:defs", "maintenance:records" }),
             ("Yakıt", new[] { "fuel:dist", "fuel:depot", "fuel:summary" }),
@@ -324,8 +325,8 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + 1 (PRJ-01 Projeler) + 1 (EVR-01 Evrak) = 49. Ekran kaybı yok.
-        Assert.Equal(49, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam: 47 + PRJ-01 + EVR-01 + EKP-01 = 50. Ekran kaybı yok.
+        Assert.Equal(50, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -339,6 +340,7 @@ public class AppScreensParityTests
             ("Uyarılar", new[] { ("", "alerts") }),
             ("Malzemeler", new[] { ("materials", "materials"), ("materials", "materials/new"), ("stock", "stock"), ("stock", "stock/movements"), ("stock", "stock/count") }),
             ("Araçlar", new[] { ("vehicles", "vehicles"), ("vehicles", "vehicles/new"), ("vehicle_templates", "vehicle-templates"), ("inspection", "inspection") }),
+            ("Ekipman", new[] { ("equipment", "equipment") }),   // EKP-01
             ("Günlük Faaliyet", new[] { ("daily_activity", "daily") }),
             ("Bakım Takibi", new[] { ("maintenance", "maintenance/defs"), ("maintenance", "maintenance/records") }),
             ("Yakıt", new[] { ("fuel", "fuel/dist"), ("fuel", "fuel/depot"), ("fuel", "fuel/summary") }),
@@ -374,8 +376,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ-01 +1 (Projeler) · EVR-01 +1 (Evrak) → 56.
-        Assert.Equal(56, gercek.Sum(x => x.Item2.Length));
+        // PRJ-01 + EVR-01 + EKP-01 → 57.
+        Assert.Equal(57, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>
@@ -394,6 +396,7 @@ public class AppScreensParityTests
             ("Uyarılar", null),
             ("Malzemeler", "section:malzemestok"),
             ("Araçlar", "section:operasyon"),
+            ("Ekipman", "section:operasyon"),   // EKP-01
             ("Günlük Faaliyet", "section:operasyon"),
             ("Bakım Takibi", "section:operasyon"),
             ("Yakıt", "section:operasyon"),
