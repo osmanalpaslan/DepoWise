@@ -65,7 +65,7 @@
                                                 Command="{Binding SortCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="4">
                                                 <SelectableTextBlock Text="{Binding Label}" FontWeight="SemiBold"
-                                                                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                     Foreground="{DynamicResource TableHeaderTextBrush}"/>
                                                 <SelectableTextBlock Text="{Binding SortGlyph}"
                                                                      Foreground="{DynamicResource AccentBrush}"/>
                                             </StackPanel>
@@ -82,7 +82,7 @@
                     </Border>
 
                     <!-- Başlık-altı filtre satırı: her kutu ilgili sütunun TAM ALTINDA (aynı Width). -->
-                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="12,4">
+                    <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                         <ItemsControl ItemsSource="{Binding Columns}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
@@ -93,7 +93,7 @@
                                          Artik genislik Border uzerinde sabit, bosluk ICERIDE kaliyor; kolon siniri korunur. -->
                                     <Border IsVisible="{Binding IsVisible}" Width="{Binding Width}" Padding="2,0"
                                             BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
-                                        <TextBox Classes="Search" HorizontalAlignment="Stretch"
+                                        <TextBox Classes="CellFilter" HorizontalAlignment="Stretch"
                                                  Text="{Binding Filter, Mode=TwoWay}" PlaceholderText="{Binding Hint}"/>
                                     </Border>
                                 </DataTemplate>

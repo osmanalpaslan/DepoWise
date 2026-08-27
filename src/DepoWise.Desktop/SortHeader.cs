@@ -37,6 +37,7 @@ public sealed class SortHeader : Grid
     private readonly TextBlock _arrow = new() { Margin = new Thickness(2, 0, 0, 0) };
     private readonly Button _button;
     private readonly Border _grip;
+    private readonly Border _vurgu;   // M7: siralanan kolonun altindaki 2px aksan cizgisi
 
     private IListGridViewModel? _vm;
     private bool _dragging;
@@ -46,6 +47,22 @@ public sealed class SortHeader : Grid
     public SortHeader()
     {
         ColumnDefinitions = new ColumnDefinitions("*,6");
+
+        // M7 — SIRALANAN KOLON ISARETI. Satir 1 yalnizca 2px yuksekliginde bir vurgu seridi tasir;
+        // _button ve _grip icin satir belirtilmez (varsayilan Row 0). Siralama/surukleme MANTIGI degismez.
+        RowDefinitions = new RowDefinitions("*,2");
+
+        _vurgu = new Border
+        {
+            Height = 2,
+            IsVisible = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            IsHitTestVisible = false,
+        };
+        _vurgu.Bind(Border.BackgroundProperty, this.GetResourceObservable("AccentBrush"));
+        SetRow(_vurgu, 1);
+        SetColumnSpan(_vurgu, 2);
+        Children.Add(_vurgu);
 
         var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
         stack.Children.Add(_label);
@@ -123,11 +140,32 @@ public sealed class SortHeader : Grid
         if (e.PropertyName is null or "ColWidths") ApplySavedWidth();
     }
 
+    /// <summary>Ok + M7 vurgusu. ClearValue ile pasif baslik, Components.axaml'deki
+    /// <c>Border.TableHeader :is(TextBlock)</c> kuralina (TableHeaderTextBrush) geri doner.</summary>
     private void UpdateArrow()
     {
-        if (_vm is null || string.IsNullOrEmpty(ColumnKey)) { _arrow.Text = ""; return; }
+        if (_vm is null || string.IsNullOrEmpty(ColumnKey))
+        {
+            _arrow.Text = "";
+            _vurgu.IsVisible = false;
+            _label.ClearValue(TextBlock.ForegroundProperty);
+            _arrow.ClearValue(TextBlock.ForegroundProperty);
+            return;
+        }
         var (col, desc) = _vm.SortState;
-        _arrow.Text = col == ColumnKey ? (desc ? "▼" : "▲") : "";
+        var aktif = col == ColumnKey;
+        _arrow.Text = aktif ? (desc ? "▼" : "▲") : "";
+        _vurgu.IsVisible = aktif;
+        if (aktif)
+        {
+            _label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("AccentBrush"));
+            _arrow.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("AccentBrush"));
+        }
+        else
+        {
+            _label.ClearValue(TextBlock.ForegroundProperty);
+            _arrow.ClearValue(TextBlock.ForegroundProperty);
+        }
     }
 
     // NOT (2026-08-08): Sürükleme ölçümü PENCEREYE göre yapılır — eskiden `GetPosition(this)` kullanılıyordu;

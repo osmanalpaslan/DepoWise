@@ -312,7 +312,7 @@
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml
                          aynı yorum. Kolon 0 (TARİH) bilinçli olarak filtresiz (yalnız başlığa tıklayarak sıralanır);
                          kolon 7 (Sil butonu) filtrelenemez. -->
-                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="12,6">
+                    <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -337,7 +337,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=type}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -350,7 +350,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=vehicle}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -363,7 +363,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=route}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -376,7 +376,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=operator}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -389,7 +389,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=duration}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -402,7 +402,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=description}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>

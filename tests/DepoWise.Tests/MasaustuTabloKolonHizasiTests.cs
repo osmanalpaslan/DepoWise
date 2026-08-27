@@ -29,6 +29,8 @@ namespace DepoWise.Tests;
 /// </summary>
 public class MasaustuTabloKolonHizasiTests
 {
+    /// <summary>Çift tırnak — XAML metni içinde çok geçtiği için kaçış karakteri yerine sabit.</summary>
+    private const string T = "\"";
     /// <summary>Başlık + filtre + veri satırı olan ekranlar (ortak <c>ColWidths</c> mimarisi).</summary>
     public static readonly string[] FiltreliEkranlar = { "MaterialsView", "VehiclesView", "DailyActivityView" };
 
@@ -95,10 +97,31 @@ public class MasaustuTabloKolonHizasiTests
         // Başlık satırı: Padding VERMEZ → stilin 12,0 değerini kullanır.
         Assert.Contains("<Border Classes=\"TableHeader\" DockPanel.Dock=\"Top\">", x);
 
-        // Filtre satırı: Padding verir ama YATAY değeri başlıkla AYNI (12) olmak zorunda.
-        var filtre = Regex.Match(x, @"<Border Classes=""TableHeader"" DockPanel\.Dock=""Top"" Padding=""(\d+),(\d+)""");
-        Assert.True(filtre.Success, $"{ekran}: filtre satırı Border'ı bulunamadı.");
-        Assert.Equal("12", filtre.Groups[1].Value);
+        // Filtre satırı: M7'den (2026-08-27) beri KENDİ sınıfı var (Border.TableFilterRow) ve o da
+        // Padding VERMEZ → yatay boşluğu stilden alır. Yerinde Padding yazmak yasak: eski hata
+        // (yatay 0 → filtre satırı 12 px sola kayıyordu) tam olarak öyle oluşmuştu.
+        Assert.Contains("<Border Classes=" + T + "TableFilterRow" + T + " DockPanel.Dock=" + T + "Top" + T + ">", x);
+        Assert.DoesNotContain("Classes=" + T + "TableFilterRow" + T + " DockPanel.Dock=" + T + "Top" + T + " Padding=", x);
+    }
+
+    /// <summary>⭐ HZA0'ın ikinci yarısı: iki satırın YATAY boşluğu artık stil katmanındadır.
+    /// Başlık <c>Border.TableHeader</c>, filtre <c>Border.TableFilterRow</c> — ikisinin yatay padding
+    /// değeri AYNI olmak zorundadır, yoksa filtre satırı başlıktan yana kayar.</summary>
+    [Fact]
+    public void HZA0b_Stil_Katmaninda_Yatay_Bosluk_Esit()
+    {
+        var c = Kaynak("Themes", "Components.axaml");
+
+        string Yatay(string secici)
+        {
+            var blok = Regex.Match(c, "<Style Selector=" + T + Regex.Escape(secici) + T + ">(.*?)</Style>", RegexOptions.Singleline);
+            Assert.True(blok.Success, secici + " stili bulunamadı.");
+            var pad = Regex.Match(blok.Groups[1].Value, "Property=" + T + "Padding" + T + " Value=" + T + "([0-9]+),");
+            Assert.True(pad.Success, secici + ": Padding tanımı yok.");
+            return pad.Groups[1].Value;
+        }
+
+        Assert.Equal(Yatay("Border.TableHeader"), Yatay("Border.TableFilterRow"));
     }
 
     /// <summary>⭐ Üç satır da AYNI genişlik kaynağını okumalı: başlık ve filtre ile veri hücreleri
@@ -270,9 +293,10 @@ public class MasaustuTabloKolonHizasiTests
         var x = Kaynak("Controls", "DataGridView.axaml");
 
         Assert.Contains("<Border Classes=\"TableHeader\" DockPanel.Dock=\"Top\">", x);
-        var filtre = Regex.Match(x, @"<Border Classes=""TableHeader"" DockPanel\.Dock=""Top"" Padding=""(\d+),(\d+)""");
-        Assert.True(filtre.Success);
-        Assert.Equal("12", filtre.Groups[1].Value);
+        // Ortak rapor tablosu da M7 filtre satırı sınıfını kullanır. (Tasarım paketi bu DÖRDÜNCÜ
+        // filtre satırını atlamıştı; atlansaydı rapor ekranlarında filtre bandı başlık rengine bürünürdü.)
+        Assert.Contains("<Border Classes=" + T + "TableFilterRow" + T + " DockPanel.Dock=" + T + "Top" + T + ">", x);
+        Assert.DoesNotContain("Classes=" + T + "TableFilterRow" + T + " DockPanel.Dock=" + T + "Top" + T + " Padding=", x);
     }
 
     /// <summary>Rapor tablosunda başlık · filtre · gövde · toplam satırlarının HEPSİ aynı kolon
@@ -398,7 +422,8 @@ public class MasaustuTabloKolonHizasiTests
             sonuc.Add((g, GridSonu(x, g)));
         }
 
-        foreach (Match m in Regex.Matches(x, @"Classes=""TableHeader"""))
+        // M7: filtre satırı artık Classes="TableFilterRow" — kapsam dışı kalırsa HZG1 sessizce zayıflar.
+        foreach (Match m in Regex.Matches(x, @"Classes=""Table(?:Header|FilterRow)"""))
             Ekle(m.Index, 400);
 
         foreach (Match m in Regex.Matches(x, @"<ListBox[^>]*Classes=""Table"""))
@@ -429,7 +454,8 @@ public class MasaustuTabloKolonHizasiTests
             foreach (var f in Directory.EnumerateFiles(Path.Combine(kok, klasor), "*.axaml"))
             {
                 var x = File.ReadAllText(f);
-                if (x.Contains("Classes=\"TableHeader\"")) yield return (Path.GetFileNameWithoutExtension(f), x);
+                if (x.Contains("Classes=\"TableHeader\"") || x.Contains("Classes=\"TableFilterRow\""))
+                    yield return (Path.GetFileNameWithoutExtension(f), x);
             }
     }
 

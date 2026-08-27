@@ -17,5 +17,11 @@ public sealed partial class ColumnFilterItem : ObservableObject
     public string Hint => IsNumeric ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması";
     [ObservableProperty] private string _value = "";
 
+    /// <summary>M7 — kutuda deger var mi. YALNIZ gorsel vurgu icin (TextBox.CellFilter.filled);
+    /// filtre MANTIGI degismedi, bu turetilmis bir alandir.</summary>
+    public bool HasValue => !string.IsNullOrWhiteSpace(Value);
+
+    partial void OnValueChanged(string value) => OnPropertyChanged(nameof(HasValue));
+
     public ColumnFilterItem(string key, string label, bool isNumeric = false) { Key = key; Label = label; IsNumeric = isNumeric; }
 }

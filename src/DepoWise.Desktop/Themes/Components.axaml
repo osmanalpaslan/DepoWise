@@ -319,11 +319,13 @@
         <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>
+    <!-- M7 (2a): baslik bandi marka rengini tasir; filtre satiri (Border.TableFilterRow) uygulama zeminine iner.
+         Yatay padding 12 DEGISMEZ — baslik / filtre / veri hucrelerinin ayni x'ten baslamasi buna bagli. -->
     <Style Selector="Border.TableHeader">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-        <Setter Property="MinHeight" Value="42"/>
+        <Setter Property="Background" Value="{DynamicResource TableHeaderBrush}"/>
+        <Setter Property="MinHeight" Value="44"/>
         <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource TableHeaderEdgeBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
     <Style Selector="Border.TableHeader :is(TextBlock)">
@@ -331,8 +333,55 @@
         <Setter Property="FontSize" Value="{StaticResource FontHelper}"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="LetterSpacing" Value="0.9"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TableHeaderTextBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- M7 (1a) — filtre satiri: uygulama zeminine inen "cukur" bant. Baslik bandindan AYRI bir siniftir;
+         yatay padding baslikla AYNI (12) tutulur, yalnizca dikey deger farklidir. Kolon hizasi buna bagli. -->
+    <Style Selector="Border.TableFilterRow">
+        <Setter Property="Background" Value="{DynamicResource TableFilterRowBrush}"/>
+        <Setter Property="MinHeight" Value="42"/>
+        <Setter Property="Padding" Value="12,7"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+
+    <!-- Kolon-basi filtre kutusu: hap kose DEGIL, 8px dikdortgen, 28px yukseklik — kutunun bir tablo
+         hucresi gibi okunmasi icin. Serbest arama kutulari (TextBox.Search) hap koseli KALIR. -->
+    <Style Selector="TextBox.CellFilter">
+        <Setter Property="Background" Value="{DynamicResource CellFilterBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CellFilterBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="9,2"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="11.5"/>
+    </Style>
+    <Style Selector="TextBox.CellFilter /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBox.CellFilter:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBox.CellFilter:focus-within /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <!-- DOLU filtre: kehribar cerceve + yumusak kehribar zemin (hangi kolonun suzuldugu bir bakista gorunur). -->
+    <Style Selector="TextBox.CellFilter.filled /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
     </Style>
     <Style Selector="ListBox.Table">
         <Setter Property="Background" Value="Transparent"/>

@@ -34,6 +34,20 @@
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#20FFFFFF"/>
             <SolidColorBrush x:Key="AccentSoftBrush" Color="#38E0951B"/>
             <SolidColorBrush x:Key="SelectedRowBrush" Color="#24E0951B"/>
+
+            <!-- M7 (2a) — tablo baslik bandi: kehribar yuzey. Saydamlik KULLANILMAZ: Border.Table'in zemini
+                 ne olursa olsun bant her ekranda ayni gorunsun diye katmanlar duzlestirilmis haldedir.
+                 Bu alti firca SABIT kehribardir; ThemeService.ApplyAccent onlari ezmez (AmberBar* ile ayni ilke) —
+                 kullanicinin sectigi aksan rengi SIRALANAN kolonda ve DOLU filtrede gorunur. -->
+            <LinearGradientBrush x:Key="TableHeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#3A342F" Offset="0"/>
+                <GradientStop Color="#242732" Offset="1"/>
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#4A3A1E"/>
+            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#D8B87C"/>
+            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#0D1220"/>
+            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#151B2B"/>
+            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#2A3550"/>
         </ResourceDictionary>
 
         <!-- ============ AÇIK (Aurora) ============ -->
@@ -58,6 +72,20 @@
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#16000000"/>
             <SolidColorBrush x:Key="AccentSoftBrush" Color="#24C07C0C"/>
             <SolidColorBrush x:Key="SelectedRowBrush" Color="#18C07C0C"/>
+
+            <!-- M7 (2a) — tablo baslik bandi: kehribar yuzey. Saydamlik KULLANILMAZ: Border.Table'in zemini
+                 ne olursa olsun bant her ekranda ayni gorunsun diye katmanlar duzlestirilmis haldedir.
+                 Bu alti firca SABIT kehribardir; ThemeService.ApplyAccent onlari ezmez (AmberBar* ile ayni ilke) —
+                 kullanicinin sectigi aksan rengi SIRALANAN kolonda ve DOLU filtrede gorunur. -->
+            <LinearGradientBrush x:Key="TableHeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#EFE7DA" Offset="0"/>
+                <GradientStop Color="#F4F3F0" Offset="1"/>
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#DEC79A"/>
+            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#8A6410"/>
+            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#F1F3F8"/>
+            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#DCE1EA"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

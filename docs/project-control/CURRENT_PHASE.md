@@ -1,6 +1,49 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (altıncı tur — liste tablolarında kolon hizası + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (M6 ikon seti + M7 tablo başlığı — masaüstü tasarım paketi) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## 🟡 ONAY BEKLİYOR — M6 (İKON SETİ) + M7 (TABLO BAŞLIĞI) · 2026-08-27
+
+Kaynak: kullanıcının **Claude Code tasarım aracıyla** hazırladığı paket (`tasarım mimarisi.zip`).
+**Kapsam yalnız masaüstü** — kullanıcının açık talimatı: *"çalışmayı sadece masaüstü için yapıyorum,
+web dahil olmayacak"*. Web'de tek satır değişmedi (CLAUDE.md §4: işlevsel eşitlik zorunlu, piksel
+eşitliği değil).
+
+| Adım | Ne değişti |
+|---|---|
+| M6 | `Themes/Icons.axaml` — 31 vektör ikon; 17 menü grubu emoji yerine vektör ikon aldı |
+| M7 · 1 | `Palette.axaml` — 6 yeni renk anahtarı, **her iki temaya da** |
+| M7 · 2 | `Border.TableHeader` — kehribar bant + kehribar başlık yazısı (38 başlık birden döndü) |
+| M7 · 3 | `Border.TableFilterRow` + `TextBox.CellFilter` — filtre satırı kendi sınıfına ayrıldı |
+| M7 · 4 | 3 liste ekranı + **ortak rapor tablosu** = 4 filtre satırı, 36 filtre kutusu |
+| M7 · 5 | `ColumnFilterItem.HasValue` — dolu filtre kehribar çerçeve alır |
+| M7 · 6 | `SortHeader` — sıralanan kolonda kehribar yazı + altında 2 px çizgi |
+
+**Pakette olmayan, kaynak taramasıyla bulunan eksik:** tasarım paketi 3 filtre satırı saymıştı;
+ortak tablo kontrolünde (`Controls/DataGridView.axaml`) **dördüncüsü** vardı. Atlansaydı rapor
+ekranlarında filtre bandı başlık rengine bürünürdü. Kapsama alındı.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Sayısal kabul (5 kontrol) | 4 filtre satırı · 36 filtre kutusu · 38 başlık · 19 serbest arama · yerinde `Padding` yok |
+| Release derleme (masaüstü) | **0 hata** |
+| İlgili testler | **77 · 0 başarısız** (20 yeni: `MasaustuTasarimPaketiTests`) |
+| Görsel doğrulama | Uygulama **açılarak** 7 ekran görüntüsü alındı (koyu + açık tema, filtreli/filtresiz ekran, rapor tablosu) |
+| Migration | **GEREKMEDİ** — şema 72 · veri modeli değişmedi |
+| Yayın | **YAPILMADI** — kullanıcı onayı bekleniyor (masaüstü hâlâ 1.0.156, web v196, API v171) |
+
+### Kullanıcının karar vermesi gereken iki nokta
+1. **Başlık hücreleri "çip" gibi görünüyor.** Başlık düğmesi (`Button.Ghost`) hafif bir zemin taşıyor;
+   bant koyu iken görünmüyordu, kehribar olunca ortaya çıktı. Düz bant istenirse tek satır stille kapatılır.
+2. **Üst gruplar (Malzeme ve Stok · Operasyon · Finans…) ikon almadı** — paket bilinçli olarak yalnız
+   alt grupları kapsıyor. İstenirse ayrı iş olarak eklenir.
+
+### Uygulanmayan (paket "opsiyonel" demiş)
+M6 · Adım 6 — ekran içindeki emoji butonlarının (📤 Excel'e Aktar, 📥 İçe Aktar, 📦, 🏢, 📋, 🔔)
+vektöre çevrilmesi. 7 buton, 6 dosya. İstenirse ayrı ve küçük bir iş.
 
 ---
 

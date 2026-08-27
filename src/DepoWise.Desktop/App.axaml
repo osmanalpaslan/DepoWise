@@ -16,6 +16,8 @@
                 <ResourceInclude Source="/Themes/Palette.axaml"/>
                 <ResourceInclude Source="/Themes/Scales.axaml"/>
                 <ResourceInclude Source="/Themes/ComponentThemes.axaml"/>
+                <!-- M6: vektor ikon seti. ResourceDictionary'dir -> Application.Styles'a DEGIL, Resources'a girer. -->
+                <ResourceInclude Source="/Themes/Icons.axaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Kehribar (#F5A623) yarı şeffaf menü/üst bar katmanı. Zemin brush'ının üstüne biner;
@@ -142,6 +144,15 @@
                     </LinearGradientBrush>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <!-- M6: menu grubu ikonu — pasifken ikincil renk, aktifken kullanicinin sectigi aksan rengi. -->
+        <Style Selector="ToggleButton.NavGroup PathIcon">
+            <Setter Property="Transitions">
+                <Transitions><BrushTransition Property="Foreground" Duration="0:0:0.14"/></Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup.active PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <!-- chevron: açıkken 90° döner -->
         <Style Selector="ToggleButton.NavGroup TextBlock.chev">

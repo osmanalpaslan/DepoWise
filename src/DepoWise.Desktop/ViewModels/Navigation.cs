@@ -60,6 +60,11 @@ public sealed partial class NavGroupVm : ViewModelBase
     public string ModuleKey { get; }
     public IReadOnlyList<NavLinkVm> Children { get; }
 
+    /// <summary>M6 — menude cizilecek vektor ikon (Themes/Icons.axaml). Yoksa grup ikonsuz gorunur.
+    /// Emoji tasiyan <see cref="Icon"/> alani DURUR: geri donus yolu ve web/MenuLayout ile ortak katalog.</summary>
+    public Avalonia.Media.Geometry? IconGeometry { get; init; }
+    public bool HasIcon => IconGeometry is not null;
+
     [ObservableProperty] private bool _isExpanded;
     [ObservableProperty] private bool _isActive;
 

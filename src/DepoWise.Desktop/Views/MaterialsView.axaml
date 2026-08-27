@@ -367,7 +367,7 @@
                          ContentControl+DataTemplate: hücrenin DataContext'i o kolonun ColumnFilterItem nesnesi
                          (Text=Value TwoWay); dış Min/Max/IsVisible ise ContentControl'ün KENDİ DataContext'i
                          (VM) üzerinden okunur — iki kapsam KARIŞMAZ (derlenmiş bağlama güvenli kalır). -->
-                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="12,6">
+                    <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -393,7 +393,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=code}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -406,7 +406,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=name}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -419,7 +419,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=type}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -432,7 +432,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=category}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -445,7 +445,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unit}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -458,7 +458,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=brand}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -471,7 +471,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=supplier}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -484,7 +484,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unitPrice}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -497,7 +497,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=currency}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -510,7 +510,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=minStock}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -523,7 +523,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=stock}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -536,7 +536,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=status}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -549,7 +549,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=description}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -562,7 +562,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=compatibleVehicles}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>
@@ -575,7 +575,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=equivalents}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
                                             <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
                                         </TextBox>
                                     </DataTemplate>

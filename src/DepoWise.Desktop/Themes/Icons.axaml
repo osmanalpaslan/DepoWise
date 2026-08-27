@@ -1,0 +1,74 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      Alpnex masaüstü ikon seti — 24x24 ızgara, dolu gövde, tek renk.
+      Renk TAŞIMAZ: kullanan PathIcon'un Foreground'unu miras alır, böylece açık/koyu temada
+      ve aktif/pasif durumda aynı geometri kullanılır.
+      Web tarafını ETKİLEMEZ; yalnız DepoWise.Desktop içinde kullanılır.
+    -->
+
+    <!-- Uyarılar -->
+    <StreamGeometry x:Key="IconAlerts">M12 2.6c-3.1 0-5.6 2.5-5.6 5.6v3.1L4.7 14a1 1 0 0 0 .8 1.6h13a1 1 0 0 0 .8-1.6l-1.7-2.7V8.2c0-3.1-2.5-5.6-5.6-5.6Zm0 18.8a2.6 2.6 0 0 0 2.5-1.9H9.5a2.6 2.6 0 0 0 2.5 1.9Z</StreamGeometry>
+    <!-- Malzemeler -->
+    <StreamGeometry x:Key="IconMaterials">M12 2.3 21 6.9l-9 4.6-9-4.6 9-4.6Z M2.6 8.7l8.5 4.3v8.4L2.6 17.1V8.7Z M12.9 13l8.5-4.3v8.4l-8.5 4.3V13Z</StreamGeometry>
+    <!-- Araçlar -->
+    <StreamGeometry x:Key="IconVehicles">M3.7 5.6h8a1.1 1.1 0 0 1 1.1 1.1v8.5H2.6V6.7a1.1 1.1 0 0 1 1.1-1.1Z M14.1 8.4h2.6c.4 0 .8.2 1 .5l2.5 3.1c.2.3.3.6.3.9v2.3h-6.4V8.4Z M6.6 15.6a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z M17 15.6a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z</StreamGeometry>
+    <!-- Günlük Faaliyet -->
+    <StreamGeometry x:Key="IconDailyActivity">M5.6 4.6h12.8a1.4 1.4 0 0 1 1.4 1.4v14.2a1.4 1.4 0 0 1-1.4 1.4H5.6a1.4 1.4 0 0 1-1.4-1.4V6a1.4 1.4 0 0 1 1.4-1.4Zm2.2 6.6h8.4v2.2H7.8v-2.2Zm0 4.6h5.6v2.2H7.8v-2.2Z M9.4 1.8h5.2a1.2 1.2 0 0 1 1.2 1.2v1.2H8.2V3a1.2 1.2 0 0 1 1.2-1.2Z</StreamGeometry>
+    <!-- Bakım Takibi -->
+    <StreamGeometry x:Key="IconMaintenance">M21.3 6.1a5.8 5.8 0 0 1-7.6 6.9l-6.3 6.3a2.2 2.2 0 1 1-3.1-3.1l6.3-6.3a5.8 5.8 0 0 1 6.9-7.6l-3.4 3.4a1 1 0 0 0 0 1.4l2.4 2.4a1 1 0 0 0 1.4 0l3.4-3.4Z</StreamGeometry>
+    <!-- Yakıt -->
+    <StreamGeometry x:Key="IconFuel">M4.6 4a1.4 1.4 0 0 1 1.4-1.4h5.6A1.4 1.4 0 0 1 13 4v15.8h1.3v1.9H3.3v-1.9h1.3V4Zm2 1.3v4h4.4v-4H6.6Z M14.9 6.4l1.4-1.4 3 3c.5.5.8 1.2.8 1.9v5.8a.9.9 0 0 0 1.8 0v-4h1.7v4a2.6 2.6 0 0 1-5.2 0v-5.8c0-.2-.1-.4-.2-.6l-3.3-2.9Z</StreamGeometry>
+    <!-- Talepler -->
+    <StreamGeometry x:Key="IconRequests">M6 2.4h7.6L19 7.8v12.4a1.4 1.4 0 0 1-1.4 1.4H6a1.4 1.4 0 0 1-1.4-1.4V3.8A1.4 1.4 0 0 1 6 2.4Zm7.8 1.8v3.8h3.8l-3.8-3.8ZM7.8 12.6h8.4v2.2H7.8v-2.2Zm0 4.2h5.4v2.2H7.8v-2.2Z</StreamGeometry>
+    <!-- Ön Muhasebe -->
+    <StreamGeometry x:Key="IconAccounting">M5.6 2.4h12.8v19l-3.2-2.4-3.2 2.4-3.2-2.4-3.2 2.4v-19Zm2.6 4.2h7.6v2.2H8.2V6.6Zm0 4.4h7.6v2.2H8.2V11Zm0 4.4h4.8v2.2H8.2v-2.2Z</StreamGeometry>
+    <!-- Operasyon Raporları -->
+    <StreamGeometry x:Key="IconReportsOps">M4 19.8h16v1.8H4v-1.8Zm1.4-8.4h3.4v7.2H5.4v-7.2Zm5.2-5.2h3.4v12.4h-3.4V6.2Zm5.2 2.8h3.4v9.6h-3.4V9Z</StreamGeometry>
+    <!-- Yönetici Raporları -->
+    <StreamGeometry x:Key="IconReportsManager">M20.6 6.4h-5.2v1.9h2l-4.6 4.6-3.5-3.5-6.1 6.1 1.3 1.3 4.8-4.8 3.5 3.5 5.9-5.9v2.1h1.9V6.4Z M4 19.4h16v1.8H4v-1.8Z</StreamGeometry>
+    <!-- Şube ve Personel -->
+    <StreamGeometry x:Key="IconBranches">M3.4 21.4V8.6l6.6-3.4v3.2l6.6-3.4v16.4H3.4Zm2-1.9h3.2v-3H5.4v3Zm0-4.8h3.2v-3H5.4v3Zm5.2 4.8h4.2v-3h-4.2v3Zm0-4.8h4.2v-3h-4.2v3Z</StreamGeometry>
+    <!-- Kullanıcı Yönetimi -->
+    <StreamGeometry x:Key="IconUsers">M9.2 11.6a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8Z M9.2 13.4c-3.6 0-6.6 2.1-6.6 4.7v2.5h13.2v-2.5c0-2.6-3-4.7-6.6-4.7Z M17.6 11.2a2.9 2.9 0 1 0 0-5.8 2.9 2.9 0 0 0 0 5.8Z M17.4 13.2c-.4 0-.8 0-1.2.1 1 1.2 1.6 2.7 1.6 4.3v3h3.6v-2.9c0-2.5-1.8-4.5-4-4.5Z</StreamGeometry>
+    <!-- Denetim -->
+    <StreamGeometry x:Key="IconAudit">M10.6 3a7.6 7.6 0 1 0 4.6 13.6l4.6 4.6 1.8-1.8-4.6-4.6A7.6 7.6 0 0 0 10.6 3Zm0 2.2a5.4 5.4 0 1 1 0 10.8 5.4 5.4 0 0 1 0-10.8Z</StreamGeometry>
+    <!-- Web Yönetimi -->
+    <StreamGeometry x:Key="IconWebAdmin">M12 2.2 3.8 5.6v6c0 5 3.5 9.4 8.2 10.4 4.7-1 8.2-5.4 8.2-10.4v-6L12 2.2Zm-1 13.6L7.4 12.2l1.5-1.5 2.1 2.1 4.1-4.1 1.5 1.5-5.6 5.6Z</StreamGeometry>
+    <!-- Yedekleme -->
+    <StreamGeometry x:Key="IconBackup">M12 2.4c-4.4 0-7.6 1.3-7.6 3.1S7.6 8.6 12 8.6s7.6-1.3 7.6-3.1S16.4 2.4 12 2.4Z M19.6 9.2c-1.7 1.1-4.5 1.7-7.6 1.7s-5.9-.6-7.6-1.7v2.4c0 1.8 3.2 3.1 7.6 3.1s7.6-1.3 7.6-3.1V9.2Z M19.6 15.2c-1.7 1.1-4.5 1.7-7.6 1.7s-5.9-.6-7.6-1.7v2.4c0 1.8 3.2 3.1 7.6 3.1s7.6-1.3 7.6-3.1v-2.4Z</StreamGeometry>
+    <!-- Çöp Kutusu -->
+    <StreamGeometry x:Key="IconTrash">M9.4 2.6h5.2l1 1.4h3.8v1.9H4.6V4h3.8l1-1.4Z M6 7.4h12l-.9 12.6a1.4 1.4 0 0 1-1.4 1.3H8.3a1.4 1.4 0 0 1-1.4-1.3L6 7.4Zm3.7 2.6v8.6h1.9V10H9.7Zm3.1 0v8.6h1.9V10h-1.9Z</StreamGeometry>
+    <!-- Ayarlar -->
+    <StreamGeometry x:Key="IconSettings">M3.4 6.2h5v2h-5v-2Zm10.6 0h6.6v2H14v-2Z M9.4 3.6h3.2a.9.9 0 0 1 .9.9v4.4a.9.9 0 0 1-.9.9H9.4a.9.9 0 0 1-.9-.9V4.5a.9.9 0 0 1 .9-.9Z M3.4 15.8h6.2v2H3.4v-2Zm12.4 0h4.8v2h-4.8v-2Z M11.4 13.2h3.2a.9.9 0 0 1 .9.9v4.4a.9.9 0 0 1-.9.9h-3.2a.9.9 0 0 1-.9-.9v-4.4a.9.9 0 0 1 .9-.9Z</StreamGeometry>
+
+    <!-- ═══ EKRAN EYLEMLERİ ═══ -->
+    <!-- Ana Ekran -->
+    <StreamGeometry x:Key="IconHome">M12 2.8 2.6 10.6l1.3 1.5 1.1-.9v9.4h5.4v-5.8h3.2v5.8h5.4v-9.4l1.1.9 1.3-1.5L12 2.8Z</StreamGeometry>
+    <!-- Eşitle -->
+    <StreamGeometry x:Key="IconSync">M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z</StreamGeometry>
+    <!-- Yeni Kayıt -->
+    <StreamGeometry x:Key="IconAdd">M10.9 4h2.2v6.9H20v2.2h-6.9V20h-2.2v-6.9H4v-2.2h6.9V4Z</StreamGeometry>
+    <!-- Düzenle -->
+    <StreamGeometry x:Key="IconEdit">M3.6 17.1 15.2 5.5l3.3 3.3L6.9 20.4H3.6v-3.3Z M16.6 4.1l1.7-1.7a1 1 0 0 1 1.4 0l1.9 1.9a1 1 0 0 1 0 1.4l-1.7 1.7-3.3-3.3Z</StreamGeometry>
+    <!-- Sil -->
+    <StreamGeometry x:Key="IconDelete">M9.4 2.6h5.2l1 1.4h3.8v1.9H4.6V4h3.8l1-1.4Z M6 7.4h12l-.9 12.6a1.4 1.4 0 0 1-1.4 1.3H8.3a1.4 1.4 0 0 1-1.4-1.3L6 7.4Zm3.7 2.6v8.6h1.9V10H9.7Zm3.1 0v8.6h1.9V10h-1.9Z</StreamGeometry>
+    <!-- Filtrele -->
+    <StreamGeometry x:Key="IconFilter">M3.6 5.2A.9.9 0 0 1 4.4 4h15.2a.9.9 0 0 1 .7 1.5l-5.7 6.6v5.6a.9.9 0 0 1-.5.8l-3 1.4a.9.9 0 0 1-1.3-.8v-7L3.8 6.1a.9.9 0 0 1-.2-.9Z</StreamGeometry>
+    <!-- Kolonlar -->
+    <StreamGeometry x:Key="IconColumns">M3.4 4h4.2v16H3.4V4Zm5.6 0h6v16H9V4Zm7.4 0h4.2v16h-4.2V4Z</StreamGeometry>
+    <!-- Excel'e Aktar -->
+    <StreamGeometry x:Key="IconExportExcel">M12 2.6l4.6 4.6-1.6 1.6-1.9-1.9v7.7h-2.2V6.9L9 8.8 7.4 7.2 12 2.6Z M4 14.6h2.2v4.6h11.6v-4.6H20v6.8H4v-6.8Z</StreamGeometry>
+    <!-- İçe Aktar -->
+    <StreamGeometry x:Key="IconImportExcel">M12 15.4 7.4 10.8 9 9.2l1.9 1.9V3.4h2.2v7.7L15 9.2l1.6 1.6L12 15.4Z M4 14.6h2.2v4.6h11.6v-4.6H20v6.8H4v-6.8Z</StreamGeometry>
+    <!-- Kullanıcı -->
+    <StreamGeometry x:Key="IconUser">M12 12.2a4.4 4.4 0 1 0 0-8.8 4.4 4.4 0 0 0 0 8.8Z M12 14.1c-4.1 0-7.4 2.4-7.4 5.3v1.2h14.8v-1.2c0-2.9-3.3-5.3-7.4-5.3Z</StreamGeometry>
+    <!-- Çıkış -->
+    <StreamGeometry x:Key="IconLogout">M10.6 3.4H4.8a1.4 1.4 0 0 0-1.4 1.4v14.4a1.4 1.4 0 0 0 1.4 1.4h5.8v-2H5.4V5.4h5.2v-2Z M15.6 6.6l-1.5 1.5 2.9 2.9H8.6v2.1h8.4l-2.9 2.9 1.5 1.5 5.4-5.4-5.4-5.5Z</StreamGeometry>
+    <!-- Onay -->
+    <StreamGeometry x:Key="IconCheck">M9.6 17.2 4.4 12l1.6-1.6 3.6 3.6 8-8 1.6 1.6-9.6 9.6Z</StreamGeometry>
+    <!-- Uyarı -->
+    <StreamGeometry x:Key="IconWarning">M12 3.2 22 20.4H2L12 3.2Zm-1.1 5.6v5.6h2.2V8.8h-2.2Zm0 7.2v2.2h2.2V16h-2.2Z</StreamGeometry>
+    <!-- Bilgi -->
+    <StreamGeometry x:Key="IconInfo">M12 2.6a9.4 9.4 0 1 0 0 18.8 9.4 9.4 0 0 0 0-18.8Zm-1.1 4.2h2.2V9h-2.2V6.8Zm0 3.9h2.2v6.5h-2.2v-6.5Z</StreamGeometry>
+</ResourceDictionary>

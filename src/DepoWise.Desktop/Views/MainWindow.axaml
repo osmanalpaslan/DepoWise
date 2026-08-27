@@ -93,15 +93,21 @@
                                         <ToggleButton Classes="NavGroup" Classes.active="{Binding IsActive}"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
-                                            <Grid ColumnDefinitions="*,Auto">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <!-- M6: vektör grup ikonu. Kaynak bulunamazsa HasIcon=false → sütun boş kalır, çökme yok.
+                                                     Panel genişliği değişmez: 16px ikon + 10px boşluk, başlık sütunu "*" olduğu için kısalır. -->
+                                                <PathIcon Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0"
+                                                          VerticalAlignment="Center"
+                                                          Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
+                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <!-- Menü metni VARYANT-DUYARLI (TextPrimaryBrush): açık modda koyu,
                                                      koyu modda açık. Kenar menü zemini de varyantla değişir (açık
                                                      modda beyaz), sabit renk açık modda görünmez oluyordu (2026-07-19). -->
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Title}"
                                                            FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
+                                                <SelectableTextBlock Grid.Column="2" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
