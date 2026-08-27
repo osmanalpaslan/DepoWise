@@ -21,6 +21,17 @@ public sealed partial class StockCountViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
 
+    /// <summary>TRH-01 — İŞLEM TARİHİ (iş günü). Varsayılan bugün. Kayıt anı (created_at) bundan
+    /// BAĞIMSIZDIR: log her zaman gerçek saati gösterir, geçmişe kayıt girilse bile.</summary>
+    [ObservableProperty] private DateTimeOffset? _docDate = new DateTimeOffset(DateTime.Today);
+
+    /// <summary>Kullanıcı tarihi değiştirebilir mi (btn-backdate). Yetki yoksa alan kilitlenir;
+    /// asıl kapı sunucudadır (DateEntryPolicy) — arayüz kilidi güvenlik sayılmaz.</summary>
+    public bool CanBackDate => DateEntryPolicy.Serbest(_session);
+    public string DocDateHint => CanBackDate
+        ? "İşlemin gerçekten yapıldığı gün. Geçmiş veya ileri tarih seçebilirsiniz; kaydın sisteme girildiği an ayrıca loglanır."
+        : "Geri/ileri tarihli işlem yetkiniz yok — tarih bugüne sabitlidir.";
+
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
     public ObservableCollection<StockMovementRow> Adjustments { get; } = new();
 
@@ -220,7 +231,8 @@ public sealed partial class StockCountViewModel : ViewModelBase
             // 🔴 STK-05 (D-1): branchId eskiden HİÇ gönderilmiyordu → fark ATANMAMIŞ kovasına yazılıyor,
             // kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
             DesktopServices.Stock.Count(_session, lines, Reason.Trim(), Guid.NewGuid().ToString("N"),
-                branchId: CountLocationId);
+                branchId: CountLocationId,
+                docDate: DocDate?.ToUnixTimeMilliseconds());   // TRH-01: iş günü (created_at DEĞİL)
             Status = lines.Count == 1
                 ? "Sayım kaydedildi (fark stoğa yansıdı)."
                 : $"Sayım kaydedildi ({lines.Count} malzeme, tek belge).";

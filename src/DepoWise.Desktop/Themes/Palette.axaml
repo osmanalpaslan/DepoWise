@@ -48,6 +48,11 @@
             <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#0D1220"/>
             <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#151B2B"/>
             <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#2A3550"/>
+
+            <!-- TRH-01: tarih alanı vurgusu. Sabit kehribar (marka) — ThemeService.ApplyAccent EZMEZ, çünkü
+                 amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
+            <SolidColorBrush x:Key="DateFieldBackgroundBrush" Color="#1E2436"/>
+            <SolidColorBrush x:Key="DateFieldBorderBrush"     Color="#6A5220"/>
         </ResourceDictionary>
 
         <!-- ============ AÇIK (Aurora) ============ -->
@@ -86,6 +91,11 @@
             <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#F1F3F8"/>
             <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#DCE1EA"/>
+
+            <!-- TRH-01: tarih alanı vurgusu. Sabit kehribar (marka) — ThemeService.ApplyAccent EZMEZ, çünkü
+                 amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
+            <SolidColorBrush x:Key="DateFieldBackgroundBrush" Color="#FFF8EC"/>
+            <SolidColorBrush x:Key="DateFieldBorderBrush"     Color="#E0B96A"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

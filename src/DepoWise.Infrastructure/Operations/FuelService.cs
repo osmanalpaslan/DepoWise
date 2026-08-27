@@ -80,7 +80,8 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
             cmd.AddWithValue("@fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
             cmd.AddWithValue("@inv", (object?)dto.InvoiceNo ?? DBNull.Value);
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
-            cmd.AddWithValue("@dt", dto.EntryDate ?? now);
+            // ⭐ TRH-01: farklı bir iş gününe kayıt YETKİYE bağlı; yetkisizde "şimdi"ye çekilir.
+            cmd.AddWithValue("@dt", DateEntryPolicy.Uygula(s, dto.EntryDate) ?? now);
             cmd.AddWithValue("@op", operationId);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
@@ -134,7 +135,8 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now
             cmd.AddWithValue("@fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
             cmd.AddWithValue("@pers", (object?)dto.PersonnelId ?? DBNull.Value);
             cmd.AddWithValue("@rec", (object?)dto.RecipientPersonnelId ?? DBNull.Value);
-            cmd.AddWithValue("@dt", dto.DistributionDate ?? now);
+            // ⭐ TRH-01: farklı bir iş gününe kayıt YETKİYE bağlı; yetkisizde "şimdi"ye çekilir.
+            cmd.AddWithValue("@dt", DateEntryPolicy.Uygula(s, dto.DistributionDate) ?? now);
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
             cmd.AddWithValue("@op", operationId);
             cmd.AddWithValue("@now", now);

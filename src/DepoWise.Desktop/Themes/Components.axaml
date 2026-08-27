@@ -270,14 +270,32 @@
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
     </Style>
 
+    <!-- ⭐ TRH-01 (kullanıcı isteği 2026-08-27) — TARİH ALANI KEHRİBAR.
+         Gerekçe: işlem tarihi raporların belkemiği; kullanıcı formda bu alanı BİR BAKIŞTA görmeli ve
+         gerekiyorsa değiştirmeli. Bu yüzden tarih alanı diğer girdilerden ayrışır: kehribar çerçeve,
+         hafif kehribar zemin ve kehribar takvim ikonu. Ölçüler (yükseklik/köşe/punto) DEĞİŞMEDİ →
+         hiçbir form yerleşimi kaymaz. Renk sabittir (marka kehribarı), aksan seçiminden etkilenmez. -->
     <Style Selector="DatePicker.Field">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DateFieldBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DateFieldBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="11"/>
         <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+    </Style>
+    <!-- İçteki metin kutusu ve takvim düğmesi de aynı dili konuşur (kutu içi zemin şeffaf kalır). -->
+    <Style Selector="DatePicker.Field /template/ Button">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="DatePicker.Field:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <!-- Tarih DEĞİŞTİRİLEMEZ olduğunda (geri/ileri tarih yetkisi yok): sessiz görünüm, kehribar vurgu YOK. -->
+    <Style Selector="DatePicker.Field:disabled">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="Opacity" Value="0.75"/>
     </Style>
 
     <!-- Sabit-tanım (lookup) seçim alanı görünümü (LookupBox, Prompt 1 2026-08-08) — ComboBox.Field ile eş. -->

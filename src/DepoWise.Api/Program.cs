@@ -1385,7 +1385,8 @@ app.MapPost("/api/stock/distribute", (HttpContext c, StockDistributeDto d) =>
     var lines = (d.Lines ?? new()).Select(l =>
         new DepoWise.Infrastructure.Materials.StockLine(l.MaterialId, l.Quantity)).ToList();
     var res = svc.Stock.DistributeUnassigned(s, lines, d.ToLocationId ?? "",
-        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note));
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note),
+        docDate: d.DocDate);   // TRH-01
     return Results.Ok(new { ok = true, documentId = res.DocumentId, documentNo = res.DocNo });
 }).RequireAuthorization();
 
@@ -1413,7 +1414,8 @@ app.MapPost("/api/stock/count", (HttpContext c, StockCountDto d) =>
     var lines = (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Materials.CountLine(l.MaterialId, l.CountedQuantity)).ToList();
     // G1-05(a): istemcinin jetonu varsa kullanılır (tekrar gönderimde çift belge olmaz); yoksa eski davranış.
     svc.Stock.Count(s, lines, string.IsNullOrWhiteSpace(d.Reason) ? "Sayım" : d.Reason!,
-        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.BranchId);
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.BranchId,
+        docDate: d.DocDate);   // TRH-01: kayit ani (created_at) DEGISMEZ, yalniz is gunu tasinir
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -3409,6 +3411,15 @@ app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.PermissionTemplates.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Sistem Logu (audit) — Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06) ──
+// ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRANA ÖZEL KAYIT GEÇMİŞİ.
+// Sistem Logu (/api/audit) firmanın TAMAMIDIR; bu uç YALNIZ istenen ekranın varlık tiplerini döner
+// (ScreenAuditMap). İki kapı birden servistedir: btn-screen-log + ekranın kendi modülünde View.
+// Eşlemesi olmayan modül BOŞ döner — sessizce tüm loga DÜŞMEZ.
+app.MapGet("/api/audit/screen", (HttpContext c, string module, long? from, long? to, int? limit) =>
+    S(c) is { } s
+        ? Results.Ok(svc.AuditLog.ForModule(s, module ?? "", from, to, limit is > 0 ? limit.Value : 200))
+        : Results.Unauthorized()).RequireAuthorization();
+
 app.MapGet("/api/audit", (HttpContext c, long? from, long? to, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.AuditLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
 
@@ -3726,7 +3737,8 @@ record BranchDto(string Name, string? Kind, string? ParentId, string? Code = nul
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin
 // tekrarında ikinci belge oluşmaz) devreye girer; göndermezse eski davranış aynen sürer (yeni GUID).
-record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null);
+record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null,
+    long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record DeveloperDto(string? Code, bool Active);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
 // KLT-01d: Version = düzenleme kilidi jetonu (material_templates.version); 0/eksik → kontrol yok.
@@ -3751,7 +3763,8 @@ record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchI
 record StockReverseDto(string DocumentId, string? Reason);
 /// <summary>STK-08 — ATANMAMIŞ stok dağıtımı. KAYNAK ALANI YOKTUR: kaynak daima ATANMAMIŞ'tır
 /// (istemcinin kaynak göndermesine izin verilmez — KARAR T-1).</summary>
-record StockDistributeDto(string? ToLocationId, List<StockLineDto>? Lines, string? OperationId, string? Note);
+record StockDistributeDto(string? ToLocationId, List<StockLineDto>? Lines, string? OperationId, string? Note,
+    long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);

@@ -72,20 +72,19 @@ public class ButtonPermissionCatalogTests
         return adlar;
     }
 
-    /// <summary>Sabit adı → anahtar değeri (ör. Reverse → btn-reverse).</summary>
-    private static string AnahtarFor(string sabitAdi) => sabitAdi switch
-    {
-        nameof(SpecialButtons.Reverse) => SpecialButtons.Reverse,
-        nameof(SpecialButtons.RestoreTrash) => SpecialButtons.RestoreTrash,
-        nameof(SpecialButtons.ResetDatabase) => SpecialButtons.ResetDatabase,
-        nameof(SpecialButtons.ChangeCompanyLogo) => SpecialButtons.ChangeCompanyLogo,
-        nameof(SpecialButtons.AddLookup) => SpecialButtons.AddLookup,
-        nameof(SpecialButtons.ExportReports) => SpecialButtons.ExportReports,
-        nameof(SpecialButtons.ExportManagerReports) => SpecialButtons.ExportManagerReports,
-        nameof(SpecialButtons.BranchSelect) => SpecialButtons.BranchSelect,
-        nameof(SpecialButtons.Approve) => SpecialButtons.Approve,
-        _ => sabitAdi,
-    };
+    /// <summary>
+    /// Sabit adı → anahtar değeri (ör. <c>Reverse</c> → <c>btn-reverse</c>).
+    ///
+    /// ⚠️ Eskiden elle yazılmış bir <c>switch</c>'ti ve YENİ BUTON EKLENDİĞİNDE güncellenmesi
+    /// gerekiyordu; unutulduğunda ad çözülemiyor, buton "kodda kapısı yok" sanılıyor ve test
+    /// GERÇEK OLMAYAN bir hata veriyordu (TRH-01/LOG-01'de tam olarak bu oldu). Artık değer
+    /// <see cref="SpecialButtons"/> üzerinden YANSIMAYLA okunur → liste kendini bakar, sapma olamaz.
+    /// </summary>
+    private static string AnahtarFor(string sabitAdi)
+        => typeof(SpecialButtons).GetField(sabitAdi,
+               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+               ?.GetRawConstantValue() as string
+           ?? sabitAdi;
 
     /// <summary>⭐ YET-02 — kodda kapı olan HER buton yetki ağacında da olmalı (yoksa devredilemez).</summary>
     [Fact]

@@ -1,457 +1,315 @@
-using System.Text.Json;
-using ClosedXML.Excel;
 using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Operations;
 using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Security;
-using DepoWise.Infrastructure.Sync;
+using DepoWise.Infrastructure.Vehicles;
 using Xunit;
 
 namespace DepoWise.Tests;
 
 /// <summary>
-/// ═══ STK-11 — İŞLEM TARİHİ ile KAYIT ZAMANI AYRIMI ═══ (kullanıcı isteği 2026-08-26)
+/// ═══ TRH-01 — İŞLEM TARİHİ ile KAYIT ANI AYRIMI ═══ (kullanıcı isteği 2026-08-27)
 ///
-/// <b>İSTENEN.</b> Kullanıcı bugün (26.08) otururken 25.08 tarihli bir malzeme girişi ya da 30.08
-/// tarihli planlanmış bir hareket kaydedebilmeli — ama <b>kaydı bugün attığı gerçeği kaybolmamalı</b>.
+/// <b>Kullanıcının istediği kural.</b> <i>"Log tarihi ve kayıt tarihi ayrı olmalı. Log üzerinden
+/// gerçekten kaydı ne zaman eklediğini görebilmeliyiz. Ama tarih iş gereği ileri veya geri tarihli
+/// olabilir."</i>
 ///
-/// <b>İKİ ZAMAN, KESİN AYRIM:</b>
-/// <list type="bullet">
-///   <item><b>İşlem tarihi</b> — hareketin ait olduğu iş günü. Kullanıcı seçer, geçmiş/gelecek serbest.
-///         Sütun: <c>stock_documents.doc_date</c>. Ekran + rapor + Excel bunu gösterir/süzer.</item>
-///   <item><b>Kayıt zamanı</b> — kaydın sisteme gerçekten girildiği an. Kullanıcı DEĞİŞTİREMEZ.
-///         Sütun: <c>stock_movements.created_at</c> ve audit kaydı. Sunucu saatinden yazılır.</item>
+/// Buradan iki DEĞİŞMEZ çıkar ve bu sınıf ikisini de kilitler:
+/// <list type="number">
+///   <item><b>İşlem tarihi</b> (<c>doc_date</c> / <c>entry_date</c> / <c>distribution_date</c>) kullanıcının
+///   seçtiği İŞ GÜNÜDÜR; geçmiş ya da gelecek olabilir. <b>Raporlar buna göre süzer.</b></item>
+///   <item><b>Kayıt anı</b> (<c>created_at</c>) kullanıcının seçiminden ETKİLENMEZ; daima gerçek saattir.
+///   Geçmişe kayıt girilse bile "ne zaman girildi" izlenebilir kalır.</item>
 /// </list>
 ///
-/// <b>MIGRATION AÇILMADI.</b> Şema zaten bu ayrımı taşıyordu: <c>stock_documents</c> tablosunda
-/// <c>doc_date</c> ve <c>created_at</c> ayrı sütunlar (Migration006) ve <c>StockService</c>'in tüm
-/// giriş noktaları (<c>ReceiveIn/IssueOut/Transfer/Count</c>) baştan beri opsiyonel bir
-/// <c>docDate</c> parametresi alıyordu. Eksik olan yalnız arayüz ve API alanıydı. Şema <b>72'de kaldı</b>.
+/// Ayrıca geri/ileri tarih bir <b>YETKİDİR</b> (<see cref="SpecialButtons.BackDate"/>): yetkisiz kullanıcının
+/// gönderdiği tarih sunucuda yok sayılır — arayüz kilidi güvenlik sayılmaz.
 ///
-/// <b>GEÇMİŞ VERİ GÜVENDE.</b> Bu tur öncesi hiçbir çağıran <c>docDate</c> göndermiyordu
-/// (<c>RunDocumentInTx</c>: <c>date = docDate ?? now</c>, <c>created_at = now</c> — aynı değişken),
-/// yani mevcut TÜM satırlarda <c>doc_date == created_at</c>. Aşağıdaki
-/// <see cref="IST11_Tarih_Verilmezse_Eski_Davranis_Aynen_Surer"/> bunu kilitler.
+/// 🔒 Tamamen yerel SQLite; canlı veriye dokunmaz.
 /// </summary>
 public class IslemTarihiTests : IDisposable
 {
-    private readonly string _localPath, _serverPath;
-    private readonly SqliteConnectionFactory _local, _server;
+    private const string Co = "TRH";
+    private readonly string _dbPath;
+    private readonly SqliteConnectionFactory _f;
     private readonly TestClock _clock = new();
     private readonly StockService _stock;
+    private readonly FuelService _fuel;
     private readonly ReportService _reports;
-    private readonly ExcelExportService _excel = new();
-    private readonly SessionContext _oturum;
-    /// <summary>Şube kapsamı OLMAYAN oturum — transferin İKİ bacağını da görebilmek için.</summary>
-    private readonly SessionContext _firmaGeneli;
-    private readonly string _depoA, _depoB, _mat;
+    private readonly SessionContext _yetkili, _yetkisiz;
+    private readonly string _depo, _depo2, _mat, _arac;
 
-    /// <summary>Kayıt zamanı ("bugün"): 26.08.2026 14:00 UTC.</summary>
-    private const long Bugun = 1_787_407_200_000;
-    private const long Gun = 86_400_000L;
+    /// <summary>Kayıt anı olarak kullanılacak "şimdi" — 15.11.2023.</summary>
+    private const long Simdi = 1_700_000_000_000;
+    /// <summary>İşlem tarihi olarak seçilen GEÇMİŞ gün — 60 gün önce.</summary>
+    private static readonly long Gecmis = Simdi - 60L * 86_400_000;
+    /// <summary>İşlem tarihi olarak seçilen GELECEK gün — 10 gün sonra.</summary>
+    private static readonly long Gelecek = Simdi + 10L * 86_400_000;
 
-    /// <summary>İşlem tarihi olarak seçilen GEÇMİŞ gün (kabaca 25.08.2026 00:00).</summary>
-    private static readonly long GecmisGun = GunBasi(Bugun - Gun);
-    /// <summary>İşlem tarihi olarak seçilen GELECEK gün (kabaca 30.08.2026 00:00).</summary>
-    private static readonly long GelecekGun = GunBasi(Bugun + 4 * Gun);
-
-    private static long GunBasi(long ms)
+    private sealed class TestClock : IClock
     {
-        var d = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime.Date;
-        return new DateTimeOffset(d, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.FromUnixTimeMilliseconds(Simdi);
+        public void Advance(long ms) => UtcNow = UtcNow.AddMilliseconds(ms);
     }
 
     public IslemTarihiTests()
     {
-        _localPath = Path.Combine(Path.GetTempPath(), "dw_stk11_" + Guid.NewGuid().ToString("N") + ".db");
-        _serverPath = Path.Combine(Path.GetTempPath(), "dw_stk11_srv_" + Guid.NewGuid().ToString("N") + ".db");
-        _local = new SqliteConnectionFactory(_localPath);
-        _server = new SqliteConnectionFactory(_serverPath);
-        new MigrationRunner(_local).Run();
-        new MigrationRunner(_server).Run();
-        Seed(_local); Seed(_server);
+        _dbPath = Path.Combine(Path.GetTempPath(), "dw_trh_" + Guid.NewGuid().ToString("N") + ".db");
+        _f = new SqliteConnectionFactory(_dbPath);
+        new MigrationRunner(_f).Run();
+        using (var conn = _f.Create())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@i,@i,1,1,1,0);";
+            cmd.AddWithValue("@i", Co);
+            cmd.ExecuteNonQuery();
+        }
 
-        _stock = new StockService(_local, _clock);
-        _reports = new ReportService(_local);
-        var users = new UserService(_local, _clock);
-        var uid = users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
-        var yonetici = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
-        var branches = new BranchService(_local, _clock);
-        _depoA = branches.Create(yonetici, new NewBranch("Depo A"));
-        _depoB = branches.Create(yonetici, new NewBranch("Depo B"));
-        _mat = new MaterialService(_local, _clock).Create(yonetici, new NewMaterial("STK11-1", "Rulman"));
-        _oturum = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty)
-        { OperatingBranchId = _depoA };
-        _firmaGeneli = yonetici;
+        var users = new UserService(_f, _clock);
+        var uid = users.EnsureInitialAdmin(Co, "admin", "admin123", RoleKeys.CompanyAdmin);
+
+        // ADMİN bypass'ı testi anlamsız kılardı (admin her butonu geçer) → iki kullanıcı da PERSONEL rolünde,
+        // farkları YALNIZCA btn-backdate yetkisi. Böylece kapı gerçekten sınanır.
+        _yetkili = Oturum(uid, SpecialButtons.BackDate);
+        _yetkisiz = Oturum(uid);
+
+        var yonetici = new SessionContext(uid, Co, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        _depo = new BranchService(_f, _clock).Create(yonetici, new NewBranch("Depo A"));
+        _depo2 = new BranchService(_f, _clock).Create(yonetici, new NewBranch("Depo B"));
+        _mat = new MaterialService(_f, _clock).Create(yonetici, new NewMaterial("M-1", "Çimento"));
+        _arac = new VehicleService(_f, _clock).Create(yonetici, new NewVehicle("ARC-1", "06AA001", 2020, 100m, "km", _depo));
+
+        _stock = new StockService(_f, _clock);
+        _fuel = new FuelService(_f, _clock);
+        _reports = new ReportService(_f, _clock);
     }
 
-    private sealed class TestClock : IClock
+    /// <summary>Personel rolünde oturum; verilen özel butonlar AÇIK, diğer her şey kapalı değil —
+    /// modül izinleri tam verilir ki test yalnız TARİH kapısını ölçsün.</summary>
+    private static SessionContext Oturum(string uid, params string[] butonlar)
     {
-        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.FromUnixTimeMilliseconds(Bugun);
-        public void Advance(long ms) => UtcNow = UtcNow.AddMilliseconds(ms);
-    }
-
-    private static void Seed(SqliteConnectionFactory f)
-    {
-        using var conn = f.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('A','A',1,1,1,0);";
-        cmd.ExecuteNonQuery();
-    }
-
-    private static string Op() => "op-" + Guid.NewGuid().ToString("N");
-
-    /// <summary>Giriş kaydeder; <paramref name="islemTarihi"/> null ise kullanıcı tarih seçmemiş demektir.</summary>
-    private string Giris(decimal miktar, long? islemTarihi, string? op = null)
-        => _stock.ReceiveIn(_oturum, new[] { new StockLine(_mat, miktar) }, op ?? Op(),
-            branchId: _depoA, docDate: islemTarihi).DocumentId;
-
-    /// <summary>Belgenin (işlem tarihi, kayıt zamanı) ikilisini veritabanından OKUR.</summary>
-    private (long DocDate, long CreatedAt) BelgeZamanlari(string docId, SqliteConnectionFactory? f = null)
-    {
-        using var conn = (f ?? _local).Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT doc_date, created_at FROM stock_documents WHERE id=@i;";
-        cmd.AddWithValue("@i", docId);
-        using var r = cmd.ExecuteReader();
-        Assert.True(r.Read(), "belge bulunamadı");
-        return (r.GetInt64(0), r.GetInt64(1));
-    }
-
-    private long HareketKayitZamani(string docId)
-    {
-        using var conn = _local.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT created_at FROM stock_movements WHERE document_id=@i LIMIT 1;";
-        cmd.AddWithValue("@i", docId);
-        return (long)cmd.ExecuteScalar()!;
-    }
-
-    private IReadOnlyList<StockMovementRow> Ekran(long? from = null, long? to = null)
-        => _stock.SearchMovements(_oturum, from, to, null, null, null, null, 500);
-
-    private TableModel Rapor(long? from = null, long? to = null)
-        => _reports.Run(_oturum, "stock-movements",
-            new ReportRequest(Executed: true, FromDate: from, ToDate: to));
-
-    // ══════════════ A) TEMEL AYRIM ══════════════
-
-    /// <summary>⭐ ASIL KURAL — GEÇMİŞ tarih: işlem tarihi seçilen gün, kayıt zamanı BUGÜN.
-    /// Kullanıcı geri tarih seçerek kaydı bugün attığını GİZLEYEMEZ.</summary>
-    [Fact]
-    public void IST1_Gecmis_Tarih_Kayit_Zamanini_DEGISTIRMEZ()
-    {
-        var doc = Giris(10m, GecmisGun);
-
-        var (islem, kayit) = BelgeZamanlari(doc);
-        Assert.Equal(GecmisGun, islem);                       // hareket 25.08'e ait
-        Assert.Equal(Bugun, kayit);                           // ama BUGÜN girilmiş
-        Assert.Equal(Bugun, HareketKayitZamani(doc));         // hareket satırı da gerçek zamanı tutar
-        Assert.True(islem < kayit, "geri tarihli kayıtta işlem tarihi kayıt zamanından ÖNCE olmalı");
-    }
-
-    /// <summary>⭐ GELECEK tarih de serbest (üst sınır YOK) — planlanmış hareket girilebilir.</summary>
-    [Fact]
-    public void IST2_Gelecek_Tarih_Kabul_Edilir()
-    {
-        var doc = Giris(7m, GelecekGun);
-
-        var (islem, kayit) = BelgeZamanlari(doc);
-        Assert.Equal(GelecekGun, islem);
-        Assert.Equal(Bugun, kayit);
-        Assert.True(islem > kayit, "ileri tarihli kayıtta işlem tarihi kayıt zamanından SONRA olmalı");
-    }
-
-    /// <summary>BUGÜNÜN tarihi seçilirse de kabul edilir (varsayılan yol).</summary>
-    [Fact]
-    public void IST3_Bugun_Kabul_Edilir()
-    {
-        var bugunBasi = GunBasi(Bugun);
-        var doc = Giris(3m, bugunBasi);
-
-        var (islem, kayit) = BelgeZamanlari(doc);
-        Assert.Equal(bugunBasi, islem);
-        Assert.Equal(Bugun, kayit);
-    }
-
-    /// <summary>⭐ AUDIT — denetim kaydı GERÇEK zamanı tutar, seçilen işlem tarihini DEĞİL.
-    /// "Bugün attığım belli olsun" şartının asıl kanıtı budur.</summary>
-    [Fact]
-    public void IST4_Audit_Gercek_Zamani_Tutar()
-    {
-        var doc = Giris(10m, GecmisGun);
-
-        using var conn = _local.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT created_at FROM audit_logs WHERE entity_id=@i AND entity_type='stock_document';";
-        cmd.AddWithValue("@i", doc);
-        var auditZaman = cmd.ExecuteScalar();
-
-        Assert.NotNull(auditZaman);
-        Assert.Equal(Bugun, Convert.ToInt64(auditZaman));
-        Assert.NotEqual(GecmisGun, Convert.ToInt64(auditZaman));
-    }
-
-    // ══════════════ B) EKRAN / RAPOR / EXCEL ══════════════
-
-    /// <summary>⭐ Hareket EKRANI işlem tarihini gösterir (kayıt zamanını değil).</summary>
-    [Fact]
-    public void IST5_Ekran_Islem_Tarihini_Gosterir()
-    {
-        Giris(10m, GecmisGun);
-
-        var satir = Assert.Single(Ekran());
-        Assert.Equal(GecmisGun, satir.CreatedAt);   // alan adı eski, ANLAMI işlem tarihi (bkz. StockMovementRow)
-        Assert.Contains(DateTimeOffset.FromUnixTimeMilliseconds(GecmisGun).LocalDateTime.ToString("dd.MM.yyyy"),
-            satir.DateText);
-    }
-
-    /// <summary>⭐ RAPOR TARİH FİLTRESİ işlem tarihine göre çalışır: kullanıcı 25.08–25.08 dediğinde,
-    /// 26.08'de GİRİLMİŞ ama 25.08 tarihli hareketi GÖRÜR.</summary>
-    [Fact]
-    public void IST6_Rapor_Filtresi_Islem_Tarihini_Kullanir()
-    {
-        Giris(10m, GecmisGun);
-
-        var gunSonu = GecmisGun + Gun - 1;
-        var tablo = Rapor(GecmisGun, gunSonu);
-
-        Assert.Single(tablo.Rows);
-    }
-
-    /// <summary>⭐ Aynı hareket, KAYIT gününün aralığında ARANDIĞINDA çıkmaz — iki tarih gerçekten
-    /// ayrışmış demektir (aksi hâlde bu test de geçerdi ve ayrım sahte olurdu).</summary>
-    [Fact]
-    public void IST7_Kayit_Gunu_Araliginda_Cikmaz()
-    {
-        Giris(10m, GecmisGun);
-
-        var bugunBasi = GunBasi(Bugun);
-        var tablo = Rapor(bugunBasi, bugunBasi + Gun - 1);
-
-        Assert.Empty(tablo.Rows);
-    }
-
-    /// <summary>⭐ EXCEL çıktısı da işlem tarihini yazar (rapor ile aynı satırlar).</summary>
-    [Fact]
-    public void IST8_Excel_Islem_Tarihini_Yazar()
-    {
-        Giris(10m, GecmisGun);
-
-        var tablo = Rapor(GecmisGun, GecmisGun + Gun - 1);
-        var bayt = _excel.Export(tablo);
-        using var wb = new XLWorkbook(new MemoryStream(bayt));
-        var ws = wb.Worksheets.First();
-
-        var beklenen = DateTimeOffset.FromUnixTimeMilliseconds(GecmisGun).LocalDateTime.ToString("dd.MM.yyyy");
-        var metin = string.Join("|", ws.RowsUsed().Select(r => string.Join(",", r.Cells().Select(c => c.GetString()))));
-        Assert.Contains(beklenen, metin);
-    }
-
-    /// <summary>⭐ EKRAN ↔ RAPOR PARİTESİ korunur: ikisi de AYNI tarihi gösterir (tek kaynak
-    /// <c>StockMovementFilterSql.IslemTarihiSql</c>). Biri değişip diğeri kalırsa bu test kırılır.</summary>
-    [Fact]
-    public void IST9_Ekran_Ve_Rapor_Ayni_Tarihi_Gosterir()
-    {
-        Giris(10m, GecmisGun);
-        _clock.Advance(1000);
-        Giris(4m, GelecekGun);
-
-        var ekran = Ekran().Select(m => m.CreatedAt).OrderBy(x => x).ToList();
-        var tarihKolon = Rapor().Headers.ToList().FindIndex(h => h.Contains("Tarih", StringComparison.OrdinalIgnoreCase));
-        Assert.True(tarihKolon >= 0, "raporda Tarih kolonu bulunmalı");
-        var rapor = Rapor().Rows
-            .Select(r => DateTime.Parse(r[tarihKolon]!.ToString()!, System.Globalization.CultureInfo.GetCultureInfo("tr-TR")))
-            .OrderBy(x => x).ToList();
-
-        Assert.Equal(ekran.Count, rapor.Count);
-        for (int i = 0; i < ekran.Count; i++)
-            Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(ekran[i]).LocalDateTime.Date, rapor[i].Date);
-    }
-
-    /// <summary>⭐ SIRALAMA BİLİNÇLİ OLARAK DEĞİŞMEDİ: geri tarihli kayıt, en son girildiği için
-    /// listenin EN ÜSTÜNDE görünür. (İşlem tarihine göre sıralansaydı kullanıcı az önce kaydettiği
-    /// satırı listenin ortasında arar, "kaydedilmedi mi?" derdi.)</summary>
-    [Fact]
-    public void IST10_Az_Once_Girilen_En_Ustte_Kalir()
-    {
-        Giris(1m, GunBasi(Bugun));      // önce bugün tarihli
-        _clock.Advance(60_000);
-        Giris(2m, GecmisGun);           // sonra GERİ tarihli — ama EN SON girildi
-
-        var satirlar = Ekran();
-        Assert.Equal(2, satirlar.Count);
-        Assert.Equal(2m, satirlar[0].Quantity);   // en son girilen en üstte
-    }
-
-    // ══════════════ C) GERİYE UYUMLULUK / DİĞER TÜRLER ══════════════
-
-    /// <summary>⭐ GEÇMİŞ VERİ GÜVENDE: tarih verilmezse eski davranış birebir sürer —
-    /// işlem tarihi = kayıt zamanı. Mevcut tüm kayıtlar bu durumdadır.</summary>
-    [Fact]
-    public void IST11_Tarih_Verilmezse_Eski_Davranis_Aynen_Surer()
-    {
-        var doc = Giris(5m, null);
-
-        var (islem, kayit) = BelgeZamanlari(doc);
-        Assert.Equal(kayit, islem);
-        Assert.Equal(Bugun, islem);
-        Assert.Equal(Bugun, Assert.Single(Ekran()).CreatedAt);
-    }
-
-    /// <summary>Diğer hareket türleri de aynı sözleşmeyi kullanır — çıkış ve transfer.
-    /// Transferde İKİ bacak da AYNI belgeye bağlıdır → tek işlem tarihi taşır.</summary>
-    [Fact]
-    public void IST12_Cikis_Ve_Transfer_De_Islem_Tarihi_Tasir()
-    {
-        Giris(100m, null);   // stok oluştur
-
-        var cikis = _stock.IssueOut(_oturum, new[] { new StockLine(_mat, 5m) }, Op(),
-            branchId: _depoA, docDate: GecmisGun).DocumentId;
-        Assert.Equal(GecmisGun, BelgeZamanlari(cikis).DocDate);
-        Assert.Equal(Bugun, BelgeZamanlari(cikis).CreatedAt);
-
-        _stock.Transfer(_oturum, new[] { new StockLine(_mat, 3m) }, _depoA, _depoB, Op(),
-            docDate: GelecekGun);
-        // Şube kapsamı DOĞRU çalıştığı için _oturum (Depo A) yalnız kendi bacağını görür;
-        // iki bacağı da görmek için firma geneli oturum kullanılır (kapsam davranışı DEĞİŞMEDİ).
-        var transferSatirlari = _stock.SearchMovements(_firmaGeneli, null, null, null, null, null, null, 500)
-            .Where(m => m.MovementType == "transfer").ToList();
-        Assert.Equal(2, transferSatirlari.Count);                       // iki bacak
-        Assert.All(transferSatirlari, m => Assert.Equal(GelecekGun, m.CreatedAt));
-    }
-
-    /// <summary>⭐ STOK MUHASEBESİ DEĞİŞMEDİ (bilinçli): ileri tarihli hareket bakiyeyi
-    /// BEKLETMEDEN etkiler — mevcut iş kuralı budur ve bu turda değiştirilmedi.
-    /// Bu test, ileride biri farkında olmadan "tarihi gelince işlesin" davranışına geçerse uyarır.</summary>
-    [Fact]
-    public void IST13_Gelecek_Tarihli_Hareket_Bakiyeyi_HEMEN_Etkiler()
-    {
-        Giris(40m, GelecekGun);
-
-        var bakiye = _stock.GetBalance(_oturum, _mat);
-        Assert.Equal(40m, bakiye);
-    }
-
-    // ══════════════ D) SENKRON / OFFLINE ══════════════
-
-    /// <summary>⭐ SENKRON: çevrimdışı girilen geri tarihli hareket sunucuya taşındığında
-    /// İŞLEM TARİHİ KORUNUR; senkron zamanı onun yerine geçmez. Kayıt zamanı da korunur.</summary>
-    [Fact]
-    public void IST14_Senkron_Islem_Tarihini_ve_Kayit_Zamanini_Korur()
-    {
-        var doc = Giris(12m, GecmisGun);
-
-        _clock.Advance(3 * Gun);   // senkron GÜNLER sonra gerçekleşiyor
-        var paket = new BusinessSyncService(_local, _clock).BuildSnapshot("A");
-        using (var d = JsonDocument.Parse(paket))
-            new BusinessSyncService(_server, _clock).Apply("A", d.RootElement);
-
-        var (islem, kayit) = BelgeZamanlari(doc, _server);
-        Assert.Equal(GecmisGun, islem);   // senkron tarihi işlem tarihini EZMEDİ
-        Assert.Equal(Bugun, kayit);       // kayıt zamanı da korundu
-    }
-
-    /// <summary>⭐ AYNI paket TEKRAR gönderilirse tarihler DEĞİŞMEZ (idempotency).</summary>
-    [Fact]
-    public void IST15_Tekrar_Senkron_Tarihi_Degistirmez()
-    {
-        var doc = Giris(12m, GecmisGun);
-
-        var paket = new BusinessSyncService(_local, _clock).BuildSnapshot("A");
-        using (var d = JsonDocument.Parse(paket))
-            new BusinessSyncService(_server, _clock).Apply("A", d.RootElement);
-        var ilk = BelgeZamanlari(doc, _server);
-
-        _clock.Advance(2 * Gun);
-        using (var d = JsonDocument.Parse(paket))
-            new BusinessSyncService(_server, _clock).Apply("A", d.RootElement);
-        var ikinci = BelgeZamanlari(doc, _server);
-
-        Assert.Equal(ilk, ikinci);
-    }
-
-    /// <summary>Aynı <c>operationId</c> ile ikinci kayıt denemesi YENİ belge açmaz ve ilk
-    /// işlem tarihini korur — geri tarihli kayıtta da idempotency bozulmamalı.</summary>
-    [Fact]
-    public void IST16_Ayni_Operation_Tarihi_Degistirmez()
-    {
-        var op = Op();
-        var ilk = Giris(9m, GecmisGun, op);
-        var ikinci = Giris(9m, GelecekGun, op);   // aynı jeton, FARKLI tarih denenirse
-
-        Assert.Equal(ilk, ikinci);                                  // aynı belge döner
-        Assert.Equal(GecmisGun, BelgeZamanlari(ilk).DocDate);       // ilk tarih korunur
-        Assert.Single(Ekran());                                     // çift hareket YOK
-    }
-
-    // ══════════════ E) WEB / MASAÜSTÜ PARİTESİ (kaynak sözleşmesi) ══════════════
-
-    /// <summary>⭐ İki platform da AYNI API alanını (<c>docDate</c>) ve AYNI varsayılanı (BUGÜN)
-    /// kullanır; ikinci bir tarih mantığı yoktur.</summary>
-    [Fact]
-    public void IST17_Web_Ve_Masaustu_Ayni_Sozlesmeyi_Kullanir()
-    {
-        var kok = RepoKok();
-        var web = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Web", "Components", "Pages", "Stock.razor"));
-        var masaVm = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Desktop", "ViewModels", "StockEntryViewModel.cs"));
-        var masaView = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Desktop", "Views", "StockEntryView.axaml"));
-        var api = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Api", "Program.cs"));
-
-        // Web: ALAN TANIMI varsayılanı BUGÜN olmalı (yalnız "metin geçiyor mu" değil — mutasyon
-        // turunda M8 tam bu zayıflıktan kaçmıştı: ClearForm içindeki aynı metin testi geçiriyordu).
-        Assert.Matches(@"private\s+DateTime\?\s+_docDate\s*=\s*DateTime\.Today\s*;", web);
-        Assert.Contains("İşlem Tarihi", web);
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(web, @"docDate = DocDateMs\(\)").Count);
-
-        // Masaüstü: ALAN TANIMI varsayılanı BUGÜN + üç kaydetme yolunun üçünde de gönderiliyor
-        Assert.Matches(@"private\s+DateTimeOffset\?\s+_docDate\s*=\s*new DateTimeOffset\(DateTime\.Today\)\s*;", masaVm);
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(masaVm, @"docDate: DocDate\?\.ToUnixTimeMilliseconds\(\)").Count);
-        Assert.Contains("Label=\"İşlem Tarihi\"", masaView);
-
-        // API: üç ucun üçü de DTO'daki tarihi servise geçiriyor
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(api, @"docDate: d\.DocDate").Count);
-    }
-
-    /// <summary>⭐ Ekran ve rapor tarihi TEK kaynaktan alır — iki sorguya ayrı ayrı yazılırsa
-    /// sessizce ayrışabilirlerdi.</summary>
-    [Fact]
-    public void IST18_Tarih_Ifadesi_Tek_Kaynaktan_Gelir()
-    {
-        var kok = RepoKok();
-        var servis = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Infrastructure", "Materials", "StockService.cs"));
-        var rapor = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Infrastructure", "Reporting", "ReportService.cs"));
-
-        Assert.Equal("COALESCE(d.doc_date, sm.created_at)", StockMovementFilterSql.IslemTarihiSql);
-        Assert.Contains("StockMovementFilterSql.IslemTarihiSql", servis);
-        Assert.Contains("StockMovementFilterSql.IslemTarihiSql", rapor);
-        // Ham sütun adı, tarih filtresine/gösterimine ELLE yazılmış olmamalı.
-        Assert.DoesNotContain("DateFilter(req, \"sm.created_at\")", rapor);
-    }
-
-    /// <summary>⭐ ŞEMA 72'DE KALDI — bu özellik için yeni migration açılmadı.</summary>
-    [Fact]
-    public void IST19_Yeni_Migration_Acilmadi()
-    {
-        var enSon = MigrationCatalog.All().Max(m => m.Version);
-        Assert.Equal(72, enSon);
-    }
-
-    private static string RepoKok()
-    {
-        var d = new DirectoryInfo(AppContext.BaseDirectory);
-        while (d is not null && !File.Exists(Path.Combine(d.FullName, "DepoWise.sln"))) d = d.Parent;
-        return d?.FullName ?? throw new InvalidOperationException("Depo kökü bulunamadı.");
+        var izin = new PermissionSet(
+            new[]
+            {
+                new ModulePermission("stock", true, true, true, false),
+                new ModulePermission("fuel", true, true, true, false),
+                new ModulePermission("materials", true, false, false, false),
+                new ModulePermission("reports", true, false, false, false),
+            },
+            butonlar);
+        return new SessionContext(uid, Co, new[] { RoleKeys.Staff }, izin);
     }
 
     public void Dispose()
     {
-        try { File.Delete(_localPath); } catch { }
-        try { File.Delete(_serverPath); } catch { }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try { File.Delete(_dbPath); } catch { }
+    }
+
+    private static string Op() => "op-" + Guid.NewGuid().ToString("N");
+
+    private (long DocDate, long CreatedAt) BelgeTarihleri()
+    {
+        using var conn = _f.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT doc_date, created_at FROM stock_documents ORDER BY rowid DESC LIMIT 1;";
+        using var r = cmd.ExecuteReader();
+        Assert.True(r.Read(), "Belge oluşmamış.");
+        return (r.GetInt64(0), r.GetInt64(1));
+    }
+
+    // ══════════════ 1) TEMEL AYRIM: iş günü ile kayıt anı ══════════════
+
+    /// <summary>⭐ ASIL KURAL: seçilen işlem tarihi belgeye yazılır, kayıt anı GERÇEK saat kalır.
+    /// Yani geçmişe kayıt girilse bile logdan "ne zaman girildiği" okunabilir.</summary>
+    [Theory]
+    [InlineData("giris")]
+    [InlineData("cikis")]
+    [InlineData("sayim")]
+    [InlineData("dagitim")]
+    public void TRH1_Islem_Tarihi_ile_Kayit_Ani_Ayri_Yazilir(string islem)
+    {
+        // Önce stok koy (çıkış/dağıtım için gerekli) — bu hazırlık kaydı ölçüme girmesin diye önce yapılır.
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 100m) }, Op(), branchId: _depo);
+
+        switch (islem)
+        {
+            case "giris":
+                _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 5m) }, Op(), branchId: _depo, docDate: Gecmis);
+                break;
+            case "cikis":
+                _stock.IssueOut(_yetkili, new[] { new StockLine(_mat, 5m) }, Op(), branchId: _depo, docDate: Gecmis);
+                break;
+            case "sayim":
+                _stock.Count(_yetkili, new[] { new CountLine(_mat, 90m) }, "sayım", Op(), branchId: _depo, docDate: Gecmis);
+                break;
+            case "dagitim":
+                _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 10m) }, Op());   // ATANMAMIŞ kovasına
+                _stock.DistributeUnassigned(_yetkili, new[] { new StockLine(_mat, 3m) }, _depo2, Op(), docDate: Gecmis);
+                break;
+        }
+
+        var (docDate, createdAt) = BelgeTarihleri();
+        Assert.Equal(Gecmis, docDate);      // iş günü = kullanıcının seçtiği
+        Assert.Equal(Simdi, createdAt);     // kayıt anı = gerçek saat (DEĞİŞMEDİ)
+        Assert.NotEqual(docDate, createdAt);
+    }
+
+    /// <summary>İleri tarih de aynı kuralla çalışır — iş gereği gelecek tarihli işlem meşrudur.</summary>
+    [Fact]
+    public void TRH2_Ileri_Tarihli_Islem_Kabul_Edilir()
+    {
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 7m) }, Op(), branchId: _depo, docDate: Gelecek);
+        var (docDate, createdAt) = BelgeTarihleri();
+        Assert.Equal(Gelecek, docDate);
+        Assert.Equal(Simdi, createdAt);
+    }
+
+    /// <summary>Tarih verilmezse "şimdi" kullanılır — eski davranış korunur.</summary>
+    [Fact]
+    public void TRH3_Tarih_Verilmezse_Simdi()
+    {
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 4m) }, Op(), branchId: _depo);
+        var (docDate, createdAt) = BelgeTarihleri();
+        Assert.Equal(Simdi, docDate);
+        Assert.Equal(Simdi, createdAt);
+    }
+
+    // ══════════════ 2) YETKİ KAPISI ══════════════
+
+    /// <summary>⭐ Yetkisiz kullanıcının gönderdiği farklı iş günü SUNUCUDA yok sayılır. Arayüz alanı
+    /// kilitler ama kilit güvenlik değildir — API'ye doğrudan istek atan da geçememelidir.</summary>
+    [Fact]
+    public void TRH4_Yetkisiz_Kullanici_Gecmise_Kayit_Acamaz()
+    {
+        _stock.ReceiveIn(_yetkisiz, new[] { new StockLine(_mat, 6m) }, Op(), branchId: _depo, docDate: Gecmis);
+
+        var (docDate, createdAt) = BelgeTarihleri();
+        Assert.Equal(Simdi, docDate);       // istenen GEÇMİŞ tarih uygulanmadı
+        Assert.Equal(Simdi, createdAt);
+    }
+
+    /// <summary>Yetkili kullanıcı aynı isteği yaptığında tarih UYGULANIR — kapı gerçekten yetkiye bakıyor.</summary>
+    [Fact]
+    public void TRH5_Yetkili_Kullanici_Gecmise_Kayit_Acabilir()
+    {
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 6m) }, Op(), branchId: _depo, docDate: Gecmis);
+        Assert.Equal(Gecmis, BelgeTarihleri().DocDate);
+    }
+
+    /// <summary>Kapı politikası tek yerden okunur; görünüm bayrağı ile sunucu kararı ÇELİŞMEZ.</summary>
+    [Fact]
+    public void TRH6_Politika_Gorunum_ile_Sunucu_Ayni_Karari_Verir()
+    {
+        Assert.True(DateEntryPolicy.Serbest(_yetkili));
+        Assert.False(DateEntryPolicy.Serbest(_yetkisiz));
+        Assert.Equal(Gecmis, DateEntryPolicy.Uygula(_yetkili, Gecmis));
+        Assert.Null(DateEntryPolicy.Uygula(_yetkisiz, Gecmis));
+        Assert.Null(DateEntryPolicy.Uygula(_yetkili, null));   // "şimdi" her zaman serbest
+    }
+
+    // ══════════════ 3) YAKIT ══════════════
+
+    /// <summary>Yakıt depo girişi ve dağıtımı da aynı ayrımı uygular.</summary>
+    [Fact]
+    public void TRH7_Yakit_Islem_Tarihi_ile_Kayit_Ani_Ayri()
+    {
+        _fuel.AddDepotEntry(_yetkili, new NewDepotEntry(1000m, 40m, EntryDate: Gecmis), Op());
+        _fuel.Distribute(_yetkili, new NewDistribution(_arac, 50m, 200m, 40m, DistributionDate: Gecmis), Op());
+
+        using var conn = _f.Create();
+        foreach (var (tablo, kolon) in new[] { ("fuel_depot_entries", "entry_date"), ("fuel_distributions", "distribution_date") })
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT {kolon}, created_at FROM {tablo} ORDER BY rowid DESC LIMIT 1;";
+            using var r = cmd.ExecuteReader();
+            Assert.True(r.Read(), tablo + ": kayıt yok.");
+            Assert.Equal(Gecmis, r.GetInt64(0));   // iş günü
+            Assert.Equal(Simdi, r.GetInt64(1));    // kayıt anı
+        }
+    }
+
+    /// <summary>Yakıtta da yetkisiz kullanıcı geçmişe kayıt açamaz.</summary>
+    [Fact]
+    public void TRH8_Yakit_Yetkisiz_Gecmise_Kayit_Acamaz()
+    {
+        _fuel.AddDepotEntry(_yetkisiz, new NewDepotEntry(500m, 40m, EntryDate: Gecmis), Op());
+
+        using var conn = _f.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT entry_date FROM fuel_depot_entries ORDER BY rowid DESC LIMIT 1;";
+        Assert.Equal(Simdi, Convert.ToInt64(cmd.ExecuteScalar()));
+    }
+
+    // ══════════════ 4) RAPORLAR — kullanıcının vurguladığı nokta ══════════════
+
+    /// <summary>
+    /// ⭐⭐ EN KRİTİK: rapor İŞ GÜNÜNE göre süzer, kayıt anına göre DEĞİL.
+    ///
+    /// Kullanıcının cümlesi: <i>"raporlarda tarih alanlarının doğru çalışması çok önemli, raporların
+    /// bel kemiği."</i> Geçmişe girilen bir hareket, GEÇMİŞİ kapsayan aralıkta görünmeli; yalnız
+    /// BUGÜNÜ kapsayan aralıkta görünmemelidir. Aksi halde geriye dönük kayıt raporu bozar.
+    /// </summary>
+    [Fact]
+    public void TRH9_Rapor_Is_Gunune_Gore_Suzer_Kayit_Anina_Gore_Degil()
+    {
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 9m) }, Op(), branchId: _depo, docDate: Gecmis);
+
+        // (a) GEÇMİŞİ kapsayan aralık → hareket GÖRÜNMELİ
+        var gecmisAralik = _reports.Run(_yetkili, "stock-movements",
+            new ReportRequest(Executed: true, FromDate: Gecmis - 86_400_000, ToDate: Gecmis + 86_400_000));
+        Assert.NotEmpty(gecmisAralik.Rows);
+
+        // (b) YALNIZ BUGÜNÜ kapsayan aralık → hareket GÖRÜNMEMELİ (kayıt anı bugün olsa bile)
+        var bugunAralik = _reports.Run(_yetkili, "stock-movements",
+            new ReportRequest(Executed: true, FromDate: Simdi - 3_600_000, ToDate: Simdi + 3_600_000));
+        Assert.Empty(bugunAralik.Rows);
+    }
+
+    /// <summary>Yakıt raporu da iş gününe göre süzer (depo girişi).</summary>
+    [Fact]
+    public void TRH10_Yakit_Raporu_Is_Gunune_Gore_Suzer()
+    {
+        _fuel.AddDepotEntry(_yetkili, new NewDepotEntry(300m, 40m, EntryDate: Gecmis), Op());
+
+        var gecmis = _reports.Run(_yetkili, "fuel-depot",
+            new ReportRequest(Executed: true, FromDate: Gecmis - 86_400_000, ToDate: Gecmis + 86_400_000));
+        Assert.NotEmpty(gecmis.Rows);
+
+        var bugun = _reports.Run(_yetkili, "fuel-depot",
+            new ReportRequest(Executed: true, FromDate: Simdi - 3_600_000, ToDate: Simdi + 3_600_000));
+        Assert.Empty(bugun.Rows);
+    }
+
+    /// <summary>⭐ Kayıt anı (log) geçmişe kayıtta bile GERÇEK saati gösterir — denetim izi bozulmaz.
+    /// Bu, kullanıcının "log üzerinden gerçekten ne zaman eklendiğini görebilmeliyiz" isteğidir.</summary>
+    [Fact]
+    public void TRH11_Log_Gercek_Kayit_Anini_Gosterir()
+    {
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 2m) }, Op(), branchId: _depo, docDate: Gecmis);
+
+        using var conn = _f.Create();
+        using var cmd = conn.CreateCommand();
+        // Hareket satırının created_at'i de iş gününden BAĞIMSIZ olmalı (yalnız belge değil).
+        cmd.CommandText = "SELECT created_at FROM stock_movements ORDER BY rowid DESC LIMIT 1;";
+        Assert.Equal(Simdi, Convert.ToInt64(cmd.ExecuteScalar()));
+    }
+
+    /// <summary>Saat ilerlese bile iş günü sabit kalır; ikisi bağımsız değişkendir.</summary>
+    [Fact]
+    public void TRH12_Saat_Ilerleyince_Is_Gunu_Degismez()
+    {
+        _clock.Advance(5 * 3_600_000);   // 5 saat sonra kaydediliyor
+        _stock.ReceiveIn(_yetkili, new[] { new StockLine(_mat, 1m) }, Op(), branchId: _depo, docDate: Gecmis);
+
+        var (docDate, createdAt) = BelgeTarihleri();
+        Assert.Equal(Gecmis, docDate);
+        Assert.Equal(Simdi + 5 * 3_600_000, createdAt);
     }
 }

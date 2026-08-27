@@ -192,6 +192,24 @@ public static class SpecialButtons
     /// login şubesini görür; şube seçici gizli. Admin/süper admin bypass (CanUseButton). Deny-by-default.</summary>
     public const string BranchSelect = "btn-branch-select";
 
+    /// <summary>
+    /// ⭐ TRH-01 (kullanıcı isteği 2026-08-27) — GERİ/İLERİ TARİHLİ İŞLEM.
+    ///
+    /// İşlem tarihi (iş günü) alanını BUGÜNDEN farklı bir güne ayarlayabilme yetkisi. Bu yetki YOKSA
+    /// alan görünür ama BUGÜNE kilitlidir — kullanıcı yanlışlıkla geçmiş/gelecek tarihe kayıt açamaz.
+    /// Kayıt anı (<c>created_at</c>) bu yetkiden BAĞIMSIZDIR ve daima gerçek saattir; yani geçmişe kayıt
+    /// girilse bile logda ne zaman girildiği görünür.
+    /// </summary>
+    public const string BackDate = "btn-backdate";
+
+    /// <summary>
+    /// ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRAN KAYIT GEÇMİŞİ (log).
+    ///
+    /// Her ekranın kendi işlem geçmişini (kim, ne zaman, ne yaptı) görüntüleme yetkisi. Salt okunur;
+    /// veri değiştirmez. Deny-by-default: açıkça verilmedikçe buton görünmez.
+    /// </summary>
+    public const string ScreenLog = "btn-screen-log";
+
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
     /// <summary>
     /// Yetki AĞACINDA görünen (yani devredilebilen) özel butonlar.
@@ -215,5 +233,7 @@ public static class SpecialButtons
         (ExportReports, "Rapor Excel Dışa Aktarma"),
         (ExportManagerReports, "Yönetici Rapor Excel Dışa Aktarma"),
         (BranchSelect, "Şube Seçimi (Çok Şubeli Görüntüleme)"),
+        (BackDate, "Geri / İleri Tarihli İşlem"),
+        (ScreenLog, "Ekran Kayıt Geçmişi (Log)"),
     };
 }

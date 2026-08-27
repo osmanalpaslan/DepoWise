@@ -42,6 +42,10 @@ else
                 <MudTextField Value="@_locationName" Label="Sayılan Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:260px" />
             }
             <MudTextField @bind-Value="_reason" Label="Sayım Gerekçesi *" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" />
+            @* TRH-01: işlem tarihi (iş günü). Kayıt anı ayrıca loglanır. Yetki yoksa kilitli. *@
+            <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           Disabled="@(!CanBackDate)" DateFormat="dd.MM.yyyy" Style="max-width:200px"
+                           HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
             <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" OnKeyUp="OnSearchKey" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
             <MudSpacer />
@@ -156,7 +160,8 @@ else
                 // 🔴 STK-04 DÜZELTMESİ: branchId eskiden HİÇ gönderilmiyordu → sayım farkı ATANMAMIŞ kovasına
                 // yazılıyor, kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
                 branchId = EffectiveLocation,
-                lines = lines.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList()
+                lines = lines.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList(),
+                docDate = _docDateMs   // TRH-01: iş günü (created_at DEĞİL)
             });
             _ok = err is null; _msg = err ?? "Sayım tamamlandı, stok güncellendi.";
             if (_ok) await Load();
@@ -170,4 +175,18 @@ else
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
     private static decimal Dec(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+
+    // ── TRH-01: İŞLEM TARİHİ (iş günü) ────────────────────────────────────────────────────────
+    /// <summary>İşlemin gerçekten yapıldığı gün. Kayıt anı (created_at) bundan BAĞIMSIZDIR ve daima
+    /// gerçek saattir → log, kaydın sisteme ne zaman girildiğini gösterir.</summary>
+    private DateTime? _docDate = DateTime.Today;
+
+    /// <summary>Geri/ileri tarihli işlem yetkisi (btn-backdate). Yetki yoksa alan kilitlenir.
+    /// ⚠️ Arayüz kilidi GÜVENLİK DEĞİLDİR: asıl kapı sunucuda DateEntryPolicy içindedir.</summary>
+    // Anahtar düz metin: web projesi DepoWise.Application'a BAŞVURMAZ (bilinçli ayrım).
+    // Karşılığı: AppModules.cs → SpecialButtons.BackDate
+    private bool CanBackDate => Auth.CanButton("btn-backdate");
+
+    private long? _docDateMs => _docDate is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(_docDate.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
 }

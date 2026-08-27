@@ -39,8 +39,21 @@
                     </MudSelect>
                 </MudTooltip>
             }
-            <MudTooltip Text="Ekran + tanım bilgisi (ad · kod · ID)">
-                <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
+            @* ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRAN ARAÇLARI.
+               Aktif ekrana ÖZEL işlemler tek menüde: kayıt geçmişi (log) + ekran bilgisi.
+               Eskiden tek başına duran "i" düğmesi buraya taşındı. *@
+            <MudTooltip Text="Bu ekrana ait araçlar: kayıt geçmişi ve ekran bilgisi">
+                <MudMenu Icon="@Icons.Material.Outlined.Tune" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight" Dense="true">
+                    @if (CanShowScreenLog)
+                    {
+                        <MudMenuItem Icon="@Icons.Material.Outlined.History" OnClick="ShowScreenLog">
+                            Kayıt Geçmişi — @CurrentScreenName
+                        </MudMenuItem>
+                        <MudDivider />
+                    }
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Info" OnClick="ShowScreenInfo">Ekran Bilgisi</MudMenuItem>
+                </MudMenu>
             </MudTooltip>
             <div class="dw-userchip">
                 @* W2 (Aurora Cam v4): genel kullanıcı ikonu yerine baş harf rozeti. *@
@@ -373,6 +386,59 @@
         ["developer"] = "Geliştirici Modu", ["companies"] = "Firma Tanım", ["releases"] = "Güncelleme Yönetimi",
         ["machines"] = "Makine Yönetimi", ["server-backups"] = "Sunucu Yedekleri", ["dashboard"] = "Ana Ekran",
     };
+
+    // ── LOG-01: EKRANA ÖZEL KAYIT GEÇMİŞİ ────────────────────────────────────────────────────
+
+    /// <summary>Adres çubuğundan aktif ekranın ilk parçası ("stock/count" → "stock").</summary>
+    private string CurrentSegment
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath.Trim('/');
+            return string.IsNullOrEmpty(path) ? "dashboard" : path.Split('/')[0];
+        }
+    }
+
+    private string CurrentScreenName => ScreenLabels.TryGetValue(CurrentSegment, out var l) ? l : CurrentSegment;
+
+    /// <summary>Rota parçası → YETKİ MODÜLÜ. Çoğu ekranda aynıdır; ayrışanlar burada eşlenir.
+    /// Eşleşmeyen ekranda log düğmesi GÖSTERİLMEZ (sunucu da boş dönerdi).</summary>
+    private static readonly Dictionary<string, string> LogModules = new(StringComparer.Ordinal)
+    {
+        ["materials"] = "materials", ["vehicles"] = "vehicles", ["stock"] = "stock",
+        ["stock-change-log"] = "stock", ["fuel"] = "fuel", ["maintenance"] = "maintenance",
+        ["inspection"] = "inspection", ["daily"] = "daily_activity", ["requests"] = "requests",
+        ["personnel"] = "personnel", ["branches"] = "branches", ["users"] = "users",
+        ["parties"] = "parties", ["invoices"] = "invoices", ["finance"] = "finance",
+        ["companies"] = "companies", ["definitions"] = "definitions",
+        ["material-templates"] = "material_templates", ["vehicle-templates"] = "vehicle_templates",
+    };
+
+    /// <summary>Log düğmesi görünsün mü. Asıl kapı SUNUCUDADIR (btn-screen-log + modül View);
+    /// burası yalnız görünürlük — gizli düğme güvenlik sayılmaz.</summary>
+    private bool CanShowScreenLog
+        => LogModules.ContainsKey(CurrentSegment) && Auth.CanButton("btn-screen-log");
+
+    /// <summary>Aktif ekranın kayıt geçmişi. Gösterilen zaman KAYIT ANIdır (created_at):
+    /// işlem tarihi geri/ileri alınmış olsa bile burada gerçek saat görünür (TRH-01 ile birlikte).</summary>
+    private async Task ShowScreenLog()
+    {
+        if (!LogModules.TryGetValue(CurrentSegment, out var modul)) return;
+        var satirlar = await Api.GetArrayAsync($"/api/audit/screen?module={Uri.EscapeDataString(modul)}&limit=200");
+        var parms = new DialogParameters
+        {
+            ["ScreenName"] = "Kayıt Geçmişi — " + CurrentScreenName,
+            ["ScreenCode"] = satirlar.Length == 0
+                ? "Bu ekran için henüz kayıt geçmişi yok."
+                : string.Join("\n", satirlar.Select(x =>
+                    $"{DateTimeOffset.FromUnixTimeMilliseconds(x.TryGetProperty("createdAt", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.Number ? t.GetInt64() : 0).LocalDateTime:dd.MM.yyyy HH:mm}" +
+                    $"  ·  {(x.TryGetProperty("userText", out var u) ? u.GetString() : "")}" +
+                    $"  ·  {(x.TryGetProperty("actionText", out var a) ? a.GetString() : "")}" +
+                    $"  ·  {(x.TryGetProperty("entityType", out var e) ? e.GetString() : "")}")),
+        };
+        await DialogService.ShowAsync<ScreenInfoDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    }
 
     private async Task ShowScreenInfo()
     {

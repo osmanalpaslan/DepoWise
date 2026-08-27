@@ -32,6 +32,16 @@ public sealed partial class StockDistributeViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
 
+    /// <summary>TRH-01 — İŞLEM TARİHİ (iş günü). Kayıt anı (created_at) bundan bağımsızdır.</summary>
+    [ObservableProperty] private DateTimeOffset? _docDate = new DateTimeOffset(DateTime.Today);
+
+    /// <summary>TRH-01 — kullanıcı işlem tarihini değiştirebilir mi (btn-backdate). Yetki yoksa alan
+    /// kilitlenir. Asıl kapı SUNUCUDADIR (DateEntryPolicy); arayüz kilidi güvenlik sayılmaz.</summary>
+    public bool CanBackDate => DepoWise.Application.Security.DateEntryPolicy.Serbest(_session);
+    public string DocDateHint => CanBackDate
+        ? "İşlemin gerçekten yapıldığı gün. Geçmiş veya ileri tarih seçebilirsiniz; kaydın sisteme girildiği an ayrıca loglanır."
+        : "Geri/ileri tarihli işlem yetkiniz yok — tarih bugüne sabitlidir.";
+
     /// <summary>Dağıtılabilecek malzemeler (ATANMAMIŞ kovasında miktarı olanlar).</summary>
     public ObservableCollection<UnassignedLineVm> Lines { get; } = new();
 
@@ -157,7 +167,8 @@ public sealed partial class StockDistributeViewModel : ViewModelBase
             // Tek belge + tek transaction: bir satır yetersizse TAMAMI geri alınır.
             DesktopServices.Stock.DistributeUnassigned(_session,
                 sel.Select(l => new StockLine(l.MaterialId, l.Amount)).ToList(),
-                Target.Id, Guid.NewGuid().ToString("N"));
+                Target.Id, Guid.NewGuid().ToString("N"), note: null,
+                docDate: DocDate?.ToUnixTimeMilliseconds());   // TRH-01: iş günü (created_at DEĞİL)
             Status = $"Dağıtım kaydedildi: {sel.Count} malzeme → {Target.Name}.";
             Load();   // kalan atanmamış miktarlar tazelensin
         }

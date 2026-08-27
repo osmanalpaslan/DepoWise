@@ -223,8 +223,10 @@ public sealed class StockService
     /// <b>ATOMİK:</b> tek belge + tek transaction. Bir satır bile yetersizse TAMAMI geri alınır
     /// (kısmi dağıtım kalmaz). Miktarlar <see cref="Money"/>/<c>decimal</c>'dir; float kullanılmaz.
     /// </summary>
+    /// <param name="docDate">İŞLEM TARİHİ (iş günü). Verilmezse "şimdi". Kayıt anı (<c>created_at</c>)
+    /// bundan BAĞIMSIZDIR ve daima gerçek saattir — log ile iş tarihi ayrı kalır (STK-11 ilkesi).</param>
     public StockDocResult DistributeUnassigned(SessionContext s, IReadOnlyList<StockLine> lines,
-        string toLocationId, string operationId, string? note = null)
+        string toLocationId, string operationId, string? note = null, long? docDate = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (lines.Count == 0) throw new ArgumentException("En az bir malzeme seçin.");
@@ -241,7 +243,7 @@ public sealed class StockService
         var groupId = Guid.NewGuid().ToString("N");
         // fromBranch = null → belge/hareket ATANMAMIŞ kaynağı taşır (NULL = lokasyon bilinmiyor).
         return RunDocument(s, "transfer", operationId, toLocationId, null, toLocationId, null, null,
-            string.IsNullOrWhiteSpace(note) ? DistributeNote : note, null,
+            string.IsNullOrWhiteSpace(note) ? DistributeNote : note, docDate,
             (conn, tx, docId) =>
             {
                 for (int i = 0; i < merged.Count; i++)
@@ -783,8 +785,11 @@ LIMIT @take;";
         string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
         string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
+        // ⭐ TRH-01: geri/ileri tarihli işlem YETKİYE bağlıdır. Bu, TÜM stok belgelerinin (giriş, çıkış,
+        // transfer, sayım, dağıtım) geçtiği TEK noktadır → kapı burada bir kez kurulur, her akış korunur.
+        // Kayıt anı (created_at) bundan etkilenmez; log daima gerçek saati gösterir.
         => StockBalanceWriter.Run(() => RunDocumentOnce(s, docType, operationId, toBranch, fromBranch, primaryBranch,
-            personnelId, vehicleId, note, docDate, body, groupId, invoiceNo, orderSlipNo, creditSlipNo),
+            personnelId, vehicleId, note, DateEntryPolicy.Uygula(s, docDate), body, groupId, invoiceNo, orderSlipNo, creditSlipNo),
             $"document:{docType} op={operationId}");
 
     private StockDocResult RunDocumentOnce(SessionContext s, string docType, string operationId,

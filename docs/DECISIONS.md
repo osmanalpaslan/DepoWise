@@ -2388,3 +2388,77 @@ desenler canlı) · kimlik gerektirmeyen rotalar 200 ve Blazor hata kutusu yok �
 **Görsel doğrulamanın sınırı (dürüstçe):** web'e giriş yapılamadığı için kimlik arkasındaki ekranlar
 gözle tek tek denetlenemedi. Bu yüzden markup değişiklikleri bilinçli olarak DAR tutuldu ve ekran
 yapısını yeniden kuran maddeler yerine sınıf/eklemeli değişiklikler tercih edildi.
+
+---
+
+## ADR-162 — İŞLEM TARİHİ ile KAYIT ANI ayrıldı (TRH-01)
+**Tarih:** 2026-08-27 · **Durum:** Kabul · **Kaynak:** kullanıcı isteği
+> *"Depo girişlerinde tarih alanı olmadığını fark ettim… log tarihi ve kayıt tarihi ayrı olmalı. Log
+> üzerinden gerçekten kaydı ne zaman eklediğini görebilmeliyiz, ama tarih iş gereği ileri veya geri
+> tarihli olabilir."*
+
+### Karar
+İki zaman kavramı **kalıcı olarak ayrıldı** ve tüm kayıt ekranlarında aynı biçimde uygulanır:
+
+| Kavram | Alan | Kim yazar | Değişebilir mi |
+|---|---|---|---|
+| **İş günü (işlem tarihi)** | `doc_date` · `entry_date` · `distribution_date` · `performed_date` | kullanıcı (varsayılan: bugün) | **evet** — yetkiliyse geri/ileri alınır |
+| **Kayıt anı** | `created_at` | **daima gerçek saat** (`IClock`) | **hayır** |
+
+Raporlar **iş gününe** göre süzer (raporların bel kemiği); log/denetim izi **kayıt anını** gösterir.
+
+### Yetki — tek kapı sunucuda
+Yeni özel buton: **`btn-backdate` — "Geri / İleri Tarihli İşlem"** (Yetki Ağacı'nda). Tek boğaz noktası
+`DateEntryPolicy.Uygula(session, istenenTarih)`:
+- yetki yoksa istenen tarih **sessizce "şimdi"ye normalleştirilir** (istisna atılmaz),
+- yetki varsa aynen kullanılır.
+
+**Neden istisna değil normalleştirme:** istemcinin yerel saati ile sunucunun UTC'si arasındaki fark,
+kullanıcının hiç dokunmadığı "bugün" değerini bile birkaç saatliğine "geçmiş" yapabiliyor. İstisna
+atmak, yetkisiz kullanıcının **meşru aynı-gün kaydını** rastgele reddederdi. Normalleştirme yine
+**kapalı-güvenli**dir: yetkisiz kullanıcı tarihi ASLA kaydıramaz.
+
+Kapı UI'da değil **serviste**: `StockService.RunDocument` (giriş/çıkış/transfer/sayım/dağıtım) ve
+`FuelService`'in iki inserti buradan geçer → API, masaüstü ve web aynı kuralı paylaşır.
+
+### Uygulama
+- Masaüstü: eksik olan ekranlara tarih alanı eklendi (Sayım, Dağıtım, Yakıt-Depo, Yakıt-Dağıtım).
+  Tüm tarih alanları artık **kehribar** (`DateFieldBackgroundBrush`/`DateFieldBorderBrush`, iki temada
+  da) — kullanıcı isteği: "farkedilmesi kolay olsun".
+- Web: aynı ekranlarda `MudDatePicker`; yetki yoksa alan **kilitli** görünür.
+- `IslemTarihiTests` (15 test) kuralı kilitliyor: TRH9 raporun iş gününe göre süzdüğünü,
+  TRH11 logun gerçek kayıt anını gösterdiğini kanıtlar.
+
+---
+
+## ADR-163 — Ekran Araçları menüsü ve ekrana özel kayıt geçmişi (LOG-01)
+**Tarih:** 2026-08-27 · **Durum:** Kabul · **Kaynak:** kullanıcı isteği
+> *"Her ekrana özel log butonu olmalı. Bu log butonu ve farklı özellik butonlarını listeleyeceğimiz ana
+> bir buton yapıp log butonunu içine koyulmalı. Ekran bilgileri butonlarını da her ekrana özel buralara
+> taşımalısın."*
+
+### Karar
+Üst barda tek bir **"Ekran"** (masaüstü) / **⋯ araçlar** (web) menüsü var; aktif ekrana ÖZEL işlemler
+buradadır. İlk iki madde: **Kayıt Geçmişi — <ekran adı>** ve **Ekran Bilgisi**. Kullanıcı menüsünde tek
+başına duran "Ekran Bilgisi" maddeleri buraya taşındı. Menü ileride eklenecek ekran-özel işlemler için
+tek toplanma noktasıdır.
+
+### İki kapılı yetki (yan kapı kapalı)
+Yeni özel buton: **`btn-screen-log` — "Ekran Kayıt Geçmişi (Log)"**. `AuditLogService.ForModule`
+**iki** kontrol yapar:
+1. `btn-screen-log` yetkisi,
+2. **ekranın kendi modülünde `View` izni.**
+
+İkincisi olmadan log, yetki sisteminde yan kapı olurdu: göremediğin ekranın geçmişinden veri sızardı.
+
+### Kapsam — sızıntısız
+`ScreenAuditMap` modül → varlık tipi eşlemesi, koddaki **gerçek `AuditEntry` çağrılarından** türetildi.
+Eşlemesi olmayan modül **boş** döner; sessizce "tüm log"a düşmez. `LOG9` testi eşlemedeki her varlık
+tipinin kodda gerçekten yazıldığını doğrular (yoksa kullanıcı sonsuza dek boş log görürdü).
+
+### Gösterilen zaman
+Log **`created_at`** gösterir → ADR-162 ile birlikte: işlem tarihi geri alınmış olsa bile kaydın
+gerçekten ne zaman girildiği görünür. `LOG7` bunu kilitler.
+
+### Uç nokta
+`GET /api/audit/screen?module=…&from=…&to=…&limit=200` (kimlik zorunlu; kapılar serviste).

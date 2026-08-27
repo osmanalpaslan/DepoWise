@@ -55,6 +55,12 @@
                     <ctrl:FormField Label="Gerekçe" Width="220">
                         <TextBox Classes="Field" Text="{Binding Reason}"/>
                     </ctrl:FormField>
+                    <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsızdır ve daima
+                         gerçek saattir. Geri/ileri tarih YETKİYE bağlı: yetki yoksa alan kilitli. -->
+                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                        <DatePicker Classes="Field" SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
+                                    ToolTip.Tip="{Binding DocDateHint}"/>
+                    </ctrl:FormField>
                 </StackPanel>
                 <!-- G1-02: ÇOK MALZEMELİ SAYIM SEPETİ. Sepet boşken ekran eskisi gibi görünür (tablo gizli);
                      tek malzeme sayımı aynen çalışır. Desen: StockEntryView "Listeye Ekle" sepeti. -->

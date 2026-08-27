@@ -48,6 +48,11 @@
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
+                                <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
+                                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                                    <DatePicker Classes="Field" SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
+                                                ToolTip.Tip="{Binding DocDateHint}"/>
+                                </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
                                     <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
                                                    FormatString="0.##" ShowButtonSpinner="False"/>
@@ -154,6 +159,11 @@
                         <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
+                                <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
+                                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                                    <DatePicker Classes="Field" SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
+                                                ToolTip.Tip="{Binding DocDateHint}"/>
+                                </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
                                     <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                 </ctrl:FormField>

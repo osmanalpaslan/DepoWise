@@ -29,6 +29,12 @@
 
         <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0">
             <StackPanel Orientation="Horizontal" Spacing="14">
+                <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsız, daima gerçek saat.
+                     Geri/ileri tarih YETKİYE bağlı (btn-backdate): yetki yoksa alan kilitli. -->
+                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                    <DatePicker Classes="Field" SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
+                                ToolTip.Tip="{Binding DocDateHint}"/>
+                </ctrl:FormField>
                 <ctrl:FormField Label="Hedef Depo / Şantiye" IsRequired="True" Width="260">
                     <!-- YALNIZ gerçek depolar; "Atanmamış" hedef olarak SUNULMAZ. -->
                     <ComboBox Classes="Field" ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}">

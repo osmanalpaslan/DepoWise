@@ -54,6 +54,18 @@ public sealed partial class FuelViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "fuel", PermissionAction.Create);
 
+    /// <summary>TRH-01 — DAĞITIM işlem tarihi (iş günü).</summary>
+    [ObservableProperty] private DateTimeOffset? _distDate = new DateTimeOffset(DateTime.Today);
+    /// <summary>TRH-01 — DEPO GİRİŞİ işlem tarihi (iş günü). Dağıtımdan ayrıdır: iki farklı işlem.</summary>
+    [ObservableProperty] private DateTimeOffset? _depotDate = new DateTimeOffset(DateTime.Today);
+
+    /// <summary>TRH-01 — kullanıcı işlem tarihini değiştirebilir mi (btn-backdate). Yetki yoksa alan
+    /// kilitlenir. Asıl kapı SUNUCUDADIR (DateEntryPolicy); arayüz kilidi güvenlik sayılmaz.</summary>
+    public bool CanBackDate => DepoWise.Application.Security.DateEntryPolicy.Serbest(_session);
+    public string DocDateHint => CanBackDate
+        ? "İşlemin gerçekten yapıldığı gün. Geçmiş veya ileri tarih seçebilirsiniz; kaydın sisteme girildiği an ayrıca loglanır."
+        : "Geri/ileri tarihli işlem yetkiniz yok — tarih bugüne sabitlidir.";
+
     public FuelViewModel(SessionContext session, int initialTab = 0)
     {
         _session = session;
@@ -216,7 +228,9 @@ public sealed partial class FuelViewModel : ViewModelBase
             DesktopServices.Fuel.Distribute(_session, new NewDistribution(
                 VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
-                PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id), Guid.NewGuid().ToString("N"));
+                PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
+                DistributionDate: DistDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
+                Guid.NewGuid().ToString("N"));
             ClearDist(); Load();
             Status = "Dağıtım kaydedildi.";
         }
@@ -281,7 +295,8 @@ public sealed partial class FuelViewModel : ViewModelBase
         {
             DesktopServices.Fuel.AddDepotEntry(_session, new NewDepotEntry(
                 Liters: DepotLiters, UnitPrice: DepotPrice, SupplierId: DepotSupplier?.Id,
-                InvoiceNo: string.IsNullOrWhiteSpace(DepotInvoice) ? null : DepotInvoice.Trim()),
+                InvoiceNo: string.IsNullOrWhiteSpace(DepotInvoice) ? null : DepotInvoice.Trim(),
+                EntryDate: DepotDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
                 Guid.NewGuid().ToString("N"));
             ClearDepot(); Load();
             Status = "Depo girişi eklendi.";

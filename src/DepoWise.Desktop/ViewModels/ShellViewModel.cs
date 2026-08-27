@@ -93,6 +93,40 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty] private string _currentTitle = "";
     [ObservableProperty] private string _currentContext = "";
     [ObservableProperty] private string _activeKey = "dashboard";
+
+    // ── LOG-01 (kullanıcı isteği 2026-08-27) — EKRANA ÖZEL KAYIT GEÇMİŞİ ─────────────────────
+
+    /// <summary>Aktif ekranın YETKİ MODÜLÜ. Nav anahtarı ("stock:entry") ile modül ("stock") aynı
+    /// şey DEĞİLDİR; katalogdan çözülür ki eşleme uydurulmasın. Bulunamazsa null.</summary>
+    private string? AktifModul
+    {
+        get
+        {
+            var temel = BaseKey(ActiveKey ?? "");
+            foreach (var sc in AppScreens.All)
+                if (string.Equals(sc.DesktopNavKey, ActiveKey, StringComparison.Ordinal)
+                 || string.Equals(sc.DesktopNavKey, temel, StringComparison.Ordinal)) return sc.ModuleKey;
+            return null;
+        }
+    }
+
+    /// <summary>Ekran log düğmesi görünsün mü. ÜÇ koşul: yetki (btn-screen-log) · ekranın modülünde
+    /// okuma izni · o modül için tanımlı log eşlemesi. Asıl kapı serviste (AuditLogService.ForModule);
+    /// burası yalnız görünürlük — görünmeyen düğme güvenlik sayılmaz.</summary>
+    public bool CanShowScreenLog
+    {
+        get
+        {
+            var m = AktifModul;
+            return m is not null
+                && ScreenAuditMap.Has(m)
+                && AccessControl.CanUseButton(_session, SpecialButtons.ScreenLog)
+                && AccessControl.Can(_session, m, PermissionAction.View);
+        }
+    }
+
+    /// <summary>Menüde gösterilecek başlık — hangi ekranın geçmişi olduğu açıkça yazar.</summary>
+    public string ScreenLogHeader => $"Kayıt Geçmişi — {CurrentTitle}";
     [ObservableProperty] private bool _isNavPanelOpen = true;
 
     /// <summary>Aktif kabuk — çapraz ekran navigasyonu için (ör. malzeme detayından araç ekranına).</summary>
@@ -917,6 +951,13 @@ public sealed partial class ShellViewModel : ViewModelBase
         _ => true,
     };
 
+    /// <summary>LOG-01: ekran değişince log düğmesinin görünürlüğü ve başlığı tazelenir.</summary>
+    partial void OnActiveKeyChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanShowScreenLog));
+        OnPropertyChanged(nameof(ScreenLogHeader));
+    }
+
     private static string BaseKey(string key)
     {
         var i = key.IndexOf(':');
@@ -1257,6 +1298,36 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         var (title, body) = ScreenInfoBuilder.BuildSimple(CurrentPage, ActiveKey, CurrentTitle);
         await ScreenInfoService.ShowAsync(title, body);
+    }
+
+    /// <summary>
+    /// ⭐ LOG-01 — AKTİF EKRANIN KAYIT GEÇMİŞİ.
+    ///
+    /// Yalnız bu ekranın varlık tiplerini gösterir (ScreenAuditMap); Sistem Logu ekranından farkı budur.
+    /// Gösterilen zaman <c>created_at</c>: kaydın sisteme GERÇEKTEN girildiği an — işlem tarihi (iş günü)
+    /// geri/ileri alınmış olsa bile burada gerçek saat görünür (TRH-01 ile birlikte okunur).
+    /// Yetki kapısı SERVİSTEDİR; buradaki görünürlük yalnız arayüz kolaylığıdır.
+    /// </summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowScreenLog()
+    {
+        var modul = AktifModul;
+        if (modul is null) return;
+        try
+        {
+            var satirlar = DesktopServices.Audit.ForModule(_session, modul, limit: 200);
+            var govde = satirlar.Count == 0
+                ? "Bu ekran için henüz kayıt geçmişi yok."
+                : string.Join(System.Environment.NewLine,
+                    satirlar.Select(x => $"{x.DateText}  ·  {x.UserText}  ·  {x.ActionText}  ·  {x.EntityType}"));
+            await ScreenInfoService.ShowAsync($"Kayıt Geçmişi — {CurrentTitle}",
+                "Kaydın sisteme GİRİLDİĞİ an gösterilir (işlem tarihinden bağımsız)." +
+                System.Environment.NewLine + System.Environment.NewLine + govde);
+        }
+        catch (System.Exception ex)
+        {
+            await ScreenInfoService.ShowAsync("Kayıt Geçmişi", "Geçmiş okunamadı: " + ex.Message);
+        }
     }
 
     /// <summary>Araçlar ekranına gidip ilgili aracı seçer (malzeme detayındaki uyumlu araç tıklaması).</summary>

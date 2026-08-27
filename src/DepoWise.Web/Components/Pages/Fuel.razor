@@ -32,6 +32,12 @@
                     </MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" Value="_prevMeter" ReadOnly="true" Label="Önceki Sayaç" HelperText="Araçtan otomatik." Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_meter" Label="Güncel Sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="6" md="3">
+                        @* TRH-01: işlem tarihi (iş günü). Kayıt anı ayrıca loglanır. Yetki yoksa kilitli. *@
+                        <MudDatePicker @bind-Date="_distDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                       Disabled="@(!CanBackDate)" DateFormat="dd.MM.yyyy" Style="max-width:200px"
+                                       HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
+                    </MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_liters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (₺/L)" HelperText="Varsayılan: güncel fiyat." Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudTextField Value="@((_liters * _price).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -85,6 +91,12 @@
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
                 <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ DEPO GİRİŞİ</MudText>
                 <MudGrid Spacing="2">
+                    <MudItem xs="6" md="4">
+                        @* TRH-01: depo girişi işlem tarihi (iş günü). Dağıtımdan AYRIDIR. *@
+                        <MudDatePicker @bind-Date="_depotDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                       Disabled="@(!CanBackDate)" DateFormat="dd.MM.yyyy"
+                                       HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
+                    </MudItem>
                     <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_dLiters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_dPrice" Label="Birim Fiyat (₺/L) *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="4"><MudTextField Value="@((_dLiters * _dPrice).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -223,7 +235,8 @@
             {
                 vehicleId = _vehicle.Id, liters = _liters, currentMeter = _meter,
                 unitPrice = _price > 0 ? (decimal?)_price : null, personnelId = _person,
-                recipientPersonnelId = string.IsNullOrEmpty(_recipient) ? null : _recipient
+                recipientPersonnelId = string.IsNullOrEmpty(_recipient) ? null : _recipient,
+                distributionDate = _distDateMs   // TRH-01: iş günü
             });
             _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
             if (_ok) { ClearDist(); await LoadDist(); await LoadSummary(); }
@@ -242,7 +255,8 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/fuel/depot", new { liters = _dLiters, unitPrice = _dPrice, supplierId = _dSupplier, invoiceNo = Empty(_dInvoice) });
+            var err = await Api.PostAsync("/api/fuel/depot", new { liters = _dLiters, unitPrice = _dPrice, supplierId = _dSupplier,
+                invoiceNo = Empty(_dInvoice), entryDate = _depotDateMs });   // TRH-01: iş günü
             _dOk = err is null; _dMsg = err ?? "Depo girişi kaydedildi.";
             if (_dOk) { ClearDepot(); await LoadDepot(); await LoadSummary(); }
         }
@@ -298,4 +312,21 @@
     private static string Date(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
             ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.ToString("dd.MM.yyyy") : "—";
+
+    // ── TRH-01: İŞLEM TARİHLERİ (iş günü) — dağıtım ve depo girişi AYRI işlemlerdir ────────────
+    /// <summary>Dağıtımın gerçekten yapıldığı gün.</summary>
+    private DateTime? _distDate = DateTime.Today;
+    /// <summary>Depo girişinin gerçekten yapıldığı gün.</summary>
+    private DateTime? _depotDate = DateTime.Today;
+
+    /// <summary>Geri/ileri tarihli işlem yetkisi (btn-backdate). Yetki yoksa alanlar kilitlenir.
+    /// ⚠️ Arayüz kilidi GÜVENLİK DEĞİLDİR: asıl kapı sunucuda DateEntryPolicy içindedir.</summary>
+    // Anahtar düz metin: web projesi DepoWise.Application'a BAŞVURMAZ (bilinçli ayrım).
+    // Karşılığı: AppModules.cs → SpecialButtons.BackDate
+    private bool CanBackDate => Auth.CanButton("btn-backdate");
+
+    private static long? Ms(DateTime? d) => d is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(d.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private long? _distDateMs => Ms(_distDate);
+    private long? _depotDateMs => Ms(_depotDate);
 }

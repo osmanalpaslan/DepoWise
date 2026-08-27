@@ -55,6 +55,10 @@ else
                 @* Yalnız GERÇEK depolar: "Atanmamış" hedef olarak SUNULMAZ (yeni belirsizlik üretmemek için). *@
                 @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
             </MudSelect>
+            @* TRH-01: işlem tarihi (iş günü). Kayıt anı ayrıca loglanır. Yetki yoksa kilitli. *@
+            <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           Disabled="@(!CanBackDate)" DateFormat="dd.MM.yyyy" Style="max-width:200px"
+                           HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
             <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined"
                           Style="max-width:220px" OnKeyUp="OnSearchKey" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
@@ -220,6 +224,7 @@ else
                 operationId,
                 toLocationId = _target,
                 lines = sel.Select(r => new { materialId = r.Id, quantity = r.Amount }).ToList(),
+                docDate = _docDateMs,   // TRH-01: iş günü (created_at DEĞİL)
             });
             _ok = err is null;
             _msg = err ?? $"Dağıtım kaydedildi: {sel.Count} malzeme → {hedef}.";
@@ -233,4 +238,18 @@ else
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
     private static decimal Dec(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+
+    // ── TRH-01: İŞLEM TARİHİ (iş günü) ────────────────────────────────────────────────────────
+    /// <summary>İşlemin gerçekten yapıldığı gün. Kayıt anı (created_at) bundan BAĞIMSIZDIR ve daima
+    /// gerçek saattir → log, kaydın sisteme ne zaman girildiğini gösterir.</summary>
+    private DateTime? _docDate = DateTime.Today;
+
+    /// <summary>Geri/ileri tarihli işlem yetkisi (btn-backdate). Yetki yoksa alan kilitlenir.
+    /// ⚠️ Arayüz kilidi GÜVENLİK DEĞİLDİR: asıl kapı sunucuda DateEntryPolicy içindedir.</summary>
+    // Anahtar düz metin: web projesi DepoWise.Application'a BAŞVURMAZ (bilinçli ayrım).
+    // Karşılığı: AppModules.cs → SpecialButtons.BackDate
+    private bool CanBackDate => Auth.CanButton("btn-backdate");
+
+    private long? _docDateMs => _docDate is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(_docDate.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
 }

@@ -1,6 +1,23 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (web Aurora Cam v4 tasarım paketi + toplu yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (eksik alanlar listesi: tarih alanları + ekran araçları menüsü) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## 🔨 DEVAM EDEN — "EKSİK ALANLAR" LİSTESİ (kullanıcı maddeleri, 2026-08-27)
+
+> Kullanıcı ekranları gezerken eksikleri **numaralı** yazıyor. Kural: **tek tek yapılır, hiçbiri tek
+> başına yayınlanmaz — hepsi bitince TEK toplu yayın.** (Kullanıcı: *"bunları hemen yayınlamayacağız
+> şimdi tek tek yapalım en son yayınlarız… ben aklıma gelenleri yazmaya devam edeceğim."*)
+
+| # | Madde | Durum | Karar |
+|---|---|---|---|
+| 1 | Kayıt ekranlarında **tarih alanı** + iş günü / kayıt anı ayrımı + kehribar tarih alanları + `btn-backdate` yetkisi | ✅ bitti | **ADR-162** |
+| 2 | Her ekrana özel **Ekran Araçları** menüsü (kayıt geçmişi + ekran bilgisi) + `btn-screen-log` yetkisi | ✅ bitti | **ADR-163** |
+| 3+ | — | ⏳ kullanıcıdan bekleniyor | — |
+
+**Yayın durumu:** ⛔ **yayınlanmadı.** Son yayın API v172 · web v197 · masaüstü 1.0.158 (Aurora Cam v4).
+Yukarıdaki maddeler yerelde/git'te hazır; yayın kullanıcı "artık yayınla" diyene kadar YAPILMAZ.
 
 ---
 

@@ -152,7 +152,7 @@
                     BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <!-- 1) Menü daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" VerticalAlignment="Center"
@@ -229,11 +229,37 @@
                         </StackPanel>
                     </Button>
 
-                    <Border Grid.Column="5" Width="1" Height="26" Margin="12,0"
+                    <!-- ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRAN ARAÇLARI.
+                         Aktif ekrana ÖZEL işlemler tek bir menüde toplanır: kayıt geçmişi (log) ve ekran
+                         bilgisi. Eskiden ekran bilgisi kullanıcı menüsündeydi (ekranla ilgisiz bir yer);
+                         buraya taşındı. Menü içeriği ActiveKey ile birlikte tazelenir. -->
+                    <Button Grid.Column="5" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
+                            VerticalAlignment="Center" Margin="0,0,4,0"
+                            ToolTip.Tip="Bu ekrana ait araçlar: kayıt geçmişi ve ekran bilgisi"
+                            a11y:AutomationProperties.Name="Ekran araçları">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconSettings}"
+                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <SelectableTextBlock Text="Ekran" Classes="Body" FontSize="12.5" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="{Binding ScreenLogHeader}" Command="{Binding ShowScreenLogCommand}"
+                                          IsVisible="{Binding CanShowScreenLog}"/>
+                                <Separator IsVisible="{Binding CanShowScreenLog}"/>
+                                <MenuItem Header="Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"/>
+                                <MenuItem Header="Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <Border Grid.Column="6" Width="1" Height="26" Margin="12,0"
                             Background="{DynamicResource BorderSubtleBrush}" VerticalAlignment="Center"/>
 
                     <!-- 6) Kullanıcı menüsü — taşınan komutlar burada -->
-                    <Button Grid.Column="6" Classes="Ghost" Height="36" Padding="4,0,10,0"
+                    <Button Grid.Column="7" Classes="Ghost" Height="36" Padding="4,0,10,0"
                             CornerRadius="10" VerticalAlignment="Center"
                             ToolTip.Tip="{Binding DisplayName}">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -253,10 +279,8 @@
                                 <MenuItem Header="{Binding Version, StringFormat='Sürüm {0}'}" IsEnabled="False"/>
                                 <MenuItem Header="{Binding BuildStamp, StringFormat='Derleme {0}'}" IsEnabled="False"/>
                                 <Separator/>
-                                <MenuItem Header="Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
-                                          IsVisible="{Binding IsSuperAdmin}"/>
-                                <MenuItem Header="Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
-                                          IsVisible="{Binding IsSuperAdmin}"/>
+                                @* LOG-01: "Ekran Bilgisi" ve "Basit Ekran Bilgisi" buradan ÇIKARILDI —
+                                   artık üst bardaki "Ekran Araçları" (⋯) menüsünde, ekrana özel olarak. *@
                                 <MenuItem Header="Yereli Sıfırla…" Command="{Binding ResetLocalAndResyncCommand}"
                                           IsVisible="{Binding IsSuperAdmin}"
                                           Foreground="{DynamicResource DangerBrush}"/>
