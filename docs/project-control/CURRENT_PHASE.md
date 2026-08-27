@@ -1,15 +1,16 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (PRJ-01 Proje/Şantiye tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (EVR-01 Evrak/Belge tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
 
-FAZ 1/SIRA 1 **C — Proje/Şantiye (+Saha)** ✅ tamamlandı (ADR-164, Migration073, ProjeTests 15/15) —
-**canlıya YAYINLANMADI**: migration deploy anında koşacağından yayın AYRI onay ister; deploy
-öncesi/sonrası canlı salt-okunur sayım alınacak. Sıradaki madde: **A — Evrak**.
-Tek doğru kaynak: MASTER_ROADMAP.md + PRJ_01_PROJE_SANTIYE.md.
+FAZ 1/SIRA 1 **C — Proje/Şantiye** ✅ (ADR-164) · SIRA 2 **A — Evrak/Belge** ✅ (ADR-165, 2026-08-28,
+EvrakTests 12/12). İkisi de **canlıya YAYINLANMADI**: Migration073+074 deploy anında koşacağından
+yayın AYRI onay ister; deploy öncesi/sonrası canlı salt-okunur sayım alınacak.
+Sıradaki: **E — Varlık/Ekipman** (önce araç/varlık model kararı). Tek doğru kaynak: MASTER_ROADMAP.md
++ PRJ_01_PROJE_SANTIYE.md + EVRAK_01_EVRAK_BELGE_YONETIMI.md.
 
 ---
 ## 🔨 DEVAM EDEN — "EKSİK ALANLAR" LİSTESİ (kullanıcı maddeleri, 2026-08-27)

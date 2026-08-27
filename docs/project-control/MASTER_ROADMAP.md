@@ -35,8 +35,8 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | Faz | # | Özellik | Tür | Durum |
 |---|---|---|---|---|
 | **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-27, ADR-164 · yayın bekliyor) |
-| | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü + ekranlara sekme | BEKLİYOR |
-| | 3 | E — Varlık / Ekipman | Yeni ana menü | BEKLİYOR |
+| | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-165 · yayın bekliyor) |
+| | 3 | E — Varlık / Ekipman | Yeni ana menü | 🔵 **SIRADAKİ** (başlamadan: araç/varlık model kararı) |
 | **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | BEKLİYOR |
 | | 5 | D — Maliyet Merkezi | Alt menü (Finans) + raporlar | BEKLİYOR |
 | | 6 | P — Satın Alma | Yeni ana menü | BEKLİYOR |
@@ -123,6 +123,7 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 | Tarih | Migration | Özellik | Canlıya uygulandı mı |
 |---|---|---|---|
 | 2026-08-27 | Migration073_Projects (v73 — yalnız CREATE, 2 yeni tablo) | C — Proje/Şantiye | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-28 | Migration074_DocumentFields (v74 — yalnız ADD COLUMN + indeks) | A — Evrak | **HAYIR** (yayın onayıyla uygulanacak) |
 
 ---
 ---

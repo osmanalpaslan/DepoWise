@@ -336,7 +336,10 @@ public sealed class ApiClient
         catch { return (null, null); }
     }
 
-    public async Task<string?> UploadFilesAsync(string path, IEnumerable<(string Name, byte[] Bytes, string Mime)> files)
+    /// <param name="extraFields">EVR-01: dosyayla birlikte gönderilecek form alanları (belge meta) — null/boş değerler atlanır.
+    /// Eklendiği için mevcut çağrılar DEĞİŞMEDİ (opsiyonel parametre).</param>
+    public async Task<string?> UploadFilesAsync(string path, IEnumerable<(string Name, byte[] Bytes, string Mime)> files,
+        IReadOnlyDictionary<string, string?>? extraFields = null)
     {
         using var form = new MultipartFormDataContent();
         foreach (var f in files)
@@ -345,6 +348,9 @@ public sealed class ApiClient
             content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(f.Mime) ? "image/jpeg" : f.Mime);
             form.Add(content, "file", f.Name);
         }
+        if (extraFields is not null)
+            foreach (var (k, v) in extraFields)
+                if (!string.IsNullOrEmpty(v)) form.Add(new StringContent(v), k);
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
         var r = await Gonder(req);

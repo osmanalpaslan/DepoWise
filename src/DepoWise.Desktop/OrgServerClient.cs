@@ -31,6 +31,89 @@ public static class OrgServerClient
     public sealed record Result(bool Ok, bool Offline, string? Error, string? Id, int Status = 0);
     private static Result OfflineResult => new(false, true, null, null);
 
+    // ── Belgeler (EVR-01 / ADR-165): SUNUCU-OTORİTELİ — belge içeriği senkron paketinde taşınmaz. ──
+    public sealed record DocumentItem(string Id, string EntityType, string EntityTypeDisplay, string EntityId,
+        string EntityLabel, string Title, string? DocType, long? ValidFrom, long? ValidUntil,
+        string? Description, string FileName, string? Mime, long? SizeBytes, long CreatedAt, long Version);
+
+    public static async Task<List<DocumentItem>?> ListDocumentsAsync(string? entityType, string? search)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(entityType)) q.Add("entityType=" + Uri.EscapeDataString(entityType!));
+        if (!string.IsNullOrWhiteSpace(search)) q.Add("search=" + Uri.EscapeDataString(search!.Trim()));
+        using var doc = await GetJsonAsync("/api/documents" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
+        if (doc is null) return null;
+        var list = new List<DocumentItem>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+            list.Add(new DocumentItem(Str(e, "id"), Str(e, "entityType"), Str(e, "entityTypeDisplay"),
+                Str(e, "entityId"), Str(e, "entityLabel"), Str(e, "title"), NullS(e, "docType"),
+                Num(e, "validFrom"), Num(e, "validUntil"), NullS(e, "description"), Str(e, "fileName"),
+                NullS(e, "mime"), Num(e, "sizeBytes"), Num(e, "createdAt") ?? 0, Num(e, "version") ?? 0));
+        return list;
+    }
+
+    /// <summary>Genel amaçlı seçenek listesi (id + ad alanı) — belge ekranının "bağlı kayıt" seçicileri için.</summary>
+    public static async Task<List<(string Id, string Name)>?> OptionListAsync(string path, string idField, string nameField)
+    {
+        using var doc = await GetJsonAsync(path);
+        if (doc is null) return null;
+        var list = new List<(string, string)>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+        {
+            var id = Str(e, idField);
+            if (!string.IsNullOrEmpty(id)) list.Add((id, Str(e, nameField)));
+        }
+        return list;
+    }
+
+    /// <summary>Belge yükleme (multipart form). Meta alanları form alanı olarak gider; boşlar atlanır.</summary>
+    public static async Task<Result> UploadDocumentAsync(string fileName, string? mime, byte[] bytes,
+        IReadOnlyDictionary<string, string?> fields)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return OfflineResult;
+        try
+        {
+            using var form = new System.Net.Http.MultipartFormDataContent();
+            var content = new System.Net.Http.ByteArrayContent(bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(mime) ? "application/octet-stream" : mime!);
+            form.Add(content, "file", fileName);
+            foreach (var (k, v) in fields)
+                if (!string.IsNullOrEmpty(v)) form.Add(new System.Net.Http.StringContent(v), k);
+            using var req = new HttpRequestMessage(HttpMethod.Post, url + "/api/documents") { Content = form };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            var text = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode) return new Result(false, false, ExtractError(text, (int)resp.StatusCode), null, (int)resp.StatusCode);
+            return new Result(true, false, null, null);
+        }
+        catch { return OfflineResult; }
+    }
+
+    /// <summary>Belge içeriğini indirir (null = çevrimdışı/başarısız).</summary>
+    public static async Task<byte[]?> DownloadDocumentAsync(string id)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url + $"/api/documents/{id}/download");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadAsByteArrayAsync();
+        }
+        catch { return null; }
+    }
+
+    public static Task<Result> UpdateDocumentMetaAsync(string id, object body)
+        => SendOkAsync(HttpMethod.Put, $"/api/documents/{id}", body);
+    public static Task<Result> DeleteDocumentAsync(string id)
+        => SendOkAsync(HttpMethod.Delete, $"/api/documents/{id}", null);
+
+    private static long? Num(JsonElement e, string key)
+        => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
+
     // ── Projeler (PRJ-01 / ADR-164): şubeler gibi SUNUCU-OTORİTELİ — çevrimdışıysa Offline döner. ──
     public sealed record ProjectItem(string Id, string Name, string Status, string StatusDisplay,
         long? StartDate, long? EndDate, string? ManagerPersonnelId, string ManagerName,

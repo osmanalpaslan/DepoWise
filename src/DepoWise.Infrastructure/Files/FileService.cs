@@ -86,7 +86,7 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, entity_type, entity_id, storage_key, mime, size_bytes FROM file_records " +
-            "WHERE company_id=@c AND entity_type=@et AND entity_id=@eid AND is_deleted=0 ORDER BY created_at;";
+            "WHERE company_id=@c AND entity_type=@et AND entity_id=@eid AND kind='photo' AND is_deleted=0 ORDER BY created_at;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@et", entityType);
         cmd.AddWithValue("@eid", entityId);
@@ -104,7 +104,7 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         string? entityType, companyId;
         using (var read = conn.CreateCommand())
         {
-            read.CommandText = "SELECT entity_type, company_id FROM file_records WHERE id=@id;";
+            read.CommandText = "SELECT entity_type, company_id FROM file_records WHERE id=@id AND kind='photo';";
             read.AddWithValue("@id", fileId);
             using var r = read.ExecuteReader();
             if (!r.Read()) throw new ForbiddenException("Dosya bulunamadı.");

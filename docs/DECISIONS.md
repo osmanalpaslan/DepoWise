@@ -2485,3 +2485,25 @@ tablolar boş. PRJ14: migration kaynağında ALTER/UPDATE/DELETE/DROP/INSERT bul
 kilitli. Migration canlıya BU TURDA UYGULANMADI; deploy anında koşar → yayın onayı = migration onayı.
 
 Ayrıntılı kalıcı kayıt: `docs/project-control/PRJ_01_PROJE_SANTIYE.md`.
+
+---
+
+## ADR-165 — Evrak / Belge Yönetimi — EVR-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 1/SIRA 2
+
+### Karar
+- **Mevcut `file_records` YENİDEN kullanıldı** (ikinci belge tablosu YOK): belgeler `kind='document'`.
+  Migration074 yalnız eklemeli meta kolonları + indeks; mevcut satırlara sıfır dokunuş (EVR11/12 kanıtlı).
+- **Sunucu-otoriteli:** analiz KANITLADI ki dosya ikilisi bugün senkronda hiç taşınmıyor (file_records
+  BusinessSync'te yok; masaüstü fotoğrafı yalnız kendi diskinde). Belgeler "her yerden erişilsin" gereğiyle
+  sunucuda tek kopya tutulur; iki platform aynı /api/documents uçlarını çağırır. Masaüstü çevrimdışıyken
+  evrak işlemi yapılamaz (anlaşılır uyarı). Senkron protokolüne ve fotoğraf davranışına DOKUNULMADI.
+- **İki kapılı yetki:** `files` modülü + bağlı kaydın modülü; şube/proje belgelerinde BranchAccess kapsamı.
+  Merkezi ekran yetki sisteminde yan kapı DEĞİLDİR (EVR6/7/8 kilitli).
+- **Doğrulama:** `DocumentValidation` — magic-byte (PDF/Office/görsel) + uzantı-içerik tutarlılığı +
+  7 MB (fotoğrafla aynı sınır). Sahte uzantı/izinsiz tür/boyut aşımı reddedilir (EVR4).
+- **Yan düzeltme:** `FileService.GetPhotos/DeletePhoto`'ya `kind='photo'` koşulu — belge fotoğraf
+  galerisine sızmasın, fotoğraf ucundan iki kapı atlanarak silinemesin (EVR10 bu hatayı yakaladı).
+
+Bilinçli ALINMAYAN kararlar (ürün): belge türü sabit listesi · sürümleme · geçerlilik uyarısı ·
+çöp kutusundan geri getirme. Ayrıntı: `docs/project-control/EVRAK_01_EVRAK_BELGE_YONETIMI.md`.

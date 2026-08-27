@@ -38,6 +38,20 @@ public static class FilePickerService
             .ToList();
     }
 
+    /// <summary>EVR-01: herhangi bir dosyayı kaydetme yeri seçtirir (uzantı önerilen addan gelir); iptal → null.</summary>
+    public static async Task<string?> SaveAnyAsync(string suggestedName)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime d
+            || d.MainWindow is null)
+            return null;
+        var file = await d.MainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Belgeyi Kaydet",
+            SuggestedFileName = suggestedName,
+        });
+        return file?.TryGetLocalPath();
+    }
+
     /// <summary>PDF kaydetme yeri seçtirir; yerel yol döner (iptal → null).</summary>
     public static async Task<string?> SavePdfAsync(string suggestedName)
     {

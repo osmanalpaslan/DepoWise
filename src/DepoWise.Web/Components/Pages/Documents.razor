@@ -1,0 +1,245 @@
+@page "/documents"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ EVR-01 (ADR-165, 2026-08-27) — EVRAK / BELGELER ═══
+    Merkezi belge ekranı. Yetki: files modülü + bağlı kaydın modülü (iki kapı SUNUCUDA).
+    Belgeler SUNUCUDA tutulur (fotoğraflar gibi senkron paketinde taşınmaz) — masaüstü de aynı API'yi kullanır.
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Evrak / Belgeler</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("files"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ BELGE" : "BELGE BİLGİLERİNİ DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_title" Label="Belge Başlığı *" Error="_err && string.IsNullOrWhiteSpace(_title)" ErrorText="Başlık zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="6"><MudTextField @bind-Value="_docType" Label="Belge Türü (serbest — örn. Fatura, Sigorta, Ruhsat)" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_entityType" Label="Bağlı Kayıt Türü" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           Disabled="@(_editId is not null)" @bind-Value:after="OnEntityTypeChanged">
+                    @foreach (var t in _entityTypes) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="8">
+                @if (_entityType != "company")
+                {
+                    <MudSelect T="string" @bind-Value="_entityId" Label="Bağlı Kayıt *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Disabled="@(_editId is not null)" Clearable="true">
+                        @foreach (var o in _entityOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                    </MudSelect>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Genel firma evrakı — belirli bir kayda bağlanmaz.</MudText>
+                }
+            </MudItem>
+            <MudItem xs="6" md="4"><MudDatePicker @bind-Date="_validFrom" Label="Geçerlilik Başlangıcı" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="6" md="4"><MudDatePicker @bind-Date="_validUntil" Label="Geçerlilik Bitişi" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="12" md="4">
+                @if (_editId is null)
+                {
+                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFilePicked" Accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.doc,.xls">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AttachFile">
+                                @(_pickedName ?? "Dosya Seç (en çok 7 MB)")
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                }
+            </MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_description" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_editId is null ? "Yükle" : "Kaydet")</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h6">Belgeler</MudText><MudSpacer />
+        <MudSelect T="string" @bind-Value="_filterType" Label="Kayıt Türü" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Clearable="true" @bind-Value:after="Load" Style="min-width:170px;">
+            @foreach (var t in _entityTypes) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
+        </MudSelect>
+        <MudTextField @bind-Value="_search" Label="Ara (başlık / dosya / tür / kayıt)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:250px;" />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz belge yüklenmedi.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent>
+                <MudTh>BAŞLIK</MudTh><MudTh>TÜR</MudTh><MudTh>BAĞLI KAYIT</MudTh><MudTh>DOSYA</MudTh>
+                <MudTh>BOYUT</MudTh><MudTh>GEÇERLİLİK</MudTh><MudTh>YÜKLENME</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@Str(context, "title")</MudTd>
+                <MudTd>@Str(context, "docType")</MudTd>
+                <MudTd>@Str(context, "entityTypeDisplay"): @Str(context, "entityLabel")</MudTd>
+                <MudTd>@Str(context, "fileName")</MudTd>
+                <MudTd>@SizeText(context)</MudTd>
+                <MudTd>@ValidText(context)</MudTd>
+                <MudTd>@DateTimeText(context, "createdAt")</MudTd>
+                <MudTd>
+                    <MudStack Row="true" Spacing="1">
+                        <MudTooltip Text="İndir"><MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Download" OnClick="@(() => Download(context))" /></MudTooltip>
+                        @if (Auth.CanEdit("files")) { <MudTooltip Text="Bilgileri düzenle"><MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /></MudTooltip> }
+                        @if (Auth.CanDelete("files")) { <MudTooltip Text="Sil"><MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /></MudTooltip> }
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string? _editId, _entityId, _filterType;
+    private string _title = "", _docType = "", _description = "", _entityType = "company", _search = "";
+    private DateTime? _validFrom, _validUntil;
+    private IBrowserFile? _picked; private string? _pickedName;
+    private List<ApiClient.Opt> _entityTypes = new();
+    private List<ApiClient.Opt> _entityOptions = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _entityTypes = await Api.OptionsAsync("/api/documents/entity-types", "key", "label"); } catch { }
+        await Load();
+    }
+
+    /// <summary>Bağlı kayıt seçenekleri MEVCUT uçlardan gelir (yeni seçenek ucu açılmadı).</summary>
+    private async Task OnEntityTypeChanged()
+    {
+        _entityId = null; _entityOptions = new();
+        try
+        {
+            _entityOptions = _entityType switch
+            {
+                "material" => await Api.OptionsAsync("/api/materials", "id", "name"),
+                "vehicle" => await Api.OptionsAsync("/api/vehicles/options", "id", "name"),
+                "personnel" => await Api.OptionsAsync("/api/personnel", "id", "fullName"),
+                "branch" => await Api.OptionsAsync("/api/branches", "id", "name"),
+                "project" => await Api.OptionsAsync("/api/projects", "id", "name"),
+                _ => new(),
+            };
+        }
+        catch { }
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (!string.IsNullOrEmpty(_filterType)) q.Add("entityType=" + Uri.EscapeDataString(_filterType));
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        try { _rows = await Api.GetArrayAsync("/api/documents" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private void OnFilePicked(IBrowserFile? f) { _picked = f; _pickedName = f?.Name; }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu belgenin bilgilerini düzenlemek istiyor musunuz? (Dosyanın kendisi değişmez.)", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id"); _title = Str(d, "title"); _docType = Str(d, "docType");
+        _entityType = Str(d, "entityType"); _entityId = NullS(d, "entityId");
+        _validFrom = MsToDate(d, "validFrom"); _validUntil = MsToDate(d, "validUntil");
+        _description = Str(d, "description");
+        _picked = null; _pickedName = null; _msg = null;
+    }
+
+    private async Task Save()
+    {
+        _err = true; _msg = null;
+        if (string.IsNullOrWhiteSpace(_title)) { _msg = "Belge başlığı zorunlu."; _ok = false; return; }
+        if (_editId is null && _picked is null) { _msg = "Dosya seçilmedi."; _ok = false; return; }
+        if (_editId is null && _entityType != "company" && string.IsNullOrEmpty(_entityId)) { _msg = "Bağlı kayıt seçilmedi."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Belge yüklensin mi?" : "Belge bilgileri güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            if (_editId is null)
+            {
+                using var ms = new MemoryStream();
+                await _picked!.OpenReadStream(maxAllowedSize: 8 * 1024 * 1024).CopyToAsync(ms);
+                var extra = new Dictionary<string, string?>
+                {
+                    ["title"] = _title.Trim(), ["docType"] = _docType, ["description"] = _description,
+                    ["entityType"] = _entityType, ["entityId"] = _entityId,
+                    ["validFrom"] = ToMs(_validFrom)?.ToString(), ["validUntil"] = ToMs(_validUntil)?.ToString(),
+                };
+                var err = await Api.UploadFilesAsync("/api/documents",
+                    new[] { (_picked!.Name, ms.ToArray(), _picked!.ContentType) }, extra);
+                _ok = err is null; _msg = err ?? "Belge yüklendi.";
+            }
+            else
+            {
+                var body = new { title = _title.Trim(), docType = _docType, validFrom = ToMs(_validFrom), validUntil = ToMs(_validUntil), description = _description };
+                var err = await Api.PutAsync($"/api/documents/{_editId}", body);
+                _ok = err is null; _msg = err ?? "Güncellendi.";
+            }
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Download(JsonElement d)
+    {
+        var (bytes, name) = await Api.GetFileAsync($"/api/documents/{Str(d, "id")}/download", Str(d, "fileName"));
+        if (bytes is null) { _msg = "Dosya indirilemedi."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes), Str(d, "mime"));
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu belge silinsin mi?", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/documents/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null; await Load();
+    }
+
+    private void Clear()
+    { _err = false; _editId = null; _title = ""; _docType = ""; _description = ""; _entityType = "company"; _entityId = null; _validFrom = null; _validUntil = null; _picked = null; _pickedName = null; }
+
+    private static long? ToMs(DateTime? d) => d is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private static DateTime? MsToDate(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.Date : null;
+    private static string DateTimeText(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.ToString("dd.MM.yyyy HH:mm") : "—";
+    private string ValidText(JsonElement d)
+    {
+        var f = MsToDate(d, "validFrom"); var u = MsToDate(d, "validUntil");
+        if (f is null && u is null) return "—";
+        return $"{(f is null ? "…" : f.Value.ToString("dd.MM.yyyy"))} – {(u is null ? "…" : u.Value.ToString("dd.MM.yyyy"))}";
+    }
+    private static string SizeText(JsonElement d)
+        => d.TryGetProperty("sizeBytes", out var v) && v.ValueKind == JsonValueKind.Number
+            ? $"{v.GetInt64() / 1024.0:0.#} KB" : "—";
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+}

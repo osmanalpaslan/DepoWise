@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.DocumentsView"
+             x:DataType="vm:DocumentsViewModel">
+
+    <!-- EVR-01 (ADR-165): Evrak/Belgeler — sunucu-otoriteli merkezi belge ekranı. Yetki: files modülü. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Evrak / Belgeler"
+                      PrimaryActionText="Yeni Belge" PrimaryActionCommand="{Binding NewDocumentCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <ComboBox Classes="Field" Width="160" ItemsSource="{Binding FilterTypeOptions}" SelectedItem="{Binding FilterType}"/>
+                    <TextBox Classes="Field" Width="240" Text="{Binding SearchText}" Watermark="Ara: başlık / dosya / tür / kayıt"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni/Düzenle formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Belge Başlığı" IsRequired="True" Width="260">
+                        <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Belge Türü" Width="200" HelpText="Serbest — örn. Fatura, Sigorta, Ruhsat.">
+                        <TextBox Classes="Field" Text="{Binding FormDocType}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Bağlı Kayıt Türü" Width="170">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}"
+                                  SelectedItem="{Binding FormEntityType}" IsEnabled="{Binding IsNew}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Bağlı Kayıt" Width="240" IsVisible="{Binding EntityPickVisible}">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding EntityOptions}" SelectedItem="{Binding FormEntity}"
+                                        PlaceholderText="Kayıt seç / ara..."/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <!-- Tarih alanları KEHRİBAR temadan gelir (TRH-01 standardı) -->
+                    <ctrl:FormField Label="Geçerlilik Başlangıcı" Width="170">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormValidFrom}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Geçerlilik Bitişi" Width="170">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormValidUntil}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Dosya (en çok 7 MB)" Width="300" IsVisible="{Binding IsNew}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="Secondary" Content="Dosya Seç" Command="{Binding PickFileCommand}"/>
+                            <SelectableTextBlock Text="{Binding FormFileDisplay}" Classes="Helper" VerticalAlignment="Center"
+                                       MaxWidth="180" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FormFileDisplay}"/>
+                        </StackPanel>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Açıklama" Width="740">
+                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,330">
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="BAŞLIK" MinWidth="170"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="110" MaxWidth="110"/>
+                                <SelectableTextBlock Grid.Column="2" Text="BAĞLI KAYIT" MinWidth="180" MaxWidth="180"/>
+                                <SelectableTextBlock Grid.Column="3" Text="GEÇERLİLİK" MinWidth="150" MaxWidth="150"/>
+                                <SelectableTextBlock Grid.Column="4" Text="YÜKLENME" MinWidth="120" MaxWidth="120"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DocumentItemRow">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Title}" MinWidth="170" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding DocTypeDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DocTypeDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding BagliDisplay}" MinWidth="180" MaxWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BagliDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding ValidDisplay}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding CreatedDisplay}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Belge yok" Message="Henüz belge yüklenmedi." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Detay -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <SelectableTextBlock Text="{Binding Selected.Title}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Classes="Primary" Content="İndir" Command="{Binding DownloadCommand}"/>
+                            <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                            <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                        </StackPanel>
+                        <Border Classes="Divider"/>
+                        <SelectableTextBlock Text="{Binding Selected.BagliDisplay}" Classes="Body" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Text="{Binding Selected.FileName}" Classes="Body" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Text="{Binding Selected.SizeDisplay}" Classes="Helper"/>
+                        <SelectableTextBlock Text="{Binding Selected.ValidDisplay}" Classes="Helper"/>
+                        <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
+                                   IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+                <SelectableTextBlock Text="Detay için bir belge seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

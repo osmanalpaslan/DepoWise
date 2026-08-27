@@ -1175,6 +1175,50 @@ app.MapPut("/api/projects/{id}", (HttpContext c, string id, ProjectDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Projects.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/projects/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Projects.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ═══ EVR-01 (ADR-165, 2026-08-27) — EVRAK / BELGELER ═══
+// İki kapı SERVİSTE: files modülü + bağlı kaydın modülü (+ şube/proje kapsamı). Sunucu-otoritelidir:
+// belge içeriği senkron paketinde taşınmaz; masaüstü de bu uçları çevrimiçi çağırır.
+app.MapGet("/api/documents/entity-types", (HttpContext c) =>
+    S(c) is { } s
+        ? Results.Ok(DepoWise.Infrastructure.Files.DocumentService.EntityTypes.Select(t => new { key = t.Key, label = t.Label }))
+        : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/documents", (HttpContext c, string? entityType, string? entityId, string? search) =>
+    S(c) is { } s ? Results.Ok(svc.Documents.List(s, entityType, entityId, search).Select(x => new
+    {
+        id = x.Id, entityType = x.EntityType, entityId = x.EntityId,
+        entityTypeDisplay = x.EntityTypeDisplay, entityLabel = x.EntityLabel,
+        title = x.Title, docType = x.DocType, validFrom = x.ValidFrom, validUntil = x.ValidUntil,
+        description = x.Description, fileName = x.FileName, mime = x.Mime, sizeBytes = x.SizeBytes,
+        createdAt = x.CreatedAt, version = x.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/documents", async (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files.Count > 0 ? form.Files[0] : null;
+    if (file is null) return Results.BadRequest(new { error = "Dosya seçilmedi." });
+    using var ms = new MemoryStream();
+    await file.OpenReadStream().CopyToAsync(ms, ctx.RequestAborted);
+    long? Ms(string k) => long.TryParse(form[k], out var v) ? v : null;
+    string? Str(string k) => string.IsNullOrWhiteSpace(form[k]) ? null : form[k].ToString();
+    var meta = new DepoWise.Infrastructure.Files.DocumentMeta(
+        form["title"].ToString(), Str("docType"), Ms("validFrom"), Ms("validUntil"), Str("description"));
+    var saved = svc.Documents.Save(s, form["entityType"].ToString(), Str("entityId"), meta,
+        file.FileName, file.ContentType, ms.ToArray());
+    return Results.Ok(new { id = saved.Id });
+}).RequireAuthorization();
+app.MapGet("/api/documents/{id}/download", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var (bytes, name, mime) = svc.Documents.Download(s, id);
+    return Results.File(bytes, mime, name);
+}).RequireAuthorization();
+app.MapPut("/api/documents/{id}", (HttpContext c, string id, DocumentMetaDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Documents.UpdateMeta(s, id,
+        new DepoWise.Infrastructure.Files.DocumentMeta(d.Title, d.DocType, d.ValidFrom, d.ValidUntil, d.Description))) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/documents/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Documents.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff), expectedVersion: d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
@@ -3754,6 +3798,8 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// EVR-01: belge META düzenleme gövdesi (dosya içeriği bu uçtan DEĞİŞMEZ).
+record DocumentMetaDto(string Title, string? DocType = null, long? ValidFrom = null, long? ValidUntil = null, string? Description = null);
 record ProjectDto(string Name, string? Status = null, long? StartDate = null, long? EndDate = null,
     string? ManagerPersonnelId = null, string? Location = null, string? Description = null,
     List<string>? BranchIds = null, long? Version = null)

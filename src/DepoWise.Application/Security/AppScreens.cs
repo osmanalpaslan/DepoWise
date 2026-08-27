@@ -112,6 +112,7 @@ public static class AppScreens
         new AppScreenGroup("Yönetici Raporları",  "📈", "reports",         "section:raporlar"),
         new AppScreenGroup("Şube ve Personel",    "🏗️", "branches",        "section:kurumsal"),
         new AppScreenGroup("Kullanıcı Yönetimi",  "👥", "users",           "section:kurumsal"),
+        new AppScreenGroup("Evrak",               "📁", "files",           "section:kurumsal"),   // EVR-01 (ADR-165)
         new AppScreenGroup("Denetim",             "🔍", "audit",           "section:kurumsal"),
         new AppScreenGroup("Web Yönetimi",        "🛡️", "companies",       "section:sistem"),
         new AppScreenGroup("Yedekleme",           "💾", "backup",          "section:sistem"),
@@ -204,6 +205,8 @@ public static class AppScreens
         new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
         // PRJ-01 (ADR-164): Projeler — yetki modülü branches (PK-C4: ayrı kapı yok).
         new AppScreen("projects", "branches", "Şube ve Personel", "Projeler", Both, "projects", "projects"),
+        // EVR-01 (ADR-165): merkezi Evrak/Belge ekranı — yetki modülü files ("Dosya / Fotoğraf").
+        new AppScreen("documents", "files", "Evrak", "Evrak / Belgeler", Both, "documents", "documents"),
         new AppScreen("personnel", "personnel", "Şube ve Personel", "Personel Girişi", Both, "personnel", "personnel"),
 
         // ── Kullanıcı Yönetimi ──────────────────────────────────────────────────────────────
