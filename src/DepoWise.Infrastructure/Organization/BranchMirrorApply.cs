@@ -53,7 +53,7 @@ public static class BranchMirrorApply
             c.AddWithValue("@id", b.Id);
             c.AddWithValue("@c", companyId);
             c.AddWithValue("@n", b.Name);
-            c.AddWithValue("@k", b.Kind == "site" ? "site" : "branch");
+            c.AddWithValue("@k", b.Kind is "site" or "field" ? b.Kind : "branch");
             c.AddWithValue("@code", (object?)b.Code ?? System.DBNull.Value);
             c.AddWithValue("@now", now);
             c.ExecuteNonQuery();

@@ -1113,6 +1113,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Şube / Şantiye";
                 CurrentContext = "Şube tanımları ve atanmış kullanıcılar";
                 break;
+            // PRJ-01 (ADR-164): Projeler — sunucu-otoriteli; yetki branches modülü (PK-C4).
+            case "projects":
+                CurrentPage = new ProjectsViewModel(_session);
+                CurrentTitle = "Projeler";
+                CurrentContext = "Proje kartları ve bağlı şantiyeler";
+                break;
             case "permissions":
                 CurrentPage = new PermissionsViewModel(_session);
                 CurrentTitle = "Yetkiler";

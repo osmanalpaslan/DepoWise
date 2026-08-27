@@ -29,7 +29,7 @@ public static class ScreenAuditMap
             ["daily_activity"]   = new[] { "daily_activity" },
             ["requests"]         = new[] { "material_request" },
             ["personnel"]        = new[] { "personnel", "personnel_title" },
-            ["branches"]         = new[] { "branch" },
+            ["branches"]         = new[] { "branch", "project" },   // PRJ-01: Projeler ekranı branches modülündedir (PK-C4)
             ["users"]            = new[] { "user", "user_permissions", "user_scopes", "user_view_all_branches", "role_permissions" },
             ["parties"]          = new[] { "party", "party_ledger" },
             ["invoices"]         = new[] { "invoices" },

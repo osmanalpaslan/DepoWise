@@ -202,6 +202,8 @@ public static class AppScreens
         // ═══ KURUMSAL YÖNETİM ═══════════════════════════════════════════════════════════════
         // ── Şube ve Personel ────────────────────────────────────────────────────────────────
         new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
+        // PRJ-01 (ADR-164): Projeler — yetki modülü branches (PK-C4: ayrı kapı yok).
+        new AppScreen("projects", "branches", "Şube ve Personel", "Projeler", Both, "projects", "projects"),
         new AppScreen("personnel", "personnel", "Şube ve Personel", "Personel Girişi", Both, "personnel", "personnel"),
 
         // ── Kullanıcı Yönetimi ──────────────────────────────────────────────────────────────

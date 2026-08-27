@@ -26,7 +26,7 @@ public sealed partial class BranchesViewModel : ViewModelBase
     public ObservableCollection<BranchRow> Items { get; } = new();
     public ObservableCollection<BranchRow> ParentOptions { get; } = new();
     public ObservableCollection<BranchUserRow> BranchUsers { get; } = new();
-    public ObservableCollection<string> KindOptions { get; } = new() { "Şube", "Şantiye" };
+    public ObservableCollection<string> KindOptions { get; } = new() { "Şube", "Şantiye", "Saha" };
 
     /// <summary>Firma seçici — YALNIZ süper adminde görünür; şube seçilen firmaya bağlı açılır.
     /// Süper-admin-altı roller kendi firmasına kilitlidir (BranchService fail-closed zorlar).</summary>
@@ -111,7 +111,7 @@ public sealed partial class BranchesViewModel : ViewModelBase
         catch (Exception ex) { Status = "Kullanıcılar yüklenemedi: " + ex.Message; }
     }
 
-    private static string KindCode(string display) => display == "Şantiye" ? "site" : "branch";
+    private static string KindCode(string display) => display switch { "Şantiye" => "site", "Saha" => "field", _ => "branch" };
 
     [RelayCommand]
     private void NewBranch()
@@ -130,7 +130,7 @@ public sealed partial class BranchesViewModel : ViewModelBase
         if (!CanEdit) { Status = "Yetki yok."; return; }
         EditId = Selected.Id; _editVersion = Selected.Version;   // düzenleme kilidi
         FormName = Selected.Name;
-        FormKind = Selected.Kind == "site" ? "Şantiye" : "Şube";
+        FormKind = Selected.Kind switch { "site" => "Şantiye", "field" => "Saha", _ => "Şube" };
         FormParent = ParentOptions.FirstOrDefault(p => p.Id == Selected.ParentId);
         FormCode = Selected.Code ?? ""; FormPassword = "";
         FormError = null; ShowAdd = true;

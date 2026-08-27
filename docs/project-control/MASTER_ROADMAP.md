@@ -34,7 +34,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 
 | Faz | # | Özellik | Tür | Durum |
 |---|---|---|---|---|
-| **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | 🔵 **AKTİF** |
+| **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-27, ADR-164 · yayın bekliyor) |
 | | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü + ekranlara sekme | BEKLİYOR |
 | | 3 | E — Varlık / Ekipman | Yeni ana menü | BEKLİYOR |
 | **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | BEKLİYOR |
@@ -80,15 +80,18 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 
 | # | Soru | Karar | Tarih |
 |---|---|---|---|
-| PK-C1 | Bir proje birden fazla şubeye/şantiyeye yayılabilir mi? | ⏳ **KULLANICIYA SORULDU** | 2026-08-27 |
-| PK-C2 | Saha: şantiyenin altında ayrı tür ("saha") olarak mı, alt şantiye kaydı olarak mı? | ⏳ soruldu | 2026-08-27 |
-| PK-C3 | Proje yaşam döngüsü alanları (başlangıç/bitiş/durum) asgari küme | ⏳ soruldu | 2026-08-27 |
-| PK-C4 | Proje ekranı yetkisi: mevcut `branches` modülü mü, yeni `projects` modülü mü? | ⏳ soruldu | 2026-08-27 |
+| PK-C1 | Bir proje birden fazla şubeye/şantiyeye yayılabilir mi? | ✅ **"Şimdilik tek, ileride çok"** — model çokluya hazır, UI tek seçim | 2026-08-27 |
+| PK-C2 | Saha modeli | ✅ **branches.kind üçüncü değer "Saha"** (ayrı tablo/kapsam sistemi YOK, mevcut hiyerarşi) | 2026-08-27 |
+| PK-C3 | Proje kartı alanları | ✅ **Tüm alanlar** (ad · durum · başlangıç/bitiş · sorumlu · konum · açıklama · şantiye); ad dışında opsiyonel | 2026-08-27 |
+| PK-C4 | Yetki | ✅ **Ayrı kapı YOK** — branches modülü + BranchAccess kapsamı | 2026-08-27 |
 
-### 2.3 Teknik kararlar (karar verilince doldurulacak)
+### 2.3 Teknik kararlar (2026-08-27, uygulandı)
 
-- Veri modeli: (PK-C1'e bağlı — seçenekler aşağıda, §2.4)
-- Migration: (bekliyor)
+- Veri modeli: **Seçenek 2** — `projects` + `project_branches` ilişki tablosu (çokluya hazır);
+  mevcut tablolara SIFIR dokunuş, hareket tablolarına project_id EKLENMEDİ.
+- Migration: **Migration073_Projects** (şema v73, yalnız CREATE — PRJ13/PRJ14 kanıtlı). ⚠️ CANLIYA
+  HENÜZ UYGULANMADI; deploy anında MigrationRunner koşacak → yayın onayı migration onayını içerir.
+- Sunucu-otoriteli (şubeler deseni); BusinessSync değişikliği YOK. Ayrıntı: [PRJ_01_PROJE_SANTIYE.md](PRJ_01_PROJE_SANTIYE.md)
 
 ### 2.4 Model seçenekleri (PK-C1 cevabına göre)
 
@@ -100,9 +103,12 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 - **Seçenek 3 (N:N ya da harekete project_id):** hareket tablolarına kolon = büyük migration
   ailesi + tüm servisler. ÖNERİLMEZ (yeniden yazım riski en yüksek).
 
-### 2.5 Yapılan değişiklikler
+### 2.5 Yapılan değişiklikler (2026-08-27 — tamamlandı, yayın bekliyor)
 
-- (henüz kod değişikliği yok — analiz + karar bekleme aşaması)
+- Migration073 + ProjectService + API uçları (/api/projects) + web Projects.razor + masaüstü
+  ProjectsView/ViewModel + menü kaydı + Saha türü + Çöp Kutusu/ekran logu katalogları.
+- Testler: ProjeTests 15/15 (kapsam/tenant/migration-güvenliği dahil) · parite 19/19 · ilgili 69/69 ·
+  üç Release derleme 0 hata. Canlıya yazma YOK. Tam kayıt: [PRJ_01_PROJE_SANTIYE.md](PRJ_01_PROJE_SANTIYE.md)
 
 ---
 
@@ -116,7 +122,7 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 
 | Tarih | Migration | Özellik | Canlıya uygulandı mı |
 |---|---|---|---|
-| — | (henüz yok) | — | — |
+| 2026-08-27 | Migration073_Projects (v73 — yalnız CREATE, 2 yeni tablo) | C — Proje/Şantiye | **HAYIR** (yayın onayıyla uygulanacak) |
 
 ---
 ---

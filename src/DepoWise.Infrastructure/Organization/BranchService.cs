@@ -11,7 +11,7 @@ namespace DepoWise.Infrastructure.Organization;
 public sealed record BranchRow(string Id, string Name, string Kind, string? ParentId, string? ParentName, int UserCount,
     string? Code = null, bool HasPassword = false, long Version = 0)
 {
-    public string KindDisplay => Kind == "site" ? "Şantiye" : "Şube";
+    public string KindDisplay => Kind switch { "site" => "Şantiye", "field" => "Saha", _ => "Şube" };
     public string ParentDisplay => string.IsNullOrEmpty(ParentName) ? "—" : ParentName!;
     public string CodeDisplay => string.IsNullOrEmpty(Code) ? "—" : Code!;
     public string PasswordDisplay => HasPassword ? "•••• (tanımlı)" : "—";
@@ -98,7 +98,7 @@ ORDER BY b.name;";
             cmd.AddWithValue("@c", cid);
             cmd.AddWithValue("@p", (object?)dto.ParentId ?? DBNull.Value);
             cmd.AddWithValue("@n", dto.Name.Trim());
-            cmd.AddWithValue("@k", dto.Kind == "site" ? "site" : "branch");
+            cmd.AddWithValue("@k", dto.Kind is "site" or "field" ? dto.Kind : "branch");
             cmd.AddWithValue("@code", admin ? ((object?)Norm(dto.Code) ?? DBNull.Value) : DBNull.Value);
             cmd.AddWithValue("@pw", admin && !string.IsNullOrWhiteSpace(dto.Password)
                 ? DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password) : (object)DBNull.Value);
@@ -140,7 +140,7 @@ ORDER BY b.name;";
                 + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
             cmd.AddWithValue("@n", dto.Name.Trim());
-            cmd.AddWithValue("@k", dto.Kind == "site" ? "site" : "branch");
+            cmd.AddWithValue("@k", dto.Kind is "site" or "field" ? dto.Kind : "branch");
             cmd.AddWithValue("@p", (object?)dto.ParentId ?? DBNull.Value);
             if (admin)
             {

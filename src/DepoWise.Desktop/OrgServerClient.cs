@@ -31,6 +31,39 @@ public static class OrgServerClient
     public sealed record Result(bool Ok, bool Offline, string? Error, string? Id, int Status = 0);
     private static Result OfflineResult => new(false, true, null, null);
 
+    // ── Projeler (PRJ-01 / ADR-164): şubeler gibi SUNUCU-OTORİTELİ — çevrimdışıysa Offline döner. ──
+    public sealed record ProjectItem(string Id, string Name, string Status, string StatusDisplay,
+        long? StartDate, long? EndDate, string? ManagerPersonnelId, string ManagerName,
+        string? Location, string? Description, List<string> BranchIds, string BranchDisplay, long Version);
+
+    public static async Task<List<ProjectItem>?> ListProjectsAsync(string? search, string? status)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search)) q.Add("search=" + Uri.EscapeDataString(search!.Trim()));
+        if (!string.IsNullOrWhiteSpace(status)) q.Add("status=" + Uri.EscapeDataString(status!));
+        using var doc = await GetJsonAsync("/api/projects" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
+        if (doc is null) return null;   // çevrimdışı / yetkisiz → çağıran uyarır
+        var list = new List<ProjectItem>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+        {
+            var branchIds = new List<string>();
+            if (e.TryGetProperty("branchIds", out var b) && b.ValueKind == JsonValueKind.Array)
+                foreach (var x in b.EnumerateArray()) if (x.GetString() is { } id) branchIds.Add(id);
+            list.Add(new ProjectItem(Str(e, "id"), Str(e, "name"), Str(e, "status"), Str(e, "statusDisplay"),
+                NumN(e, "startDate"), NumN(e, "endDate"), NullS(e, "managerPersonnelId"), Str(e, "managerName"),
+                NullS(e, "location"), NullS(e, "description"), branchIds, Str(e, "branchDisplay"),
+                e.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0));
+        }
+        return list;
+    }
+
+    public static Task<Result> CreateProjectAsync(object body) => PostIdAsync("/api/projects", body);
+    public static Task<Result> UpdateProjectAsync(string id, object body) => SendOkAsync(HttpMethod.Put, $"/api/projects/{id}", body);
+    public static Task<Result> DeleteProjectAsync(string id) => SendOkAsync(HttpMethod.Delete, $"/api/projects/{id}", null);
+
+    private static long? NumN(JsonElement e, string key)
+        => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
+
     // ── Şubeler ──
     public static Task<Result> CreateBranchAsync(string name, string kind, string? parentId, string? code, string? password, string? companyId)
         => PostIdAsync("/api/branches", new { name, kind, parentId, code, password, companyId });

@@ -1156,6 +1156,25 @@ app.MapGet("/api/roles", (HttpContext c) =>
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
 app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)), d.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
+
+// ═══ PRJ-01 (ADR-164, 2026-08-27) — PROJELER ═══
+// Yetki: branches modülü (PK-C4, ayrı kapı YOK) + BranchAccess kapsamı — ikisi de SERVİSTE uygulanır.
+// Sunucu-otoritelidir (şubeler gibi); BusinessSync'e girmez. dto.BranchIds bugün 0-1 eleman (PK-C1).
+app.MapGet("/api/projects", (HttpContext c, string? search, string? status) =>
+    S(c) is { } s ? Results.Ok(svc.Projects.List(s, search, status).Select(p => new
+    {
+        id = p.Id, name = p.Name, status = p.Status, statusDisplay = p.StatusDisplay,
+        startDate = p.StartDate, endDate = p.EndDate,
+        managerPersonnelId = p.ManagerPersonnelId, managerName = p.ManagerDisplay,
+        location = p.Location, description = p.Description,
+        branchIds = p.BranchIds, branchDisplay = p.BranchDisplay, version = p.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/projects", (HttpContext c, ProjectDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Projects.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/projects/{id}", (HttpContext c, string id, ProjectDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Projects.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/projects/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Projects.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff), expectedVersion: d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
@@ -3734,6 +3753,14 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     // BranchAccess kesişimi zaten uygulanır — yalnız DARALTMA amaçlıdır.
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
+// PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+record ProjectDto(string Name, string? Status = null, long? StartDate = null, long? EndDate = null,
+    string? ManagerPersonnelId = null, string? Location = null, string? Description = null,
+    List<string>? BranchIds = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.Organization.NewProject ToNew()
+        => new(Name, Status, StartDate, EndDate, ManagerPersonnelId, Location, Description, BranchIds);
+}
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin
 // tekrarında ikinci belge oluşmaz) devreye girer; göndermezse eski davranış aynen sürer (yeni GUID).

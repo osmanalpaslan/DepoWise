@@ -305,7 +305,8 @@ public class AppScreensParityTests
             // RPR-07 (2026-08-25): Yönetici Raporları artık AYRI gezinme anahtarı kullanır
             // (eskiden "reports" ile aynı ekranı açıyordu; iki menü girişi fiilen tek ekrandı).
             ("Yönetici Raporları", new[] { "reports:manager" }),
-            ("Şube ve Personel", new[] { "branches", "personnel" }),
+            // PRJ-01 (ADR-164): Projeler ekranı — yetki anahtarı branches (PK-C4).
+            ("Şube ve Personel", new[] { "branches", "projects", "personnel" }),
             ("Kullanıcı Yönetimi", new[] { "users", "permissions", "permission_templates" }),
             ("Denetim", new[] { "audit", "stock_change_log" }),
             ("Web Yönetimi", new[] { "companies", "releases", "machines", "server_backups" }),
@@ -322,8 +323,8 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 47. Ekran kaybı olmadığının kanıtı.
-        Assert.Equal(47, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam bağlantı sayısı: 47 + 1 (PRJ-01 "Projeler", 2026-08-27) = 48. Ekran kaybı yok.
+        Assert.Equal(48, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -348,7 +349,7 @@ public class AppScreensParityTests
             ("Operasyon Raporları", new[] { ("reports", "reports") }),
             // RPR-07: ayrı route → deep-link ve menü artık iki farklı ekranı gösterir.
             ("Yönetici Raporları", new[] { ("@admin", "reports/manager") }),
-            ("Şube ve Personel", new[] { ("branches", "branches"), ("personnel", "personnel") }),
+            ("Şube ve Personel", new[] { ("branches", "branches"), ("branches", "projects"), ("personnel", "personnel") }),   // PRJ-01: Projeler
             ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
@@ -371,7 +372,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        Assert.Equal(54, gercek.Sum(x => x.Item2.Length));
+        // PRJ-01 (2026-08-27): +1 "Projeler" → 55.
+        Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>

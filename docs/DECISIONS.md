@@ -2462,3 +2462,26 @@ gerçekten ne zaman girildiği görünür. `LOG7` bunu kilitler.
 
 ### Uç nokta
 `GET /api/audit/screen?module=…&from=…&to=…&limit=200` (kimlik zorunlu; kapılar serviste).
+
+---
+
+## ADR-164 — Proje / Şantiye Yönetimi (+ Saha türü) — PRJ-01
+**Tarih:** 2026-08-27 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 1/SIRA 1 + kullanıcı ürün kararları PK-C1..C4
+
+### Karar
+- **Veri modeli:** yeni `projects` + `project_branches` (ilişki) tabloları — Migration073, **yalnız CREATE**;
+  mevcut hiçbir tabloya (branches dahil) dokunulmadı, hareket tablolarına `project_id` EKLENMEDİ.
+  PK-C1 gereği model ÇOKLU şantiyeye hazır; ilk sürüm UI'ı tek şantiye bağlar (tek→çok = yalnız UI işi).
+- **Saha (PK-C2):** `branches.kind` üçüncü değer `field` ("Saha"); ayrı tablo/kapsam sistemi YOK.
+- **Yetki (PK-C4):** ayrı kapı YOK — `branches` modülü + `BranchAccess` kapsamı (okuma VE yazma yolunda;
+  kapsam dışı şantiyenin projesi görünmez, düzenlenemez, ona bağ kurulamaz — fail-closed).
+- **Sunucu-otoriteli** (şubeler deseni): masaüstü CRUD çevrimiçi API'yle; **BusinessSync değişikliği YOK**
+  (ebeveyn `branches` pakette olmadığından teknik olarak da tek doğru yol).
+- Silme: soft delete + audit + Çöp Kutusu; firma toplu silme içgözlemle otomatik kapsar.
+
+### Canlı veri güvenliği kanıtı
+PRJ13: şema v72'de canlı benzeri veri + yalnız Migration073 → tüm mevcut satırlar bit-bit AYNI, yeni
+tablolar boş. PRJ14: migration kaynağında ALTER/UPDATE/DELETE/DROP/INSERT bulunmadığı statik olarak
+kilitli. Migration canlıya BU TURDA UYGULANMADI; deploy anında koşar → yayın onayı = migration onayı.
+
+Ayrıntılı kalıcı kayıt: `docs/project-control/PRJ_01_PROJE_SANTIYE.md`.

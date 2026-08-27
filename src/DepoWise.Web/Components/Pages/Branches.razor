@@ -41,6 +41,7 @@
                 <MudSelect T="string" @bind-Value="_kind" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("branch")">Şube</MudSelectItem>
                     <MudSelectItem T="string" Value="@("site")">Şantiye</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("field")">Saha</MudSelectItem>
                 </MudSelect>
             </MudItem>
             @if (Auth.IsAdmin)

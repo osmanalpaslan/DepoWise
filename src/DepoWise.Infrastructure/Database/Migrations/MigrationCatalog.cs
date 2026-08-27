@@ -77,5 +77,6 @@ public static class MigrationCatalog
         new Migration070_MenuLayout(),
         new Migration071_MenuSection(),
         new Migration072_RoleGrantLimitsCompany(),
+        new Migration073_Projects(),
     };
 }

@@ -1,9 +1,17 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (eksik alanlar listesi: tarih alanları + ekran araçları menüsü) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (PRJ-01 Proje/Şantiye tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
+## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
+
+FAZ 1/SIRA 1 **C — Proje/Şantiye (+Saha)** ✅ tamamlandı (ADR-164, Migration073, ProjeTests 15/15) —
+**canlıya YAYINLANMADI**: migration deploy anında koşacağından yayın AYRI onay ister; deploy
+öncesi/sonrası canlı salt-okunur sayım alınacak. Sıradaki madde: **A — Evrak**.
+Tek doğru kaynak: MASTER_ROADMAP.md + PRJ_01_PROJE_SANTIYE.md.
+
+---
 ## 🔨 DEVAM EDEN — "EKSİK ALANLAR" LİSTESİ (kullanıcı maddeleri, 2026-08-27)
 
 > Kullanıcı ekranları gezerken eksikleri **numaralı** yazıyor. Kural: **tek tek yapılır, hiçbiri tek

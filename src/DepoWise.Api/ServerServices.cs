@@ -69,6 +69,7 @@ public sealed class ServerServices
     /// <summary>Talep Operasyonları (Faz 2) — onaylı taleplerin operasyon süreci; stok DEĞİŞTİRMEZ.</summary>
     public DepoWise.Infrastructure.Requests.RequestOperationsService RequestOps { get; }
     public DepoWise.Infrastructure.Organization.BranchService Branches { get; }
+    public DepoWise.Infrastructure.Organization.ProjectService Projects { get; }   // PRJ-01 (ADR-164)
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
     /// <summary>Şube kapsamı çözümleyici — içe aktarımda seçilen hedef şubenin kullanıcının
     /// kapsamında olduğunu doğrulamak için (fail-closed).</summary>
@@ -168,6 +169,7 @@ public sealed class ServerServices
         Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
         RequestOps = new DepoWise.Infrastructure.Requests.RequestOperationsService(Factory, clock);
         Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
+        Projects = new DepoWise.Infrastructure.Organization.ProjectService(Factory, clock);
         Scopes = new DepoWise.Infrastructure.Org.ScopeResolver(Factory);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, Scopes, clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
