@@ -112,9 +112,10 @@
                                     <Border Width="52" Height="52" CornerRadius="26" HorizontalAlignment="Center"
                                             Background="{Binding Swatch}" BorderThickness="3"
                                             BorderBrush="{Binding IsSelected, Converter={x:Static vm:ThemeSelBrush.Instance}}">
-                                        <SelectableTextBlock Text="✓" FontSize="18" Foreground="White"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IsVisible="{Binding IsSelected}"/>
+                                        <PathIcon Width="18" Height="18" Foreground="White"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Data="{DynamicResource IconCheck}"
+                                                  IsVisible="{Binding IsSelected}"/>
                                     </Border>
                                     <SelectableTextBlock Text="{Binding Name}" Classes="Helper" HorizontalAlignment="Center"/>
                                 </StackPanel>

@@ -56,10 +56,10 @@ public static class LookupSyncService
             Upsert(conn, tx, "suppliers", root, "suppliers", companyId!, now);
             Upsert(conn, tx, "vehicle_types", root, "vehicleTypes", companyId!, now);
             Upsert(conn, tx, "vehicle_categories", root, "vehicleCategories", companyId!, now);
-            Upsert(conn, tx, "material_categories", root, "materialCategories", companyId!, now, ("parent_id", "parentId"));
-            Upsert(conn, tx, "brands", root, "brands", companyId!, now, ("brand_type", "brandType"));
-            Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, ("brand_id", "brandId"));
-            Upsert(conn, tx, "branches", root, "branches", companyId!, now, ("kind", "kind"), ("parent_id", "parentId"));
+            Upsert(conn, tx, "material_categories", root, "materialCategories", companyId!, now, "parent_id");
+            Upsert(conn, tx, "brands", root, "brands", companyId!, now, "brand_type");
+            Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, "brand_id");
+            Upsert(conn, tx, "branches", root, "branches", companyId!, now, "kind", "parent_id");
             ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
             tx.Commit();
         }
@@ -94,10 +94,10 @@ public static class LookupSyncService
             Upsert(conn, tx, "vehicle_types", root, "vehicleTypes", companyId!, now);
             Upsert(conn, tx, "vehicle_categories", root, "vehicleCategories", companyId!, now);
             progress?.Invoke(65);
-            Upsert(conn, tx, "material_categories", root, "materialCategories", companyId!, now, ("parent_id", "parentId"));
-            Upsert(conn, tx, "brands", root, "brands", companyId!, now, ("brand_type", "brandType"));
-            Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, ("brand_id", "brandId"));
-            Upsert(conn, tx, "branches", root, "branches", companyId!, now, ("kind", "kind"), ("parent_id", "parentId"));
+            Upsert(conn, tx, "material_categories", root, "materialCategories", companyId!, now, "parent_id");
+            Upsert(conn, tx, "brands", root, "brands", companyId!, now, "brand_type");
+            Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, "brand_id");
+            Upsert(conn, tx, "branches", root, "branches", companyId!, now, "kind", "parent_id");
             ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
             tx.Commit();
             progress?.Invoke(100);
@@ -204,8 +204,19 @@ public static class LookupSyncService
         }
     }
 
+    /// <summary>
+    /// Sunucudan gelen tanim satirlarini yerele yazar.
+    ///
+    /// <b>TSN duzeltmesi (2026-08-27).</b> <paramref name="extra"/> artik JSON adi degil, VERITABANI
+    /// SUTUN adidir (<c>brand_id</c>) ve <see cref="DepoWise.Application.Common.JsonAlan.AlanOku"/> ile
+    /// toleransli okunur. Eskiden burada camelCase ad araniyordu (<c>brandId</c>); sunucu ise sozluk
+    /// anahtarini sutun adiyla gonderiyor. <c>TryGetProperty</c> harf duyarli oldugu icin alan HIC
+    /// bulunamiyor, "bos geldi" saniliyor ve asagidaki UPDATE sutunu <c>NULL</c>&apos;a cekiyordu:
+    /// arac modeli markasini, alt kategori ustunu kaybediyordu. Kayip sonra push ile SUNUCUYA da
+    /// tasiniyordu (yerel <c>updated_at</c> "simdi" damgalandigi icin LWW yerel satiri yeni sayar).
+    /// </summary>
     private static void Upsert(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
-        string table, JsonElement root, string jsonKey, string companyId, long now, params (string Col, string JKey)[] extra)
+        string table, JsonElement root, string jsonKey, string companyId, long now, params string[] extra)
     {
         if (!root.TryGetProperty(jsonKey, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
         foreach (var row in arr.EnumerateArray())
@@ -215,13 +226,13 @@ public static class LookupSyncService
                 var id = Str(row, "id"); var name = Str(row, "name");
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name)) continue;
 
-                // Ekstra kolon değerleri
+                // Ekstra kolon değerleri — alan adı, sunucunun gönderdiği yazımdan BAĞIMSIZ okunur.
                 var extraCols = extra;
                 object?[] extraVals = new object?[extraCols.Length];
                 for (int i = 0; i < extraCols.Length; i++)
                 {
-                    var v = StrOrNull(row, extraCols[i].JKey);
-                    if (extraCols[i].Col == "kind" && string.IsNullOrEmpty(v)) v = "branch";
+                    var v = DepoWise.Application.Common.JsonAlan.AlanOku(row, extraCols[i]);
+                    if (extraCols[i] == "kind" && string.IsNullOrEmpty(v)) v = "branch";
                     extraVals[i] = (object?)v ?? DBNull.Value;
                 }
 
@@ -230,7 +241,7 @@ public static class LookupSyncService
                 {
                     upd.Transaction = tx;
                     var setExtra = "";
-                    for (int i = 0; i < extraCols.Length; i++) setExtra += $", {extraCols[i].Col}=@e{i}";
+                    for (int i = 0; i < extraCols.Length; i++) setExtra += $", {extraCols[i]}=@e{i}";
                     upd.CommandText = $"UPDATE {table} SET name=@n, is_deleted=0, updated_at=@now{setExtra} WHERE id=@id;";
                     upd.AddWithValue("@n", name);
                     upd.AddWithValue("@now", now);
@@ -244,7 +255,7 @@ public static class LookupSyncService
                 {
                     ins.Transaction = tx;
                     var cols = "id, company_id, name"; var vals = "@id,@c,@n";
-                    for (int i = 0; i < extraCols.Length; i++) { cols += $", {extraCols[i].Col}"; vals += $",@e{i}"; }
+                    for (int i = 0; i < extraCols.Length; i++) { cols += $", {extraCols[i]}"; vals += $",@e{i}"; }
                     cols += ", created_at, updated_at, version, is_deleted"; vals += ",@now,@now,1,0";
                     ins.CommandText = $"INSERT INTO {table}({cols}) VALUES({vals});";
                     ins.AddWithValue("@id", id);
@@ -263,8 +274,6 @@ public static class LookupSyncService
         => row.TryGetProperty(key, out var v) && v.ValueKind != JsonValueKind.Null
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
 
-    private static string? StrOrNull(JsonElement row, string key)
-    { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
 
     private static string? ResolveServerUrl()
     {

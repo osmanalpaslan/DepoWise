@@ -10,7 +10,8 @@
     <ScrollViewer Background="{DynamicResource AppBackgroundBrush}" Padding="24">
         <StackPanel Spacing="16">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <SelectableTextBlock Text="🔔" FontSize="20" VerticalAlignment="Center"/>
+                <PathIcon Width="20" Height="20" VerticalAlignment="Center"
+                          Foreground="{DynamicResource AccentBrush}" Data="{DynamicResource IconAlerts}"/>
                 <SelectableTextBlock Text="Uyarılar" Classes="SectionTitle" VerticalAlignment="Center"/>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}" Margin="12,0,0,0"/>
             </StackPanel>
@@ -19,14 +20,54 @@
 
             <!-- Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25 -->
             <WrapPanel>
-                <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectCategoryCommand}" CommandParameter="material"
-                        Content="{Binding MalzemeCount, StringFormat='📦 Malzeme ({0})'}"/>
-                <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectCategoryCommand}" CommandParameter="maintenance"
-                        Content="{Binding BakimCount, StringFormat='🔧 Bakım ({0})'}"/>
-                <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectCategoryCommand}" CommandParameter="inspection"
-                        Content="{Binding MuayeneCount, StringFormat='🛡️ Sigorta-Muayene ({0})'}"/>
-                <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectCategoryCommand}" CommandParameter="fuel"
-                        Content="{Binding YakitCount, StringFormat='⛽ Yakıt ({0})'}"/>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="material">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconMaterials}"/>
+                        <TextBlock Text="Malzeme" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding MalzemeCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="maintenance">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconMaintenance}"/>
+                        <TextBlock Text="Bakım" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding BakimCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="inspection">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconWebAdmin}"/>
+                        <TextBlock Text="Sigorta-Muayene" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding MuayeneCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="fuel">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconFuel}"/>
+                        <TextBlock Text="Yakıt" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding YakitCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
             </WrapPanel>
 
             <SelectableTextBlock Text="{Binding LoadError}" Foreground="{DynamicResource DangerBrush}"
@@ -70,8 +111,9 @@
                     CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Border Width="22" Height="22" CornerRadius="11" Background="{DynamicResource SuccessBrush}">
-                        <SelectableTextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <PathIcon Width="13" Height="13" Foreground="White"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="{DynamicResource IconCheck}"/>
                     </Border>
                     <SelectableTextBlock Text="Bu kategoride aktif uyarı yok." Classes="Body" VerticalAlignment="Center"/>
                 </StackPanel>

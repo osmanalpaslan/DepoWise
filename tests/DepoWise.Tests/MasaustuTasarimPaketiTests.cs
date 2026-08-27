@@ -206,12 +206,49 @@ public class MasaustuTasarimPaketiTests
     public void TSR9_Ikonlar_Renksiz_Ve_EvenOdd()
     {
         var ikonlar = Kaynak("Themes", "Icons.axaml");
+        var anahtarlar = Regex.Matches(ikonlar, @"<StreamGeometry x:Key=""(\w+)"">")
+                              .Select(m => m.Groups[1].Value).ToList();
 
-        Assert.Equal(31, Regex.Matches(ikonlar, "<StreamGeometry ").Count);
+        // Sayı SABİTLENMEZ (yeni ikon eklemek meşrudur) ama TABAN korunur: mevcut bir ikonun
+        // sessizce silinmesi, onu kullanan ekranı ikonsuz bırakır.
+        Assert.True(anahtarlar.Count >= 31, $"İkon sayısı 31'in altına düştü ({anahtarlar.Count}) — silinmiş ikon var.");
+        Assert.Equal(anahtarlar.Count, Regex.Matches(ikonlar, "<StreamGeometry ").Count);   // hepsi x:Key taşımalı
+        Assert.Equal(anahtarlar.Count, anahtarlar.Distinct().Count());                      // çift anahtar yok
+
         Assert.DoesNotContain("Fill=", ikonlar);
         Assert.DoesNotContain("Brush", ikonlar);
         Assert.DoesNotContain(">F1 ", ikonlar);
         Assert.DoesNotContain(">F1", ikonlar);
+    }
+
+    /// <summary>⭐ Kodda/XAML'de adı geçen HER ikon anahtarı sözlükte gerçekten olmalı. Yazım hatası
+    /// veya silinmiş bir ikon derlemeyi bozmaz — çalışma zamanında sessizce boş çizilir.</summary>
+    [Fact]
+    public void TSR13_Kullanilan_Ikon_Anahtarlarinin_Hepsi_Tanimli()
+    {
+        var ikonlar = Kaynak("Themes", "Icons.axaml");
+        var tanimli = Regex.Matches(ikonlar, @"<StreamGeometry x:Key=""(\w+)"">")
+                           .Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+
+        // ⚠️ XAML'de yalnız KAYNAK başvurusu sayılır. `Classes="IconChip"` bir stil sınıfı adıdır,
+        // ikon anahtarı DEĞİLDİR — ayırt edilmezse test yanlış alarm verir.
+        var kullanilan = new HashSet<string>(StringComparer.Ordinal);
+        bool Atla(string f) => f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                            || f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}");
+
+        foreach (var f in Directory.EnumerateFiles(MasaustuKok(), "*.axaml", SearchOption.AllDirectories)
+                                   .Where(f => !Atla(f) && !f.EndsWith("Icons.axaml", StringComparison.Ordinal)))
+            foreach (Match m in Regex.Matches(File.ReadAllText(f), @"(?:Static|Dynamic)Resource\s+(Icon\w+)\s*\}"))
+                kullanilan.Add(m.Groups[1].Value);
+
+        foreach (var f in Directory.EnumerateFiles(MasaustuKok(), "*.cs", SearchOption.AllDirectories).Where(f => !Atla(f)))
+            foreach (Match m in Regex.Matches(File.ReadAllText(f), @"""(Icon[A-Z]\w+)"""))
+                kullanilan.Add(m.Groups[1].Value);
+
+        Assert.NotEmpty(kullanilan);   // tarama boşa düşerse test hiçbir şeyi korumaz
+
+        var eksik = kullanilan.Except(tanimli).OrderBy(x => x).ToList();
+        Assert.True(eksik.Count == 0, "Tanımsız ikon anahtarı kullanılıyor: " + string.Join(", ", eksik));
     }
 
     /// <summary>⭐ Menü grubu ikonu grup BAŞLIĞINA bağlanır, <c>ModuleKey</c>'e değil: "Operasyon
@@ -224,15 +261,43 @@ public class MasaustuTasarimPaketiTests
         var katalog = File.ReadAllText(Path.Combine(RepoKok(), "src", "DepoWise.Application", "Security", "AppScreens.cs"));
         var ikonlar = Kaynak("Themes", "Icons.axaml");
 
-        var başlıklar = Regex.Matches(eşleme, @"\[""([^""]+)""\]\s*=\s*""(Icon\w+)""")
-                             .Select(m => (Grup: m.Groups[1].Value, Anahtar: m.Groups[2].Value)).ToList();
-
-        Assert.Equal(17, başlıklar.Count);
-        foreach (var (grup, anahtar) in başlıklar)
+        // İki ayrı sözlük var: alt gruplar (ByGroup) ve menünün ÜST grupları (BySection).
+        // Karıştırılmamalı — üst grup başlığı AppScreens.Sections'ta, alt grup Groups'ta tanımlıdır.
+        string Bolum(string ad)
         {
-            Assert.Contains($"new AppScreenGroup(\"{grup}\"", katalog);   // katalogda var mı
-            Assert.Contains($"x:Key=\"{anahtar}\"", ikonlar);             // geometri çizilmiş mi
+            var b = eşleme.IndexOf(ad + " = new(", StringComparison.Ordinal);
+            Assert.True(b >= 0, ad + " sözlüğü bulunamadı.");
+            var son = eşleme.IndexOf("};", b, StringComparison.Ordinal);
+            return eşleme[b..son];
         }
+
+        (string Ad, string Anahtar)[] Ciftler(string bolum)
+            => Regex.Matches(bolum, @"\[""([^""]+)""\]\s*=\s*""(Icon\w+)""")
+                    .Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToArray();
+
+        var altGruplar = Ciftler(Bolum("ByGroup"));
+        var ustGruplar = Ciftler(Bolum("BySection"));
+
+        Assert.Equal(17, altGruplar.Length);
+        Assert.Equal(6, ustGruplar.Length);
+
+        foreach (var (grup, anahtar) in altGruplar)
+        {
+            Assert.Contains($"new AppScreenGroup(\"{grup}\"", katalog);     // katalogda var mı
+            Assert.Contains($"x:Key=\"{anahtar}\"", ikonlar);               // geometri çizilmiş mi
+        }
+        foreach (var (bolum, anahtar) in ustGruplar)
+        {
+            Assert.Contains($"\"{bolum}\")", katalog);                      // AppScreenSection başlığı
+            Assert.Contains($"x:Key=\"{anahtar}\"", ikonlar);
+        }
+
+        // Katalogdaki HER üst grubun ikonu olmalı — biri eklenip eşleme unutulursa menüde tek başına ikonsuz kalır.
+        var katalogUst = Regex.Matches(katalog, @"new AppScreenSection\(""[^""]+"",\s*""([^""]+)""\)")
+                              .Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(katalogUst.Count, ustGruplar.Length);
+        foreach (var b in katalogUst)
+            Assert.Contains(ustGruplar, x => x.Ad == b);
     }
 
     /// <summary>Emoji alanı SİLİNMEDİ: web ve <c>MenuLayout</c> onu okur, aynı zamanda geri dönüş yoludur.

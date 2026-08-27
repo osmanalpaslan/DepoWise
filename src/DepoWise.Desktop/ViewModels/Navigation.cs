@@ -33,6 +33,10 @@ public sealed partial class NavSectionVm : ViewModelBase
     public bool IsSection { get; }
     public IReadOnlyList<NavGroupVm> Groups { get; }
 
+    /// <summary>M6: üst grup ikonu (Themes/Icons.axaml). Yoksa üst grup ikonsuz görünür.</summary>
+    public Avalonia.Media.Geometry? IconGeometry { get; init; }
+    public bool HasIcon => IconGeometry is not null;
+
     [ObservableProperty] private bool _isExpanded;
 
     /// <summary>Alt liste görünür mü? Üst grup değilse DAİMA görünür (bugünkü davranış).</summary>

@@ -121,11 +121,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
         {
             var s = DesktopServices.Dashboard.GetSummary(session);
             // Yalnız ilk kart vurgulu (Primary=true); diğerleri nötr koyu yüzey.
-            Cards.Add(new KpiCard(s.VehicleCount.ToString(), "Toplam Araç", "accent", Primary: true, NavKey: "vehicles"));
-            Cards.Add(new KpiCard(s.MaterialCount.ToString(), "Malzeme Çeşidi", "neutral", Primary: false, NavKey: "materials"));
-            Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials"));
-            Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve"));
-            Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null));
+            Cards.Add(new KpiCard(s.VehicleCount.ToString(), "Toplam Araç", "accent", Primary: true, NavKey: "vehicles", IconKey: "IconVehicles"));
+            Cards.Add(new KpiCard(s.MaterialCount.ToString(), "Malzeme Çeşidi", "neutral", Primary: false, NavKey: "materials", IconKey: "IconMaterials"));
+            Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials", IconKey: "IconWarning"));
+            Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve", IconKey: "IconRequests"));
+            Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null, IconKey: "IconUsers"));
             foreach (var a in s.Alerts) if (!a.Read) _allAlerts.Add(a); // #18: okunmuşları ana ekranda gösterme
             ApplyAlertFilter();
         }
@@ -290,4 +290,12 @@ public sealed partial class DashboardViewModel
 }
 
 /// <summary>Kind: accent|neutral|warning|success|danger (durum tonu). Primary: tek vurgulu kart. NavKey: tıklayınca gidilecek ekran.</summary>
-public sealed record KpiCard(string Value, string Label, string Kind, bool Primary, string? NavKey = null);
+/// <summary>Ana ekran özet kartı. <c>IconKey</c> M6 ikon sözlüğündeki anahtardır
+/// (Themes/Icons.axaml); bulunamazsa kart ikonsuz çizilir — daha önce BEŞ kartın hepsi aynı
+/// kutu ikonunu taşıyordu ve kartlar birbirinden ayırt edilemiyordu.</summary>
+public sealed record KpiCard(string Value, string Label, string Kind, bool Primary, string? NavKey = null,
+    string? IconKey = null)
+{
+    public Avalonia.Media.Geometry? Icon => DesktopIcons.ForKpi(IconKey);
+    public bool HasIcon => Icon is not null;
+}

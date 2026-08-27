@@ -869,7 +869,8 @@ public sealed partial class ShellViewModel : ViewModelBase
                 .Cast<NavGroupVm>()
                 .ToList();
             if (kids.Count == 0) continue;
-            sonuc.Add(new NavSectionVm(node.Title, node.IsSection, kids));
+            sonuc.Add(new NavSectionVm(node.Title, node.IsSection, kids)
+                { IconGeometry = node.IsSection ? DesktopIcons.ForSection(node.Title) : null });   // M6: üst grup ikonu
         }
         return sonuc;
     }

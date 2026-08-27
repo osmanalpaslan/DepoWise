@@ -16,7 +16,12 @@
             </Border>
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
                 <SelectableTextBlock x:Name="CopiedText" Text="Kopyalandı ✓" Classes="Helper" VerticalAlignment="Center" IsVisible="False"/>
-                <Button x:Name="CopyBtn" Classes="Secondary" Content="📋 Tümünü Kopyala"/>
+                <Button x:Name="CopyBtn" Classes="Secondary" >
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconDailyActivity}"/>
+                        <TextBlock Text="Tümünü Kopyala" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Button x:Name="CloseBtn" Classes="Primary" Content="Kapat" IsCancel="True"/>
             </StackPanel>
         </Grid>

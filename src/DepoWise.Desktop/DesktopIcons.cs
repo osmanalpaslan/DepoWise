@@ -39,6 +39,37 @@ public static class DesktopIcons
         ["Ayarlar"]             = "IconSettings",
     };
 
+    /// <summary>Menünün ÜST GRUPLARI (1. seviye) — AppScreens.Sections başlıkları.
+    /// Alt grup ikonlarından kasten farklı geometriler: aynı ikonu iki seviyede tekrarlamak
+    /// hiyerarşiyi okunmaz yapar ("Malzeme ve Stok" > "Malzemeler").</summary>
+    private static readonly Dictionary<string, string> BySection = new(StringComparer.Ordinal)
+    {
+        ["Malzeme ve Stok"]   = "IconSectionStock",
+        ["Operasyon"]         = "IconSectionOperations",
+        ["Finans"]            = "IconSectionFinance",
+        ["Raporlar"]          = "IconSectionReports",
+        ["Kurumsal Yönetim"]  = "IconSectionCorporate",
+        ["Sistem Yönetimi"]   = "IconSectionSystem",
+    };
+
+    /// <summary>Ana ekran özet kartı → ikon. Kart etiketinden değil NavKey + etiketten türetilir;
+    /// eşleşme yoksa null döner ve kart ikonsuz çizilir (çökmez).</summary>
+    public static Geometry? ForKpi(string? iconKey) => iconKey is null ? null : ByKey(iconKey);
+
+    /// <summary>Ana ekran uyarısı → tipine göre ikon. Bilinmeyen tip genel uyarı ikonunu alır.</summary>
+    public static Geometry? ForAlert(DepoWise.Application.Reports.AlertKind kind) => ByKey(kind switch
+    {
+        DepoWise.Application.Reports.AlertKind.Maintenance => "IconMaintenance",
+        DepoWise.Application.Reports.AlertKind.Inspection  => "IconWebAdmin",   // kalkan
+        DepoWise.Application.Reports.AlertKind.LowStock    => "IconMaterials",
+        DepoWise.Application.Reports.AlertKind.Fuel        => "IconFuel",
+        _ => "IconWarning",
+    });
+
+    /// <summary>Üst grup başlığı → ikon. Bulunamazsa null (üst grup ikonsuz çizilir).</summary>
+    public static Geometry? ForSection(string? sectionTitle)
+        => string.IsNullOrEmpty(sectionTitle) ? null
+         : BySection.TryGetValue(sectionTitle, out var k) ? ByKey(k) : null;
     public static Geometry? ForGroup(string? groupTitle)
     {
         if (string.IsNullOrEmpty(groupTitle)) return null;

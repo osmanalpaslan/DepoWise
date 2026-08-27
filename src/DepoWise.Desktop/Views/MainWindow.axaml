@@ -74,12 +74,17 @@
                                         <ToggleButton Classes="NavGroup" IsVisible="{Binding IsSection}"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <!-- M6: üst grup ikonu. Alt gruplarınkinden farklı geometri (hiyerarşi okunsun). -->
+                                                <PathIcon Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0"
+                                                          VerticalAlignment="Center"
+                                                          Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
+                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Title}"
                                                            FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
+                                                <SelectableTextBlock Grid.Column="2" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
@@ -185,9 +190,10 @@
                                                          MaxWidth="130" TextTrimming="CharacterEllipsis"
                                                          ToolTip.Tip="{Binding ActiveBranchTip}"/>
                                     <!-- "Tüm Şubeler" modunda uyarı işareti (mevcut davranış) -->
-                                    <SelectableTextBlock Text="⚠" Classes="Helper" FontWeight="Bold"
-                                                         Foreground="{DynamicResource WarningBrush}"
-                                                         IsVisible="{Binding IsAllBranches}"/>
+                                    <PathIcon Width="13" Height="13" VerticalAlignment="Center"
+                                              Foreground="{DynamicResource WarningBrush}"
+                                              Data="{DynamicResource IconWarning}"
+                                              IsVisible="{Binding IsAllBranches}"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>

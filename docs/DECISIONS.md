@@ -2214,3 +2214,69 @@ yalnız şikâyet edilen ekranla sınırlandırılmadı.
 
 **Değiştirilmedi.** Web gerçek bir HTML `<table>` kullanır; başlık, filtre ve veri hücreleri aynı
 tablonun içindedir ve tarayıcı kolonları kendisi hizalar. Orada bu kusur yoktur.
+
+---
+
+## ADR-158 — M6/M7 masaüstü tasarım paketi: vektör ikon seti + tablo başlığı (2026-08-27)
+
+**Karar.** Kullanıcının Claude Code tasarım aracıyla hazırladığı paket uygulandı. Kapsam **yalnız
+masaüstü** (kullanıcının açık talimatı); web'de tek satır değişmedi. CLAUDE.md §4 gereği web ve
+masaüstü **işlevsel** olarak eşit kalır — piksel eşitliği zaten zorunlu değildir.
+
+- **M6.** `Themes/Icons.axaml` (38 vektör ikon). 17 menü grubu + 6 üst grup ikon aldı; ana ekranda
+  5 özet kartı, uyarı satırları, "kategori seçin" ipucu ve sürüm kartı ikonlandı; 7 emoji buton
+  vektöre çevrildi. Katalogdaki emoji alanı (`AppScreens.DesktopIcon`, `NavGroupVm.Icon`)
+  **silinmedi**: web ve `MenuLayout` onu okur, aynı zamanda geri dönüş yoludur. İkon bulunamazsa
+  ilgili öğe ikonsuz çizilir — hiçbir durumda çökmez.
+- **M7.** Başlık bandı marka rengine döndü (38 başlık birden), filtre satırı kendi sınıfına ayrıldı
+  (`Border.TableFilterRow`), kolon-başı filtre kutuları 8 px dikdörtgene geçti (`TextBox.CellFilter`),
+  dolu filtre ve sıralanan kolon aksan rengiyle vurgulanıyor.
+
+**Paketin atladığı eksik.** Tasarım paketi "3 filtre satırı var" demişti; kaynak taramasında ortak
+tablo kontrolünde (`Controls/DataGridView.axaml`) **dördüncüsü** bulundu. Kapsama alınmasaydı rapor
+ekranlarında filtre bandı başlık rengine bürünürdü.
+
+**Değişmeyenler.** Sıralama/sürükleme mantığı, genişliğin tek kaynağı (`ColWidths`), filtre mantığı,
+`GridController`, `ColumnRules`, yetki kapıları, veri akışı, yatay boşluk 12 (hizanın kaynağı).
+
+**Bilinçli bırakılan.** Başlık hücreleri `Button.Ghost` zeminini taşıdığı için kehribar bantta "çip"
+gibi okunuyor. Kullanıcıya gösterildi; düz bant istenirse tek satır stille kapatılır.
+
+---
+
+## ADR-159 — TSN: tanım senkronu marka/üst/tür alanlarını NULL'a çekiyordu (2026-08-27)
+
+**Kullanıcının bildirdiği.** *"Yeni araç kayıt formunda model alanında yeni kayıt oluşturuyorum ama
+farklı bir kayıt gireceğim zaman daha önce eklemiş olduğum model listelenmiyor."*
+
+**Kök neden (gerçek HTTP hattı üzerinde kanıtlandı — `TanimSenkronuAnahtarTests`).**
+`GET /api/lookups/sync` satırları `Dictionary<string, object?>` döndürür ve sözlük **anahtarları
+veritabanı sütun adlarıdır**: `brand_id`, `parent_id`, `brand_type`. ASP.NET Core'un web
+varsayılanları *özellik* adlarını camelCase'e çevirir ama **sözlük anahtarlarına dokunmaz**
+(`DictionaryKeyPolicy` ayarlı değildir). Masaüstündeki `LookupSyncService` ise camelCase arıyordu
+(`brandId` / `parentId` / `brandType`) ve `JsonElement.TryGetProperty` **büyük-küçük harf
+duyarlıdır** → alan hiç bulunamıyor, "boş geldi" sanılıyor ve senkron
+`UPDATE … SET brand_id=NULL` ile sütunu **siliyordu**.
+
+**Neden kalıcı oldu.** Aynı `UPDATE` `updated_at`'i "şimdi" olarak damgalıyor → LWW gereği yerel
+satır sunucudakinden yeni sayılıyor → iş senkronu (`BusinessSyncService.ApplyPull`) doğru değeri
+geri yazamıyor; dahası bir sonraki push NULL değeri **sunucuya da** taşıyor.
+
+**Neden bugüne kadar görülmedi.** `ListBrands` `(brand_type=@t OR brand_type IS NULL)` ile NULL'a
+toleranslı — marka kaybolmuyor, yalnız iki listede birden görünüyor. `ListVehicleModels`'ta böyle bir
+tolerans yok (`AND brand_id=@b`), bu yüzden hata orada gözle görülür oldu.
+
+**Düzeltme.** Yeni `DepoWise.Application.Common.JsonAlan.AlanOku` alanı **yazımdan bağımsız** okur
+(`brand_id` → `brandId` → `BrandId` → alt çizgi/harf büyüklüğü yok sayılarak tarama).
+`LookupSyncService` artık JSON adı değil **veritabanı sütun adı** verir. Tolerans bilinçlidir:
+masaüstü ve sunucu ayrı yayınlanır; sahada eski sunucu + yeni istemci karışımı olabilir.
+
+**Sunucu sözleşmesi DEĞİŞTİRİLMEDİ.** API'nin gönderdiği ad aynı kaldı → API deploy'u gerekmedi,
+canlı sözleşme bozulmadı.
+
+**Kapsam dışı bırakılan (kullanıcı onayı gerekir).** Hata öncesinde açılmış model kayıtlarının
+`brand_id`'si sunucuda da NULL olabilir; düzeltme bunları **geri getirmez** (sunucudaki değer zaten
+kayıp). Güvenli çözüm: kullanıcı o modeli yeniden ekler — `LookupService.Insert` ad+marka ikilisine
+göre tekilleştirdiği için NULL markalı eski satırla çakışmaz, doğru yeni kayıt açılır ve **hiçbir şey
+silinmez**. Çıkarıma dayalı otomatik onarım (araç kayıtlarından markayı türetme) mevcut veriyi
+değiştireceği için yapılmadı.

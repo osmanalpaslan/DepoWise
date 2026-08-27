@@ -25,7 +25,12 @@
             <StackPanel Spacing="14">
                 <SelectableTextBlock Text="PAKET YAYINLA / KUR" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button Classes="Secondary" Content="📦 Paket Dosyası Seç" Command="{Binding PickFileCommand}"/>
+                    <Button Classes="Secondary"  Command="{Binding PickFileCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconMaterials}"/>
+                            <TextBlock Text="Paket Dosyası Seç" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <SelectableTextBlock Text="{Binding PickedFileName}" Classes="Body" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">

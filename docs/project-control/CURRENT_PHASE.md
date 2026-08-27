@@ -1,52 +1,58 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-27** (M6 ikon seti + M7 tablo başlığı — masaüstü tasarım paketi) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-27** (TSN tanım senkronu hatası + M6/M7 tasarım paketi tamamlandı ve yayınlandı) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
-## 🟡 ONAY BEKLİYOR — M6 (İKON SETİ) + M7 (TABLO BAŞLIĞI) · 2026-08-27
+## ✅ TAMAMLANAN — TSN: TANIM SENKRONU MARKA/ÜST ALANLARINI SİLİYORDU (2026-08-27)
 
-Kaynak: kullanıcının **Claude Code tasarım aracıyla** hazırladığı paket (`tasarım mimarisi.zip`).
-**Kapsam yalnız masaüstü** — kullanıcının açık talimatı: *"çalışmayı sadece masaüstü için yapıyorum,
-web dahil olmayacak"*. Web'de tek satır değişmedi (CLAUDE.md §4: işlevsel eşitlik zorunlu, piksel
-eşitliği değil).
+Karar: **ADR-159** · Kullanıcı bildirimi: *"model alanında yeni kayıt oluşturuyorum ama farklı bir
+kayıt gireceğim zaman daha önce eklediğim model listelenmiyor."*
+
+**Kök neden (gerçek HTTP hattı üzerinde kanıtlandı).** `GET /api/lookups/sync` satırları sözlük
+döndürür; anahtarlar veritabanı **sütun adlarıdır** (`brand_id`, `parent_id`, `brand_type`).
+ASP.NET Core sözlük anahtarlarını camelCase'e ÇEVİRMEZ. Masaüstü ise `brandId` arıyordu ve
+`TryGetProperty` harf duyarlı olduğu için alanı hiç bulamıyor, "boş geldi" sanıp sütunu
+`UPDATE … SET brand_id=NULL` ile **siliyordu**. `updated_at` "şimdi" damgalandığı için LWW yerel
+satırı yeni sayıyor → iş senkronu doğru değeri geri yazamıyor → bir sonraki push NULL'u **sunucuya**
+taşıyor.
+
+| Etkilenen | Görünen sonuç |
+|---|---|
+| `vehicle_models.brand_id` | **Model markasına göre listelenmiyordu** (kullanıcının bildirdiği hata) |
+| `material_categories.parent_id` | Alt kategori üst seviyeye çıkıyordu |
+| `brands.brand_type` | Marka hem malzeme hem araç listesinde görünüyordu (`ListBrands` NULL'a toleranslı olduğu için fark edilmemişti) |
+| `branches.parent_id` | Yalnız yerelde; branches push'a dahil değil |
+
+**Düzeltme.** `JsonAlan.AlanOku` alanı yazımdan bağımsız okur; `LookupSyncService` artık JSON adı
+değil sütun adı verir. **Sunucu sözleşmesi değişmedi → API deploy'u gerekmedi.**
+
+**Onarılmayan (bilinçli).** Hatadan önce açılmış modellerin markası sunucuda da kayıp olabilir.
+Çıkarıma dayalı otomatik onarım YAPILMADI (mevcut veriyi değiştirir). Güvenli çözüm: kullanıcı o
+modeli yeniden ekler — tekilleştirme ad+marka ikilisine baktığı için doğru yeni kayıt açılır,
+**hiçbir şey silinmez**.
+
+---
+
+## ✅ TAMAMLANAN — M6 (İKON SETİ) + M7 (TABLO BAŞLIĞI) · 2026-08-27
+
+Karar: **ADR-158** · Kaynak: kullanıcının Claude Code tasarım aracıyla hazırladığı paket.
+**Kapsam yalnız masaüstü** (kullanıcının açık talimatı); web'de tek satır değişmedi.
 
 | Adım | Ne değişti |
 |---|---|
-| M6 | `Themes/Icons.axaml` — 31 vektör ikon; 17 menü grubu emoji yerine vektör ikon aldı |
-| M7 · 1 | `Palette.axaml` — 6 yeni renk anahtarı, **her iki temaya da** |
-| M7 · 2 | `Border.TableHeader` — kehribar bant + kehribar başlık yazısı (38 başlık birden döndü) |
-| M7 · 3 | `Border.TableFilterRow` + `TextBox.CellFilter` — filtre satırı kendi sınıfına ayrıldı |
-| M7 · 4 | 3 liste ekranı + **ortak rapor tablosu** = 4 filtre satırı, 36 filtre kutusu |
-| M7 · 5 | `ColumnFilterItem.HasValue` — dolu filtre kehribar çerçeve alır |
-| M7 · 6 | `SortHeader` — sıralanan kolonda kehribar yazı + altında 2 px çizgi |
+| M6 · ikonlar | `Themes/Icons.axaml` — **38 vektör ikon** |
+| M6 · menü | 17 alt grup + **6 üst grup** (Malzeme ve Stok · Operasyon · Finans · Raporlar · Kurumsal Yönetim · Sistem Yönetimi) |
+| M6 · ana ekran | 5 özet kartı **ayrı ayrı** ikon aldı (önce beşi de aynı kutuydu) · uyarı satırı artık TİPİNE göre ikon · "kategori seçin" ipucu · sürüm/güncelleme kartı |
+| M6 · butonlar | 7 emoji buton vektöre çevrildi (paketin "opsiyonel" adımı) |
+| M7 · tablo | Başlık bandı marka rengine döndü (38 başlık) · filtre satırı kendi sınıfına ayrıldı · filtre kutuları 8 px dikdörtgen · dolu filtre + sıralanan kolon aksan vurgusu |
 
-**Pakette olmayan, kaynak taramasıyla bulunan eksik:** tasarım paketi 3 filtre satırı saymıştı;
-ortak tablo kontrolünde (`Controls/DataGridView.axaml`) **dördüncüsü** vardı. Atlansaydı rapor
-ekranlarında filtre bandı başlık rengine bürünürdü. Kapsama alındı.
+**Paketin atladığı eksik:** ortak tablo kontrolünde (`Controls/DataGridView.axaml`) **dördüncü**
+filtre satırı vardı; kapsama alındı, yoksa rapor ekranlarında filtre bandı başlık rengine bürünürdü.
 
-### Kanıtlar
-| Doğrulama | Sonuç |
-|---|---|
-| Sayısal kabul (5 kontrol) | 4 filtre satırı · 36 filtre kutusu · 38 başlık · 19 serbest arama · yerinde `Padding` yok |
-| Release derleme (masaüstü) | **0 hata** |
-| İlgili testler | **77 · 0 başarısız** (20 yeni: `MasaustuTasarimPaketiTests`) |
-| Görsel doğrulama | Uygulama **açılarak** 7 ekran görüntüsü alındı (koyu + açık tema, filtreli/filtresiz ekran, rapor tablosu) |
-| Migration | **GEREKMEDİ** — şema 72 · veri modeli değişmedi |
-| Yayın | **YAPILMADI** — kullanıcı onayı bekleniyor (masaüstü hâlâ 1.0.156, web v196, API v171) |
-
-### Kullanıcının karar vermesi gereken iki nokta
-1. **Başlık hücreleri "çip" gibi görünüyor.** Başlık düğmesi (`Button.Ghost`) hafif bir zemin taşıyor;
-   bant koyu iken görünmüyordu, kehribar olunca ortaya çıktı. Düz bant istenirse tek satır stille kapatılır.
-2. **Üst gruplar (Malzeme ve Stok · Operasyon · Finans…) ikon almadı** — paket bilinçli olarak yalnız
-   alt grupları kapsıyor. İstenirse ayrı iş olarak eklenir.
-
-### Uygulanmayan (paket "opsiyonel" demiş)
-M6 · Adım 6 — ekran içindeki emoji butonlarının (📤 Excel'e Aktar, 📥 İçe Aktar, 📦, 🏢, 📋, 🔔)
-vektöre çevrilmesi. 7 buton, 6 dosya. İstenirse ayrı ve küçük bir iş.
+**Cümle içindeki emojilere dokunulmadı** (TrashView 🔒, UsersView ✓, LoginWindow 🔒) — metin akışını bozar.
 
 ---
-
 ## ✅ TAMAMLANAN — ALTINCI TUR: TABLO KOLON HİZASI (2026-08-26)
 
 Karar: **ADR-157** · Kullanıcının ekran görüntüsüyle bildirdiği sorun.

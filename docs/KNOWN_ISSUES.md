@@ -1,6 +1,22 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (altıncı tur — liste tablolarında kolon hizası)
+> Son güncelleme: 2026-08-27 (TSN — tanım senkronu marka/üst kategori bağını siliyordu)
+
+## ✅ KAPATILAN (2026-08-27 — kullanıcı bildirimi)
+
+- **TSN — Tanım senkronu, araç modelinin markasını ve alt kategorinin üstünü SİLİYORDU.**
+  `GET /api/lookups/sync` alan adlarını veritabanı sütunu olarak gönderir (`brand_id`, `parent_id`,
+  `brand_type`); masaüstü camelCase arıyordu (`brandId`) ve `TryGetProperty` harf duyarlı olduğu için
+  alanı hiç bulamayıp "boş geldi" sanarak sütunu `NULL`'a çekiyordu. `updated_at` "şimdi"
+  damgalandığı için LWW yerel satırı yeni sayıyor, iş senkronu doğru değeri geri yazamıyor ve bir
+  sonraki push boş değeri **sunucuya** taşıyordu. Görünen sonuç: **yeni eklenen araç modeli, markası
+  seçildiğinde listede çıkmıyordu.** ADR-159.
+
+  **Açık kalan (bilinçli):** hatadan ÖNCE açılmış modellerin `brand_id`'si sunucuda da kayıp olabilir;
+  düzeltme bunları geri getirmez (sunucudaki değer zaten yok). Güvenli çözüm: o model yeniden eklenir —
+  tekilleştirme ad+marka ikilisine baktığı için doğru yeni kayıt açılır ve **hiçbir şey silinmez**.
+  Çıkarıma dayalı otomatik onarım, mevcut veriyi değiştireceği için YAPILMADI.
+
 
 ## ✅ Bu turda KAPATILAN (2026-08-26, altıncı tur — kullanıcı bildirimi)
 
