@@ -2527,3 +2527,22 @@ Bilinçli ALINMAYAN kararlar (ürün): belge türü sabit listesi · sürümleme
   Evrak'a "Ekipman" bağlı kayıt türü.
 
 Ayrıntı: `docs/project-control/EKP_01_VARLIK_EKIPMAN.md`.
+
+---
+
+## ADR-167 — Zimmet Yönetimi — ZMT-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 2/SIRA 4 + kullanıcı kararları PK-B1..B4
+
+### Karar
+- **DEFTER modeli:** zimmet, stock_movements'ın kardeşi değişmez hareket defteridir; "kimde ne var" Σ ile
+  türetilir; sahip değişiminde UPDATE yok → geçmiş yapısal olarak silinemez (ZMT7 bit-bit kilit).
+- **PK-B1 stoklu hibrit:** malzeme teslimi/iadesi MEVCUT stok kapılarını (IssueOutTx/ReceiveInTx —
+  fatura emsali) AYNI transaction'da çağırır; stok defteri değiştirilmedi. Ekipman stok dışı + tek kişide.
+- **PK-B2** tek işlem devir (çift kayıt, aynı grup; stok oynamaz) · **PK-B3** kayıp stoğa dönmez,
+  hasarlı iade döner · **PK-B4** yalnız personel; araç dahil değil; tek ekran.
+- İdempotent: operation_id tekil — retry ikinci hareketi VE ikinci stok düşümünü üretmez (ZMT8).
+- Yeni `assignments` modülü; malzeme işlemlerinde stok kapısı DA çalışır (yan kapı yok, ZMT9);
+  BranchAccess kapsamı (ZMT10); doc_date iş günü + btn-backdate (ZMT12); senkron FK sıralı + uçtan uca
+  kanıtlı (ZMT13/14). Migration076 yalnız CREATE (ZMT15/16); canlıya uygulanmadı.
+
+Ayrıntı: `docs/project-control/B_ZIMMET_01.md`.

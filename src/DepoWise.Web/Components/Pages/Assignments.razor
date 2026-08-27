@@ -1,0 +1,252 @@
+@page "/assignments"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET ═══
+    Tek ekran (PK-B4): işlem formu + "Kimde Ne Var" + seçili kaydın geçmiş zinciri.
+    DEFTER modeli: her işlem değişmez hareket; durum Σ ile türetilir — geçmiş silinemez.
+    PK-B1: malzeme teslimi stoktan düşer / iade döner (sunucuda mevcut stok kapılarıyla, aynı işlemde);
+    ekipman stok dışı. PK-B3: kayıp stoğa dönmez, hasarlı iade döner. Kapılar SUNUCUDA.
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Zimmet</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("assignments"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ İŞLEM</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_op" Label="İşlem" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("issue")">Teslim</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("return")">İade</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("damaged")">Hasarlı İade</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("transfer")">Devir</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("lost")">Kayıp</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_assetType" Label="Varlık Türü" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           @bind-Value:after="OnAssetTypeChanged">
+                    <MudSelectItem T="string" Value="@("material")">Malzeme</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("equipment")">Ekipman</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_assetId" Label="Varlık *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var o in _assetOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" @bind-Value="_personnelId" Label="@(_op == "transfer" ? "Veren Personel *" : "Personel *")" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var o in _personnel) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            @if (_op == "transfer")
+            {
+                <MudItem xs="12" md="4">
+                    <MudSelect T="string" @bind-Value="_toPersonnelId" Label="Alan Personel *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var o in _personnel) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+            }
+            @if (_assetType == "material")
+            {
+                <MudItem xs="6" md="4">
+                    <MudSelect T="string" @bind-Value="_branchId" Label="@(_op == "transfer" || _op == "lost" ? "Şube (kapsam)" : "Depo (şube) *")" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" md="2">
+                    <MudNumericField T="decimal" @bind-Value="_quantity" Label="Miktar" Min="0.0001m" Margin="Margin.Dense" Variant="Variant.Outlined" />
+                </MudItem>
+            }
+            <MudItem xs="6" md="3">
+                <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Editable="true" Disabled="@(!CanBackDate)" />
+            </MudItem>
+            <MudItem xs="12" md="9"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="7">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.h6">Kimde Ne Var</MudText><MudSpacer />
+                <MudTextField @bind-Value="_search" Label="Ara (personel / varlık / şube)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                              Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:220px;" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+                @if (Auth.CanView("export"))
+                {
+                    <MudTooltip Text="Aktif filtrelerle TÜM sonucu Excel dosyası olarak indirir.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                    </MudTooltip>
+                }
+            </MudStack>
+            @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Açık zimmet yok.</MudText> }
+            else
+            {
+                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement"
+                          OnRowClick="@(e => OpenHistory(e.Item))">
+                    <HeaderContent><MudTh>PERSONEL</MudTh><MudTh>TÜR</MudTh><MudTh>VARLIK</MudTh><MudTh>MİKTAR</MudTh><MudTh>ŞUBE</MudTh><MudTh>SON İŞLEM</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@Str(context, "personnelName")</MudTd>
+                        <MudTd>@Str(context, "assetTypeDisplay")</MudTd>
+                        <MudTd>@Str(context, "assetLabel")</MudTd>
+                        <MudTd>@Str(context, "quantity")</MudTd>
+                        <MudTd>@Str(context, "branchName")</MudTd>
+                        <MudTd>@DateText(context, "lastDocDate")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Geçmiş zinciri için satıra tıklayın.</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4" Elevation="2" Style="min-height:180px;">
+            <MudText Typo="Typo.h6" Class="mb-2">Zimmet Geçmişi @(_historyTitle is null ? "" : "— " + _historyTitle)</MudText>
+            @if (_history is null) { <MudText Class="mud-text-secondary">Bir satır seçin — o varlığın tüm teslim/iade/devir zinciri burada görünür.</MudText> }
+            else if (_history.Length == 0) { <MudText Class="mud-text-secondary">Geçmiş kaydı yok.</MudText> }
+            else
+            {
+                @foreach (var m in _history)
+                {
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="py-1" Style="border-bottom:1px solid var(--mud-palette-lines-default);">
+                        <div>
+                            <MudText Typo="Typo.body2"><b>@Str(m, "movementDisplay")</b> · @Str(m, "personnelName")</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(m, "assetLabel") · @Str(m, "quantity")@(string.IsNullOrEmpty(Str(m, "note")) ? "" : " · " + Str(m, "note"))</MudText>
+                        </div>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@DateText(m, "docDate")</MudText>
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string _op = "issue", _assetType = "material", _search = "", _note = "";
+    private string? _assetId, _personnelId, _toPersonnelId, _branchId, _historyTitle;
+    private decimal _quantity = 1m;
+    private DateTime? _docDate = DateTime.Today;
+    private List<ApiClient.Opt> _assetOptions = new(), _personnel = new(), _branches = new();
+    private JsonElement[]? _rows, _history;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    /// <summary>TRH-01: tarih alanı yetki yoksa BUGÜNE kilitli (sunucu da normalleştirir).</summary>
+    private bool CanBackDate => Auth.CanButton("btn-backdate");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName"); } catch { }
+        try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        await OnAssetTypeChanged();
+        await Load();
+    }
+
+    private async Task OnAssetTypeChanged()
+    {
+        _assetId = null;
+        try
+        {
+            _assetOptions = _assetType == "equipment"
+                ? await Api.OptionsAsync("/api/equipment", "id", "name")
+                : await Api.OptionsAsync("/api/materials", "id", "name");
+        }
+        catch { _assetOptions = new(); }
+        if (_assetType == "equipment") _quantity = 1m;
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        try { _rows = await Api.GetArrayAsync("/api/assignments/holdings" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task OpenHistory(JsonElement row)
+    {
+        _historyTitle = Str(row, "personnelName") + " · " + Str(row, "assetLabel");
+        _history = null;
+        try
+        {
+            _history = await Api.GetArrayAsync(
+                $"/api/assignments/history?assetType={Uri.EscapeDataString(Str(row, "assetType"))}&assetId={Uri.EscapeDataString(Str(row, "assetId"))}");
+        }
+        catch { _history = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrEmpty(_assetId) || string.IsNullOrEmpty(_personnelId)) { _msg = "Varlık ve personel seçin."; _ok = false; return; }
+        if (_op == "transfer" && string.IsNullOrEmpty(_toPersonnelId)) { _msg = "Devir için alan personeli seçin."; _ok = false; return; }
+        var opText = _op switch { "return" => "İade", "damaged" => "Hasarlı iade", "transfer" => "Devir", "lost" => "Kayıp kaydı", _ => "Teslim" };
+        if (!await Dialog.Confirm($"{opText} kaydedilsin mi?")) return;
+        _busy = true;
+        try
+        {
+            // idempotency: her kaydetme benzersiz operationId üretir; sunucu retry'da ikinci hareket/stok üretmez.
+            var body = new
+            {
+                assetType = _assetType, assetId = _assetId, personnelId = _personnelId,
+                toPersonnelId = _op == "transfer" ? _toPersonnelId : null,
+                quantity = _assetType == "equipment" ? 1m : _quantity,
+                branchId = _branchId,
+                docDate = _docDate is null ? (long?)null
+                    : new DateTimeOffset(DateTime.SpecifyKind(_docDate.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds(),
+                note = _note, damaged = _op == "damaged",
+                operationId = "web-" + Guid.NewGuid().ToString("N"),
+            };
+            var path = _op switch
+            {
+                "return" or "damaged" => "/api/assignments/return",
+                "transfer" => "/api/assignments/transfer",
+                "lost" => "/api/assignments/lost",
+                _ => "/api/assignments/issue",
+            };
+            var err = await Api.PostAsync(path, body);
+            _ok = err is null; _msg = err ?? (opText + " kaydedildi.");
+            if (_ok) { _note = ""; await Load(); _history = null; _historyTitle = null; }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ExportExcel()
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        var (bytes, name) = await Api.GetFileAsync("/api/assignments/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), "Zimmet.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private static string DateText(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.ToString("dd.MM.yyyy") : "—";
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

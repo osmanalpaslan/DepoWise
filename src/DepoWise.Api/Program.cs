@@ -1236,6 +1236,42 @@ app.MapPut("/api/equipment/{id}", (HttpContext c, string id, EquipmentDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/equipment/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+// ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET ═══
+// Kapılar SERVİSTE: assignments modülü + BranchAccess; malzeme işlemlerinde stok kapısı DA çalışır.
+// İşlemler idempotenttir (operationId) — istemci her işlem için benzersiz id üretir.
+app.MapGet("/api/assignments/holdings", (HttpContext c, string? search, string? assetType, string? personnelId) =>
+    S(c) is { } s ? Results.Ok(svc.Assignments.Holdings(s, search, assetType, personnelId).Select(h => new
+    {
+        personnelId = h.PersonnelId, personnelName = h.PersonnelName,
+        assetType = h.AssetType, assetTypeDisplay = h.AssetTypeDisplay, assetId = h.AssetId,
+        assetLabel = h.AssetLabel, quantity = h.QuantityDisplay,
+        branchId = h.BranchId, branchName = h.BranchDisplay, lastDocDate = h.LastDocDate,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/assignments/history", (HttpContext c, string? assetType, string? assetId, string? personnelId, int? limit) =>
+    S(c) is { } s ? Results.Ok(svc.Assignments.History(s, assetType, assetId, personnelId, limit is > 0 ? limit.Value : 300).Select(m => new
+    {
+        id = m.Id, assetType = m.AssetType, assetTypeDisplay = m.AssetTypeDisplay, assetId = m.AssetId,
+        assetLabel = m.AssetLabel, personnelId = m.PersonnelId, personnelName = m.PersonnelName,
+        movementType = m.MovementType, movementDisplay = m.MovementDisplay, direction = m.Direction,
+        quantity = m.Quantity, branchName = m.BranchName, groupId = m.GroupId,
+        docDate = m.DocDate, note = m.Note, createdAt = m.CreatedAt,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/issue", (HttpContext c, AssignmentOpDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Issue(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/return", (HttpContext c, AssignmentOpDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Return(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId, d.Damaged == true) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/lost", (HttpContext c, AssignmentOpDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Lost(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/transfer", (HttpContext c, AssignmentOpDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Transfer(s, d.AssetType, d.AssetId, d.PersonnelId, d.ToPersonnelId ?? "", d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/assignments/export", (HttpContext c, string? search, string? assetType, string? personnelId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = svc.Assignments.Holdings(s, search, assetType, personnelId);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Assignments.AssignmentService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Zimmet.xlsx");
+}).RequireAuthorization();
 app.MapGet("/api/equipment/export", (HttpContext c, string? search, string? typeId, string? status) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -3823,6 +3859,10 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// ZMT-01: tek işlem gövdesi (teslim/iade/kayıp/devir). OperationId istemciden gelir → idempotent retry.
+record AssignmentOpDto(string AssetType, string AssetId, string PersonnelId, decimal Quantity,
+    string OperationId, string? BranchId = null, long? DocDate = null, string? Note = null,
+    string? ToPersonnelId = null, bool? Damaged = null);
 // EKP-01: kod+ad zorunlu, kalanı opsiyonel. Version = düzenleme kilidi jetonu (null = kontrol yok).
 record EquipmentDto(string Code, string Name, string? TypeId = null, string? Status = null,
     string? StatusNote = null, string? BranchId = null, string? SerialNo = null,

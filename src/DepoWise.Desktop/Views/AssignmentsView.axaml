@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:asg="using:DepoWise.Infrastructure.Assignments"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.AssignmentsView"
+             x:DataType="vm:AssignmentsViewModel">
+
+    <!-- ZMT-01 (ADR-167): Zimmet — defter modeli; malzeme stoklu (PK-B1), ekipman stok dışı; yerel + senkron. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Zimmet">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: personel / varlık / şube"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- İşlem formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding CanWrite}">
+            <StackPanel Spacing="14" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="YENİ İŞLEM" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="İşlem" Width="130">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding OpOptions}" SelectedItem="{Binding FormOp}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Varlık Türü" Width="120">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding AssetTypeOptions}" SelectedItem="{Binding FormAssetType}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Varlık" IsRequired="True" Width="260">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding AssetOptions}" SelectedItem="{Binding FormAsset}"
+                                        PlaceholderText="Malzeme/ekipman seç / ara..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Personel" IsRequired="True" Width="200" HelpText="Devirde: VEREN kişi.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormPersonnel}"
+                                        PlaceholderText="Personel seç / ara..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Alan Personel" IsRequired="True" Width="200" IsVisible="{Binding IsTransfer}">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormToPersonnel}"
+                                        PlaceholderText="Devralan kişi..."/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Depo / Şube" Width="220" IsVisible="{Binding IsMaterial}"
+                                    HelpText="Malzeme tesliminde stok bu depodan düşer; iadede buraya döner.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                        PlaceholderText="Depo seç / ara..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Miktar" Width="110" IsVisible="{Binding IsMaterial}">
+                        <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
+                    </ctrl:FormField>
+                    <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
+                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Açıklama" Width="300">
+                        <TextBox Classes="Field" Text="{Binding FormNote}"/>
+                    </ctrl:FormField>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" VerticalAlignment="Bottom"/>
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Kimde Ne Var + Geçmiş -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,380">
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="PERSONEL" MinWidth="150"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80" MaxWidth="80"/>
+                                <SelectableTextBlock Grid.Column="2" Text="VARLIK" MinWidth="200" MaxWidth="200"/>
+                                <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="80" MaxWidth="80"/>
+                                <SelectableTextBlock Grid.Column="4" Text="SON İŞLEM" MinWidth="90" MaxWidth="90"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="asg:HoldingRow">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding PersonnelName}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PersonnelName}"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding AssetTypeDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding AssetLabel}" MinWidth="200" MaxWidth="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AssetLabel}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding QuantityDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding LastDocDateDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Açık zimmet yok" Message="Teslim işlemiyle zimmet oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Geçmiş zinciri -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0">
+                <DockPanel>
+                    <SelectableTextBlock DockPanel.Dock="Top" Text="ZİMMET GEÇMİŞİ" Classes="SectionTitle" Margin="0,0,0,8"/>
+                    <SelectableTextBlock DockPanel.Dock="Top" Text="Bir satır seçin — o varlığın tüm teslim/iade/devir zinciri burada görünür."
+                               Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasSelection}"/>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="asg:AssignmentMovementRow">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                                        <StackPanel Grid.Column="0">
+                                            <SelectableTextBlock Classes="Body" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding MovementDisplay}" FontWeight="SemiBold"/><Run Text=" · "/><Run Text="{Binding PersonnelName}"/>
+                                            </SelectableTextBlock>
+                                            <SelectableTextBlock Classes="Helper" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Note}">
+                                                <Run Text="{Binding AssetLabel}"/><Run Text=" · "/><Run Text="{Binding Quantity}"/>
+                                            </SelectableTextBlock>
+                                        </StackPanel>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding DocDateDisplay}" Classes="Helper" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

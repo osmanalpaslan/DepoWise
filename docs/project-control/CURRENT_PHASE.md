@@ -1,10 +1,13 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (EKP-01 Varlık/Ekipman tamamlandı — FAZ 1 bitti, yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (ZMT-01 Zimmet tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
+
+**FAZ 2/SIRA 4 — B Zimmet ✅** (ADR-167, 2026-08-28, ZimmetTests 16/16; Migration076). Sıradaki:
+**D — Maliyet Merkezi** (önce dağıtım kuralı ürün sorusu). Yayın bekleyen migrationlar: 073..076.
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

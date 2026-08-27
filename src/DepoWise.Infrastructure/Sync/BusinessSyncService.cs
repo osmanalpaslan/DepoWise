@@ -90,6 +90,9 @@ public sealed class BusinessSyncService
         // company_id kolonu yok → firma kapsamı ebeveyn (stock_documents) üzerinden uygulanır.
         // SIRA: materials + stock_documents SONRASI (ikisine de yabancı anahtarlı).
         "stock_count_lines",
+        // ZMT-01 (ADR-167): zimmet defteri — append-only, operation_id tekil (retry ikinci hareket üretmez).
+        // FK/etiket kaynakları (personnel, materials, equipment) YUKARIDA.
+        "assignment_movements",
         "material_requests",
         "material_request_items",
         // SNK-A5: talep durum/onay geçmişi. Ebeveyni material_requests → SONRA.
@@ -150,6 +153,7 @@ public sealed class BusinessSyncService
         ["stock_documents"] = "stock",
         ["vehicles"] = "vehicles",
         ["equipment"] = "equipment",   // EKP-01: push yetki kapısı — equipment modülü Create/Edit ister
+        ["assignment_movements"] = "assignments",   // ZMT-01: push yetki kapısı
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",

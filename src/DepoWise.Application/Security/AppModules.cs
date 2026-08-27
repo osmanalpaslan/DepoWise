@@ -61,6 +61,7 @@ public static class AppModules
         ("stock", "Stok İşlemleri"),
         ("vehicles", "Araçlar"),
         ("equipment", "Ekipman"),   // EKP-01 (ADR-166): araçtan AYRI varlık/ekipman modülü
+        ("assignments", "Zimmet"),   // ZMT-01 (ADR-167): kimde ne var + teslim/iade/devir/kayıp defteri
         ("maintenance", "Bakım"),
         ("inspection", "Muayene / Sigorta"),
         ("fuel", "Yakıt"),
