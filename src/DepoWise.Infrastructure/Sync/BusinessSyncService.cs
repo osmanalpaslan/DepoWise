@@ -41,6 +41,8 @@ public sealed class BusinessSyncService
         "vehicle_models",
         // EKP-01 (ADR-166): ekipman türleri — lookup sınıfı (LWW); equipment ondan SONRA gelir (FK).
         "equipment_types",
+        // MLY-01 (ADR-168): maliyet merkezi tanımı — lookup sınıfı (LWW).
+        "cost_centers",
         "maintenance_definitions",
         "personnel_titles",          // unvan sabit tanımları (personel formundaki liste)
         // SIF-06 (2026-08-18): ŞABLONLAR. Bunlar senkronda HİÇ taşınmıyordu — ne bu listede ne de
@@ -93,6 +95,8 @@ public sealed class BusinessSyncService
         // ZMT-01 (ADR-167): zimmet defteri — append-only, operation_id tekil (retry ikinci hareket üretmez).
         // FK/etiket kaynakları (personnel, materials, equipment) YUKARIDA.
         "assignment_movements",
+        // MLY-01: kayıt→merkez bağları — kaynak kayıtlar ve cost_centers YUKARIDA.
+        "cost_center_links",
         "material_requests",
         "material_request_items",
         // SNK-A5: talep durum/onay geçmişi. Ebeveyni material_requests → SONRA.
@@ -154,6 +158,8 @@ public sealed class BusinessSyncService
         ["vehicles"] = "vehicles",
         ["equipment"] = "equipment",   // EKP-01: push yetki kapısı — equipment modülü Create/Edit ister
         ["assignment_movements"] = "assignments",   // ZMT-01: push yetki kapısı
+        ["cost_centers"] = "cost_centers",           // MLY-01
+        ["cost_center_links"] = "cost_centers",      // MLY-01
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",

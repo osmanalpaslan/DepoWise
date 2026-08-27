@@ -1,13 +1,13 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (ZMT-01 Zimmet tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (MLY-01 Maliyet Merkezi tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
 
-**FAZ 2/SIRA 4 — B Zimmet ✅** (ADR-167, 2026-08-28, ZimmetTests 16/16; Migration076). Sıradaki:
-**D — Maliyet Merkezi** (önce dağıtım kuralı ürün sorusu). Yayın bekleyen migrationlar: 073..076.
+**FAZ 2 — B Zimmet ✅ (ADR-167) · D Maliyet Merkezi ✅ (ADR-168, MaliyetMerkeziTests 11/11; Migration077 — mevcut tablolara ALTER dahi yok).**
+Sıradaki: **P — Satın Alma** (önce aşama/onay ürün sorusu). Yayın bekleyen migrationlar: **073..077**.
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

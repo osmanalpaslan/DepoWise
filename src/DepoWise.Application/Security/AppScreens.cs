@@ -207,6 +207,8 @@ public static class AppScreens
         new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
         // PRJ-01 (ADR-164): Projeler — yetki modülü branches (PK-C4: ayrı kapı yok).
         new AppScreen("projects", "branches", "Şube ve Personel", "Projeler", Both, "projects", "projects"),
+        // MLY-01 (ADR-168): Maliyet Merkezleri — Ön Muhasebe altında alt menü (tanım + özet tek ekran).
+        new AppScreen("cost_centers", "cost_centers", "Ön Muhasebe", "Maliyet Merkezleri", Both, "cost-centers", "cost_centers"),
         // ZMT-01 (ADR-167): Zimmet — kimde ne var + hareket defteri (tek ekran).
         new AppScreen("assignments", "assignments", "Zimmet", "Zimmet", Both, "assignments", "assignments"),
         // EKP-01 (ADR-166): Ekipman — araçtan ayrı varlık kartları.

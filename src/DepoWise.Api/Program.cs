@@ -1236,6 +1236,32 @@ app.MapPut("/api/equipment/{id}", (HttpContext c, string id, EquipmentDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/equipment/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+// ═══ MLY-01 (ADR-168, 2026-08-28) — MALİYET MERKEZLERİ ═══
+// Kapılar SERVİSTE (cost_centers modülü + Link'te kaynak kaydın şube kapsamı).
+app.MapGet("/api/cost-centers", (HttpContext c, string? search) =>
+    S(c) is { } s ? Results.Ok(svc.CostCenters.List(s, search).Select(x => new
+    { id = x.Id, code = x.Code, name = x.Name, status = x.Status, statusDisplay = x.StatusDisplay, description = x.Description, version = x.Version }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/cost-centers/options", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.CostCenters.Options(s).Select(o => new { id = o.Id, name = o.Name })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/cost-centers", (HttpContext c, CostCenterDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.CostCenters.Create(s, new DepoWise.Infrastructure.Accounting.NewCostCenter(d.Name, d.Code, d.Status, d.Description)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/cost-centers/{id}", (HttpContext c, string id, CostCenterDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CostCenters.Update(s, id, new DepoWise.Infrastructure.Accounting.NewCostCenter(d.Name, d.Code, d.Status, d.Description), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/cost-centers/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CostCenters.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/cost-centers/summary", (HttpContext c, long from, long to) =>
+    S(c) is { } s ? Results.Ok(svc.CostCenters.Summary(s, from, to).Select(x => new
+    { costCenterId = x.CostCenterId, costCenterName = x.CostCenterName, category = x.Category, currency = x.Currency, amount = x.Amount, count = x.Count }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/cost-centers/summary/export", (HttpContext c, long from, long to) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Accounting.CostCenterService.SummaryTable(svc.CostCenters.Summary(s, from, to)));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "MaliyetMerkezi.xlsx");
+}).RequireAuthorization();
+
 // ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET ═══
 // Kapılar SERVİSTE: assignments modülü + BranchAccess; malzeme işlemlerinde stok kapısı DA çalışır.
 // İşlemler idempotenttir (operationId) — istemci her işlem için benzersiz id üretir.
@@ -1954,12 +1980,15 @@ app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
     var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
-    svc.Stock.IssueOut(s, lines,
+    var issueRes = svc.Stock.IssueOut(s, lines,
         // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
         string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
         d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note), docDate: d.DocDate,   // STK-11
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
-    return Results.Ok(new { ok = true });
+    // MLY-01: opsiyonel maliyet merkezi bağı — kayıt SONRASI dış bağ (stok zinciri değişmedi).
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId))
+        svc.CostCenters.Link(s, "stock_document", issueRes.DocumentId, d.CostCenterId);
+    return Results.Ok(new { ok = true, documentId = issueRes.DocumentId });
 }).RequireAuthorization();
 
 app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
@@ -3003,6 +3032,7 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
         StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "vehicle_maintenance", id, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // İş #5 (2026-08-09): bakım kaydının YAN ETKİSİZ alanları (açıklama/not/teknisyen). Malzeme ve sayaç
@@ -3079,9 +3109,11 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur."); // madde 8
-    return Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
+    var distId = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
-        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N")) });
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N"));
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
+    return Results.Ok(new { id = distId });
 }).RequireAuthorization();
 // ── Yakıt kaydı İPTALİ (kullanıcı kararları Y1–Y5, 2026-08-09) — ortak FuelService; sayaç GERİ ALINMAZ ──
 app.MapPost("/api/fuel/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
@@ -3104,8 +3136,13 @@ app.MapPost("/api/fuel/depot/{id}/cancel", (HttpContext c, string id, FuelCancel
 app.MapGet("/api/fuel/{id}/prev-meter", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { prevMeter = svc.Fuel.GetCancelledPrevMeter(s, id) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/fuel/depot", (HttpContext c, DepotEntryDto d) =>
-    S(c) is { } s ? Results.Ok(new { id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
-        d.Liters, d.UnitPrice, "TRY", d.SupplierId, Doc(d.InvoiceNo), Doc(d.Note), d.EntryDate), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
+        d.Liters, d.UnitPrice, "TRY", d.SupplierId, Doc(d.InvoiceNo), Doc(d.Note), d.EntryDate), Guid.NewGuid().ToString("N"));
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_depot_entry", id, d.CostCenterId);   // MLY-01
+    return Results.Ok(new { id });
+}).RequireAuthorization();
 
 // ── Günlük Faaliyet (Hareket + Bakım) ──
 app.MapPost("/api/daily/movement", (HttpContext c, MovementDto d) =>
@@ -3859,6 +3896,8 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// MLY-01: maliyet merkezi tanımı. Version = düzenleme kilidi jetonu.
+record CostCenterDto(string Name, string? Code = null, string? Status = null, string? Description = null, long? Version = null);
 // ZMT-01: tek işlem gövdesi (teslim/iade/kayıp/devir). OperationId istemciden gelir → idempotent retry.
 record AssignmentOpDto(string AssetType, string AssetId, string PersonnelId, decimal Quantity,
     string OperationId, string? BranchId = null, long? DocDate = null, string? Note = null,
@@ -3904,7 +3943,7 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
 /// (MaterialId + Quantity) kullanılır → mevcut istemciler bozulmaz.</summary>
 record StockLineDto(string MaterialId, decimal Quantity);
 // STK-11: DocDate = işlem tarihi (Unix ms, opsiyonel). Bkz. StockReceiveDto açıklaması.
-record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
+record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null, string? CostCenterId = null);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
 record StockReverseDto(string DocumentId, string? Reason);
 /// <summary>STK-08 — ATANMAMIŞ stok dağıtımı. KAYNAK ALANI YOKTUR: kaynak daima ATANMAMIŞ'tır
@@ -3928,12 +3967,13 @@ record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = fa
 // ⚠️ `op_branch_id` DEĞİLDİR: o kaydı işleyen şube; bu stoğun fiziksel çıktığı yer.
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
-    string? BranchId = null);
+    string? BranchId = null,
+    string? CostCenterId = null);
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
-record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
-record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null);
+record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate, string? CostCenterId = null);
+record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null, string? CostCenterId = null);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,

@@ -177,22 +177,29 @@ public class ZimmetTests : IDisposable
     public void ZMT7_Gecmis_Satirlari_Degismez()
     {
         _svc.Issue(_admin, "material", _mat, _ali, 10m, _depo, null, null, "op-t5");
-        string Foto()
+        // Deterministik kanıt: her satırın TAM içeriği bir kümede tutulur; devir SONRASI eski satır
+        // kümesi yeni kümenin ALT KÜMESİ olmalı (tek satır bile değişse/silinse test düşer).
+        System.Collections.Generic.HashSet<string> Satirlar()
         {
+            var set = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
             using var conn = _f.Create();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT id, personnel_id, movement_type, direction, quantity, doc_date, operation_id, created_at, version " +
-                              "FROM assignment_movements ORDER BY id;";
+                              "FROM assignment_movements;";
             using var r = cmd.ExecuteReader();
-            var sb = new System.Text.StringBuilder();
-            while (r.Read()) { for (int i = 0; i < r.FieldCount; i++) sb.Append(r.GetValue(i)).Append('|'); sb.Append('\n'); }
-            return sb.ToString();
+            while (r.Read())
+            {
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < r.FieldCount; i++) sb.Append(Convert.ToString(r.GetValue(i), System.Globalization.CultureInfo.InvariantCulture)).Append(Convert.ToChar(124));
+                set.Add(sb.ToString());
+            }
+            return set;
         }
-        var once = Foto();
+        var once = Satirlar();
         _svc.Transfer(_admin, "material", _mat, _ali, _veli, 10m, _depo, null, null, "op-d4");
-        var sonra = Foto();
-        Assert.StartsWith(once, sonra);                          // eski satırlar AYNEN duruyor
-        Assert.True(sonra.Length > once.Length);                 // yalnız YENİ satırlar eklendi
+        var sonra = Satirlar();
+        Assert.True(once.IsSubsetOf(sonra), "Devir mevcut defter satırlarını DEĞİŞTİRDİ — geçmiş bozulmuş olurdu.");
+        Assert.Equal(once.Count + 2, sonra.Count);   // yalnız devir çifti eklendi
     }
 
     // ══════════════ İDEMPOTENCY ══════════════

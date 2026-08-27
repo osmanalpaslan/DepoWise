@@ -71,7 +71,33 @@ public sealed partial class FuelViewModel : ViewModelBase
         _session = session;
         SelectedTab = initialTab;
         Load();
+        LoadCostCenterOptions();   // MLY-01
     }
+
+    // ── MLY-01 (ADR-168): opsiyonel maliyet merkezi seçimi ───────────────────────────────────────
+    /// <summary>Alan yalnız cost_centers Edit yetkisi olana görünür (bağ yazmak veri değiştirir).</summary>
+    public bool CanPickCostCenter => AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
+    public System.Collections.ObjectModel.ObservableCollection<ProjectPick> CostCenterOptions { get; } = new();
+    [ObservableProperty] private ProjectPick? _distCostCenter;
+    [ObservableProperty] private ProjectPick? _depotCostCenter;
+    private void LoadCostCenterOptions()
+    {
+        try
+        {
+            CostCenterOptions.Clear();
+            foreach (var (id, name) in DesktopServices.CostCenters.Options(_session))
+                CostCenterOptions.Add(new ProjectPick(id, name));
+        }
+        catch { }
+    }
+    /// <summary>Kayıt SONRASI bağ — işlem zinciri değişmedi; bağ yazılamazsa kayıt "merkezsiz" kalır.</summary>
+    private void BaglaMaliyetMerkezi(string entityType, string entityId, ProjectPick? merkez)
+    {
+        if (merkez is null) return;
+        try { DesktopServices.CostCenters.Link(_session, entityType, entityId, merkez.Id); }
+        catch (System.Exception ex) { Status = "Kayıt alındı; maliyet merkezi bağlanamadı: " + ex.Message; }
+    }
+
 
     // ── KAYIT İPTALİ (kullanıcı kararları Y1–Y5, 2026-08-09) ──
     // Not: formdaki "Vazgeç" butonları FORMU temizler; buradaki iptal GERÇEK kayıt iptalidir.
@@ -225,12 +251,13 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync($"{DistLiters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {DistTotalText})", "Kaydet")) return;
         try
         {
-            DesktopServices.Fuel.Distribute(_session, new NewDistribution(
+            var distId = DesktopServices.Fuel.Distribute(_session, new NewDistribution(
                 VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
                 PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
                 DistributionDate: DistDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
                 Guid.NewGuid().ToString("N"));
+            BaglaMaliyetMerkezi("fuel_distribution", distId, DistCostCenter);   // MLY-01
             ClearDist(); Load();
             Status = "Dağıtım kaydedildi.";
         }
@@ -293,11 +320,12 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync($"{DepotLiters:0.##} L depo girişi kaydedilsin mi? (Toplam {DepotTotalText})", "Kaydet")) return;
         try
         {
-            DesktopServices.Fuel.AddDepotEntry(_session, new NewDepotEntry(
+            var depotId = DesktopServices.Fuel.AddDepotEntry(_session, new NewDepotEntry(
                 Liters: DepotLiters, UnitPrice: DepotPrice, SupplierId: DepotSupplier?.Id,
                 InvoiceNo: string.IsNullOrWhiteSpace(DepotInvoice) ? null : DepotInvoice.Trim(),
                 EntryDate: DepotDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
                 Guid.NewGuid().ToString("N"));
+            BaglaMaliyetMerkezi("fuel_depot_entry", depotId, DepotCostCenter);   // MLY-01
             ClearDepot(); Load();
             Status = "Depo girişi eklendi.";
         }

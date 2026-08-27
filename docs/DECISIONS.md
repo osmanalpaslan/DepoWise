@@ -2546,3 +2546,21 @@ Ayrıntı: `docs/project-control/EKP_01_VARLIK_EKIPMAN.md`.
   kanıtlı (ZMT13/14). Migration076 yalnız CREATE (ZMT15/16); canlıya uygulanmadı.
 
 Ayrıntı: `docs/project-control/B_ZIMMET_01.md`.
+
+---
+
+## ADR-168 — Maliyet Merkezi — MLY-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 2/SIRA 5
+
+### Karar
+- Model: tek işlem = tek merkez; dağıtım/yüzde yok; backfill yok (talimattan türetildi, ürün sorusu gerekmedi).
+- **DIŞ BAĞ tablosu** (`cost_centers` + `cost_center_links`, UNIQUE(entity)) — mevcut tablolara **ALTER dahi
+  yok**, 5 katmanlı stok zincirine imza dokunuşu yok; bağ kayıt sonrası API/VM katmanında yazılır
+  (bilgilendirici; stok/para bütünlüğünü etkilemez). MLY4: bağ kaynak kaydı bit-bit değiştirmez.
+- Özet mevcut hesapları DEĞİŞTİRMEZ: yalnız okur, C# decimal toplar, para birimleri ayrı; satır fiyatı
+  boşsa malzeme kartı fiyatına düşer. MLY8: merkezsiz akışlar aynen.
+- Yeni `cost_centers` modülü + BranchAccess kapsamı (MLY6, yan kapı değil) + soft delete/trash/audit/log +
+  senkron FK sıralı (MLY9). İşlem formlarına (stok çıkışı · yakıt ×2 · bakım) opsiyonel seçim — iki platform.
+- Migration077 yalnız CREATE (MLY10/11 kanıtlı); canlıya uygulanmadı.
+
+Ayrıntı: `docs/project-control/D_MALIYET_01.md`.

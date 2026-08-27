@@ -81,5 +81,6 @@ public static class MigrationCatalog
         new Migration074_DocumentFields(),
         new Migration075_Equipment(),
         new Migration076_Assignments(),
+        new Migration077_CostCenters(),
     };
 }

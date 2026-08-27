@@ -302,7 +302,7 @@ public class AppScreensParityTests
             // G4-1 cari + G4-2 fatura + G4-3 kasa/banka. Her biri AYRI modüldür ("parties",
             // "invoices", "finance") ve menüde eklendikleri sırayla görünür.
             ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
-                                    "finance", "finance:new", "payments" }),
+                                    "finance", "finance:new", "payments", "cost_centers" }),   // MLY-01
             ("Operasyon Raporları", new[] { "reports" }),
             // RPR-07 (2026-08-25): Yönetici Raporları artık AYRI gezinme anahtarı kullanır
             // (eskiden "reports" ile aynı ekranı açıyordu; iki menü girişi fiilen tek ekrandı).
@@ -326,8 +326,8 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT = 51. Ekran kaybı yok.
-        Assert.Equal(51, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY = 52. Ekran kaybı yok.
+        Assert.Equal(52, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -350,7 +350,8 @@ public class AppScreensParityTests
             ("Ön Muhasebe", new[] { ("parties", "parties"), ("parties", "parties/new"),
                                     ("invoices", "invoices"), ("invoices", "invoices/new"),
                                     ("finance", "finance"), ("finance", "finance/new"),
-                                    ("finance", "payments") }),   // G4-1 + G4-2 + G4-3
+                                    ("finance", "payments"),
+                                    ("cost_centers", "cost-centers") }),   // G4 + MLY-01
             ("Operasyon Raporları", new[] { ("reports", "reports") }),
             // RPR-07: ayrı route → deep-link ve menü artık iki farklı ekranı gösterir.
             ("Yönetici Raporları", new[] { ("@admin", "reports/manager") }),
@@ -378,8 +379,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ/EVR/EKP/ZMT → 58.
-        Assert.Equal(58, gercek.Sum(x => x.Item2.Length));
+        // PRJ/EVR/EKP/ZMT/MLY → 59.
+        Assert.Equal(59, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>

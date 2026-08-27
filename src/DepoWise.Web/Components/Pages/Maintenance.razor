@@ -134,6 +134,16 @@
                     <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_mDate" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3">
+                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
+                @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                {
+                    <MudSelect T="string" @bind-Value="_mCostCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                    </MudSelect>
+                }
+            </MudItem>
+
                     <MudItem xs="12"><MudTextField @bind-Value="_mDesc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
 
                     @* ARAÇ DURUMU (kullanıcı isteği 2026-07-16): bakım kaydı açarken aracı "Arızalı" vb.
@@ -385,8 +395,15 @@
 
     private bool _busy;
 
+    private string? _mCostCenterId;
+    // MLY-01
+    private List<ApiClient.Opt> _costCenters = new();
+    private async Task LoadCostCenters()
+    { try { _costCenters = await Api.OptionsAsync("/api/cost-centers/options", "id", "name"); } catch { } }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadCostCenters();
         _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
         await LoadLocations();
@@ -598,7 +615,8 @@
                 materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                 // BKM-04: KULLANICININ SEÇTİĞİ depo. Auth.BranchId yalnız VARSAYILANI belirledi;
                 // burada tekrar okunmaz — kullanıcının değişikliği sessizce ezilemez (KARAR-9).
-                branchId = _mLocationId
+                branchId = _mLocationId,
+                costCenterId = Empty(_mCostCenterId)   // MLY-01
             });
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.

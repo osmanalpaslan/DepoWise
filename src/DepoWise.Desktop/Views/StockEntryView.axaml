@@ -50,6 +50,11 @@
                     <ctrl:FormField Label="İşlem Tarihi" Width="170">
                         <DatePicker Classes="Field" SelectedDate="{Binding DocDate}"/>
                     </ctrl:FormField>
+                    <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                    HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
+                                        PlaceholderText="Merkez seç... (boş olabilir)"/>
+                    </ctrl:FormField>
                     <ctrl:FormField Label="{Binding QuantityLabel}" IsRequired="True" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>

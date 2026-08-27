@@ -31,10 +31,35 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     /// <summary>Açılışta seçili sekme (menüden alt-bağlantıyla gelince ayarlanır). 0=Tanımlar,1=Araç Bakımları,2=Uyarılar.</summary>
     [ObservableProperty] private int _selectedTab;
 
+
+    // ── MLY-01 (ADR-168): opsiyonel maliyet merkezi seçimi ───────────────────────────────────────
+    /// <summary>Alan yalnız cost_centers Edit yetkisi olana görünür (bağ yazmak veri değiştirir).</summary>
+    public bool CanPickCostCenter => AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
+    public System.Collections.ObjectModel.ObservableCollection<ProjectPick> CostCenterOptions { get; } = new();
+    [ObservableProperty] private ProjectPick? _mntCostCenter;
+    private void LoadCostCenterOptions()
+    {
+        try
+        {
+            CostCenterOptions.Clear();
+            foreach (var (id, name) in DesktopServices.CostCenters.Options(_session))
+                CostCenterOptions.Add(new ProjectPick(id, name));
+        }
+        catch { }
+    }
+    /// <summary>Kayıt SONRASI bağ — işlem zinciri değişmedi; bağ yazılamazsa kayıt "merkezsiz" kalır.</summary>
+    private void BaglaMaliyetMerkezi(string entityType, string entityId, ProjectPick? merkez)
+    {
+        if (merkez is null) return;
+        try { DesktopServices.CostCenters.Link(_session, entityType, entityId, merkez.Id); }
+        catch (System.Exception ex) { Status = "Kayıt alındı; maliyet merkezi bağlanamadı: " + ex.Message; }
+    }
+
     public MaintenanceViewModel(SessionContext session, int initialTab = 0)
     {
         _session = session;
         SelectedTab = initialTab;
+        LoadCostCenterOptions();   // MLY-01
         LoadDefs();
         LoadMaint();
         LoadAlerts();
@@ -591,7 +616,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         try
         {
             var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
-            DesktopServices.Maintenance.Save(_session, new NewMaintenance(
+            var mntId = DesktopServices.Maintenance.Save(_session, new NewMaintenance(
                 VehicleId: MntVehicle.Id, DefinitionId: MntDef.Id, SubDefinitionId: MntSubDef?.Id,
                 TechnicianId: MntTechnician?.Id,
                 Description: string.IsNullOrWhiteSpace(MntDescription) ? null : MntDescription.Trim(),
@@ -602,6 +627,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 // BKM-04: KULLANICININ SEÇTİĞİ depo — olduğu gibi gider. Depo yoksa null → ATANMAMIŞ
                 // (bakım stok yüzünden engellenmez, KARAR-9 md. 8).
                 StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));
+            BaglaMaliyetMerkezi("vehicle_maintenance", mntId, MntCostCenter);   // MLY-01
 
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI oldu; durum güncellenemezse
             // bakım GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.

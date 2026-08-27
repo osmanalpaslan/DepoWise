@@ -54,6 +54,16 @@
                 <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
                                HelperText="Hareketin ait olduğu gün. Kayıt zamanı ayrıca saklanır." />
             </MudItem>
+            <MudItem xs="6" md="3">
+                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
+                @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                {
+                    <MudSelect T="string" @bind-Value="_costCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                    </MudSelect>
+                }
+            </MudItem>
+
             @if (_kind == "Yeni Kayıt")
             {
                 @* Malzeme seçimi OPSİYONEL (madde 1.1, kullanıcı isteği 2026-08-06): mevcut malzeme seçilirse
@@ -303,8 +313,15 @@
         public string Display => $"{Code} - {Name}";
     }
 
+    private string? _costCenterId;
+    // MLY-01
+    private List<ApiClient.Opt> _costCenters = new();
+    private async Task LoadCostCenters()
+    { try { _costCenters = await Api.OptionsAsync("/api/cost-centers/options", "id", "name"); } catch { } }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadCostCenters();
         if (Auth.CanCreate("stock"))
         {
             _units = await Lk("units");
@@ -544,7 +561,8 @@
                     branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
-                    docDate = DocDateMs()   // STK-11
+                    docDate = DocDateMs(),   // STK-11
+                    costCenterId = Empty(_costCenterId)   // MLY-01
                 });
             }
             else // Şube Dışı Çıkış → transfer

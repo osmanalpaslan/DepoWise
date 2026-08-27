@@ -1,0 +1,196 @@
+@page "/cost-centers"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ MLY-01 (ADR-168, 2026-08-28) — MALİYET MERKEZLERİ ═══
+    Tek ekran: tanım CRUD + tarih aralıklı maliyet ÖZETİ (Sorgula'sız çalışmaz — ağır rapor kuralı).
+    Model: tek kayıt = tek merkez; bağ, işlem formlarında (stok çıkışı / yakıt / bakım) seçilir.
+    Özet mevcut hesapları DEĞİŞTİRMEZ; para birimi bazında ayrı toplanır. Kapılar SUNUCUDA.
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Maliyet Merkezleri</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("cost_centers"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ MALİYET MERKEZİ" : "MALİYET MERKEZİ DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("active")">Aktif</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("passive")">Pasif</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_description" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
+                <MudText Typo="Typo.h6">Tanımlar</MudText><MudSpacer />
+                <MudTextField @bind-Value="_search" Label="Ara" Margin="Margin.Dense" Variant="Variant.Outlined"
+                              Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:150px;" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+            </MudStack>
+            @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz maliyet merkezi tanımlanmadı.</MudText> }
+            else
+            {
+                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+                    <HeaderContent><MudTh>KOD</MudTh><MudTh>AD</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@Str(context, "code")</MudTd>
+                        <MudTd>@Str(context, "name")</MudTd>
+                        <MudTd><span class="dw-badge @(Str(context, "status") == "passive" ? "dw-badge-muted" : "dw-badge-ok")">@Str(context, "statusDisplay")</span></MudTd>
+                        <MudTd>
+                            <MudStack Row="true" Spacing="1">
+                                @if (Auth.CanEdit("cost_centers")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
+                                @if (Auth.CanDelete("cost_centers")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="7">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.h6">Maliyet Özeti</MudText><MudSpacer />
+                <MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px;" />
+                <MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px;" />
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadSummary">Sorgula</MudButton>
+                @if (Auth.CanView("export") && _summary is { Length: > 0 })
+                {
+                    <MudTooltip Text="Sorgulanan aralığın TÜM özetini Excel olarak indirir.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                    </MudTooltip>
+                }
+            </MudStack>
+            @if (_summary is null) { <MudText Class="mud-text-secondary">Tarih aralığı seçip <b>Sorgula</b>'ya basın. Maliyetler, işlem formlarında merkeze bağlanan kayıtlardan gelir (stok çıkışı · yakıt · bakım).</MudText> }
+            else if (_summary.Length == 0) { <MudText Class="mud-text-secondary">Bu aralıkta merkeze bağlı maliyet kaydı yok.</MudText> }
+            else
+            {
+                <MudTable Items="_summary" Dense="true" Hover="true" Striped="true" T="JsonElement">
+                    <HeaderContent><MudTh>MERKEZ</MudTh><MudTh>KALEM</MudTh><MudTh Style="text-align:right">TUTAR</MudTh><MudTh>KAYIT</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@Str(context, "costCenterName")</MudTd>
+                        <MudTd>@Str(context, "category")</MudTd>
+                        <MudTd Style="text-align:right"><b>@AmountText(context)</b></MudTd>
+                        <MudTd>@Str(context, "count")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string? _editId;
+    private long _editVersion;
+    private string _code = "", _name = "", _status = "active", _description = "", _search = "";
+    private DateTime? _from = DateTime.Today.AddDays(-30), _to = DateTime.Today;
+    private JsonElement[]? _rows, _summary;
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = string.IsNullOrWhiteSpace(_search) ? "" : "?search=" + Uri.EscapeDataString(_search.Trim());
+        try { _rows = await Api.GetArrayAsync("/api/cost-centers" + q); } catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private (long From, long To) Aralik()
+    {
+        long Ms(DateTime? d, bool son) => new DateTimeOffset(DateTime.SpecifyKind(
+            (d ?? DateTime.Today).Date.AddDays(son ? 1 : 0).AddMilliseconds(son ? -1 : 0), DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        return (Ms(_from, false), Ms(_to, true));
+    }
+
+    private async Task LoadSummary()
+    {
+        _summary = null;
+        var (f, t) = Aralik();
+        try { _summary = await Api.GetArrayAsync($"/api/cost-centers/summary?from={f}&to={t}"); }
+        catch { _summary = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task ExportExcel()
+    {
+        var (f, t) = Aralik();
+        var (bytes, name) = await Api.GetFileAsync($"/api/cost-centers/summary/export?from={f}&to={t}", "MaliyetMerkezi.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu maliyet merkezini düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+        _code = Str(d, "code"); _name = Str(d, "name");
+        _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
+        _description = Str(d, "description"); _msg = null;
+    }
+
+    private async Task Save()
+    {
+        _err = true; _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Maliyet merkezi eklensin mi?" : "Güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            var body = new { code = _code, name = _name.Trim(), status = _status, description = _description,
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null };
+            var err = _editId is null ? await Api.PostAsync("/api/cost-centers", body) : await Api.PutAsync($"/api/cost-centers/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu maliyet merkezi silinsin mi? (Çöp Kutusu'ndan geri alınabilir; bağlı kayıtların maliyeti özetten düşer.)", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/cost-centers/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null; await Load();
+    }
+
+    private void Clear() { _err = false; _editId = null; _editVersion = 0; _code = ""; _name = ""; _status = "active"; _description = ""; }
+
+    private static string AmountText(JsonElement d)
+    {
+        var amt = d.TryGetProperty("amount", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+        return amt.ToString("N2") + " " + Str(d, "currency");
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

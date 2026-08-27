@@ -38,8 +38,8 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-165 · yayın bekliyor) |
 | | 3 | E — Varlık / Ekipman | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-166 · yayın bekliyor) |
 | **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-167 · yayın bekliyor) |
-| | 5 | D — Maliyet Merkezi | Alt menü (Finans) + raporlar | 🔵 **SIRADAKİ** (önce ürün sorusu: maliyet dağıtım kuralı) |
-| | 6 | P — Satın Alma | Yeni ana menü | BEKLİYOR |
+| | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · yayın bekliyor) |
+| | 6 | P — Satın Alma | Yeni ana menü | 🔵 **SIRADAKİ** (önce ürün sorusu: aşama sayısı/onay) |
 | **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | BEKLİYOR |
 | | 8 | H — Takvim | Yeni ana menü (tek ekran) | BEKLİYOR |
 | **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | BEKLİYOR |
@@ -126,6 +126,7 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 | 2026-08-28 | Migration074_DocumentFields (v74 — yalnız ADD COLUMN + indeks) | A — Evrak | **HAYIR** (yayın onayıyla uygulanacak) |
 | 2026-08-28 | Migration075_Equipment (v75 — yalnız CREATE, 2 yeni tablo) | E — Ekipman | **HAYIR** (yayın onayıyla uygulanacak) |
 | 2026-08-28 | Migration076_Assignments (v76 — yalnız CREATE, 1 yeni tablo) | B — Zimmet | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-28 | Migration077_CostCenters (v77 — yalnız CREATE, 2 yeni tablo; ALTER dahi yok) | D — Maliyet Merkezi | **HAYIR** (yayın onayıyla uygulanacak) |
 
 ---
 ---

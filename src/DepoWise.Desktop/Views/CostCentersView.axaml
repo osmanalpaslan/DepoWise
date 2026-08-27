@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:acc="using:DepoWise.Infrastructure.Accounting"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.CostCentersView"
+             x:DataType="vm:CostCentersViewModel">
+
+    <!-- MLY-01 (ADR-168): Maliyet Merkezleri — tanım + Sorgula'lı özet; mevcut hesapları DEĞİŞTİRMEZ. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Maliyet Merkezleri"
+                      PrimaryActionText="Yeni Merkez" PrimaryActionCommand="{Binding NewCenterCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: kod / ad / açıklama"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Form -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Kod" Width="130">
+                        <TextBox Classes="Field" Text="{Binding FormCode}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Ad" IsRequired="True" Width="240">
+                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Durum" Width="120">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Açıklama" Width="240">
+                        <TextBox Classes="Field" Text="{Binding FormDescription}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Tanımlar + Özet -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,*">
+            <Panel Grid.Column="0" Margin="0,0,8,0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90" MaxWidth="90"/>
+                                <SelectableTextBlock Grid.Column="1" Text="AD" MinWidth="140"/>
+                                <SelectableTextBlock Grid.Column="2" Text="DURUM" MinWidth="70" MaxWidth="70"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="acc:CostCenterRow">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding CodeDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="140" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Description}"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding StatusDisplay}" MinWidth="70" MaxWidth="70" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Maliyet merkezi yok" Message="Yeni Merkez ile tanım oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Özet -->
+            <Border Grid.Column="1" Classes="Panel" Margin="8,0,0,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Spacing="10">
+                        <SelectableTextBlock Text="MALİYET ÖZETİ" Classes="SectionTitle"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <!-- Tarih alanları KEHRİBAR temadan -->
+                            <ctrl:FormField Label="Başlangıç" Width="150">
+                                <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Bitiş" Width="150">
+                                <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                            </ctrl:FormField>
+                            <Button Classes="Primary" Content="Sorgula" Command="{Binding LoadSummaryCommand}" VerticalAlignment="Bottom"/>
+                            <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
+                                    IsVisible="{Binding CanExport}" ToolTip.Tip="Sorgulanan aralığın TÜM özetini Excel olarak kaydeder."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSelection}">
+                            <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                            <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                   Text="Maliyetler, işlem formlarında merkeze bağlanan kayıtlardan gelir (stok çıkışı · yakıt · bakım). Tarih aralığı seçip Sorgula'ya basın."/>
+                    </StackPanel>
+                    <ScrollViewer Margin="0,10,0,0">
+                        <ItemsControl ItemsSource="{Binding Summary}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="acc:CostCenterSummaryRow">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                        <StackPanel Grid.Column="0">
+                                            <SelectableTextBlock Classes="Body" FontWeight="SemiBold" Text="{Binding CostCenterName}"/>
+                                            <SelectableTextBlock Classes="Helper" Text="{Binding Category}"/>
+                                        </StackPanel>
+                                        <SelectableTextBlock Grid.Column="1" Classes="Body" VerticalAlignment="Center" Text="{Binding AmountDisplay}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

@@ -73,6 +73,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Files.DocumentService Documents { get; }        // EVR-01 (ADR-165)
     public DepoWise.Infrastructure.Equipment.EquipmentService Equipment { get; }   // EKP-01 (ADR-166)
     public DepoWise.Infrastructure.Assignments.AssignmentService Assignments { get; }   // ZMT-01 (ADR-167)
+    public DepoWise.Infrastructure.Accounting.CostCenterService CostCenters { get; }   // MLY-01 (ADR-168)
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
     /// <summary>Şube kapsamı çözümleyici — içe aktarımda seçilen hedef şubenin kullanıcının
     /// kapsamında olduğunu doğrulamak için (fail-closed).</summary>
@@ -176,6 +177,7 @@ public sealed class ServerServices
         Documents = new DepoWise.Infrastructure.Files.DocumentService(Factory, Storage, clock);
         Equipment = new DepoWise.Infrastructure.Equipment.EquipmentService(Factory, clock);
         Assignments = new DepoWise.Infrastructure.Assignments.AssignmentService(Factory, clock);
+        CostCenters = new DepoWise.Infrastructure.Accounting.CostCenterService(Factory, clock);
         Scopes = new DepoWise.Infrastructure.Org.ScopeResolver(Factory);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, Scopes, clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);

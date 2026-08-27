@@ -198,7 +198,32 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         _session = session;
         Load();
         RefreshMaterials();
+        LoadCostCenterOptions();   // MLY-01
     }
+
+    // ── MLY-01 (ADR-168): opsiyonel maliyet merkezi seçimi ───────────────────────────────────────
+    /// <summary>Alan yalnız cost_centers Edit yetkisi olana görünür (bağ yazmak veri değiştirir).</summary>
+    public bool CanPickCostCenter => AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
+    public System.Collections.ObjectModel.ObservableCollection<ProjectPick> CostCenterOptions { get; } = new();
+    [ObservableProperty] private ProjectPick? _formCostCenter;
+    private void LoadCostCenterOptions()
+    {
+        try
+        {
+            CostCenterOptions.Clear();
+            foreach (var (id, name) in DesktopServices.CostCenters.Options(_session))
+                CostCenterOptions.Add(new ProjectPick(id, name));
+        }
+        catch { }
+    }
+    /// <summary>Kayıt SONRASI bağ — işlem zinciri değişmedi; bağ yazılamazsa kayıt "merkezsiz" kalır.</summary>
+    private void BaglaMaliyetMerkezi(string entityType, string entityId, ProjectPick? merkez)
+    {
+        if (merkez is null) return;
+        try { DesktopServices.CostCenters.Link(_session, entityType, entityId, merkez.Id); }
+        catch (System.Exception ex) { Status = "Kayıt alındı; maliyet merkezi bağlanamadı: " + ex.Message; }
+    }
+
 
     [RelayCommand]
     private void Load()
@@ -427,10 +452,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 if (IsInBranchExit)   // Şube İçi Çıkış = merkez depodan düşer (IssueOut)
                 {
                     if (!await ConfirmService.AskAsync($"Şube içi çıkış kaydedilsin mi?{lineText} (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
-                    DesktopServices.Stock.IssueOut(_session, exitLines, op,
+                    var issueRes = DesktopServices.Stock.IssueOut(_session, exitLines, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         docDate: DocDate?.ToUnixTimeMilliseconds(),   // STK-11
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
+                    BaglaMaliyetMerkezi("stock_document", issueRes.DocumentId, FormCostCenter);   // MLY-01
                     Status = exitLines.Count == 1 ? "Şube içi çıkış kaydedildi." : $"Şube içi çıkış kaydedildi ({exitLines.Count} malzeme).";
                 }
                 else // Şube Dışı Çıkış = Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer

@@ -53,6 +53,11 @@
                                     <DatePicker Classes="Field" SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
                                 </ctrl:FormField>
+                                <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                                HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DistCostCenter}"
+                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
                                     <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
                                                    FormatString="0.##" ShowButtonSpinner="False"/>
@@ -163,6 +168,11 @@
                                 <ctrl:FormField Label="İşlem Tarihi" Width="170">
                                     <DatePicker Classes="Field" SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                                HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DepotCostCenter}"
+                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
                                     <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>

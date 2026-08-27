@@ -33,6 +33,7 @@ public static class ScreenAuditMap
             ["files"]            = new[] { "file_record" },         // EVR-01: Evrak ekranı (belge + fotoğraf izleri)
             ["equipment"]        = new[] { "equipment" },           // EKP-01
             ["assignments"]      = new[] { "assignment_movement" }, // ZMT-01
+            ["cost_centers"]     = new[] { "cost_center", "cost_center_link" }, // MLY-01
             ["users"]            = new[] { "user", "user_permissions", "user_scopes", "user_view_all_branches", "role_permissions" },
             ["parties"]          = new[] { "party", "party_ledger" },
             ["invoices"]         = new[] { "invoices" },

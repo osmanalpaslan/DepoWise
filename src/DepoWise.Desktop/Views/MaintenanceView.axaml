@@ -215,6 +215,11 @@
                                 <ctrl:FormField Label="Tarih" Width="160">
                                     <DatePicker Classes="Field" SelectedDate="{Binding MntDate}"/>
                                 </ctrl:FormField>
+                                <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                                HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding MntCostCenter}"
+                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                </ctrl:FormField>
                             </StackPanel>
                             <ctrl:FormField Label="Açıklama">
                                 <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>

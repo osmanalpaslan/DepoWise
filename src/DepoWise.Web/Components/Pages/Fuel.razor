@@ -39,6 +39,16 @@
                                        HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
                     </MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_liters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3">
+                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
+                @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                {
+                    <MudSelect T="string" @bind-Value="_distCostCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                    </MudSelect>
+                }
+            </MudItem>
+
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (₺/L)" HelperText="Varsayılan: güncel fiyat." Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudTextField Value="@((_liters * _price).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren *" @bind-Value="_person" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
@@ -98,6 +108,16 @@
                                        HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
                     </MudItem>
                     <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_dLiters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3">
+                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
+                @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                {
+                    <MudSelect T="string" @bind-Value="_depotCostCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                    </MudSelect>
+                }
+            </MudItem>
+
                     <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_dPrice" Label="Birim Fiyat (₺/L) *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="4"><MudTextField Value="@((_dLiters * _dPrice).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="12" md="6"><LookupSelect Label="Tedarikçi" @bind-Value="_dSupplier" Items="_suppliers" AddTable="suppliers" OnAdded="ReloadSuppliers" /></MudItem>
@@ -174,8 +194,15 @@
     private string? _dMsg = null; private bool _dOk;
     private bool _busy;
 
+    private string? _distCostCenterId, _depotCostCenterId;
+    // MLY-01
+    private List<ApiClient.Opt> _costCenters = new();
+    private async Task LoadCostCenters()
+    { try { _costCenters = await Api.OptionsAsync("/api/cost-centers/options", "id", "name"); } catch { } }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadCostCenters();
         if (Auth.CanCreate("fuel"))
         {
             _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
@@ -236,7 +263,8 @@
                 vehicleId = _vehicle.Id, liters = _liters, currentMeter = _meter,
                 unitPrice = _price > 0 ? (decimal?)_price : null, personnelId = _person,
                 recipientPersonnelId = string.IsNullOrEmpty(_recipient) ? null : _recipient,
-                distributionDate = _distDateMs   // TRH-01: iş günü
+                distributionDate = _distDateMs,   // TRH-01: iş günü
+                costCenterId = string.IsNullOrEmpty(_distCostCenterId) ? null : _distCostCenterId   // MLY-01
             });
             _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
             if (_ok) { ClearDist(); await LoadDist(); await LoadSummary(); }
@@ -256,7 +284,8 @@
         try
         {
             var err = await Api.PostAsync("/api/fuel/depot", new { liters = _dLiters, unitPrice = _dPrice, supplierId = _dSupplier,
-                invoiceNo = Empty(_dInvoice), entryDate = _depotDateMs });   // TRH-01: iş günü
+                invoiceNo = Empty(_dInvoice), entryDate = _depotDateMs,   // TRH-01: iş günü
+                costCenterId = string.IsNullOrEmpty(_depotCostCenterId) ? null : _depotCostCenterId });   // MLY-01
             _dOk = err is null; _dMsg = err ?? "Depo girişi kaydedildi.";
             if (_dOk) { ClearDepot(); await LoadDepot(); await LoadSummary(); }
         }
