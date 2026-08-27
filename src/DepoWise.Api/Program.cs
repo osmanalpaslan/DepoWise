@@ -890,9 +890,14 @@ app.MapGet("/api/materials/grid", (HttpContext c,
         description, compatibleVehicles, equivalents);
     var res = svc.Materials.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
         string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, criticalOnly);
+    // ⭐ RPR-W1 (web v4, 2026-08-27) — ÖZET ŞERİDİ. EKLEMELİ alan: mevcut alanların HİÇBİRİ değişmedi,
+    // eski istemciler (masaüstü) bunu okumaz ve etkilenmez. Sayfalamadan bağımsız, AKTİF FİLTRELERLE
+    // tutarlı hesaplanır (liste ile aynı GridSorgusu kurulumu) → şeritteki sayı listeyle çelişmez.
+    var summary = svc.Materials.SearchGridSummary(s, filter, criticalOnly);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+        summary = new { criticalCount = summary.CriticalCount, categoryCount = summary.CategoryCount, stockValue = summary.StockValue },
     });
 }).RequireAuthorization();
 // Malzeme Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF FİLTRELERLE eşleşen TÜM sonuçları

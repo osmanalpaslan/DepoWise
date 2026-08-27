@@ -1123,3 +1123,205 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     .mud-paper { background-color: var(--mud-palette-surface); }
     body { background-image: none; }
 }
+
+/* ============================================================================
+   Alpnex Web — app.css §16 EK BLOĞU · "AURORA CAM v4"
+   ----------------------------------------------------------------------------
+   UYGULAMA: Bu blok, faz2-appcss/app.css (v3) dosyasının SONUNA eklenir.
+   v3 zaten repo app.css'inin tam yerine geçiyor; v4 yalnız ÜZERİNE yazar
+   (cascade ile). Hiçbir mevcut sınıf silinmez / yeniden adlandırılmaz.
+
+   KAPSAM (kullanıcı seçimi 2026-08-27):
+   · Kabuk: 1a "Aurora Cam" — camsı üst bar, hap kullanıcı rozeti, hap aktif menü
+   · Tablolar: 1d "Komuta" — kehribar başlık bandı, çökük filtre satırı,
+     zebra + kritik satır vurgusu, kompakt kare sayfalama
+   Tüm 44 ekran bu iki dilden otomatik giyinir; Razor değişiklikleri W2–W4'te.
+   ============================================================================ */
+
+/* ── 16.1 ÜST BAR — camsı yüzey, ince çizgi ──────────────────────────────── */
+.mud-appbar {
+    background: color-mix(in srgb, var(--mud-palette-appbar-background) 92%, transparent) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--dw-border);
+    box-shadow: none !important;
+}
+/* Logo plakası: kehribar degrade, hafif ışıma (img'yi sarmalayan kural v3 §3'ü ezer) */
+.mud-appbar img {
+    height: 30px; width: auto;
+    padding: 4px 7px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #F5A623, #E08A00);
+    box-shadow: 0 0 18px rgba(245, 166, 35, .30);
+    margin: 0 10px 0 2px;
+}
+.mud-appbar .mud-typography-h6 { font-weight: 700; letter-spacing: -.01em; }
+
+/* Kullanıcı rozeti → hap (pill). .dw-userchip markup'ı W2 ile avatar kazanır. */
+.dw-userchip {
+    display: flex; align-items: center; gap: 9px;
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
+    border: 1px solid var(--dw-border);
+    border-radius: 999px;
+    padding: 5px 14px 5px 6px;
+    line-height: 1.2;
+}
+.dw-userchip .dw-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--dw-accent-soft);
+    color: var(--mud-palette-primary);
+    font-weight: 700; font-size: 12px; flex: none;
+}
+.dw-userchip-name { font-size: 12px; font-weight: 600; display: block; }
+.dw-userchip-sub  { font-size: 10.5px; color: var(--mud-palette-text-secondary); display: block; }
+.dw-logout { border-radius: 8px; font-weight: 600; }
+
+/* ── 16.2 KENAR MENÜ — hap aktif öğe ─────────────────────────────────────── */
+.mud-drawer { border-right: 1px solid var(--dw-border-soft); }
+.mud-nav-link, .mud-nav-group > .mud-nav-link {
+    border-radius: 9px;
+    margin: 1px 8px;
+    font-size: 13px;
+    transition: background-color var(--dw-fast) ease, color var(--dw-fast) ease;
+}
+.mud-nav-link:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent); }
+/* Aktif ekran: dolu kehribar hap — metin/ikon koyu (kontrast) */
+.mud-nav-link.active {
+    background: linear-gradient(135deg, #F5A623, #E89812) !important;
+    color: #14171C !important;
+    font-weight: 700;
+}
+.mud-nav-link.active .mud-icon-root { color: #14171C !important; }
+/* Kehribar dışı birincil renklerde de kontrast korunur: metin rengini
+   MudBlazor'dan değil sabitten alıyoruz çünkü hap her temada kehribar markadır. */
+
+/* ── 16.3 TABLO BAŞLIĞI — kehribar bant (masaüstü 2a ile akraba) ─────────── */
+/* Kapsam: hem .dw-grid (Malzemeler/Araçlar/Günlük) hem MudTable/MudSimpleTable
+   başlıkları → 40+ tablo tek kuraldan giyinir. Filtre satırı HARİÇ tutulur. */
+.dw-grid thead tr:first-child th,
+.mud-table-head th,
+.mud-simple-table thead th {
+    background: linear-gradient(180deg, #F7B03B, #EFA020) !important;
+    color: #3B2A08 !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(0, 0, 0, .25) !important;
+}
+.dw-grid thead tr:first-child th .dw-th { color: #3B2A08; }
+.dw-grid .dw-sort { color: #3B2A08; }
+/* Başlık içi tutamaç/ikonlar koyu kalır */
+.dw-grid thead tr:first-child th [draggable] { color: rgba(59, 42, 8, .7); }
+
+/* Filtre satırı: kehribar bandın altında ÇÖKÜK zemin (uygulama arka planı) */
+.dw-grid .dw-filter-th, .dw-grid thead tr + tr th {
+    background: var(--mud-palette-background) !important;
+    border-bottom: 1px solid var(--dw-border-strong) !important;
+    padding: 6px 7px !important;
+}
+.dw-filter-th .mud-input-control { margin: 0; }
+.dw-filter-th .mud-input-slot { font-size: 10.5px; }
+
+/* ── 16.4 TABLO GÖVDESİ — zebra + kritik + kehribar hover ────────────────── */
+.dw-grid tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--mud-palette-text-primary) 1.8%, transparent); }
+.dw-grid tbody tr:hover td,
+.mud-table-body .mud-table-row:hover .mud-table-cell {
+    background: color-mix(in srgb, var(--mud-palette-primary) 6%, transparent) !important;
+}
+/* Kritik satır (stok ≤ min): W4 markup'ı satıra .dw-row-crit sınıfı basar */
+.dw-grid tbody tr.dw-row-crit td { background: color-mix(in srgb, var(--mud-palette-error) 7%, transparent); }
+.dw-grid tbody tr.dw-row-crit:hover td { background: color-mix(in srgb, var(--mud-palette-error) 11%, transparent) !important; }
+/* Kod kolonu vurgusu (ilk kolon) */
+.dw-grid tbody td:first-child { color: var(--mud-palette-primary); font-weight: 700; }
+
+/* Stok mini-bar hücresi (W4 markup'ı) */
+.dw-stockbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.dw-stockbar-track { width: 52px; height: 4px; border-radius: 99px; overflow: hidden;
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 9%, transparent); }
+.dw-stockbar-fill { height: 100%; border-radius: 99px; background: var(--mud-palette-success); }
+.dw-row-crit .dw-stockbar-fill, .dw-stockbar-fill.crit { background: var(--mud-palette-error); }
+.dw-stockbar-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ── 16.5 SAYFALAMA — kompakt kare, kehribar aktif ───────────────────────── */
+.mud-pagination-item {
+    min-width: 26px; height: 26px;
+    border: 1px solid var(--dw-border-strong);
+    border-radius: 6px;
+    font-size: 11.5px;
+}
+.mud-pagination-item.mud-pagination-item-selected {
+    border-color: var(--mud-palette-primary);
+    background: var(--dw-accent-weak);
+    color: var(--mud-palette-primary);
+    font-weight: 800;
+}
+
+/* ── 16.6 ÖZET ŞERİDİ (W4 markup'ı — Malzemeler; ileride diğer listeler) ─── */
+.dw-summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.dw-summary-box {
+    flex: 1; min-width: 150px;
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--dw-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+.dw-summary-box.crit {
+    border-color: color-mix(in srgb, var(--mud-palette-error) 35%, transparent);
+    background: color-mix(in srgb, var(--mud-palette-error) 7%, transparent);
+}
+.dw-summary-num { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dw-summary-box.crit .dw-summary-num { color: var(--mud-palette-error); }
+.dw-summary-cap { font-size: 11px; color: var(--mud-palette-text-secondary); line-height: 1.35; }
+
+/* ── 16.7 BİRİNCİL BUTON — kehribar degrade + ışıma ──────────────────────── */
+.mud-button-filled.mud-button-filled-primary {
+    background: linear-gradient(135deg, #F5A623, #E08A00);
+    color: #14171C;
+    font-weight: 800;
+    box-shadow: 0 6px 18px rgba(245, 166, 35, .25);
+}
+.mud-button-filled.mud-button-filled-primary:hover { filter: brightness(1.06); }
+
+/* ── 16.8 HAREKET AZALTMA ────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .mud-appbar, .mud-nav-link { transition: none; }
+}
+/* §17 AURORA CAM v4 — ekran desenleri */
+.dw-pagehead { display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+.dw-pagehead-actions { display:flex; gap:8px; align-items:center; }
+.dw-pagetitle { font-weight:800; letter-spacing:-.02em; }
+.dw-pagedesc { max-width:720px; color:var(--mud-palette-text-secondary);
+    font-size:.85rem; line-height:1.6; margin-bottom:14px; }
+.dw-card { border:1px solid var(--dw-border) !important;
+    border-radius:var(--dw-r-lg) !important; background:var(--dw-surface-2) !important; }
+.dw-card-head { font-size:13px; font-weight:800; letter-spacing:.04em;
+    padding:13px 16px; border-bottom:1px solid var(--dw-border); }
+.dw-formsection { font-size:11px; font-weight:800; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--mud-palette-text-secondary);
+    border-top:1px solid var(--dw-border-soft); padding-top:12px; margin-top:16px; }
+/* ⚠️ UYARLAMA (2026-08-27) — ZB-8 rozetleri: paketin .dw-badge TABAN tanımı KALDIRILDI.
+   Gerekçe: projede §9.4'te zaten olgun bir rozet sistemi var (.dw-badge + .dw-badge-ok/-warn/
+   -error/-muted) ve ekranlar (ör. Araç Listesi durum kolonu) onu kullanıyor. Paketin tabanı
+   sonradan geldiği için §9.4'ü EZİYORDU: sabit 21px yükseklik kayboluyor, punto .7rem→11px ve
+   kalınlık 600→700 değişiyordu → mevcut rozetler tablo hücresinde büyüyüp hizadan çıkardı.
+   Paketin kuralı: 'talimat mevcut yapıyla örtüşmüyorsa deseni gerçek yapıya uyarla'.
+   Çözüm: taban §9.4'te kalır; paketin kısa adları (.ok/.warn/.err/.mut) mevcut renklere
+   TAKMA AD olarak bağlanır — böylece iki yazım da aynı görünümü verir, hiçbir ekran bozulmaz. */
+.dw-badge.ok   { color: var(--mud-palette-success); background: color-mix(in srgb, var(--mud-palette-success) 13%, transparent); border-color: color-mix(in srgb, var(--mud-palette-success) 30%, transparent); }
+.dw-badge.warn { color: var(--mud-palette-warning); background: color-mix(in srgb, var(--mud-palette-warning) 15%, transparent); border-color: color-mix(in srgb, var(--mud-palette-warning) 32%, transparent); }
+.dw-badge.err  { color: var(--mud-palette-error);   background: color-mix(in srgb, var(--mud-palette-error) 13%, transparent);   border-color: color-mix(in srgb, var(--mud-palette-error) 30%, transparent); }
+.dw-badge.mut  { color: var(--mud-palette-text-secondary); }
+.mud-dialog { border-radius:var(--dw-r-lg) !important; }
+.mud-dialog .mud-dialog-title { position:relative; padding-left:20px; }
+.mud-dialog .mud-dialog-title::before { content:""; position:absolute; left:0;
+    top:12px; bottom:12px; width:3px; border-radius:999px;
+    background:var(--mud-palette-primary); }
+.mud-tabs .mud-tab { text-transform:none; font-weight:600; }
+.mud-tab.mud-tab-active { font-weight:800;
+    box-shadow: inset 0 -3px 0 var(--mud-palette-primary); }
+/* FixedHeader kehribar bant opaklığı (ZB-9) */
+.mud-table-sticky-header .mud-table-head th { background-image:
+    linear-gradient(180deg,#F7B03B,#EFA020) !important; }

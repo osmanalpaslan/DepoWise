@@ -506,7 +506,11 @@ public sealed class ApiClient
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama sonucu (Malzeme/Araç Listesi — kullanıcı isteği
     /// 2026-07-17). Hata olursa boş sayfa döner (ekran "kayıt yok" gösterir, çökmez).</summary>
-    public sealed record GridPage(System.Text.Json.JsonElement[] Items, int TotalCount, int Page, int PageSize, int TotalPages);
+    /// <summary>Liste üstündeki özet şeridi (web v4, 2026-08-27) — yalnız Malzeme Listesi doldurur.</summary>
+    public sealed record GridSummary(int CriticalCount, int CategoryCount, decimal StockValue);
+
+    public sealed record GridPage(System.Text.Json.JsonElement[] Items, int TotalCount, int Page, int PageSize, int TotalPages,
+        GridSummary? Summary = null);
     public async Task<GridPage> GetGridAsync(string path)
     {
         try
@@ -515,7 +519,18 @@ public sealed class ApiClient
             var items = obj.TryGetProperty("items", out var it) && it.ValueKind == System.Text.Json.JsonValueKind.Array
                 ? it.EnumerateArray().ToArray() : Array.Empty<System.Text.Json.JsonElement>();
             int I(string k) => obj.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetInt32() : 0;
-            return new GridPage(items, I("totalCount"), I("page") is 0 ? 1 : I("page"), I("pageSize") is 0 ? 50 : I("pageSize"), I("totalPages") is 0 ? 1 : I("totalPages"));
+
+            // ⭐ Özet SAVUNMACI okunur: alan yoksa (eski sunucu) null döner ve ekran şeridi ÇİZMEZ.
+            // Böylece web yeni, sunucu eski olduğunda hiçbir şey kırılmaz — yalnız şerit görünmez.
+            GridSummary? ozet = null;
+            if (obj.TryGetProperty("summary", out var sEl) && sEl.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                int SI(string k) => sEl.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetInt32() : 0;
+                decimal SD(string k) => sEl.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetDecimal() : 0m;
+                ozet = new GridSummary(SI("criticalCount"), SI("categoryCount"), SD("stockValue"));
+            }
+
+            return new GridPage(items, I("totalCount"), I("page") is 0 ? 1 : I("page"), I("pageSize") is 0 ? 50 : I("pageSize"), I("totalPages") is 0 ? 1 : I("totalPages"), ozet);
         }
         catch { return new GridPage(Array.Empty<System.Text.Json.JsonElement>(), 0, 1, 50, 1); }
     }

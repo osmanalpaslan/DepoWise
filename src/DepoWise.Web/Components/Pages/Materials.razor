@@ -15,6 +15,18 @@
         <MudText Typo="Typo.h5">@(_isNew ? (_isEditRoute ? "Malzeme — Düzenle" : "Malzeme — Yeni Kayıt") : "Malzeme Listesi")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
+    @* W4-B1: birincil eylem sağda. forceLoad ZORUNLU — /materials ve /materials/new AYNI bileşendir
+       (bkz. EditNav açıklaması); zorlamasız gezinme formu açmaz. *@
+    @if (!_isNew && Auth.CanCreate("materials"))
+    {
+        <div class="dw-pagehead-actions">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/materials/new", forceLoad: true))">
+                Yeni Malzeme
+            </MudButton>
+        </div>
+    }
 </div>
 
 @* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
@@ -228,6 +240,29 @@
 
 @if (!_isNew)
 {
+    @* W4-B2: özet şeridi. Sunucu "summary" göndermiyorsa (eski sürüm) _summary null kalır ve şerit
+       HİÇ çizilmez — ekran normal çalışır. Sayılar sayfalamadan bağımsız, aktif filtrelerle tutarlıdır. *@
+    @if (_summary is not null)
+    {
+        <div class="dw-summary">
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">@_totalCount.ToString("N0")</span>
+                <span class="dw-summary-cap">toplam<br />kayıt</span>
+            </div>
+            <div class="dw-summary-box crit">
+                <span class="dw-summary-num">@_summary.CriticalCount</span>
+                <span class="dw-summary-cap">kritik seviye<br />altında</span>
+            </div>
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">@_summary.CategoryCount</span>
+                <span class="dw-summary-cap">kategori</span>
+            </div>
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">₺@FormatCompact(_summary.StockValue)</span>
+                <span class="dw-summary-cap">stok<br />değeri</span>
+            </div>
+        </div>
+    }
 <MudGrid Spacing="2">
     <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="2">
@@ -312,8 +347,24 @@
                         @foreach (var row in _rows)
                         {
                             @* Çift tık = ayrı Düzelt/Kaydet/Sil penceresi (yan detay paneli kaldırıldı — tablo tam genişlik). *@
-                            <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
-                                @foreach (var key in _visibleColumns) { <td title="@Str(row, key)">@Str(row, key)</td> }
+                            @* W4-B3: stok ≤ min stok olan satır vurgulanır; stok hücresi mini-bar alır.
+                               Eşik ekrandaki "Yalnız kritik" filtresiyle AYNI (min>0 ve stok≤min) — yeni eşik yok. *@
+                            <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;"
+                                class="@(IsCriticalRow(row) ? "dw-row-crit" : "")">
+                                @foreach (var key in _visibleColumns)
+                                {
+                                    @if (key == MaterialListColumns.Stock)
+                                    {
+                                        <td class="dw-num" title="@Str(row, key)">
+                                            <div class="dw-stockbar">
+                                                <span class="dw-stockbar-track"><span class="dw-stockbar-fill @(IsCriticalRow(row) ? "crit" : "")"
+                                                      style="width:@StockPct(row)%; display:block;"></span></span>
+                                                <span class="dw-stockbar-val">@Str(row, key)</span>
+                                            </div>
+                                        </td>
+                                    }
+                                    else { <td title="@Str(row, key)">@Str(row, key)</td> }
+                                }
                             </tr>
                         }
                     </tbody>
@@ -401,6 +452,9 @@
     // ── Malzeme Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17/18) ──
     private static readonly int[] PageSizes = { 25, 50, 100, 200 };
     private List<string> _visibleColumns = MaterialListColumns.DefaultVisible.ToList();
+
+    /// <summary>W4-B2: liste üstündeki özet şeridi. Sunucu göndermiyorsa null → şerit çizilmez.</summary>
+    private ApiClient.GridSummary? _summary;
     private readonly Dictionary<string, string> _filters = new();
     private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;   // varsayılan 25 (kullanıcı isteği)
     private string? _sortColumn; private bool _sortDesc;                    // başlığa tıklama sıralaması (madde 5)
@@ -520,6 +574,7 @@
         qs.AddRange(BuildFilterSortQs());
         var grid = await Api.GetGridAsync("/api/materials/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
+        _summary = grid.Summary;   // W4-B2: null ise şerit gizli (eski sunucuya karşı savunmacı)
     }
 
     /// <summary>Sıralama + kolon filtreleri — sayfalamasız (Load VE ExportExcel PAYLAŞIR; ikisi de AYNI
@@ -918,4 +973,31 @@
     private static IEnumerable<JsonElement> Arr(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array
             ? v.EnumerateArray() : Enumerable.Empty<JsonElement>();
+
+    // ── W4-B2/B3 yardımcıları (yalnız görünüm; hiçbir iş kuralı burada tanımlanmaz) ──
+
+    /// <summary>Büyük tutarı kısa gösterir: 1.2M · 340B · 950.</summary>
+    private static string FormatCompact(decimal v) =>
+        v >= 1_000_000 ? (v / 1_000_000m).ToString("0.#") + "M"
+      : v >= 1_000     ? (v / 1_000m).ToString("0.#") + "B"
+      : v.ToString("N0");
+
+    /// <summary>Satırdaki sayısal alanı kültürden bağımsız okur; yoksa/bozuksa 0.</summary>
+    private static decimal DecOf(System.Text.Json.JsonElement r, string k)
+        => r.TryGetProperty(k, out var v)
+           && decimal.TryParse(v.ToString(), System.Globalization.NumberStyles.Any,
+                               System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0;
+
+    /// <summary>Kritik satır: min stok TANIMLI (>0) ve stok onun altına inmiş — ekrandaki
+    /// "Yalnız kritik" filtresiyle AYNI kural. minStock alanı satırda yoksa false (kırılma yok).</summary>
+    private static bool IsCriticalRow(System.Text.Json.JsonElement r)
+        => DecOf(r, MaterialListColumns.MinStock) > 0 && DecOf(r, MaterialListColumns.Stock) <= DecOf(r, MaterialListColumns.MinStock);
+
+    /// <summary>Mini-bar doluluğu: min stoğun üç katı "tam" sayılır (yalnız görsel ölçek).</summary>
+    private static int StockPct(System.Text.Json.JsonElement r)
+    {
+        var min = DecOf(r, MaterialListColumns.MinStock); var s = DecOf(r, MaterialListColumns.Stock);
+        if (min <= 0) return s > 0 ? 100 : 0;
+        return (int)Math.Clamp(Math.Round(s / (min * 3) * 100), 0, 100);
+    }
 }

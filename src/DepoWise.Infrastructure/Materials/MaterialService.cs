@@ -23,6 +23,10 @@ public sealed record MaterialStock(string MaterialId, string Code, string Name, 
 
 public sealed record MaterialRefRow(string Id, string Code, string Name);
 
+/// <summary>Malzeme listesi ÖZET ŞERİDİ (web v4, 2026-08-27) — sayfalamadan bağımsız, aktif filtrelerle
+/// tutarlı üç sayı. Web'de listenin üstündeki kutuları besler; masaüstü bu alanı okumaz.</summary>
+public sealed record MaterialGridSummary(int CriticalCount, int CategoryCount, decimal StockValue);
+
 /// <summary>Malzeme listesi (kolon-bazlı filtre + sayfalama) satırı — <see cref="MaterialListColumns"/>'taki
 /// HER kolonun görüntü değerini taşır; ekran hangi kolonları göstereceğine kendi tercihine göre karar verir.</summary>
 public sealed record MaterialGridRow(
@@ -629,16 +633,17 @@ LEFT JOIN suppliers sup ON sup.id = m.supplier_id
 LEFT JOIN {STOCK_TOTALS} sb ON sb.material_id = m.id AND sb.company_id = m.company_id
 WHERE m.company_id = @c AND m.is_deleted = 0";
 
-    /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Her filtre alanı
-    /// "içerir" araması yapar; birden çok filtre aktifken sıralama, doldurulan alanların
-    /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
-    public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
-        string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
+    /// <summary>
+    /// ⭐ RPR-W1 (web v4 özet şeridi, 2026-08-27) — GRID SORGUSUNUN ORTAK KURULUMU.
+    ///
+    /// <b>Neden ayrı metot:</b> liste, Excel dışa aktarımı ve YENİ özet şeridi <b>aynı satır kümesini</b>
+    /// görmek zorundadır. Filtre eşlemesi ikinci bir yere kopyalanırsa üçü zamanla ayrışır ve kullanıcı
+    /// listede gördüğü kayıt sayısıyla özetteki sayının tutmadığını yaşar. Gövde <see cref="SearchGrid"/>
+    /// içinden AYNEN taşındı; davranış değişmedi.
+    /// </summary>
+    private (string Inner, string Where, string Order, List<(string Name, object Value)> Ps) GridSorgusu(
+        System.Data.Common.DbConnection conn, MaterialGridFilter filter, string? sortColumn, bool sortDesc, bool criticalOnly)
     {
-        AccessControl.Require(s, Module, PermissionAction.View);
-        page = page < 1 ? 1 : page;
-        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
-
         // Kolon anahtarı → (alias/tür/ham). Hem filtre hem sıralama BUNDAN çözülür (madde 5 sıralama).
         var byKey = new (string Key, GridQuery.ColumnFilter Col)[]
         {
@@ -662,7 +667,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         GridQuery.ColumnFilter? sort = null;
         if (sortColumn is not null)
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
-        using var conn = _factory.Create();
+        // (bağlantı çağırandan gelir — SearchGrid ve özet aynı bağlantıyı paylaşır)
         var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc, SqlDialect.IsSqlite(conn));
         // Malzeme listesi FİRMA-GENELİdir (ortak katalog) — şubeye göre filtrelenmez. Ayrım STOK'tadır
         // (kullanıcı kararı 2026-07-26: "ortak liste + şube-bazlı stok").
@@ -672,6 +677,20 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         // (hem sayım hem liste hem export SearchGridAll aynı metottan geçtiği için tek yer).
         if (criticalOnly)
             inner += " AND CAST(COALESCE(sb.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0";
+        return (inner, whereSql, orderSql, ps);
+    }
+    /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Her filtre alanı
+    /// "içerir" araması yapar; birden çok filtre aktifken sıralama, doldurulan alanların
+    /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
+    public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
+        string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        using var conn = _factory.Create();
+        var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly);
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -700,6 +719,53 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
         }
         return new GridResult<MaterialGridRow>(items, total, page, pageSize);
+    }
+
+    /// <summary>
+    /// ⭐ RPR-W1 (web v4, 2026-08-27) — MALZEME LİSTESİ ÖZET ŞERİDİ.
+    ///
+    /// Listenin üstündeki dört kutunun verisi: kritik seviye altındaki kalem sayısı, ayrık kategori
+    /// sayısı ve stok değeri. <b>Sayfalamadan bağımsız, AKTİF FİLTRELERLE tutarlıdır</b> — aynı
+    /// <see cref="GridSorgusu"/> kurulumunu kullandığı için listede görünen küme ile birebir aynıdır.
+    ///
+    /// <b>Toplama neden SQL'de değil:</b> tutarlar TEXT içinde decimal saklanır; <c>SUM(CAST(... AS REAL))</c>
+    /// kayan nokta hatası üretir ve projenin para kuralı bunu yasaklar (bkz. <c>StockBalanceWriter</c>,
+    /// <c>StockService.RecomputeBalances</c> — aynı desen). Tek sorgu, üç kolon, toplama C#'ta decimal ile.
+    ///
+    /// Yetki: <see cref="GridSorgusu"/> çağrısından ÖNCE listedeki ile aynı kapı uygulanır; ek yetki YOK
+    /// (gridi açabilen özeti de görür). Eski masaüstü istemcisi bu metodu HİÇ çağırmaz.
+    /// </summary>
+    public MaterialGridSummary SearchGridSummary(SessionContext s, MaterialGridFilter filter, bool criticalOnly = false)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        var (inner, whereSql, _, ps) = GridSorgusu(conn, filter, null, false, criticalOnly);
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT t.category, t.stock_raw, t.min_stock_raw, t.unit_price_raw FROM ({inner}) t {whereSql};";
+        cmd.AddWithValue("@c", s.CompanyId);
+        GridQuery.AddParams(cmd, ps);
+
+        int kritik = 0;
+        decimal deger = 0m;
+        var kategoriler = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var kategori = r.IsDBNull(0) ? "" : r.GetString(0);
+                if (kategori.Length > 0) kategoriler.Add(kategori);
+
+                var stok = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+                var min = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
+                var fiyat = Money.Parse(r.IsDBNull(3) ? null : r.GetString(3));
+
+                // "Kritik" tanımı ekrandaki "Yalnız kritik" filtresiyle ve DashboardService.LowStock ile AYNI:
+                // min stok TANIMLI (>0) ve stok onun altına inmiş. Yeni eşik uydurulmadı.
+                if (min > 0m && stok <= min) kritik++;
+                deger += stok * fiyat;
+            }
+
+        return new MaterialGridSummary(kritik, kategoriler.Count, deger);
     }
 
     /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu

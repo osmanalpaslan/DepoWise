@@ -43,7 +43,8 @@
                 <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
             </MudTooltip>
             <div class="dw-userchip">
-                <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
+                @* W2 (Aurora Cam v4): genel kullanıcı ikonu yerine baş harf rozeti. *@
+                <span class="dw-avatar">@Initials(Auth.UserName)</span>
                 <div class="dw-userchip-meta">
                     <span class="dw-userchip-name">@(string.IsNullOrEmpty(Auth.UserName) ? "Kullanıcı" : Auth.UserName)</span>
                     <span class="dw-userchip-sub">@Auth.CompanyDisplay@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</span>
@@ -408,5 +409,15 @@
         // ⭐ MAS-01 dersi (2026-08-26): statik/uzun ömürlü olaya abone olan her yer aboneliği ÇÖZER.
         Api.BaglantiDurumuDegisti -= BaglantiDegisti;
         _idleRef?.Dispose();
+    }
+
+    /// <summary>Kullanıcı baş harfleri — üst bardaki avatar rozeti (W2, Aurora Cam v4).
+    /// Ad boşsa "K" döner; tek kelimeyse ilk harf, çok kelimeyse ilk + son kelimenin baş harfi.</summary>
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "K";
+        var p = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return p.Length == 1 ? p[0][..1].ToUpperInvariant()
+                             : (p[0][..1] + p[^1][..1]).ToUpperInvariant();
     }
 }

@@ -13,6 +13,17 @@
         <MudText Typo="Typo.h5">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
+    @* E1.2/ZB-1: birincil eylem sağda. forceLoad ZORUNLU — /vehicles ile /vehicles/new AYNI bileşendir. *@
+    @if (!_isNew && Auth.CanCreate("vehicles"))
+    {
+        <div class="dw-pagehead-actions">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/vehicles/new", forceLoad: true))">
+                Yeni Araç
+            </MudButton>
+        </div>
+    }
 </div>
 
 @* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
@@ -156,6 +167,26 @@
 
 @if (!_isNew)
 {
+    @* E1.2/ZB-3: özet şeridi. Üç sayı da GERÇEK kapsamı yansıtır: toplam araç sunucudan gelen
+       toplam kayıt sayısıdır, uyarı sayıları /api/vehicles/alerts firma kapsamının tamamını döndüğü
+       için sayfa-bağımsızdır. Bu yüzden "bu sayfada" ibaresine gerek yok — yanıltma yok. *@
+    @if (_rows is not null)
+    {
+        <div class="dw-summary">
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">@_totalCount.ToString("N0")</span>
+                <span class="dw-summary-cap">toplam<br />araç</span>
+            </div>
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">@UyariSayisi("Bakım")</span>
+                <span class="dw-summary-cap">bakım<br />uyarısı</span>
+            </div>
+            <div class="dw-summary-box">
+                <span class="dw-summary-num">@UyariSayisi("Muayene")</span>
+                <span class="dw-summary-cap">muayene<br />uyarısı</span>
+            </div>
+        </div>
+    }
 <MudGrid Spacing="2">
     <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="2">
@@ -279,7 +310,14 @@
                                         }
                                     </td>
                                 }
-                                <td>@Alert(Str(row, "id"))</td>
+                                @* E1.2/ZB-8: uyarı metni rozete döner. Uç yalnız "uyarı var mı" bilgisini
+                                   verir (Bakım / Muayene); GECİKEN ile YAKLAŞAN ayrımı veride YOKTUR →
+                                   böyle bir ayrım UYDURULMADI, tek seviye "uyarı" rozeti kullanılır. *@
+                                <td>
+                                    @{ var uyari = Alert(Str(row, "id")); }
+                                    @if (uyari == "—") { <span class="mud-text-secondary">—</span> }
+                                    else { <span class="dw-badge dw-badge-warn"><span>@uyari</span></span> }
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -755,6 +793,10 @@
     }
 
     private string Alert(string vehicleId) => _alerts.TryGetValue(vehicleId, out var t) ? t : "—";
+
+    /// <summary>E1.2/ZB-3: verilen türde uyarısı olan araç sayısı. Kaynak /api/vehicles/alerts —
+    /// firma kapsamının TAMAMINI döner, sayfaya bağlı değildir.</summary>
+    private int UyariSayisi(string tur) => _alerts.Values.Count(t => t.Contains(tur, StringComparison.Ordinal));
     // Durum metni ORTAK kaynaktan (VehicleStatus) — elle tekrar YOK.
     private static string StatusTr(string s) => DepoWise.Web.Services.VehicleStatus.Label(s);
     private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
