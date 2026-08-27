@@ -1,3 +1,132 @@
+# Alpnex — MASTER ROADMAP (Yeni Özellik Yol Haritası)
+
+> Son güncelleme: **2026-08-27** · Kaynak: yeni özellik teknik analizi (aynı gün) + kullanıcının
+> "Canlı Veri Koruma Odaklı Geliştirme Protokolü".
+> **Bu dosya yeni özellik geliştirmenin ANA KONTROL BELGESİDİR** — her özellik başlamadan önce ilgili
+> bölüm okunur, bittikten sonra güncellenir. Sıra kullanıcı onayı olmadan DEĞİŞTİRİLMEZ.
+
+---
+
+## 0. VERİ GÜVENLİĞİ KURALLARI (her özellikte geçerli — 2026-08-27 protokolü)
+
+- Alpnex **canlı veriyle** kullanılıyor (2026-08-27'den beri). Canlıda DELETE/UPDATE/INSERT/migration/
+  DDL/seed/test verisi **YOK**; canlı yalnız salt-okunur incelenebilir.
+- Mevcut kayıtların ID, company_id, branch_id, tarih, version, operation_id, fiyat/kur, ilişki ve
+  audit değerleri **DEĞİŞMEZ**. Otomatik backfill/normalizasyon/taşıma **YOK** — gerekirse dur + onay.
+- Migration yalnız gerçekten gerekliyse, yalnız **eklemeli** (additive); izole ortamda iki lehçede
+  (SQLite + PostgreSQL) test edilir; **canlıya uygulama ayrı açık onay ister**.
+- Yeni özellik eski kayıtlarla çalışmalı; yeni alanlar mevcut kayıtları geçersiz kılmamalı.
+- Test kademeli: Seviye 1 (build + ilgili testler) her işte · Seviye 2 (yetki/tenant/şube/senkron)
+  gerekince · Seviye 3 (tam süit) yalnız gerçek risk varsa.
+- Nihai büyük kullanıcı simülasyonu (5–10k kayıt, tüm kombinasyonlar) roadmap BİTİNCE ayrı
+  **"Final Kullanıcı Simülasyonu ve Stabilizasyon"** fazıdır — şimdi yapılmaz.
+
+## 0.1 DOKUNULMAMASI GEREKEN SİSTEMLER (görev doğrudan gerektirmedikçe)
+
+Tenant izolasyonu · BranchAccess/BranchService kapsam mantığı · yetki mimarisi · AppScreens ·
+rapor dispatch · senkron firma kapıları ve `BusinessSyncService.Tables` sırası · idempotency ·
+update/checksum/release · migration runner/kataloğu · stok defteri (`stock_movements` ana kaynak) ·
+tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-162) · audit.
+
+---
+
+## 1. ROADMAP SIRASI (kullanıcı onayı: 2026-08-27)
+
+| Faz | # | Özellik | Tür | Durum |
+|---|---|---|---|---|
+| **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | 🔵 **AKTİF** |
+| | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü + ekranlara sekme | BEKLİYOR |
+| | 3 | E — Varlık / Ekipman | Yeni ana menü | BEKLİYOR |
+| **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | BEKLİYOR |
+| | 5 | D — Maliyet Merkezi | Alt menü (Finans) + raporlar | BEKLİYOR |
+| | 6 | P — Satın Alma | Yeni ana menü | BEKLİYOR |
+| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | BEKLİYOR |
+| | 8 | H — Takvim | Yeni ana menü (tek ekran) | BEKLİYOR |
+| **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | BEKLİYOR |
+| | 10 | J — Duyuru | Yeni ana menü | BEKLİYOR |
+| | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | BEKLİYOR |
+| | 12 | L — Dashboard | Mevcut ekran dönüşümü | BEKLİYOR |
+| **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | BEKLİYOR |
+| | 14 | O — Barkod / QR | Ortak özellik + alanlar | BEKLİYOR |
+| | 15 | N — Mobil | Önce responsive web | BEKLİYOR |
+| **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | BEKLİYOR |
+
+**Kilit bağımlılıklar:** F, (C+E+B+D)'ye · P, (C+D)'ye · B, E'ye · D, C'ye · H/I tam değeri F'ye ·
+L neredeyse hepsine bağlı. G Saha ayrı modül DEĞİL, C'nin içindedir. Erken yapılırsa yeniden yazım
+doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
+
+---
+
+## 2. AKTİF İŞ — C: PROJE / ŞANTİYE (+ SAHA)
+
+### 2.1 Analiz bulguları (2026-08-27, kod incelemesi)
+
+- `branches` tablosu: `id, company_id, parent_id, name, kind('branch'|'site'), code, password(M024),
+  created_at/updated_at/version/is_deleted`. **Şantiye kavramı ve hiyerarşi ZATEN VAR.**
+- `BranchAccess.Expand` (ŞB-04): kullanıcı kapsamı şube + **altındaki tüm alt şubeleri** otomatik
+  kapsar → şantiyeye bağlanan alt noktalar (saha) kapsama bedavaya girer.
+- Tüm hareket tabloları (`stock_movements/documents`, `fuel_*`, `daily_activities`, `invoices`,
+  `finance_*`) `branch_id` taşır → şantiye/proje bazlı tüketim mevcut veriyle raporlanabilir;
+  **hiçbir mevcut kayda dokunmak gerekmez.**
+- **Şubeler SUNUCU-OTORİTELİDİR** (BusinessSync'te DEĞİL): masaüstü CRUD'u çevrimiçi API ile yapar
+  (`OrgServerClient`), yerel kopya `BranchMirror`/`BranchMirrorApply` ile `/api/public/branches`
+  uçtan aynalanır (Id, Name, Code, Kind, ParentId). → Proje meta katmanı da aynı deseni izlerse
+  **`BusinessSyncService.Tables` değişikliği GEREKMEZ**; yalnız aynaya alan eklenir (masaüstü
+  çevrimdışı görüntüleyecekse).
+- Ekranlar küçük: `Branches.razor` 216 satır · `BranchesViewModel` 211 · `BranchesView.axaml` 128.
+  `AppScreens`'te tek kayıt ("Şube / Şantiye", Both).
+
+### 2.2 Ürün kararları — durum
+
+| # | Soru | Karar | Tarih |
+|---|---|---|---|
+| PK-C1 | Bir proje birden fazla şubeye/şantiyeye yayılabilir mi? | ⏳ **KULLANICIYA SORULDU** | 2026-08-27 |
+| PK-C2 | Saha: şantiyenin altında ayrı tür ("saha") olarak mı, alt şantiye kaydı olarak mı? | ⏳ soruldu | 2026-08-27 |
+| PK-C3 | Proje yaşam döngüsü alanları (başlangıç/bitiş/durum) asgari küme | ⏳ soruldu | 2026-08-27 |
+| PK-C4 | Proje ekranı yetkisi: mevcut `branches` modülü mü, yeni `projects` modülü mü? | ⏳ soruldu | 2026-08-27 |
+
+### 2.3 Teknik kararlar (karar verilince doldurulacak)
+
+- Veri modeli: (PK-C1'e bağlı — seçenekler aşağıda, §2.4)
+- Migration: (bekliyor)
+
+### 2.4 Model seçenekleri (PK-C1 cevabına göre)
+
+- **Seçenek 1 (proje = şantiye üstü katman, 1:1):** yeni eklemeli tablo `branch_projects`
+  (branch'e 1:1 meta: tarih/durum/sorumlu/açıklama). En az iş; çok-şubeli proje OLMAZ.
+- **Seçenek 2 (proje ayrı varlık, N şube : 1 proje):** yeni `projects` tablosu + `branches`'a
+  eklemeli `project_id` kolonu. Bir proje birden çok şantiyeyi kapsar; hareket tablolarına
+  DOKUNULMAZ (proje → şube kümesi → branch_id ile çözülür). Orta iş.
+- **Seçenek 3 (N:N ya da harekete project_id):** hareket tablolarına kolon = büyük migration
+  ailesi + tüm servisler. ÖNERİLMEZ (yeniden yazım riski en yüksek).
+
+### 2.5 Yapılan değişiklikler
+
+- (henüz kod değişikliği yok — analiz + karar bekleme aşaması)
+
+---
+
+## 3. TAMAMLANAN İŞLER (yeni roadmap kapsamında)
+
+- 2026-08-27 · Yol haritası teknik analizi (15 özellik, bağımlılık grafiği, sıra) — kod değişikliği yok.
+- 2026-08-27 · ADR-162 (işlem tarihi/kayıt anı) + ADR-163 (Ekran Araçları/log) — roadmap ÖNCESİ
+  "eksik alanlar" listesinin 1-2. maddeleri; yayınlandı (API v173 · web v198 · masaüstü 1.0.159).
+
+## 4. MIGRATION KAYITLARI (yeni roadmap kapsamında)
+
+| Tarih | Migration | Özellik | Canlıya uygulandı mı |
+|---|---|---|---|
+| — | (henüz yok) | — | — |
+
+---
+---
+
+# ARŞİV — ESKİ MASTER ROADMAP (2026-08-11)
+
+> Aşağıdaki bölüm 2026-08-11 tarihli önceki yol haritasıdır; **tarihsel kayıt olarak korunur,
+> güncellenmez.** İçindeki fazların büyük kısmı (depo bazlı stok, ön muhasebe G4, ekran görünürlüğü
+> G5, senkron ölçeklenme) tamamlanmış ve canlıya alınmıştır (bkz. CURRENT_PHASE.md geçmişi).
+
 # Alpnex — MASTER ROADMAP
 
 > Son güncelleme: **2026-08-11** · Kaynak: [`AUDIT_2026-08-11.md`](AUDIT_2026-08-11.md)
