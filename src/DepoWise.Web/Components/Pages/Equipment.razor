@@ -92,6 +92,10 @@
                 <MudTd>@Str(context, "location")</MudTd>
                 <MudTd>
                     <MudStack Row="true" Spacing="1">
+                        @* BAR-01: QR etiketi (salt-okunur) — içerik = ekipman kodu; taranınca üst bar aramasından bulunur. *@
+                        <MudTooltip Text="QR etiketi (PNG) indir — taranınca aramadan bu kayıt bulunur">
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.QrCode2" OnClick="@(() => QrLabel(context))" />
+                        </MudTooltip>
                         @if (Auth.CanEdit("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
                         @if (Auth.CanDelete("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
                     </MudStack>
@@ -129,6 +133,14 @@
         if (!string.IsNullOrEmpty(_filterStatus)) q.Add("status=" + Uri.EscapeDataString(_filterStatus));
         try { _rows = await Api.GetArrayAsync("/api/equipment" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
         catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    /// <summary>BAR-01 (ADR-177): QR etiketi indir — kod SUNUCUDA kaynak servisle çözülür (yetki/tenant serviste).</summary>
+    private async Task QrLabel(JsonElement d)
+    {
+        var (bytes, name) = await Api.GetFileAsync($"/api/qr/equipment/{Str(d, "id")}", "QR_" + Str(d, "code") + ".png");
+        if (bytes is null) { _msg = "QR üretilemedi."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes), "image/png");
     }
 
     private async Task BeginEdit(JsonElement d)

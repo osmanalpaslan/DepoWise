@@ -138,6 +138,16 @@
             document.addEventListener('pointerup', onUp);
         }, true);
 
+        // BAR-01 (ADR-177): Ctrl+K → üst bar global arama kutusuna odak (USB barkod/QR okuyucuyla
+        // taramadan önce tek tuş). Tarayıcının kendi Ctrl+K davranışı geçersiz kılınır; kutu yoksa
+        // (giriş ekranı) hiçbir şey yapılmaz. Metin seçilir → yeni tarama eskisini ezer.
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+                const el = document.getElementById('dw-global-search');
+                if (el) { e.preventDefault(); el.focus(); if (el.select) el.select(); }
+            }
+        });
+
         window.dwDownload = (name, b64, mime) => {
             const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
             for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);

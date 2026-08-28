@@ -1368,6 +1368,12 @@ public sealed partial class ShellViewModel : ViewModelBase
             else foreach (var g in uzak) SearchGroups.Add(g);
         }
         catch { }
+        // ═══ BAR-01 (ADR-177, PK-O4) — TARA→BUL→GİT: sonuç TAM ve TEK eşleşmeyse (USB okuyucu kodu
+        // yazıp Enter basar) panel yerine kayıt doğrudan açılır. Kural ORTAK: SearchService.TekTamEslesme
+        // (birden çok tam eşleşme / yalnız kısmi / sıfır sonuç / HasMore → mevcut panel AYNEN).
+        // Kutu temizlenir ki bir SONRAKİ tarama eski kodun ucuna eklenmesin.
+        var tek = DepoWise.Infrastructure.Search.SearchService.TekTamEslesme(SearchGroups.ToList(), q);
+        if (tek is not null) { SearchText = ""; OpenSearchHit(tek); return; }
         SearchEmpty = SearchGroups.Count == 0;
     }
 

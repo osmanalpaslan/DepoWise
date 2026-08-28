@@ -2741,3 +2741,26 @@ Ayrıntı: `docs/project-control/L_DASHBOARD_01.md`.
   değiştirmez · dry-run yazmaz) · hedefli regresyon 293/293 · üç Release build 0 hata. Canlıya dokunulmadı.
 
 Ayrıntı: `docs/project-control/M_EXCEL_01.md`.
+
+## ADR-177 — BAR-01: Barkod / QR (PK-O1..O4, 2026-08-28/29) — ⛔ YAYINLANMADI
+
+- **Karar:** Barkod/QR "tara → bul → git + QR etiket üretimi" olarak, YENİ SİSTEM KURMADAN mevcut
+  Global Arama (ARA-01) üzerine eklendi (PK-O1..O4 = A-A-A-A; MIGRATION YOK — şema 81; yeni yetki YOK;
+  senkron dokunuşu YOK; production yayın YOK).
+- Tarama = mevcut arama kutusu: USB okuyucu klavye taklidiyle kodu yazar + Enter; elle giriş aynı yol.
+  Kamera/driver/SDK yok (v1 dışı). Ctrl+K kısayolu iki platformda kutuya odaklanır.
+- PK-O4: TAM birebir ve TÜM kaynaklarda TEK eşleşmede panel yerine kayıt açılır (mevcut OpenSearchHit/
+  IDeepLinkTarget yolu); birden çok tam / yalnız kısmi / sıfır / HasMore'lu grup → mevcut panel AYNEN.
+  Kural TEK kaynakta: SearchService.TekTamEslesme (statik, eklemeli); web aynı kuralı JSON'da birebir uygular.
+- QR etiketi yalnız Malzeme·Araç·Ekipman; içerik = kaydın MEVCUT benzersiz kodu DÜZ METİN (URL/JSON/
+  firma/şube/fiyat/ID QR'a GİRMEZ). Üretici: YENİ QrLabelService (QRCoder 1.6.0 — saf C#, MIT; tek yeni
+  bağımlılık). Masaüstü çevrimdışı yerel üretim; web eklemeli GET /api/qr/{entity}/{id} (ham SQL yok —
+  kod kaynak servisle çözülür: Require+tenant serviste). PK-O3: EAN-13/üretici barkodu v1 DIŞI (ALTER yok).
+- Güvenlik: tarama ARA-01 kapılarından geçer (yetkisiz kaynak hiç sorgulanmaz · tenant · BranchAccess ·
+  silinmiş bulunmaz) — kodu bilmek erişim VERMEZ; tarama hiçbir iş operasyonu tetiklemez (QR=navigasyon).
+- Test/build: BarkodQrTests 15/15 · TAM paket 2883 test: 2845 geçti / 37 PG-atlanan / 1 başarısız —
+  kök neden O değil, FAZ 1-4'ten kalma eskimiş sabit (TSR12 "17 grup"); sabit katalog sayısına bağlanarak
+  kilit eskimez hâle getirildi (gevşetilmedi), sınıf 20/20 · üç Release build 0 hata. Canlıya dokunulmadı;
+  SNK-13 ve M import kapsamı aynen.
+
+Ayrıntı: `docs/project-control/O_BARKOD_QR_01.md`.

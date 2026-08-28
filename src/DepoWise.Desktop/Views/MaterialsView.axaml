@@ -31,6 +31,8 @@
                               ToolTip.Tip="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                            ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

@@ -44,12 +44,16 @@ Emri/Sipariş kartları + Bugünün Takvimi/Aktif Duyurular şeritleri (yetki yo
 "Excel Merkezi" oldu; merkezi dışa aktarım 15 kaynak (ortak `ExcelCenterService` — parite yapısal);
 web'e merkezi Dışa Aktar + `GET /api/export/{entity}` eklendi; import 7 sette SABİT, "zaten var → atla"
 korundu ve testle kilitlendi; yanıltıcı "Güncellenen" etiketi düzeltildi. Yeni yetki YOK.
-**FAZ 5/SIRA 14 — O Barkod/QR: ANALİZ TAMAMLANDI (2026-08-28, kod YOK) —
-[O_BARKOD_QR_00_ANALIZ.md](O_BARKOD_QR_00_ANALIZ.md). PK-O1..O4 kararları BEKLENİYOR; uygulama başlamadı.**
-Öneri özeti: tarama = mevcut Global Arama (USB okuyucu klavye taklidi; tam-tek eşleşmede otomatik açılış) +
-QR etiket üretimi (QRCoder; içerik = kayıt kodu); migration YOK, yeni yetki YOK, senkron dokunuşu YOK.
-Yeni strateji (kullanıcı, 2026-08-28): **uzun süre production yayın YOK** — işler build+test seviyesinde
-kalır, canlı veriyle test yapılmaz. (+ ayrı küçük iş: Bakım-Ekipman 7b.)
+**FAZ 5/SIRA 14 — O Barkod/QR ✅ (2026-08-29, ADR-177, BarkodQrTests 15/15 + TAM paket regresyonu;
+MIGRATION YOK — şema 81; PK-O1..O4 = A-A-A-A aynen) — [O_BARKOD_QR_01.md](O_BARKOD_QR_01.md).
+⛔ YAYINLANMADI (yeni strateji gereği — build+test seviyesinde bitti).** Tara→bul→git mevcut Global
+Arama üzerinden (Ctrl+K odak + tam-tek eşleşmede otomatik kayıt açılışı; panel davranışı diğer her
+durumda aynen); QR etiketi Malzeme·Araç·Ekipman'da (QRCoder; içerik = kayıt kodu düz metin; masaüstü
+çevrimdışı üretir, web `GET /api/qr/...`). Yeni yetki YOK; tarama salt-okunur (iş operasyonu tetiklemez).
+Tam pakette FAZ 1-4'ten kalma eskimiş TSR12 sabiti bulunup kök nedenle düzeltildi (kilit gevşetilmedi).
+Sıradaki: **N — Mobil (önce responsive web)** (FAZ 5/SIRA 15). Yeni strateji (kullanıcı, 2026-08-28):
+**uzun süre production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
+(+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

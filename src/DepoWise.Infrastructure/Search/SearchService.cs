@@ -161,4 +161,33 @@ public sealed class SearchService
     {
         try { return f(); } catch { return Array.Empty<SearchHit>(); }
     }
+
+    /// <summary>
+    /// ═══ BAR-01 (ADR-177, PK-O4) — TAM-TEK EŞLEŞME (tara → bul → git) ═══
+    ///
+    /// Arama sonucu içinde sorguya TAM BİREBİR eşit (Label veya SubLabel; Türkçe-duyarsız) HIT'ler
+    /// TÜM kaynaklar genelinde TAM OLARAK 1 taneyse o hit döner → çağıran panel yerine kaydı açar.
+    /// Diğer HER durumda null → mevcut panel davranışı AYNEN (birden çok tam eşleşme · yalnız kısmi
+    /// eşleşme · sıfır sonuç). Güvenlik: hit'ler zaten yetki/tenant/BranchAccess/silinmiş kapılarından
+    /// geçmiş arama sonucudur — bu metod yeni veri OKUMAZ, yalnız seçer (yetkisiz kayıt buraya gelemez).
+    /// HasMore olan grup varsa AÇILMAZ: kırpılan satırlar arasında ikinci bir tam eşleşme gizlenmiş
+    /// olabilirdi (yanlış kaydı otomatik açmaktansa panel gösterilir — fail-safe).
+    /// Web (MainLayout.RunSearch) aynı kuralı JSON üzerinde birebir uygular — kural değişirse İKİSİ birlikte değişir.
+    /// </summary>
+    public static SearchHit? TekTamEslesme(IReadOnlyList<SearchGroup> groups, string query)
+    {
+        var q = (query ?? "").Trim();
+        if (q.Length < MinQueryLength) return null;
+        if (groups.Any(g => g.HasMore)) return null;
+        SearchHit? tek = null;
+        foreach (var h in groups.SelectMany(g => g.Hits))
+        {
+            var tam = string.Equals(h.Label, q, StringComparison.CurrentCultureIgnoreCase)
+                      || (h.SubLabel is not null && string.Equals(h.SubLabel, q, StringComparison.CurrentCultureIgnoreCase));
+            if (!tam) continue;
+            if (tek is not null) return null;   // ikinci tam eşleşme → otomatik açılış YOK
+            tek = h;
+        }
+        return tek;
+    }
 }

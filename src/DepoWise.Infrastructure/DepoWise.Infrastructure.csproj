@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <!-- BAR-01 (ADR-177): QR etiket üretimi — saf yönetilen C#, MIT, native bağımlılık yok
+         (PngByteQRCode System.Drawing kullanmaz → masaüstü/Linux sunucuda aynı çalışır). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
     <PackageReference Include="QuestPDF" Version="2026.6.1" />

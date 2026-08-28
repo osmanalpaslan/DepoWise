@@ -173,6 +173,24 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         finally { IsExporting = false; }
     }
 
+    /// <summary>BAR-01 (ADR-177): seçili malzemenin KODUNU içeren yazdırılabilir QR etiketi (PNG).
+    /// SALT-OKUNUR — kayda/DB'ye yazmaz; QR'a yalnız kod girer. Yerel üretim → çevrimdışı da çalışır.</summary>
+    [RelayCommand]
+    private async Task QrLabel()
+    {
+        if (Selected is null) { Status = "Önce listeden bir malzeme seçin."; return; }
+        try
+        {
+            var bytes = DepoWise.Infrastructure.Reporting.QrLabelService.Png(Selected.Code);
+            var path = await FilePickerService.SavePngAsync(DepoWise.Infrastructure.Reporting.QrLabelService.FileName(Selected.Code));
+            if (path is null) return;
+            await File.WriteAllBytesAsync(path, bytes);
+            FilePickerService.OpenFile(path);
+            Status = "QR etiketi kaydedildi: " + path;
+        }
+        catch (Exception ex) { Status = "QR üretilemedi: " + ex.Message; }
+    }
+
     private MaterialGridFilter BuildFilter()
     {
         string? V(string key)

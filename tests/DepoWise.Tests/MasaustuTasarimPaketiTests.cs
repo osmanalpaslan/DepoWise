@@ -315,13 +315,19 @@ public class MasaustuTasarimPaketiTests
         Assert.Contains($"IsVisible={T}{{Binding HasIcon}}{T}", pencere); // null ise gizlenir
     }
 
-    /// <summary>Katalogdaki emoji alanı (web ile ortak) DEĞİŞTİRİLMEDİ — 17 grubun hepsi emojisini korur.</summary>
+    /// <summary>Katalogdaki emoji alanı (web ile ortak) DEĞİŞTİRİLMEDİ — TÜM gruplar emojisini korur.
+    /// BAR-01 turunda bulunan ESKİME düzeltildi (kök neden: sabit "17", FAZ 1-4'ün 7 yeni menü grubuyla
+    /// —Projeler/Evrak/Ekipman/Zimmet/Satın Alma/İş Emirleri/Takvim vb.— çoktan eskimişti; tam paket o
+    /// turlarda hedefli koşulduğundan görülmemişti). Sabit yerine sayı KATALOĞUN KENDİSİNE bağlandı:
+    /// regex artık her yeni grupta da TÜM grupları yakalamak zorunda (sessizce 0 eşleşme imkânsız) ve
+    /// emoji-boşaltma denetimi her grup için sürüyor — kilit gevşemedi, eskimeyen hâle geldi.</summary>
     [Fact]
     public void TSR12_Katalog_Emojileri_Degismedi()
     {
         var katalog = File.ReadAllText(Path.Combine(RepoKok(), "src", "DepoWise.Application", "Security", "AppScreens.cs"));
 
-        Assert.Equal(17, Regex.Matches(katalog, @"new AppScreenGroup\(").Count);
+        Assert.Equal(DepoWise.Application.Security.AppScreens.Groups.Count,
+            Regex.Matches(katalog, @"new AppScreenGroup\(").Count);
         foreach (Match m in Regex.Matches(katalog, @"new AppScreenGroup\(""[^""]+"",\s*""([^""]+)"""))
             Assert.False(string.IsNullOrWhiteSpace(m.Groups[1].Value), "Grup emojisi boşaltılmış.");
     }

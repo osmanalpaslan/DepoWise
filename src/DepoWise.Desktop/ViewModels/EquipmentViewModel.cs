@@ -128,6 +128,24 @@ public sealed partial class EquipmentViewModel : ViewModelBase
         catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
     }
 
+    /// <summary>BAR-01 (ADR-177): seçili ekipmanın KODUNU içeren yazdırılabilir QR etiketi (PNG).
+    /// SALT-OKUNUR — kayda/DB'ye yazmaz; QR'a yalnız kod girer. Yerel üretim → çevrimdışı da çalışır.</summary>
+    [RelayCommand]
+    private async Task QrLabel()
+    {
+        if (Selected is null) { Status = "Önce listeden bir ekipman seçin."; return; }
+        try
+        {
+            var bytes = DepoWise.Infrastructure.Reporting.QrLabelService.Png(Selected.Code);
+            var hedef = await FilePickerService.SavePngAsync(DepoWise.Infrastructure.Reporting.QrLabelService.FileName(Selected.Code));
+            if (hedef is null) return;
+            await File.WriteAllBytesAsync(hedef, bytes);
+            FilePickerService.OpenFile(hedef);
+            Status = "QR etiketi kaydedildi: " + hedef;
+        }
+        catch (Exception ex) { Status = "QR üretilemedi: " + ex.Message; }
+    }
+
     [RelayCommand]
     private void NewEquipment()
     {

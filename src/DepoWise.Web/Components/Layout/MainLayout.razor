@@ -42,9 +42,11 @@
             @* ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
                Yeni yetki modülü YOK — sonuçlar SUNUCUDA kaynak modül yetkisi + kapsamdan süzülür. *@
             <div style="position:relative;margin-right:8px;">
+                @* BAR-01: input id'si Ctrl+K odak kısayolu içindir (App.razor'daki dinleyici bu id'ye odaklanır). *@
                 <MudTextField T="string" @bind-Value="_searchQ" Placeholder="Ara… (Enter)" Margin="Margin.Dense"
                               Variant="Variant.Outlined" Class="dw-companyswitch" Style="min-width:180px;"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              UserAttributes="_searchBoxAttrs"
                               Immediate="true" OnKeyUp="@(async e => { if (e.Key == "Enter") await RunSearch(); })" />
                 @if (_searchOpen)
                 {
@@ -400,14 +402,41 @@
     private string _searchQ = "";
     private bool _searchOpen;
     private System.Text.Json.JsonElement[]? _searchGroups;
+    // BAR-01: Ctrl+K kısayolunun hedeflediği input id'si (App.razor'daki dinleyiciyle eşleşir).
+    private static readonly Dictionary<string, object?> _searchBoxAttrs = new() { ["id"] = "dw-global-search" };
 
     private async Task RunSearch()
     {
         if (string.IsNullOrWhiteSpace(_searchQ) || _searchQ.Trim().Length < 2) { _searchGroups = Array.Empty<System.Text.Json.JsonElement>(); _searchOpen = true; return; }
+        var q = _searchQ.Trim();
         _searchGroups = null; _searchOpen = true;
-        try { _searchGroups = await Api.GetArrayAsync("/api/search?q=" + Uri.EscapeDataString(_searchQ.Trim())); }
+        try { _searchGroups = await Api.GetArrayAsync("/api/search?q=" + Uri.EscapeDataString(q)); }
         catch { _searchGroups = Array.Empty<System.Text.Json.JsonElement>(); }
+
+        // ═══ BAR-01 (ADR-177, PK-O4) — TARA→BUL→GİT: sonuç TAM ve TEK eşleşmeyse (USB okuyucu kodu yazıp
+        // Enter basar) panel yerine doğrudan ekrana gidilir. Kural, masaüstündeki
+        // SearchService.TekTamEslesme'nin JSON üzerindeki BİREBİR karşılığıdır — kural değişirse İKİSİ
+        // birlikte değişir: HasMore'lu grup varsa açılmaz (kırpılan satırlarda ikinci tam eşleşme
+        // gizlenmiş olabilir); birden çok tam eşleşme / yalnız kısmi / sıfır sonuç → mevcut panel AYNEN.
+        if (_searchGroups is { Length: > 0 } && !_searchGroups.Any(HasMoreG))
+        {
+            System.Text.Json.JsonElement? tek = null;
+            foreach (var h in _searchGroups.SelectMany(SHits))
+            {
+                var tam = string.Equals(SStr(h, "label"), q, StringComparison.CurrentCultureIgnoreCase)
+                          || (!string.IsNullOrEmpty(SStr(h, "subLabel"))
+                              && string.Equals(SStr(h, "subLabel"), q, StringComparison.CurrentCultureIgnoreCase));
+                if (!tam) continue;
+                if (tek is not null) { tek = null; break; }   // ikinci tam eşleşme → otomatik açılış YOK
+                tek = h;
+            }
+            // Kutu temizlenir ki bir SONRAKİ tarama eski kodun ucuna eklenmesin.
+            if (tek is { } hit) { _searchQ = ""; OpenSearchHit(SStr(hit, "navigateKey")); }
+        }
     }
+
+    private static bool HasMoreG(System.Text.Json.JsonElement g)
+        => g.TryGetProperty("hasMore", out var hm) && hm.ValueKind == System.Text.Json.JsonValueKind.True;
 
     private void OpenSearchHit(string navigateKey)
     {

@@ -101,6 +101,22 @@ public static class FilePickerService
         return file?.TryGetLocalPath();
     }
 
+    /// <summary>PNG kaydetme yeri seçtirir (BAR-01: QR etiketi); yerel yol döner (iptal → null).</summary>
+    public static async Task<string?> SavePngAsync(string suggestedName)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime d
+            || d.MainWindow is null)
+            return null;
+        var file = await d.MainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "QR Etiketini Kaydet",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = "png",
+            FileTypeChoices = new[] { new FilePickerFileType("PNG Görüntü") { Patterns = new[] { "*.png" } } }
+        });
+        return file?.TryGetLocalPath();
+    }
+
     /// <summary>Dosyayı sistem varsayılan uygulamasıyla açar (sessiz başarısızlık).</summary>
     public static void OpenFile(string path)
     {

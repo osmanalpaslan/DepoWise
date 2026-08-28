@@ -20,6 +20,8 @@
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder (yalnız ekrandakini değil)."/>
+                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                            ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

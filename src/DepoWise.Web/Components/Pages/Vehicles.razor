@@ -36,6 +36,12 @@
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE")</MudText>
+        @* BAR-01: QR etiketi (salt-okunur; yalnız MEVCUT kayıtta) — içerik = araç iç kodu. *@
+        @if (_editId is not null)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.QrCode2"
+                       Class="mb-2" OnClick="QrLabel">QR Etiketi</MudButton>
+        }
 
         @if (_templates.Count > 0)
         {
@@ -665,6 +671,15 @@
         if (!await Dialog.Confirm("Bu fotoğraf silinsin mi?", "Evet, Sil", danger: true)) return;
         await Api.DeleteAsync($"/api/vehicles/{id}/photos/{fileId}");
         await LoadDetailPhotos(id);
+    }
+
+    /// <summary>BAR-01 (ADR-177): QR etiketi indir — kod SUNUCUDA kaynak servisle çözülür (yetki/tenant serviste).</summary>
+    private async Task QrLabel()
+    {
+        if (_editId is null) return;
+        var (bytes, name) = await Api.GetFileAsync($"/api/qr/vehicles/{_editId}", "QR_" + _code + ".png");
+        if (bytes is null) { _ok = false; _msg = "QR üretilemedi."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes), "image/png");
     }
 
     private async Task BeginEdit()

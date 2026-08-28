@@ -29,6 +29,8 @@
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                            ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

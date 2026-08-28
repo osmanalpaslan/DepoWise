@@ -3101,6 +3101,26 @@ app.MapGet("/api/export/{entity}", (HttpContext c, string entity) =>
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", src.FileName);
 }).RequireAuthorization();
 
+// ═══ BAR-01 (ADR-177) — QR ETİKETİ (web): kaydın MEVCUT kodunu PNG QR olarak indirir ═══
+// SALT-OKUNUR: hiçbir kayıt/senkron/audit satırı üretmez. Ham SQL YOK — kod, kaynak modülün KENDİ
+// servisiyle çözülür (Require(View) + tenant SERVİSTE; yetkisiz/başka firma → mevcut hata davranışı).
+// QR içine yalnız KOD girer (firma/şube/fiyat/ID/URL girmez — bilgi sızdırma yok, madde 7).
+app.MapGet("/api/qr/{entity}/{id}", (HttpContext c, string entity, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    string? code = entity switch
+    {
+        "materials" => svc.Materials.GetDetail(s, id).Code,
+        "vehicles" => svc.Vehicles.Get(s, id).InternalCode,
+        "equipment" => svc.Equipment.List(s).FirstOrDefault(e => e.Id == id)?.Code,
+        _ => throw new ArgumentException($"Bilinmeyen QR kaynağı: {entity}"),   // → 400 (ortak hata katmanı)
+    };
+    if (string.IsNullOrWhiteSpace(code))
+        return Results.Json(new { error = "Kayıt bulunamadı." }, statusCode: 404);
+    var png = DepoWise.Infrastructure.Reporting.QrLabelService.Png(code);
+    return Results.File(png, "image/png", DepoWise.Infrastructure.Reporting.QrLabelService.FileName(code));
+}).RequireAuthorization();
+
 // ── İçe aktarım yardımcıları (yukarıdaki 4 uç bunları kullanır) ──
 
 /// <summary>
