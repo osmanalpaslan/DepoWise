@@ -5,7 +5,9 @@ using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Application.Maintenance;
 using DepoWise.Infrastructure.Announcements;
+using DepoWise.Infrastructure.Calendars;
 using DepoWise.Infrastructure.Files;
+using DepoWise.Infrastructure.Purchasing;
 using DepoWise.Infrastructure.WorkOrders;
 using System.Data.Common;
 
@@ -37,9 +39,13 @@ public sealed class DashboardService
         _documents = documents;
         _workOrders = new WorkOrderService(factory);
         _announcements = new AnnouncementService(factory);
+        _purchasing = new PurchaseOrderService(factory);
+        _calendar = new CalendarService(factory, documents);   // PAN-01: masaüstünde documents=null → evrak öğesi şeritte de atlanır (tutarlı)
     }
 
     private readonly AnnouncementService _announcements;
+    private readonly PurchaseOrderService _purchasing;
+    private readonly CalendarService _calendar;
 
     public DashboardSummary GetSummary(SessionContext s)
     {
@@ -120,13 +126,18 @@ public sealed class DashboardService
         }
 
         // Geciken iş emri — WorkOrderService.List BranchAccess kapsamını İÇERİDE uygular; terminal
-        // (Tamamlandı/İptal) emirler gecikme SAYILMAZ.
+        // (Tamamlandı/İptal) emirler gecikme SAYILMAZ. PAN-01: aynı TEK listeden açık/geciken sayıları
+        // da türetilir (ikinci sorgu yok) — yetki yoksa sayılar NULL kalır (kart hiç gösterilmez).
+        int? openWo = null, overdueWo = null;
         if (AccessControl.Can(s, WorkOrderService.Module, PermissionAction.View))
         {
+            openWo = 0; overdueWo = 0;
             foreach (var w in _workOrders.List(s))
             {
                 if (w.Status is "completed" or "cancelled") continue;
+                openWo++;
                 if (w.PlannedEnd is not { } pe || pe >= nowMs) continue;
+                overdueWo++;
                 alerts.Add(new DashboardAlert(AlertKind.WorkOrder, $"{w.WoNo} · {w.Title}",
                     "Plan bitişi geçti", "work_orders", true, w.Id));
             }
@@ -150,16 +161,43 @@ public sealed class DashboardService
         // düşer (pencere dışına çıkan kendiliğinden düşer — türetilmiş model). Okuma HERKESE (PK-J1;
         // Rol Yetki Kontrol kapatması Can içinde işler); şube hedefi List İÇİNDE süzülür (yan kapı yok).
         // İmza=version → duyuru DÜZENLENİNCE herkes için yeniden okunmamış olur.
+        // PAN-01: AKTİF duyuru listesi TEK çağrıyla hem bildirime hem ana ekran şeridine.
+        List<DashboardAnnouncementRow>? annSerit = null;
         if (AccessControl.Can(s, AnnouncementService.Module, PermissionAction.View))
         {
             try
             {
+                annSerit = new List<DashboardAnnouncementRow>();
                 foreach (var d in _announcements.List(s))
+                {
                     alerts.Add(new DashboardAlert(AlertKind.Announcement, d.Title,
                         d.IsImportant ? "Önemli duyuru" : "Duyuru", "announcements", d.IsImportant, d.Id,
                         SignatureOverride: "v" + d.Version));
+                    if (annSerit.Count < 5) annSerit.Add(new DashboardAnnouncementRow(d.Title, d.IsImportant));
+                }
             }
-            catch { }   // tablo henüz yoksa (eski şema) ana ekran çalışmaya devam eder
+            catch { annSerit = null; }   // tablo henüz yoksa (eski şema) ana ekran çalışmaya devam eder
+        }
+
+        // ═══ PAN-01 (ADR-175) — yeni özet alanları (PK-L1). Her biri KAYNAK yetkisiyle sarılı;
+        // yetki yoksa NULL → kart/şerit HİÇ gösterilmez (yan kapı yok). Salt-okunur türetme.
+        int? openPo = null;
+        if (AccessControl.Can(s, "purchasing", PermissionAction.View))
+        {
+            // PurchaseOrderService.List teslim şubesi kapsamını İÇERİDE uygular (kapsam dışı sipariş SAYILMAZ).
+            try { openPo = _purchasing.List(s, null, "open").Count; } catch { openPo = null; }
+        }
+
+        List<DashboardCalendarRow>? bugun = null;
+        if (AccessControl.Can(s, CalendarService.Module, PermissionAction.View))
+        {
+            try
+            {
+                var gunBasi = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).ToUnixTimeMilliseconds();
+                bugun = _calendar.Items(s, gunBasi, gunBasi + 86_400_000 - 1)
+                    .Take(6).Select(i => new DashboardCalendarRow(i.SourceDisplay, i.Title)).ToList();
+            }
+            catch { bugun = null; }
         }
 
         // #18: kullanıcının "okundu" işaretleri — imza eşleşiyorsa Read=true (ana ekranda gizlenir).
@@ -168,7 +206,8 @@ public sealed class DashboardService
             if (reads.TryGetValue(alerts[i].Key, out var sig) && sig == alerts[i].Signature)
                 alerts[i] = alerts[i] with { Read = true };
 
-        return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts);
+        return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts,
+            openWo, overdueWo, openPo, bugun, annSerit);
     }
 
     private static Dictionary<string, string> LoadAlertReads(DbConnection conn, string userId)

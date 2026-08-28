@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (ARA-01 Global Arama tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (PAN-01 Dashboard tamamlandı — FAZ 4 BİTTİ, yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -19,10 +19,11 @@ okundu=alert_reads imzası (düzenlenince yeniden okunmamış).
 **FAZ 4/SIRA 11 — K Global Arama ✅ (2026-08-28, ADR-174, AramaTests 12/12; MIGRATION YOK — şema 81;
 PK-K1..K5 aynen) — [K_ARAMA_01.md](K_ARAMA_01.md).** Üst bar kutusu iki platformda; kaynak-yetki kapılı
 türetilmiş arama; masaüstü çevrimdışı yerel + çevrimiçi Proje/Evrak.
-**FAZ 4/SIRA 12 — L Dashboard: ANALİZ TAMAM (2026-08-28, [L_DASHBOARD_00_ANALIZ.md](L_DASHBOARD_00_ANALIZ.md)) —
-⛔ PK-L1..L4 kullanıcı kararı bekleniyor; kod YAZILMADI.** Öz: uyarı kartları 4→8 + yeni özet kart/şeritleri
-(iş emri/sipariş/takvim/duyuru) — tamamen eklemeli; MIGRATION GEREKMİYOR; grafik kütüphanesi yok.
-Sıradaki: **L uygulaması** (PK-L kararları sonrası) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..081** (9 modül birlikte).
+**FAZ 4/SIRA 12 — L Dashboard ✅ (2026-08-28, ADR-175, PanoTests 9/9; MIGRATION YOK — şema 81;
+PK-L1..L4 aynen) — [L_DASHBOARD_01.md](L_DASHBOARD_01.md). FAZ 4 BİTTİ.** Uyarı kartları 4→8 + Açık İş
+Emri/Sipariş kartları + Bugünün Takvimi/Aktif Duyurular şeritleri (yetki yoksa kart hiç görünmez).
+Sıradaki: **M — Excel Merkezi** (FAZ 5/SIRA 13) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b).
+⚠️ Yayın birikimi büyüdü: **Migration073..081** (12 iş bekliyor) — FAZ 5'e geçmeden TOPLU YAYIN önerilir.
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

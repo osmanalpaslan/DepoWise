@@ -115,6 +115,20 @@ public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail,
     public string Signature => SignatureOverride ?? Detail;
 }
 
+/// <summary>PAN-01 (ADR-175): ana ekran "Bugünün Takvimi" şerit satırı (salt gösterim).</summary>
+public sealed record DashboardCalendarRow(string SourceDisplay, string Title);
+
+/// <summary>PAN-01 (ADR-175): ana ekran "Aktif Duyurular" şerit satırı (salt gösterim).</summary>
+public sealed record DashboardAnnouncementRow(string Title, bool IsImportant);
+
+/// <summary>
+/// PAN-01 (ADR-175): yeni alanlar SONA, default'lu ve NULLABLE eklendi — mevcut çağrılar/istemciler
+/// bozulmaz. <b>null = kullanıcının o KAYNAĞA yetkisi yok → kart/şerit HİÇ gösterilmez</b> (yan kapı yok);
+/// yetki varken boş liste "bugün öğe yok" bilgisidir.
+/// </summary>
 public sealed record DashboardSummary(
     int VehicleCount, int MaterialCount, int LowStockCount, int PendingRequestCount, int PersonnelCount,
-    IReadOnlyList<DashboardAlert> Alerts);
+    IReadOnlyList<DashboardAlert> Alerts,
+    int? OpenWorkOrderCount = null, int? OverdueWorkOrderCount = null, int? OpenPurchaseOrderCount = null,
+    IReadOnlyList<DashboardCalendarRow>? TodayCalendar = null,
+    IReadOnlyList<DashboardAnnouncementRow>? ActiveAnnouncements = null);

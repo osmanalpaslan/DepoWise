@@ -693,7 +693,14 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
             lowStockCount = sum.LowStockCount,
             pendingRequestCount = sum.PendingRequestCount,
             personnelCount = sum.PersonnelCount,
+            // PAN-01 (ADR-175): EKLEMELİ alanlar — null = kullanıcının o kaynağa yetkisi yok (kart gizlenir).
+            openWorkOrderCount = sum.OpenWorkOrderCount,
+            overdueWorkOrderCount = sum.OverdueWorkOrderCount,
+            openPurchaseOrderCount = sum.OpenPurchaseOrderCount,
         },
+        // PAN-01: ana ekran şeritleri (null = yetki yok → şerit hiç gösterilmez).
+        todayCalendar = sum.TodayCalendar?.Select(t => new { sourceDisplay = t.SourceDisplay, title = t.Title }),
+        activeAnnouncements = sum.ActiveAnnouncements?.Select(a => new { title = a.Title, isImportant = a.IsImportant }),
     });
 }).RequireAuthorization();
 // #18 — Uyarıyı kullanıcı için "okundu" işaretle (ana ekrandan gizlenir; hali değişince yeniden görünür).

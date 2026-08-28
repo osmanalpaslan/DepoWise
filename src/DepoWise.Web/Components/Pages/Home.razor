@@ -62,6 +62,34 @@
                 </div>
             }
         </div>
+
+        @* ── PAN-01 (ADR-175, PK-L1): iş yönetimi özet sayıları — yalnız kaynak yetkisi olanlara
+           (null = yetki yok → kart HİÇ görünmez; yan kapı yok). Tıkla → ilgili ekran. ── *@
+        @if (_openWo is not null || _openPo is not null)
+        {
+            <div class="d-flex flex-wrap mb-6" style="gap:14px;">
+                @if (_openWo is not null)
+                {
+                    <MudPaper Elevation="0" Class="pa-4" @onclick="@(() => Open("work_orders"))"
+                              Style="cursor:pointer;border-radius:16px;border:1px solid var(--mud-palette-lines-default);min-width:190px;">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="font-weight:700;letter-spacing:.06em;">AÇIK İŞ EMRİ</MudText>
+                        <MudText Typo="Typo.h5">@_openWo</MudText>
+                        <MudText Typo="Typo.caption" Color="@(_overdueWo > 0 ? Color.Error : Color.Default)">
+                            @(_overdueWo > 0 ? $"{_overdueWo} gecikmiş" : "geciken yok")
+                        </MudText>
+                    </MudPaper>
+                }
+                @if (_openPo is not null)
+                {
+                    <MudPaper Elevation="0" Class="pa-4" @onclick="@(() => Open("purchasing"))"
+                              Style="cursor:pointer;border-radius:16px;border:1px solid var(--mud-palette-lines-default);min-width:190px;">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="font-weight:700;letter-spacing:.06em;">AÇIK SİPARİŞ</MudText>
+                        <MudText Typo="Typo.h5">@_openPo</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">mal kabul bekleyen</MudText>
+                    </MudPaper>
+                }
+            </div>
+        }
     }
 
     <MudGrid Spacing="4">
@@ -153,8 +181,53 @@
             }
         </MudItem>
 
-        <!-- Sağ: Masaüstü kurulum -->
+        <!-- Sağ: Bugünün Takvimi + Aktif Duyurular (PAN-01) + Masaüstü kurulum -->
         <MudItem xs="12" md="5">
+            @* PAN-01: Bugünün Takvimi — yalnız takvim yetkisi olanlara (null=gizli); boşsa bilgi satırı. *@
+            @if (_todayCal is not null)
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4" Style="border-radius:16px;border:1px solid var(--mud-palette-lines-default);cursor:pointer;"
+                          @onclick="@(() => Open("calendar"))">
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Bugünün Takvimi</MudText>
+                    </div>
+                    @if (_todayCal.Length == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Bugün için kayıt yok.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var t in _todayCal)
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-1">
+                                <span class="mud-text-secondary">@Str(t, "sourceDisplay") ·</span> @Str(t, "title")
+                            </MudText>
+                        }
+                    }
+                </MudPaper>
+            }
+            @* PAN-01: Aktif Duyurular — duyuru yoksa şerit gizli (gereksiz boş kutu olmasın). *@
+            @if (_activeAnn is { Length: > 0 })
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4" Style="border-radius:16px;border:1px solid var(--mud-palette-lines-default);cursor:pointer;"
+                          @onclick="@(() => Open("announcements"))">
+                    <div class="d-flex align-center mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Campaign" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Aktif Duyurular</MudText>
+                    </div>
+                    @foreach (var a in _activeAnn)
+                    {
+                        <div class="d-flex align-center mb-1" style="gap:6px;">
+                            @if (a.TryGetProperty("isImportant", out var im) && im.ValueKind == JsonValueKind.True)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error">Önemli</MudChip>
+                            }
+                            <MudText Typo="Typo.body2">📢 @Str(a, "title")</MudText>
+                        </div>
+                    }
+                </MudPaper>
+            }
             <MudPaper Elevation="0" Class="pa-6 dw-hero">
                 <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Large" Style="font-size:2.6rem;color:var(--mud-palette-primary);" />
                 <MudText Typo="Typo.h5" Class="mt-3 dw-pagetitle">Masaüstü Uygulaması</MudText>
@@ -381,6 +454,11 @@
         new("Maintenance", "Bakım",            Icons.Material.Filled.Build),
         new("Inspection",  "Sigorta-Muayene",  Icons.Material.Filled.VerifiedUser),
         new("Fuel",        "Yakıt",            Icons.Material.Filled.LocalGasStation),
+        // PAN-01 (ADR-175, PK-L2): 8 kart HEP görünür — ana ekran, çan ve Uyarılar ekranı hizalı.
+        new("Document",     "Evrak",           Icons.Material.Filled.Folder),
+        new("WorkOrder",    "İş Emri",         Icons.Material.Filled.Assignment),
+        new("Request",      "Talep",           Icons.Material.Filled.Description),
+        new("Announcement", "Duyuru",          Icons.Material.Filled.Campaign),
     };
 
     // İlk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız kartlar+sayılar (kullanıcı isteği 2026-07-26).
@@ -421,6 +499,17 @@
                         a.TryGetProperty("signature", out var sg) ? sg.GetString() ?? "" : ""));
                 }
             _alerts = list;
+            // PAN-01 (ADR-175): özet sayıları + şeritler (EKLEMELİ alanlar; null = yetki yok → gizli).
+            if (doc.TryGetProperty("summary", out var sm) && sm.ValueKind == JsonValueKind.Object)
+            {
+                _openWo = NumN(sm, "openWorkOrderCount");
+                _overdueWo = NumN(sm, "overdueWorkOrderCount");
+                _openPo = NumN(sm, "openPurchaseOrderCount");
+            }
+            _todayCal = doc.TryGetProperty("todayCalendar", out var tc) && tc.ValueKind == JsonValueKind.Array
+                ? tc.EnumerateArray().ToArray() : null;
+            _activeAnn = doc.TryGetProperty("activeAnnouncements", out var aa) && aa.ValueKind == JsonValueKind.Array
+                ? aa.EnumerateArray().ToArray() : null;
             StateHasChanged();
         }
         catch { _alerts = new(); }
@@ -439,6 +528,12 @@
         => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
 
+    // ── PAN-01 (ADR-175) — yeni özet alanları ──
+    private int? _openWo, _overdueWo, _openPo;
+    private JsonElement[]? _todayCal, _activeAnn;
+    private static int? NumN(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
+
     private async Task ResolveConflict(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
@@ -453,6 +548,10 @@
         "Inspection" => Icons.Material.Filled.VerifiedUser,
         "LowStock" => Icons.Material.Filled.Inventory2,
         "Fuel" => Icons.Material.Filled.LocalGasStation,
+        "Document" => Icons.Material.Filled.Folder,       // PAN-01
+        "WorkOrder" => Icons.Material.Filled.Assignment,  // PAN-01
+        "Request" => Icons.Material.Filled.Description,   // PAN-01
+        "Announcement" => Icons.Material.Filled.Campaign, // PAN-01
         _ => Icons.Material.Filled.Warning,
     };
 
@@ -467,7 +566,8 @@
     private void Open(string navigateKey)
     {
         if (string.IsNullOrEmpty(navigateKey)) return;
-        Nav.NavigateTo("/" + navigateKey.Replace(":", "/"));
+        // PAN-01: bildirimlerle aynı dönüşüm ("work_orders"→"work-orders"); mevcut anahtarlar etkilenmez.
+        Nav.NavigateTo("/" + navigateKey.Replace(":", "/").Replace("_", "-"));
     }
 
     // Auth yüklenince/değişince yeniden render → OnAfterRenderAsync tekrar çalışır ve uyarıları yükler.

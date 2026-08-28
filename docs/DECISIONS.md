@@ -2697,3 +2697,23 @@ Ayrıntı: `docs/project-control/J_DUYURU_01.md`.
   masaüstü çevrimdışı yerel arar, Proje+Evrak çevrimiçiyse /api/search?sources= ile eklenir.
 
 Ayrıntı: `docs/project-control/K_ARAMA_01.md`.
+
+---
+
+## ADR-175 — Dashboard — PAN-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 4/SIRA 12; PK-L1..L4 kullanıcı kararları (L_DASHBOARD_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- Mevcut DashboardService.GetSummary EKLEMELİ genişletildi (paralel veri sistemi/grafik/cache YOK;
+  MIGRATION YOK — şema 81). DashboardSummary'ye SONA nullable alanlar: açık/geciken iş emri, açık
+  sipariş, bugünün takvimi, aktif duyurular — null = kaynak yetkisi yok → kart/şerit HİÇ gösterilmez
+  (yan kapı yok, PAN3); eski imza aynen derlenir (PAN8 kanıtlı).
+- PK-L1: Açık İş Emri (geciken vurgulu) + Açık Sipariş + Bugünün Takvimi + Aktif Duyurular; veriler
+  mevcut servislerden salt-okunur (iş emri sayıları geciken-uyarı bloğunun TEK listesinden; sipariş
+  List(s,null,'open'); takvim bugün penceresi; duyuru şeridi bildirimle AYNI çağrıdan).
+- PK-L2: uyarı kategori kartları 4→8 HEP görünür (iki platform) — ana ekran/çan/Uyarılar hizalandı;
+  "kategori seçilmeden liste yok" + okundu davranışları AYNEN.
+- PK-L3 kişiselleştirme YOK · PK-L4 grafik YOK. /api/dashboard yalnız eklemeli alan aldı.
+- FAZ 4 BİTTİ; sıradaki M — Excel Merkezi (FAZ 5). Yayın birikimi: Migration073..081.
+
+Ayrıntı: `docs/project-control/L_DASHBOARD_01.md`.

@@ -31,6 +31,18 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     public int BakimCount => _allAlerts.Count(a => a.Kind == AlertKind.Maintenance);
     public int MuayeneCount => _allAlerts.Count(a => a.Kind == AlertKind.Inspection);
     public int YakitCount => _allAlerts.Count(a => a.Kind == AlertKind.Fuel);
+    // PAN-01 (ADR-175, PK-L2): 8 kategori HEP görünür — ana ekran, çan ve Uyarılar ekranı hizalı.
+    public int EvrakCount => _allAlerts.Count(a => a.Kind == AlertKind.Document);
+    public int IsEmriCount => _allAlerts.Count(a => a.Kind == AlertKind.WorkOrder);
+    public int TalepCount => _allAlerts.Count(a => a.Kind == AlertKind.Request);
+    public int DuyuruCount => _allAlerts.Count(a => a.Kind == AlertKind.Announcement);
+
+    // PAN-01 (PK-L1): Bugünün Takvimi + Aktif Duyurular şeritleri (yetki yoksa GİZLİ — summary null verir).
+    public ObservableCollection<DashboardCalendarRow> TodayCalendar { get; } = new();
+    public ObservableCollection<DashboardAnnouncementRow> ActiveAnnouncements { get; } = new();
+    [ObservableProperty] private bool _showTodayCalendar;
+    [ObservableProperty] private bool _showAnnouncements;
+    public bool TodayCalendarEmpty => ShowTodayCalendar && TodayCalendar.Count == 0;
 
     /// <summary>Etkin uyarı filtresi: "material"|"maintenance"|"inspection"|"fuel"|null(=Tümü).</summary>
     [ObservableProperty] private string? _alertFilter;
@@ -47,7 +59,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
         var kind = AlertFilter switch
         {
             "material" => AlertKind.LowStock, "maintenance" => AlertKind.Maintenance,
-            "inspection" => AlertKind.Inspection, "fuel" => AlertKind.Fuel, _ => (AlertKind?)null,
+            "inspection" => AlertKind.Inspection, "fuel" => AlertKind.Fuel,
+            "document" => AlertKind.Document, "work_order" => AlertKind.WorkOrder,       // PAN-01
+            "request" => AlertKind.Request, "announcement" => AlertKind.Announcement,    // PAN-01
+            _ => (AlertKind?)null,
         };
         if (kind is { } k)
             foreach (var a in _allAlerts) if (a.Kind == k) Alerts.Add(a);
@@ -126,6 +141,23 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
             Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials", IconKey: "IconWarning"));
             Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve", IconKey: "IconRequests"));
             Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null, IconKey: "IconUsers"));
+            // PAN-01 (PK-L1): yeni özet kartları — YALNIZ kaynak yetkisi olana (null = yetki yok → kart yok).
+            if (s.OpenWorkOrderCount is { } wo)
+                Cards.Add(new KpiCard(wo.ToString(), (s.OverdueWorkOrderCount ?? 0) > 0
+                    ? $"Açık İş Emri ({s.OverdueWorkOrderCount} gecikmiş)" : "Açık İş Emri",
+                    (s.OverdueWorkOrderCount ?? 0) > 0 ? "warning" : "neutral", Primary: false,
+                    NavKey: "work_orders", IconKey: "IconDailyActivity"));
+            if (s.OpenPurchaseOrderCount is { } po)
+                Cards.Add(new KpiCard(po.ToString(), "Açık Sipariş", "neutral", Primary: false,
+                    NavKey: "purchasing", IconKey: "IconMaterials"));
+            // PAN-01: şeritler.
+            ShowTodayCalendar = s.TodayCalendar is not null;
+            foreach (var t in s.TodayCalendar ?? (IReadOnlyList<DashboardCalendarRow>)Array.Empty<DashboardCalendarRow>())
+                TodayCalendar.Add(t);
+            foreach (var a in s.ActiveAnnouncements ?? (IReadOnlyList<DashboardAnnouncementRow>)Array.Empty<DashboardAnnouncementRow>())
+                ActiveAnnouncements.Add(a);
+            ShowAnnouncements = ActiveAnnouncements.Count > 0;
+            OnPropertyChanged(nameof(TodayCalendarEmpty));
             foreach (var a in s.Alerts) if (!a.Read) _allAlerts.Add(a); // #18: okunmuşları ana ekranda gösterme
             ApplyAlertFilter();
         }

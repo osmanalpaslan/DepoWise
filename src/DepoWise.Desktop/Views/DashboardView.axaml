@@ -126,6 +126,55 @@
                             </Border>
                         </StackPanel>
                     </Button>
+                    <!-- PAN-01 (ADR-175, PK-L2): 4 yeni kategori HEP görünür — çan/Uyarılar ile hizalı. -->
+                    <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                            Command="{Binding SelectAlertCategoryCommand}" CommandParameter="document">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconAudit}"/>
+                            <TextBlock Text="Evrak" VerticalAlignment="Center"/>
+                            <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}">
+                                <TextBlock Text="{Binding EvrakCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                            Command="{Binding SelectAlertCategoryCommand}" CommandParameter="work_order">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconDailyActivity}"/>
+                            <TextBlock Text="İş Emri" VerticalAlignment="Center"/>
+                            <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}">
+                                <TextBlock Text="{Binding IsEmriCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                            Command="{Binding SelectAlertCategoryCommand}" CommandParameter="request">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconRequests}"/>
+                            <TextBlock Text="Talep" VerticalAlignment="Center"/>
+                            <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}">
+                                <TextBlock Text="{Binding TalepCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                            Command="{Binding SelectAlertCategoryCommand}" CommandParameter="announcement">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconAlerts}"/>
+                            <TextBlock Text="Duyuru" VerticalAlignment="Center"/>
+                            <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}">
+                                <TextBlock Text="{Binding DuyuruCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
                 </WrapPanel>
 
                 <!-- Uyarı varsa: liste -->
@@ -193,6 +242,59 @@
                         <SelectableTextBlock Text="Bu kategoride aktif kritik uyarı yok." Classes="Body" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
+            </StackPanel>
+
+            <!-- ===== PAN-01 (ADR-175, PK-L1): Bugünün Takvimi + Aktif Duyurular =====
+                 Yetki yoksa şerit HİÇ görünmez (summary null verir); takvim yetkisi varken boş gün bilgidir. -->
+            <StackPanel Spacing="12" IsVisible="{Binding ShowTodayCalendar}">
+                <SelectableTextBlock Text="BUGÜNÜN TAKVİMİ" Classes="SectionTitle"/>
+                <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                        Command="{Binding OpenCommand}" CommandParameter="calendar" ToolTip.Tip="Takvimi aç">
+                    <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius12}" Padding="14,10">
+                        <StackPanel Spacing="4">
+                            <SelectableTextBlock Text="Bugün için kayıt yok." Classes="Body"
+                                                 IsVisible="{Binding TodayCalendarEmpty}"/>
+                            <ItemsControl ItemsSource="{Binding TodayCalendar}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="rep:DashboardCalendarRow">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,1">
+                                            <TextBlock Text="{Binding SourceDisplay}" FontSize="11.5" Opacity="0.65" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Button>
+            </StackPanel>
+            <StackPanel Spacing="12" IsVisible="{Binding ShowAnnouncements}">
+                <SelectableTextBlock Text="AKTİF DUYURULAR" Classes="SectionTitle"/>
+                <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                        Command="{Binding OpenCommand}" CommandParameter="announcements" ToolTip.Tip="Duyuruları aç">
+                    <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius12}" Padding="14,10">
+                        <ItemsControl ItemsSource="{Binding ActiveAnnouncements}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="rep:DashboardAnnouncementRow">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,1">
+                                        <TextBlock Text="📢" FontSize="12" VerticalAlignment="Center"/>
+                                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                                Background="{DynamicResource DangerBrush}" IsVisible="{Binding IsImportant}">
+                                            <TextBlock Text="Önemli" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Title}" FontSize="12.5" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </Button>
             </StackPanel>
 
             <!-- ===== Güncelleme ===== -->
