@@ -314,6 +314,7 @@ public class AppScreensParityTests
             ("Şube ve Personel", new[] { "branches", "projects", "personnel" }),
             ("Kullanıcı Yönetimi", new[] { "users", "permissions", "permission_templates" }),
             ("Evrak", new[] { "documents" }),   // EVR-01 (ADR-165)
+            ("Duyurular", new[] { "announcements" }),   // DYR-01 (ADR-173)
             ("Denetim", new[] { "audit", "stock_change_log" }),
             ("Web Yönetimi", new[] { "companies", "releases", "machines", "server_backups" }),
             // "Yedekleme" grubu masaüstünde GÖRÜNMEZ: tek ekranı (Yedek Yönetimi) yalnız web'dedir.
@@ -329,8 +330,8 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV = 55. Ekran kaybı yok.
-        Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56. Ekran kaybı yok.
+        Assert.Equal(56, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -364,6 +365,7 @@ public class AppScreensParityTests
             ("Şube ve Personel", new[] { ("branches", "branches"), ("branches", "projects"), ("personnel", "personnel") }),   // PRJ-01: Projeler
             ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Evrak", new[] { ("files", "documents") }),   // EVR-01
+            ("Duyurular", new[] { ("announcements", "announcements") }),   // DYR-01
             ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
             ("Yedekleme", new[] { ("@superr", "backup") }),
@@ -385,8 +387,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV → 62.
-        Assert.Equal(62, gercek.Sum(x => x.Item2.Length));
+        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63.
+        Assert.Equal(63, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>
@@ -420,6 +422,7 @@ public class AppScreensParityTests
             ("Şube ve Personel", "section:kurumsal"),
             ("Kullanıcı Yönetimi", "section:kurumsal"),
             ("Evrak", "section:kurumsal"),   // EVR-01
+            ("Duyurular", "section:kurumsal"),   // DYR-01
             ("Denetim", "section:kurumsal"),
             ("Web Yönetimi", "section:sistem"),
             ("Yedekleme", "section:sistem"),

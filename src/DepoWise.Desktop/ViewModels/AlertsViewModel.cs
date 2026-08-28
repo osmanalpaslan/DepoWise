@@ -38,6 +38,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     public int EvrakCount => _all.Count(a => a.Kind == AlertKind.Document);       // BLD-01
     public int IsEmriCount => _all.Count(a => a.Kind == AlertKind.WorkOrder);     // BLD-01
     public int TalepCount => _all.Count(a => a.Kind == AlertKind.Request);        // BLD-01
+    public int DuyuruCount => _all.Count(a => a.Kind == AlertKind.Announcement);  // DYR-01
     public int ToplamCount => _all.Count;
     public bool HasUnread => _all.Any(a => !a.Read);                              // BLD-01: "Tümünü Okundu Yap" görünürlüğü
 
@@ -107,6 +108,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
                 "document" => AlertKind.Document,     // BLD-01
                 "work_order" => AlertKind.WorkOrder,  // BLD-01
                 "request" => AlertKind.Request,       // BLD-01
+                "announcement" => AlertKind.Announcement,   // DYR-01
                 _ => (AlertKind?)null,
             };
             if (kind is { } k)
@@ -121,7 +123,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private void NotifyCounts()
     {
         foreach (var n in new[] { nameof(MalzemeCount), nameof(BakimCount), nameof(MuayeneCount), nameof(YakitCount),
-                     nameof(EvrakCount), nameof(IsEmriCount), nameof(TalepCount), nameof(ToplamCount), nameof(HasUnread) })
+                     nameof(EvrakCount), nameof(IsEmriCount), nameof(TalepCount), nameof(DuyuruCount), nameof(ToplamCount), nameof(HasUnread) })
             OnPropertyChanged(n);
     }
 

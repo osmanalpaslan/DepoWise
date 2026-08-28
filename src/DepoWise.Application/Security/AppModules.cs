@@ -111,6 +111,7 @@ public static class AppModules
         ("purchasing", "Satın Alma"),   // STN-01 (ADR-169): sipariş + mal kabul ekranı (talep durum-geçiş yetkisi request_ops_purchase AYRI kalır)
         ("work_orders", "İş Emirleri"),   // EMR-01 (ADR-170)
         ("calendar", "Takvim"),           // TKV-01 (ADR-171)
+        ("announcements", "Duyurular"),   // DYR-01 (ADR-173) — okuma herkese (IsPublicRead), yazma bu modülle
         // G2-B1 DÜZELTMESİ (2026-08-12): "Çöp Kutusu" ekranı bu katalogda YOKTU. Masaüstünde menü grubu ve
         // Navigate kaydı, web'de "@admin" sözde-anahtarı vardı; ama yetki ağacında görünmediği için süper
         // admin bu ekranı belirli bir kullanıcıya DEVREDEMİYOR, Rol Yetki Kontrol ile kısıtlayamıyordu.
@@ -124,6 +125,11 @@ public static class AppModules
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
     public static bool IsPublic(string moduleKey)
         => moduleKey is Dashboard or About or Theme or "alerts";
+
+    /// <summary>DYR-01 (ADR-173, PK-J1): OKUMASI herkese açık, YAZMASI normal yetki kurallarına tabi
+    /// modüller. <see cref="IsPublic"/>'ten farkı: IsPublic yazmayı TÜMÜYLE kapatır (View dışı her şey
+    /// false) — duyuruda ise yönetici oluşturabilmeli. Mevcut modüllerin davranışı DEĞİŞMEZ.</summary>
+    public static bool IsPublicRead(string moduleKey) => moduleKey == "announcements";
 
     /// <summary>Kullanıcı REHBERİ (2026-07-25): kullanıcı LİSTESİ tüm oturum sahiplerine görünür (menüde çıkar,
     /// salt-okuma sınırlı liste). Oluşturma/düzenleme/şifre sıfırlama YİNE yalnız admindir (write yolları

@@ -1,0 +1,204 @@
+@page "/announcements"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ DYR-01 (ADR-173, 2026-08-28) — DUYURULAR ═══
+    PK-J1: okuma HERKESE (yazma announcements yetkisiyle — kapalı gelir). PK-J2: opsiyonel tek şube
+    hedefi. PK-J3: opsiyonel yayın penceresi (aktiflik TÜRETİLİR). PK-J5: Normal/Önemli.
+    Yönetici tüm duyuruları (gelecek/biten dahil) görür; diğerleri yalnız YAYINDAKİLERİ.
+    Kapılar SUNUCUDA (yazma yetkisi + şube kapsamı + tenant).
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Duyurular</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (CanManage)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ DUYURU" : "DUYURU DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="5"><MudTextField @bind-Value="_title" Label="Başlık *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="2">
+                <MudSelect T="string" @bind-Value="_importance" Label="Önem" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("normal")">Normal</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("important")">Önemli</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="5">
+                <MudSelect T="string" @bind-Value="_branchId" Label="Hedef Şube (boş = tüm firma)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_publishStart" Label="Yayın Başlangıcı (boş = hemen)" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_publishEnd" Label="Yayın Bitişi (boş = süresiz)" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_body" Label="Duyuru Metni" Lines="3" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3" Spacing="2" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h6">@(CanManage ? "Tüm Duyurular" : "Aktif Duyurular")</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="_search" Label="Ara" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:160px;" />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Aktif filtrelerle TÜM sonucu Excel dosyası olarak indirir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+            </MudTooltip>
+        }
+    </MudStack>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">@(CanManage ? "Duyuru yok." : "Aktif duyuru yok.")</MudText> }
+    else
+    {
+        <MudStack Spacing="2">
+            @foreach (var a in _rows)
+            {
+                var important = Bool(a, "isImportant");
+                <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;border-left:5px solid {(important ? "var(--mud-palette-error)" : "var(--mud-palette-info)")};")">
+                    <div class="d-flex align-center flex-wrap" style="gap:8px;">
+                        <MudText Typo="Typo.body1"><b>📢 @Str(a, "title")</b></MudText>
+                        @if (important) { <MudChip T="string" Size="Size.Small" Color="Color.Error">Önemli</MudChip> }
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default">@Str(a, "branchName")</MudChip>
+                        @if (CanManage)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="@(Str(a, "statusDisplay") == "Yayında" ? Color.Success : Color.Default)">@Str(a, "statusDisplay")</MudChip>
+                        }
+                        <MudSpacer />
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(a, "periodDisplay") · @Str(a, "createdByName")</MudText>
+                        @if (Auth.CanEdit("announcements"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => BeginEdit(a)">Düzenle</MudButton>
+                        }
+                        @if (Auth.CanDelete("announcements"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => DeleteAnn(Str(a, "id")))">Sil</MudButton>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(Str(a, "body")))
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-1" Style="white-space:pre-wrap;">@Str(a, "body")</MudText>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private JsonElement[]? _rows;
+    private List<ApiClient.Opt> _branches = new();
+    private string _search = "";
+
+    private string? _editId; private long _editVersion;
+    private string _title = "", _body = "", _importance = "normal";
+    private string? _branchId;
+    private DateTime? _publishStart, _publishEnd;
+    private string? _msg; private bool _ok, _busy;
+
+    private bool CanManage => Auth.CanCreate("announcements") || Auth.CanEdit("announcements") || Auth.CanDelete("announcements");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CanManage) { try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { } }
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (CanManage) q.Add("all=true");
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        try { _rows = await Api.GetArrayAsync("/api/announcements" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_title)) { _msg = "Başlık zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Duyuru yayınlansın mı?" : "Duyuru güncellensin mi? (Herkes için yeniden okunmamış olur.)")) return;
+        _busy = true;
+        try
+        {
+            long? Ms(DateTime? d) => d is null ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+            var body = new
+            {
+                title = _title.Trim(), body = _body, importance = _importance, branchId = _branchId,
+                publishStart = Ms(_publishStart), publishEnd = Ms(_publishEnd),
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null,
+            };
+            var err = _editId is null ? await Api.PostAsync("/api/announcements", body)
+                : await Api.PutAsync($"/api/announcements/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Duyuru yayınlandı." : "Güncellendi.");
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu duyuruyu düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+        _title = Str(d, "title"); _body = Str(d, "body");
+        _importance = Str(d, "importance") == "important" ? "important" : "normal";
+        _branchId = NullS(d, "branchId");
+        _publishStart = MsToDate(d, "publishStart"); _publishEnd = MsToDate(d, "publishEnd");
+        _msg = null;
+    }
+
+    private async Task DeleteAnn(string id)
+    {
+        if (!await Dialog.Confirm("Duyuru silinsin mi? (Çöp Kutusu'ndan geri alınabilir.)", okText: "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/announcements/{id}");
+        _msg = err ?? "Silindi — Çöp Kutusu'ndan geri alınabilir."; _ok = err is null;
+        await Load();
+    }
+
+    private async Task ExportExcel()
+    {
+        var q = new List<string>();
+        if (CanManage) q.Add("all=true");
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        var (bytes, name) = await Api.GetFileAsync("/api/announcements/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), "Duyurular.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Clear()
+    { _editId = null; _editVersion = 0; _title = ""; _body = ""; _importance = "normal"; _branchId = null; _publishStart = null; _publishEnd = null; }
+
+    private static string Str(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static string? NullS(JsonElement e, string k)
+        { var s = Str(e, k); return string.IsNullOrEmpty(s) ? null : s; }
+    private static bool Bool(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static DateTime? MsToDate(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.Date : null;
+}

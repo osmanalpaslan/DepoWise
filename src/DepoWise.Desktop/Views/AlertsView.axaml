@@ -112,6 +112,18 @@
                     </StackPanel>
                 </Button>
                 <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="announcement">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconAlerts}"/>
+                        <TextBlock Text="Duyuru" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding DuyuruCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="all">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <TextBlock Text="Tümü" VerticalAlignment="Center"/>

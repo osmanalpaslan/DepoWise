@@ -114,6 +114,9 @@ public sealed class BusinessSyncService
         // TKV-01 (ADR-171): el ile takvim kayıtları — work_orders SONRASI (FK: work_order_id);
         // branches/personnel sunucu-otoriteli ayna. Türetilmiş takvim öğeleri SENKRONLANMAZ (kopya yok).
         "calendar_events",
+        // DYR-01 (ADR-173): duyurular — FK yalnız companies/branches (ayna) → sıra bağımlılığı yok;
+        // masaüstü çevrimdışı okur/yazar. Bildirim kalemleri SENKRONLANMAZ (türetilmiş).
+        "announcements",
         // G4-1c (2026-08-12): ÖN MUHASEBE — CARİ. Masaüstü ÇEVRİMDIŞI cari açabildiği ve elle hareket
         // girebildiği için bunlar senkronda TAŞINMAK ZORUNDA; aksi halde çevrimdışı girilen cari ve
         // bakiyesi sunucuya HİÇ ulaşmaz (web'de görünmez, başka makineye gitmez).
@@ -180,6 +183,7 @@ public sealed class BusinessSyncService
         ["work_order_links"] = "work_orders",        // EMR-01
         ["work_order_status_history"] = "work_orders",   // EMR-01
         ["calendar_events"] = "calendar",            // TKV-01: push yetki kapısı
+        ["announcements"] = "announcements",         // DYR-01: push yetki kapısı
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",

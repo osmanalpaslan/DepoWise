@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.AnnouncementsView"
+             x:DataType="vm:AnnouncementsViewModel">
+
+    <!-- DYR-01 (ADR-173): Duyurular — okuma herkese (PK-J1); yazma announcements yetkisiyle. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Duyurular"
+                      PrimaryActionText="Yeni Duyuru" PrimaryActionCommand="{Binding NewAnnouncementCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: başlık / metin / şube"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                    <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Form (yalnız yazma yetkilisine) -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="12" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Başlık" IsRequired="True" Width="280">
+                        <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Önem" Width="120">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ImportanceOptions}" SelectedItem="{Binding FormImportance}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Hedef Şube" Width="200" HelpText="Boş = tüm firmaya.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                        PlaceholderText="Şube... (boş olabilir)"/>
+                    </ctrl:FormField>
+                    <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
+                    <ctrl:FormField Label="Yayın Başlangıcı" Width="160" HelpText="Boş = hemen.">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Yayın Bitişi" Width="160" HelpText="Boş = süresiz.">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Duyuru Metni" Width="700">
+                    <TextBox Classes="Field" Text="{Binding FormBody}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste (kart görünümü) -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" Padding="10">
+            <DockPanel>
+                <SelectableTextBlock DockPanel.Dock="Top" Text="{Binding ListTitle}" Classes="SectionTitle" Margin="0,0,0,8"/>
+                <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Text="Duyuru yok."
+                                     IsVisible="{Binding IsEmpty}"/>
+                <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                         IsVisible="{Binding HasRows}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AnnouncementVm">
+                            <StackPanel Spacing="2" Margin="0,4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="📢" FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                    <Border CornerRadius="999" Padding="8,1" VerticalAlignment="Center"
+                                            Background="{DynamicResource DangerBrush}" IsVisible="{Binding IsImportant}">
+                                        <TextBlock Text="Önemli" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding BranchDisplay}" FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding StatusText}" FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Body}" FontSize="12" TextWrapping="Wrap" MaxLines="4"
+                                           IsVisible="{Binding HasBody}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding PeriodDisplay}" FontSize="11" Opacity="0.6"/>
+                                    <TextBlock Text="{Binding CreatedByName}" FontSize="11" Opacity="0.6"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Durum -->
+        <StackPanel Grid.Row="3" Margin="0,10,0,0" Spacing="4">
+            <SelectableTextBlock Text="{Binding LoadError}" Classes="Body" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding HasError}"/>
+            <SelectableTextBlock Text="{Binding Status}" Classes="Body"
+                                 IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

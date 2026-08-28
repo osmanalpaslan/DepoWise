@@ -37,6 +37,7 @@ public static class ScreenAuditMap
             ["purchasing"]       = new[] { "purchase_order" },      // STN-01
             ["work_orders"]      = new[] { "work_order" },          // EMR-01
             ["calendar"]         = new[] { "calendar_event" },      // TKV-01 (yalnız el ile kayıt; türetilmiş salt-okunurdur)
+            ["announcements"]    = new[] { "announcement" },        // DYR-01
             ["users"]            = new[] { "user", "user_permissions", "user_scopes", "user_view_all_branches", "role_permissions" },
             ["parties"]          = new[] { "party", "party_ledger" },
             ["invoices"]         = new[] { "invoices" },

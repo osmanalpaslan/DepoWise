@@ -1328,6 +1328,39 @@ app.MapGet("/api/calendar/export", (HttpContext c, long from, long to, string? s
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Takvim.xlsx");
 }).RequireAuthorization();
 
+// ═══ DYR-01 (ADR-173, 2026-08-28) — DUYURULAR ═══
+// Okuma HERKESE (PK-J1 — IsPublicRead; Rol Yetki Kontrol kapatması serviste işler); yazma announcements
+// yetkisiyle. Şube hedefi + aktiflik penceresi SERVİSTE süzülür (yan kapı yok).
+app.MapGet("/api/announcements", (HttpContext c, bool? all, string? search) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    return Results.Ok(svc.Announcements.List(s, all == true, search).Select(a => new
+    {
+        id = a.Id, title = a.Title, body = a.Body, importance = a.Importance,
+        importanceDisplay = a.ImportanceDisplay, isImportant = a.IsImportant,
+        branchId = a.BranchId, branchName = a.BranchDisplay,
+        publishStart = a.PublishStart, publishEnd = a.PublishEnd,
+        periodDisplay = a.PeriodDisplay, statusDisplay = a.StatusDisplay(now),
+        createdByName = a.CreatedByName, createdAt = a.CreatedAt, version = a.Version,
+    }));
+}).RequireAuthorization();
+app.MapPost("/api/announcements", (HttpContext c, AnnouncementDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Announcements.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/announcements/{id}", (HttpContext c, string id, AnnouncementDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Announcements.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/announcements/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Announcements.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/announcements/export", (HttpContext c, bool? all, string? search) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Announcements.AnnouncementService.ToTableModel(
+        svc.Announcements.List(s, all == true, search), now));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Duyurular.xlsx");
+}).RequireAuthorization();
+
 // ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
 // Kapılar SERVİSTE: purchasing modülü + teslim şubesi BranchAccess; mal kabulde stok kapısı DA çalışır.
 app.MapGet("/api/purchasing", (HttpContext c, string? search, string? status) =>
@@ -4037,6 +4070,13 @@ record WoAssignDto(string ResourceType, string ResourceId, string? Note = null);
 record WoConsumeLineDto(string MaterialId, decimal Quantity);
 record WoConsumeDto(List<WoConsumeLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null);
 record WoLinkDto(string EntityType, string EntityId);
+// DYR-01: duyuru gövdesi. Version = düzenleme kilidi.
+record AnnouncementDto(string Title, string? Body = null, string? Importance = null, string? BranchId = null,
+    long? PublishStart = null, long? PublishEnd = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.Announcements.NewAnnouncement ToNew()
+        => new(Title, Body, Importance, BranchId, PublishStart, PublishEnd);
+}
 // TKV-01: el ile takvim kaydı gövdesi. Version = düzenleme kilidi.
 record CalendarEventDto(string Title, long StartDate, long? EndDate = null, string? BranchId = null,
     string? ResponsiblePersonnelId = null, string? WorkOrderId = null, string? Note = null, long? Version = null)

@@ -2653,3 +2653,27 @@ Ayrıntı: `docs/project-control/H_TAKVIM_01.md`.
   zimmet · olay-bazlı bildirim · eşik ayarları.
 
 Ayrıntı: `docs/project-control/I_BILDIRIM_01.md`.
+
+---
+
+## ADR-173 — Duyuru — DYR-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 4/SIRA 10; PK-J1..J5 kullanıcı kararları (J_DUYURU_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- Migration081: TEK yeni tablo (announcements), yalnız CREATE; mevcut tablolara ALTER yok. Okundu için
+  tablo AÇILMADI — mevcut alert_reads imza mekanizması (imza=version → düzenlenince herkes için yeniden
+  okunmamış, DYR6).
+- PK-J1: OKUMA HERKESE — yeni `AppModules.IsPublicRead` kavramı (Can'de View herkese; Rol Yetki Kontrol
+  kapatması geçerli; devretme TAVANINA girmez — "verilmiş yetki" değildir, testlerle kilitli). YAZMA
+  announcements yetkisiyle, kapalı gelir. Yönetici-dışı aktif-dışını göremez (fail-closed).
+- PK-J2 opsiyonel tek şube hedefi (ekran + bildirim kapsam izolasyonu — yan kapı yok, DYR3) ·
+  PK-J3 opsiyonel yayın penceresi (aktiflik TÜRETİLİR, durum alanı yok) · PK-J4 gösterim yalnız
+  Bildirim Merkezi (çan/Uyarılar "Duyuru" kategorisi) + Duyurular ekranı · PK-J5 normal/önemli
+  (önemli = kritik rozet).
+- Bildirim entegrasyonu BLD-01 mimarisiyle: AlertKind.Announcement SONA eklendi;
+  DashboardAlert.SignatureOverride eklemeli alanı (override yoksa davranış birebir eski).
+- Menü grubu KURUMSAL blokta (MenuSectionTests S01 kuralı: grup sırası section bloklarıyla bitişik).
+- Senkron: announcements BusinessSync'te → masaüstü çevrimdışı okur/yazar; uçtan uca idempotent (DYR8).
+- Kapsam dışı: yorum/onay · kişi hedefleme · dosya eki · okudum onayı · zengin metin · ana ekran paneli.
+
+Ayrıntı: `docs/project-control/J_DUYURU_01.md`.

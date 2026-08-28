@@ -4,6 +4,7 @@ using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Application.Maintenance;
+using DepoWise.Infrastructure.Announcements;
 using DepoWise.Infrastructure.Files;
 using DepoWise.Infrastructure.WorkOrders;
 using System.Data.Common;
@@ -35,7 +36,10 @@ public sealed class DashboardService
         _inspection = inspection;
         _documents = documents;
         _workOrders = new WorkOrderService(factory);
+        _announcements = new AnnouncementService(factory);
     }
+
+    private readonly AnnouncementService _announcements;
 
     public DashboardSummary GetSummary(SessionContext s)
     {
@@ -140,6 +144,22 @@ public sealed class DashboardService
                 alerts.Add(new DashboardAlert(AlertKind.Request, $"Talep {docNo}",
                     "Onay bekliyor", "requests:approve", false, id));
             }
+        }
+
+        // ═══ DYR-01 (ADR-173) — DUYURULAR: yayın penceresi İÇİNDEKİ duyurular bildirime kalem olarak
+        // düşer (pencere dışına çıkan kendiliğinden düşer — türetilmiş model). Okuma HERKESE (PK-J1;
+        // Rol Yetki Kontrol kapatması Can içinde işler); şube hedefi List İÇİNDE süzülür (yan kapı yok).
+        // İmza=version → duyuru DÜZENLENİNCE herkes için yeniden okunmamış olur.
+        if (AccessControl.Can(s, AnnouncementService.Module, PermissionAction.View))
+        {
+            try
+            {
+                foreach (var d in _announcements.List(s))
+                    alerts.Add(new DashboardAlert(AlertKind.Announcement, d.Title,
+                        d.IsImportant ? "Önemli duyuru" : "Duyuru", "announcements", d.IsImportant, d.Id,
+                        SignatureOverride: "v" + d.Version));
+            }
+            catch { }   // tablo henüz yoksa (eski şema) ana ekran çalışmaya devam eder
         }
 
         // #18: kullanıcının "okundu" işaretleri — imza eşleşiyorsa Read=true (ana ekranda gizlenir).

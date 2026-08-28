@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (BLD-01 Bildirim Merkezi tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (DYR-01 Duyuru tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -13,10 +13,10 @@
 **FAZ 4/SIRA 9 — I Bildirim Merkezi ✅ (2026-08-28, ADR-172, BildirimTests 12/12; MIGRATION YOK — şema 80;
 PK-I1..I4 aynen) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md).** Türetilmiş bildirim + çan/sayaç iki platformda;
 okundu cihaz-yerel (alert_reads'e dokunulmadı).
-**FAZ 4/SIRA 10 — J Duyuru: ANALİZ TAMAM (2026-08-28, [J_DUYURU_00_ANALIZ.md](J_DUYURU_00_ANALIZ.md)) —
-⛔ PK-J1..J5 kullanıcı kararı bekleniyor; kod/migration YAZILMADI.** Öz: calendar_events iskeleti +
-alert_reads okundu + BLD-01 bildirim kalemi; 1 CREATE-only tablo, ALTER yok.
-Sıradaki: **J uygulaması** (PK-J kararları sonrası) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..080** (8 modül birlikte).
+**FAZ 4/SIRA 10 — J Duyuru ✅ (2026-08-28, ADR-173, DuyuruTests 12/12; Migration081; PK-J1..J5 aynen) —
+[J_DUYURU_01.md](J_DUYURU_01.md).** Okuma herkese (IsPublicRead) + yazma kapalı; bildirim entegrasyonu;
+okundu=alert_reads imzası (düzenlenince yeniden okunmamış).
+Sıradaki: **K — Global Arama** (FAZ 4/SIRA 11) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..081** (9 modül birlikte).
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

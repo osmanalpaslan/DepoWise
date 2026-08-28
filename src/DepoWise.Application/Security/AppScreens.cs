@@ -118,6 +118,9 @@ public static class AppScreens
         new AppScreenGroup("Şube ve Personel",    "🏗️", "branches",        "section:kurumsal"),
         new AppScreenGroup("Kullanıcı Yönetimi",  "👥", "users",           "section:kurumsal"),
         new AppScreenGroup("Evrak",               "📁", "files",           "section:kurumsal"),   // EVR-01 (ADR-165)
+        // DYR-01 (ADR-173): kurumsal BLOKTA durur — grup sırası section bloklarıyla bitişik kalmalı
+        // (MenuSectionTests S01: düz menü sırası = ağaç sırası garantisi).
+        new AppScreenGroup("Duyurular",           "📢", "announcements",   "section:kurumsal"),
         new AppScreenGroup("Denetim",             "🔍", "audit",           "section:kurumsal"),
         new AppScreenGroup("Web Yönetimi",        "🛡️", "companies",       "section:sistem"),
         new AppScreenGroup("Yedekleme",           "💾", "backup",          "section:sistem"),
@@ -215,6 +218,10 @@ public static class AppScreens
 
         // TKV-01 (ADR-171): Takvim — tek ekran (ay + ajanda listesi); türetilmiş + el ile kayıt.
         new AppScreen("calendar", "calendar", "Takvim", "Takvim", Both, "calendar", "calendar"),
+
+        // DYR-01 (ADR-173): Duyurular — okuma HERKESE (IsPublicRead → CanSeeMenu iki platformda da true);
+        // yazma announcements yetkisiyle (kapalı gelir).
+        new AppScreen("announcements", "announcements", "Duyurular", "Duyurular", Both, "announcements", "announcements"),
         // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul (tek ekran).
         new AppScreen("purchasing", "purchasing", "Satın Alma", "Satın Alma", Both, "purchasing", "purchasing"),
         // MLY-01 (ADR-168): Maliyet Merkezleri — Ön Muhasebe altında alt menü (tanım + özet tek ekran).

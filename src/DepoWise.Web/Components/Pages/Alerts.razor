@@ -13,7 +13,7 @@
     <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
 </div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-    Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt, evrak geçerlilik, geciken iş emri, bekleyen talep).
+    Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt, evrak geçerlilik, geciken iş emri, bekleyen talep, duyurular).
     "Okundu" yalnız çan sayacını ve ana ekranı sakinleştirir — uyarı aktif olduğu sürece burada kalır, durumu kötüleşirse yeniden okunmamış olur.
 </MudText>
 
@@ -47,6 +47,8 @@ else
                    StartIcon="@Icons.Material.Filled.Assignment" OnClick="@(() => Toggle("WorkOrder"))">İş Emri (@CountOf("WorkOrder"))</MudButton>
         <MudButton Variant="@(_filter == "Request" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Description" OnClick="@(() => Toggle("Request"))">Talep (@CountOf("Request"))</MudButton>
+        <MudButton Variant="@(_filter == "Announcement" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Campaign" OnClick="@(() => Toggle("Announcement"))">Duyuru (@CountOf("Announcement"))</MudButton>
         <MudButton Variant="@(_filter == "ALL" ? Variant.Filled : Variant.Outlined)" Color="Color.Secondary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.ListAlt" OnClick="@(() => Toggle("ALL"))">Tümü (@(_alerts?.Count ?? 0))</MudButton>
         <MudSpacer />
@@ -154,6 +156,7 @@ else
         "Document" => Icons.Material.Filled.Folder,       // BLD-01
         "WorkOrder" => Icons.Material.Filled.Assignment,  // BLD-01
         "Request" => Icons.Material.Filled.Description,   // BLD-01
+        "Announcement" => Icons.Material.Filled.Campaign, // DYR-01
         _ => Icons.Material.Filled.Warning,
     };
 

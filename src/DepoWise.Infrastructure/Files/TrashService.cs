@@ -20,6 +20,7 @@ public sealed class TrashService
         ["materials"] = "name", ["vehicles"] = "internal_code", ["personnel"] = "full_name",
         ["branches"] = "name", ["projects"] = "name", ["equipment"] = "name", ["cost_centers"] = "name", ["suppliers"] = "name", ["brands"] = "name", ["units"] = "name",
         ["calendar_events"] = "title",   // TKV-01 (ADR-171): el ile takvim kaydı — soft delete standardı
+        ["announcements"] = "title",     // DYR-01 (ADR-173): duyuru — soft delete standardı
 
         ["material_categories"] = "name", ["vehicle_templates"] = "name",
         ["vehicle_types"] = "name", ["vehicle_categories"] = "name", ["vehicle_models"] = "name",

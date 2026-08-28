@@ -232,7 +232,10 @@ public class PermissionGrantCeilingTests : IDisposable
         {
             if (AppModules.IsPublic(key)) continue;
             var ceiling = AccessControl.GrantCeiling(s, key);
-            Assert.Equal(AccessControl.Can(s, key, PermissionAction.View), ceiling.CanView);
+            // DYR-01 (ADR-173, PK-J1): okuması-herkese modülde View HERKESTE vardır ama bu bir "verilmiş
+            // yetki" değildir → devretme tavanına GİRMEZ. Yazma bayrakları normal kurala tabidir.
+            if (!AppModules.IsPublicRead(key))
+                Assert.Equal(AccessControl.Can(s, key, PermissionAction.View), ceiling.CanView);
             Assert.Equal(AccessControl.Can(s, key, PermissionAction.Create), ceiling.CanCreate);
             Assert.Equal(AccessControl.Can(s, key, PermissionAction.Edit), ceiling.CanEdit);
             Assert.Equal(AccessControl.Can(s, key, PermissionAction.Delete), ceiling.CanDelete);
@@ -287,6 +290,16 @@ public class PermissionGrantCeilingTests : IDisposable
         foreach (var (key, _) in AppModules.All)
         {
             if (AppModules.IsPublic(key) || AppModules.IsUserDirectory(key)) continue;
+            // DYR-01 (PK-J1): duyuru OKUMA herkese açıktır — sıfırlama bunu kapatmaz (bilinçli);
+            // yazma yine kapalı kalır ve burada kilitlenir.
+            if (AppModules.IsPublicRead(key))
+            {
+                Assert.True(AccessControl.Can(hedefOturum, key, PermissionAction.View));
+                Assert.False(AccessControl.Can(hedefOturum, key, PermissionAction.Create));
+                Assert.False(AccessControl.Can(hedefOturum, key, PermissionAction.Edit));
+                Assert.False(AccessControl.Can(hedefOturum, key, PermissionAction.Delete));
+                continue;
+            }
             Assert.False(AccessControl.Can(hedefOturum, key, PermissionAction.View));
         }
     }
@@ -404,8 +417,9 @@ public class PermissionGrantCeilingTests : IDisposable
         _perms.ResetForUser(s, hedef);
 
         var ozet = _perms.SummaryForUser(s, hedef);
-        // Geriye YALNIZ herkese açık modüller kalır (Ana Ekran/Hakkında/Tema — yetkiyle yönetilmezler).
-        Assert.All(ozet.Modules, m => Assert.True(AppModules.IsPublic(m.ModuleKey)));
+        // Geriye YALNIZ herkese açık modüller kalır (Ana Ekran/Hakkında/Tema — yetkiyle yönetilmezler;
+        // DYR-01/PK-J1: Duyurular'ın okuması da herkese açıktır ve özetten düşmez — bilinçli).
+        Assert.All(ozet.Modules, m => Assert.True(AppModules.IsPublic(m.ModuleKey) || AppModules.IsPublicRead(m.ModuleKey)));
         Assert.DoesNotContain(ozet.Modules, m => m.ModuleKey == "materials");
         Assert.Equal(0, ozet.ExplicitModuleRows);
     }

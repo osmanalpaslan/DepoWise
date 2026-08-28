@@ -85,10 +85,10 @@ public static class ReportGate
         => TenantAccessGuard.ResolveCompanyId(s, requested);
 }
 
-// BLD-01 (ADR-172): yeni türler SONA eklenir — mevcut değerlerin sırası/serileştirmesi DEĞİŞMEZ.
-public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request }
+// BLD-01 (ADR-172) / DYR-01 (ADR-173): yeni türler SONA eklenir — mevcut değerlerin sırası/serileştirmesi DEĞİŞMEZ.
+public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request, Announcement }
 
-public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false)
+public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false, string? SignatureOverride = null)
 {
     /// <summary>Uyarı tipine göre ikon (emoji) — ana ekran uyarı listesinde gösterilir.</summary>
     public string Icon => Kind switch
@@ -100,6 +100,7 @@ public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail,
         AlertKind.Document => "📁",
         AlertKind.WorkOrder => "📋",
         AlertKind.Request => "📄",
+        AlertKind.Announcement => "📢",
         _ => "⚠️",
     };
 
@@ -108,8 +109,10 @@ public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail,
 
     /// <summary>Kalıcı kimlik (kullanıcı "okundu" işaretini buna göre saklar). #18</summary>
     public string Key => $"{Kind}|{EntityId}|{Title}";
-    /// <summary>Uyarının o anki hali — değişince (kötüleşince) "okundu" düşer, uyarı ana ekranda yeniden görünür.</summary>
-    public string Signature => Detail;
+    /// <summary>Uyarının o anki hali — değişince (kötüleşince) "okundu" düşer, uyarı ana ekranda yeniden görünür.
+    /// DYR-01: Detail'i sabit olan kaynaklar (duyuru) imzayı AYRICA verir (SignatureOverride = sürüm) —
+    /// duyuru DÜZENLENİNCE herkes için yeniden okunmamış olur. Override yoksa davranış eskisiyle BİREBİR.</summary>
+    public string Signature => SignatureOverride ?? Detail;
 }
 
 public sealed record DashboardSummary(

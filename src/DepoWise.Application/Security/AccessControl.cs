@@ -18,6 +18,10 @@ public static class AccessControl
         // Rol Yetki Kontrol: süper adminin bu ROLE kapattığı ekran — admin bypass'ı dahil hiçbir yolla açılmaz.
         // (Süper admin ve geliştirici modu muaf; aksi halde platform sahibi kendini kilitler.)
         if (!s.IsSuperAdmin && !DeveloperMode.IsActive && s.BlockedModules.Contains(moduleKey)) return false;
+
+        // DYR-01 (PK-J1): okuması-herkese modüller — View herkese açık (Rol Yetki Kontrol kapatması
+        // YUKARIDA uygulandı); yazma AŞAĞIDAKİ normal kurallarla (admin bypass + açık izin) korunur.
+        if (AppModules.IsPublicRead(moduleKey) && action == PermissionAction.View) return true;
         // Yalnız Süper Admin'e açık modüller (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım):
         // Süper Admin tam yetkili; firma admini bypass GEÇERSİZ. Süper admin bunları YALNIZ "Kısıtlı Süper Admin"e
         // devredebilir → o rol de yalnız AÇIKÇA verilen işlem kadar erişir.

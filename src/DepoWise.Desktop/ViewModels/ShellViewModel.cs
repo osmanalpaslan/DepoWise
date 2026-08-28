@@ -1127,6 +1127,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Takvim";
                 CurrentContext = "Takvim: iş emri planları, muayene/sigorta, evrak geçerlilik, proje, bakım hedefleri + el ile kayıtlar";
                 break;
+            // DYR-01 (ADR-173): Duyurular — okuma herkese, yazma announcements yetkisiyle; yerel + senkron.
+            case "announcements":
+                CurrentPage = new AnnouncementsViewModel(_session);
+                CurrentTitle = "Duyurular";
+                CurrentContext = "Firma duyuruları: yayın penceresi, şube hedefi, önem";
+                break;
             // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul; yerel + senkron.
             case "purchasing":
                 CurrentPage = new PurchasingViewModel(_session);
