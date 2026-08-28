@@ -115,6 +115,7 @@ public sealed partial class DocumentsViewModel : ViewModelBase
             "material" => ("/api/materials", "id", "name"),
             "vehicle" => ("/api/vehicles/options", "id", "name"),
             "equipment" => ("/api/equipment", "id", "name"),
+            "purchase_order" => ("/api/purchasing", "id", "orderNo"),
             "personnel" => ("/api/personnel", "id", "fullName"),
             "branch" => ("/api/branches", "id", "name"),
             "project" => ("/api/projects", "id", "name"),

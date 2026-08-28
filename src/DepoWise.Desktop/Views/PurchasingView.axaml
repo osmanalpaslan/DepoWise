@@ -1,0 +1,167 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:pur="using:DepoWise.Infrastructure.Purchasing"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.PurchasingView"
+             x:DataType="vm:PurchasingViewModel">
+
+    <!-- STN-01 (ADR-169): Satın Alma — TALEP → SİPARİŞ → MAL KABUL → STOK; yerel + senkron. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Satın Alma"
+                      PrimaryActionText="Yeni Sipariş" PrimaryActionCommand="{Binding NewOrderCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: no / tedarikçi / talep / depo"/>
+                    <ComboBox Classes="Field" Width="130" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni sipariş formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="12" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="YENİ SİPARİŞ" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Sipariş No" IsRequired="True" Width="140">
+                        <TextBox Classes="Field" Text="{Binding FormOrderNo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Tedarikçi" Width="200">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}" SelectedItem="{Binding FormSupplier}"
+                                        PlaceholderText="Tedarikçi seç / ara..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Bağlı Talep" Width="180" HelpText="Opsiyonel; seçilince satırlar talepten kopyalanır.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding RequestOptions}" SelectedItem="{Binding FormRequest}"
+                                        PlaceholderText="Onaylı talep..."/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Teslim Deposu" Width="190" HelpText="Mal kabulde stok bu depoya girer.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                        PlaceholderText="Depo seç / ara..."/>
+                    </ctrl:FormField>
+                    <!-- Tarih KEHRİBAR temadan; yetki yoksa bugüne kilitli -->
+                    <ctrl:FormField Label="Sipariş Tarihi" Width="160">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"
+                                    HelpText="Kabulde oluşan stok belgesine bağlanır.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
+                                        PlaceholderText="Merkez... (boş olabilir)"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Açıklama" Width="700">
+                    <TextBox Classes="Field" Text="{Binding FormNote}"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Text="SİPARİŞ SATIRLARI" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding FormLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PurchaseLineVm">
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,3">
+                                <ctrl:LookupBox Width="300" ItemsSource="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).MaterialOptions}"
+                                                SelectedItem="{Binding Material}" PlaceholderText="Malzeme seç / ara..."/>
+                                <NumericUpDown Classes="Field" Width="110" Value="{Binding Quantity}" Minimum="0.0001" FormatString="0.####" ShowButtonSpinner="False"/>
+                                <NumericUpDown Classes="Field" Width="130" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
+                                               ToolTip.Tip="Birim fiyat (boş/0 = fiyatsız satır)"/>
+                                <Button Classes="Danger" Content="Sil"
+                                        Command="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).RemoveLineCommand}"
+                                        CommandParameter="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Sipariş Oluştur" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste + Detay/Mal Kabul -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,380">
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="NO" MinWidth="100" MaxWidth="100"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
+                                <SelectableTextBlock Grid.Column="2" Text="TEDARİKÇİ" MinWidth="150"/>
+                                <SelectableTextBlock Grid.Column="3" Text="DEPO" MinWidth="120" MaxWidth="120"/>
+                                <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="90" MaxWidth="90"/>
+                                <SelectableTextBlock Grid.Column="5" Text="TOPLAM" MinWidth="110" MaxWidth="110"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="pur:PurchaseOrderRow">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding OrderNo}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OrderNo}"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding OrderDateDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding SupplierDisplay}" MinWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SupplierDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding BranchDisplay}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BranchDisplay}"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding StatusDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="{Binding TotalDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Sipariş yok" Message="Yeni Sipariş ile başlayabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Detay: satırlar + mal kabul -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Spacing="8">
+                        <SelectableTextBlock Text="{Binding Selected.OrderNo}" Classes="PageTitle"/>
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap">
+                            <Run Text="{Binding Selected.SupplierDisplay}"/><Run Text=" · "/><Run Text="{Binding Selected.BranchDisplay}"/><Run Text=" · MM: "/><Run Text="{Binding Selected.CostCenterDisplay}"/>
+                        </SelectableTextBlock>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Classes="Primary" Content="Mal Kabul" Command="{Binding ReceiveCommand}" IsVisible="{Binding CanReceiveNow}"
+                                    ToolTip.Tip="Seçilen miktarlar teslim deposuna STOK GİRİŞİ olarak işlenir."/>
+                            <Button Classes="Danger" Content="İptal Et" Command="{Binding CancelCommand}" IsVisible="{Binding SelectedOpen}"/>
+                        </StackPanel>
+                        <Border Classes="Divider"/>
+                        <SelectableTextBlock Text="SATIRLAR / MAL KABUL" Classes="SectionTitle"/>
+                    </StackPanel>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding DetailLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReceiveLineVm">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <SelectableTextBlock Classes="Body" FontWeight="SemiBold" Text="{Binding MaterialName}" TextTrimming="CharacterEllipsis"/>
+                                            <SelectableTextBlock Classes="Helper" Text="{Binding Info}"/>
+                                        </StackPanel>
+                                        <NumericUpDown Grid.Column="1" Classes="Field" Width="110" Value="{Binding ReceiveNow}"
+                                                       Minimum="0" FormatString="0.####" ShowButtonSpinner="False"
+                                                       ToolTip.Tip="Bu satır için kabul edilecek miktar (kısmi kabul serbest)"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+                <SelectableTextBlock Text="Satırlar ve mal kabul için bir sipariş seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

@@ -105,6 +105,7 @@ public static class AppScreens
         new AppScreenGroup("Araçlar",             "🚚", "vehicles",        "section:operasyon"),
         new AppScreenGroup("Ekipman",             "⚙️", "equipment",       "section:operasyon"),   // EKP-01 (ADR-166)
         new AppScreenGroup("Zimmet",              "🧰", "assignments",     "section:operasyon"),   // ZMT-01 (ADR-167)
+        new AppScreenGroup("Satın Alma",          "🛒", "purchasing",      "section:operasyon"),   // STN-01 (ADR-169)
         new AppScreenGroup("Günlük Faaliyet",     "📋", "daily_activity",  "section:operasyon"),
         new AppScreenGroup("Bakım Takibi",        "🔧", "maintenance",     "section:operasyon"),
         new AppScreenGroup("Yakıt",               "⛽", "fuel",            "section:operasyon"),
@@ -207,6 +208,8 @@ public static class AppScreens
         new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
         // PRJ-01 (ADR-164): Projeler — yetki modülü branches (PK-C4: ayrı kapı yok).
         new AppScreen("projects", "branches", "Şube ve Personel", "Projeler", Both, "projects", "projects"),
+        // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul (tek ekran).
+        new AppScreen("purchasing", "purchasing", "Satın Alma", "Satın Alma", Both, "purchasing", "purchasing"),
         // MLY-01 (ADR-168): Maliyet Merkezleri — Ön Muhasebe altında alt menü (tanım + özet tek ekran).
         new AppScreen("cost_centers", "cost_centers", "Ön Muhasebe", "Maliyet Merkezleri", Both, "cost-centers", "cost_centers"),
         // ZMT-01 (ADR-167): Zimmet — kimde ne var + hareket defteri (tek ekran).

@@ -2564,3 +2564,23 @@ Ayrıntı: `docs/project-control/B_ZIMMET_01.md`.
 - Migration077 yalnız CREATE (MLY10/11 kanıtlı); canlıya uygulanmadı.
 
 Ayrıntı: `docs/project-control/D_MALIYET_01.md`.
+
+---
+
+## ADR-169 — Satın Alma — STN-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** yol haritası FAZ 2/SIRA 6 (FAZ 2 sonu)
+
+### Karar
+- Eksik olan yalnız SİPARİŞ kaydıydı (talep operasyon zinciri + request_ops_purchase zaten vardı ve
+  DEĞİŞTİRİLMEDİ). Migration078: purchase_orders + purchase_order_lines (yalnız CREATE; STN12/13 kanıtlı).
+- Talep bağı OPSİYONEL (satır kopyalama kodla eşlenir) · onay/teklif katmanı EKLENMEDİ (mevcut üründe
+  yok) · durum asgari: Açık/Tamamlandı(otomatik)/İptal.
+- MAL KABUL mevcut ReceiveInTx ile TEK transaction'da; idempotency STOK DEFTERİNDEN (`po:` izi) —
+  ikinci gönderim ikinci stok girişini de received artışını da üretmez (STN3). received_qty C# decimal.
+- Yeni `purchasing` modülü (kapalı gelir); kabulde stok kapısı DA aranır (STN5, yan kapı yok);
+  teslim şubesi BranchAccess (STN7); tenant (STN6). Maliyet merkezi kabul belgesine D dış-bağıyla —
+  çift sayım yok (STN8). Proje için project_id eklenmedi (C kararı).
+- Senkron FK sıralı (material_requests sonrası) + uçtan uca kanıtlı (STN11). Evrak'a "Sipariş" türü.
+- Fatura/cari OTOMASYONU bilinçli ertelendi (fatura mevcut ekrandan; PDF Evrak'la bağlanır).
+
+Ayrıntı: `docs/project-control/P_SATINALMA_01.md`.

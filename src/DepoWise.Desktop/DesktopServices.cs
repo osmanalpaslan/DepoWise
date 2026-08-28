@@ -97,6 +97,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Equipment.EquipmentService Equipment { get; private set; } = null!;   // EKP-01
     public static DepoWise.Infrastructure.Assignments.AssignmentService Assignments { get; private set; } = null!;   // ZMT-01
     public static DepoWise.Infrastructure.Accounting.CostCenterService CostCenters { get; private set; } = null!;   // MLY-01
+    public static DepoWise.Infrastructure.Purchasing.PurchaseOrderService Purchasing { get; private set; } = null!;   // STN-01
     public static IFileStorageProvider Storage { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
@@ -210,6 +211,7 @@ public static class DesktopServices
         Equipment = new DepoWise.Infrastructure.Equipment.EquipmentService(Factory, clock);
         Assignments = new DepoWise.Infrastructure.Assignments.AssignmentService(Factory, clock);
         CostCenters = new DepoWise.Infrastructure.Accounting.CostCenterService(Factory, clock);
+        Purchasing = new DepoWise.Infrastructure.Purchasing.PurchaseOrderService(Factory, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

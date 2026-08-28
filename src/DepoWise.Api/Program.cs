@@ -1236,6 +1236,42 @@ app.MapPut("/api/equipment/{id}", (HttpContext c, string id, EquipmentDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/equipment/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+// ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
+// Kapılar SERVİSTE: purchasing modülü + teslim şubesi BranchAccess; mal kabulde stok kapısı DA çalışır.
+app.MapGet("/api/purchasing", (HttpContext c, string? search, string? status) =>
+    S(c) is { } s ? Results.Ok(svc.Purchasing.List(s, search, status).Select(o => new
+    {
+        id = o.Id, orderNo = o.OrderNo, supplierId = o.SupplierId, supplierName = o.SupplierDisplay,
+        requestId = o.RequestId, requestNo = o.RequestDisplay, branchId = o.BranchId, branchName = o.BranchDisplay,
+        costCenterId = o.CostCenterId, costCenterName = o.CostCenterDisplay,
+        status = o.Status, statusDisplay = o.StatusDisplay, orderDate = o.OrderDate, note = o.Note,
+        total = o.TotalDisplay, version = o.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/purchasing/{id}/lines", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Purchasing.Lines(s, id).Select(l => new
+    {
+        id = l.Id, materialId = l.MaterialId, materialName = l.MaterialName,
+        quantity = l.Quantity, unitPrice = l.UnitPrice, currency = l.Currency,
+        receivedQty = l.ReceivedQty, remainingQty = l.RemainingQty, note = l.Note,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/purchasing", (HttpContext c, PurchaseOrderDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Purchasing.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/purchasing/{id}", (HttpContext c, string id, PurchaseOrderDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Purchasing.UpdateMeta(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/purchasing/{id}/cancel", (HttpContext c, string id, IdReasonDto? d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Purchasing.Cancel(s, id, d?.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/purchasing/{id}/receive", (HttpContext c, string id, PurchaseReceiveDto d) =>
+    S(c) is { } s ? Results.Ok(new { documentId = svc.Purchasing.Receive(s, id,
+        (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Purchasing.ReceiveLine(l.LineId, l.Quantity)).ToList(),
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.DocDate, d.Note) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/purchasing/export", (HttpContext c, string? search, string? status) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Purchasing.PurchaseOrderService.ToTableModel(svc.Purchasing.List(s, search, status)));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "SatinAlma.xlsx");
+}).RequireAuthorization();
+
 // ═══ MLY-01 (ADR-168, 2026-08-28) — MALİYET MERKEZLERİ ═══
 // Kapılar SERVİSTE (cost_centers modülü + Link'te kaynak kaydın şube kapsamı).
 app.MapGet("/api/cost-centers", (HttpContext c, string? search) =>
@@ -3896,6 +3932,18 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// STN-01: sipariş gövdesi. Version = düzenleme kilidi; Lines yalnız oluşturmada kullanılır.
+record PurchaseOrderLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null, string? Currency = null, string? Note = null);
+record PurchaseOrderDto(string OrderNo, string? SupplierId = null, string? RequestId = null, string? BranchId = null,
+    string? CostCenterId = null, long? OrderDate = null, string? Note = null,
+    List<PurchaseOrderLineDto>? Lines = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.Purchasing.NewPurchaseOrder ToNew()
+        => new(OrderNo, SupplierId, RequestId, BranchId, CostCenterId, OrderDate, Note,
+            Lines?.Select(l => new DepoWise.Infrastructure.Purchasing.NewPurchaseOrderLine(l.MaterialId, l.Quantity, l.UnitPrice, l.Currency, l.Note)).ToList());
+}
+record PurchaseReceiveLineDto(string LineId, decimal Quantity);
+record PurchaseReceiveDto(List<PurchaseReceiveLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null);
 // MLY-01: maliyet merkezi tanımı. Version = düzenleme kilidi jetonu.
 record CostCenterDto(string Name, string? Code = null, string? Status = null, string? Description = null, long? Version = null);
 // ZMT-01: tek işlem gövdesi (teslim/iade/kayıp/devir). OperationId istemciden gelir → idempotent retry.

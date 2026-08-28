@@ -101,6 +101,10 @@ public sealed class BusinessSyncService
         "material_request_items",
         // SNK-A5: talep durum/onay geçmişi. Ebeveyni material_requests → SONRA.
         "request_status_history",
+        // STN-01 (ADR-169): satın alma — başlık satırdan ÖNCE (FK: supplier/request/cost_center YUKARIDA;
+        // branches sunucu-otoriteli ayna — vehicles ile aynı durum).
+        "purchase_orders",
+        "purchase_order_lines",
         // G4-1c (2026-08-12): ÖN MUHASEBE — CARİ. Masaüstü ÇEVRİMDIŞI cari açabildiği ve elle hareket
         // girebildiği için bunlar senkronda TAŞINMAK ZORUNDA; aksi halde çevrimdışı girilen cari ve
         // bakiyesi sunucuya HİÇ ulaşmaz (web'de görünmez, başka makineye gitmez).
@@ -160,6 +164,8 @@ public sealed class BusinessSyncService
         ["assignment_movements"] = "assignments",   // ZMT-01: push yetki kapısı
         ["cost_centers"] = "cost_centers",           // MLY-01
         ["cost_center_links"] = "cost_centers",      // MLY-01
+        ["purchase_orders"] = "purchasing",          // STN-01: push yetki kapısı
+        ["purchase_order_lines"] = "purchasing",     // STN-01
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",
