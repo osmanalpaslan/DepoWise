@@ -40,7 +40,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-167 · yayın bekliyor) |
 | | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · yayın bekliyor) |
 | | 6 | P — Satın Alma | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-169 · yayın bekliyor) — **FAZ 2 BİTTİ** |
-| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | 🔵 **SIRADAKİ** (önce: bakım-ekipman küçük işi değerlendirilmeli + iş emri akışı ürün soruları) |
+| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | 🔵 **ANALİZ TAMAM (2026-08-28)** — PK-F1..F9 kararları bekleniyor: [F_ISEMRI_00_ANALIZ.md](F_ISEMRI_00_ANALIZ.md) |
 | | 8 | H — Takvim | Yeni ana menü (tek ekran) | BEKLİYOR |
 | **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | BEKLİYOR |
 | | 10 | J — Duyuru | Yeni ana menü | BEKLİYOR |
