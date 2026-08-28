@@ -1,0 +1,314 @@
+@page "/calendar"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ TKV-01 (ADR-171, 2026-08-28) — TAKVİM ═══
+    Tek ekran: AY IZGARASI + AJANDA LİSTESİ. HİBRİT (PK-H1): türetilmiş öğeler (iş emri planı,
+    muayene/sigorta, evrak geçerlilik, proje, gün-bazlı bakım hedefi — SALT-OKUNUR) + el ile plan
+    kayıtları (CRUD). PK-H4: gün bazlı, saat YOK. PK-H5: iş emri bağı YALNIZ gezinme.
+    Kapılar SUNUCUDA (calendar modülü + türetilmişte kaynak modül yetkisi + BranchAccess).
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Takvim</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("calendar"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ TAKVİM KAYDI" : "TAKVİM KAYDI DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="4"><MudTextField @bind-Value="_title" Label="Başlık *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_startDate" Label="Başlangıç *" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" /></MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_endDate" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_branchId" Label="Şantiye / Saha" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_responsibleId" Label="Sorumlu Personel" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var p in _personnel) { <MudSelectItem T="string" Value="@p.Id">@p.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_workOrderId" Label="İş Emri Bağı (yalnız gezinme)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var w in _workOrders) { <MudSelectItem T="string" Value="@w.Id">@w.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama / Not" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ShiftMonth(-1))">◀</MudButton>
+        <MudText Typo="Typo.h6" Style="min-width:150px;text-align:center;">@_month.ToString("MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"))</MudText>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ShiftMonth(1))">▶</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="GoToday">Bugün</MudButton>
+        <MudSpacer />
+        <MudSelect T="string" @bind-Value="_fSource" Label="Kaynak" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" @bind-Value:after="Load" Style="min-width:160px;">
+            <MudSelectItem T="string" Value="@("event")">Takvim Kaydı</MudSelectItem>
+            <MudSelectItem T="string" Value="@("work_order")">İş Emri</MudSelectItem>
+            <MudSelectItem T="string" Value="@("inspection")">Muayene/Sigorta</MudSelectItem>
+            <MudSelectItem T="string" Value="@("document")">Evrak Geçerlilik</MudSelectItem>
+            <MudSelectItem T="string" Value="@("project")">Proje</MudSelectItem>
+            <MudSelectItem T="string" Value="@("maintenance")">Bakım Hedefi</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_fBranch" Label="Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" @bind-Value:after="Load" Style="min-width:140px;">
+            @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+        </MudSelect>
+        <MudTextField @bind-Value="_search" Label="Ara" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:140px;" />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Aktif filtrelerle bu ayın TÜM takvim öğelerini Excel dosyası olarak indirir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+            </MudTooltip>
+        }
+    </MudStack>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else
+    {
+        @* ═══ AY IZGARASI ═══ *@
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+            @foreach (var gun in new[] { "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz" })
+            {
+                <div style="text-align:center;font-weight:600;font-size:0.75rem;padding:4px;" class="mud-text-secondary">@gun</div>
+            }
+            @foreach (var day in MonthCells())
+            {
+                var inMonth = day.Month == _month.Month;
+                var isToday = day == DateTime.UtcNow.Date;
+                var dayItems = ItemsOfDay(day);
+                var selected = _selectedDay == day;
+                <div style="@CellStyle(inMonth, selected)" @onclick="() => SelectDay(day)">
+                    <div style="@DayNoStyle(isToday)">@day.Day</div>
+                    @foreach (var i in dayItems.Take(3))
+                    {
+                        <div style="font-size:0.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;" title="@ItemTip(i)">
+                            <span class="dw-badge dw-badge-@Badge(i)" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;">@(IsEvent(i) ? "★ " : "")@Str(i, "title")</span>
+                        </div>
+                    }
+                    @if (dayItems.Count > 3) { <div class="mud-text-secondary" style="font-size:0.65rem;">+@(dayItems.Count - 3) daha…</div> }
+                </div>
+            }
+        </div>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">★ = el ile takvim kaydı · diğerleri mevcut kayıtlardan otomatik türetilir (salt-okunur). Gün seçmek ajandayı süzer.</MudText>
+    }
+</MudPaper>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
+        <MudText Typo="Typo.h6">Ajanda@(_selectedDay is not null ? $" — {_selectedDay:dd.MM.yyyy}" : " — tüm ay")</MudText>
+        @if (_selectedDay is not null) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => SelectDay(null)">Tüm ayı göster</MudButton> }
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (AgendaItems().Count == 0) { <MudText Class="mud-text-secondary">Bu aralıkta takvim öğesi yok.</MudText> }
+    else
+    {
+        <MudTable Items="AgendaItems()" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent><MudTh>TARİH</MudTh><MudTh>KAYNAK</MudTh><MudTh>BAŞLIK</MudTh><MudTh>ŞANTİYE</MudTh><MudTh>SORUMLU</MudTh><MudTh>DURUM/DETAY</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd>@Str(context, "dateDisplay")</MudTd>
+                <MudTd><span class="dw-badge dw-badge-@Badge(context)">@(IsEvent(context) ? "★ " : "")@Str(context, "sourceDisplay")</span></MudTd>
+                <MudTd>@Str(context, "title")@(string.IsNullOrEmpty(Str(context, "note")) ? "" : $" · {Str(context, "note")}")</MudTd>
+                <MudTd>@Str(context, "branchName")</MudTd>
+                <MudTd>@Str(context, "responsibleName")</MudTd>
+                <MudTd>@Str(context, "detail")</MudTd>
+                <MudTd>
+                    <MudStack Row="true" Spacing="1">
+                        @if (SourceHref(context) is { } href)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Href="@href">Kayda Git</MudButton>
+                        }
+                        @if (IsEvent(context) && Auth.CanEdit("calendar"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => BeginEdit(context)">Düzenle</MudButton>
+                        }
+                        @if (IsEvent(context) && Auth.CanDelete("calendar"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => DeleteEvent(Str(context, "id")))">Sil</MudButton>
+                        }
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private DateTime _month = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+    private DateTime? _selectedDay;
+    private JsonElement[]? _rows;
+    private List<ApiClient.Opt> _branches = new(), _personnel = new(), _workOrders = new();
+    private string? _fSource, _fBranch;
+    private string _search = "";
+
+    // form
+    private string? _editId; private long _editVersion;
+    private string _title = "", _note = "";
+    private DateTime? _startDate = DateTime.UtcNow.Date, _endDate;
+    private string? _branchId, _responsibleId, _workOrderId;
+    private string? _msg; private bool _ok, _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        try { _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName"); } catch { }
+        try { _workOrders = await Api.OptionsAsync("/api/work-orders", "id", "woNo"); } catch { }
+        await Load();
+    }
+
+    private (long From, long To) Window()
+    {
+        var from = new DateTimeOffset(DateTime.SpecifyKind(_month, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        var to = new DateTimeOffset(DateTime.SpecifyKind(_month.AddMonths(1), DateTimeKind.Utc)).ToUnixTimeMilliseconds() - 1;
+        return (from, to);
+    }
+
+    private string Query()
+    {
+        var (from, to) = Window();
+        var q = new List<string> { $"from={from}", $"to={to}" };
+        if (!string.IsNullOrEmpty(_fSource)) q.Add("source=" + Uri.EscapeDataString(_fSource));
+        if (!string.IsNullOrEmpty(_fBranch)) q.Add("branchId=" + Uri.EscapeDataString(_fBranch));
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        return string.Join("&", q);
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try { _rows = await Api.GetArrayAsync("/api/calendar?" + Query()); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task ShiftMonth(int delta) { _month = _month.AddMonths(delta); _selectedDay = null; await Load(); }
+    private async Task GoToday() { _month = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1); _selectedDay = null; await Load(); }
+    private void SelectDay(DateTime? day) => _selectedDay = _selectedDay == day ? null : day;
+
+    /// <summary>Ay ızgarası hücreleri — Pazartesi başlangıçlı tam haftalar.</summary>
+    private IEnumerable<DateTime> MonthCells()
+    {
+        var first = _month;
+        var offset = ((int)first.DayOfWeek + 6) % 7;   // Pazartesi=0
+        var start = first.AddDays(-offset);
+        var last = _month.AddMonths(1).AddDays(-1);
+        var endOffset = 6 - ((int)last.DayOfWeek + 6) % 7;
+        var end = last.AddDays(endOffset);
+        for (var d = start; d <= end; d = d.AddDays(1)) yield return d;
+    }
+
+    private List<JsonElement> ItemsOfDay(DateTime day)
+    {
+        if (_rows is null) return new();
+        var dayStart = new DateTimeOffset(DateTime.SpecifyKind(day, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        var dayEnd = dayStart + 86_400_000 - 1;
+        return _rows.Where(r =>
+        {
+            var s = Num(r, "startDate"); var e = r.TryGetProperty("endDate", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : s;
+            return s <= dayEnd && e >= dayStart;
+        }).ToList();
+    }
+
+    private List<JsonElement> AgendaItems()
+        => _selectedDay is { } d ? ItemsOfDay(d) : (_rows ?? Array.Empty<JsonElement>()).ToList();
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_title) || _startDate is null) { _msg = "Başlık ve başlangıç tarihi zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Takvim kaydı oluşturulsun mu?" : "Takvim kaydı güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            long? Ms(DateTime? d) => d is null ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+            var body = new
+            {
+                title = _title.Trim(), startDate = Ms(_startDate)!.Value, endDate = Ms(_endDate),
+                branchId = _branchId, responsiblePersonnelId = _responsibleId, workOrderId = _workOrderId,
+                note = _note,
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null,
+            };
+            var err = _editId is null ? await Api.PostAsync("/api/calendar/events", body)
+                : await Api.PutAsync($"/api/calendar/events/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Oluşturuldu." : "Güncellendi.");
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu takvim kaydını düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+        _title = Str(d, "title"); _note = Str(d, "note");
+        _startDate = MsToDate(d, "startDate"); _endDate = MsToDate(d, "endDate");
+        _branchId = NullS(d, "branchId"); _responsibleId = NullS(d, "responsiblePersonnelId"); _workOrderId = NullS(d, "workOrderId");
+        _msg = null;
+    }
+
+    private async Task DeleteEvent(string id)
+    {
+        if (!await Dialog.Confirm("Takvim kaydı silinsin mi? (Çöp Kutusu'ndan geri alınabilir.)", okText: "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/calendar/events/{id}");
+        _msg = err ?? "Silindi — Çöp Kutusu'ndan geri alınabilir."; _ok = err is null;
+        await Load();
+    }
+
+    private async Task ExportExcel()
+    {
+        var (bytes, name) = await Api.GetFileAsync("/api/calendar/export?" + Query(), "Takvim.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Clear()
+    { _editId = null; _editVersion = 0; _title = ""; _note = ""; _startDate = DateTime.UtcNow.Date; _endDate = null; _branchId = null; _responsibleId = null; _workOrderId = null; }
+
+    // ── yardımcılar ──
+    private static string CellStyle(bool inMonth, bool selected)
+        => "min-height:76px;border:1px solid var(--mud-palette-lines-default);border-radius:4px;padding:3px;cursor:pointer;"
+           + (inMonth ? "" : "opacity:0.4;") + (selected ? "outline:2px solid var(--mud-palette-primary);" : "");
+    private static string DayNoStyle(bool isToday)
+        => "font-size:0.75rem;" + (isToday ? "font-weight:700;color:var(--mud-palette-primary);" : "font-weight:400;");
+    private static string ItemTip(JsonElement r) => $"{Str(r, "sourceDisplay")}: {Str(r, "title")}";
+    private static bool IsEvent(JsonElement r) => r.TryGetProperty("isEvent", out var v) && v.ValueKind == JsonValueKind.True;
+    private static string Badge(JsonElement r) => IsEvent(r) ? "ok" : Str(r, "source") == "work_order" ? "warn" : "muted";
+    private static string? SourceHref(JsonElement r) => Str(r, "source") switch
+    {
+        "work_order" => "/work-orders", "inspection" => "/inspection", "document" => "/documents",
+        "project" => "/projects", "maintenance" => "/maintenance", _ => null,
+    };
+    private static string Str(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static string? NullS(JsonElement e, string k)
+        { var s = Str(e, k); return string.IsNullOrEmpty(s) ? null : s; }
+    private static long Num(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+    private static DateTime? MsToDate(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.Date : null;
+}

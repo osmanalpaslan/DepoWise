@@ -1120,6 +1120,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "İş Emirleri";
                 CurrentContext = "İş emri: durum, atamalar, malzeme tüketimi, maliyet, geçmiş";
                 break;
+            // TKV-01 (ADR-171): Takvim — türetilmiş kaynaklar + el ile plan kayıtları; yerel + senkron.
+            case "calendar":
+                CurrentPage = new CalendarViewModel(_session);
+                CurrentTitle = "Takvim";
+                CurrentContext = "Takvim: iş emri planları, muayene/sigorta, evrak geçerlilik, proje, bakım hedefleri + el ile kayıtlar";
+                break;
             // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul; yerel + senkron.
             case "purchasing":
                 CurrentPage = new PurchasingViewModel(_session);

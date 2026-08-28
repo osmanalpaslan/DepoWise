@@ -1294,6 +1294,34 @@ app.MapGet("/api/work-orders/export", (HttpContext c, string? search, string? st
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "IsEmirleri.xlsx");
 }).RequireAuthorization();
 
+// ═══ TKV-01 (ADR-171, 2026-08-28) — TAKVİM ═══
+// Kapılar SERVİSTE: calendar modülü + türetilmiş her kaynak KENDİ modül yetkisiyle (yoksa sessiz atlanır)
+// + BranchAccess. Türetilmiş öğeler SALT-OKUNURDUR; takvim hiçbir kaynağın iş mantığını tetiklemez (PK-H5).
+app.MapGet("/api/calendar", (HttpContext c, long from, long to, string? source, string? branchId, string? search) =>
+    S(c) is { } s ? Results.Ok(svc.Calendar.Items(s, from, to, source, branchId, search).Select(i => new
+    {
+        source = i.Source, sourceDisplay = i.SourceDisplay, id = i.Id, title = i.Title,
+        startDate = i.StartDate, endDate = i.EndDate, dateDisplay = i.DateDisplay,
+        branchId = i.BranchId, branchName = i.BranchDisplay,
+        responsibleName = i.ResponsibleDisplay, responsiblePersonnelId = i.ResponsiblePersonnelId, detail = i.Detail,
+        workOrderId = i.WorkOrderId, workOrderNo = i.WorkOrderNo, note = i.Note,
+        isEvent = i.IsEvent, version = i.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/calendar/events", (HttpContext c, CalendarEventDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Calendar.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/calendar/events/{id}", (HttpContext c, string id, CalendarEventDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Calendar.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/calendar/events/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Calendar.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/calendar/export", (HttpContext c, long from, long to, string? source, string? branchId, string? search) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Calendars.CalendarService.ToTableModel(
+        svc.Calendar.Items(s, from, to, source, branchId, search)));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Takvim.xlsx");
+}).RequireAuthorization();
+
 // ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
 // Kapılar SERVİSTE: purchasing modülü + teslim şubesi BranchAccess; mal kabulde stok kapısı DA çalışır.
 app.MapGet("/api/purchasing", (HttpContext c, string? search, string? status) =>
@@ -4003,6 +4031,13 @@ record WoAssignDto(string ResourceType, string ResourceId, string? Note = null);
 record WoConsumeLineDto(string MaterialId, decimal Quantity);
 record WoConsumeDto(List<WoConsumeLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null);
 record WoLinkDto(string EntityType, string EntityId);
+// TKV-01: el ile takvim kaydı gövdesi. Version = düzenleme kilidi.
+record CalendarEventDto(string Title, long StartDate, long? EndDate = null, string? BranchId = null,
+    string? ResponsiblePersonnelId = null, string? WorkOrderId = null, string? Note = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.Calendars.NewCalendarEvent ToNew()
+        => new(Title, StartDate, EndDate, BranchId, ResponsiblePersonnelId, WorkOrderId, Note);
+}
 // STN-01: sipariş gövdesi. Version = düzenleme kilidi; Lines yalnız oluşturmada kullanılır.
 record PurchaseOrderLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null, string? Currency = null, string? Note = null);
 record PurchaseOrderDto(string OrderNo, string? SupplierId = null, string? RequestId = null, string? BranchId = null,

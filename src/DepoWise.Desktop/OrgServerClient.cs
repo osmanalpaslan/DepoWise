@@ -114,6 +114,23 @@ public static class OrgServerClient
     private static long? Num(JsonElement e, string key)
         => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 
+    // ── Takvim (TKV-01 / ADR-171): evrak+proje kaynakları sunucu-otoriteli — çevrimdışıysa null (çağıran
+    //    "çevrimiçi gerekli" notu gösterir). Yerel kaynaklar (iş emri/muayene/bakım/el ile kayıt) buradan GEÇMEZ. ──
+    public sealed record CalendarRemoteItem(string Source, string SourceDisplay, string Title,
+        long StartDate, long? EndDate, string DateDisplay, string BranchName, string ResponsibleName, string? Detail);
+
+    public static async Task<List<CalendarRemoteItem>?> ListCalendarAsync(long from, long to, string source)
+    {
+        using var doc = await GetJsonAsync($"/api/calendar?from={from}&to={to}&source={Uri.EscapeDataString(source)}");
+        if (doc is null) return null;   // çevrimdışı / yetkisiz → çağıran uyarır
+        var list = new List<CalendarRemoteItem>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+            list.Add(new CalendarRemoteItem(Str(e, "source"), Str(e, "sourceDisplay"), Str(e, "title"),
+                NumN(e, "startDate") ?? 0, NumN(e, "endDate"), Str(e, "dateDisplay"),
+                Str(e, "branchName"), Str(e, "responsibleName"), NullS(e, "detail")));
+        return list;
+    }
+
     // ── Projeler (PRJ-01 / ADR-164): şubeler gibi SUNUCU-OTORİTELİ — çevrimdışıysa Offline döner. ──
     public sealed record ProjectItem(string Id, string Name, string Status, string StatusDisplay,
         long? StartDate, long? EndDate, string? ManagerPersonnelId, string ManagerName,

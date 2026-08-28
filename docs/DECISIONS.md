@@ -2602,3 +2602,29 @@ Ayrıntı: `docs/project-control/P_SATINALMA_01.md`.
   (kapalı gelir). Bakım-Ekipman genişletmesi roadmap'e 7b olarak eklendi (ayrı küçük iş).
 
 Ayrıntı: `docs/project-control/F_ISEMRI_01.md`.
+
+---
+
+## ADR-171 — Takvim — TKV-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 3/SIRA 8; PK-H1..H5 kullanıcı kararları (H_TAKVIM_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- PK-H1 HİBRİT: türetilmiş katman (mevcut kayıtlardan SALT-OKUNUR SELECT — kopya takvim kaydı YOK) +
+  el ile plan kayıtları. Migration080: TEK yeni tablo (calendar_events), yalnız CREATE; mevcut
+  tablolara ALTER dahi yok (TKV14/15 kanıtlı).
+- PK-H2 türetilmiş kaynaklar: iş emri planları · muayene/sigorta next_date · evrak valid_until ·
+  proje start/end · gün-bazlı bakım hedefi (son bakım + aralık; km/saat bazlılar tarihsiz → giremez).
+  Kaynak servislerin KENDİ list metotları çağrılır → yetki/BranchAccess/tenant kuralları otomatik aynen.
+- PK-H3 kaynak planlama/çakışma denetimi YOK — yalnız opsiyonel sorumlu personel.
+- PK-H4 gün bazlı (saat YOK); tarihler PLAN tarihidir (ADR-162: geri-tarih kapısına girmez; created_at
+  audit'te korunur). ms kolonu saati İLERİDE eklemeli taşıyabilir — yeniden yazım yok.
+- PK-H5 iş emri bağı YALNIZ gezinme: CalendarService'te iş emri durumunu/iş mantığını çağıran hiçbir yol
+  yoktur; bağ döngüsünden sonra work_orders satırı bit-bit aynı (TKV3).
+- Yetki: yeni `calendar` modülü kapalı gelir; ÇİFT KAPI — türetilmiş öğe yalnız kaynak modülde View
+  varsa görünür (TKV9 yan kapı testi). Silme = soft delete + Çöp Kutusu (TKV2).
+- Senkron: yalnız calendar_events (work_orders SONRASI, FK) + push kapısı calendar (TKV12/13 uçtan uca
+  idempotent). Masaüstü: yerel kaynaklar çevrimdışı tam; Evrak+Proje sunucu-otoriteli → çevrimiçiyken
+  API'den eklenir, çevrimdışıyken "çevrimiçi gerekli" notu (Projeler emsali).
+- Bildirim/hatırlatma YOK (I fazının konusu); tekrarlayan iş YOK (ileride eklemeli, PK-F7).
+
+Ayrıntı: `docs/project-control/H_TAKVIM_01.md`.

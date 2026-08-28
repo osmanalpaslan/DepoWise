@@ -297,6 +297,7 @@ public class AppScreensParityTests
             ("Zimmet", new[] { "assignments" }),   // ZMT-01 (ADR-167)
             ("Satın Alma", new[] { "purchasing" }),   // STN-01 (ADR-169)
             ("İş Emirleri", new[] { "work_orders" }),   // EMR-01 (ADR-170)
+            ("Takvim", new[] { "calendar" }),   // TKV-01 (ADR-171)
             ("Günlük Faaliyet", new[] { "daily_activity" }),
             ("Bakım Takibi", new[] { "maintenance:defs", "maintenance:records" }),
             ("Yakıt", new[] { "fuel:dist", "fuel:depot", "fuel:summary" }),
@@ -328,8 +329,8 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR = 54. Ekran kaybı yok.
-        Assert.Equal(54, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV = 55. Ekran kaybı yok.
+        Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -347,6 +348,7 @@ public class AppScreensParityTests
             ("Zimmet", new[] { ("assignments", "assignments") }),   // ZMT-01
             ("Satın Alma", new[] { ("purchasing", "purchasing") }),   // STN-01
             ("İş Emirleri", new[] { ("work_orders", "work-orders") }),   // EMR-01
+            ("Takvim", new[] { ("calendar", "calendar") }),   // TKV-01
             ("Günlük Faaliyet", new[] { ("daily_activity", "daily") }),
             ("Bakım Takibi", new[] { ("maintenance", "maintenance/defs"), ("maintenance", "maintenance/records") }),
             ("Yakıt", new[] { ("fuel", "fuel/dist"), ("fuel", "fuel/depot"), ("fuel", "fuel/summary") }),
@@ -383,8 +385,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR → 61.
-        Assert.Equal(61, gercek.Sum(x => x.Item2.Length));
+        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV → 62.
+        Assert.Equal(62, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>
@@ -407,6 +409,7 @@ public class AppScreensParityTests
             ("Zimmet", "section:operasyon"),   // ZMT-01
             ("Satın Alma", "section:operasyon"),   // STN-01
             ("İş Emirleri", "section:operasyon"),   // EMR-01
+            ("Takvim", "section:operasyon"),   // TKV-01
             ("Günlük Faaliyet", "section:operasyon"),
             ("Bakım Takibi", "section:operasyon"),
             ("Yakıt", "section:operasyon"),

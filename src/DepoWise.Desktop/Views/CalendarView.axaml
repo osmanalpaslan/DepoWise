@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:cal="using:DepoWise.Infrastructure.Calendars"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="DepoWise.Desktop.Views.CalendarView"
+             x:DataType="vm:CalendarViewModel">
+
+    <!-- TKV-01 (ADR-171): Takvim — türetilmiş (salt-okunur) + el ile kayıt; PK-H4 gün bazlı; PK-H5 bağ yalnız gezinme. -->
+    <UserControl.Styles>
+        <Style Selector="Border.dayCell">
+            <Setter Property="BorderBrush" Value="{DynamicResource TableBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="MinHeight" Value="78"/>
+            <Setter Property="Margin" Value="1"/>
+        </Style>
+        <Style Selector="Border.dayCell.sel">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.dayNo">
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="TextBlock.dayNo.today">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Takvim"
+                      PrimaryActionText="Yeni Takvim Kaydı" PrimaryActionCommand="{Binding NewEventCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="◀" Command="{Binding PrevMonthCommand}"/>
+                    <SelectableTextBlock Text="{Binding MonthTitle}" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="110" TextAlignment="Center"/>
+                    <Button Classes="Secondary" Content="▶" Command="{Binding NextMonthCommand}"/>
+                    <Button Classes="Secondary" Content="Bugün" Command="{Binding GoTodayCommand}"/>
+                    <ComboBox Classes="Field" Width="150" ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding FilterSource}"/>
+                    <ctrl:LookupBox Width="160" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FilterBranch}"
+                                    PlaceholderText="Şantiye (tümü)"/>
+                    <TextBox Classes="Field" Width="160" Text="{Binding SearchText}" Watermark="Ara: başlık / not / şantiye"/>
+                    <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle bu ayın TÜM takvim öğelerini Excel dosyası olarak kaydeder."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Form (el ile kayıt) -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="12" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Başlık" IsRequired="True" Width="240">
+                        <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                    </ctrl:FormField>
+                    <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez; kayıt anı audit'te korunur. -->
+                    <ctrl:FormField Label="Başlangıç" IsRequired="True" Width="160">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Bitiş" Width="160" HelpText="Boşsa tek gün.">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Şantiye / Saha" Width="190">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                        PlaceholderText="Şantiye... (boş olabilir)"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Sorumlu Personel" Width="200">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormResponsible}"
+                                        PlaceholderText="Personel... (boş olabilir)"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="İş Emri Bağı" Width="240" HelpText="Yalnız gezinme — iş emrinin durumunu DEĞİŞTİRMEZ.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding WorkOrderOptions}" SelectedItem="{Binding FormWorkOrder}"
+                                        PlaceholderText="İş emri... (boş olabilir)"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Açıklama / Not" Width="320">
+                        <TextBox Classes="Field" Text="{Binding FormNote}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Çevrimdışı not (sunucu-otoriteli kaynaklar) -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0" IsVisible="{Binding HasRemoteNote}">
+            <SelectableTextBlock Text="{Binding RemoteNote}" Classes="Body"/>
+        </Border>
+
+        <!-- Ay ızgarası + Ajanda -->
+        <Grid Grid.Row="3" Margin="0,16,0,0" ColumnDefinitions="*,430">
+            <Border Grid.Column="0" Classes="Panel" Padding="10">
+                <DockPanel>
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding DayNames}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><UniformGrid Columns="7" Rows="1"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Margin="0,6,0,0" FontSize="11"
+                        Text="★ = el ile takvim kaydı · diğerleri mevcut kayıtlardan otomatik türetilir (salt-okunur). Gün seçmek ajandayı süzer."/>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding DayCells}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarDayCell">
+                                    <Button Background="Transparent" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                            Command="{Binding $parent[ItemsControl].((vm:CalendarViewModel)DataContext).SelectDayCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Border Classes="dayCell" Classes.sel="{Binding IsSelected}" Opacity="{Binding CellOpacity}">
+                                            <StackPanel Spacing="1">
+                                                <TextBlock Classes="dayNo" Classes.today="{Binding IsToday}" Text="{Binding DayNo}"/>
+                                                <ItemsControl ItemsSource="{Binding Preview}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="x:String">
+                                                            <TextBlock Text="{Binding}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding MoreText}" FontSize="9" Opacity="0.6" IsVisible="{Binding HasMore}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Ajanda -->
+            <Border Grid.Column="1" Classes="Panel" Margin="12,0,0,0" Padding="10">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                        <SelectableTextBlock Text="{Binding AgendaTitle}" Classes="SectionTitle" VerticalAlignment="Center"/>
+                        <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEditEvents}"/>
+                        <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteEventCommand}" IsVisible="{Binding CanDeleteEvents}"/>
+                    </StackPanel>
+                    <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Text="Bu aralıkta takvim öğesi yok."
+                                         IsVisible="{Binding !HasAgenda}"/>
+                    <ListBox Classes="Table" ItemsSource="{Binding AgendaRows}" SelectedItem="{Binding SelectedAgenda}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="cal:CalendarItem">
+                                <StackPanel Spacing="1" Margin="0,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding DateDisplay}" FontWeight="SemiBold" FontSize="12"/>
+                                        <TextBlock Text="{Binding SourceDisplay}" FontSize="11" Opacity="0.7"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding BranchDisplay}" FontSize="11" Opacity="0.7"/>
+                                        <TextBlock Text="{Binding ResponsibleDisplay}" FontSize="11" Opacity="0.7"/>
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.7"
+                                                   IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- Durum -->
+        <StackPanel Grid.Row="4" Margin="0,10,0,0" Spacing="4">
+            <SelectableTextBlock Text="{Binding LoadError}" Classes="Body" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding HasError}"/>
+            <SelectableTextBlock Text="{Binding Status}" Classes="Body"
+                                 IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -99,6 +99,8 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Accounting.CostCenterService CostCenters { get; private set; } = null!;   // MLY-01
     public static DepoWise.Infrastructure.Purchasing.PurchaseOrderService Purchasing { get; private set; } = null!;   // STN-01
     public static DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; private set; } = null!;   // EMR-01
+    // TKV-01: evrak sunucu-otoriteli olduğundan documents=null — evrak/proje kaynakları çevrimiçiyken API'den eklenir.
+    public static DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; private set; } = null!;   // TKV-01
     public static IFileStorageProvider Storage { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
@@ -214,6 +216,7 @@ public static class DesktopServices
         CostCenters = new DepoWise.Infrastructure.Accounting.CostCenterService(Factory, clock);
         Purchasing = new DepoWise.Infrastructure.Purchasing.PurchaseOrderService(Factory, clock);
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
+        Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, documents: null, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

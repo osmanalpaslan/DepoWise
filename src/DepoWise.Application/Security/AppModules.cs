@@ -110,6 +110,7 @@ public static class AppModules
         ("cost_centers", "Maliyet Merkezi"),   // MLY-01 (ADR-168)
         ("purchasing", "Satın Alma"),   // STN-01 (ADR-169): sipariş + mal kabul ekranı (talep durum-geçiş yetkisi request_ops_purchase AYRI kalır)
         ("work_orders", "İş Emirleri"),   // EMR-01 (ADR-170)
+        ("calendar", "Takvim"),           // TKV-01 (ADR-171)
         // G2-B1 DÜZELTMESİ (2026-08-12): "Çöp Kutusu" ekranı bu katalogda YOKTU. Masaüstünde menü grubu ve
         // Navigate kaydı, web'de "@admin" sözde-anahtarı vardı; ama yetki ağacında görünmediği için süper
         // admin bu ekranı belirli bir kullanıcıya DEVREDEMİYOR, Rol Yetki Kontrol ile kısıtlayamıyordu.
