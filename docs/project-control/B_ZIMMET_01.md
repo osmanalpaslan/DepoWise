@@ -72,9 +72,11 @@ Regresyon: stok/senkron/ekipman/tarih **485/494** (9 atlanan=PG) · parite 19/19
 
 ## 7. Canlıya alınma durumu
 
-⛔ **Yayınlanmadı.** Yayın turunda Migration073..076 birlikte koşar; öncesi/sonrası canlı salt-okunur
-sayım alınacak.
-
+✅ **YAYINLANDI — 2026-08-28 toplu yayın** (kullanıcı onayı; Migration073..081 canlıda birlikte uygulandı).
+API **v174** · Web **v199** · Masaüstü **1.0.160** (SHA-256 EA688F2F…59CAE2). Kanıtlar:
+[TOPLU_YAYIN_2026-08-28.md](TOPLU_YAYIN_2026-08-28.md) — deploy öncesi/sonrası canlı salt-okunur sayım/karma
+karşılaştırması: mevcut TÜM tabloların satır içerikleri BİT-BİT AYNI; yeni tablolar BOŞ; şema 72→81.
+Yeni yetkiler hiçbir role otomatik AÇILMADI — rollere kontrollü açılacak durumda.
 ## 8. Sonraki roadmap maddesi
 
 **D — Maliyet Merkezi** (FAZ 2 / SIRA 5). Ön koşul C tamam; başlamadan maliyet dağıtım kuralı ürün

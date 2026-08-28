@@ -1,6 +1,22 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (PAN-01 Dashboard tamamlandı — FAZ 4 BİTTİ, yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (⭐ TOPLU YAYIN yapıldı — 12 iş canlıda) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## ✅ ⭐ TOPLU YAYIN — 2026-08-28 (C,A,E,B,D,P,F,H,I,J,K,L · ADR-164..175)
+
+Kullanıcı onayıyla **Migration073..081 canlıya uygulandı**. API **v174** · Web **v199** · Masaüstü
+**1.0.160** · Şema **72→81**. Kanıtlar: [TOPLU_YAYIN_2026-08-28.md](TOPLU_YAYIN_2026-08-28.md) —
+pg_dump yedeği doğrulandı; deploy öncesi/sonrası 77+15 tablonun sayım/karma karşılaştırması:
+**mevcut TÜM tabloların satır içerikleri BİT-BİT AYNI, değişen tek şey schema_migrations, 15 yeni
+tablo BOŞ**; sağlık/senkron/tenant kontrolleri yeşil.
+⚠️ **KULLANICI İŞİ:** yeni yetkiler HİÇBİR role otomatik açılmadı — Yetkiler ekranından rollere açılmalı:
+Ekipman · Zimmet · Maliyet Merkezi · Satın Alma · İş Emirleri · Takvim · Duyurular-YAZMA
+(+ malzeme zimmeti/tüketim/mal kabul için STOK yetkisi). Masaüstü makineler uygulama açıkken ≤60 sn'de
+güncelleme uyarısı alır → 1.0.160'a güncellenmeli.
+İlgisiz bulgu (yayın dışı, kayda geçti): `material_compatible_vehicles` damgasız olduğundan delta
+senkronda her tur tam iner (22 satır — zararsız; SNK ailesi).
 
 ---
 

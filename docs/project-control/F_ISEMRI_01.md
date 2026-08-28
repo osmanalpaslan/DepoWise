@@ -65,8 +65,11 @@ yetkisi kapalı gelir**; tüketim için kullanıcıda STOK yetkisi de olmalı.
 
 ## 7. Canlıya alınma durumu
 
-⛔ **Yayınlanmadı.** Yayın bekleyenler: **Migration073..079** (C+A+E+B+D+P+F).
-
+✅ **YAYINLANDI — 2026-08-28 toplu yayın** (kullanıcı onayı; Migration073..081 canlıda birlikte uygulandı).
+API **v174** · Web **v199** · Masaüstü **1.0.160** (SHA-256 EA688F2F…59CAE2). Kanıtlar:
+[TOPLU_YAYIN_2026-08-28.md](TOPLU_YAYIN_2026-08-28.md) — deploy öncesi/sonrası canlı salt-okunur sayım/karma
+karşılaştırması: mevcut TÜM tabloların satır içerikleri BİT-BİT AYNI; yeni tablolar BOŞ; şema 72→81.
+Yeni yetkiler hiçbir role otomatik AÇILMADI — rollere kontrollü açılacak durumda.
 ## 8. Sonraki roadmap işi
 
 **H — Takvim** (FAZ 3/SIRA 8). Ayrıca PK-F9 gereği **"Bakım-Ekipman genişletmesi"** ayrı küçük iş

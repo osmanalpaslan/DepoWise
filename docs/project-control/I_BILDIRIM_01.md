@@ -75,9 +75,11 @@ Masaüstünde evrak bildirimi yalnız çevrimiçiyken görünür.
 
 ## 8. Canlıya alınma durumu
 
-⛔ **Yayınlanmadı.** Yayın bekleyen migrationlar DEĞİŞMEDİ: **073..080** (bu turda migration çıkmadı);
-API+web+masaüstü sürümleri yayınla birlikte çıkacak.
-
+✅ **YAYINLANDI — 2026-08-28 toplu yayın** (kullanıcı onayı; Migration073..081 canlıda birlikte uygulandı).
+API **v174** · Web **v199** · Masaüstü **1.0.160** (SHA-256 EA688F2F…59CAE2). Kanıtlar:
+[TOPLU_YAYIN_2026-08-28.md](TOPLU_YAYIN_2026-08-28.md) — deploy öncesi/sonrası canlı salt-okunur sayım/karma
+karşılaştırması: mevcut TÜM tabloların satır içerikleri BİT-BİT AYNI; yeni tablolar BOŞ; şema 72→81.
+Yeni yetkiler hiçbir role otomatik AÇILMADI — rollere kontrollü açılacak durumda.
 ## 9. Sonraki roadmap işi
 
 **J — Duyuru** (FAZ 4/SIRA 10). 7b Bakım-Ekipman genişletmesi hâlâ serbest sırada.

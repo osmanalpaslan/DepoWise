@@ -34,19 +34,19 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 
 | Faz | # | Özellik | Tür | Durum |
 |---|---|---|---|---|
-| **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-27, ADR-164 · yayın bekliyor) |
-| | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-165 · yayın bekliyor) |
-| | 3 | E — Varlık / Ekipman | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-166 · yayın bekliyor) |
-| **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-167 · yayın bekliyor) |
-| | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · yayın bekliyor) |
-| | 6 | P — Satın Alma | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-169 · yayın bekliyor) — **FAZ 2 BİTTİ** |
-| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-170 · yayın bekliyor) — [F_ISEMRI_01.md](F_ISEMRI_01.md) |
+| **FAZ 1 — Temel veri modeli** | 1 | **C — Proje / Şantiye (+ G Saha)** | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-27, ADR-164 · YAYINLANDI 2026-08-28) |
+| | 2 | A — Evrak / Belge Yönetimi | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-165 · YAYINLANDI 2026-08-28) |
+| | 3 | E — Varlık / Ekipman | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-166 · YAYINLANDI 2026-08-28) |
+| **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-167 · YAYINLANDI 2026-08-28) |
+| | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · YAYINLANDI 2026-08-28) |
+| | 6 | P — Satın Alma | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-169 · YAYINLANDI 2026-08-28) — **FAZ 2 BİTTİ** |
+| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-170 · YAYINLANDI 2026-08-28) — [F_ISEMRI_01.md](F_ISEMRI_01.md) |
 | | 7b | Bakım-Ekipman genişletmesi (PK-F9 ayrı işi) | Mevcut modüle küçük ekleme | BEKLİYOR (sırası serbest — teknik bağımlılığı yok) |
-| | 8 | H — Takvim | Yeni ana menü (tek ekran) | ✅ **TAMAMLANDI** (2026-08-28, ADR-171 · yayın bekliyor) — [H_TAKVIM_01.md](H_TAKVIM_01.md) |
-| **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-172 · MIGRATION YOK · yayın bekliyor) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md) |
-| | 10 | J — Duyuru | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-173 · yayın bekliyor) — [J_DUYURU_01.md](J_DUYURU_01.md) |
-| | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | ✅ **TAMAMLANDI** (2026-08-28, ADR-174 · MIGRATION YOK · yayın bekliyor) — [K_ARAMA_01.md](K_ARAMA_01.md) |
-| | 12 | L — Dashboard | Mevcut ekran dönüşümü | ✅ **TAMAMLANDI** (2026-08-28, ADR-175 · MIGRATION YOK · yayın bekliyor) — [L_DASHBOARD_01.md](L_DASHBOARD_01.md) — **FAZ 4 BİTTİ** |
+| | 8 | H — Takvim | Yeni ana menü (tek ekran) | ✅ **TAMAMLANDI** (2026-08-28, ADR-171 · YAYINLANDI 2026-08-28) — [H_TAKVIM_01.md](H_TAKVIM_01.md) |
+| **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-172 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md) |
+| | 10 | J — Duyuru | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-173 · YAYINLANDI 2026-08-28) — [J_DUYURU_01.md](J_DUYURU_01.md) |
+| | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | ✅ **TAMAMLANDI** (2026-08-28, ADR-174 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [K_ARAMA_01.md](K_ARAMA_01.md) |
+| | 12 | L — Dashboard | Mevcut ekran dönüşümü | ✅ **TAMAMLANDI** (2026-08-28, ADR-175 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [L_DASHBOARD_01.md](L_DASHBOARD_01.md) — **FAZ 4 BİTTİ** |
 | **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | 🔵 **SIRADAKİ** |
 | | 14 | O — Barkod / QR | Ortak özellik + alanlar | BEKLİYOR |
 | | 15 | N — Mobil | Önce responsive web | BEKLİYOR |
@@ -123,16 +123,16 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 
 | Tarih | Migration | Özellik | Canlıya uygulandı mı |
 |---|---|---|---|
-| 2026-08-27 | Migration073_Projects (v73 — yalnız CREATE, 2 yeni tablo) | C — Proje/Şantiye | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration074_DocumentFields (v74 — yalnız ADD COLUMN + indeks) | A — Evrak | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration075_Equipment (v75 — yalnız CREATE, 2 yeni tablo) | E — Ekipman | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration076_Assignments (v76 — yalnız CREATE, 1 yeni tablo) | B — Zimmet | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration077_CostCenters (v77 — yalnız CREATE, 2 yeni tablo; ALTER dahi yok) | D — Maliyet Merkezi | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration078_PurchaseOrders (v78 — yalnız CREATE, 2 yeni tablo) | P — Satın Alma | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration079_WorkOrders (v79 — yalnız CREATE, 4 yeni tablo) | F — İş Emri | **HAYIR** (yayın onayıyla uygulanacak) |
-| 2026-08-28 | Migration080_CalendarEvents (v80 — yalnız CREATE, 1 yeni tablo) | H — Takvim | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-27 | Migration073_Projects (v73 — yalnız CREATE, 2 yeni tablo) | C — Proje/Şantiye | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration074_DocumentFields (v74 — yalnız ADD COLUMN + indeks) | A — Evrak | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration075_Equipment (v75 — yalnız CREATE, 2 yeni tablo) | E — Ekipman | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration076_Assignments (v76 — yalnız CREATE, 1 yeni tablo) | B — Zimmet | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration077_CostCenters (v77 — yalnız CREATE, 2 yeni tablo; ALTER dahi yok) | D — Maliyet Merkezi | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration078_PurchaseOrders (v78 — yalnız CREATE, 2 yeni tablo) | P — Satın Alma | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration079_WorkOrders (v79 — yalnız CREATE, 4 yeni tablo) | F — İş Emri | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
+| 2026-08-28 | Migration080_CalendarEvents (v80 — yalnız CREATE, 1 yeni tablo) | H — Takvim | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
 | 2026-08-28 | — (I Bildirim Merkezi MIGRATION GEREKTİRMEDİ; şema 80'de kaldı, alert_reads'e dokunulmadı) | I — Bildirim Merkezi | — |
-| 2026-08-28 | Migration081_Announcements (v81 — yalnız CREATE, 1 yeni tablo) | J — Duyuru | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-28 | Migration081_Announcements (v81 — yalnız CREATE, 1 yeni tablo) | J — Duyuru | **EVET — 2026-08-28 toplu yayın** ([kanıt](TOPLU_YAYIN_2026-08-28.md)) |
 | 2026-08-28 | — (K Global Arama MIGRATION GEREKTİRMEDİ; şema 81'de kaldı, indeks de eklenmedi) | K — Global Arama | — |
 | 2026-08-28 | — (L Dashboard MIGRATION GEREKTİRMEDİ; şema 81'de kaldı) | L — Dashboard | — |
 

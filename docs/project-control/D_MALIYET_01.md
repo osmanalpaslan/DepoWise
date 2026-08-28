@@ -61,8 +61,11 @@ Regresyon: stok/yakıt/bakım/rapor/senkron/zimmet **794 test → 783 geçti / 1
 
 ## 6. Canlıya alınma durumu
 
-⛔ **Yayınlanmadı.** Yayın bekleyenler: Migration073..077 (C+A+E+B+D birlikte).
-
+✅ **YAYINLANDI — 2026-08-28 toplu yayın** (kullanıcı onayı; Migration073..081 canlıda birlikte uygulandı).
+API **v174** · Web **v199** · Masaüstü **1.0.160** (SHA-256 EA688F2F…59CAE2). Kanıtlar:
+[TOPLU_YAYIN_2026-08-28.md](TOPLU_YAYIN_2026-08-28.md) — deploy öncesi/sonrası canlı salt-okunur sayım/karma
+karşılaştırması: mevcut TÜM tabloların satır içerikleri BİT-BİT AYNI; yeni tablolar BOŞ; şema 72→81.
+Yeni yetkiler hiçbir role otomatik AÇILMADI — rollere kontrollü açılacak durumda.
 ## 7. Sonraki roadmap maddesi
 
 **P — Satın Alma** (FAZ 2 / SIRA 6). Ön koşullar (C, D) tamam; başlamadan ürün sorusu: satın alma kaç

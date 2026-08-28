@@ -449,3 +449,5 @@ Ayrıntı: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](ANALIZ_SUBE_VE_SIFIRLAMA.md)
   eksik olan yalnız arayüz üzerinden tekrar gösterimidir.
 - **1280px genişlikte İŞLEM (sıra taşıma) kolonu yatay kaydırma gerektiriyor.** Tablo 10 kolonlu ve
   `overflow-x:auto` ile korunuyor; dar ekranda kullanıcı sağa kaydırmalı.
+
+- 2026-08-28 · SNK-13 (kayıt): `material_compatible_vehicles` tablosunda zaman damgası kolonu yok → delta senkron filtresi uygulanamıyor, tablo her deltada TAM iniyor (canlıda 22 satır — zararsız) ve firma sürüm hesabına girmiyor. Toplu yayın doğrulamasında fark edildi; yayından bağımsız, önceden var olan davranış. Ayrıntı: docs/project-control/TOPLU_YAYIN_2026-08-28.md §4.
