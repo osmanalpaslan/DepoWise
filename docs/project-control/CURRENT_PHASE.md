@@ -19,7 +19,10 @@ okundu=alert_reads imzası (düzenlenince yeniden okunmamış).
 **FAZ 4/SIRA 11 — K Global Arama ✅ (2026-08-28, ADR-174, AramaTests 12/12; MIGRATION YOK — şema 81;
 PK-K1..K5 aynen) — [K_ARAMA_01.md](K_ARAMA_01.md).** Üst bar kutusu iki platformda; kaynak-yetki kapılı
 türetilmiş arama; masaüstü çevrimdışı yerel + çevrimiçi Proje/Evrak.
-Sıradaki: **L — Dashboard** (FAZ 4/SIRA 12) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..081** (9 modül birlikte).
+**FAZ 4/SIRA 12 — L Dashboard: ANALİZ TAMAM (2026-08-28, [L_DASHBOARD_00_ANALIZ.md](L_DASHBOARD_00_ANALIZ.md)) —
+⛔ PK-L1..L4 kullanıcı kararı bekleniyor; kod YAZILMADI.** Öz: uyarı kartları 4→8 + yeni özet kart/şeritleri
+(iş emri/sipariş/takvim/duyuru) — tamamen eklemeli; MIGRATION GEREKMİYOR; grafik kütüphanesi yok.
+Sıradaki: **L uygulaması** (PK-L kararları sonrası) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..081** (9 modül birlikte).
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:
