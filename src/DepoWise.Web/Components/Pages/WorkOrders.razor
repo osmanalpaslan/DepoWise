@@ -1,0 +1,408 @@
+@page "/work-orders"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*
+    ═══ EMR-01 (ADR-170, 2026-08-28) — İŞ EMİRLERİ ═══
+    Tek ekran + güçlü detay. PK-F1: Taslak→Atandı→Devam Ediyor⇄Beklemede→Tamamlandı (+İptal), onay yok.
+    PK-F2: tamamlanan YENİDEN AÇILMAZ. PK-F3: tüketim MEVCUT stok çıkışıyla (sunucuda, tek işlemde,
+    idempotent). Atamalar zimmet DEĞİLDİR. Kapılar SUNUCUDA (work_orders + stok + BranchAccess).
+*@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">İş Emirleri</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (Auth.CanCreate("work_orders"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ İŞ EMRİ" : "İŞ EMRİ DÜZENLE")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="2"><MudTextField @bind-Value="_woNo" Label="İş Emri No *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_title" Label="Başlık *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="2">
+                <MudSelect T="string" @bind-Value="_priority" Label="Öncelik" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("normal")">Normal</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("high")">Yüksek</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("urgent")">Acil</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("critical")">Kritik</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_branchId" Label="Şantiye / Saha" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_assigneeId" Label="Sorumlu" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var p in _personnel) { <MudSelectItem T="string" Value="@p.Id">@p.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+            {
+                <MudItem xs="6" md="3">
+                    <MudSelect T="string" @bind-Value="_costCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+            }
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_plannedStart" Label="Plan Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_plannedEnd" Label="Plan Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Editable="true" Clearable="true" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_description" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.h6">İş Emirleri</MudText><MudSpacer />
+                <MudSelect T="string" @bind-Value="_fStatus" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" @bind-Value:after="Load" Style="min-width:130px;">
+                    <MudSelectItem T="string" Value="@("draft")">Taslak</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("assigned")">Atandı</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("in_progress")">Devam Ediyor</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("on_hold")">Beklemede</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("completed")">Tamamlandı</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("cancelled")">İptal</MudSelectItem>
+                </MudSelect>
+                <MudSelect T="string" @bind-Value="_fPriority" Label="Öncelik" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" @bind-Value:after="Load" Style="min-width:110px;">
+                    <MudSelectItem T="string" Value="@("normal")">Normal</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("high")">Yüksek</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("urgent")">Acil</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("critical")">Kritik</MudSelectItem>
+                </MudSelect>
+                <MudSelect T="string" @bind-Value="_fBranch" Label="Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" @bind-Value:after="Load" Style="min-width:140px;">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+                <MudTextField @bind-Value="_search" Label="Ara" Margin="Margin.Dense" Variant="Variant.Outlined"
+                              Immediate="false" OnKeyUp="@(async e => { if (e.Key == "Enter") await Load(); })" Style="min-width:140px;" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+                @if (Auth.CanView("export"))
+                {
+                    <MudTooltip Text="Aktif filtrelerle TÜM sonucu Excel dosyası olarak indirir.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                    </MudTooltip>
+                }
+            </MudStack>
+            @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">İş emri yok.</MudText> }
+            else
+            {
+                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement" OnRowClick="@(e => OpenDetail(e.Item))">
+                    <HeaderContent><MudTh>NO</MudTh><MudTh>BAŞLIK</MudTh><MudTh>DURUM</MudTh><MudTh>ÖNCELİK</MudTh><MudTh>ŞANTİYE</MudTh><MudTh>SORUMLU</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd><b>@Str(context, "woNo")</b></MudTd>
+                        <MudTd>@Str(context, "title")</MudTd>
+                        <MudTd><span class="dw-badge dw-badge-@Badge(Str(context, "status"))">@Str(context, "statusDisplay")</span></MudTd>
+                        <MudTd>@Str(context, "priorityDisplay")</MudTd>
+                        <MudTd>@Str(context, "branchName")</MudTd>
+                        <MudTd>@Str(context, "assigneeName")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Detay için satıra tıklayın.</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2" Style="min-height:220px;">
+            @if (_detail is null) { <MudText Class="mud-text-secondary">Bir iş emri seçin — durum, atamalar, tüketim, maliyet ve geçmiş burada.</MudText> }
+            else
+            {
+                var dd = _detail.Value;
+                var terminal = Str(dd, "status") is "completed" or "cancelled";
+                <MudText Typo="Typo.h6">@Str(dd, "woNo") — @Str(dd, "title")</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @Str(dd, "statusDisplay") · @Str(dd, "priorityDisplay") · @Str(dd, "branchName") · Sorumlu: @Str(dd, "assigneeName") · MM: @Str(dd, "costCenterName")
+                </MudText>
+
+                @* DURUM GEÇİŞLERİ (PK-F1; terminalden çıkış yok PK-F2) *@
+                @if (!terminal)
+                {
+                    <MudStack Row="true" Spacing="1" Class="mt-2" Wrap="Wrap.Wrap">
+                        @foreach (var ns in NextStates(dd))
+                        {
+                            var hedef = ns;
+                            var yetkili = hedef == "cancelled" ? Auth.CanDelete("work_orders") : Auth.CanEdit("work_orders");
+                            @if (yetkili)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                           Color="@(hedef == "cancelled" ? Color.Error : Color.Primary)"
+                                           OnClick="@(() => SetStatus(Str(dd, "id"), hedef))">@StatusLabel(hedef)</MudButton>
+                            }
+                        }
+                        @if (Auth.CanEdit("work_orders"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BeginEdit(dd))">Düzenle</MudButton>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">Bu iş emri kapandı — yeniden açılamaz (düzeltme için yeni iş emri açın).</MudAlert>
+                }
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2">ATAMALAR</MudText>
+                @foreach (var a in _assignments)
+                {
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.body2">@Str(a, "resourceTypeDisplay"): <b>@Str(a, "label")</b></MudText>
+                        @if (!terminal && Auth.CanEdit("work_orders"))
+                        {
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Close" OnClick="@(() => RemoveAssign(Str(a, "id")))" />
+                        }
+                    </MudStack>
+                }
+                @if (!terminal && Auth.CanEdit("work_orders"))
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mt-1" Wrap="Wrap.Wrap">
+                        <MudSelect T="string" @bind-Value="_assignType" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:110px;"
+                                   @bind-Value:after="OnAssignTypeChanged">
+                            <MudSelectItem T="string" Value="@("personnel")">Personel</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("vehicle")">Araç</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("equipment")">Ekipman</MudSelectItem>
+                        </MudSelect>
+                        <MudSelect T="string" @bind-Value="_assignId" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:180px;" Clearable="true">
+                            @foreach (var o in _assignOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="AddAssign">Ata</MudButton>
+                    </MudStack>
+                }
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2">MALZEME TÜKETİMİ</MudText>
+                @if (!terminal && CanConsume)
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudSelect T="string" @bind-Value="_consumeMatId" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:200px;" Clearable="true">
+                            @foreach (var m in _materials) { <MudSelectItem T="string" Value="@m.Id">@m.Name</MudSelectItem> }
+                        </MudSelect>
+                        <MudNumericField T="decimal" @bind-Value="_consumeQty" Label="Miktar" Min="0.0001m" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:110px;" />
+                        <MudTooltip Text="Şantiye deposundan NORMAL STOK ÇIKIŞI yapılır (tekrar gönderim kopya üretmez).">
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Consume" Disabled="_busy">Tüket</MudButton>
+                        </MudTooltip>
+                    </MudStack>
+                }
+                else if (!terminal) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Tüketim için iş emri + stok yetkisi gerekir.</MudText> }
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2">MALİYET ÖZETİ</MudText>
+                @if (_cost is { Length: > 0 })
+                {
+                    @foreach (var x in _cost)
+                    {
+                        <MudText Typo="Typo.body2">@Str(x, "category"): <b>@Num(x, "amount").ToString("N2") @Str(x, "currency")</b> (@Str(x, "count") kayıt)</MudText>
+                    }
+                }
+                else { <MudText Typo="Typo.caption" Class="mud-text-secondary">Bağlı maliyet kaydı yok.</MudText> }
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2">İLİŞKİLİ KAYITLAR</MudText>
+                @foreach (var l in _links) { <MudText Typo="Typo.body2">@Str(l, "entityTypeDisplay"): @Str(l, "label")</MudText> }
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Belgeler Evrak ekranından "İş Emri" türüyle bağlanır.</MudText>
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2">GEÇMİŞ</MudText>
+                @foreach (var h in _history) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(h, "line")</MudText> }
+
+                @if (_dMsg is not null) { <MudAlert Severity="@(_dOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_dMsg</MudAlert> }
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string? _editId, _branchId, _assigneeId, _costCenterId, _fStatus, _fPriority, _fBranch, _assignId, _consumeMatId;
+    private long _editVersion;
+    private string _woNo = "", _title = "", _description = "", _priority = "normal", _search = "", _assignType = "personnel";
+    private decimal _consumeQty = 1m;
+    private DateTime? _plannedStart, _plannedEnd;
+    private List<ApiClient.Opt> _branches = new(), _personnel = new(), _costCenters = new(), _materials = new(), _assignOptions = new(), _vehicles = new(), _equipment = new();
+    private JsonElement[]? _rows, _cost;
+    private JsonElement[] _assignments = Array.Empty<JsonElement>(), _links = Array.Empty<JsonElement>(), _history = Array.Empty<JsonElement>();
+    private JsonElement? _detail;
+    private string? _msg, _dMsg; private bool _ok, _dOk, _busy;
+
+    private bool CanConsume => Auth.CanEdit("work_orders") && Auth.CanCreate("stock");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        try { _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName"); } catch { }
+        try { _costCenters = await Api.OptionsAsync("/api/cost-centers/options", "id", "name"); } catch { }
+        try { _materials = await Api.OptionsAsync("/api/materials", "id", "name"); } catch { }
+        try { _vehicles = await Api.OptionsAsync("/api/vehicles/options", "id", "name"); } catch { }
+        try { _equipment = await Api.OptionsAsync("/api/equipment", "id", "name"); } catch { }
+        _assignOptions = _personnel;
+        await Load();
+    }
+
+    private void OnAssignTypeChanged()
+    {
+        _assignId = null;
+        _assignOptions = _assignType switch { "vehicle" => _vehicles, "equipment" => _equipment, _ => _personnel };
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        if (!string.IsNullOrEmpty(_fStatus)) q.Add("status=" + Uri.EscapeDataString(_fStatus));
+        if (!string.IsNullOrEmpty(_fPriority)) q.Add("priority=" + Uri.EscapeDataString(_fPriority));
+        if (!string.IsNullOrEmpty(_fBranch)) q.Add("branchId=" + Uri.EscapeDataString(_fBranch));
+        try { _rows = await Api.GetArrayAsync("/api/work-orders" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task OpenDetail(JsonElement row)
+    {
+        _detail = row; _dMsg = null;
+        var id = Str(row, "id");
+        try { _assignments = await Api.GetArrayAsync($"/api/work-orders/{id}/assignments"); } catch { _assignments = Array.Empty<JsonElement>(); }
+        try { _links = await Api.GetArrayAsync($"/api/work-orders/{id}/links"); } catch { _links = Array.Empty<JsonElement>(); }
+        try { _cost = await Api.GetArrayAsync($"/api/work-orders/{id}/cost"); } catch { _cost = Array.Empty<JsonElement>(); }
+        try { _history = await Api.GetArrayAsync($"/api/work-orders/{id}/history"); } catch { _history = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task RefreshDetail()
+    {
+        await Load();
+        if (_detail is null || _rows is null) return;
+        var id = Str(_detail.Value, "id");
+        var yeni = _rows.FirstOrDefault(r => Str(r, "id") == id);
+        if (yeni.ValueKind == JsonValueKind.Object) await OpenDetail(yeni);
+        else { _detail = null; }
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_woNo) || string.IsNullOrWhiteSpace(_title)) { _msg = "No ve başlık zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "İş emri oluşturulsun mu?" : "İş emri güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            long? Ms(DateTime? d) => d is null ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+            var body = new
+            {
+                woNo = _woNo.Trim(), title = _title.Trim(), description = _description, priority = _priority,
+                branchId = _branchId, costCenterId = _costCenterId, assigneePersonnelId = _assigneeId,
+                plannedStart = Ms(_plannedStart), plannedEnd = Ms(_plannedEnd),
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null,
+            };
+            var err = _editId is null ? await Api.PostAsync("/api/work-orders", body) : await Api.PutAsync($"/api/work-orders/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Oluşturuldu." : "Güncellendi.");
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task BeginEdit(JsonElement d)
+    {
+        if (!await Dialog.Confirm("Bu iş emrini düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+        _woNo = Str(d, "woNo"); _title = Str(d, "title"); _description = Str(d, "description");
+        _priority = string.IsNullOrEmpty(Str(d, "priority")) ? "normal" : Str(d, "priority");
+        _branchId = NullS(d, "branchId"); _assigneeId = NullS(d, "assigneePersonnelId"); _costCenterId = NullS(d, "costCenterId");
+        _plannedStart = MsToDate(d, "plannedStart"); _plannedEnd = MsToDate(d, "plannedEnd");
+        _msg = null;
+    }
+
+    private async Task SetStatus(string id, string status)
+    {
+        var etiket = StatusLabel(status);
+        if (!await Dialog.Confirm($"Durum '{etiket}' yapılsın mı?" +
+            (status == "completed" ? " (Tamamlanan iş emri YENİDEN AÇILAMAZ.)" : ""),
+            okText: "Evet", danger: status == "cancelled")) return;
+        var err = await Api.PostAsync($"/api/work-orders/{id}/status", new { status });
+        _dMsg = err ?? $"Durum: {etiket}."; _dOk = err is null;
+        await RefreshDetail();
+    }
+
+    private async Task AddAssign()
+    {
+        if (_detail is null || string.IsNullOrEmpty(_assignId)) { _dMsg = "Kaynak seçin."; _dOk = false; return; }
+        var err = await Api.PostAsync($"/api/work-orders/{Str(_detail.Value, "id")}/assignments",
+            new { resourceType = _assignType, resourceId = _assignId });
+        _dMsg = err ?? "Atandı."; _dOk = err is null; _assignId = null;
+        await RefreshDetail();
+    }
+
+    private async Task RemoveAssign(string assignmentId)
+    {
+        if (!await Dialog.Confirm("Atama kaldırılsın mı?", "Evet, Kaldır")) return;
+        var err = await Api.DeleteAsync($"/api/work-orders/assignments/{assignmentId}");
+        _dMsg = err ?? "Atama kaldırıldı."; _dOk = err is null;
+        await RefreshDetail();
+    }
+
+    private async Task Consume()
+    {
+        if (_detail is null || string.IsNullOrEmpty(_consumeMatId)) { _dMsg = "Malzeme seçin."; _dOk = false; return; }
+        if (!await Dialog.Confirm("Malzeme tüketimi kaydedilsin mi? (Şantiye deposundan STOK ÇIKIŞI oluşur.)")) return;
+        _busy = true;
+        try
+        {
+            var body = new
+            {
+                lines = new[] { new { materialId = _consumeMatId, quantity = _consumeQty } },
+                operationId = "web-" + Guid.NewGuid().ToString("N"),   // idempotent: retry ikinci çıkış üretmez
+            };
+            var err = await Api.PostAsync($"/api/work-orders/{Str(_detail.Value, "id")}/consume", body);
+            _dOk = err is null; _dMsg = err ?? "Tüketim kaydedildi — stok çıkışı oluştu.";
+            if (_dOk) { _consumeMatId = null; _consumeQty = 1m; await RefreshDetail(); }
+        }
+        catch (Exception ex) { _dOk = false; _dMsg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ExportExcel()
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        if (!string.IsNullOrEmpty(_fStatus)) q.Add("status=" + Uri.EscapeDataString(_fStatus));
+        if (!string.IsNullOrEmpty(_fPriority)) q.Add("priority=" + Uri.EscapeDataString(_fPriority));
+        if (!string.IsNullOrEmpty(_fBranch)) q.Add("branchId=" + Uri.EscapeDataString(_fBranch));
+        var (bytes, name) = await Api.GetFileAsync("/api/work-orders/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), "IsEmirleri.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Clear()
+    { _editId = null; _editVersion = 0; _woNo = ""; _title = ""; _description = ""; _priority = "normal"; _branchId = null; _assigneeId = null; _costCenterId = null; _plannedStart = null; _plannedEnd = null; }
+
+    private static IEnumerable<string> NextStates(JsonElement d)
+        => d.TryGetProperty("nextStates", out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0) : Array.Empty<string>();
+    private static string StatusLabel(string s) => s switch
+    { "draft" => "Taslak", "assigned" => "Atandı", "in_progress" => "Devam Ediyor", "on_hold" => "Beklemede", "completed" => "Tamamla", "cancelled" => "İptal Et", _ => s };
+    private static string Badge(string s) => s switch
+    { "in_progress" => "ok", "completed" => "muted", "cancelled" => "muted", _ => "warn" };
+    private static decimal Num(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+    private static DateTime? MsToDate(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.Date : null;
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+}

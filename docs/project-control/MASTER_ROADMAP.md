@@ -40,8 +40,9 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | **FAZ 2 — Operasyon** | 4 | B — Zimmet | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-167 · yayın bekliyor) |
 | | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · yayın bekliyor) |
 | | 6 | P — Satın Alma | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-169 · yayın bekliyor) — **FAZ 2 BİTTİ** |
-| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | 🔵 **ANALİZ TAMAM (2026-08-28)** — PK-F1..F9 kararları bekleniyor: [F_ISEMRI_00_ANALIZ.md](F_ISEMRI_00_ANALIZ.md) |
-| | 8 | H — Takvim | Yeni ana menü (tek ekran) | BEKLİYOR |
+| **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-170 · yayın bekliyor) — [F_ISEMRI_01.md](F_ISEMRI_01.md) |
+| | 7b | Bakım-Ekipman genişletmesi (PK-F9 ayrı işi) | Mevcut modüle küçük ekleme | BEKLİYOR (H ile sırası serbest — teknik bağımlılığı yok) |
+| | 8 | H — Takvim | Yeni ana menü (tek ekran) | 🔵 **SIRADAKİ** |
 | **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | BEKLİYOR |
 | | 10 | J — Duyuru | Yeni ana menü | BEKLİYOR |
 | | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | BEKLİYOR |
@@ -128,6 +129,7 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 | 2026-08-28 | Migration076_Assignments (v76 — yalnız CREATE, 1 yeni tablo) | B — Zimmet | **HAYIR** (yayın onayıyla uygulanacak) |
 | 2026-08-28 | Migration077_CostCenters (v77 — yalnız CREATE, 2 yeni tablo; ALTER dahi yok) | D — Maliyet Merkezi | **HAYIR** (yayın onayıyla uygulanacak) |
 | 2026-08-28 | Migration078_PurchaseOrders (v78 — yalnız CREATE, 2 yeni tablo) | P — Satın Alma | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-28 | Migration079_WorkOrders (v79 — yalnız CREATE, 4 yeni tablo) | F — İş Emri | **HAYIR** (yayın onayıyla uygulanacak) |
 
 ---
 ---

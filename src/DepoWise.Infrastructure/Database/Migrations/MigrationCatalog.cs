@@ -83,5 +83,6 @@ public static class MigrationCatalog
         new Migration076_Assignments(),
         new Migration077_CostCenters(),
         new Migration078_PurchaseOrders(),
+        new Migration079_WorkOrders(),
     };
 }

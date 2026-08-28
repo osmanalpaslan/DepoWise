@@ -1,13 +1,14 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (STN-01 Satın Alma tamamlandı — FAZ 2 bitti, yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (EMR-01 İş Emri tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ## 🔨 AKTİF — YENİ ÖZELLİK YOL HARİTASI (MASTER_ROADMAP, 2026-08-27)
 
 **FAZ 2 TAMAMLANDI:** B Zimmet ✅ · D Maliyet Merkezi ✅ · **P Satın Alma ✅ (ADR-169, SatinAlmaTests 13/13; Migration078).**
-Sıradaki: **F — İş Emri** (FAZ 3; önce bakım-ekipman küçük işi + akış ürün soruları). Yayın bekleyen migrationlar: **073..078** (FAZ 1+2 birlikte).
+**FAZ 3/SIRA 7 — F İş Emri ✅ (ADR-170, IsEmriTests 16/16; Migration079; PK-F1..F9 aynen).**
+Sıradaki: **H — Takvim** (+ ayrı küçük iş: Bakım-Ekipman genişletmesi). Yayın bekleyen migrationlar: **073..079** (7 modül birlikte).
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

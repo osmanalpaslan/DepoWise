@@ -1236,6 +1236,64 @@ app.MapPut("/api/equipment/{id}", (HttpContext c, string id, EquipmentDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/equipment/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Equipment.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+// ═══ EMR-01 (ADR-170, 2026-08-28) — İŞ EMİRLERİ ═══
+// Kapılar SERVİSTE: work_orders modülü + BranchAccess; tüketimde STOK kapısı DA çalışır.
+app.MapGet("/api/work-orders", (HttpContext c, string? search, string? status, string? priority, string? branchId, string? assigneeId) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.List(s, search, status, priority, branchId, assigneeId).Select(w => new
+    {
+        id = w.Id, woNo = w.WoNo, title = w.Title, description = w.Description,
+        status = w.Status, statusDisplay = w.StatusDisplay,
+        priority = w.Priority, priorityDisplay = w.PriorityDisplay,
+        branchId = w.BranchId, branchName = w.BranchDisplay,
+        costCenterId = w.CostCenterId, costCenterName = w.CostCenterDisplay,
+        assigneePersonnelId = w.AssigneePersonnelId, assigneeName = w.AssigneeDisplay,
+        plannedStart = w.PlannedStart, plannedEnd = w.PlannedEnd,
+        actualStart = w.ActualStart, actualEnd = w.ActualEnd,
+        closingNote = w.ClosingNote,
+        nextStates = DepoWise.Infrastructure.WorkOrders.WorkOrderService.NextStates(w.Status),
+        version = w.Version,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/work-orders", (HttpContext c, WorkOrderDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.WorkOrders.Create(s, d.ToNew()) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/work-orders/{id}", (HttpContext c, string id, WorkOrderDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.WorkOrders.UpdateMeta(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/work-orders/{id}/status", (HttpContext c, string id, WoStatusDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.WorkOrders.SetStatus(s, id, d.Status, d.Note, d.DocDate)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/work-orders/{id}/assignments", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.Assignments(s, id).Select(a => new
+    { id = a.Id, resourceType = a.ResourceType, resourceTypeDisplay = a.ResourceTypeDisplay, resourceId = a.ResourceId, label = a.ResourceLabel, note = a.Note }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/work-orders/{id}/assignments", (HttpContext c, string id, WoAssignDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.WorkOrders.AddAssignment(s, id, d.ResourceType, d.ResourceId, d.Note)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/work-orders/assignments/{assignmentId}", (HttpContext c, string assignmentId) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.WorkOrders.RemoveAssignment(s, assignmentId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/work-orders/{id}/consume", (HttpContext c, string id, WoConsumeDto d) =>
+    S(c) is { } s ? Results.Ok(new { documentId = svc.WorkOrders.ConsumeMaterial(s, id,
+        (d.Lines ?? new()).GroupBy(l => l.MaterialId, StringComparer.Ordinal)
+            .Select(g => new DepoWise.Infrastructure.Materials.StockLine(g.Key, g.Sum(x => x.Quantity))).ToList(),
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.DocDate, d.Note) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/work-orders/{id}/links", (HttpContext c, string id, WoLinkDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.WorkOrders.LinkExisting(s, id, d.EntityType, d.EntityId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/work-orders/{id}/links", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.Links(s, id).Select(l => new
+    { id = l.Id, entityType = l.EntityType, entityTypeDisplay = l.EntityTypeDisplay, entityId = l.EntityId, label = l.Label }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/work-orders/{id}/cost", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.CostSummary(s, id).Select(x => new
+    { category = x.Category, currency = x.Currency, amount = x.Amount, count = x.Count }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/work-orders/{id}/history", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.History(s, id).Select(h => new { line = h.Line }))
+    : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/work-orders/export", (HttpContext c, string? search, string? status, string? priority, string? branchId, string? assigneeId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.WorkOrders.WorkOrderService.ToTableModel(
+        svc.WorkOrders.List(s, search, status, priority, branchId, assigneeId)));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "IsEmirleri.xlsx");
+}).RequireAuthorization();
+
 // ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
 // Kapılar SERVİSTE: purchasing modülü + teslim şubesi BranchAccess; mal kabulde stok kapısı DA çalışır.
 app.MapGet("/api/purchasing", (HttpContext c, string? search, string? status) =>
@@ -3932,6 +3990,19 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
+// EMR-01: iş emri gövdeleri.
+record WorkOrderDto(string WoNo, string Title, string? Description = null, string? Priority = null,
+    string? BranchId = null, string? CostCenterId = null, string? AssigneePersonnelId = null,
+    long? PlannedStart = null, long? PlannedEnd = null, long? Version = null)
+{
+    public DepoWise.Infrastructure.WorkOrders.NewWorkOrder ToNew()
+        => new(WoNo, Title, Description, Priority, BranchId, CostCenterId, AssigneePersonnelId, PlannedStart, PlannedEnd);
+}
+record WoStatusDto(string Status, string? Note = null, long? DocDate = null);
+record WoAssignDto(string ResourceType, string ResourceId, string? Note = null);
+record WoConsumeLineDto(string MaterialId, decimal Quantity);
+record WoConsumeDto(List<WoConsumeLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null);
+record WoLinkDto(string EntityType, string EntityId);
 // STN-01: sipariş gövdesi. Version = düzenleme kilidi; Lines yalnız oluşturmada kullanılır.
 record PurchaseOrderLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null, string? Currency = null, string? Note = null);
 record PurchaseOrderDto(string OrderNo, string? SupplierId = null, string? RequestId = null, string? BranchId = null,

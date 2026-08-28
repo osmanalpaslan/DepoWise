@@ -2584,3 +2584,21 @@ Ayrıntı: `docs/project-control/D_MALIYET_01.md`.
 - Fatura/cari OTOMASYONU bilinçli ertelendi (fatura mevcut ekrandan; PDF Evrak'la bağlanır).
 
 Ayrıntı: `docs/project-control/P_SATINALMA_01.md`.
+
+---
+
+## ADR-170 — İş Emri — EMR-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 3/SIRA 7; PK-F1..F9 kullanıcı kararları (F_ISEMRI_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- Migration079: 4 yeni tablo, yalnız CREATE (work_orders + atamalar + bağlar + durum defteri); mevcut
+  tablolara ALTER dahi yok (EMR15/16 kanıtlı).
+- PK-F1 matrisi serviste kilitli; PK-F2 terminalden çıkış YOK (EMR3). Durum geçmişi append-only defter.
+- PK-F3 tüketim mevcut IssueOutTx ile tek transaction; idempotency stok defterinden (`wo:` izi, EMR6);
+  stok kapısı da aranır (EMR9 — yan kapı yok). Maliyet merkezi bağı D deseniyle (EMR8, çift sayım yok).
+- Atamalar zimmet DEĞİL (EMR4 — zimmet defteri etkilenmez); araç/ekipman sistemlerine sıfır dokunuş.
+- PK-F5 yalnız şantiye bağı + BranchAccess (EMR10); PK-F9 bakım yalnız dış bağ (EMR12 bit-bit).
+- Senkron 4 tablo FK sıralı + uçtan uca kanıt (EMR14). Evrak'a "İş Emri" türü. Yeni work_orders modülü
+  (kapalı gelir). Bakım-Ekipman genişletmesi roadmap'e 7b olarak eklendi (ayrı küçük iş).
+
+Ayrıntı: `docs/project-control/F_ISEMRI_01.md`.

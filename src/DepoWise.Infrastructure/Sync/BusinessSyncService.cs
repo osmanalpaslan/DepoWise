@@ -105,6 +105,12 @@ public sealed class BusinessSyncService
         // branches sunucu-otoriteli ayna — vehicles ile aynı durum).
         "purchase_orders",
         "purchase_order_lines",
+        // EMR-01 (ADR-170): iş emri — başlık önce, sonra atama/bağ/geçmiş (FK). Kaynaklar YUKARIDA;
+        // bağların hedefleri (stock_documents, vehicle_maintenances, purchase_orders) da yukarıda.
+        "work_orders",
+        "work_order_assignments",
+        "work_order_links",
+        "work_order_status_history",
         // G4-1c (2026-08-12): ÖN MUHASEBE — CARİ. Masaüstü ÇEVRİMDIŞI cari açabildiği ve elle hareket
         // girebildiği için bunlar senkronda TAŞINMAK ZORUNDA; aksi halde çevrimdışı girilen cari ve
         // bakiyesi sunucuya HİÇ ulaşmaz (web'de görünmez, başka makineye gitmez).
@@ -166,6 +172,10 @@ public sealed class BusinessSyncService
         ["cost_center_links"] = "cost_centers",      // MLY-01
         ["purchase_orders"] = "purchasing",          // STN-01: push yetki kapısı
         ["purchase_order_lines"] = "purchasing",     // STN-01
+        ["work_orders"] = "work_orders",             // EMR-01: push yetki kapısı
+        ["work_order_assignments"] = "work_orders",  // EMR-01
+        ["work_order_links"] = "work_orders",        // EMR-01
+        ["work_order_status_history"] = "work_orders",   // EMR-01
         // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
         ["vehicle_inspections"] = "inspection",
         ["vehicle_meter_logs"] = "vehicles",

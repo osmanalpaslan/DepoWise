@@ -54,6 +54,7 @@ public sealed class DocumentService
             ["branch"] = ("branches", "branches", "name", "Şube / Şantiye"),
             ["equipment"] = ("equipment", "equipment", "name", "Ekipman"),   // EKP-01
             ["purchase_order"] = ("purchasing", "purchase_orders", "order_no", "Sipariş"),   // STN-01
+            ["work_order"] = ("work_orders", "work_orders", "wo_no", "İş Emri"),   // EMR-01
             ["project"] = ("branches", "projects", "name", "Proje"),
             ["company"] = (Module, "companies", "name", "Genel (Firma)"),
         };
