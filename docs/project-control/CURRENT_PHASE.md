@@ -38,8 +38,11 @@ türetilmiş arama; masaüstü çevrimdışı yerel + çevrimiçi Proje/Evrak.
 **FAZ 4/SIRA 12 — L Dashboard ✅ (2026-08-28, ADR-175, PanoTests 9/9; MIGRATION YOK — şema 81;
 PK-L1..L4 aynen) — [L_DASHBOARD_01.md](L_DASHBOARD_01.md). FAZ 4 BİTTİ.** Uyarı kartları 4→8 + Açık İş
 Emri/Sipariş kartları + Bugünün Takvimi/Aktif Duyurular şeritleri (yetki yoksa kart hiç görünmez).
-Sıradaki: **M — Excel Merkezi** (FAZ 5/SIRA 13) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b).
-⚠️ Yayın birikimi büyüdü: **Migration073..081** (12 iş bekliyor) — FAZ 5'e geçmeden TOPLU YAYIN önerilir.
+**FAZ 5/SIRA 13 — M Excel Merkezi: ANALİZ TAMAMLANDI (2026-08-28, kod YOK) —
+[M_EXCEL_00_ANALIZ.md](M_EXCEL_00_ANALIZ.md). PK-M1..M5 kararları BEKLENİYOR; uygulama başlamadı.**
+Öneri özeti: mevcut İmport/Export ekranı "Excel Merkezi" olur + web'e merkezi Dışa Aktar; migration YOK,
+yeni yetki YOK. Yeni strateji (kullanıcı, 2026-08-28): **uzun süre production yayın YOK** — işler
+build+test seviyesinde kalır, canlı veriyle test yapılmaz. (+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

@@ -47,7 +47,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | | 10 | J — Duyuru | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-173 · YAYINLANDI 2026-08-28) — [J_DUYURU_01.md](J_DUYURU_01.md) |
 | | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | ✅ **TAMAMLANDI** (2026-08-28, ADR-174 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [K_ARAMA_01.md](K_ARAMA_01.md) |
 | | 12 | L — Dashboard | Mevcut ekran dönüşümü | ✅ **TAMAMLANDI** (2026-08-28, ADR-175 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [L_DASHBOARD_01.md](L_DASHBOARD_01.md) — **FAZ 4 BİTTİ** |
-| **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | 🔵 **SIRADAKİ** |
+| **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | 🔵 **SIRADAKİ** — analiz ✅ 2026-08-28, [M_EXCEL_00_ANALIZ.md](M_EXCEL_00_ANALIZ.md) · PK-M1..M5 karar bekliyor (kod YOK) |
 | | 14 | O — Barkod / QR | Ortak özellik + alanlar | BEKLİYOR |
 | | 15 | N — Mobil | Önce responsive web | BEKLİYOR |
 | **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | BEKLİYOR |
