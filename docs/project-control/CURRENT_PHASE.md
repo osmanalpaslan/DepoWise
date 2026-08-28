@@ -8,7 +8,9 @@
 
 **FAZ 2 TAMAMLANDI:** B Zimmet ✅ · D Maliyet Merkezi ✅ · **P Satın Alma ✅ (ADR-169, SatinAlmaTests 13/13; Migration078).**
 **FAZ 3/SIRA 7 — F İş Emri ✅ (ADR-170, IsEmriTests 16/16; Migration079; PK-F1..F9 aynen).**
-Sıradaki: **H — Takvim** (+ ayrı küçük iş: Bakım-Ekipman genişletmesi). Yayın bekleyen migrationlar: **073..079** (7 modül birlikte).
+**FAZ 3/SIRA 8 — H Takvim: ANALİZ TAMAM (2026-08-28, [H_TAKVIM_00_ANALIZ.md](H_TAKVIM_00_ANALIZ.md)) —
+⛔ PK-H1..H5 kullanıcı kararı bekleniyor; kod/migration YAZILMADI.**
+Sıradaki: **H — Takvim uygulaması** (PK-H kararları sonrası) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi). Yayın bekleyen migrationlar: **073..079** (7 modül birlikte).
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:
