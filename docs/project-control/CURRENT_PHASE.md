@@ -51,9 +51,15 @@ Arama üzerinden (Ctrl+K odak + tam-tek eşleşmede otomatik kayıt açılışı
 durumda aynen); QR etiketi Malzeme·Araç·Ekipman'da (QRCoder; içerik = kayıt kodu düz metin; masaüstü
 çevrimdışı üretir, web `GET /api/qr/...`). Yeni yetki YOK; tarama salt-okunur (iş operasyonu tetiklemez).
 Tam pakette FAZ 1-4'ten kalma eskimiş TSR12 sabiti bulunup kök nedenle düzeltildi (kilit gevşetilmedi).
-Sıradaki: **N — Mobil (önce responsive web)** (FAZ 5/SIRA 15). Yeni strateji (kullanıcı, 2026-08-28):
-**uzun süre production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
-(+ ayrı küçük iş: Bakım-Ekipman 7b.)
+**FAZ 5/SIRA 15 — N Mobil: ⏭️ ATLANDI (kullanıcı kararı 2026-08-29)** — bu geliştirme döngüsünde
+uygulanmayacak; N için kod/migration/test yazılmadı, hiçbir sürüme dahil edilmedi.
+**FİNAL — Kullanıcı Simülasyonu ve Stabilizasyon: ANALİZ TAMAMLANDI (2026-08-29, kod YOK) —
+[FINAL_STABILIZASYON_00_ANALIZ.md](FINAL_STABILIZASYON_00_ANALIZ.md). PK-FIN1..FIN5 kararları
+BEKLENİYOR; uygulama başlamadı.** Öneri özeti: mevcut `multi-machine-sim.mjs` FAZ 1-5 modüllerine
+genişletilir → izole SQLite + izole test-PG'de 5-10k kayıtlı koşu (37 atlanan PG testi dahil) →
+KRİTİK/YÜKSEK bulgu düzeltmeleri → belge/karar temizliği. Migration YOK, canlı DB'ye hiçbir aşamada
+bağlanılmaz, yayın YOK. Yeni strateji (kullanıcı, 2026-08-28): **uzun süre production yayın YOK** —
+işler build+test seviyesinde kalır, canlı veriyle test yapılmaz. (+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:
