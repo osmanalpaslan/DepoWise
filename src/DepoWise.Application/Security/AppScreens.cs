@@ -279,11 +279,11 @@ public static class AppScreens
         new AppScreen("trash", "trash", "Çöp Kutusu", "Çöp Kutusu Listesi", Both, "trash", "trash"),
 
         // ── Ayarlar (en üst seviye, üst grubu yok) ──────────────────────────────────────────
-        // "Excel'e Aktarım": web'de `import`, masaüstünde `import_export` ekranıdır. İkisi de TEK
+        // "Excel Merkezi" (EXL-01): web'de `import`, masaüstünde `import_export` ekranıdır. İkisi de TEK
         // platformda bulunduğu için her platformda menüde YALNIZ BİR giriş görünür.
         new AppScreen("definitions", "definitions", "Ayarlar", "Tanım Düzenle", Both, "definitions", "definitions"),
-        new AppScreen("import", "import_export", "Ayarlar", "Excel'e Aktarım", W, "import", null),
-        new AppScreen("import_export", "import_export", "Ayarlar", "Excel'e Aktarım", D, null, "import_export"),
+        new AppScreen("import", "import_export", "Ayarlar", "Excel Merkezi", W, "import", null),
+        new AppScreen("import_export", "import_export", "Ayarlar", "Excel Merkezi", D, null, "import_export"),
         // ⭐ SEC-03 (2026-08-25): geliştirici modu süper admin yetkilerini taklit eder → menüde de
         // yalnız süper admine görünür. Modülü "settings" olarak KALIR (yeni modül açmak yetki ağacını
         // ve rol tavanı matrisini değiştirirdi); ekran düzeyindeki kapı sözde-anahtarla verilir.

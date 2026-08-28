@@ -9,15 +9,15 @@
              x:DataType="vm:ImportExportViewModel">
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
-        <ctrl:Toolbar Grid.Row="0" Title="İmport / Export"/>
+        <ctrl:Toolbar Grid.Row="0" Title="Excel Merkezi"/>
 
         <!-- Dışa Aktar -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="12">
                 <SelectableTextBlock Text="DIŞA AKTAR (EXPORT)" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <SelectableTextBlock Text="Ekran" Classes="Helper" VerticalAlignment="Center"/>
-                    <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ExportItems}" SelectedItem="{Binding SelectedExport}"/>
+                    <SelectableTextBlock Text="Kaynak" Classes="Helper" VerticalAlignment="Center"/>
+                    <ComboBox Classes="Field" Width="250" ItemsSource="{Binding ExportItems}" SelectedItem="{Binding SelectedExport}"/>
                     <Button Classes="Primary"  Command="{Binding ExportCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconExportExcel}"/>
@@ -25,7 +25,7 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
-                <SelectableTextBlock Text="Seçilen ekranın güncel verisi Excel (.xlsx) olarak kaydedilir." Classes="Helper"/>
+                <SelectableTextBlock Text="Seçilen kaynağın güncel verisi Excel (.xlsx) olarak kaydedilir (yalnız yetkili olduğunuz veriler)." Classes="Helper"/>
             </StackPanel>
         </Border>
 

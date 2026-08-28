@@ -108,6 +108,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.InspectionImportService InspectionImport { get; }
     public DepoWise.Infrastructure.Reporting.FuelImportService FuelImport { get; }
     public DepoWise.Infrastructure.Reporting.FuelDepotImportService FuelDepotImport { get; }
+    /// <summary>EXL-01 — Excel Merkezi: merkezi dışa aktarım üreticisi (15 kaynak; masaüstüyle ORTAK).</summary>
+    public DepoWise.Infrastructure.Reporting.ExcelCenterService ExcelCenter { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
     public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
     /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı bazlı, firma bağımsız).</summary>
@@ -212,6 +214,10 @@ public sealed class ServerServices
         FuelImport = new DepoWise.Infrastructure.Reporting.FuelImportService(Fuel, Vehicles, Lookups);
         FuelDepotImport = new DepoWise.Infrastructure.Reporting.FuelDepotImportService(Fuel, Lookups);
         PersonnelImport = new DepoWise.Infrastructure.Reporting.PersonnelImportService(Personnel, PersonnelTitles, Users, Lookups);
+        // EXL-01: merkezi dışa aktarım — veriyi HEP kaynak servislerden okur (yetki/tenant/BranchAccess serviste).
+        ExcelCenter = new DepoWise.Infrastructure.Reporting.ExcelCenterService(Materials, Vehicles, Personnel,
+            Inspection, Maintenance, Fuel, Requests, Users, Branches, Equipment, Assignments, WorkOrders,
+            Purchasing, Calendar, Announcements, CostCenters, VehicleImport, PersonnelImport, FuelImport, FuelDepotImport);
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
         Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
         ListPrefs = new DepoWise.Infrastructure.Settings.UserListPreferenceService(Factory, clock);

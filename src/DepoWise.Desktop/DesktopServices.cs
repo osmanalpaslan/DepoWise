@@ -89,6 +89,8 @@ public static class DesktopServices
     public static FuelDepotImportService FuelDepotImport { get; private set; } = null!;
     /// <summary>Personel içe aktarımı — "Saha Personeli" + MEVCUT hesabı bağlama ("Kullanıcı Adı").</summary>
     public static PersonnelImportService PersonnelImport { get; private set; } = null!;
+    /// <summary>EXL-01 — Excel Merkezi: merkezi dışa aktarım üreticisi (15 kaynak; API/web ile ORTAK).</summary>
+    public static ExcelCenterService ExcelCenter { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (bu makinede giriş yapan kullanıcıya özel).</summary>
     public static DepoWise.Infrastructure.Settings.UserListPreferenceService ListPrefs { get; private set; } = null!;
@@ -223,6 +225,10 @@ public static class DesktopServices
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);
         Search = new DepoWise.Infrastructure.Search.SearchService(Factory, documents: null, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
+        // EXL-01: tüm kaynak servisler kurulduktan SONRA — merkez, veriyi HEP bu servislerden okur.
+        ExcelCenter = new ExcelCenterService(Materials, Vehicles, Personnel, Inspection, Maintenance,
+            Fuel, Requests, Users, Branches, Equipment, Assignments, WorkOrders, Purchasing,
+            Calendar, Announcements, CostCenters, VehicleImport, PersonnelImport, FuelImport, FuelDepotImport);
         Branding = boot.Branding;
         Theme = boot.Theme;
 

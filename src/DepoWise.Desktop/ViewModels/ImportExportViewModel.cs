@@ -5,24 +5,23 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
-using DepoWise.Infrastructure.Vehicles;
+using DepoWise.Infrastructure.Reporting;
 
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>
-/// İmport / Export — tüm ana ekranlardan Excel'e dışa aktarım + örnek şablon indirme + Excel'den içe aktarım.
-/// İçe aktarım şu an Malzemeler için (servis hazır); Araç/Bakım/Muayene import sonraki adımlarda eklenecek.
+/// EXL-01 — Excel Merkezi: merkezi Excel dışa aktarım (15 kaynak) + örnek şablon indirme + içe aktarım
+/// (7 set). Kaynak listesi ve kolonlar web/API ile ORTAK <see cref="ExcelCenterService"/>'ten gelir.
 /// Tüm girdi/çıktı .xlsx.
 /// </summary>
 public sealed partial class ImportExportViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
-    public ObservableCollection<string> ExportItems { get; } = new()
-        { "Malzemeler", "Araçlar", "Personel", "Muayene / Sigorta", "Bakım", "Talepler", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
+    public ObservableCollection<string> ExportItems { get; } =
+        new(ExcelCenterService.Sources.Select(x => x.Label));
     public ObservableCollection<string> ImportItems { get; } = new()
         { "Malzemeler", "Araçlar", "Personel", "Bakım", "Muayene / Sigorta", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
 
@@ -72,9 +71,12 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         { Status = "Dışa aktarım (export) yetkiniz yok."; return; }
         try
         {
-            var table = BuildTable(SelectedExport);
+            // Kaynak listesi/kolonlar ORTAK servisten (EXL-01) — kaynak modül yetkisi/tenant/BranchAccess
+            // servis içinde uygulanır; yetkisiz kaynakta buradaki catch kullanıcıya nedeni gösterir.
+            var src = ExcelCenterService.Sources.First(x => x.Label == SelectedExport);
+            var table = DesktopServices.ExcelCenter.Build(_session, src.Key);
             var bytes = DesktopServices.Excel.Export(table);
-            var path = await FilePickerService.SaveExcelAsync(SelectedExport.Replace(" / ", "_").Replace(" ", "_"));
+            var path = await FilePickerService.SaveExcelAsync(src.FileName);
             if (string.IsNullOrEmpty(path)) return;
             await System.IO.File.WriteAllBytesAsync(path, bytes);
             FilePickerService.OpenFile(path);
@@ -177,11 +179,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 default:
                     (res, createdLookups) = DesktopServices.MaterialImport.CommitWithLookups(s, rows); break;
             }
-            // Yakıtta "Updated" = zaten vardı, atlandı (aynı dosya tekrar aktarıldı) — kullanıcıya böyle yaz.
-            var isFuel = SelectedImport is "Yakıt Dağıtım" or "Yakıt Depo Girişi";
-            ImportResult = isFuel
-                ? $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, zaten vardı (atlandı) {res.Updated}, hatalı {res.Failed}."
-                : $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, güncellenen {res.Updated}, hatalı {res.Failed}.";
+            // EXL-01 (PK-M5): HİÇBİR import mevcut kaydı GÜNCELLEMEZ — tüm servislerde "zaten var → atla".
+            // "Updated" alanı atlanan sayıyı taşır; eski "güncellenen" etiketi yanıltıcıydı (R17), düzeltildi.
+            ImportResult = $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, zaten mevcut (atlandı) {res.Updated}, hatalı {res.Failed}.";
             if (createdLookups.Count > 0)
             {
                 ImportResult += $"\n\nOluşturulan yeni tanımlar ({createdLookups.Count}) — yazım hatası var mı diye kontrol edin:\n"
@@ -222,107 +222,4 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         _ => DesktopServices.MaterialImport.SampleHeaders(),
     };
 
-    /// <summary>
-    /// Sayfalı bir listenin TÜM kayıtlarını dolaşır (keyset imleciyle).
-    ///
-    /// ⚠️ NEDEN GEREKLİ: <c>PageRequest.MaxLimit = 200</c>'dür → <c>new PageRequest { Limit = 5000 }</c>
-    /// yazmak İŞE YARAMAZ, yine 200 satır döner. Dışa aktarım eskiden böyleydi: 2600 personeli/malzemesi
-    /// olan firma "dışa aktar" deyince sessizce yalnız 200 satır alıyordu. Artık tüm sayfalar dolaşılır.
-    /// </summary>
-    private static IEnumerable<T> AllPages<T>(Func<string?, PagedResult<T>> fetch)
-    {
-        string? cursor = null;
-        var guard = 0;
-        do
-        {
-            var page = fetch(cursor);
-            foreach (var item in page.Items) yield return item;
-            cursor = page.NextCursor;
-            // Sonsuz döngü koruması (imleç ilerlemezse): 200 × 5000 = 1.000.000 kayıt tavanı.
-            if (++guard > 5000) yield break;
-        } while (cursor is not null);
-    }
-
-    private TableModel BuildTable(string entity)
-    {
-        var rows = new List<IReadOnlyList<object?>>();
-        switch (entity)
-        {
-            // Dışa aktarım sütunları İÇE AKTARIM ŞABLONUYLA BİREBİR aynı: dışa aktar → Excel'de düzelt →
-            // geri içe aktar döngüsü çalışsın (sütun adı tutmazsa import satırı okuyamaz).
-            case "Araçlar":
-                foreach (var v in DesktopServices.Vehicles.List(_session))
-                {
-                    // Detay ayrı sorgu: liste satırında tanım ADLARI (marka/model/şube…) yok.
-                    VehicleDetail? d = null;
-                    try { d = DesktopServices.Vehicles.Get(_session, v.Id); } catch { }
-                    rows.Add(new object?[]
-                    {
-                        v.InternalCode, v.Plate, v.ProductionYear,
-                        DepoWise.Application.Ui.VehicleStatus.Label(v.Status), d?.StatusNote,
-                        v.CurrentMeter, v.MeterUnit,
-                        d?.VehicleTypeName, d?.CategoryName, d?.BrandName, d?.VehicleModelName,
-                        d?.BranchName, d?.DriverName, d?.ChassisNo, d?.EngineNo,
-                    });
-                }
-                return new TableModel("Araçlar", DesktopServices.VehicleImport.SampleHeaders().ToArray(), rows);
-
-            case "Personel":
-            {
-                // Bağlı kullanıcı adı: personel id → kullanıcı adı (tek sorgu; satır başına sorgu YOK).
-                var accounts = DesktopServices.Users.AccountsByPersonnel(_session.CompanyId);
-                var branchNames = DesktopServices.Branches.List(_session).ToDictionary(b => b.Id, b => b.Name, StringComparer.Ordinal);
-                foreach (var p in AllPages(c => DesktopServices.Personnel.List(_session, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = c })))
-                {
-                    accounts.TryGetValue(p.Id, out var acc);
-                    rows.Add(new object?[]
-                    {
-                        p.FullName, p.Title, p.Phone,
-                        p.BranchId is not null && branchNames.TryGetValue(p.BranchId, out var bn) ? bn : null,
-                        p.IsActive ? "Evet" : "Hayır",
-                        p.IsFieldStaff ? "Evet" : "Hayır",
-                        acc?.Username,
-                    });
-                }
-                return new TableModel("Personel", DesktopServices.PersonnelImport.SampleHeaders().ToArray(), rows);
-            }
-
-            case "Muayene / Sigorta":
-                foreach (var i in DesktopServices.Inspection.List(_session))
-                    rows.Add(new object?[] { i.VehicleText, i.DocTypeText, i.LastText, i.NextText, i.Place, i.Result, i.StatusText });
-                return new TableModel("Muayene Sigorta", new[] { "Araç", "Belge", "Son", "Sonraki", "Yer", "Sonuç", "Durum" }, rows);
-
-            case "Bakım":
-                foreach (var m in DesktopServices.Maintenance.ListMaintenances(_session))
-                    rows.Add(new object?[] { m.VehicleCode, m.DefinitionName, m.SubDisplay, m.PerformedDisplay, m.NextDueDisplay, m.StatusText });
-                return new TableModel("Bakım", new[] { "Araç", "Bakım", "Alt Bakım", "Yapılma", "Sonraki", "Durum" }, rows);
-
-            // Yakıt dışa aktarımı, İÇE AKTARIM ŞABLONUYLA AYNI sütunlarda: dışa aktar → Excel'de düzelt →
-            // geri içe aktar akışı çalışsın (sütun adları birebir eşleşmezse import satırı okuyamaz).
-            case "Yakıt Dağıtım":
-                foreach (var f in DesktopServices.Fuel.ListDistributions(_session, 5000))
-                    rows.Add(new object?[] { f.VehicleCode,
-                        DateTimeOffset.FromUnixTimeMilliseconds(f.DistributionDate).LocalDateTime.ToString("dd.MM.yyyy"),
-                        f.Liters, f.CurrentMeter, f.UnitPrice, null, null });
-                return new TableModel("Yakıt Dağıtım", DesktopServices.FuelImport.SampleHeaders().ToArray(), rows);
-
-            case "Yakıt Depo Girişi":
-                foreach (var d in DesktopServices.Fuel.ListDepotEntries(_session, 5000))
-                    rows.Add(new object?[] {
-                        DateTimeOffset.FromUnixTimeMilliseconds(d.EntryDate).LocalDateTime.ToString("dd.MM.yyyy"),
-                        d.Liters, d.UnitPrice, null, d.InvoiceNo, null });
-                return new TableModel("Yakıt Depo Girişi", DesktopServices.FuelDepotImport.SampleHeaders().ToArray(), rows);
-
-            case "Talepler":
-                foreach (var r in DesktopServices.Requests.List(_session))
-                    rows.Add(new object?[] { r.DocNo, DateTimeOffset.FromUnixTimeMilliseconds(r.RequestDate).LocalDateTime.ToString("dd.MM.yyyy"),
-                        RequestRow.StatusLabel(r.Status), r.ItemCount });
-                return new TableModel("Talepler", new[] { "Belge No", "Tarih", "Durum", "Kalem" }, rows);
-
-            default: // Malzemeler
-                foreach (var m in AllPages(c => DesktopServices.Materials.List(_session, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = c })))
-                    rows.Add(new object?[] { m.Code, m.Name, m.Type, m.MinStock, m.UnitPrice, m.Currency });
-                return new TableModel("Malzemeler", new[] { "Kod", "Ad", "Tür", "Min Stok", "Birim Fiyat", "Para Birimi" }, rows);
-        }
-    }
 }

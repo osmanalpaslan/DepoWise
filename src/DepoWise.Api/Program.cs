@@ -3080,6 +3080,27 @@ app.MapPost("/api/import/{entity}/commit", async (HttpContext ctx, string entity
     return Results.Ok(ImportPayload(res, created));
 }).RequireAuthorization();
 
+// ═══ EXL-01 (ADR-176) — EXCEL MERKEZİ: MERKEZİ DIŞA AKTARIM ═══
+// Çift kapı: `export` modül yetkisi BURADA + kaynak modülün kendi yetkisi/tenant/BranchAccess/silinmiş
+// süzmesi SERVİSTE (ExcelCenterService ham SQL yazmaz — yetkisiz kaynak 403'e düşer, sızamaz).
+// Kaynak listesi ve kolonlar masaüstü Excel Merkezi ile ORTAK tek kaynaktan gelir.
+app.MapGet("/api/export/entities", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "export", PermissionAction.View);
+    return Results.Ok(DepoWise.Infrastructure.Reporting.ExcelCenterService.Sources
+        .Select(x => new { key = x.Key, label = x.Label }));
+}).RequireAuthorization();
+
+app.MapGet("/api/export/{entity}", (HttpContext c, string entity) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "export", PermissionAction.View);
+    var src = DepoWise.Infrastructure.Reporting.ExcelCenterService.Find(entity);   // bilinmeyen tür → 400
+    var bytes = svc.Excel.Export(svc.ExcelCenter.Build(s, src.Key));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", src.FileName);
+}).RequireAuthorization();
+
 // ── İçe aktarım yardımcıları (yukarıdaki 4 uç bunları kullanır) ──
 
 /// <summary>

@@ -1303,7 +1303,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 break;
             case "import_export":
                 CurrentPage = new ImportExportViewModel(_session);
-                CurrentTitle = "İmport / Export";
+                CurrentTitle = "Excel Merkezi";
                 CurrentContext = "Excel ile içe/dışa aktarım";
                 break;
             case "definitions":

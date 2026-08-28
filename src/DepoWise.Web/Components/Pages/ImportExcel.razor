@@ -6,21 +6,53 @@
 @inject IDialogService Dialog
 @inject IJSRuntime JS
 
-@* Excel İçe Aktarım (İş #7, 2026-08-09) — masaüstündeki İmport/Export ekranının web karşılığı.
-   Aynı sunucu servislerini kullanır → doğrulama ve iş kuralları masaüstüyle BİREBİR aynıdır.
-   Dışa aktarım burada YOKTUR: her liste ekranında zaten "Excel'e Aktar" butonu var (ADR-087/088/089). *@
+@* EXL-01 — Excel Merkezi (İş #7 içe aktarımı + PK-M1/M2 merkezi dışa aktarım) — masaüstündeki
+   Excel Merkezi ekranının web karşılığı. Aynı sunucu servislerini kullanır → doğrulama ve iş
+   kuralları masaüstüyle BİREBİR aynıdır. Dışa aktarım kaynak listesi de masaüstüyle ORTAKTIR
+   (/api/export/entities ← ExcelCenterService.Sources); liste ekranlarındaki filtreli
+   "Excel'e Aktar" butonları (ADR-087/088/089) AYNEN durur — burası filtresiz tam listedir. *@
 
-<MudText Typo="Typo.h5" GutterBottom="true" Class="dw-pagetitle">Excel İçe Aktarım</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true" Class="dw-pagetitle">Excel Merkezi</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
-    <b>@Auth.CompanyDisplay</b> — Excel dosyasından toplu kayıt ekleyin. Aynı ekran masaüstünde de vardır; kurallar aynıdır.
+    <b>@Auth.CompanyDisplay</b> — tüm kaynakları tek yerden Excel'e aktarın, Excel'den toplu kayıt ekleyin.
+    Aynı ekran masaüstünde de vardır; kurallar aynıdır.
 </MudText>
 
-@if (!Auth.CanView("import_export"))
+@if (!Auth.CanView("import_export") && !Auth.CanView("export"))
 {
-    <MudAlert Severity="Severity.Warning">İçe aktarım (import) yetkiniz yok.</MudAlert>
+    <MudAlert Severity="Severity.Warning">Excel Merkezi için içe (import) veya dışa (export) aktarım yetkisi gerekir.</MudAlert>
 }
-else
+
+@if (Auth.CanView("export"))
 {
+    @* Merkezi DIŞA AKTAR (PK-M2 — 15 kaynak): her kaynak KENDİ modül yetkisi/tenant/BranchAccess ile
+       SERVİSTE süzülür; yetkisiz kaynakta indirme hata verir, veri sızmaz. *@
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-1">Dışa Aktar (Excel)</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Seçilen kaynağın güncel verisi Excel (.xlsx) olarak indirilir (yalnız yetkili olduğunuz veriler).
+        </MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="7">
+                <MudSelect T="string" @bind-Value="_exportKey" Label="Kaynak" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    @foreach (var e in _exports) { <MudSelectItem T="string" Value="@e.Key">@e.Label</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="5" Class="d-flex align-center">
+                <MudTooltip Text="Seçilen kaynağın tamamını (filtre olmadan) Excel'e aktarır.">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
+                               OnClick="ExportRun" Disabled="@(_exportBusy || _exports.Count == 0)">Excel'e Aktar</MudButton>
+                </MudTooltip>
+            </MudItem>
+        </MudGrid>
+        @if (_exportBusy) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-2" /> }
+        @if (_exportMsg is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_exportMsg</MudAlert> }
+    </MudPaper>
+}
+
+@if (Auth.CanView("import_export"))
+{
+    <MudText Typo="Typo.subtitle1" Class="mb-1">İçe Aktar (Excel'den toplu kayıt)</MudText>
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6">
@@ -98,7 +130,8 @@ else
                 else
                 {
                     <MudChip T="string" Color="Color.Success">Eklenen: @_result.Added</MudChip>
-                    <MudChip T="string" Color="Color.Info">@(IsFuel ? "Zaten vardı (atlandı)" : "Güncellenen"): @_result.Updated</MudChip>
+                    @* PK-M5: import mevcut kaydı ASLA güncellemez — bu sayı "zaten var → atlandı"dır (R17 düzeltmesi). *@
+                    <MudChip T="string" Color="Color.Info">Zaten mevcut (atlandı): @_result.Updated</MudChip>
                 }
                 <MudChip T="string" Color="@(_result.Failed > 0 ? Color.Error : Color.Default)">Hatalı: @_result.Failed</MudChip>
             </div>
@@ -158,12 +191,27 @@ else
     private bool _resultIsPreview, _busy, _ok;
     private string? _msg;
 
-    private bool IsFuel => _entity is "fuel" or "fuel-depot";
     private string EntityLabel => _entities.FirstOrDefault(e => e.Key == _entity)?.Label ?? _entity;
+
+    // ── EXL-01: merkezi dışa aktarım (kaynak listesi masaüstüyle ORTAK — /api/export/entities) ──
+    private List<EntityOpt> _exports = new();
+    private string _exportKey = "materials";
+    private bool _exportBusy;
+    private string? _exportMsg;
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Auth.IsAuthenticated || !Auth.CanView("import_export")) return;
+        if (!Auth.IsAuthenticated) return;
+        if (Auth.CanView("export"))
+        {
+            try
+            {
+                foreach (var e in await Api.GetArrayAsync("/api/export/entities"))
+                    _exports.Add(new EntityOpt(Str(e, "key"), Str(e, "label")));
+            }
+            catch { }
+        }
+        if (!Auth.CanView("import_export")) return;
         try
         {
             foreach (var e in await Api.GetArrayAsync("/api/import/entities"))
@@ -177,6 +225,23 @@ else
                 _branches.Add(new BranchOpt(Str(b, "id"), Str(b, "name")));
         }
         catch { }
+    }
+
+    /// <summary>Seçilen kaynağın tamamını indirir. Yetkisiz kaynakta sunucu 403 döner — veri sızmaz.</summary>
+    private async Task ExportRun()
+    {
+        if (_exportBusy) return;
+        _exportBusy = true; _exportMsg = null;
+        try
+        {
+            var label = _exports.FirstOrDefault(e => e.Key == _exportKey)?.Label ?? _exportKey;
+            var (bytes, fileName) = await Api.GetFileAsync($"/api/export/{_exportKey}", label + ".xlsx");
+            if (bytes is null) { _exportMsg = "Dışa aktarılamadı (bu kaynak için yetkiniz olmayabilir)."; return; }
+            await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex) { _exportMsg = "Dışa aktarılamadı: " + ex.Message; }
+        finally { _exportBusy = false; }
     }
 
     private void OnEntityChanged() { _file = null; _fileBytes = null; ResetResult(); }
@@ -269,9 +334,8 @@ else
             if (err is not null) { _ok = false; _msg = err; return; }
             _result = Parse(data!.Value); _resultIsPreview = false;
             _ok = true;
-            _msg = IsFuel
-                ? $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, zaten vardı (atlandı) {_result.Updated}, hatalı {_result.Failed}."
-                : $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, güncellenen {_result.Updated}, hatalı {_result.Failed}.";
+            // PK-M5: hiçbir import mevcut kaydı GÜNCELLEMEZ — "Updated" alanı atlanan sayıyı taşır (R17 düzeltmesi).
+            _msg = $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, zaten mevcut (atlandı) {_result.Updated}, hatalı {_result.Failed}.";
         }
         catch (Exception ex) { _ok = false; _msg = "İçe aktarılamadı: " + ex.Message; }
         finally { _busy = false; }

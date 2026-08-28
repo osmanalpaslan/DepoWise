@@ -2717,3 +2717,27 @@ Ayrıntı: `docs/project-control/K_ARAMA_01.md`.
 - FAZ 4 BİTTİ; sıradaki M — Excel Merkezi (FAZ 5). Yayın birikimi: Migration073..081.
 
 Ayrıntı: `docs/project-control/L_DASHBOARD_01.md`.
+
+## ADR-176 — EXL-01: Excel Merkezi (PK-M1..M5, 2026-08-28) — ⛔ YAYINLANMADI
+
+- **Karar:** Mevcut import/export altyapısı "Excel Merkezi" kimliğiyle merkezîleştirildi (PK-M1..M5 =
+  A-A-A-A-A; MIGRATION YOK — şema 81; yeni yetki YOK; production yayın YOK — yeni strateji gereği
+  build+test seviyesinde bitti).
+- PK-M1/M2: yeni ekran açılmadı — mevcut ekran çifti (web /import + masaüstü) iki platformda
+  "Excel Merkezi" oldu; merkezi dışa aktarım 15 kaynağa çıktı (mevcut 8 + Ekipman·Zimmet·İş Emirleri·
+  Satın Alma·Takvim(bu ay)·Duyurular·Maliyet Merkezi(son 30 gün)). TEK ortak üretici: YENİ
+  ExcelCenterService (Infrastructure) — masaüstü ekranı, web sayfası ve YENİ GET /api/export/entities +
+  /api/export/{entity} uçları aynı listeden/kolonlardan beslenir (parite yapısal). Excel üretimi mevcut
+  ExcelExportService/ClosedXML; ikinci motor kurulmadı. İlk 8 kaynağın kolonları eski BuildTable'dan
+  AYNEN taşındı (import şablonu uyumu korunur); yeni 7 kaynak ekranlarının mevcut ToTableModel'lerini kullanır.
+- Güvenlik (ARA-01 ilkesi): çift kapı — export modül yetkisi uçta/ekranda + veri HEP kaynak servisten
+  (kaynak Require + tenant + BranchAccess + is_deleted SERVİSTE; ham SQL yok → merkez yetki bypass'ı olamaz).
+- PK-M3: import AYNEN 7 set (yeni import kaynağı yok). PK-M4: tercih saklama yok → migration yok.
+- PK-M5: "zaten var → atla" korundu ve TESTLE KİLİTLENDİ (7 serviste de skip-only doğrulandı; import
+  mevcut kaydı ASLA değiştirmez — değiştirilmiş adla tekrar import bile satırı bit-bit aynı bırakır).
+  Yanıltıcı "Güncellenen" etiketi iki platformda "Zaten mevcut (atlandı)" yapıldı (R17 — yalnız yazı).
+- Test/build: ExcelMerkeziTests 10/10 (kaynak listesi · boş veri · Türkçe+geri-okuma · kaynak-yetki
+  sızmazlığı · tenant · BranchAccess · silinmiş kayıt · export bit-bit salt-okunur · import bit-bit
+  değiştirmez · dry-run yazmaz) · hedefli regresyon 293/293 · üç Release build 0 hata. Canlıya dokunulmadı.
+
+Ayrıntı: `docs/project-control/M_EXCEL_01.md`.
