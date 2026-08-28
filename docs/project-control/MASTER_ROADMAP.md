@@ -50,7 +50,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-176 · MIGRATION YOK · ⛔ YAYINLANMADI) — [M_EXCEL_01.md](M_EXCEL_01.md) |
 | | 14 | O — Barkod / QR | Ortak özellik + alanlar | ✅ **TAMAMLANDI** (2026-08-29, ADR-177 · MIGRATION YOK · ⛔ YAYINLANMADI) — [O_BARKOD_QR_01.md](O_BARKOD_QR_01.md) |
 | | 15 | N — Mobil | Önce responsive web | ⏭️ **ATLANDI** (kullanıcı kararı 2026-08-29 — bu geliştirme döngüsünde UYGULANMAYACAK; kod/analiz uygulaması yapılmadı) |
-| **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | 🔵 **SIRADAKİ** — analiz ✅ 2026-08-29, [FINAL_STABILIZASYON_00_ANALIZ.md](FINAL_STABILIZASYON_00_ANALIZ.md) · PK-FIN1..FIN5 karar bekliyor (kod YOK) |
+| **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | ✅ **TAMAMLANDI** (2026-08-29, ADR-178 · MIGRATION YOK · production'a BAĞLANILMADI · yayın yok) — [FINAL_STABILIZASYON_01.md](FINAL_STABILIZASYON_01.md) · ⛔ [KARAR PAKETİ](FINAL_KARAR_PAKETI.md) kararlarınızı bekliyor |
 
 **Kilit bağımlılıklar:** F, (C+E+B+D)'ye · P, (C+D)'ye · B, E'ye · D, C'ye · H/I tam değeri F'ye ·
 L neredeyse hepsine bağlı. G Saha ayrı modül DEĞİL, C'nin içindedir. Erken yapılırsa yeniden yazım

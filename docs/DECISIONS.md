@@ -2764,3 +2764,29 @@ Ayrıntı: `docs/project-control/M_EXCEL_01.md`.
   SNK-13 ve M import kapsamı aynen.
 
 Ayrıntı: `docs/project-control/O_BARKOD_QR_01.md`.
+
+## ADR-178 — FIN-01: FINAL Kullanıcı Simülasyonu ve Stabilizasyon (PK-FIN1..FIN5, 2026-08-29) — YAYIN YOK
+
+- **Karar:** FINAL fazı PK-FIN1..FIN5=A ile İZOLE ortamlarda uygulandı; production'a HİÇBİR aşamada
+  bağlanılmadı, canlı veri kullanılmadı/kopyalanmadı, MIGRATION YOK (şema 81), deploy YOK.
+- Mevcut multi-machine-sim.mjs EKLEMELİ genişletildi (ikinci sistem yok): FAZ 1-5 modül senaryoları +
+  güvenlik probları (yetkisiz staff · tenant-B işaretli kayıt · duyuru public-read/yazma · soft-delete ·
+  salt-okunurluk sürüm sabitliği) + ~7.500 kayıtlık sentetik tohum modu (tamamı API/servis üzerinden).
+  Koruma GÜÇLENDİRİLDİ: araç yalnız localhost kabul eder; fly.dev/neon.tech/uzak host başlamadan reddedilir.
+- Koşular: 10 makine × 12 tur, iki lehçe (yerel SQLite + yerel izole test-PG 17). SON KOŞULAR İKİ
+  LEHÇEDE DE 0 BULGU; eşzamanlı yazma yarışı kusursuz (1 kazanan / 9×409). PG testleri İLK KEZ topluca:
+  45/45 (PostgresTestGuard çift kilidi doğrulanarak; 50 MB güvenlik tavanı gevşetilmedi — DB tazelendi).
+- TAM SÜİT: 2.888 test → 2.853 geçti / 0 başarısız / 35 atlanan (PG sınıfları tam süit içinde bilinçli
+  atlanır — ayrı koşuda kapsandı). Üç Release build 0 hata. TST-01 fiilen kapandı.
+- **Bulgular:** KRİTİK yok. FIN-B1 (eski 6 tabloda operation_id benzersizliği FİRMA-ÜSTÜ → başka
+  firmanın aynı op-id'si işlemi sessizce atlatır): kod düzeltmesi denendi, ŞEMA engeli kanıtlanınca
+  (global UNIQUE) GERİ ALINDI — kökten çözüm canlı tabloda migration ister → DURULDU, karar paketine
+  yazıldı; mevcut sözleşme FinalStabilizasyonTests.FIN5 ile kilitlendi. FIN-M1 (PG'de aşırı eşzamanlı
+  doc-no yarışında 409 — veri bozulmaz, bilinçli 3-tekrar tasarımı) ve FIN-M2 (zimmet araması kodla
+  bulmuyor) ORTA olarak KNOWN_ISSUES'a yazıldı (PK-FIN4 gereği düzeltilmedi). R31/R32/TST-01 eskime
+  kayıtları tazelendi.
+- Ürün kaynak koduna DOKUNULMADI (yalnız yeni FinalStabilizasyonTests 5/5 — 4 modülde aynı-firma
+  idempotent retry + FIN-B1 sözleşme kilidi). Karar paketi (PK-FIN5): FIN-B1 · YET-01 · ARC-01 ·
+  STK-B2 · RPR-02 · SNK-05 · MAK-01/b → docs/project-control/FINAL_KARAR_PAKETI.md.
+
+Ayrıntı: `docs/project-control/FINAL_STABILIZASYON_01.md`.

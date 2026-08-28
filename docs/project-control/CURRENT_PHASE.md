@@ -53,13 +53,17 @@ durumda aynen); QR etiketi Malzeme·Araç·Ekipman'da (QRCoder; içerik = kayıt
 Tam pakette FAZ 1-4'ten kalma eskimiş TSR12 sabiti bulunup kök nedenle düzeltildi (kilit gevşetilmedi).
 **FAZ 5/SIRA 15 — N Mobil: ⏭️ ATLANDI (kullanıcı kararı 2026-08-29)** — bu geliştirme döngüsünde
 uygulanmayacak; N için kod/migration/test yazılmadı, hiçbir sürüme dahil edilmedi.
-**FİNAL — Kullanıcı Simülasyonu ve Stabilizasyon: ANALİZ TAMAMLANDI (2026-08-29, kod YOK) —
-[FINAL_STABILIZASYON_00_ANALIZ.md](FINAL_STABILIZASYON_00_ANALIZ.md). PK-FIN1..FIN5 kararları
-BEKLENİYOR; uygulama başlamadı.** Öneri özeti: mevcut `multi-machine-sim.mjs` FAZ 1-5 modüllerine
-genişletilir → izole SQLite + izole test-PG'de 5-10k kayıtlı koşu (37 atlanan PG testi dahil) →
-KRİTİK/YÜKSEK bulgu düzeltmeleri → belge/karar temizliği. Migration YOK, canlı DB'ye hiçbir aşamada
-bağlanılmaz, yayın YOK. Yeni strateji (kullanıcı, 2026-08-28): **uzun süre production yayın YOK** —
-işler build+test seviyesinde kalır, canlı veriyle test yapılmaz. (+ ayrı küçük iş: Bakım-Ekipman 7b.)
+**FİNAL — Kullanıcı Simülasyonu ve Stabilizasyon ✅ (2026-08-29, ADR-178; PK-FIN1..FIN5=A aynen;
+MIGRATION YOK — şema 81; production'a HİÇBİR aşamada bağlanılmadı; yayın YOK) —
+[FINAL_STABILIZASYON_01.md](FINAL_STABILIZASYON_01.md).** Simülasyon FAZ 1-5 modülleriyle genişletildi
+(+yalnız-localhost koruması); ~7.500 kayıt sentetik tohum; 10 makine × 12 tur İKİ LEHÇEDE (izole SQLite +
+izole test-PG) SON KOŞULARDA **0 BULGU**; PG testleri İLK KEZ topluca **45/45**; TAM SÜİT **2.888 →
+2.853 geçti / 0 başarısız / 35 bilinçli-atlanan**; üç Release build 0 hata. KRİTİK bulgu YOK; FIN-B1
+(op-id firma-üstü benzersizlik — migration ister) DURDURULUP karar paketine yazıldı, FIN-M1/M2 ORTA →
+KNOWN_ISSUES. **⛔ SIRADAKİ: [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) kararlarınız** (FIN-B1 ·
+YET-01 · ARC-01 · STK-B2 · RPR-02 · SNK-05 · MAK-01/b). Yeni strateji (kullanıcı, 2026-08-28): **uzun
+süre production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
+(+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

@@ -1,6 +1,32 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-27 (RPR-V — çekme sonrası stok bakiyesi hesaplanmıyordu)
+> Son güncelleme: 2026-08-29 (FINAL stabilizasyon turu — FIN bulguları; ADR-178)
+
+## 🟡 FINAL STABİLİZASYON TURUNDA AÇIK BIRAKILAN (2026-08-29, izole simülasyon bulguları — ADR-178)
+
+- **FIN-B1 — operation_id benzersizliği eski tablolarda FİRMA-ÜSTÜ (KARAR SİZDE).** `stock_movements`,
+  `vehicle_maintenances`, `fuel_depot_entries`, `fuel_distributions`, `daily_activities`,
+  `assignment_movements` tablolarında `operation_id` ŞEMA GEREĞİ tüm firmalar genelinde benzersizdir
+  (Migration005/008/009/076) ve idempotency kontrolleri de buna uygun firma süzgeçsizdir → BAŞKA firmada
+  kullanılmış bir operation_id ile gelen işlem SESSİZCE atlanır (200 döner, kayıt oluşmaz). Yeni muhasebe
+  tabloları (Migration066-068) doğru desendedir: `(company_id, operation_id)`. Gerçek istemciler GUID
+  ürettiği için canlıda pratik olasılık ~sıfır; simülasyon deterministik id'lerle yakaladı. KÖKTEN çözüm
+  6 canlı tabloda **indeks migration'ı** ister (kod-tarafı tek başına yarım kalır — denendi, UNIQUE
+  ihlaline dönüştüğü kanıtlanıp GERİ ALINDI); FINAL kuralları gereği migration açılmadı. Mevcut sözleşme
+  `FinalStabilizasyonTests.FIN5` ile kilitli; karar verilirse test bilinçli güncellenir.
+- **FIN-M1 — PostgreSQL'de aşırı eşzamanlı AYNI TİP belge girişinde 409 (ORTA).** 10 eşzamanlı mal
+  kabulde belge no yarışı (MAX+1) tekrar hakkını (bilinçli sınır: 3 — kullanıcı kararı 2026-08-08 S1)
+  tüketebiliyor: ölçüm 8/60 istek 409 "aynı anda başka bir işlem yapıldı" aldı. VERİ BOZULMAZ (transaction
+  tamamen geri alınır, benzersizlik indeksi korur, kullanıcı mesajı yeniden denemeyi söyler); SQLite'ta
+  görülmez (yazma serileşir). Canlı ölçekte (birkaç kullanıcı) pratik etki düşük — davranış bilinçli
+  tasarım olduğundan DEĞİŞTİRİLMEDİ; yük büyürse tekrar sayısı/backoff ayrı karar konusudur.
+- **FIN-M2 — Zimmet ekranı araması varlık KODUYLA bulmuyor (ORTA/DÜŞÜK UX).** `holdings` araması varlık
+  ETİKETİNE bakar; ekipman etiketi yalnız AD olduğundan ekipman koduyla zimmet aranamaz (Global Arama
+  kodla bulur — oradan ulaşılır). Davranış değiştirilmedi; istenirse etikete kod eklemek küçük ayrı iştir.
+- **Eskime notları:** `TST-01 "33 atlanan test"` sayısı eskimiş — güncel 37 ve TAMAMI PostgreSQL
+  gerektiriyor; FINAL'de izole yerel test PG'siyle **45/45 koşuldu** (atlama 0). `R31/R32` (Migration064
+  deploy riskleri) fiilen KAPANDI: Migration064 canlıda (şema 81) ve 2026-08-28 toplu yayın bit-bit
+  doğrulaması bakiyelerin tutarlı olduğunu kanıtladı.
 
 ## ✅ KAPATILAN (2026-08-27 — kapsamlı rapor denetimi)
 
