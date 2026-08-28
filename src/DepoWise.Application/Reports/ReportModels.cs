@@ -85,7 +85,8 @@ public static class ReportGate
         => TenantAccessGuard.ResolveCompanyId(s, requested);
 }
 
-public enum AlertKind { Maintenance, Inspection, LowStock, Fuel }
+// BLD-01 (ADR-172): yeni türler SONA eklenir — mevcut değerlerin sırası/serileştirmesi DEĞİŞMEZ.
+public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request }
 
 public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false)
 {
@@ -96,8 +97,14 @@ public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail,
         AlertKind.Inspection => "🛡️",
         AlertKind.LowStock => "📦",
         AlertKind.Fuel => "⛽",
+        AlertKind.Document => "📁",
+        AlertKind.WorkOrder => "📋",
+        AlertKind.Request => "📄",
         _ => "⚠️",
     };
+
+    /// <summary>BLD-01: okunmuş satır listede soluk görünür (okundu ayrımı).</summary>
+    public double RowOpacity => Read ? 0.55 : 1.0;
 
     /// <summary>Kalıcı kimlik (kullanıcı "okundu" işaretini buna göre saklar). #18</summary>
     public string Key => $"{Kind}|{EntityId}|{Title}";

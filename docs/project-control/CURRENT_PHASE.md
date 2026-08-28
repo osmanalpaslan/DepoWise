@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (TKV-01 Takvim tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-28** (BLD-01 Bildirim Merkezi tamamlandı — yayın bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -10,10 +10,10 @@
 **FAZ 3/SIRA 7 — F İş Emri ✅ (ADR-170, IsEmriTests 16/16; Migration079; PK-F1..F9 aynen).**
 **FAZ 3/SIRA 8 — H Takvim ✅ (2026-08-28, ADR-171, TakvimTests 16/16; Migration080; PK-H1..H5 aynen) —
 [H_TAKVIM_01.md](H_TAKVIM_01.md). FAZ 3 BİTTİ (7b hariç).**
-**FAZ 4/SIRA 9 — I Bildirim Merkezi: ANALİZ TAMAM (2026-08-28, [I_BILDIRIM_00_ANALIZ.md](I_BILDIRIM_00_ANALIZ.md)) —
-⛔ PK-I1..I4 kullanıcı kararı bekleniyor; kod/migration YAZILMADI.** Öz: türetilmiş bildirim + mevcut
-alert_reads okundu modeli; önerilen kapsamda MIGRATION GEREKMİYOR.
-Sıradaki: **I uygulaması** (PK-I kararları sonrası) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..080** (8 modül birlikte).
+**FAZ 4/SIRA 9 — I Bildirim Merkezi ✅ (2026-08-28, ADR-172, BildirimTests 12/12; MIGRATION YOK — şema 80;
+PK-I1..I4 aynen) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md).** Türetilmiş bildirim + çan/sayaç iki platformda;
+okundu cihaz-yerel (alert_reads'e dokunulmadı).
+Sıradaki: **J — Duyuru** (FAZ 4/SIRA 10) (+ ayrı küçük iş: Bakım-Ekipman genişletmesi 7b). Yayın bekleyen migrationlar: **073..080** (8 modül birlikte).
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·
 E — Varlık/Ekipman ✅ (ADR-166, 2026-08-28, EkipmanTests 12/12). Üçü de **canlıya YAYINLANMADI**:

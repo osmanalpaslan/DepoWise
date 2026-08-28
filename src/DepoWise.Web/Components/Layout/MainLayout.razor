@@ -39,6 +39,14 @@
                     </MudSelect>
                 </MudTooltip>
             }
+            @* ⭐ BLD-01 (ADR-172) — BİLDİRİM ÇANI: aktif VE okunmamış bildirim sayısı; tıkla → Uyarılar.
+               Sayaç her sayfa geçişinde DEĞİL, oturum başında + Uyarılar ekranından dönünce tazelenir. *@
+            <MudTooltip Text="Bildirimler — okunmamış uyarı sayısı">
+                <MudBadge Content="@_unreadAlerts" Visible="@(_unreadAlerts > 0)" Color="Color.Error" Overlap="true" Class="mr-1">
+                    <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
+                                   OnClick="@(() => Nav.NavigateTo("/alerts"))" />
+                </MudBadge>
+            </MudTooltip>
             @* ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRAN ARAÇLARI.
                Aktif ekrana ÖZEL işlemler tek menüde: kayıt geçmişi (log) + ekran bilgisi.
                Eskiden tek başına duran "i" düğmesi buraya taşındı. *@
@@ -348,7 +356,24 @@
         catch { }
 
         Guard();
+        await LoadAlertCountAsync();   // BLD-01: oturum hazır → çan sayacı bir kez yüklenir
         StateHasChanged();
+    }
+
+    // ═══ BLD-01 (ADR-172) — üst bar bildirim sayacı ═══
+    private int _unreadAlerts;
+    private string _lastPath = "";
+
+    private async Task LoadAlertCountAsync()
+    {
+        if (!Auth.IsAuthenticated) { _unreadAlerts = 0; return; }
+        try
+        {
+            var d = await Api.GetObjectAsync("/api/alerts/count");
+            _unreadAlerts = d.TryGetProperty("unread", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.Number
+                ? u.GetInt32() : 0;
+        }
+        catch { _unreadAlerts = 0; }
     }
 
     private DotNetObjectReference<MainLayout>? _idleRef;
@@ -364,7 +389,16 @@
         Nav.NavigateTo("/login", forceLoad: true);
     }
 
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => Guard();
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        Guard();
+        // BLD-01: Uyarılar ekranından AYRILINCA sayaç tazelenir (okundu işaretleri yansısın);
+        // diğer sayfa geçişlerinde API ÇAĞRILMAZ (performans kuralı).
+        var p = CurrentRoute();
+        if (_lastPath.StartsWith("alerts", StringComparison.Ordinal) && !p.StartsWith("alerts", StringComparison.Ordinal))
+            _ = InvokeAsync(async () => { await LoadAlertCountAsync(); StateHasChanged(); });
+        _lastPath = p;
+    }
 
     private void Guard()
     {

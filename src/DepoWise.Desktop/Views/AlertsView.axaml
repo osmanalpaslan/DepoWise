@@ -16,7 +16,13 @@
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}" Margin="12,0,0,0"/>
             </StackPanel>
             <SelectableTextBlock Classes="Helper"
-                Text="Aktif uyarılar kategori başlıkları altında. Bir kategoriye tıklayınca yalnız o kategori listelenir (tekrar tıkla → Tümü). Ana ekranda okundu yapılsa da aktif olduğu sürece burada kalır."/>
+                Text="Aktif uyarılar kategori başlıkları altında (bakım, muayene/sigorta, stok, yakıt, evrak, iş emri, talep). 'Okundu' yalnız çan sayacını ve ana ekranı sakinleştirir — uyarı aktif olduğu sürece burada kalır, durumu kötüleşirse yeniden okunmamış olur."/>
+
+            <!-- BLD-01: evrak bildirimleri sunucu-otoriteli — çevrimdışıyken not -->
+            <Border IsVisible="{Binding HasRemoteNote}" Background="{DynamicResource SurfaceElevatedBrush}"
+                    CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="{Binding RemoteNote}" Classes="Body"/>
+            </Border>
 
             <!-- Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25 -->
             <WrapPanel>
@@ -68,6 +74,59 @@
                         </Border>
                     </StackPanel>
                 </Button>
+                <!-- BLD-01 (ADR-172): yeni kaynaklar + "Tümü" + tümünü okundu -->
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="document">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconAudit}"/>
+                        <TextBlock Text="Evrak" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding EvrakCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="work_order">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconRequests}"/>
+                        <TextBlock Text="İş Emri" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding IsEmriCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="request">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconRequests}"/>
+                        <TextBlock Text="Talep" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding TalepCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="all">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="Tümü" VerticalAlignment="Center"/>
+                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="{Binding ToplamCount}" FontSize="11" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                        Command="{Binding MarkAllReadCommand}" IsVisible="{Binding HasUnread}"
+                        ToolTip.Tip="Tüm aktif uyarıları okundu işaretler — çan sayacı sıfırlanır; uyarılar bu ekranda kalır.">
+                    <TextBlock Text="Tümünü Okundu Yap" VerticalAlignment="Center"/>
+                </Button>
             </WrapPanel>
 
             <SelectableTextBlock Text="{Binding LoadError}" Foreground="{DynamicResource DangerBrush}"
@@ -77,7 +136,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="rep:DashboardAlert">
                         <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
-                                Margin="0,0,0,8"
+                                Margin="0,0,0,8" Opacity="{Binding RowOpacity}"
                                 Command="{Binding $parent[ItemsControl].((vm:AlertsViewModel)DataContext).OpenAlertCommand}"
                                 CommandParameter="{Binding}" ToolTip.Tip="İlgili ekranı aç">
                             <Border Classes="AlertRow">
@@ -92,6 +151,17 @@
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
                                         <SelectableTextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                         <SelectableTextBlock Text="{Binding Detail}" Classes="Helper" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <!-- BLD-01: okundu/okunmadı ayrımı + tek uyarıyı okundu işaretleme (satır tıklamasını tetiklemez) -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
+                                        <Border IsVisible="{Binding Read}" CornerRadius="999" Padding="8,2"
+                                                Background="{DynamicResource SurfaceElevatedBrush}">
+                                            <TextBlock Text="Okundu" FontSize="11" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <Button Classes="Secondary" Content="Okundu işaretle" IsVisible="{Binding !Read}"
+                                                ToolTip.Tip="Çan sayacından düşer; durumu kötüleşirse yeniden görünür."
+                                                Command="{Binding $parent[ItemsControl].((vm:AlertsViewModel)DataContext).MarkReadCommand}"
+                                                CommandParameter="{Binding}"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>

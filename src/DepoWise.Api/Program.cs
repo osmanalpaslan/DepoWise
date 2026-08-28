@@ -682,6 +682,7 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
             kind = a.Kind.ToString(), title = a.Title, detail = a.Detail,
             navigateKey = a.NavigateKey, isCritical = a.IsCritical, icon = a.Icon,
             key = a.Key, signature = a.Signature, read = a.Read, // #18
+            entityId = a.EntityId,   // BLD-01: masaüstü uzak evrak bildirimini tam kurabilsin (eklemeli alan)
         }),
         // A2 (Aurora): ana ekran KPI sayıları. AYNI GetSummary → aynı tenant/şube/yetki kapsamı
         // (uyarılarla birebir). Yeni alan; eski davranış bozulmaz (summary yoksa web türetmeye düşer).
@@ -698,6 +699,11 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
 // #18 — Uyarıyı kullanıcı için "okundu" işaretle (ana ekrandan gizlenir; hali değişince yeniden görünür).
 app.MapPost("/api/alerts/read", (HttpContext ctx, AlertReadDto d) =>
     Session(ctx) is { } s ? Results.Ok(new { ok = Void(() => svc.Dashboard.MarkAlertRead(s, d.Key ?? "", d.Signature ?? "")) }) : Results.Unauthorized()).RequireAuthorization();
+// BLD-01 (ADR-172): tümünü okundu yap (upsert — tekrar çağrı kopya üretmez) + okunmamış sayaç (üst bar çanı).
+app.MapPost("/api/alerts/read-all", (HttpContext ctx) =>
+    Session(ctx) is { } s ? Results.Ok(new { ok = Void(() => svc.Dashboard.MarkAllAlertsRead(s)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/alerts/count", (HttpContext ctx) =>
+    Session(ctx) is { } s ? Results.Ok(new { unread = svc.Dashboard.UnreadAlertCount(s) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Firmalar (Süper Admin) ──
 app.MapGet("/api/companies", (HttpContext ctx) =>

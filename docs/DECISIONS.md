@@ -2628,3 +2628,28 @@ Ayrıntı: `docs/project-control/F_ISEMRI_01.md`.
 - Bildirim/hatırlatma YOK (I fazının konusu); tekrarlayan iş YOK (ileride eklemeli, PK-F7).
 
 Ayrıntı: `docs/project-control/H_TAKVIM_01.md`.
+
+---
+
+## ADR-172 — Bildirim Merkezi — BLD-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 4/SIRA 9; PK-I1..I4 kullanıcı kararları (I_BILDIRIM_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- TÜRETİLMİŞ bildirim mimarisi KORUNDU ve genişletildi: fiziksel bildirim kaydı YOK — DashboardService
+  her çağrıda kaynaktan hesaplar (kopya imkânsız, BLD8; kaynak düzelince bildirim düşer). Paralel
+  NotificationService kurulmadı; mevcut 4 kaynağın davranışı değişmedi.
+- PK-I1 yeni kaynaklar: evrak geçerlilik (≤30 gün/geçmiş — muayene eşiği ile aynı sabit) · geciken
+  iş emri (plan bitişi geçmiş + terminal değil) · bekleyen talep (pending, kalem bazlı; KPI korunur).
+- PK-I2 tam UI: üst bar çan+okunmamış sayacı (web MainLayout + masaüstü MainWindow/Shell; sayaç oturum
+  başına bir kez + Uyarılar ekranı etkileşimlerinde tazelenir — her sayfa geçişinde DEĞİL) · Uyarılar
+  ekranına 3 kategori + "Tümü" + okundu ayrımı + "Okundu işaretle" + "Tümünü Okundu Yap".
+- PK-I3 mevcut `alerts` modülü — yeni yetki modülü YOK; güvence çift kapı (her kaynak kendi modül
+  yetkisiyle; evrakta DocumentService iki kapı+kapsam, iş emrinde BranchAccess içeride — BLD4/5/6).
+- PK-I4 okundu CİHAZ-YEREL: mevcut imzalı alert_reads aynen (kötüleşince okundu düşer — BLD7);
+  senkronlanmaz. **MIGRATION YOK — şema 80'de kaldı; alert_reads'e dokunulmadı.**
+- Masaüstü: yerel kaynaklar çevrimdışı tam; EVRAK bildirimi sunucu-otoriteli → yalnız çevrimiçiyken
+  (AlertFeed + OrgServerClient; çevrimdışıysa "çevrimiçi gerekli" notu — BLD10/11).
+- Kapsam dışı (bilinçli): e-posta/SMS/push · ertele/kapat · kullanıcı tercihleri · üçlü öncelik ·
+  zimmet · olay-bazlı bildirim · eşik ayarları.
+
+Ayrıntı: `docs/project-control/I_BILDIRIM_01.md`.

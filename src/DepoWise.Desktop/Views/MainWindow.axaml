@@ -152,7 +152,7 @@
                     BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <!-- 1) Menü daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" VerticalAlignment="Center"
@@ -229,11 +229,27 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- ⭐ BLD-01 (ADR-172) — BİLDİRİM ÇANI: aktif VE okunmamış bildirim sayısı; tıkla → Uyarılar.
+                         Sayaç girişte bir kez + Uyarılar ekranı etkileşimlerinde tazelenir (her geçişte değil). -->
+                    <Button Grid.Column="5" Classes="IconGhost" VerticalAlignment="Center" Margin="0,0,4,0"
+                            ToolTip.Tip="Bildirimler — okunmamış uyarı sayısı"
+                            a11y:AutomationProperties.Name="Bildirimler"
+                            Command="{Binding OpenAlertsCommand}">
+                        <Panel>
+                            <PathIcon Width="17" Height="17" Data="{DynamicResource IconAlerts}"/>
+                            <Border CornerRadius="999" Background="{DynamicResource DangerBrush}" Padding="4,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-7,-9,0"
+                                    IsVisible="{Binding HasUnreadAlerts}">
+                                <TextBlock Text="{Binding UnreadAlerts}" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                        </Panel>
+                    </Button>
+
                     <!-- ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRAN ARAÇLARI.
                          Aktif ekrana ÖZEL işlemler tek bir menüde toplanır: kayıt geçmişi (log) ve ekran
                          bilgisi. Eskiden ekran bilgisi kullanıcı menüsündeydi (ekranla ilgisiz bir yer);
                          buraya taşındı. Menü içeriği ActiveKey ile birlikte tazelenir. -->
-                    <Button Grid.Column="5" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
+                    <Button Grid.Column="6" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
                             VerticalAlignment="Center" Margin="0,0,4,0"
                             ToolTip.Tip="Bu ekrana ait araçlar: kayıt geçmişi ve ekran bilgisi"
                             a11y:AutomationProperties.Name="Ekran araçları">
@@ -255,11 +271,11 @@
                         </Button.Flyout>
                     </Button>
 
-                    <Border Grid.Column="6" Width="1" Height="26" Margin="12,0"
+                    <Border Grid.Column="7" Width="1" Height="26" Margin="12,0"
                             Background="{DynamicResource BorderSubtleBrush}" VerticalAlignment="Center"/>
 
                     <!-- 6) Kullanıcı menüsü — taşınan komutlar burada -->
-                    <Button Grid.Column="7" Classes="Ghost" Height="36" Padding="4,0,10,0"
+                    <Button Grid.Column="8" Classes="Ghost" Height="36" Padding="4,0,10,0"
                             CornerRadius="10" VerticalAlignment="Center"
                             ToolTip.Tip="{Binding DisplayName}">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

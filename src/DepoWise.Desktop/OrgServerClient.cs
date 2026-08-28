@@ -114,6 +114,25 @@ public static class OrgServerClient
     private static long? Num(JsonElement e, string key)
         => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 
+    // ── Bildirim (BLD-01 / ADR-172): EVRAK bildirimleri sunucu-otoriteli (belgeler masaüstünde yerel değil) —
+    //    çevrimdışıysa null (çağıran "çevrimiçi gerekli" notu gösterir). Sunucu, files yetkisi ve kapsamı
+    //    KENDİ tarafında süzer (yan kapı yok). Diğer kaynaklar YERELDİR, buradan geçmez. ──
+    public sealed record DocumentAlertItem(string Title, string Detail, bool IsCritical, string? EntityId);
+
+    public static async Task<List<DocumentAlertItem>?> ListDocumentAlertsAsync()
+    {
+        using var doc = await GetJsonAsync("/api/dashboard");
+        if (doc is null) return null;   // çevrimdışı / yetkisiz → çağıran uyarır
+        var list = new List<DocumentAlertItem>();
+        if (doc.RootElement.TryGetProperty("alerts", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var e in arr.EnumerateArray())
+                if (Str(e, "kind") == "Document")
+                    list.Add(new DocumentAlertItem(Str(e, "title"), Str(e, "detail"),
+                        e.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True,
+                        NullS(e, "entityId")));
+        return list;
+    }
+
     // ── Takvim (TKV-01 / ADR-171): evrak+proje kaynakları sunucu-otoriteli — çevrimdışıysa null (çağıran
     //    "çevrimiçi gerekli" notu gösterir). Yerel kaynaklar (iş emri/muayene/bakım/el ile kayıt) buradan GEÇMEZ. ──
     public sealed record CalendarRemoteItem(string Source, string SourceDisplay, string Title,

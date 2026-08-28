@@ -701,6 +701,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         StartConnectionMonitor();
         StartUpdateWatcher();
         _ = RegisterMachineAsync();
+        RefreshAlertBadge();   // BLD-01: çan sayacı giriş sonrası bir kez yüklenir
 
         ServerAuthClient.SessionExpiredRaised += OnSessionExpired; // oturum düşünce tekrar giriş
     }
@@ -1331,6 +1332,31 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
+
+    // ═══ BLD-01 (ADR-172) — üst bar bildirim çanı ═══
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnreadAlerts))]
+    private int _unreadAlerts;
+    public bool HasUnreadAlerts => UnreadAlerts > 0;
+
+    [RelayCommand]
+    private void OpenAlerts() => Navigate("alerts");
+
+    /// <summary>Çan sayacını arka planda tazeler (UI thread bloklanmaz). Girişte bir kez + Uyarılar
+    /// ekranı her yüklendiğinde/okundu işaretlemesinde çağrılır — her sayfa geçişinde ÇAĞRILMAZ.</summary>
+    public void RefreshAlertBadge()
+    {
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var n = await AlertFeed.UnreadCountAsync(_session);
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => UnreadAlerts = n);
+            }
+            catch { }
+        });
+    }
 
     /// <summary>Aktif ekranın gerçek kod bilgisini (View/ViewModel + kaynak) kopyalanabilir pencerede gösterir.</summary>
     [RelayCommand]

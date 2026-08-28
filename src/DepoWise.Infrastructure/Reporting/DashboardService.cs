@@ -4,6 +4,8 @@ using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Application.Maintenance;
+using DepoWise.Infrastructure.Files;
+using DepoWise.Infrastructure.WorkOrders;
 using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Reporting;
@@ -17,12 +19,22 @@ public sealed class DashboardService
     private readonly IDbConnectionFactory _factory;
     private readonly MaintenanceService _maintenance;
     private readonly InspectionService _inspection;
+    // BLD-01 (ADR-172): evrak sunucu-otoriteli — masaüstü null geçer, evrak bildirimi çevrimdışı ÜRETİLMEZ
+    // (Takvim/Projeler emsali; veri uydurulmaz). İş emri kaynağı yereldir (çevrimdışı çalışır).
+    private readonly DocumentService? _documents;
+    private readonly WorkOrderService _workOrders;
 
-    public DashboardService(IDbConnectionFactory factory, MaintenanceService maintenance, InspectionService inspection)
+    /// <summary>Evrak/muayene ile aynı "yaklaşıyor" eşiği (gün).</summary>
+    public const int DocumentApproachingDays = InspectionService.ApproachingDays;
+
+    public DashboardService(IDbConnectionFactory factory, MaintenanceService maintenance, InspectionService inspection,
+        DocumentService? documents = null)
     {
         _factory = factory;
         _maintenance = maintenance;
         _inspection = inspection;
+        _documents = documents;
+        _workOrders = new WorkOrderService(factory);
     }
 
     public DashboardSummary GetSummary(SessionContext s)
@@ -81,6 +93,52 @@ public sealed class DashboardService
                 alerts.Add(new DashboardAlert(AlertKind.Fuel,
                     remaining <= 0 ? "Yakıt Tükendi" : "Yakıt Azaldı",
                     $"Kalan depo: {remaining:0.##} L (%{pct:0})", "fuel:summary", true));
+            }
+        }
+
+        // ═══ BLD-01 (ADR-172) — YENİ TÜRETİLMİŞ KAYNAKLAR (PK-I1: evrak + geciken iş emri + bekleyen talep).
+        // Fiziksel bildirim kaydı YOK: her çağrıda kaynaktan hesaplanır (kopya imkânsız; kaynak düzelince
+        // bildirim düşer). Her kaynak KENDİ modül yetkisiyle sarılı (yan kapı yok — mevcut desen aynen).
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Evrak geçerlilik — DocumentService.List İKİ KAPI + şube/proje kapsamını İÇERİDE uygular.
+        if (_documents is not null && AccessControl.Can(s, DocumentService.Module, PermissionAction.View))
+        {
+            foreach (var d in _documents.List(s))
+            {
+                if (d.ValidUntil is not { } vu) continue;
+                var kalanGun = (vu - nowMs) / 86_400_000.0;
+                if (kalanGun > DocumentApproachingDays) continue;
+                var etiket = d.EntityLabel == "—" ? "" : $" ({d.EntityLabel})";
+                alerts.Add(new DashboardAlert(AlertKind.Document, d.Title + etiket,
+                    vu < nowMs ? "Geçerlilik süresi doldu" : "Geçerlilik yaklaşıyor", "documents", vu < nowMs, d.Id));
+            }
+        }
+
+        // Geciken iş emri — WorkOrderService.List BranchAccess kapsamını İÇERİDE uygular; terminal
+        // (Tamamlandı/İptal) emirler gecikme SAYILMAZ.
+        if (AccessControl.Can(s, WorkOrderService.Module, PermissionAction.View))
+        {
+            foreach (var w in _workOrders.List(s))
+            {
+                if (w.Status is "completed" or "cancelled") continue;
+                if (w.PlannedEnd is not { } pe || pe >= nowMs) continue;
+                alerts.Add(new DashboardAlert(AlertKind.WorkOrder, $"{w.WoNo} · {w.Title}",
+                    "Plan bitişi geçti", "work_orders", true, w.Id));
+            }
+        }
+
+        // Bekleyen talepler — kalem bazlı; şube kapsamı uygulanır (kapsam dışı şubenin talebi SIZMAZ;
+        // şubesiz talep gizlenmez — sınıf kuralı). KPI sayacı (PendingRequests) DEĞİŞMEDİ.
+        if (AccessControl.Can(s, "requests", PermissionAction.View))
+        {
+            var izinli = BranchAccess.Allowed(s);
+            var set = izinli?.ToHashSet(StringComparer.Ordinal);
+            foreach (var (id, docNo, branchId) in PendingRequestList(conn, s.CompanyId))
+            {
+                if (set is not null && branchId is not null && !set.Contains(branchId)) continue;
+                alerts.Add(new DashboardAlert(AlertKind.Request, $"Talep {docNo}",
+                    "Onay bekliyor", "requests:approve", false, id));
             }
         }
 
@@ -198,5 +256,41 @@ AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST
         cmd.CommandText = "SELECT COUNT(*) FROM material_requests WHERE company_id=@c AND status='pending' AND is_deleted=0;";
         cmd.AddWithValue("@c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    // ═══ BLD-01 (ADR-172) yardımcıları ═══
+
+    private static IReadOnlyList<(string Id, string DocNo, string? BranchId)> PendingRequestList(DbConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, doc_no, branch_id FROM material_requests " +
+                          "WHERE company_id=@c AND status='pending' AND is_deleted=0 ORDER BY created_at DESC LIMIT 50;";
+        cmd.AddWithValue("@c", companyId);
+        var list = new List<(string, string, string?)>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add((r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2)));
+        return list;
+    }
+
+    /// <summary>BLD-01: aktif VE okunmamış bildirim sayısı (üst bar çan sayacı). Aynı GetSummary hesabı —
+    /// ayrı üretim yolu YOK (sayı ile liste kopamaz).</summary>
+    public int UnreadAlertCount(SessionContext s)
+        => GetSummary(s).Alerts.Count(a => !a.Read);
+
+    /// <summary>BLD-01: TÜM aktif bildirimleri okundu işaretler (upsert — tekrar çağrı kopya üretmez).</summary>
+    public void MarkAllAlertsRead(SessionContext s, IEnumerable<DashboardAlert>? extra = null)
+    {
+        foreach (var a in GetSummary(s).Alerts.Concat(extra ?? Array.Empty<DashboardAlert>()))
+            if (!a.Read) MarkAlertRead(s, a.Key, a.Signature);
+    }
+
+    /// <summary>BLD-01: dışarıdan gelen bildirimlere (masaüstünün ÇEVRİMİÇİ aldığı evrak bildirimleri)
+    /// bu cihazın YEREL okundu işaretlerini uygular — okundu davranışı cihaz-yerel kalır (PK-I4).</summary>
+    public IReadOnlyList<DashboardAlert> ApplyReads(SessionContext s, IEnumerable<DashboardAlert> alerts)
+    {
+        using var conn = _factory.Create();
+        var reads = LoadAlertReads(conn, s.UserId);
+        return alerts.Select(a => reads.TryGetValue(a.Key, out var sig) && sig == a.Signature
+            ? a with { Read = true } : a).ToList();
     }
 }

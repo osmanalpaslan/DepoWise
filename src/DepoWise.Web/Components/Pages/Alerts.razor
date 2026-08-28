@@ -13,7 +13,8 @@
     <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
 </div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-    Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt). Ana ekranda "okundu" yapılsa da aktif olduğu sürece burada kalır.
+    Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt, evrak geçerlilik, geciken iş emri, bekleyen talep).
+    "Okundu" yalnız çan sayacını ve ana ekranı sakinleştirir — uyarı aktif olduğu sürece burada kalır, durumu kötüleşirse yeniden okunmamış olur.
 </MudText>
 
 @if (_alerts is null)
@@ -39,6 +40,23 @@ else
                    StartIcon="@Icons.Material.Filled.VerifiedUser" OnClick="@(() => Toggle("Inspection"))">Sigorta-Muayene (@CountOf("Inspection"))</MudButton>
         <MudButton Variant="@(_filter == "Fuel" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.LocalGasStation" OnClick="@(() => Toggle("Fuel"))">Yakıt (@CountOf("Fuel"))</MudButton>
+        @* BLD-01 (ADR-172): yeni kaynaklar + "Tümü" görünümü + tümünü okundu. *@
+        <MudButton Variant="@(_filter == "Document" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Folder" OnClick="@(() => Toggle("Document"))">Evrak (@CountOf("Document"))</MudButton>
+        <MudButton Variant="@(_filter == "WorkOrder" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Assignment" OnClick="@(() => Toggle("WorkOrder"))">İş Emri (@CountOf("WorkOrder"))</MudButton>
+        <MudButton Variant="@(_filter == "Request" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Description" OnClick="@(() => Toggle("Request"))">Talep (@CountOf("Request"))</MudButton>
+        <MudButton Variant="@(_filter == "ALL" ? Variant.Filled : Variant.Outlined)" Color="Color.Secondary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.ListAlt" OnClick="@(() => Toggle("ALL"))">Tümü (@(_alerts?.Count ?? 0))</MudButton>
+        <MudSpacer />
+        @if (_alertsSafe.Any(a => !a.Read))
+        {
+            <MudTooltip Text="Tüm aktif uyarıları okundu işaretler — çan sayacı sıfırlanır; uyarılar bu ekranda kalır.">
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.DoneAll" OnClick="MarkAllRead" Disabled="_busy">Tümünü Okundu Yap</MudButton>
+            </MudTooltip>
+        }
     </div>
 
     @if (_filter is null)
@@ -52,7 +70,7 @@ else
     <MudStack Spacing="2">
         @foreach (var a in Filtered)
         {
-            <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};")"
+            <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};{(a.Read ? "opacity:0.6;" : "")}")"
                       @onclick="@(() => Open(a.NavigateKey))">
                 <div class="d-flex align-center">
                     <MudAvatar Color="@(a.IsCritical ? Color.Error : Color.Warning)" Variant="Variant.Outlined" Class="mr-3">
@@ -63,6 +81,19 @@ else
                         <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
                     </div>
                     @if (a.IsCritical) { <MudChip T="string" Size="Size.Small" Color="Color.Error">Kritik</MudChip> }
+                    @* BLD-01: okundu/okunmadı ayrımı + tek uyarıyı okundu işaretleme (satır tıklamasını tetiklemez). *@
+                    @if (a.Read)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default">Okundu</MudChip>
+                    }
+                    else
+                    {
+                        <div @onclick:stopPropagation="true">
+                            <MudTooltip Text="Okundu işaretle — çan sayacından düşer; durumu kötüleşirse yeniden görünür.">
+                                <MudIconButton Icon="@Icons.Material.Filled.Done" Size="Size.Small" OnClick="@(() => MarkRead(a))" Disabled="_busy" />
+                            </MudTooltip>
+                        </div>
+                    }
                     <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
                 </div>
             </MudPaper>
@@ -71,13 +102,19 @@ else
 }
 
 @code {
-    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
+    // BLD-01: Read + Key + Signature eklendi (okundu işaretleme bu ekrandan da yapılır).
+    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical,
+        bool Read, string Key, string Signature);
+    private List<Alert> _alertsSafe => _alerts ?? new();
     private List<Alert>? _alerts;
-    private string? _filter;   // null → Tümü; aksi halde Kind ("LowStock"/"Maintenance"/"Inspection"/"Fuel")
+    private bool _busy;
+    // null → henüz kategori seçilmedi (ipucu, 2026-07-26 isteği korunur); "ALL" → Tümü (BLD-01); aksi halde Kind.
+    private string? _filter;
 
-    // İlk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız butonlar+sayılar (kullanıcı isteği 2026-07-26).
     private List<Alert> Filtered =>
-        _filter is null ? new() : (_alerts ?? new()).Where(a => a.Kind == _filter).ToList();
+        _filter is null ? new()
+        : _filter == "ALL" ? _alertsSafe
+        : _alertsSafe.Where(a => a.Kind == _filter).ToList();
 
     private int CountOf(string kind) => _alerts?.Count(a => a.Kind == kind) ?? 0;
 
@@ -99,7 +136,10 @@ else
                         a.GetProperty("title").GetString() ?? "",
                         a.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "",
                         a.TryGetProperty("navigateKey", out var n) ? n.GetString() ?? "" : "",
-                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True));
+                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True,
+                        a.TryGetProperty("read", out var rd) && rd.ValueKind == JsonValueKind.True,
+                        a.TryGetProperty("key", out var k) ? k.GetString() ?? "" : "",
+                        a.TryGetProperty("signature", out var sg) ? sg.GetString() ?? "" : ""));
             _alerts = list;
         }
         catch { _alerts = new(); }
@@ -111,12 +151,35 @@ else
         "Inspection" => Icons.Material.Filled.VerifiedUser,
         "LowStock" => Icons.Material.Filled.Inventory2,
         "Fuel" => Icons.Material.Filled.LocalGasStation,
+        "Document" => Icons.Material.Filled.Folder,       // BLD-01
+        "WorkOrder" => Icons.Material.Filled.Assignment,  // BLD-01
+        "Request" => Icons.Material.Filled.Description,   // BLD-01
         _ => Icons.Material.Filled.Warning,
     };
 
     private void Open(string navigateKey)
     {
         if (string.IsNullOrEmpty(navigateKey)) return;
-        Nav.NavigateTo("/" + navigateKey.Replace(":", "/"));
+        // BLD-01: masaüstü nav anahtarı "work_orders" → web rotası "work-orders"; mevcut anahtarlarda
+        // alt çizgi yok → dönüşüm eski davranışı değiştirmez.
+        Nav.NavigateTo("/" + navigateKey.Replace(":", "/").Replace("_", "-"));
+    }
+
+    // ═══ BLD-01 (ADR-172) — okundu işaretleme ═══
+
+    private async Task MarkRead(Alert a)
+    {
+        _busy = true;
+        try { await Api.PostAsync("/api/alerts/read", new { key = a.Key, signature = a.Signature }); await Load(); }
+        catch { }
+        finally { _busy = false; }
+    }
+
+    private async Task MarkAllRead()
+    {
+        _busy = true;
+        try { await Api.PostAsync("/api/alerts/read-all", new { }); await Load(); }
+        catch { }
+        finally { _busy = false; }
     }
 }

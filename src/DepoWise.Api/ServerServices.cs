@@ -197,7 +197,8 @@ public sealed class ServerServices
         MaterialTemplates = new DepoWise.Infrastructure.Materials.MaterialTemplateService(Factory, clock);
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
-        Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);
+        // BLD-01 (ADR-172): sunucuda evrak servisi verilir → evrak geçerlilik bildirimleri üretilir.
+        Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection, Documents);
         Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();
         // İçe aktarım servisleri — masaüstündeki (DesktopServices) bağlamayla BİREBİR aynı.
         MaterialImport = new DepoWise.Infrastructure.Reporting.MaterialImportService(Materials, Lookups, OpeningStock, Vehicles);
