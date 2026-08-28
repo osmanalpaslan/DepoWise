@@ -39,6 +39,42 @@
                     </MudSelect>
                 </MudTooltip>
             }
+            @* ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
+               Yeni yetki modülü YOK — sonuçlar SUNUCUDA kaynak modül yetkisi + kapsamdan süzülür. *@
+            <div style="position:relative;margin-right:8px;">
+                <MudTextField T="string" @bind-Value="_searchQ" Placeholder="Ara… (Enter)" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" Class="dw-companyswitch" Style="min-width:180px;"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true" OnKeyUp="@(async e => { if (e.Key == "Enter") await RunSearch(); })" />
+                @if (_searchOpen)
+                {
+                    <MudPaper Elevation="8" Class="pa-2"
+                              Style="position:absolute;top:44px;right:0;width:380px;max-height:60vh;overflow-y:auto;z-index:1400;">
+                        @if (_searchGroups is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                        else if (_searchGroups.Length == 0) { <MudText Typo="Typo.body2" Class="mud-text-secondary pa-2">Sonuç yok.</MudText> }
+                        else
+                        {
+                            @foreach (var g in _searchGroups)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary px-2 mt-1" Style="font-weight:600;">@SStr(g, "moduleDisplay")</MudText>
+                                @foreach (var h in SHits(g))
+                                {
+                                    <MudButton FullWidth="true" Class="justify-start px-2" Size="Size.Small"
+                                               OnClick="@(() => OpenSearchHit(SStr(h, "navigateKey")))">
+                                        <MudText Typo="Typo.body2">@SStr(h, "label")@(string.IsNullOrEmpty(SStr(h, "subLabel")) ? "" : $" · {SStr(h, "subLabel")}")</MudText>
+                                    </MudButton>
+                                }
+                                @if (g.TryGetProperty("hasMore", out var hm) && hm.ValueKind == System.Text.Json.JsonValueKind.True)
+                                {
+                                    <MudButton FullWidth="true" Class="justify-start px-2" Size="Size.Small" Color="Color.Primary"
+                                               OnClick="@(() => OpenSearchHit(SStr(g, "navigateKey")))">Daha fazlası için ekrana git…</MudButton>
+                                }
+                            }
+                        }
+                        <MudButton FullWidth="true" Size="Size.Small" Class="mt-1" OnClick="@(() => _searchOpen = false)">Kapat</MudButton>
+                    </MudPaper>
+                }
+            </div>
             @* ⭐ BLD-01 (ADR-172) — BİLDİRİM ÇANI: aktif VE okunmamış bildirim sayısı; tıkla → Uyarılar.
                Sayaç her sayfa geçişinde DEĞİL, oturum başında + Uyarılar ekranından dönünce tazelenir. *@
             <MudTooltip Text="Bildirimler — okunmamış uyarı sayısı">
@@ -360,6 +396,34 @@
         StateHasChanged();
     }
 
+    // ═══ ARA-01 (ADR-174) — üst bar global arama ═══
+    private string _searchQ = "";
+    private bool _searchOpen;
+    private System.Text.Json.JsonElement[]? _searchGroups;
+
+    private async Task RunSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQ) || _searchQ.Trim().Length < 2) { _searchGroups = Array.Empty<System.Text.Json.JsonElement>(); _searchOpen = true; return; }
+        _searchGroups = null; _searchOpen = true;
+        try { _searchGroups = await Api.GetArrayAsync("/api/search?q=" + Uri.EscapeDataString(_searchQ.Trim())); }
+        catch { _searchGroups = Array.Empty<System.Text.Json.JsonElement>(); }
+    }
+
+    private void OpenSearchHit(string navigateKey)
+    {
+        _searchOpen = false;
+        if (string.IsNullOrEmpty(navigateKey)) return;
+        // Bildirimlerle AYNI dönüşüm: masaüstü anahtarı → web rotası ("work_orders"→"work-orders").
+        Nav.NavigateTo("/" + navigateKey.Replace(":", "/").Replace("_", "-"));
+    }
+
+    private static string SStr(System.Text.Json.JsonElement e, string k)
+        => e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty(k, out var v)
+           && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static IEnumerable<System.Text.Json.JsonElement> SHits(System.Text.Json.JsonElement g)
+        => g.TryGetProperty("hits", out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? v.EnumerateArray() : Enumerable.Empty<System.Text.Json.JsonElement>();
+
     // ═══ BLD-01 (ADR-172) — üst bar bildirim sayacı ═══
     private int _unreadAlerts;
     private string _lastPath = "";
@@ -392,6 +456,7 @@
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         Guard();
+        _searchOpen = false;   // ARA-01: sayfa değişince sonuç paneli kapanır
         // BLD-01: Uyarılar ekranından AYRILINCA sayaç tazelenir (okundu işaretleri yansısın);
         // diğer sayfa geçişlerinde API ÇAĞRILMAZ (performans kuralı).
         var p = CurrentRoute();

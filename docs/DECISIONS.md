@@ -2677,3 +2677,23 @@ Ayrıntı: `docs/project-control/I_BILDIRIM_01.md`.
 - Kapsam dışı: yorum/onay · kişi hedefleme · dosya eki · okudum onayı · zengin metin · ana ekran paneli.
 
 Ayrıntı: `docs/project-control/J_DUYURU_01.md`.
+
+---
+
+## ADR-174 — Global Arama — ARA-01
+**Tarih:** 2026-08-28 · **Durum:** Kabul · **Kaynak:** FAZ 4/SIRA 11; PK-K1..K5 kullanıcı kararları (K_ARAMA_00_ANALIZ.md) AYNEN uygulandı
+
+### Karar
+- Birleşik TÜRETİLMİŞ SearchService: kaynak başına dar salt-okunur sorgu; süzme BELLEK İÇİNDE
+  (SQLite↔PG birebir + Türkçe doğru); kategori gruplu, başlayan-önce, kategori başına LIMIT 5 + HasMore;
+  min 2 karakter; Enter ile arama. FTS/fuzzy/harici motor/indeks/cache YOK; MIGRATION YOK (şema 81).
+- PK-K1 kayıt/kart nitelikli 15 kaynak (hareket defterleri hariç) · PK-K2 yalnız kimlik alanları ·
+  PK-K3 ekrana git + masaüstünde IDeepLinkTarget'lı 4 ekranda kaydı aç (uyarılardaki mevcut davranış) ·
+  PK-K4 silinmiş aranmaz · PK-K5 yeni yetki modülü YOK — kaynak modül View kapısı (yetkisiz kategori
+  hiç sorgulanmaz) + BranchAccess + tenant (ARA4/5/6 testli).
+- Özel kurallı kaynaklar KENDİ servislerinden: Duyuru (okuma-herkese+pencere), Proje (kapsam),
+  Evrak (iki kapı, yalnız metadata). Tedarikçi kapı+hedefi definitions (kart oradan yönetiliyor).
+- UI: iki platformda üst bar kutusu + açılır panel (yeni ekran/menü yok — parite sayıları değişmedi);
+  masaüstü çevrimdışı yerel arar, Proje+Evrak çevrimiçiyse /api/search?sources= ile eklenir.
+
+Ayrıntı: `docs/project-control/K_ARAMA_01.md`.

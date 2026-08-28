@@ -102,6 +102,8 @@ public static class DesktopServices
     // TKV-01: evrak sunucu-otoriteli olduğundan documents=null — evrak/proje kaynakları çevrimiçiyken API'den eklenir.
     public static DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; private set; } = null!;   // TKV-01
     public static DepoWise.Infrastructure.Announcements.AnnouncementService Announcements { get; private set; } = null!;   // DYR-01
+    // ARA-01: evrak sunucu-otoriteli olduğundan documents=null — Proje+Evrak sonuçları çevrimiçiyken API'den eklenir.
+    public static DepoWise.Infrastructure.Search.SearchService Search { get; private set; } = null!;   // ARA-01
     public static IFileStorageProvider Storage { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
@@ -219,6 +221,7 @@ public static class DesktopServices
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
         Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, documents: null, clock);
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);
+        Search = new DepoWise.Infrastructure.Search.SearchService(Factory, documents: null, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

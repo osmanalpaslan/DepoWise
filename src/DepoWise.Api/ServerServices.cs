@@ -78,6 +78,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; }   // EMR-01 (ADR-170)
     public DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; }   // TKV-01 (ADR-171)
     public DepoWise.Infrastructure.Announcements.AnnouncementService Announcements { get; }   // DYR-01 (ADR-173)
+    public DepoWise.Infrastructure.Search.SearchService Search { get; }   // ARA-01 (ADR-174)
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
     /// <summary>Şube kapsamı çözümleyici — içe aktarımda seçilen hedef şubenin kullanıcının
     /// kapsamında olduğunu doğrulamak için (fail-closed).</summary>
@@ -186,6 +187,7 @@ public sealed class ServerServices
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
         Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, Documents, clock);
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);
+        Search = new DepoWise.Infrastructure.Search.SearchService(Factory, Documents, clock);
         Scopes = new DepoWise.Infrastructure.Org.ScopeResolver(Factory);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, Scopes, clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);

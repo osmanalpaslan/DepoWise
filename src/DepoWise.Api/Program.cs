@@ -1328,6 +1328,18 @@ app.MapGet("/api/calendar/export", (HttpContext c, long from, long to, string? s
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Takvim.xlsx");
 }).RequireAuthorization();
 
+// ═══ ARA-01 (ADR-174, 2026-08-28) — GLOBAL ARAMA ═══
+// Yeni yetki modülü YOK (PK-K5): sonuçlar kaynak modül yetkisi + BranchAccess + tenant'tan SERVİSTE süzülür.
+// sources= (virgüllü NavigateKey listesi) masaüstünün sunucu-otoriteli Proje+Evrak'ı çekmesi içindir.
+app.MapGet("/api/search", (HttpContext c, string q, string? sources) =>
+    S(c) is { } s ? Results.Ok(svc.Search.Search(s, q,
+        string.IsNullOrWhiteSpace(sources) ? null : sources.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .Select(g => new
+        {
+            moduleDisplay = g.ModuleDisplay, navigateKey = g.NavigateKey, hasMore = g.HasMore,
+            hits = g.Hits.Select(h => new { id = h.Id, label = h.Label, subLabel = h.SubLabel, navigateKey = h.NavigateKey }),
+        })) : Results.Unauthorized()).RequireAuthorization();
+
 // ═══ DYR-01 (ADR-173, 2026-08-28) — DUYURULAR ═══
 // Okuma HERKESE (PK-J1 — IsPublicRead; Rol Yetki Kontrol kapatması serviste işler); yazma announcements
 // yetkisiyle. Şube hedefi + aktiflik penceresi SERVİSTE süzülür (yan kapı yok).

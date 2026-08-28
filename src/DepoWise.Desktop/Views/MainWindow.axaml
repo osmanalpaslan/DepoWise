@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:search="using:DepoWise.Infrastructure.Search"
         xmlns:local="using:DepoWise.Desktop"
         xmlns:a11y="using:Avalonia.Automation"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -152,7 +153,7 @@
                     BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <!-- 1) Menü daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" VerticalAlignment="Center"
@@ -229,9 +230,73 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
+                         Yeni yetki modülü YOK — sonuçlar serviste kaynak modül yetkisi + kapsamdan süzülür.
+                         Yerel kaynaklar ÇEVRİMDIŞI aranır; Proje+Evrak çevrimiçiyse sunucudan eklenir. -->
+                    <Panel Grid.Column="5" x:Name="GlobalSearchRoot" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="170" Watermark="Ara… (Enter)"
+                                 Text="{Binding SearchText}" a11y:AutomationProperties.Name="Global arama">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding RunSearchCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Popup IsOpen="{Binding SearchOpen, Mode=TwoWay}" PlacementTarget="GlobalSearchBox"
+                               Placement="BottomEdgeAlignedRight" IsLightDismissEnabled="True">
+                            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1" CornerRadius="10" Width="400" MaxHeight="440" Padding="8"
+                                    BoxShadow="0 6 24 0 #40000000">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Bottom" Classes="Secondary" Content="Kapat" HorizontalAlignment="Right"
+                                            Margin="0,6,0,0" Command="{Binding CloseSearchCommand}"/>
+                                    <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Helper" Margin="2,6,2,0"
+                                        Text="{Binding SearchRemoteNote}" IsVisible="{Binding HasSearchRemoteNote}"/>
+                                    <ScrollViewer>
+                                        <StackPanel>
+                                            <SelectableTextBlock Classes="Body" Margin="2" Text="Sonuç yok. (En az 2 karakter yazıp Enter'a basın.)"
+                                                                 IsVisible="{Binding SearchEmpty}"/>
+                                            <ItemsControl ItemsSource="{Binding SearchGroups}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="search:SearchGroup">
+                                                        <StackPanel Margin="0,2">
+                                                            <TextBlock Text="{Binding ModuleDisplay}" FontSize="11" FontWeight="SemiBold"
+                                                                       Opacity="0.7" Margin="4,4,4,2"/>
+                                                            <ItemsControl ItemsSource="{Binding Hits}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="search:SearchHit">
+                                                                        <Button Classes="Ghost" Padding="6,3" HorizontalAlignment="Stretch"
+                                                                                HorizontalContentAlignment="Left" Cursor="Hand"
+                                                                                Command="{Binding #GlobalSearchRoot.((vm:ShellViewModel)DataContext).OpenSearchHitCommand}"
+                                                                                CommandParameter="{Binding}" ToolTip.Tip="İlgili ekranı aç">
+                                                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                                <TextBlock Text="{Binding Label}" FontSize="12.5"/>
+                                                                                <TextBlock Text="{Binding SubLabel}" FontSize="11.5" Opacity="0.65"
+                                                                                           IsVisible="{Binding SubLabel, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                                            </StackPanel>
+                                                                        </Button>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <Button Classes="Ghost" Padding="6,3" HorizontalAlignment="Stretch"
+                                                                    HorizontalContentAlignment="Left" IsVisible="{Binding HasMore}"
+                                                                    Command="{Binding #GlobalSearchRoot.((vm:ShellViewModel)DataContext).OpenSearchGroupCommand}"
+                                                                    CommandParameter="{Binding}">
+                                                                <TextBlock Text="Daha fazlası için ekrana git…" FontSize="12"
+                                                                           Foreground="{DynamicResource AccentBrush}"/>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
+                        </Popup>
+                    </Panel>
+
                     <!-- ⭐ BLD-01 (ADR-172) — BİLDİRİM ÇANI: aktif VE okunmamış bildirim sayısı; tıkla → Uyarılar.
                          Sayaç girişte bir kez + Uyarılar ekranı etkileşimlerinde tazelenir (her geçişte değil). -->
-                    <Button Grid.Column="5" Classes="IconGhost" VerticalAlignment="Center" Margin="0,0,4,0"
+                    <Button Grid.Column="6" Classes="IconGhost" VerticalAlignment="Center" Margin="0,0,4,0"
                             ToolTip.Tip="Bildirimler — okunmamış uyarı sayısı"
                             a11y:AutomationProperties.Name="Bildirimler"
                             Command="{Binding OpenAlertsCommand}">
@@ -249,7 +314,7 @@
                          Aktif ekrana ÖZEL işlemler tek bir menüde toplanır: kayıt geçmişi (log) ve ekran
                          bilgisi. Eskiden ekran bilgisi kullanıcı menüsündeydi (ekranla ilgisiz bir yer);
                          buraya taşındı. Menü içeriği ActiveKey ile birlikte tazelenir. -->
-                    <Button Grid.Column="6" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
+                    <Button Grid.Column="7" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
                             VerticalAlignment="Center" Margin="0,0,4,0"
                             ToolTip.Tip="Bu ekrana ait araçlar: kayıt geçmişi ve ekran bilgisi"
                             a11y:AutomationProperties.Name="Ekran araçları">
@@ -271,11 +336,11 @@
                         </Button.Flyout>
                     </Button>
 
-                    <Border Grid.Column="7" Width="1" Height="26" Margin="12,0"
+                    <Border Grid.Column="8" Width="1" Height="26" Margin="12,0"
                             Background="{DynamicResource BorderSubtleBrush}" VerticalAlignment="Center"/>
 
                     <!-- 6) Kullanıcı menüsü — taşınan komutlar burada -->
-                    <Button Grid.Column="8" Classes="Ghost" Height="36" Padding="4,0,10,0"
+                    <Button Grid.Column="9" Classes="Ghost" Height="36" Padding="4,0,10,0"
                             CornerRadius="10" VerticalAlignment="Center"
                             ToolTip.Tip="{Binding DisplayName}">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

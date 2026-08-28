@@ -114,6 +114,26 @@ public static class OrgServerClient
     private static long? Num(JsonElement e, string key)
         => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 
+    // ── Arama (ARA-01 / ADR-174): sunucu-otoriteli Proje+Evrak sonuçları — çevrimdışıysa null
+    //    (çağıran "çevrimiçi gerekli" notu gösterir). Yerel kaynaklar buradan GEÇMEZ. ──
+    public static async Task<List<DepoWise.Infrastructure.Search.SearchGroup>?> SearchRemoteAsync(string q)
+    {
+        using var doc = await GetJsonAsync("/api/search?q=" + Uri.EscapeDataString(q) + "&sources=projects,documents");
+        if (doc is null) return null;   // çevrimdışı / yetkisiz → çağıran uyarır
+        var list = new List<DepoWise.Infrastructure.Search.SearchGroup>();
+        foreach (var g in doc.RootElement.EnumerateArray())
+        {
+            var hits = new List<DepoWise.Infrastructure.Search.SearchHit>();
+            if (g.TryGetProperty("hits", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var h in arr.EnumerateArray())
+                    hits.Add(new DepoWise.Infrastructure.Search.SearchHit(
+                        "", Str(g, "moduleDisplay"), Str(h, "id"), Str(h, "label"), NullS(h, "subLabel"), Str(h, "navigateKey")));
+            list.Add(new DepoWise.Infrastructure.Search.SearchGroup(Str(g, "moduleDisplay"), Str(g, "navigateKey"), hits,
+                g.TryGetProperty("hasMore", out var hm) && hm.ValueKind == JsonValueKind.True));
+        }
+        return list;
+    }
+
     // ── Bildirim (BLD-01 / ADR-172): EVRAK bildirimleri sunucu-otoriteli (belgeler masaüstünde yerel değil) —
     //    çevrimdışıysa null (çağıran "çevrimiçi gerekli" notu gösterir). Sunucu, files yetkisi ve kapsamı
     //    KENDİ tarafında süzer (yan kapı yok). Diğer kaynaklar YERELDİR, buradan geçmez. ──

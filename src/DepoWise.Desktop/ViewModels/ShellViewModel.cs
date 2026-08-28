@@ -1339,6 +1339,59 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
 
+    // ═══ ARA-01 (ADR-174) — üst bar GLOBAL ARAMA ═══
+    // Yerel kaynaklar ÇEVRİMDIŞI aranır (DesktopServices.Search); sunucu-otoriteli Proje+Evrak
+    // çevrimiçiyse API'den eklenir. Enter ile arar (anlık öneri yok, min 2 karakter).
+
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private bool _searchOpen;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSearchRemoteNote))]
+    private string? _searchRemoteNote;
+    public bool HasSearchRemoteNote => SearchRemoteNote != null;
+    [ObservableProperty] private bool _searchEmpty;
+    public System.Collections.ObjectModel.ObservableCollection<DepoWise.Infrastructure.Search.SearchGroup> SearchGroups { get; } = new();
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task RunSearch()
+    {
+        SearchGroups.Clear();
+        SearchRemoteNote = null;
+        SearchOpen = true;
+        var q = SearchText?.Trim() ?? "";
+        if (q.Length < DepoWise.Infrastructure.Search.SearchService.MinQueryLength) { SearchEmpty = true; return; }
+        try
+        {
+            foreach (var g in DesktopServices.Search.Search(_session, q)) SearchGroups.Add(g);
+            var uzak = await OrgServerClient.SearchRemoteAsync(q);
+            if (uzak is null) SearchRemoteNote = "Proje ve Evrak sonuçları çevrimiçi bağlantı gerektirir.";
+            else foreach (var g in uzak) SearchGroups.Add(g);
+        }
+        catch { }
+        SearchEmpty = SearchGroups.Count == 0;
+    }
+
+    [RelayCommand]
+    private void CloseSearch() => SearchOpen = false;
+
+    /// <summary>Sonuca tıkla → ilgili ekrana git; kayıt-açma altyapısı olan ekranlarda (IDeepLinkTarget)
+    /// KAYIT da açılır — uyarılardaki mevcut davranışın aynısı (PK-K3).</summary>
+    [RelayCommand]
+    private void OpenSearchHit(DepoWise.Infrastructure.Search.SearchHit? hit)
+    {
+        if (hit is null) return;
+        SearchOpen = false;
+        NavigateTo(hit.NavigateKey, hit.Id);
+    }
+
+    [RelayCommand]
+    private void OpenSearchGroup(DepoWise.Infrastructure.Search.SearchGroup? group)
+    {
+        if (group is null) return;
+        SearchOpen = false;
+        Navigate(group.NavigateKey);
+    }
+
     // ═══ BLD-01 (ADR-172) — üst bar bildirim çanı ═══
 
     [ObservableProperty]

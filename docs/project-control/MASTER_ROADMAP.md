@@ -45,8 +45,8 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | | 8 | H — Takvim | Yeni ana menü (tek ekran) | ✅ **TAMAMLANDI** (2026-08-28, ADR-171 · yayın bekliyor) — [H_TAKVIM_01.md](H_TAKVIM_01.md) |
 | **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-172 · MIGRATION YOK · yayın bekliyor) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md) |
 | | 10 | J — Duyuru | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-173 · yayın bekliyor) — [J_DUYURU_01.md](J_DUYURU_01.md) |
-| | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | 🔵 **SIRADAKİ** |
-| | 12 | L — Dashboard | Mevcut ekran dönüşümü | BEKLİYOR |
+| | 11 | K — Global Arama | Üst bar ortak özelliği (menü DEĞİL) | ✅ **TAMAMLANDI** (2026-08-28, ADR-174 · MIGRATION YOK · yayın bekliyor) — [K_ARAMA_01.md](K_ARAMA_01.md) |
+| | 12 | L — Dashboard | Mevcut ekran dönüşümü | 🔵 **SIRADAKİ** |
 | **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | BEKLİYOR |
 | | 14 | O — Barkod / QR | Ortak özellik + alanlar | BEKLİYOR |
 | | 15 | N — Mobil | Önce responsive web | BEKLİYOR |
@@ -133,6 +133,7 @@ doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
 | 2026-08-28 | Migration080_CalendarEvents (v80 — yalnız CREATE, 1 yeni tablo) | H — Takvim | **HAYIR** (yayın onayıyla uygulanacak) |
 | 2026-08-28 | — (I Bildirim Merkezi MIGRATION GEREKTİRMEDİ; şema 80'de kaldı, alert_reads'e dokunulmadı) | I — Bildirim Merkezi | — |
 | 2026-08-28 | Migration081_Announcements (v81 — yalnız CREATE, 1 yeni tablo) | J — Duyuru | **HAYIR** (yayın onayıyla uygulanacak) |
+| 2026-08-28 | — (K Global Arama MIGRATION GEREKTİRMEDİ; şema 81'de kaldı, indeks de eklenmedi) | K — Global Arama | — |
 
 ---
 ---
