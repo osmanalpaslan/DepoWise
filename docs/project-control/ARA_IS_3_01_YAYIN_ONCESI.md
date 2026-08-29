@@ -199,6 +199,26 @@ sabit sürüm dosyası yoktur. Son yayınlanan sürüm `CURRENT_PHASE.md`'ye gö
 
 ---
 
-## 15. Sonraki adım
+## 15. YAYIN SONUCU — ✅ YAYINLANDI (2026-08-29)
 
-**Kullanıcının `YAYINLA` onayı.** Onay gelmeden API/Web dağıtımı ve masaüstü paketi yayını yapılmaz.
+Kullanıcı onayı alındı ve yayın yapıldı.
+
+| Bileşen | Sonuç |
+|---|---|
+| **API** (`flyctl deploy -c fly.toml --ha=false`) | ✅ makine `started` · `/health` **200** |
+| **Web** (`flyctl deploy -c fly.web.toml --ha=false`) | ✅ makine `started` · `/` **200** |
+| **Masaüstü paketi** | ✅ `DepoWise-desktop-1.0.163.zip` · **90.407.787 bayt (86,2 MB)** · 253 dosya |
+| **Sürüm yayını** | ✅ checksum `27ED96C7…7A81B339` · `/api/releases/latest` = **1.0.163** |
+| **Paket temizliği** | 2 eski öğe silindi (~0,32 GB); yerelde 1.0.163 · 1.0.162 · 1.0.161 |
+
+**Yayın sonrası salt-okunur kontroller:** `/health` 200 · `/api/releases/latest` = 1.0.163 ·
+web `/` `/reports` `/stock` `/branches` hepsi **200**. Hiçbir kayıt oluşturulmadı/değiştirilmedi.
+
+**MIGRATION SONUCU: HİÇBİR MİGRATION UYGULANMADI — canlı şema 81'de KALDI.** Kanıt yapısaldır:
+yayınlanan imajda `Migration082` dosyası yok, katalog azamisi 81 = yayın öncesi canlı şema; runner
+yalnız mevcut sürümden büyük migration uygular. API açılışta migration çalıştırır; başarısız olsaydı
+ayağa kalkamazdı — API sağlıklı. Üretim veritabanına doğrudan bağlanılmadı.
+
+**Kullanıcı etkisi:** masaüstü makineler uygulama açıkken kısa sürede "Yeni güncelleme mevcut" uyarısı
+alır → **1.0.163**. Güncellemeyi kuran istemciler tarih kaymasından etkilenmez; kurmayanlar
+(≤1.0.162) güncellenene kadar eski davranışı sürdürür.

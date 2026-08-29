@@ -2,13 +2,18 @@
 
 > Son güncelleme: 2026-08-29 (ARA İŞ 3 — tarih kayması analizi tamam, karar bekliyor)
 
-## 🔵 TARİH KAYMASI (ARA İŞ 3) — ✅ KOD+TEST TAMAM (ADR-184), ⛔ YAYIN ONAYI BEKLİYOR (2026-08-29)
+## 🟢 TARİH KAYMASI (ARA İŞ 3) — ✅ DÜZELTİLDİ VE YAYINLANDI (2026-08-29, ADR-184)
 
-> **Yeni kayıtlar için DÜZELTİLDİ** (kod tarafı): 20 yazım noktasının tamamı tek kaynağa
-> (`IsGunuTarihi`) bağlandı; web `Stock.razor` düzeltildi. Kararlar: **PK-TAR-01=A · 02=A · 03=A ·
-> 04=A · 05=A · 06=B · 07=A**. **Migration YOK**, canlı şema 81 kalır. **Henüz YAYINLANMADI** —
-> kullanıcının "YAYINLA" onayı bekleniyor; yayınlanana kadar canlıda hata sürüyor.
-> ⚠️ **Eski istemciler (≤1.0.162)** güncellenene kadar kaymalı yazmaya devam eder (PK-TAR-05=A).
+> **Yeni kayıtlar için ÇÖZÜLDÜ ve CANLIDA:** 20 yazım noktasının tamamı tek kaynağa (`IsGunuTarihi`)
+> bağlandı; web `Stock.razor` düzeltildi. Yayın: kod `ab0d0d4` · masaüstü **1.0.163** · API + Web
+> güncel · **MIGRATION YOK, canlı şema 81**. Kararlar: PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A ·
+> 06=B · 07=A.
+>
+> **Açık kalan iki bilinçli sınır:**
+> 1. **Geçmiş kayıtlar hâlâ kaymış durumda** (PK-TAR-02=A) — düzeltilmesi AYRI bir iş; henüz
+>    planlanmadı, canlı veriye dokunulmadı.
+> 2. **Eski istemciler (≤1.0.162)** 1.0.163'e güncellenene kadar kaymalı yazmayı sürdürür
+>    (PK-TAR-05=A) — sözleşme değişmediği için bozulmazlar.
 >
 > ⚠️ **AYRI İŞ OLARAK AÇIK KALAN:** geçmiş canlı kayıtlardaki olası tarih kaymaları (PK-TAR-02=A ile
 > bu ara işin KAPSAMI DIŞINDA bırakıldı). Gerekirse ileride ayrı karar/iş olarak açılacaktır; hangi
