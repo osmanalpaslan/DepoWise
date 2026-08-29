@@ -2923,3 +2923,46 @@ Yakıt raporunda "tam filo + gizle onay kutusu": iki davranış birden, daha ço
 **Doğrulama.** İzole yerel PG **47/47** (PostgresTestGuard çift kilidi aynen; port 5544 zorunlu tutuldu,
 kilit gevşetilmedi). Tam süit ve 3 Release build sonuçları ARA_IS_2_02_UYGULAMA.md'de. **MIGRATION YOK —
 katalog azamisi 81 = canlı şema.** Production'a hiçbir aşamada bağlanılmadı; **yayın AYRI onay bekliyor**.
+
+---
+
+## ADR-183 — Günlük raporlarda "verisi olmayan satır" ve stok günlük dökümü (2026-08-29, KULLANICI DÜZELTMESİ)
+
+**Bağlam.** ADR-182 dalgası yayınlandıktan sonra kullanıcı canlı ekran görüntüsüyle iki hata bildirdi.
+
+**Hata 1 — Araç Raporu — Günlük boş satır üretiyordu.** Rapor, aralıktaki HER gün × HER araç için satır
+üretiyordu (PK-R1=A'nın "boş günler dahil" kararı). Canlıda 1.972 satırın büyük kısmı yalnız kimlik
+sütunları dolu, tüm ölçüm sütunları "-" olan satırlardı; rapor okunamaz hâle gelmişti. Kullanıcı:
+*"verisi olmayan araç veya malzemeleri listelemeni istemedim… sütunun bir tanesinde bile değer varsa
+listele, ama değer yok ise listeleme."*
+
+**Karar 1.** `vehicle-daily` artık o gün HİÇ verisi olmayan (araç, gün) satırını ÜRETMEZ. Kimlik
+sütunları (Tarih · İç Kod · Plaka · Araç Adı · Şube · Sayaç Birimi) kaydın kendi bilgisidir ve "veri"
+sayılmaz; ölçüm sütunlarından (mesafe · litre · ort. fiyat · yakıt maliyeti · ort. tüketim · bakım
+malzeme · doğrudan parça · toplam · birim maliyet · gün içi son sayaç) **en az biri doluysa** satır
+gelir. Örnek: yakıt yok ama bakım malzemesi varsa satır LİSTELENİR.
+**Kapsam sınırı:** bu değişiklik YALNIZ `vehicle-daily`'dedir. Dönem raporu `vehicle` TAM FİLO
+davranışını KORUR (verisi olmayan araç 0/"-" ile listelenir) — kullanıcı bu ayrımı bozmadı, aksine
+"tüm filoyu görmek için Araç Raporu" yönlendirmesi InfoNote'a yazıldı. Bu, ADR-181'in PK-R1=A
+kararının "boş günler dahil" kısmının kullanıcı tarafından geri alınmasıdır.
+
+**Hata 2 — Stok Hareketleri — Günlük özet üretiyordu.** Rapor gün × hareket türü ÖZETİ veriyordu
+("26.08.2026 · Giriş · 20 işlem"). Kullanıcı: *"o gün kaç tane giriş yapılmışsa tek tek giriş yapılan
+malzemeler listelenmesi gerekti."*
+
+**Karar 2.** `stock-movements-daily` yeniden yazıldı: artık gün gün ilerleyen bir DÖKÜMDÜR ve o günün
+HER hareketini malzemesiyle TEK TEK listeler (20 giriş → 20 satır). Kolonlar: Tarih · Tür · Kod ·
+Malzeme · Miktar (giriş +, çıkış −) · Birim · Kaynak · Hedef · Belge No · Durum. Sıralama gün → tür →
+malzeme kodu. **Detay rapordan farkı sıralamadır:** `stock-movements` KAYIT ANINA göre tersten
+sıralıdır ("az önce kaydettiğim üstte görünsün" gerekçesi korunuyor), bu rapor İŞ GÜNÜNE göre
+kronolojiktir. Detay rapora TEK SATIR dokunulmadı. Filtreler yine tek kaynaktan (`StockMovementFilterSql`)
+gelir → ekran = detay = günlük ayrışamaz. PK-G2=A'nın "özet" biçimi kullanıcı tarafından geri alındı.
+
+**Testler.** Sözleşme değişiklikleri testlerde AÇIKÇA belgelendi (gevşetme değil, yeni kuralın kanıtı):
+`BosGun_SifirSatirla_Gorunur` → `BosGun_Satiri_URETILMEZ_AmaTekDegerVarsaGelir` (V1'in yalnız bakım
+verisi olan günü LİSTELENİR kilidi dahil) · `GNL13` artık "her hareket malzemesiyle tek tek" ·
+`GNL15` transferin İKİ AYRI SATIR olduğunu kilitler · `GNL20` günlük-verisiz-satır-yok ↔ dönem-tam-filo
+ayrımını birlikte kilitler · PG parite testleri iki lehçede yeni sözleşmeyi doğrular.
+
+**MIGRATION YOK** — yalnız iki rapor metodu + katalog metinleri değişti; şema, senkron, yetki ve
+tarih semantiği DEĞİŞMEDİ. Canlı şema 81'de kalır.

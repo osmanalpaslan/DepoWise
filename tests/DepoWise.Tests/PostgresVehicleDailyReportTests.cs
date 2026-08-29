@@ -69,19 +69,21 @@ public class PostgresVehicleDailyReportTests
         var reports = new ReportService(factory);
         var istek = new ReportRequest(true, Day(1), Day(3) + G - 1);
 
+        // ⭐ ADR-183 (kullanıcı düzeltmesi): BOŞ gün satırı ÜRETİLMEZ → 3 gün aralığında yalnız
+        // verisi olan 2 gün (1 ve 3) gelir; 2. gün hiç görünmez.
         var gunluk = reports.Run(s, "vehicle-daily", istek);
-        Assert.Equal(3, gunluk.Rows.Count);                        // 3 gün × 1 araç (BOŞ gün 2 dahil)
+        Assert.Equal(2, gunluk.Rows.Count);
         Assert.Equal(16, gunluk.Headers.Count);
 
         double D(object? v) => v is NumCell n ? n.Value : Convert.ToDouble(v ?? 0);
 
-        var g1 = gunluk.Rows[0]; var g2 = gunluk.Rows[1]; var g3 = gunluk.Rows[2];
+        var g1 = gunluk.Rows[0]; var g3 = gunluk.Rows[1];
         Assert.Equal(150.0, D(g1[7]), 6);                          // gün 1 litre (sınır fişi DAHİL)
         Assert.Equal(300.0, D(g1[6]), 6);                          // gün 1 km
         Assert.Equal(6200.0, D(g1[9]), 6);                         // gün 1 yakıt maliyeti
         Assert.Equal(1300.0, D(g1[15]), 6);                        // gün içi SON sayaç
-        Assert.Equal(0.0, D(g2[7]), 6);                            // BOŞ gün 2 → 0 satırı VAR
         Assert.Equal(20.0, D(g3[7]), 6);                           // gün 3 (gün sonu fişi DAHİL)
+        Assert.DoesNotContain(gunluk.Rows, r => D(r[7]) == 0 && D(r[11]) == 0 && D(r[12]) == 0);   // boş satır YOK
 
         // Günlük toplamlar DÖNEM raporuyla tutarlı (PG'de de).
         var donem = reports.Run(s, "vehicle", istek);
@@ -100,6 +102,6 @@ public class PostgresVehicleDailyReportTests
                 new ModulePermission("reports", true, false, false, false),
                 new ModulePermission("report_vehicle", true, false, false, false),
             }));
-        Assert.Equal(3, reports.Run(yetkili, "vehicle-daily", istek).Rows.Count);
+        Assert.Equal(2, reports.Run(yetkili, "vehicle-daily", istek).Rows.Count);   // ADR-183
     }
 }

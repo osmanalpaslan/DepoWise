@@ -113,7 +113,10 @@ public class VehicleDailyReportTests : IDisposable
         Assert.Equal(16, t.Headers.Count);
         Assert.Equal("Tarih", t.Headers[0]);
         Assert.Equal("Gün İçi Son Sayaç", t.Headers[15]);
-        Assert.Equal(3 * 2, t.Rows.Count);   // 3 gün × 2 görünür araç (soft-delete + yabancı firma HARİÇ)
+        // ⭐ ADR-183 (kullanıcı düzeltmesi): yalnız O GÜN VERİSİ OLAN (araç, gün) satırları gelir.
+        // V1 → gün1 (yakıt) · gün2 (bakım+parça) · gün3 (yakıt) = 3 satır · V2 → yalnız gün1 = 1 satır.
+        // V2'nin gün 2-3'ü ve soft-delete/yabancı firma araçları HİÇ satır üretmez.
+        Assert.Equal(4, t.Rows.Count);
         Assert.NotNull(t.TotalRow);
     }
 
@@ -154,14 +157,26 @@ public class VehicleDailyReportTests : IDisposable
         Assert.Equal(1400.0, D(Row(t, 3, "V1")[15]), 3);               // gün 3 son sayaç
     }
 
+    /// <summary>
+    /// ⭐ ADR-183 (2026-08-29, KULLANICI DÜZELTMESİ) — SÖZLEŞME DEĞİŞİKLİĞİ, testin gevşetilmesi DEĞİL.
+    /// Eski kilit: <c>BosGun_SifirSatirla_Gorunur</c> — boş gün 0/"-" ile LİSTELENİR derdi. Kullanıcı
+    /// raporda bu satırların gürültü olduğunu bildirdi ("verisi olmayan araçları listelemeni istemedim").
+    /// Yeni kural burada kilitlenir: ölçüm sütunlarının HEPSİ boşsa satır ÜRETİLMEZ; BİR tanesinde bile
+    /// değer varsa satır GELİR (V1'in 2. günü: yakıt yok ama bakım+parça var → satır VAR).
+    /// </summary>
     [Fact]
-    public void BosGun_SifirSatirla_Gorunur()
+    public void BosGun_Satiri_URETILMEZ_AmaTekDegerVarsaGelir()
     {
         var t = Gunluk();
-        var r = Row(t, 2, "V2");                          // V2'nin gün 2'sinde HİÇ veri yok
-        Assert.Equal(0.0, D(r[7]), 3);
-        Assert.Equal(0.0, D(r[13]), 3);
-        Assert.Equal("-", Disp(r[7]));                    // görüntü "-", ham 0 — boş gün AÇIKÇA görünür
+        // V2'nin 2. ve 3. gününde HİÇ veri yok → satır yok
+        Assert.DoesNotContain(t.Rows, r => (string)r[0]! == TarihStr(2) && (string)r[1]! == "V2");
+        Assert.DoesNotContain(t.Rows, r => (string)r[0]! == TarihStr(3) && (string)r[1]! == "V2");
+
+        // V1'in 2. gününde YALNIZ bakım+parça var (yakıt yok) → satır GELİR
+        var r2 = Row(t, 2, "V1");
+        Assert.Equal(0.0, D(r2[7]), 3);                   // yakıt litre yok
+        Assert.Equal(400.0, D(r2[11]), 3);                // bakım malzeme VAR
+        Assert.Equal(150.0, D(r2[12]), 3);                // doğrudan parça VAR
     }
 
     [Fact]
@@ -194,7 +209,9 @@ public class VehicleDailyReportTests : IDisposable
         {
             var d = donem.Rows.First(r => (string)r[0]! == kod);
             var g = gunluk.Rows.Where(r => (string)r[1]! == kod).ToList();
-            Assert.Equal(3, g.Count);                                     // her gün bir satır
+            // ADR-183: yalnız VERİSİ OLAN günler satır üretir (V1 → 3 gün, V2 → 1 gün). Tutarlılık
+            // güvencesi satır SAYISI değil, TOPLAMLARIN eşitliğidir: boş günler zaten 0 katardı.
+            Assert.NotEmpty(g);
             Assert.Equal(D(d[5]), g.Sum(r => D(r[6])), 6);                // mesafe: günler toplamı = dönem
             Assert.Equal(D(d[6]), g.Sum(r => D(r[7])), 6);                // litre
             Assert.Equal(D(d[8]), g.Sum(r => D(r[9])), 6);                // yakıt maliyeti
@@ -217,7 +234,7 @@ public class VehicleDailyReportTests : IDisposable
     public void AracFiltresi_Uygulanir()
     {
         var t = Gunluk(req: Istek(vehicleIds: new[] { "v2" }));
-        Assert.Equal(3, t.Rows.Count);                    // 3 gün × yalnız V2
+        Assert.Single(t.Rows);                            // V2'nin yalnız 1. gününde veri var (ADR-183)
         Assert.All(t.Rows, r => Assert.Equal("V2", (string)r[1]!));
     }
 
@@ -243,7 +260,7 @@ public class VehicleDailyReportTests : IDisposable
             }))
         { ScopeBranchIds = new[] { "B1" } };
         var t = Gunluk(kapsamli);
-        Assert.Equal(3, t.Rows.Count);                    // yalnız V1 (B1) × 3 gün
+        Assert.Equal(3, t.Rows.Count);                    // yalnız V1 (B1) — üç gününde de verisi var
         Assert.All(t.Rows, r => Assert.Equal("V1", (string)r[1]!));
     }
 
@@ -261,7 +278,7 @@ public class VehicleDailyReportTests : IDisposable
     public void Yetki_ReportsVeKategori_Yeter()
     {
         var t = Gunluk(Personel("report_vehicle"));
-        Assert.Equal(6, t.Rows.Count);
+        Assert.Equal(4, t.Rows.Count);   // ADR-183: yalnız verisi olan (araç, gün) satırları
     }
 
     [Fact]

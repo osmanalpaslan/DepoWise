@@ -172,12 +172,14 @@ public static class ReportCatalog
             InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar.",
             DataModule: "vehicles"),
         // ⭐ RPT-GUNLUK (2026-08-29, PK-R1=A): Araç Raporu'nun GÜN BAZLI kırılımı — AYRI rapor türü
-        // (mevcut "vehicle" toplam raporuna DOKUNULMADI). Aralıktaki HER GÜN gösterilir (boş gün = 0);
-        // amaç afaki/hatalı günlük girişin görünürlüğü. Filtre/kapsam/tarih semantiği dönem raporuyla aynı.
-        new ReportDescriptor("vehicle-daily", "Araç Raporu — Günlük", "Araç maliyetlerinin gün gün kırılımı (boş günler dahil)",
+        // (mevcut "vehicle" toplam raporuna DOKUNULMADI). Amaç: hatalı/eksik günlük girişin görünürlüğü.
+        // ⭐ ADR-183 (2026-08-29, KULLANICI DÜZELTMESİ): önce boş günler de 0/"-" ile listeleniyordu;
+        // kullanıcı raporun okunamaz hâle geldiğini bildirdi → artık o gün HİÇ verisi olmayan satır
+        // ÜRETİLMEZ. Ölçüm sütunlarından biri bile doluysa satır gelir. Filtre/kapsam/tarih aynı.
+        new ReportDescriptor("vehicle-daily", "Araç Raporu — Günlük", "Araç maliyetlerinin gün gün kırılımı (yalnız o gün verisi olan araçlar)",
             ReportCategory.Vehicle, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Her satır bir GÜN×ARAÇ'tır; veri girilmeyen günler 0 (-) olarak görünür. Değerler dönem raporuyla aynı kaynaklardan hesaplanır ve günlerin toplamı dönem toplamına eşittir. Uzun tarih aralığında araç filtresi kullanmanız önerilir.",
+            InfoNote: "Her satır bir GÜN×ARAÇ'tır ve YALNIZ o gün verisi olan araçlar listelenir: yakıt, bakım malzemesi, doğrudan parça ya da sayaç kaydından en az biri varsa satır gelir; hepsi boşsa satır hiç gösterilmez. Değerler dönem raporuyla aynı kaynaklardan hesaplanır ve günlerin toplamı dönem toplamına eşittir. Tüm filoyu (verisi olmayanlar dahil) görmek için «Araç Raporu»nu kullanın.",
             DataModule: "vehicles"),
         // STK-06: depo bazlı stoktan sonra bu raporun iki modu var — filtre BOŞken firma geneli toplam
         // (eski davranış birebir), depo seçilince o deponun kırılımı + "Depo" kolonu.
@@ -194,13 +196,15 @@ public static class ReportCatalog
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
             InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. «Atanmamış» bir depo değildir: lokasyonu girilmemiş harekettir.",
             DataModule: "stock"),
-        // Stok Hareketleri — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · PK-G2=A): defterin gün × HAREKET TÜRÜ ÖZETİ.
-        // Detay rapor (yukarıdaki "stock-movements") satır-satır kalır ve DEĞİŞMEDİ; buradaki katma değer
-        // özet olmasıdır. Filtreler aynı TEK kaynaktan (StockMovementFilterSql) gelir → ekran=rapor=özet.
-        new ReportDescriptor("stock-movements-daily", "Stok Hareketleri — Günlük", "Gün × hareket türü özeti: işlem sayısı, giriş ve çıkış toplamları",
+        // Stok Hareketleri — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · ⭐ ADR-183 ile DÜZELTİLDİ): gün gün, o günün
+        // HER hareketi malzemesiyle TEK TEK. İlk sürüm gün×tür ÖZETİ idi; kullanıcı "o gün kaç giriş
+        // yapıldıysa malzemeler tek tek listelenmeli" dedi. Detay rapor (yukarıdaki "stock-movements")
+        // DEĞİŞMEDİ — farkı sıralamadır (orada kayıt anı DESC, burada iş günü kronolojik).
+        // Filtreler aynı TEK kaynaktan (StockMovementFilterSql) gelir → ekran=detay=günlük.
+        new ReportDescriptor("stock-movements-daily", "Stok Hareketleri — Günlük", "Gün gün, o gün hareket gören malzemelerin tek tek dökümü",
             ReportCategory.Stock, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
-            InfoNote: "Her satır bir GÜN ve bir HAREKET TÜRÜDÜR; hareketi olmayan gün/tür satırı gösterilmez. «Giriş» ve «Çıkış» o gün o türde eklenen/çıkan MİKTAR toplamlarıdır — farklı birimlerdeki (adet, kg, litre…) malzemeler aynı toplamda birleşir, bu yüzden anlamlı bir miktar toplamı için malzeme ya da depo filtresi kullanın. Transfer defterde iki satırdır: hem çıkış hem giriş olarak sayılır. Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999).",
+            InfoNote: "Rapor gün gün ilerler ve o gün yapılan HER hareketi malzemesiyle TEK TEK listeler (o gün 20 giriş yapıldıysa 20 satır gelir). Sıralama: gün → hareket türü → malzeme kodu. «Stok Hareketleri» raporundan farkı sıralamadır: orada en son KAYDEDİLEN üstte, burada iş günü kronolojiktir. Miktar giriş için +, çıkış için − gösterilir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş). Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999).",
             DataModule: "stock"),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
@@ -210,15 +214,16 @@ public static class ReportCatalog
         // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
         // tek-geçiş (N+1 yok). Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
         // ⭐ ADR-182 (2026-08-29, PK-T1=A): KAPSAM "tam filo" DEĞİL — yalnız aralıkta fişi olan araçlar
-        // listelenir. `vehicle` ve `vehicle-daily` tam filo davranışını KORUR (yalnız bu rapor değişti).
+        // listelenir. `vehicle` (dönem) tam filo davranışını KORUR; `vehicle-daily` ise ADR-183 ile
+        // kullanıcı düzeltmesi sonrası yalnız o gün verisi olan araçları listeler.
         new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç başına tüketim, ortalama fiyat ve birim maliyet (km/saat duyarlı)",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
             InfoNote: "Seçilen tarih aralığında YAKIT FİŞİ OLAN araçlar listelenir; o aralıkta yakıt almayan araçlar rapora GİRMEZ (tüm filoyu 0 değerleriyle görmek için «Araç Raporu» ya da «Araç Raporu — Günlük» kullanın). Yakıt tüketimi ve mesafe, aralıktaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
             DataModule: "fuel"),
         // Yakıt Tüketim — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · PK-G1=A): dönem raporunun gün gün kırılımı.
-        // Yalnız FİŞİ OLAN (araç, gün) satırları listelenir — "tüm filo × tüm günler" görünümü bilinçli
-        // olarak Araç Raporu — Günlük'e bırakıldı (amaç: hatalı/eksik günlük girişleri gürültüsüz görmek).
+        // Yalnız FİŞİ OLAN (araç, gün) satırları listelenir (ADR-183 sonrası Araç Raporu — Günlük de
+        // aynı ilkeyi uygular; tüm filo görünümü yalnız dönem raporu "vehicle"da kaldı).
         // Gün anahtarı tam sayı bölmesidir (ms/86.400.000) → SQLite ve PostgreSQL BİREBİR aynı sonucu verir.
         new ReportDescriptor("fuel-daily", "Yakıt Tüketim — Günlük", "Yakıt tüketiminin gün gün kırılımı (yalnız fiş olan araç/günler)",
             ReportCategory.Fuel, ReportGroup.Standard,

@@ -115,18 +115,19 @@ public class PostgresGunlukRaporlarTests
         Hareket("h4", "transfer", 1, "2", Day(3));
         Hareket("h5", "transfer", -1, "2", Day(3));
 
+        // ⭐ ADR-183: ÖZET değil, gün gün DÖKÜM — her hareket malzemesiyle TEK TEK satır.
         var stok = reports.Run(s, "stock-movements-daily", istek);
-        Assert.Equal(5, stok.Headers.Count);
-        Assert.Equal(3, stok.Rows.Count);                          // (1.gün Giriş) (1.gün Çıkış) (3.gün Transfer)
+        Assert.Equal(10, stok.Headers.Count);
+        Assert.Equal(5, stok.Rows.Count);                          // 5 hareket = 5 satır (özetlenmez)
+        Assert.All(stok.Rows, r => Assert.Equal("MK1", (string)r[2]!));   // malzeme kodu her satırda
 
-        var giris = stok.Rows.First(r => (string)r[1]! == "Giriş");
-        Assert.Equal(2.0, Deger(giris[2]), 3);                     // iki hareket — gün sınırı dahil
-        Assert.Equal(15.0, Deger(giris[3]), 3);                    // 10,5 + 4,5 → numeric ile TAM
-        Assert.Equal("15", Goster(giris[3]));                      // kayan nokta artığı YOK
+        var girisler = stok.Rows.Where(r => (string)r[1]! == "Giriş").Select(r => Deger(r[4])).OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { 4.5, 10.5 }, girisler);               // tek tek, numeric ile TAM ondalık
 
-        var transfer = stok.Rows.First(r => (string)r[1]! == "Transfer");
-        Assert.Equal(2.0, Deger(transfer[3]), 3);                  // giriş bacağı
-        Assert.Equal(2.0, Deger(transfer[4]), 3);                  // çıkış bacağı
+        var transfer = stok.Rows.Where(r => (string)r[1]! == "Transfer").ToList();
+        Assert.Equal(2, transfer.Count);                           // iki bacak = İKİ satır
+        Assert.Contains(transfer, r => Deger(r[4]) == 2.0);
+        Assert.Contains(transfer, r => Deger(r[4]) == -2.0);
 
         // Detay rapor DEĞİŞMEDİ (regresyon): 5 hareket satır-satır.
         Assert.Equal(5, reports.Run(s, "stock-movements", istek).Rows.Count);

@@ -240,39 +240,57 @@ public class GunlukRaporlarTests : IDisposable
         Assert.Equal("stock", d.DataModule);
     }
 
+    /// <summary>
+    /// ⭐ ADR-183 (2026-08-29, KULLANICI DÜZELTMESİ) — rapor artık ÖZET DEĞİL, gün gün DÖKÜMDÜR.
+    /// Eski sürüm "26.08.2026 · Giriş · 20 işlem" gibi tek satır üretiyordu; kullanıcı <i>"o gün kaç
+    /// tane giriş yapılmışsa tek tek giriş yapılan malzemeler listelenmeli"</i> dedi. Her hareket
+    /// MALZEMESİYLE ayrı satırdır.
+    /// </summary>
     [Fact]
-    public void GNL13_Gun_Carpi_Tur_Ozeti_Uretir()
+    public void GNL13_Her_Hareket_Malzemesiyle_Tek_Tek_Listelenir()
     {
         var t = StokGunluk(G1, G3 - 1);
         Assert.Equal("Stok Hareketleri — Günlük", t.Title);
-        Assert.Equal(new[] { "Tarih", "Tür", "İşlem Sayısı", "Giriş Miktarı", "Çıkış Miktarı" }, t.Headers);
-        // 1 Ağu: Giriş + Çıkış · 2 Ağu: Transfer → 3 satır
-        Assert.Equal(3, t.Rows.Count);
+        Assert.Equal(new[] { "Tarih", "Tür", "Kod", "Malzeme", "Miktar", "Birim", "Kaynak", "Hedef", "Belge No", "Durum" }, t.Headers);
+        // 5 hareket → 5 SATIR (özet değil): 1 Ağu 2 giriş + 1 çıkış · 2 Ağu transferin iki bacağı
+        Assert.Equal(5, t.Rows.Count);
+        Assert.All(t.Rows, r => Assert.Equal("MK1", (string)r[2]!));        // malzeme kodu her satırda
+        Assert.All(t.Rows, r => Assert.Equal("Çimento", (string)r[3]!));    // malzeme adı her satırda
     }
 
     [Fact]
-    public void GNL14_Giris_Cikis_Toplamlari_Kesin()
+    public void GNL14_Miktarlar_Isaretli_ve_Kesin()
     {
         var t = StokGunluk(G1, G3 - 1);
-        var giris = t.Rows.First(r => (string)r[0]! == "01.08.2026" && (string)r[1]! == "Giriş");
-        Assert.Equal(15.0, D(giris[3]), 3);    // 10,5 + 4,5 — ondalık kesin
-        Assert.Equal("15", Gor(giris[3]));     // görüntüde kayan nokta artığı YOK
-        Assert.Equal(2.0, D(giris[2]), 3);     // işlem sayısı
-        Assert.Equal(0.0, D(giris[4]), 3);     // çıkışı yok
+        var birAgustos = t.Rows.Where(r => (string)r[0]! == "01.08.2026").ToList();
+        Assert.Equal(3, birAgustos.Count);                                  // 2 giriş + 1 çıkış
 
-        var cikis = t.Rows.First(r => (string)r[0]! == "01.08.2026" && (string)r[1]! == "Çıkış");
-        Assert.Equal(3.0, D(cikis[4]), 3);
+        var girisler = birAgustos.Where(r => (string)r[1]! == "Giriş").Select(r => D(r[4])).OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { 4.5, 10.5 }, girisler);                        // tek tek, ondalık kesin
+        Assert.Equal("+10,5", Gor(birAgustos.First(r => D(r[4]) == 10.5)[4]));   // giriş "+" işaretli
+
+        var cikis = birAgustos.Single(r => (string)r[1]! == "Çıkış");
+        Assert.Equal(-3.0, D(cikis[4]), 3);                                 // çıkış NEGATİF
     }
 
-    /// <summary>Transfer defterde İKİ satırdır: aynı gün hem giriş hem çıkış olarak sayılır.</summary>
+    /// <summary>Transfer defterde İKİ satırdır: aynı gün hem çıkış hem giriş bacağı ayrı satır olarak gelir.</summary>
     [Fact]
-    public void GNL15_Transfer_Iki_Bacak_Olarak_Sayilir()
+    public void GNL15_Transfer_Iki_Ayri_Satir()
     {
         var t = StokGunluk(G2, G2 + Gun - 1);
-        var tr = t.Rows.Single(r => (string)r[1]! == "Transfer");
-        Assert.Equal(2.0, D(tr[2]), 3);   // iki hareket satırı
-        Assert.Equal(2.0, D(tr[3]), 3);   // giriş bacağı
-        Assert.Equal(2.0, D(tr[4]), 3);   // çıkış bacağı
+        var tr = t.Rows.Where(r => (string)r[1]! == "Transfer").ToList();
+        Assert.Equal(2, tr.Count);                                          // iki bacak = iki satır
+        Assert.Contains(tr, r => D(r[4]) == 2.0);                           // giriş bacağı +2
+        Assert.Contains(tr, r => D(r[4]) == -2.0);                          // çıkış bacağı −2
+    }
+
+    /// <summary>Sıralama gün gün ilerler (detay rapordan farkı budur: orada kayıt anı DESC).</summary>
+    [Fact]
+    public void GNL15b_Siralama_Gun_Gun_Kronolojik()
+    {
+        var t = StokGunluk(G1, G3 - 1);
+        Assert.Equal("01.08.2026", (string)t.Rows[0][0]!);
+        Assert.Equal("02.08.2026", (string)t.Rows[^1][0]!);
     }
 
     [Fact]
@@ -284,22 +302,24 @@ public class GunlukRaporlarTests : IDisposable
 
         var yalnizB2 = _reports.Run(_admin, "stock-movements-daily",
             new ReportRequest(true, G1, G3 - 1, LocationIds: new[] { "B2" }));
+        Assert.NotEmpty(yalnizB2.Rows);
         Assert.All(yalnizB2.Rows, r => Assert.Equal("Transfer", (string)r[1]!));   // B2'de yalnız transfer var
     }
 
+    /// <summary>TOPLAM satırı net miktarı taşır (+giriş / −çıkış) — satırların işaretli toplamıyla aynı.</summary>
     [Fact]
-    public void GNL17_Toplam_Satiri_Donemin_Tamami()
+    public void GNL17_Toplam_Satiri_Net_Miktar()
     {
         var t = StokGunluk(G1, G3 - 1);
-        Assert.Equal(t.Rows.Sum(r => D(r[3])), D(t.TotalRow![3]), 3);
         Assert.Equal(t.Rows.Sum(r => D(r[4])), D(t.TotalRow![4]), 3);
-        Assert.Equal(t.Rows.Sum(r => D(r[2])), D(t.TotalRow![2]), 3);
+        Assert.Contains("+", Gor(t.TotalRow[4]));
+        Assert.Contains("-", Gor(t.TotalRow[4]));
     }
 
     [Fact]
     public void GNL18_Stok_Tenant_ve_Yetki()
     {
-        Assert.All(StokGunluk(G1, G3 - 1).Rows, r => Assert.NotEqual(77.0, D(r[3])));   // B firmasının 77'si yok
+        Assert.All(StokGunluk(G1, G3 - 1).Rows, r => Assert.NotEqual(77.0, D(r[4])));   // B firmasının 77'si yok
 
         Assert.Throws<ForbiddenException>(() => _reports.Run(Personel("reports"), "stock-movements-daily", Istek()));
         Assert.Throws<ForbiddenException>(() => _reports.Run(Personel("reports", "report_fuel"), "stock-movements-daily", Istek()));
@@ -317,13 +337,19 @@ public class GunlukRaporlarTests : IDisposable
         Assert.Equal(5, detay.Rows.Count);   // A firmasının 5 hareketi satır-satır (özetlenmez)
     }
 
+    /// <summary>⭐ ADR-183 (kullanıcı düzeltmesi): vehicle-daily de artık verisi olmayan satır üretmez.
+    /// Tam filo görünümü YALNIZ dönem raporunda (`vehicle`) kaldı — ikisinin farkı burada kilitlenir.</summary>
     [Fact]
-    public void GNL20_Arac_Gunluk_Raporu_TamFilo_Kaldi()
+    public void GNL20_Arac_Gunluk_Verisiz_Satir_Uretmez_Donem_Raporu_TamFilo_Kalir()
     {
-        // vehicle-daily hâlâ TÜM araçları × TÜM günleri üretir (fişsiz VC dahil) — fuel-daily'den farkı budur.
-        var t = _reports.Run(_admin, "vehicle-daily", new ReportRequest(true, G1, G2 + Gun - 1));
-        Assert.Equal(6, t.Rows.Count);   // 2 gün × 3 araç (VA, VB, VC)
-        Assert.Contains(t.Rows, r => (string)r[1]! == "VC");
+        var gunluk = _reports.Run(_admin, "vehicle-daily", new ReportRequest(true, G1, G2 + Gun - 1));
+        Assert.Equal(3, gunluk.Rows.Count);                                  // VA(1 Ağu) · VA(2 Ağu) · VB(2 Ağu)
+        Assert.DoesNotContain(gunluk.Rows, r => (string)r[1]! == "VC");      // hiç fişi olmayan araç YOK
+
+        // Dönem raporu TAM FİLO davranışını KORUR: aynı aralıkta VC de listelenir (0 değerleriyle).
+        var donem = _reports.Run(_admin, "vehicle", new ReportRequest(true, G1, G2 + Gun - 1));
+        Assert.Equal(3, donem.Rows.Count);                                   // VA + VB + VC (A firmasının tüm filosu)
+        Assert.Contains(donem.Rows, r => r.Any(c => c is string s && s == "VC"));
     }
 
     // ══════════════ Yardımcılar ══════════════

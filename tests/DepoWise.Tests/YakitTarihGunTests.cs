@@ -187,13 +187,15 @@ public class YakitTarihGunTests : IDisposable
         Assert.True(Icerir(t, "VC"), "Aralık dışı fişi olan araç da listelenmeli (tam filo).");
     }
 
-    /// <summary>⭐ "Araç Raporu — Günlük" TAM FİLO × TÜM GÜNLER davranışını KORUR (boş günler 0 satırı).</summary>
+    /// <summary>⭐ ADR-183 (kullanıcı düzeltmesi): "Araç Raporu — Günlük" verisi OLMAYAN satır üretmez.
+    /// Tam filo görünümü yalnız dönem raporunda (YKT10) kalır — ikisinin ayrımı burada kilitlidir.</summary>
     [Fact]
-    public void YKT11_AracGunluk_TamFilo_TumGunler_KORUNDU()
+    public void YKT11_AracGunluk_Verisiz_Satir_URETMEZ()
     {
         var t = _reports.Run(_admin, "vehicle-daily", new ReportRequest(true, Ag1, Ag2 + Gun - 1));
-        Assert.Equal(8, t.Rows.Count);                       // 2 gün × 4 araç
-        Assert.True(Icerir(t, "VD"), "Verisi olmayan araç günlük raporda 0 satırıyla kalmalı.");
+        Assert.Equal(2, t.Rows.Count);                       // VA(1 Ağu) + VB(2 Ağu) — yalnız fişi olanlar
+        Assert.False(Icerir(t, "VD"), "Hiç verisi olmayan araç günlük raporda GÖRÜNMEMELİ.");
+        Assert.False(Icerir(t, "VC"), "Aralık dışı fişi olan araç günlük raporda GÖRÜNMEMELİ.");
     }
 
     // ══════════════ Yardımcılar ══════════════

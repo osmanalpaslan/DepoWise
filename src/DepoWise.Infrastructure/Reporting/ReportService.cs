@@ -809,10 +809,15 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
     /// 23:59:59.999) örtüşür; mevcut tarih semantiği DEĞİŞMEZ (DateFilter/BindDates aynen kullanılır).
     ///
     /// PERFORMANS: gün başına sorgu YOK — sabit 5 sorgu (araçlar + 3 gün-gruplu toplam + gün-içi son
-    /// sayaç için ham yakıt fişleri), birleştirme bellekte (kullanıcı onaylı desen). BOŞ GÜNLER dahil
-    /// edilir (0 → "-" görünür): veri girilmeyen gün ile kaydı olmayan durum ayırt edilir. Satır sayısı
+    /// sayaç için ham yakıt fişleri), birleştirme bellekte (kullanıcı onaylı desen). Satır sayısı
     /// gün×araç olduğundan maxRows koruması ÜRETİM SIRASINDA uygulanır; TOPLAM satırı yine TÜM dönemin
     /// toplamlarını taşır (kesmeden etkilenmez).
+    ///
+    /// ⭐ KAPSAM — ADR-183 (2026-08-29, KULLANICI DÜZELTMESİ): o gün HİÇ verisi olmayan (araç, gün)
+    /// satırı ÜRETİLMEZ. Önce boş günler de 0/"-" ile listeleniyordu; kullanıcı bunun raporu okunamaz
+    /// hâle getirdiğini bildirdi ("verisi olmayan araçları listelemeni istemedim"). Kimlik sütunları
+    /// (Tarih/İç Kod/Plaka/Araç Adı/Şube/Sayaç Birimi) kaydın kendi bilgisidir ve "veri" sayılmaz;
+    /// ÖLÇÜM sütunlarından EN AZ BİRİNDE değer varsa satır gelir (ör. yakıt yok ama bakım malzemesi var).
     ///
     /// ORANLAR (ort. fiyat/tüketim/birim maliyet): TOPLANMAZ — o günün değerlerinden aynı formülle
     /// yeniden hesaplanır (dönem raporuyla aynı iş anlamı). "Gün İçi Son Sayaç" = o günkü SON yakıt
@@ -951,6 +956,13 @@ WHERE company_id=@c AND is_deleted=0 AND current_meter IS NOT NULL" + DateFilter
                 bakim.TryGetValue((a.Id, gun), out var mat);
                 parca.TryGetValue((a.Id, gun), out var part);
                 var sayacVar = sonSayac.TryGetValue((a.Id, gun), out var sayac);
+
+                // ⭐ ADR-183 (2026-08-29, kullanıcı düzeltmesi): O GÜN HİÇ VERİSİ OLMAYAN satır ÜRETİLMEZ.
+                // Kimlik sütunları (Tarih/İç Kod/Plaka/Araç Adı/Şube/Sayaç Birimi) kaydın KENDİ bilgisidir,
+                // "veri" sayılmaz. ÖLÇÜM sütunlarının hepsi boşsa satır gürültüdür (kullanıcı: "verisi
+                // olmayan araçları listelemeni istemedim"). Bir tanesinde bile değer varsa satır GELİR —
+                // ör. yakıt yok ama bakım malzemesi varsa listelenir.
+                if (f.Km == 0 && f.Litre == 0 && f.Maliyet == 0 && mat == 0 && part == 0 && !sayacVar) continue;
                 double avgPrice = f.Litre > 0 ? f.Maliyet / f.Litre : 0;
                 double consumption = f.Km > 0 ? f.Litre / f.Km : 0;
                 double total = f.Maliyet + mat + part;
@@ -1316,11 +1328,17 @@ WHERE sm.company_id = @c"
     }
 
     /// <summary>
-    /// STOK HAREKETLERİ — GÜNLÜK (ARA İŞ 2 / S3, 2026-08-29 · ADR-182 · PK-G2=A).
-    /// Defterin GÜN × HAREKET TÜRÜ özeti: her satır bir (GÜN, TÜR) → işlem sayısı, giriş ve çıkış toplamı.
+    /// STOK HAREKETLERİ — GÜNLÜK (ARA İŞ 2 / S3 · ADR-182, ⭐ ADR-183 ile YENİDEN YAZILDI 2026-08-29).
     ///
-    /// NEDEN ÖZET: detay rapor (<see cref="StockMovements"/>) zaten satır-satır ve tarih sıralıdır; onu
-    /// "günlük" diye tekrarlamak katma değer üretmezdi. Detay rapor DEĞİŞMEDİ ve aynen durur.
+    /// 🔴 <b>Düzeltilen hata.</b> İlk sürüm gün × tür ÖZETİ üretiyordu ("26.08.2026 · Giriş · 20 işlem").
+    /// Kullanıcı bunun işe yaramadığını bildirdi: <i>"o gün kaç tane giriş yapılmışsa tek tek giriş
+    /// yapılan malzemeler listelenmeli"</i>. Rapor artık GÜN GÜN ilerler ve o günün HER hareketini
+    /// MALZEMESİYLE tek tek listeler; 20 giriş varsa 20 satır gelir.
+    ///
+    /// DETAY RAPORDAN FARKI (<see cref="StockMovements"/>): detay rapor KAYIT ANINA göre tersten sıralıdır
+    /// (en son girilen üstte, "az önce kaydettiğim görünsün" gerekçesiyle). Bu rapor İŞ GÜNÜNE göre
+    /// KRONOLOJİK sıralanır (gün → tür → malzeme) → gün gün okunan bir döküm verir. Detay rapor
+    /// DEĞİŞMEDİ ve aynen durur.
     ///
     /// TEK FİLTRE KAYNAĞI: lokasyon/tür/arama/malzeme süzgeçleri <see cref="StockMovementFilterSql"/>'den
     /// gelir — Stok Hareketleri EKRANI ve DETAY raporuyla aynı üreteç → üçü ayrışamaz. Şube kapsamı
@@ -1328,11 +1346,7 @@ WHERE sm.company_id = @c"
     ///
     /// TARİH: işlem tarihi tek kaynaktan (<see cref="StockMovementFilterSql.IslemTarihiSql"/>); gün kovası
     /// tam sayı bölmesidir (ms/86.400.000) → iki lehçede birebir, UTC gün sınırıyla hizalı.
-    ///
-    /// MİKTAR KESİNLİĞİ: toplamlar <see cref="SqlDialect.ExactSumText"/> ile METİN olarak toplanır ve
-    /// <see cref="Money.Parse"/> ile okunur → PostgreSQL'de tam kesinlik, SQLite'ta temiz 6 ondalık
-    /// (kayan nokta artığı görünmez). Farklı BİRİMDEKİ malzemeler aynı toplamda birleşir; bu sınırlama
-    /// kullanıcıya InfoNote ile açıkça söylenir (yeni varsayım uydurulmaz).
+    /// MİKTAR: <see cref="Money.Parse"/> ile TAM ondalık okunur; giriş +, çıkış − olarak işaretlenir.
     /// </summary>
     public TableModel StockMovementsDaily(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
     {
@@ -1347,62 +1361,82 @@ WHERE sm.company_id = @c"
         var gunSql = StockMovementFilterSql.IslemTarihiSql + " / 86400000";
 
         cmd.CommandText = @"
-SELECT " + gunSql + @" AS gun, sm.movement_type, CAST(COUNT(*) AS REAL) AS adet,
-       " + SqlDialect.ExactSumText(conn, "CASE WHEN sm.direction > 0 THEN sm.quantity ELSE '0' END") + @" AS giris,
-       " + SqlDialect.ExactSumText(conn, "CASE WHEN sm.direction < 0 THEN sm.quantity ELSE '0' END") + @" AS cikis
+SELECT " + gunSql + @" AS gun, sm.movement_type, sm.direction, sm.quantity,
+       m.code, m.name, COALESCE(u.name,'') AS unit,
+       sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
+       COALESCE(d.doc_no,'') AS doc_no, sm.is_reversed
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
+LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
             + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)
             + filtre.Sql + @"
-GROUP BY " + gunSql + @", sm.movement_type
-ORDER BY gun, sm.movement_type;";
+ORDER BY gun, sm.movement_type, m.code LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
         ReportScope.BindBranch(cmd, s, req);
         BindDates(cmd, req);
         filtre.Bind(cmd);
+        cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();
         decimal tGiris = 0m, tCikis = 0m;
-        double tAdet = 0;
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
                 var gun = Convert.ToInt64(r.GetValue(0));
                 var tur = r.GetString(1);
-                var adet = r.GetDouble(2);
-                var giris = Money.Parse(r.GetString(3));
-                var cikis = Money.Parse(r.GetString(4));
+                var direction = r.GetInt32(2);
+                var qty = Money.Parse(r.GetString(3));
+                var locId = r.IsDBNull(7) ? null : r.GetString(7);
+                var locName = r.IsDBNull(8) ? null : r.GetString(8);
+                var fromId = r.IsDBNull(9) ? null : r.GetString(9);
+                var fromName = r.IsDBNull(10) ? null : r.GetString(10);
 
-                // TOPLAM önce: satır sınırına takılan gün/tür de dönem toplamına dâhildir.
-                tAdet += adet; tGiris += giris; tCikis += cikis;
-                if (rows.Count >= maxRows) continue;
+                // KAYNAK/HEDEF türetimi — detay raporla AYNI kural (yönden okunur, uydurulmaz).
+                string kaynak, hedef;
+                if (direction > 0)
+                {
+                    hedef = LocName(locId, locName);
+                    kaynak = string.IsNullOrEmpty(fromId) || fromId == locId ? Bos : LocName(fromId, fromName);
+                }
+                else
+                {
+                    kaynak = LocName(locId, locName);
+                    hedef = Bos;
+                }
+
+                var signed = direction > 0 ? qty : -qty;
+                if (direction > 0) tGiris += qty; else tCikis += qty;
 
                 rows.Add(new object?[]
                 {
                     DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr),
                     MovementTypeOptions.Label(tur),          // STK-B1: etiket TEK KAYNAKTAN
-                    Num(adet, FmtCount),
-                    Num((double)giris, _ => giris.ToString("0.##")),
-                    Num((double)cikis, _ => cikis.ToString("0.##")),
+                    r.GetString(4), r.GetString(5),
+                    new NumCell((double)signed, (signed >= 0 ? "+" : "") + signed.ToString("0.##")),
+                    r.GetString(6),
+                    kaynak, hedef,
+                    r.GetString(11),
+                    Convert.ToInt64(r.GetValue(12)) == 1 ? "İptal edildi" : "",
                 });
             }
 
-        var numeric = new[] { false, false, true, true, true };
+        var numeric = new[] { false, false, false, false, true, false, false, false, false, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
-            "TOPLAM (DÖNEM)", "",
-            Num(tAdet, FmtCount),
-            Num((double)tGiris, _ => tGiris.ToString("0.##")),
-            Num((double)tCikis, _ => tCikis.ToString("0.##")),
+            "TOPLAM (DÖNEM)", "", "", "",
+            new NumCell((double)(tGiris - tCikis), $"+{tGiris:0.##} / -{tCikis:0.##}"),
+            "", "", "", "", "",
         };
 
         return new TableModel("Stok Hareketleri — Günlük", new[]
         {
-            "Tarih", "Tür", "İşlem Sayısı", "Giriş Miktarı", "Çıkış Miktarı",
+            "Tarih", "Tür", "Kod", "Malzeme", "Miktar", "Birim", "Kaynak", "Hedef", "Belge No", "Durum",
         }, rows, numeric, totalRow);
     }
 
