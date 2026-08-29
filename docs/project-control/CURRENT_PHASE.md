@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-29** (ARA İŞ 2 — 8 yeni ara işin ANALİZİ tamam, kararlar bekliyor; rapor ara işi ADR-181 yayın onayı bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-29** (ARA İŞ 2 — kararlar verildi, birleşik uygulama planı hazır, UYGULAMA ONAYI bekliyor; rapor ara işi ADR-181 yayın onayı bekliyor) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -9,18 +9,34 @@
 | İş | Durum | Not |
 |---|---|---|
 | RAPOR ARA İŞİ (ADR-181: vehicle-daily + 8 kategori yetkisi) | ⛔ **YAYIN BEKLİYOR** | Kod+test tamam; "YAYINLA" onayı bekleniyor |
-| İŞ 1 — Fotoğraf senkronu + silme kapısı | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | PK-F1..F5 — [ARA_IS_2_00_ANALIZ.md](ARA_IS_2_00_ANALIZ.md) |
-| İŞ 2 — Yakıt raporu tarih/araç listesi | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Gerçek bug bulundu (masaüstü tarih yazımı saat dilimi) + tam-filo sözleşme kararı; PK-T1..T4 |
-| İŞ 3 — "Yakıtı Veren" son seçim | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; PK-V1 |
-| İŞ 4 — Yakıt Günlük + Stok Hareketleri Günlük | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; PK-G1..G2 |
-| İŞ 5 — Günlük Faaliyet — Detay raporu | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; yeni çoklu-seçim filtresi; PK-D1 |
-| İŞ 6 — Custom Rapor Tasarımcısı | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | ⚠️ MIGRATION GEREKİR → ayrı faz önerisi; PK-C1..C3 |
-| İŞ 7 — Ekip + Hiyerarşi + Onay + Onaylamalarım | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | ⚠️ MIGRATION+SENKRON GEREKİR → ayrı faz önerisi; PK-E1..E6 |
+| İŞ 1 — Fotoğraf sunucu-otoriteli + silme kapısı | 🟢 **KARAR VERİLDİ** (PK-F1=A·F2=EVET·F3·F4=A·F5=A) | Plan: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md) S5 |
+| İŞ 2 — Yakıt raporu tarih/araç listesi | 🟢 **KARAR VERİLDİ** (PK-T1=A·T2=EVET·T3=A·T4=A) | Plan S1 — masaüstü yazım saat dilimi bugu + yalnız-verili-araç sözleşmesi |
+| İŞ 3 — "Yakıtı Veren" son seçim | 🟢 **KARAR VERİLDİ** (PK-V1=A) | Plan S2 — migration'sız |
+| İŞ 4 — Yakıt Günlük + Stok Hareketleri Günlük | 🟢 **KARAR VERİLDİ** (PK-G1=A·G2=A) | Plan S3 — migration'sız |
+| İŞ 5 — Günlük Faaliyet — Detay raporu | 🟢 **KARAR VERİLDİ** (PK-D1=A: yeni kategori + `report_daily_activity`) | Plan S4 — migration'sız |
+| İŞ 6 — Custom Rapor Tasarımcısı | ⏸️ **AYRI FAZ** (kullanıcı kararı — PAKET-1 dışı, kodlanmaz) | ⚠️ MIGRATION GEREKİR; çerçeve: Plan §5 |
+| İŞ 7 — Ekip + Hiyerarşi + Onay + Onaylamalarım | ⏸️ **AYRI FAZ** (kullanıcı kararı — PAKET-1 dışı, kodlanmaz) | ⚠️ MIGRATION+SENKRON GEREKİR; çerçeve: Plan §5 |
 | FIN-B1 / Migration082 | ⛔ **AYRI ONAY BEKLİYOR** | Tasarım `35d7bce`; canlı şema 81 (ADR-180) |
 | N — Mobil | ⏭️ **ATLANDI** | Kod yazılmadı; bu döngüde uygulanmayacak |
 
-**Paket önerisi:** İş 1-5 migration'sız → mevcut yayın havuzuna eklenip TEK yayın (PAKET-1);
-İş 6-7 migration'lı → ayrı fazlar (PAKET-2). Karar: kullanıcıda.
+**PAKET-1 kapsamı (kullanıcı onaylı):** İş 1+2+3+4+5 — tamamı migration'sız; sıra S1..S6
+([ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md)). Bitince yayın öncesi rapor + "YAYINLA" onayı istenir
+(yayın ERTELENMEZ). **Sıradaki adım: kullanıcının UYGULAMA BAŞLASIN onayı.**
+
+### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29)
+- **Son tamamlanan iş:** ARA İŞ 2 birleşik analiz + karar kaydı + uygulama planı (kod YOK)
+- **Son commit:** bkz. git log (ARA_IS_2_01_PLAN commit'i) — öncesi `b27f52f` (analiz), `5890633` (ADR-181)
+- **Production yayınlandı mı:** HAYIR (canlıda hâlâ API v174 · Web v199 · Masaüstü 1.0.160)
+- **Production migration çalıştı mı:** HAYIR — **canlı şema 81**
+- **Yayın bekleyen havuz:** M (Excel Merkezi) + O (Barkod/QR) + FIN düzeltmeleri (082 HARİÇ) + Rapor Ara İşi (ADR-181) + [tamamlanınca] ARA İŞ 2 PAKET-1
+- **Ayrı onay bekleyen işler:** FIN-B1/Migration082 (tasarım `35d7bce`) · İş 6 Custom Rapor (ayrı faz) · İş 7 Ekip+Onay (ayrı faz)
+- **Atlanan işler:** N — Mobil
+- **Şu an aktif faz:** ARA İŞ 2 PAKET-1 — KARAR VERİLDİ, uygulama onayı bekliyor
+- **Bir sonraki yapılacak iş:** kullanıcı onayı gelince Plan S1 (yakıt tarih bugu + rapor sözleşmesi)
+- **Bir sonraki ana roadmap aşaması:** AŞAMA 3 — FINAL KARAR PAKETİ (ara işler roadmap'in yerine geçmez)
+- **Kullanıcıdan beklenen karar:** "UYGULAMA BAŞLASIN" (PAKET-1) · [sonra] "YAYINLA" (yayın öncesi rapor sonrası)
+- **Yeni oturumda okunacak belgeler:** CURRENT_PHASE.md → MASTER_ROADMAP.md → ARA_IS_2_01_PLAN.md → ARA_IS_2_00_ANALIZ.md → RAPOR_ARA_IS_01.md
+- Claude Code yeni oturumda önce CURRENT_PHASE.md + MASTER_ROADMAP.md + son analiz/uygulama raporunu okuyarak devam noktasını kendisi tespit etmelidir.
 
 ---
 

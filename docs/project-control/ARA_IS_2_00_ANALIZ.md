@@ -1,4 +1,9 @@
-# ARA İŞ 2 — YENİ ARA İŞLER · 00 ANALİZ (2026-08-29) — ⛔ KOD YOK · KARAR BEKLİYOR
+# ARA İŞ 2 — YENİ ARA İŞLER · 00 ANALİZ (2026-08-29) — ✅ KARARLAR VERİLDİ (aşağıda) · UYGULAMA ONAYI BEKLİYOR
+
+> **KARAR KAYDI (kullanıcı, 2026-08-29 devam promptu):** PK-F1=A · PK-F2=EVET · PK-F3=yalnız Düzenle
+> modu + Silme yetkisi · PK-F4=A · PK-F5=A · PK-T1=A · PK-T2=EVET · PK-T3=A · PK-T4=A · PK-V1=A ·
+> PK-G1=A · PK-G2=A · PK-D1=A · **İş 6 ve İş 7 = PAKET-1 DIŞI, ayrı fazlar (kodlanmaz)**.
+> Uygulama planı: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md).
 
 > Kapsam: kullanıcının 2026-08-29 tarihli 8 maddelik yeni ara iş talimatı. **Yalnız salt-okuma analiz
 > yapıldı; kod/migration/deploy YOK; production'a bağlanılmadı.** Her madde masaüstü + web + ortak
