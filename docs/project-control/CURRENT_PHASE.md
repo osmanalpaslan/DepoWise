@@ -71,7 +71,23 @@ Masaüstü makineler uygulama açıkken ≤60 sn'de "Yeni güncelleme mevcut" uy
 **PAKET-1 (İş 1+2+3+4+5) ✅ TAMAMLANDI ve ✅ YAYINLANDI (2026-08-29).** Tamamı MIGRATION'SIZ;
 uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: ADR-182.
 
-### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29 · yayın sonrası)
+### 🔁 ARA İŞ FAZ TAKİBİ (kalıcı — her aşama geçişinde BURASI güncellenir)
+
+> Kullanıcı protokolü (2026-08-29): her ara iş bu faz zincirini izler ve durum repository'de tutulur.
+> `FAZ 0 DURUM DOĞRULAMA → FAZ 1 ANALİZ → FAZ 2 KARAR BEKLİYOR → FAZ 3 UYGULAMA → FAZ 4 TEST/DOĞRULAMA
+> → FAZ 5 YAYIN ÖNCESİ ONAY → FAZ 6 YAYIN → FAZ 7 YAYIN SONRASI DOĞRULAMA → FAZ 8 TAMAMLANDI/ANA ROADMAP'E DÖNÜŞ`
+
+| Ara iş | Bulunduğu faz | Not |
+|---|---|---|
+| **(yeni ara iş)** | **FAZ 0 — DURUM DOĞRULAMA tamam** | ⏳ **İŞ TANIMI BEKLENİYOR** — kullanıcının protokol mesajında tanım yer tutucusu boş geldi; tanım gelince FAZ 1 analiz başlar. Kod yazılmadı, production'a bağlanılmadı. |
+| ARA İŞ 2 PAKET-1 (+ADR-183) | ✅ FAZ 8 — TAMAMLANDI, ana roadmap'e dönüldü | Yayınlandı: kod `7cbb52b`, kayıt `e5583c4`, masaüstü 1.0.162 |
+| Rapor Ara İşi (ADR-181) | ✅ FAZ 8 | Yayınlandı |
+| Custom Rapor | ⏸️ FAZ 1 öncesi (analiz çerçevesi var, KOD YOK) | Ayrı faz — **migration gerektirir** |
+| Ekip + Hiyerarşi + Onay | ⏸️ FAZ 1 öncesi (analiz çerçevesi var, KOD YOK) | Ayrı faz — **migration + senkron gerektirir** |
+| S1d tarih kayması bulguları | ⏸️ karar bekliyor (KOD YOK) | 10 ekran / 17 yazım noktası — ayrı iş |
+| FIN-B1 / Migration082 | ⏸️ ANA ROADMAP maddesi — ayrı onay | Ara iş değil; AŞAMA 3'ün açık maddesi |
+
+### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29 · yayın sonrası · FAZ 0 yeniden doğrulandı)
 
 **YAYIN DURUMU**
 - **ARA İŞ 2 PAKET-1:** ✅ TAMAMLANDI + ✅ **YAYINLANDI**
@@ -105,6 +121,21 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | RPR-02 | ✅ zaten çözülmüş çıktı (RPR-04/RPR-07) |
 | SNK-05 | ✅ karar (a): mevcut sözleşme kilitlendi (online ilk-kazanır · offline LWW) |
 | MAK-01/b | ✅ korundu |
+
+**DURUM ÖZETİ (ChatGPT için tek bakışta)**
+| Alan | Değer |
+|---|---|
+| Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
+| Aktif ara iş / aşaması | **YOK** — yeni ara işin TANIMI bekleniyor (FAZ 0 tamam) |
+| Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** (her şey canlıda) |
+| Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
+| Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
+| Production durumu | Son yayın 2026-08-29; **bu turda dokunulmadı** |
+| Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
+| Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
+| Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
+| Sonraki TEK iş | Yeni ara işin tanımının alınması → FAZ 1 analiz → PK kararları → DUR |
+| Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
 **AÇIK BULGU (kaybolmasın):** S1d taramasında masaüstünde **10 ekran / 17 tarih yazım noktasında**
 aynı saat-dilimi kayması sınıfı bulundu (en ağırı stok belge tarihleri: Stok Girişi ×3, Stok Sayım,
