@@ -291,7 +291,9 @@ VALUES(@id,@c,'TAL-777',1,@b,'pending',1,1,1,0);";
     /// Tarihçe: BAR-01 turunda sabit "81" idi ("BAR migration getirmez" kilidi — hâlâ doğru: BAR
     /// migration eklemedi). ADR-179'da Migration082 BİLİNÇLİ eklendiği için sabit ESKİDİ; kilit artık
     /// eskimeyecek biçimde kataloğun kendisine bağlandı (amaç aynı: kayıt dışı şema değişikliği olamaz).
-    /// ADR-180 (2026-08-29): Migration082 master'dan geri çekildi (PK-R4=B) — katalog max yine 81.</summary>
+    /// ADR-180 (2026-08-29): Migration082 master'dan geri çekildi (PK-R4=B) — katalog max yine 81.
+    /// ADR-185 (2026-08-29): FIN-B1 onaylandı; Migration082 yeniden eklendi (7 hedef: 6 operasyon tablosu
+    /// + sync_inbox) → katalog max 82. Kilit kataloğa bağlı olduğu için sabit güncellemesi GEREKMEDİ.</summary>
     [Fact]
     public void BAR15_Sema_Katalogla_Tutarli()
     {

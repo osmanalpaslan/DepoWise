@@ -93,7 +93,7 @@ public sealed class MaintenanceService
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate(); // negatif stok / sayaç için serialize
 
-        var existing = FindByOperation(conn, tx, operationId);
+        var existing = FindByOperation(conn, tx, s.CompanyId, operationId);
         if (existing is not null) { tx.Commit(); return existing; } // idempotent
 
         EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
@@ -594,11 +594,14 @@ VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev,
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
-    private static string? FindByOperation(DbConnection conn, DbTransaction tx, string operationId)
+    // ⭐ FIN-B1 (ADR-185, Migration082 ile birlikte): idempotency FİRMA KAPSAMINDADIR — başka firmanın
+    // aynı operation_id'si bu firmanın bakım kaydını sessizce atlatamaz / yabancı kayıt id'si döndüremez.
+    private static string? FindByOperation(DbConnection conn, DbTransaction tx, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT id FROM vehicle_maintenances WHERE operation_id=@op;";
+        cmd.CommandText = "SELECT id FROM vehicle_maintenances WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return cmd.ExecuteScalar() as string;
     }

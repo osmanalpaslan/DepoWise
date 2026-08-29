@@ -120,7 +120,7 @@ public sealed class DailyActivityService
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         // Günlük faaliyet zaten varsa idempotent
-        var existing = FindActivity(operationId);
+        var existing = FindActivity(s.CompanyId, operationId);
         if (existing is not null) return existing;
 
         // TEK bakım kaydı + TEK stok düşümü (MaintenanceService kendi transaction'ında)
@@ -148,7 +148,7 @@ public sealed class DailyActivityService
         if (!ExtraActivityTypes.IsValid(extraType)) throw new ArgumentException("Geçersiz kayıt tipi.");
         if (_definitions is null) throw new InvalidOperationException("MaintenanceDefinitionService bağlı değil.");
         AccessControl.Require(s, Module, PermissionAction.Create);
-        var existing = FindActivity(operationId);
+        var existing = FindActivity(s.CompanyId, operationId);
         if (existing is not null) return existing;
 
         var defId = EnsureExtraDefinition(s, extraType);
@@ -219,7 +219,7 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (dto.MovementKind is not ("movement" or "transfer")) throw new ArgumentException("Geçersiz hareket tipi.");
-        var existing = FindActivity(operationId);
+        var existing = FindActivity(s.CompanyId, operationId);
         if (existing is not null) return existing;
 
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -603,11 +603,14 @@ WHERE da.company_id = @c";
         return (true, lines, total);
     }
 
-    private string? FindActivity(string operationId)
+    // ⭐ FIN-B1 (ADR-185, Migration082 ile birlikte): idempotency FİRMA KAPSAMINDADIR — başka firmanın
+    // aynı operation_id'si bu firmanın günlük faaliyetini sessizce atlatamaz / yabancı kayıt id'si döndüremez.
+    private string? FindActivity(string companyId, string operationId)
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id FROM daily_activities WHERE operation_id=@op;";
+        cmd.CommandText = "SELECT id FROM daily_activities WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return cmd.ExecuteScalar() as string;
     }

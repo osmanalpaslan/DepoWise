@@ -103,7 +103,7 @@ public sealed class AssignmentService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
-        if (Idempotent(conn, tx, operationId)) { tx.Commit(); return operationId; }
+        if (Idempotent(conn, tx, s.CompanyId, operationId)) { tx.Commit(); return operationId; }
         KapsamVeSahiplik(s, conn, tx, assetType, assetId, branchId, fromPersonnelId);
         EnsurePersonnel(conn, tx, s.CompanyId, toPersonnelId);
         KisideYeterli(s, conn, tx, assetType, assetId, fromPersonnelId, quantity);
@@ -133,7 +133,7 @@ public sealed class AssignmentService
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
-        if (Idempotent(conn, tx, operationId)) { tx.Commit(); return operationId; }   // retry: İKİNCİ stok düşümü de OLMAZ
+        if (Idempotent(conn, tx, s.CompanyId, operationId)) { tx.Commit(); return operationId; }   // retry: İKİNCİ stok düşümü de OLMAZ
         KapsamVeSahiplik(s, conn, tx, assetType, assetId, branchId, personnelId);
         if (direction < 0) KisideYeterli(s, conn, tx, assetType, assetId, personnelId, quantity);
         if (assetType == "equipment" && direction > 0) EkipmanBoşta(conn, tx, s.CompanyId, assetId);
@@ -221,12 +221,15 @@ public sealed class AssignmentService
             throw new ArgumentException("Ekipman zimmeti adet adet yapılır (miktar 1).");
     }
 
-    /// <summary>Retry kalkanı: aynı operation_id (veya devir çifti) zaten uygulandıysa true.</summary>
-    private static bool Idempotent(DbConnection conn, DbTransaction tx, string operationId)
+    /// <summary>Retry kalkanı: aynı operation_id (veya devir çifti) zaten uygulandıysa true.
+    /// ⭐ FIN-B1 (ADR-185, Migration082 ile birlikte): FİRMA KAPSAMLI — başka firmanın aynı
+    /// operation_id'si bu firmanın zimmet işlemini sessizce atlatamaz. Aynı-firma retry aynen.</summary>
+    private static bool Idempotent(DbConnection conn, DbTransaction tx, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM assignment_movements WHERE operation_id IN (@o, @o2, @o3);";
+        cmd.CommandText = "SELECT COUNT(*) FROM assignment_movements WHERE company_id=@c AND operation_id IN (@o, @o2, @o3);";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@o", operationId);
         cmd.AddWithValue("@o2", operationId + ":out");
         cmd.AddWithValue("@o3", operationId + ":in");

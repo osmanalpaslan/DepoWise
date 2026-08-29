@@ -52,9 +52,15 @@
 - **Fiziksel biçim kanıtla çözüldü:** `sync_inbox.company_id TEXT NOT NULL` **zaten var**
   (Migration001:156-165) ve her kayıtta yazılıyor → **yeni sütun/backfill GEREKMİYOR**; yalnız indeks
   `(company_id, operation_id)` kapsamına taşınır (7. hedef) + `InboxHas` firma süzgeçli olur.
-- **Sıradaki adım:** kullanıcının **"UYGULAMA BAŞLASIN"** onayı → FAZ 3. Önkoşullar: pg_dump yedeği +
-  yayın öncesi tablo boyutu ölçümü (özellikle `sync_inbox` — en büyük tablo olabilir, indeks yeniden
-  kurma kilidi uzayabilir). O zamana dek risk ~sıfır (GUID op-id'ler). Katalog azamisi **81** kalır.
+- **⭐ FAZ 3 UYGULAMA TAMAM (2026-08-29):** Migration082 oluşturuldu (**7 hedef**), 9 idempotency
+  sorgusu + `SyncServer.InboxHas` firma kapsamına alındı, FIN5 yeni sözleşmeye çevrildi, 10 yeni kilit
+  eklendi (çapraz-firma · sync_inbox · 81→82 yükseltme · rollback). Doğrulama: tam süit **3.036/0**
+  (40 atlanan), izole PG **53/53** (0 atlanan), 3 Release **0 hata**.
+- **⚠️ HENÜZ YAYINLANMADI:** **canlı şema HÂLÂ 81**; katalog azamisi depoda 82'ye çıktı. Yayınlanana
+  kadar canlıda eski (firma-kör) davranış sürüyor.
+- **Sıradaki adım:** kullanıcının **"YAYINLA"** onayı. Önkoşullar: **pg_dump yedeği** + **yayın öncesi
+  tablo/indeks boyutu ölçümü** (özellikle `sync_inbox` — en büyük tablo olabilir, indeks yeniden kurma
+  kilidi uzayabilir; PK-FIN-03=C). O zamana dek risk ~sıfır (GUID op-id'ler).
 
 ## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179; FIN-B1 hariç — yukarı bak)
 

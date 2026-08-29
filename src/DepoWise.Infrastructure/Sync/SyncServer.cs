@@ -36,7 +36,7 @@ public sealed class SyncServer
         foreach (var op in ops)
         {
             using var tx = conn.BeginImmediate();
-            if (InboxHas(conn, tx, op.OperationId))
+            if (InboxHas(conn, tx, companyId, op.OperationId))
             {
                 outcomes.Add(new SyncOpOutcome(op.OperationId, SyncOpResult.AlreadyApplied));
                 tx.Commit();
@@ -142,11 +142,23 @@ public sealed class SyncServer
         cmd.ExecuteNonQuery();
     }
 
-    private static bool InboxHas(DbConnection conn, DbTransaction tx, string operationId)
+    /// <summary>Senkron yinelenme kalkanı: bu firma bu operation_id'yi daha önce işledi mi?
+    ///
+    /// ⭐ FIN-B1 (ADR-185 / PK-FIN-02=B, Migration082 ile birlikte): FİRMA KAPSAMLI. Eskiden bu kontrol
+    /// firma-kördü ve Push akışında servis katmanından ÖNCE çalıştığı için, başka bir firmada kullanılmış
+    /// bir operation_id ile gelen MEŞRU işlem "AlreadyApplied" sayılıp alt katmana hiç inmeden düşüyordu.
+    /// Senkronun kritik tipleri (stock_movement, vehicle_maintenance, fuel_distribution) tam da FIN-B1
+    /// tabloları olduğundan, YALNIZ servisleri düzeltmek yeterli DEĞİLDİ — giriş kapısı da kapsandı.
+    ///
+    /// ⚠️ Senkron PROTOKOLÜ değişmedi: istek/yanıt biçimi, cursor, çakışma çözümü ve SNK-05(a) sözleşmesi
+    /// aynen; yalnız yinelenme kontrolünün KAPSAMI firmaya daraldı. Aynı firmanın tekrar push'u aynen
+    /// idempotenttir. company_id, cihaz token'ından (AuthDevice) gelir — istemci gönderemez.</summary>
+    private static bool InboxHas(DbConnection conn, DbTransaction tx, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM sync_inbox WHERE operation_id=@op;";
+        cmd.CommandText = "SELECT COUNT(*) FROM sync_inbox WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }

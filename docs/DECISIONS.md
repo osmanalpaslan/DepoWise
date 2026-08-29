@@ -3090,3 +3090,29 @@ istemci.
 **Durum.** FAZ 2 kararları ONAYLANDI. **FAZ 3 uygulama, kullanıcının ayrıca vereceği
 "UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken **kod/test/migration üretilmedi**,
 **production'a bağlanılmadı (SELECT dahil)**, deploy yapılmadı; katalog azamisi **81** olarak kaldı.
+
+### ADR-185 — UYGULAMA SONUCU (FAZ 3, 2026-08-29) — kod+migration YAZILDI, YAYINLANMADI
+
+**Uygulandı:** `Migration082_OperationIdCompanyScope` (**7 hedef**: `ux_stock_movements_operation` ·
+`ux_vehicle_maintenances_op` · `ux_fuel_depot_op` · `ux_fuel_dist_op` · `ux_daily_activities_op` ·
+`ux_assign_operation` · **`ux_inbox_operation`**) — aynı adlarla `(company_id, operation_id)`;
+yeni tablo/sütun/backfill/veri dönüşümü YOK, `CONCURRENTLY` YOK. Katalog azamisi **81 → 82**.
+
+**Kod:** 9 idempotency sorgusu firma kapsamına alındı (Assignment · Maintenance · OpeningStock ·
+DailyActivity · Fuel ×2 · Stock · PurchaseOrder · WorkOrder) + `SyncServer.InboxHas` firma kapsamlı
+(company_id cihaz token'ından gelir, istemci gönderemez). **Web'de kod DEĞİŞMEDİ** (kendi idempotency
+kopyası yok). API/DB sözleşmesi ve senkron protokolü DEĞİŞMEDİ.
+
+**Test:** FIN5 yeni sözleşmeye çevrildi (PK-FIN-04=A — silinmedi, tersine çevrildi); yeni kilitler
+FIN11–FIN13 (çapraz-firma: stok/zimmet/bakım), **FIN16–FIN17 (sync_inbox aynı-firma idempotent /
+çapraz-firma engellenmez)**, FIN18 (indeks kolon sırası + adlar korundu), FIN19 (yalnız-indeks),
+FIN20 (katalog 82), **FIN21 (gerçek 81→82 yükseltme, mevcut veri korunur)**, **FIN22 (rollback:
+migration patlarsa şema 81'de kalır)**; `PostgresMigration082Tests` geri getirildi.
+Hiçbir test silinmedi/gevşetilmedi.
+
+**Doğrulama:** tam süit **3.036 geçti / 0 başarısız / 40 atlanan** · izole PG **53/53, 0 atlanan** ·
+API+Web+Masaüstü Release **0 hata**.
+
+⛔ **YAYINLANMADI: canlı şema HÂLÂ 81.** Production'a bağlanılmadı (SELECT dahil), deploy yapılmadı,
+canlı tablo boyutu ölçülmedi. Yayın için ayrı `YAYINLA` onayı ve önkoşul olarak pg_dump yedeği +
+tablo/indeks boyutu ölçümü (PK-FIN-03=C) gerekir. Hedef masaüstü sürüm: **1.0.164**.

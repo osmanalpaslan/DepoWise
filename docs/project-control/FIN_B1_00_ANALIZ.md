@@ -1,6 +1,6 @@
 # FIN-B1 / Migration082 — FAZ 1 ANALİZ + FAZ 2 KARAR PAKETİ
 
-> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-185) · FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" BEKLİYOR**
+> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 1 ✅ · FAZ 2 ✅ (ADR-185) · FAZ 3 ✅ UYGULAMA + TEST TAMAM · YAYIN ⏸️ "YAYINLA" BEKLİYOR**
 >
 > **ONAYLANAN KARARLAR: PK-FIN-01=A · PK-FIN-02=B · PK-FIN-03=C · PK-FIN-04=A · PK-FIN-05=A**
 > → `sync_inbox` **FIN-B1 kapsamına ALINDI** (7. hedef) · normal UNIQUE index (CONCURRENTLY yok) ·
@@ -445,6 +445,91 @@ süresi ve ACCESS EXCLUSIVE kilidi daha uzun sürebilir. PK-FIN-03=C gereği **y
 5. Migration sonrası eski istemcinin insert/update davranışı
 6. Rollback sonrası eski istemci davranışı
 
+## 23.3 FAZ 3 UYGULAMA KAYDI (2026-08-29)
+
+### S1 — Fiziksel model yeniden doğrulandı (FAZ 1 körlemesine kabul edilmedi)
+
+| Doğrulama | Sonuç |
+|---|---|
+| 7 hedef indeksin tamamı küresel tek kolon | ✅ doğrulandı (Migration001:166 · 005:123 · 008:63 · 009:35/56/81 · 076:57) |
+| 7 tabloda `company_id` sütunu | ✅ **hepsinde `TEXT NOT NULL`** |
+| `sync_inbox.company_id` | ✅ **var, NOT NULL, `InsertInbox`'ta dolduruluyor** → yeni sütun gerekmedi |
+| Katalog azamisi (uygulama öncesi) | 81 |
+| Runner transaction modeli | migration başına tek transaction + rollback |
+
+**Servis noktaları yeniden sayıldı: 9 sorgu** (FAZ 1'de "8" olarak yazılmıştı; `FuelService`'te iki ayrı
+yardımcı olduğu için gerçek sayı 9'dur). Ayrıca `FuelService.OperationApplied` (önizleme) **zaten firma
+kapsamlıydı** — dokunulmadı.
+
+### S2 — Migration082 oluşturuldu
+
+`Migration082_OperationIdCompanyScope` — **7 hedef**, aynı adlarla `DROP INDEX IF EXISTS` +
+`CREATE UNIQUE INDEX ... (company_id, operation_id)`. Yeni tablo/sütun/backfill/veri dönüşümü **YOK**.
+`CONCURRENTLY` **kullanılmadı** (PK-FIN-03=C). Katalog azamisi **81 → 82**.
+
+### S3 — 9 idempotency sorgusu firma kapsamına alındı
+
+| # | Yer | Değişiklik |
+|---|---|---|
+| 1 | `AssignmentService.Idempotent` | `company_id=@c AND operation_id IN (@o,@o2,@o3)` (devir çifti dahil) |
+| 2 | `MaintenanceService.FindByOperation` | `company_id=@c AND operation_id=@op` |
+| 3 | `OpeningStockService.OperationApplied` | `company_id=@c AND operation_id=@op` |
+| 4 | `DailyActivityService.FindActivity` | `company_id=@c AND operation_id=@op` |
+| 5 | `FuelService.OperationExists` | `company_id=@c AND operation_id=@op` |
+| 6 | `FuelService.FindDistribution` | `company_id=@c AND operation_id=@op` |
+| 7 | `StockService.FindDocumentByOperation` | `mv.company_id=@c AND mv.operation_id LIKE @op` |
+| 8 | `PurchaseOrderService` (mal kabul) | `company_id=@c AND operation_id LIKE @op` |
+| 9 | `WorkOrderService` (İE tüketim) | `company_id=@c AND operation_id LIKE @op` |
+
+`company_id` her zaman `s.CompanyId`'den (güvenilir oturum) gelir — istemciden alınmaz.
+
+### S4 — `sync_inbox` düzeltmesi (PK-FIN-02=B)
+
+- **İndeks:** Migration082'nin 7. hedefi.
+- **Kod:** `SyncServer.InboxHas` artık `company_id=@c AND operation_id=@op`; çağrı `Push` içinde
+  `AuthDevice`'tan gelen `companyId` ile yapılır (**istemci gönderemez**).
+- **Senkron protokolü DEĞİŞMEDİ:** istek/yanıt biçimi, cursor, çakışma çözümü, SNK-05(a) aynen; yalnız
+  yinelenme kontrolünün kapsamı firmaya daraldı.
+
+### S5 — Test sözleşmeleri
+
+- **FIN5 yeni sözleşmeye çevrildi** (PK-FIN-04=A): `FIN5_FarkliFirma_AyniOperationId_Iki_Ayri_Kayit_Olusur`.
+  Eski ad/gövde hatalı davranışı kilitliyordu; **silinmedi, tersine çevrildi** ve tarihçesi test
+  belgesine yazıldı. Aynı-firma retry kilidi test içinde ayrıca korundu.
+- **Yeni kilitler:** FIN11 (açılış/stok çapraz-firma) · FIN12 (zimmet) · FIN13 (bakım — yabancı kayıt
+  id'si döndürmez) · **FIN16 (sync_inbox aynı firma idempotent)** · **FIN17 (sync_inbox çapraz-firma
+  engellenmez)** · FIN18 (7 indeks UNIQUE + kolon sırası + ad korundu) · FIN19 (yalnız-indeks: kolonlara
+  dokunulmadı) · FIN20 (katalog azamisi 82) · **FIN21 (gerçek 81→82 yükseltme: mevcut veri korunur)** ·
+  **FIN22 (rollback: migration patlarsa şema 81'de kalır)**.
+- `PostgresMigration082Tests` geri getirildi (izole PG, guard'lı; 7 hedefi `Targets` listesinden doğrular).
+- `BarkodQrTests.BAR15` kataloğa bağlı olduğu için **sabit güncellemesi gerekmedi**; yalnız açıklaması güncellendi.
+- **Hiçbir test silinmedi veya gevşetilmedi.**
+
+### Platform ayrımı (karar gereği korundu)
+
+- **Web:** kendi idempotency kopyası olmadığı için **web'de kod değişikliği YAPILMADI** (gereksiz paralel
+  mantık üretilmedi).
+- **Masaüstü:** aynı ortak servisleri yerel SQLite'ta çalıştırır → düzeltme oraya da iner; yerel DB tek
+  firmalı olduğu için davranış değişmez. Release derlemesiyle doğrulandı.
+
+### S6–S7 — Doğrulama sonuçları (2026-08-29)
+
+| Doğrulama | Geçen | Başarısız | Atlanan |
+|---|---|---|---|
+| **Tam test süiti** | **3.036** | **0** | 40 |
+| **İzole PostgreSQL** (127.0.0.1:5544) | **53** | **0** | **0** |
+| API Release | 0 hata | | |
+| Web Release | 0 hata | | |
+| Masaüstü Release | 0 hata | | |
+
+Önceki tur: 3.026 / 0 / 39 → **+10 yeni test** (FIN11–FIN13, FIN16–FIN22 ve PG 082 testi).
+PG turunda atlanan **0** → guard gevşetilmedi, testler gerçekten koştu.
+
+> ⚠️ **Şeffaflık notu:** ilk PG denemesinde 40 test başarısız göründü. Neden: o sırada **tam süit arka
+> planda koşuyordu** ve iki `dotnet test` süreci aynı test DLL'ini yeniden derliyordu. Tam süit bitince
+> PG turu **çakışmasız** tekrarlandı → **53/53**. Tekil koşumlarda da hepsi geçiyordu. Bu bir ürün
+> kusuru değil, koşum ortamı çakışmasıdır; gizlenmedi, kayda geçirildi.
+
 ## 24. Faz takip tablosu
 
 | Faz | Durum |
@@ -452,9 +537,9 @@ süresi ve ACCESS EXCLUSIVE kilidi daha uzun sürebilir. PK-FIN-03=C gereği **y
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
 | FAZ 2 — karar paketi | ✅ **KARARLAR ONAYLANDI (ADR-185)** — PK-FIN-01=A · 02=B · 03=C · 04=A · 05=A |
-| FAZ 3 — uygulama | ⏸️ **"UYGULAMA BAŞLASIN" onayı bekliyor** — kod/migration/test YOK |
-| TEST | ⏸️ |
-| YAYIN | ⏸️ (tek yayın: Migration082 + kod + masaüstü 1.0.164) |
+| FAZ 3 — uygulama | ✅ **TAMAMLANDI** — Migration082 (7 hedef) + 9 idempotency sorgusu + `InboxHas` + 10 yeni test |
+| TEST | ✅ **TAMAM** — tam süit 3.036/0 · izole PG 53/53 · 3 Release 0 hata |
+| YAYIN | ⏸️ **"YAYINLA" onayı bekliyor** (tek yayın: Migration082 + kod + masaüstü **1.0.164**) |
 
 ## 25. Git durumu ve production teyidi
 

@@ -395,7 +395,10 @@ WHERE a.company_id=@c AND a.work_order_id=@w AND a.is_deleted=0 ORDER BY a.creat
         using (var chk = conn.CreateCommand())
         {
             chk.Transaction = tx;
-            chk.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE operation_id LIKE @op;";
+            // ⭐ FIN-B1 (ADR-185, Migration082 ile birlikte): FİRMA KAPSAMLI — başka firmanın aynı
+            // operation_id'si bu firmanın iş emri tüketimini sessizce atlatamaz. Aynı-firma retry aynen.
+            chk.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE company_id=@c AND operation_id LIKE @op;";
+            chk.AddWithValue("@c", s.CompanyId);
             chk.AddWithValue("@op", stockOp + "%");
             if (Convert.ToInt64(chk.ExecuteScalar()) > 0) { tx.Commit(); return stockOp; }   // retry: İKİNCİ çıkış YOK
         }
