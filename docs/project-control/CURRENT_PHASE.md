@@ -4,8 +4,22 @@
 
 ---
 
-## ⭐ YAYIN — 2026-08-29 (ADR-182 dalgası) — ✅ BAŞARILI
+## ⭐ YAYIN — 2026-08-29 (ADR-182 dalgası + ADR-183 düzeltmesi) — ✅ BAŞARILI
 
+### 🔧 YAYIN 2 — ADR-183 DÜZELTMESİ (aynı gün, kullanıcı canlıda iki hata bildirdi)
+**Yayınlanan commit:** `7cbb52b` · **Masaüstü:** 1.0.161 → **1.0.162** (checksum `43048B6D…2A03E251`) ·
+API + Web yeniden dağıtıldı · **yine MIGRATION YOK, canlı şema 81** · yayın sonrası kontroller **28/28**.
+
+| Bildirilen hata | Düzeltme | Canlı kanıt |
+|---|---|---|
+| **Araç Raporu — Günlük** verisi olmayan satırları listeliyordu (ekran görüntüsünde tüm ölçüm sütunları "-") | O gün HİÇ verisi olmayan (araç, gün) satırı ÜRETİLMEZ; ölçüm sütunlarından biri bile doluysa satır GELİR (ör. yakıt yok ama bakım malzemesi var) | **1.972 → 195 satır**; "tüm ölçüm sütunları boş" satır sayısı **0** |
+| **Stok Hareketleri — Günlük** gün×tür ÖZETİ veriyordu ("26.08 · Giriş · 20 işlem") | Gün gün ilerleyen DÖKÜM: o günün HER hareketi malzemesiyle TEK TEK | **1 özet satırı → 20 satır**, 5 → **10 kolon** (Tarih·Tür·Kod·Malzeme·Miktar·Birim·Kaynak·Hedef·Belge No·Durum) |
+
+**Korunanlar:** dönem raporu `vehicle` TAM FİLO davranışını sürdürür (**68 araç** canlıda doğrulandı) ·
+`stock-movements` detay raporu değişmedi (20 satır) · `fuel`/`fuel-daily` aynen (46 araç / 195 satır).
+Doğrulama: tam süit **3.016 → 2.977 geçti / 0 başarısız / 39 atlanan** · izole PG **47/47** · 3 Release **0 hata**.
+
+### YAYIN 1 — ADR-182 dalgası
 **Yayınlanan commit:** `386b22d` · **Masaüstü:** 1.0.160 → **1.0.161** (checksum `FDEC8079…B38BFCB8`, 86,2 MB)
 **API** (`fly.toml` → depowise-erp) ve **Web** (`fly.web.toml` → depowise-web) yeniden dağıtıldı.
 
@@ -71,10 +85,13 @@ uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: AD
 - **Ekip + Onay:** ⏸️ **AYRI FAZ — henüz başlanmadı**
 
 **CANLI DURUM**
-- Yayınlanan commit: **`386b22d`** · Masaüstü **1.0.161** (önce 1.0.160) · API + Web yeniden dağıtıldı
-- **Canlı şema: 81** — bu yayında **hiçbir migration uygulanmadı** (imajda Migration082 yok, katalog azamisi 81)
-- Yayın sonrası salt-okunur kontroller: **28/28 başarılı**; canlı rapor kataloğu **25 rapor**
+- Son yayınlanan commit: **`7cbb52b`** (ADR-183 düzeltmesi) · Masaüstü **1.0.162** · API + Web güncel
+- Aynı gün iki yayın yapıldı: `386b22d` → 1.0.161 (ADR-182 dalgası) · `7cbb52b` → 1.0.162 (ADR-183 düzeltmesi)
+- **Canlı şema: 81** — iki yayında da **hiçbir migration uygulanmadı** (imajda Migration082 yok, katalog azamisi 81)
+- Yayın sonrası salt-okunur kontroller: **28/28 başarılı** (her iki yayında); canlı rapor kataloğu **25 rapor**
 - Production veritabanına doğrudan bağlanılmadı (SELECT dahil)
+- ⭐ ADR-183 canlı kanıtı: `vehicle-daily` 1.972 → **195 satır** (boş satır 0) · `stock-movements-daily`
+  1 özet → **20 ayrı malzeme satırı** (10 kolon) · `vehicle` dönem raporu **68 araç** (tam filo korundu)
 
 **ANA DEVAM NOKTASI: AŞAMA 3 — FINAL KARAR PAKETİ**
 Ara işlerin yayınlanmış olması ana roadmap sırasını **değiştirmez**. AŞAMA 3 maddelerinin dosyadaki

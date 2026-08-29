@@ -8,6 +8,9 @@
 > o gün hiç verisi olmayan (araç, gün) satırı ÜRETİLMEZ; ölçüm sütunlarından biri bile doluysa gelir.
 > (2) **Stok Hareketleri — Günlük** gün×tür ÖZETİ veriyordu → artık o günün HER hareketi malzemesiyle
 > TEK TEK listelenir. Ayrıntı: [ADR-183](../DECISIONS.md) · CURRENT_PHASE.md "YAYIN — 2026-08-29".
+> **YAYIN 2 sonucu:** commit `7cbb52b` · masaüstü **1.0.162** · MIGRATION YOK (şema 81) · tam süit
+> **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** · canlı kontroller **28/28** ·
+> canlı etki: `vehicle-daily` 1.972→**195** satır (boş satır 0) · `stock-movements-daily` 1→**20** satır.
 
 > Plan: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md) · Analiz: [ARA_IS_2_00_ANALIZ.md](ARA_IS_2_00_ANALIZ.md)
 > Kararlar: PK-F1=A·F2·F3·F4=A·F5=A · T1=A·T2·T3=A·T4=A · V1=A · G1=A·G2=A · D1=A.
