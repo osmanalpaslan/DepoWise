@@ -79,7 +79,7 @@ uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: AD
 
 | Ara iş | Bulunduğu faz | Not |
 |---|---|---|
-| **⭐ ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** | **FAZ 0 ✅ · FAZ 1 🔵 sürüyor · FAZ 2 ⛔ KARAR BEKLİYOR** | Analiz: [ARA_IS_3_00_ANALIZ.md](ARA_IS_3_00_ANALIZ.md). Kullanıcının seçtiği takvim tarihinin yerel ofset yüzünden **bir gün erken** yazılması. **Yeniden sayıldı: 11 ekran / 19 masaüstü noktası** (S1d'deki "10/17" eksikti) **+ web'de 1 gerçek hata** (`Stock.razor:258` — S1d yalnız masaüstünü taramıştı). Web'in kalan 10 noktası DOĞRU. **KOD YOK · MIGRATION GEREKMİYOR · production'a dokunulmadı.** Bekleyen: **PK-TAR-01…07**. |
+| **⭐ ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** | **FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-184) · FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" BEKLİYOR** | Analiz+kararlar: [ARA_IS_3_00_ANALIZ.md](ARA_IS_3_00_ANALIZ.md). Kullanıcının seçtiği takvim tarihinin yerel ofset yüzünden **bir gün erken** yazılması. **Yeniden sayıldı: 11 ekran / 19 masaüstü noktası** (S1d'deki "10/17" eksikti) **+ web'de 1 gerçek hata** (`Stock.razor:258` — S1d yalnız masaüstünü taramıştı); web'in kalan 10 noktası DOĞRU. **Kararlar: PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A.** **KOD YOK · TEST YOK · MIGRATION GEREKMİYOR · production'a dokunulmadı.** |
 | ARA İŞ 2 PAKET-1 (+ADR-183) | ✅ FAZ 8 — TAMAMLANDI, ana roadmap'e dönüldü | Yayınlandı: kod `7cbb52b`, kayıt `e5583c4`, masaüstü 1.0.162 |
 | Rapor Ara İşi (ADR-181) | ✅ FAZ 8 | Yayınlandı |
 | Custom Rapor | ⏸️ FAZ 1 öncesi (analiz çerçevesi var, KOD YOK) | Ayrı faz — **migration gerektirir** |
@@ -126,7 +126,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** · **FAZ 1 analiz bitti → FAZ 2 KARAR BEKLİYOR** (PK-TAR-01…07) · **kod yazılmadı** |
+| Aktif ara iş / aşaması | **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** · **FAZ 2 ✅ kararlar onaylandı (ADR-184) → FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" bekliyor** · **kod yazılmadı, test koşulmadı** |
 | Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** (ARA İŞ 3 henüz kodlanmadı) |
 | Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
 | Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
@@ -134,7 +134,8 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
 | Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
 | Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | **PK-TAR-01…07 kararlarının verilmesi** → sonra "UYGULAMA BAŞLASIN" |
+| Sonraki TEK iş | **Kullanıcının "UYGULAMA BAŞLASIN" onayı** → ARA İŞ 3 FAZ 3 uygulama |
+| ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
 **⭐ S1d ARTIK AKTİF ARA İŞTİR (ARA İŞ 3).** Aşağıdaki eski özet, ARA İŞ 3'ün FAZ 1 analiziyle

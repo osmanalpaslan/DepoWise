@@ -1,7 +1,9 @@
 # ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI (TARİH KAYMASI) · 00 ANALİZ
 
-> **DURUM: FAZ 0 ✅ TAMAM · FAZ 1 🔵 SÜRÜYOR (yazım yolları doğrulandı) · FAZ 2 ⛔ KARAR BEKLİYOR**
-> **KOD YAZILMADI · MIGRATION OLUŞTURULMADI · PRODUCTION'A BAĞLANILMADI (SELECT dahil).**
+> **DURUM: FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (2026-08-29, ADR-184) ·
+> FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" ONAYI BEKLİYOR**
+> **KOD YAZILMADI · TEST KOŞULMADI · MIGRATION OLUŞTURULMADI · PRODUCTION'A BAĞLANILMADI (SELECT dahil).**
+> Onaylanan kararlar: **PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A** (ayrıntı §9).
 > Tarih: 2026-08-29 · Kaynak talep: kullanıcının "TARİH / TARİH-SÜRE DÖNÜŞÜM HATALARININ AYRIŞTIRILMASI"
 > ara iş talimatı + ARA İŞ 2'de bırakılan S1d bulgusu.
 
@@ -54,9 +56,10 @@ kapsam dışı refactor.
 
 | İş | FAZ 0 | FAZ 1 | FAZ 2 | Karar | Uygulama | Test | Yayın | Durum |
 |---|---|---|---|---|---|---|---|---|
-| İŞ-1 Tarih kayması | ✅ | 🔵 sürüyor | ⛔ bekliyor | ⛔ | ⛔ | ⛔ | ⛔ | **KARAR BEKLİYOR** |
+| İŞ-1 Tarih kayması | ✅ | ✅ | ✅ | ✅ **ONAYLANDI** (ADR-184) | ⏸️ | ⏸️ | ⏸️ | **FAZ 3 — "UYGULAMA BAŞLASIN" ONAYI BEKLİYOR** |
 
-> Kullanıcı onayı gerektiren hiçbir faz "tamam" işaretlenmedi.
+> FAZ 2 kullanıcı tarafından **kesin olarak onaylandı** (2026-08-29). Uygulama/test/yayın fazları
+> kullanıcının ayrıca vereceği **"UYGULAMA BAŞLASIN"** onayı olmadan başlatılmaz.
 
 ---
 
@@ -198,7 +201,22 @@ kilit). Yeni düzeltmeler için benzer **yazım yolu** kilitleri gerekecek (§11
 
 ---
 
-## 9. FAZ 2 — RİSK VE KARAR PAKETİ (⛔ kullanıcı kararı bekliyor)
+## 9. FAZ 2 — RİSK VE KARAR PAKETİ ✅ **KARARLAR ONAYLANDI (2026-08-29 · ADR-184)**
+
+### 9.0 ONAYLANAN KARARLAR — ÖZET (bağlayıcı)
+
+| PK | Karar | Bağlayıcı sonuç |
+|---|---|---|
+| **PK-TAR-01** | **A** | **20 noktanın TAMAMI** düzeltilir (masaüstü 19 / 11 ekran + web `Stock.razor:258`). Web'in doğru 10 noktasına DOKUNULMAZ. Her nokta iki platformda AYRI doğrulanır; "diğerinde de aynıdır" varsayımı YASAK. |
+| **PK-TAR-02** | **A** | **Yalnız ileriye dönük.** Geçmiş canlı kayıtlar değiştirilmez, otomatik data-fix yok. Geçmiş düzeltmesi gerekirse **AYRI iş/karar**. |
+| **PK-TAR-03** | **A** | **Tek kaynaklı dönüşüm.** Ortak/masaüstü tarafında tek yardımcı; web'de mevcut doğru `FieldChecks.ToUnixMs` tek kaynak kalır ve `Stock.razor` ona bağlanır. Web'in mimari sınırı korunur (proje referansı yok). İki platform paritesi + ham dönüşüme dönüşü engelleyen kaynak kilitleri testle kanıtlanır. |
+| **PK-TAR-04** | **A** | **Zaman damgalarına dokunulmaz** (`created_at`, `updated_at`, audit, gerçek an). Yalnız iş günü/takvim alanları; `DateEntryPolicy` ayrımı korunur. |
+| **PK-TAR-05** | **A** | **Eski istemciler kabul.** ≤1.0.162 kaymalı yazmaya devam edebilir; sunucuda telafi yuvarlaması YOK; API/DB sözleşmesi değişmez; kullanıcılar 1.0.163+'a yönlendirilir; yayın öncesi raporda açıkça yazılır. |
+| **PK-TAR-06** | **B** | **Production ölçümü YAPILMAZ.** Bu ara iş boyunca canlı API/DB'ye erişilmez (SELECT dahil). Gerekirse ileride ayrı karar. |
+| **PK-TAR-07** | **A** | **Tek başına, migration'sız yayın.** Migration oluşturulmaz, Migration082 dahil edilmez, **şema 81 kalır**. API + Web + masaüstü paketi (1.0.162 → uygun artış). FIN-B1 · Custom Rapor · Ekip+Onay · N/Mobil durumları DEĞİŞMEZ. |
+
+> Aşağıdaki alt bölümler kararların dayandığı seçenek analizidir; **seçilen seçenekler yukarıdaki
+> tabloda kesinleşmiştir** ve tekrar sorulmaz.
 
 ### PK-TAR-01 — Kapsam: hangi noktalar düzeltilsin?
 - **A (ÖNERİLEN):** **20 noktanın tamamı** (19 masaüstü + 1 web `Stock.razor`). Tek ve tutarlı kural;
@@ -296,15 +314,17 @@ Kod düzeltmesi olduğundan geri dönüş = önceki imaja/sürüme dönüş; **�
 
 - **Ana roadmap aşaması:** AŞAMA 3 — FINAL KARAR PAKETİ (bu ara iş onu ilerletmez)
 - **Aktif ara iş:** **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI**
-- **Aktif faz:** **FAZ 1 analiz (yazım yolları doğrulandı) → FAZ 2 KARAR BEKLİYOR**
+- **Aktif faz:** **FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-184) → FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" bekliyor**
 - **Tamamlanan ara işler:** ARA İŞ 2 PAKET-1 (+ADR-183) · Rapor Ara İşi (ADR-181)
 - **Yayınlanmış işler:** ARA İŞ 2 PAKET-1 · ADR-181 · ADR-183 · M · O · FIN (082 hariç)
-- **Bekleyen kararlar:** **PK-TAR-01…07** (bu belge §9) + ana roadmap'te **FIN-B1/Migration082**
+- **Verilen kararlar:** **PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A** (§9.0 · ADR-184) —
+  bunlar TEKRAR SORULMAZ
+- **Bekleyen kararlar:** ana roadmap'te **FIN-B1/Migration082** (bu ara işin dışında)
 - **Migration durumu:** bu ara iş için **GEREKMİYOR**; canlı şema **81**; Migration082 master'da yok
-- **Production durumu:** bu turda **DOKUNULMADI**
-- **Kod yazıldı mı:** **HAYIR** (analiz turu)
-- **Son commit:** `c244508` (öncesi `e5583c4` yayın kaydı · `7cbb52b` son kod)
+- **Production durumu:** **DOKUNULMADI** (PK-TAR-06=B gereği uygulama boyunca da dokunulmayacak)
+- **Kod yazıldı mı:** **HAYIR** · **Test koşuldu mu:** HAYIR · **Migration:** oluşturulmadı
+- **Son commit:** ARA İŞ 3 karar kaydı (öncesi `832efb3` analiz · `e5583c4` yayın · `7cbb52b` son kod)
 - **Son başarılı test:** tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`)
-- **Sıradaki TEK iş:** kullanıcının **PK-TAR-01…07** kararlarını vermesi → ardından "UYGULAMA BAŞLASIN"
+- **Sıradaki TEK iş:** kullanıcının **"UYGULAMA BAŞLASIN"** onayı → FAZ 3 uygulama
 - **Ara iş tamamlanınca dönülecek nokta:** **AŞAMA 3 — FIN-B1 / Migration082 ayrı onay süreci**
 - **Ayrı fazlar (dokunulmadı):** Custom Rapor ⏸️ · Ekip+Hiyerarşi+Onay ⏸️ · N/Mobil ⏭️ ATLANDI

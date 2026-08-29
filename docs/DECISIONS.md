@@ -2966,3 +2966,66 @@ ayrımını birlikte kilitler · PG parite testleri iki lehçede yeni sözleşme
 
 **MIGRATION YOK** — yalnız iki rapor metodu + katalog metinleri değişti; şema, senkron, yetki ve
 tarih semantiği DEĞİŞMEDİ. Canlı şema 81'de kalır.
+
+---
+
+## ADR-184 — ARA İŞ 3: takvim tarihi kayması — kapsam ve düzeltme kararları (2026-08-29)
+
+**Bağlam.** ARA İŞ 2'nin S1d salt-taramasında bırakılan bulgu ayrı bir ara işe (ARA İŞ 3) alındı ve
+güncel kodda yeniden doğrulandı. Kullanıcının seçtiği **takvim/iş günü**, yerel saat dilimi (TR = UTC+3)
+yüzünden unix ms'e çevrilirken **bir gün erken** yazılabiliyor (2 Ağustos → 1 Ağustos 21:00 UTC).
+Analiz: `docs/project-control/ARA_IS_3_00_ANALIZ.md` (FAZ 1).
+
+**Analizin iki düzeltmesi (kayda geçer).** (1) S1d'nin "10 ekran / 17 nokta" sayımı EKSİKTİ; gerçek
+sayı **11 ekran / 19 masaüstü yazım noktası**dır (eksik ikisi Fatura ve Cari ekranlarının VADE tarihi
+alanları). (2) S1d yalnız masaüstünü taramıştı; web ayrı incelendiğinde **`Stock.razor:258`'de gerçek
+bir kayma** bulundu — web'in diğer 10 tarih noktası ise DOĞRUDUR (`FieldChecks.ToUnixMs`).
+"Web'de de aynıdır" varsayımı yapılmadı; iki platform ayrı kanıtlandı.
+
+**KARARLAR (kullanıcı onayı, 2026-08-29): PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A.**
+
+- **PK-TAR-01=A — Kapsam: 20 yazım noktasının TAMAMI.** Masaüstü 19 nokta / 11 ekran (Stok Girişi ×3 ·
+  Stok Sayım · Stok Dağıtım · Fatura ×2 · Finans ×2 · Muayene ×2 · Bakım · Günlük Faaliyet ×3 ·
+  Cari ×2 · Ödeme · Talep) + web 1 nokta (`Stock.razor:258`). **Web'in doğru çalışan 10 noktasına
+  DOKUNULMAZ.** Gerekçe: aynı hata sınıfının ikinci kez doğmasını engellemek ve iki platformun aynı
+  günü yazmasını sağlamak. Kapsam sınırı: yalnız KANITLANMIŞ hatalı noktalar; her nokta iki platformda
+  ayrı doğrulanır.
+- **PK-TAR-02=A — Yalnız İLERİYE DÖNÜK düzeltme.** Geçmiş canlı kayıtlar DEĞİŞTİRİLMEZ; otomatik
+  data-fix YOKTUR; uygulama sırasında production verisine dokunulmaz. **Geçmiş kayıtların düzeltilmesi
+  bu ara işin KAPSAMI DIŞINDADIR** ve gerekirse ileride AYRI karar/iş olarak açılır. Gerekçe: canlı
+  veri koruma protokolü; ADR-182/PK-T3 ile aynı ilke.
+- **PK-TAR-03=A — Tek kaynaklı dönüşüm mimarisi.** İş günü → UTC gün başlangıcı dönüşümü için tek
+  güvenilir yardımcı kullanılır/mevcut doğru ortak kaynak genişletilir; aynı mantık ekranlarda
+  kopyalanmaz. Web tarafında **mevcut doğru `FieldChecks.ToUnixMs` tek kaynak olarak korunur** ve
+  hatalı `Stock.razor:258` ona bağlanır. **Web'in bilinçli mimari sınırı korunur** (iş katmanına proje
+  referansı verilmez; gerekirse mevcut paylaşılan-dosya deseni kullanılır). Aynı takvim tarihinin iki
+  platformda BİREBİR aynı unix ms ürettiği testle kanıtlanır; ham dönüşümün geri eklenmesini engelleyen
+  kaynak-düzeyi kilitler konur.
+- **PK-TAR-04=A — Gerçek zaman damgalarına DOKUNULMAZ.** Kapsam yalnız kullanıcı tarafından seçilen
+  iş günü/takvim alanlarıdır (`doc_date`, `entry_date`, `performed_date`, fatura tarihi, vade,
+  işlem/tahsilat tarihi, talep tarihi, muayene tarihleri…). `created_at`, `updated_at`, audit ve diğer
+  gerçek zaman damgaları AYNEN kalır; `DateEntryPolicy`'nin iş günü ↔ kayıt anı ayrımı korunur.
+- **PK-TAR-05=A — Eski istemciler kabul edilir.** 1.0.162 ve öncesi masaüstüler istemci tarafındaki
+  eski dönüşüm nedeniyle kaymalı kayıt üretmeye devam edebilir. Sunucuda telafi amaçlı yuvarlama
+  YAPILMAZ; API/DB sözleşmesi değişmez; eski istemciler BOZULMAZ, yalnız düzeltmeden yararlanamaz.
+  Kullanıcılar 1.0.163+ sürüme yönlendirilir ve bu davranış yayın öncesi raporda açıkça yazılır.
+- **PK-TAR-06=B — Production kayma ölçümü YAPILMAZ.** Bu ara iş boyunca production API'ye bağlanılmaz,
+  canlı DB'ye **SELECT dahil** erişilmez, canlı veri incelenmez/kopyalanmaz/değiştirilmez. Hangi geçmiş
+  kayıtların gerçekten kaydığı bu kapsamda araştırılmaz; gerekirse ileride ayrı karar/iş olur.
+- **PK-TAR-07=A — Tek başına, MIGRATION'SIZ yayın.** ARA İŞ 3 tamamlanınca başka iş beklenmeden
+  yayınlanır. **Migration OLUŞTURULMAZ, Migration082 bu işe DAHİL EDİLMEZ**; canlı şema **81** kalır.
+  FIN-B1/Migration082 ayrı karar; Custom Rapor ve Ekip+Hiyerarşi+Onay ayrı faz; N/Mobil ATLANDI olarak
+  kalır. Yayın paketi: API + Web + masaüstü (sürüm mevcut 1.0.162'den uygun şekilde artırılır).
+
+**Kapsam dışı (açıkça).** Geçmiş veri düzeltmesi · production ölçümü/erişimi · zaman damgası alanları ·
+rapor OKUMA yolu (RPR-06 ile zaten doğru) · API/DB sözleşmesi değişikliği · migration · senkron
+sözleşmesi · yetki/tenant/BranchAccess/export davranışları · kapsam dışı refactor.
+
+**Etki.** Migration YOK · senkron sözleşmesi DEĞİŞMEZ · yetki/tenant/BranchAccess/export DEĞİŞMEZ ·
+performans etkisi yok · geriye uyumluluk: API/DB aynı kaldığı için eski istemciler bozulmaz.
+**Geri dönüş:** kod düzeltmesi olduğundan önceki imaja/sürüme dönüş yeterlidir; şema geri alma
+gerekmez ve yazılmış veri geri alınmaz (ileriye dönük düzeltme).
+
+**Durum.** FAZ 2 kararları ONAYLANDI; **FAZ 3 uygulama, kullanıcının ayrıca vereceği
+"UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken kod/test/migration üretilmedi,
+production'a bağlanılmadı.

@@ -2,7 +2,15 @@
 
 > Son güncelleme: 2026-08-29 (ARA İŞ 3 — tarih kayması analizi tamam, karar bekliyor)
 
-## 🔵 TARİH KAYMASI (ARA İŞ 3) — ANALİZ TAMAM, KARAR BEKLİYOR (2026-08-29)
+## 🔵 TARİH KAYMASI (ARA İŞ 3) — ✅ KARARLAR ONAYLANDI (ADR-184), UYGULAMA ONAYI BEKLİYOR (2026-08-29)
+
+> **Artık karar bekleyen bir iş DEĞİLDİR.** Kararlar: **PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A ·
+> 06=B · 07=A** (ADR-184). Sıradaki adım kullanıcının **"UYGULAMA BAŞLASIN"** onayıdır; kod henüz
+> yazılmadı. **Migration gerekmiyor**, canlı şema 81 kalacak.
+>
+> ⚠️ **AYRI İŞ OLARAK AÇIK KALAN:** geçmiş canlı kayıtlardaki olası tarih kaymaları (PK-TAR-02=A ile
+> bu ara işin KAPSAMI DIŞINDA bırakıldı). Gerekirse ileride ayrı karar/iş olarak açılacaktır; hangi
+> kayıtların kaydığı **ölçülmedi** (PK-TAR-06=B — production'a bağlanılmadı).
 
 - **Belirti:** kullanıcının seçtiği takvim/iş günü, yerel saat dilimi (TR = UTC+3) yüzünden unix ms'e
   çevrilirken **bir gün erken** yazılabiliyor (2 Ağustos → 1 Ağustos 21:00 UTC).
