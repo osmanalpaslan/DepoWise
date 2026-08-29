@@ -1,6 +1,26 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-29** (ARA İŞ — Rapor geliştirmeleri: ANALİZ tamam, PK-R1..R4 karar bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-29** (ARA İŞ 2 — 8 yeni ara işin ANALİZİ tamam, kararlar bekliyor; rapor ara işi ADR-181 yayın onayı bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## 📌 AKTİF ARA İŞLER — 2026 (durum makinesi: ANALİZ BEKLİYOR → ANALİZ TAMAM/KARAR BEKLİYOR → KARAR VERİLDİ → UYGULAMA → TEST → YAYIN ÖNCESİ → YAYIN BEKLİYOR → YAYINLANDI)
+
+| İş | Durum | Not |
+|---|---|---|
+| RAPOR ARA İŞİ (ADR-181: vehicle-daily + 8 kategori yetkisi) | ⛔ **YAYIN BEKLİYOR** | Kod+test tamam; "YAYINLA" onayı bekleniyor |
+| İŞ 1 — Fotoğraf senkronu + silme kapısı | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | PK-F1..F5 — [ARA_IS_2_00_ANALIZ.md](ARA_IS_2_00_ANALIZ.md) |
+| İŞ 2 — Yakıt raporu tarih/araç listesi | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Gerçek bug bulundu (masaüstü tarih yazımı saat dilimi) + tam-filo sözleşme kararı; PK-T1..T4 |
+| İŞ 3 — "Yakıtı Veren" son seçim | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; PK-V1 |
+| İŞ 4 — Yakıt Günlük + Stok Hareketleri Günlük | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; PK-G1..G2 |
+| İŞ 5 — Günlük Faaliyet — Detay raporu | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | Migration'sız; yeni çoklu-seçim filtresi; PK-D1 |
+| İŞ 6 — Custom Rapor Tasarımcısı | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | ⚠️ MIGRATION GEREKİR → ayrı faz önerisi; PK-C1..C3 |
+| İŞ 7 — Ekip + Hiyerarşi + Onay + Onaylamalarım | 🟡 **ANALİZ TAMAM / KARAR BEKLİYOR** | ⚠️ MIGRATION+SENKRON GEREKİR → ayrı faz önerisi; PK-E1..E6 |
+| FIN-B1 / Migration082 | ⛔ **AYRI ONAY BEKLİYOR** | Tasarım `35d7bce`; canlı şema 81 (ADR-180) |
+| N — Mobil | ⏭️ **ATLANDI** | Kod yazılmadı; bu döngüde uygulanmayacak |
+
+**Paket önerisi:** İş 1-5 migration'sız → mevcut yayın havuzuna eklenip TEK yayın (PAKET-1);
+İş 6-7 migration'lı → ayrı fazlar (PAKET-2). Karar: kullanıcıda.
 
 ---
 
