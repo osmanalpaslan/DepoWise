@@ -228,3 +228,50 @@ listesi (health/API/web/rapor uçları/yetki/günlük+toplam araç raporu/tenant
 
 > Not: RPR15d test sözleşmesinin "reports + kategori" olarak güncellenmesi Özellik 2'nin doğal sonucudur;
 > PK-R2 onayı bunu da kapsar. Boş günlerin 0 satırıyla gösterimi talimat gereği sabittir (karar değil).
+
+---
+
+## EK (2026-08-29) — PK-R KARARLARI ve YAYIN AYRIŞTIRMA STRATEJİSİ
+
+**Kullanıcı kararları: PK-R1=A · PK-R2=A · PK-R3=A · PK-R4=B.**
+Migration082 bu ara işin yayınına DAHİL EDİLMEYECEK; production'da çalıştırılması ONAYLI DEĞİL.
+
+### Gerçek durum düzeltmesi
+FIN-B1 kod değişiklikleri ve Migration082 **şu anda master'da commit'lidir** (`35d7bce`, ADR-179 —
+AŞAMA 3'te uygulanmıştı; "henüz uygulanmadı" bilgisi güncel değil). Master'dan deploy → runner 082'yi
+canlıda çalıştırır. PK-R4=B bunu yasakladığı için ayrıştırma ŞARTTIR.
+
+### Seçilen ayrıştırma yöntemi (öneri): FIN-B1 çiftini MASTER'DAN GERİ ÇEK (tek revert commit'i)
+`35d7bce` içinden YALNIZ 082'ye bağlı küme geri alınır; commit dosya listesi cerrahiyi net kılar:
+- **Geri çekilecek:** `Migration082_OperationIdCompanyScope.cs` (dosya silinir) · `MigrationCatalog.cs`
+  kaydı · 8 servis dosyasındaki firma-kapsam düzenlemeleri (Assignment/Maintenance/OpeningStock/Stock/
+  DailyActivity/Fuel/PurchaseOrder/WorkOrder — `git checkout 35d7bce~1 --` ile birebir eski hâl) ·
+  `PostgresMigration082Tests.cs` (silinir) · `FinalStabilizasyonTests` FIN1–FIN7 (eski-sözleşme
+  sürümlerine döner — FIN5 "farklı firma sessiz atlanır" kilidi dahil; `77c8e52` sürümünden).
+- **KALACAK (082'den bağımsız):** YET-01 kaldırımı (`AppModules.cs` + 4 test dosyası düzeltmesi) ·
+  `FinalStabilizasyonTests` FIN8/FIN9/FIN10 (STK-B2 + SNK-05 kilitleri) · BAR15 katalog-max bağlaması
+  (082 çıkınca max=81 → yine geçer) · ADR-179 belge kayıtları (düzeltme notuyla).
+- **Geri getirme garantisi:** tasarım+kanıtlar git geçmişinde (`35d7bce`); 082 onaylandığında revert
+  commit'inin revert'i (veya cherry-pick) ile BİREBİR geri gelir. FIN-B1 "tamamlandı" SAYILMAZ —
+  AŞAMA 3'e "Migration082 ayrı onay bekliyor" olarak döner.
+- **Neden branch değil:** master tek gerçek kaynak (iki-PC senkron kuralı); kalıcı release-branch her
+  yayında yeniden cerrahi ister, sürüm/test doğruluğu master'da kanıtlanamaz olur. Revert master'ı
+  "yayınlanabilir gerçek" hâline getirir: katalog max=81 = canlı şema 81 → **runner canlıda NO-OP**.
+- **Yarım-sözleşme kontrolü:** kod+082 ÇİFT olarak geri çekildiği için eski davranış birebir döner
+  (sessiz atlama sözleşmesi FIN5 ile yeniden kilitlenir); yarım durum OLUŞMAZ.
+
+### Yayın stratejisi 10 sorunun cevabı (özet)
+1-2) M ve O migration'sız, testli; FIN-B1 kodu master'da UYGULANMIŞ (düzeltme yukarıda). 3) 082 canlıda
+çalışmadı (şema 81). 4) M+O+FIN(B1-hariç)+ara iş AYNI release'te güvenli (hiçbirinde migration yok).
+5) 082 ayrıştırması MÜMKÜN (yukarıdaki revert). 6) Tek revert commit'i + belgeler; branch yok, kural
+ihlali yok. 7) Çalışan kodu bozma riski DÜŞÜK — revert bilinen eski duruma dönüştür, tam süit + izole PG
+ile kanıtlanır. 8) Eski masaüstü 1.0.160: şema değişmiyor, senkron sözleşmesi değişmiyor; eski istemciler
+güncellenene dek rapor kategori kapısını YEREL uygulamaz (bugünkü davranış — daralma yok, genişleme yok);
+≤60 sn'de güncelleme uyarısı alır. 9) Web/API: web aynı deploy'dan sunulur; `ReportReqDto` DEĞİŞMİYOR
+(PK-R1=A yeni alan istemez) → uyumluluk sorunu yok. 10) EVET — production migration'sız yayın mümkün:
+ara iş migration'sız, M/O migration'sız, 082 geri çekildi → deploy şema 81'de no-op.
+
+### Uygulama sırası (onay sonrası)
+S1 FIN-B1 geri çekme (revert + test dönüşleri + belge düzeltmeleri) → S2 tam süit + izole PG (revert
+kanıtı) → S3 Özellik 2 (8 anahtar + kapılar + testler) → S4 Özellik 1 (`vehicle-daily` + testler) →
+S5 hedefli+tam süit + izole PG paritesi → S6 3 Release build → S7 yayın-öncesi rapor + DUR (yayın onayı).
