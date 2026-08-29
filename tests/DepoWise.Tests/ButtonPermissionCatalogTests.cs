@@ -29,8 +29,10 @@ public class ButtonPermissionCatalogTests
     /// <summary>
     /// Ağaçta duran ama kodda kapı OLMAYAN, BİLİNEN ve kabul edilmiş anahtarlar (YET-01).
     /// Yeni bir anahtar buraya eklenmeden işlevsiz kalamaz — test kırılır.
+    /// ⭐ ADR-179 (2026-08-29): son iki istisna ("btn-reset-db", "btn-logo") kullanıcı kararıyla
+    /// katalogdan KALDIRILDI → liste artık BOŞ ve kilit tam güçte: ağaçtaki HER buton kodda kapıdır.
     /// </summary>
-    private static readonly string[] BilinenIslevsizler = { "btn-reset-db", "btn-logo" };
+    private static readonly string[] BilinenIslevsizler = Array.Empty<string>();
 
     private static string RepoKok()
     {

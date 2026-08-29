@@ -116,7 +116,8 @@ public class AuthPermissionTests : IDisposable
     {
         var admin = Session("A", "adm", roles: new[] { RoleKeys.CompanyAdmin });
         Assert.True(AccessControl.Can(admin, "materials", PermissionAction.Delete));
-        Assert.True(AccessControl.CanUseButton(admin, SpecialButtons.ResetDatabase));
+        // ADR-179: örnek buton RestoreTrash oldu (btn-reset-db işlevsiz olduğu için katalogdan kaldırıldı).
+        Assert.True(AccessControl.CanUseButton(admin, SpecialButtons.RestoreTrash));
     }
 
     // ---- Tenant izolasyonu / firma değiştirme ----

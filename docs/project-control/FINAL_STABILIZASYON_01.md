@@ -104,7 +104,19 @@ STK-B2 · RPR-02 · SNK-05 · MAK-01/b (öneri+risk+maliyetle; kod yazılmadı).
 (YENİ, 5 test) · KNOWN_ISSUES · FINAL_KARAR_PAKETI.md (YENİ) · bu belge · ADR-178 · roadmap/CURRENT_PHASE.
 **Ürün kaynak koduna dokunulmadı** (denenen FIN-B1 düzeltmesi tam geri alındı — git diff'te yok).
 
+## EK — Karar paketi uygulaması (2026-08-29, ADR-179)
+
+Kullanıcı kararlarıyla 7 madde kapatıldı: **FIN-B1** → Migration082 (yalnız 6 indeks, aynı adlarla
+`(company_id, operation_id)`; veri/kolon dokunuşu yok; sync tabloları kapsam dışı) + 8 noktada
+firma-kapsamlı idempotency; iki lehçede bit-bit/indeks/idempotency kanıtları
+(`FinalStabilizasyonTests` FIN1-FIN10 + `PostgresMigration082Tests`). **⛔ Migration082 PRODUCTION'DA
+ÇALIŞTIRILMADI — canlı şema 81** (yayın önkoşulları belgeli). **YET-01** kaldırıldı (buton kataloğu
+kilidi tam güçte). **ARC-01(a)** ve **RPR-02** incelemede ZATEN çözülmüş çıktı (RPR-04/RPR-07) — kod
+gerekmedi, kayıtlar kapatıldı. **STK-B2=HAYIR** (FIN8 kilidi). **SNK-05(a)** mevcut sözleşme kilitlendi
+(online ilk-kazanır FIN9 · offline LWW FIN10; senkron koduna dokunulmadı). **MAK-01/b** korundu.
+Ayrıntı: [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) · KNOWN_ISSUES 2026-08-29 bölümü · ADR-179.
+
 ## Sonraki iş
 
-FINAL fazı **build+test seviyesinde TAMAMLANDI** (yayın yok — yeni strateji). Sıradaki: **karar paketi
-kararlarınız**; ayrıca 7b Bakım-Ekipman genişletmesi serbest sırada.
+FINAL fazı ve karar paketi **build+test seviyesinde TAMAMLANDI** (yayın yok — yeni strateji).
+Yayın bekleyen kod havuzu: M + O + FIN düzeltmeleri + **Migration082**. 7b Bakım-Ekipman serbest sırada.

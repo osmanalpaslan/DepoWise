@@ -194,8 +194,10 @@ public static class SpecialButtons
     public const string Approve = "btn-approve";          // LEGACY — Talep Onaylama artık "request_approval" MODÜLÜ (Migration035). Yalnız migration string referansı.
     public const string Reverse = "btn-reverse";          // ters kayıt / iptal
     public const string RestoreTrash = "btn-restore";     // çöp kutusu geri yükle
-    public const string ResetDatabase = "btn-reset-db";   // DB sıfırlama
-    public const string ChangeCompanyLogo = "btn-logo";   // şirket logosu değiştir
+    // ⭐ YET-01 (ADR-179, 2026-08-29): "btn-reset-db" ve "btn-logo" KALDIRILDI — ağaçta görünüp kodda
+    // HİÇBİR kapıyı korumuyorlardı (yönetici yetki verdiğini sanıyordu, hiçbir şey olmuyordu; iki
+    // denetimde doğrulandı). Verilmiş eski user_permissions satırları yetim kalır ve ZARARSIZDIR:
+    // katalogda olmayan anahtar ağaçta görünmez, hiçbir kapıyı açmaz (deny-by-default).
     public const string AddLookup = "btn-add-lookup";     // "+" satır içi tanım ekleme (genel)
     public const string ExportReports = "btn-export-reports";       // Raporlar ekranı (şube bazlı) Excel dışa aktarma
     public const string ExportManagerReports = "btn-export-mgr-reports"; // Yönetici raporları (firma geneli/şablon/durum) Excel dışa aktarma
@@ -239,8 +241,6 @@ public static class SpecialButtons
     {
         (RestoreTrash, "Çöp Kutusu Geri Yükle"),
         (Reverse, "İptal / Ters Kayıt"),
-        (ResetDatabase, "Veritabanı Sıfırlama"),
-        (ChangeCompanyLogo, "Firma Logosu Değiştir"),
         (AddLookup, "\"+\" Satır İçi Ekleme"),
         (ExportReports, "Rapor Excel Dışa Aktarma"),
         (ExportManagerReports, "Yönetici Rapor Excel Dışa Aktarma"),

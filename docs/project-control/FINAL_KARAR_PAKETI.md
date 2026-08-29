@@ -1,4 +1,17 @@
-# FINAL — KARAR PAKETİ (S5, 2026-08-29 · ADR-178)
+# FINAL — KARAR PAKETİ (S5, 2026-08-29 · ADR-178) — ✅ KARARLAR VERİLDİ ve UYGULANDI (ADR-179)
+
+> **SONUÇ (2026-08-29, kullanıcı onayı + AŞAMA 3 uygulaması):**
+> **1. FIN-B1 → KABUL:** Migration082 + 8 noktada firma süzgeci uygulandı, iki lehçede testli;
+> ⛔ **production'da ÇALIŞTIRILMADI** (canlı şema 81 — yayın penceresi bekliyor).
+> **2. YET-01 → KALDIRILDI** (katalog + test kilidi tam güçte; migration yok, yetim satırlar zararsız).
+> **3. ARC-01 → (a):** rapor seçicisi RPR-04'te ZATEN süzülmüş çıktı (kod gerekmedi); operasyonel
+> seçiciler bilinçli firma-geneli KALIR.
+> **4. STK-B2 → HAYIR:** belge notu aranmaz — FIN8 testiyle kilitlendi.
+> **5. RPR-02 → fiilen RPR-07 ile kapalıydı** (web `operatingBranchId` gönderiyor; kod gerekmedi).
+> **6. SNK-05 → (a):** mevcut sözleşme sabitlendi (online ilk-kazanır FIN9 · offline LWW+data_conflicts
+> FIN10); senkron koduna dokunulmadı.
+> **7. MAK-01/b → KORUNDU** (üç mevcut test sınıfı yeşil; kod yok).
+> Ayrıntı: KNOWN_ISSUES 2026-08-29 bölümü + ADR-179. Aşağısı tarihsel karar metnidir.
 
 > PK-FIN5=A gereği: birikmiş "karar bekleyen" maddeler TEK pakette. **Bu turda hiçbiri için KOD
 > YAZILMADI** — siz karar verdikçe her biri AYRI, dar kapsamlı iş olarak açılır. Öneriler ⭐ ile.

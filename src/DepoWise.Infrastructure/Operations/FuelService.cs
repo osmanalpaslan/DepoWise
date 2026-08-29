@@ -60,7 +60,7 @@ public sealed class FuelService
 
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
-        if (OperationExists(conn, tx, "fuel_depot_entries", operationId)) { tx.Commit(); return ""; }
+        if (OperationExists(conn, tx, "fuel_depot_entries", s.CompanyId, operationId)) { tx.Commit(); return ""; }
 
         var id = Guid.NewGuid().ToString("N");
         using (var cmd = conn.CreateCommand())
@@ -99,7 +99,7 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
 
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
-        var existing = FindDistribution(conn, tx, operationId);
+        var existing = FindDistribution(conn, tx, s.CompanyId, operationId);
         if (existing is not null) { tx.Commit(); return existing; }
 
         // Depo bakiyesi (tüm zamanlar) yeterli mi
@@ -431,20 +431,24 @@ ORDER BY entry_date DESC, created_at DESC LIMIT @lim;";
         cmd.ExecuteNonQuery();
     }
 
-    private static bool OperationExists(DbConnection conn, DbTransaction tx, string table, string operationId)
+    // ⭐ FIN-B1 (ADR-179, Migration082 ile birlikte): iki yardımcı da FİRMA KAPSAMLI — başka firmanın
+    // aynı operation_id'si bu firmanın yakıt işlemini atlatamaz / yabancı kayıt id'si döndüremez.
+    private static bool OperationExists(DbConnection conn, DbTransaction tx, string table, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE operation_id=@op;";
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static string? FindDistribution(DbConnection conn, DbTransaction tx, string operationId)
+    private static string? FindDistribution(DbConnection conn, DbTransaction tx, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT id FROM fuel_distributions WHERE operation_id=@op;";
+        cmd.CommandText = "SELECT id FROM fuel_distributions WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return cmd.ExecuteScalar() as string;
     }

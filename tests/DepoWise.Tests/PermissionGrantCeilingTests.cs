@@ -205,12 +205,13 @@ public class PermissionGrantCeilingTests : IDisposable
             new PermissionSet(new[] { Mod("permissions", true, false, true, false) },
                 new[] { SpecialButtons.ExportReports }));
 
+        // ADR-179: "aktörde olmayan buton" örneği BackDate oldu (btn-reset-db katalogdan kaldırıldı).
         _perms.SaveForUser(s, hedef, Array.Empty<ModulePermission>(),
-            new[] { SpecialButtons.ExportReports, SpecialButtons.ResetDatabase });
+            new[] { SpecialButtons.ExportReports, SpecialButtons.BackDate });
 
         var data = _perms.GetForUser(Session(aktor, RoleKeys.CompanyAdmin), hedef);
         Assert.Contains(SpecialButtons.ExportReports, data.Buttons);      // aktörde VAR
-        Assert.DoesNotContain(SpecialButtons.ResetDatabase, data.Buttons); // aktörde YOK → kırpıldı
+        Assert.DoesNotContain(SpecialButtons.BackDate, data.Buttons);     // aktörde YOK → kırpıldı
     }
 
     /// <summary>7 — <see cref="AccessControl.GrantCeiling"/> ile <see cref="AccessControl.Can"/> AYNI

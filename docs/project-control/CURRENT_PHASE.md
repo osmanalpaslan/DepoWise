@@ -60,9 +60,14 @@ MIGRATION YOK — şema 81; production'a HİÇBİR aşamada bağlanılmadı; yay
 izole test-PG) SON KOŞULARDA **0 BULGU**; PG testleri İLK KEZ topluca **45/45**; TAM SÜİT **2.888 →
 2.853 geçti / 0 başarısız / 35 bilinçli-atlanan**; üç Release build 0 hata. KRİTİK bulgu YOK; FIN-B1
 (op-id firma-üstü benzersizlik — migration ister) DURDURULUP karar paketine yazıldı, FIN-M1/M2 ORTA →
-KNOWN_ISSUES. **⛔ SIRADAKİ: [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) kararlarınız** (FIN-B1 ·
-YET-01 · ARC-01 · STK-B2 · RPR-02 · SNK-05 · MAK-01/b). Yeni strateji (kullanıcı, 2026-08-28): **uzun
-süre production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
+KNOWN_ISSUES. **KARAR PAKETİ UYGULANDI ✅ (2026-08-29, ADR-179):** FIN-B1 → **Migration082 hazır ve
+iki lehçede testli, ⛔ PRODUCTION'DA ÇALIŞTIRILMADI — CANLI ŞEMA 81, yayın penceresi bekliyor**
+(önkoşul: pg_dump + kısa indeks kilidi) + 8 noktada firma-kapsamlı idempotency · YET-01 iki işlevsiz
+anahtar kaldırıldı · ARC-01(a) ve RPR-02 incelemede ZATEN çözülmüş çıktı (RPR-04/RPR-07 — kod
+gerekmedi) · STK-B2 hayır (FIN8 kilidi) · SNK-05(a) mevcut sözleşme kilitlendi (online ilk-kazanır ·
+offline LWW; senkron koduna dokunulmadı) · MAK-01/b korundu. **⛔ Yayın bekleyen kod havuzu: M (EXL-01)
++ O (BAR-01) + FIN düzeltmeleri + Migration082.** Yeni strateji (kullanıcı, 2026-08-28): **uzun süre
+production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
 (+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·

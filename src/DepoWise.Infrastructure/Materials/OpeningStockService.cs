@@ -50,7 +50,7 @@ public sealed class OpeningStockService
         using var tx = conn.BeginTransaction();
 
         EnsureOwned(conn, tx, s.CompanyId, materialId);
-        if (OperationApplied(conn, tx, operationId)) { tx.Commit(); return; } // idempotent
+        if (OperationApplied(conn, tx, s.CompanyId, operationId)) { tx.Commit(); return; } // idempotent
         // STK-03: açılış da bir stok yazma yoludur → lokasyon sahipliği burada da doğrulanır
         // (StockService.EnsureLocationOwned ile aynı kural; iki yol arasında boşluk bırakılmaz).
         EnsureLocationOwned(conn, tx, s.CompanyId, branchId);
@@ -92,11 +92,14 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now,@now);";
         return StockBalanceWriter.ReadTotal(conn, null, s.CompanyId, materialId);
     }
 
-    private static bool OperationApplied(DbConnection conn, DbTransaction tx, string operationId)
+    // ⭐ FIN-B1 (ADR-179, Migration082 ile birlikte): FİRMA KAPSAMLI idempotency — başka firmanın aynı
+    // operation_id'si bu firmanın açılış stoğunu sessizce atlatamaz. Aynı-firma retry birebir aynı.
+    private static bool OperationApplied(DbConnection conn, DbTransaction tx, string companyId, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE operation_id=@op;";
+        cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE company_id=@c AND operation_id=@op;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }

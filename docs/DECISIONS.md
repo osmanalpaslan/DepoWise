@@ -2790,3 +2790,37 @@ Ayrıntı: `docs/project-control/O_BARKOD_QR_01.md`.
   STK-B2 · RPR-02 · SNK-05 · MAK-01/b → docs/project-control/FINAL_KARAR_PAKETI.md.
 
 Ayrıntı: `docs/project-control/FINAL_STABILIZASYON_01.md`.
+
+## ADR-179 — FINAL karar paketi uygulaması: FIN-B1 + 6 madde (2026-08-29) — Migration082 ⛔ CANLIDA ÇALIŞTIRILMADI
+
+- **FIN-B1 KABUL:** 6 eski tabloda operation_id benzersizliği firma kapsamına alındı — Migration082
+  (yalnız indeks değişimi: aynı adlarla DROP + (company_id, operation_id) UNIQUE; kolon/veri dokunuşu
+  YOK; sync_inbox/outbox kapsam dışı) + 8 idempotency kontrolüne company_id süzgeci (PO mal kabul ·
+  İE tüketim · stok belgesi · yakıt depo/dağıtım · günlük faaliyet · bakım · açılış · zimmet).
+  Duplicate riski yapısal sıfır (benzersizlik gevşedi). Kanıtlar: FinalStabilizasyonTests (bit-bit ·
+  hedef-dışı indeks envanteri değişmedi · indeks kolonları · idempotent runner · statik yalnız-indeks
+  kilidi · aynı-firma duplicate reddi · farklı-firma engellemez) + PostgresMigration082Tests (izole PG,
+  guard'lı). ⛔ Migration082 PRODUCTION'DA ÇALIŞTIRILMADI — canlı şema 81; yayın ayrı açık onay ister
+  (önkoşul: pg_dump + kısa indeks kilidi). Masaüstü istemciler kendi yerel DB'lerinde güncellemeyle alır.
+- **YET-01:** işlevsiz "btn-reset-db"/"btn-logo" katalogdan KALDIRILDI; ButtonPermissionCatalogTests
+  istisna listesi boşaldı (ağaçtaki her buton artık gerçek kapı). Yetim izin satırlarına migration YOK
+  (deny-by-default zararsız). Üç testte bu anahtarları "örnek buton" olarak kullanan yerler eşdeğer
+  gerçek butonlarla güncellendi (sözleşme değişmedi).
+- **ARC-01=(a):** rapor araç seçicisi RPR-04'te (2026-08-25) ZATEN BranchAccess'le süzülü
+  (VehicleService.ListForReportFilter, iki platform ortak, ReportBranchScopeTests kilitli) → kod
+  GEREKMEDİ. Operasyonel seçiciler (VehicleService.List, 12+ nokta) kullanıcı kararıyla bilinçli
+  firma-geneli KALIR (araçlar şubeler arası gezer; saha kilitlenmesin).
+- **STK-B2=HAYIR:** stok belgesi notu global aramada aranmaz — FIN8 kilidi eklendi; arama kapsamı değişmedi.
+- **RPR-02:** fiilen RPR-07 (2026-08-25) ile kapalıydı — web operasyon kipinde operatingBranchId=login
+  şubesi gönderir, sunucu BranchAccess.Require ile doğrular (kapsam yalnız daralır) → kod GEREKMEDİ;
+  eskimiş kayıt kapatıldı.
+- **SNK-05=(a):** mevcut sözleşme SABİTLENDİ ve kilitlendi: ONLINE ilk geçerli onay kazanır (durum
+  makinesi — FIN9) · OFFLINE çakışmada LWW (yeni updated_at kazanır; kaybeden data_conflicts'e düşer —
+  FIN10). Senkron koduna DOKUNULMADI; "offline ilk-kazanır" bilinçli yapılmadı (protokol değişikliği
+  isterdi). SNK-13 aynen.
+- **MAK-01/b=KORU:** kod yok; mevcut koruma testleri yeşil.
+- Doğrulama: FinalStabilizasyonTests 10/10 · Postgres testleri izole yerel PG'de 46/46 · tam süit +
+  üç Release build (sonuçlar FINAL_STABILIZASYON_01 ekinde). Production'a hiçbir aşamada bağlanılmadı;
+  canlı veri değişmedi; deploy yok; M import kapsamı aynen.
+
+Ayrıntı: `docs/project-control/FINAL_KARAR_PAKETI.md` + `docs/KNOWN_ISSUES.md` (2026-08-29 bölümü).

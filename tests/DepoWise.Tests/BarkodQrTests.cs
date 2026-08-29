@@ -287,13 +287,16 @@ VALUES(@id,@c,'TAL-777',1,@b,'pending',1,1,1,0);";
         Assert.Equal(once, Foto(tablolar));
     }
 
-    /// <summary>⭐ MIGRATION YOK: şema 81'de kalır (BAR-01 hiçbir şema değişikliği getirmez).</summary>
+    /// <summary>⭐ Şema, migration KATALOĞUYLA tutarlıdır (runner her kayıtlı migration'ı uygular).
+    /// Tarihçe: BAR-01 turunda sabit "81" idi ("BAR migration getirmez" kilidi — hâlâ doğru: BAR
+    /// migration eklemedi). ADR-179'da Migration082 BİLİNÇLİ eklendiği için sabit ESKİDİ; kilit artık
+    /// eskimeyecek biçimde kataloğun kendisine bağlandı (amaç aynı: kayıt dışı şema değişikliği olamaz).</summary>
     [Fact]
-    public void BAR15_Sema_81de_Kalir()
+    public void BAR15_Sema_Katalogla_Tutarli()
     {
         using var conn = _f.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT MAX(version) FROM schema_migrations;";
-        Assert.Equal(81L, Convert.ToInt64(cmd.ExecuteScalar()));
+        Assert.Equal((long)MigrationCatalog.All().Max(m => m.Version), Convert.ToInt64(cmd.ExecuteScalar()));
     }
 }

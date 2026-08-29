@@ -1,10 +1,40 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-29 (FINAL stabilizasyon turu — FIN bulguları; ADR-178)
+> Son güncelleme: 2026-08-29 (FINAL karar paketi uygulandı — ADR-179)
+
+## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179)
+
+- **FIN-B1 — operation_id firma kapsamına ALINDI (kod + Migration082; ⛔ production'da ÇALIŞTIRILMADI).**
+  6 eski indeks aynı adlarla `(company_id, operation_id)` benzersizliğine taşındı; 8 idempotency
+  kontrolüne firma süzgeci eklendi. Duplicate riski yapısal olarak sıfır (benzersizlik GEVŞEDİ).
+  İki lehçede bit-bit + indeks-kolonu + idempotency kanıtları testli (`FinalStabilizasyonTests` +
+  `PostgresMigration082Tests`). **Canlı şema 81'de** — Migration082 yayın penceresini bekliyor
+  (önkoşul: pg_dump yedeği; kısa indeks kilidi). `sync_inbox/outbox` bilinçli kapsam dışı.
+- **YET-01 — işlevsiz iki yetki anahtarı KALDIRILDI** (`btn-reset-db`, `btn-logo`). Katalogdan
+  çıkarıldı; ağaçta artık her buton gerçek bir kapıdır (`ButtonPermissionCatalogTests` istisna listesi
+  BOŞALDI — kilit tam güçte). Yetim eski izin satırları zararsız (deny-by-default; migration yazılmadı).
+- **ARC-01 — KARAR: (a) yalnız rapor seçicisi.** İnceleme, rapor araç seçicisinin **RPR-04'te (2026-08-25)
+  ZATEN kapsamla süzüldüğünü** gösterdi (`VehicleService.ListForReportFilter` — iki platform ortak;
+  `ReportBranchScopeTests` kilitli) → kod değişikliği GEREKMEDİ. Operasyonel seçiciler (yakıt/bakım/
+  zimmet/İE — `VehicleService.List`) kullanıcı kararıyla BİLİNÇLİ firma-geneli kalır (araçlar şubeler
+  arası gezer; saha kilitlenmesin).
+- **RPR-02 — KAPANDI (fiilen RPR-07 ile, 2026-08-25).** Web, operasyon kipinde `operatingBranchId =
+  Auth.BranchId` gönderiyor; sunucu `BranchAccess.Require` ile doğrulayıp kapsamı yalnız DARALTIYOR —
+  masaüstü paritesi zaten sağlanmış; kayıt eskimişti. Kod değişikliği gerekmedi.
+- **SNK-05 — mevcut sözleşme SABİTLENDİ (karar a):** ONLINE ilk geçerli onay kazanır (durum makinesi
+  çift onayı reddeder — FIN9); OFFLINE çakışmada senkron LWW'dir (yeni updated_at kazanır, kaybeden
+  data_conflicts'e düşer — FIN10). "Offline ilk-onay-kazanır"a çevirmek senkron protokol değişikliği
+  isterdi ve bilinçli YAPILMADI. Senkron koduna dokunulmadı; SNK-13 aynen.
+- **STK-B2 — KARAR: HAYIR.** Stok BELGESİ notu global aramada aranmaz (kimlik-alanı kuralı korunur);
+  `FIN8` testiyle kilitlendi.
+- **MAK-01/b — KARAR: KORU.** Makine kayıt/yaşam döngüsü korumaları bilinçli olarak mevcut haliyle
+  kalır (MachineRegisterAbuseTests · MakineYasamDonguTests · LoginMachineSyncTests yeşil). Kod yok.
 
 ## 🟡 FINAL STABİLİZASYON TURUNDA AÇIK BIRAKILAN (2026-08-29, izole simülasyon bulguları — ADR-178)
 
-- **FIN-B1 — operation_id benzersizliği eski tablolarda FİRMA-ÜSTÜ (KARAR SİZDE).** `stock_movements`,
+- ~~**FIN-B1**~~ → **2026-08-29'da ADR-179 ile KAPATILDI** (yukarıdaki bölüme bak; Migration082 hazır,
+  production'da çalıştırılmadı). Aşağıdaki metin tarihsel kayıttır:
+  **FIN-B1 — operation_id benzersizliği eski tablolarda FİRMA-ÜSTÜ (KARAR SİZDE).** `stock_movements`,
   `vehicle_maintenances`, `fuel_depot_entries`, `fuel_distributions`, `daily_activities`,
   `assignment_movements` tablolarında `operation_id` ŞEMA GEREĞİ tüm firmalar genelinde benzersizdir
   (Migration005/008/009/076) ve idempotency kontrolleri de buna uygun firma süzgeçsizdir → BAŞKA firmada

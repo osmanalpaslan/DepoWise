@@ -141,7 +141,8 @@ public class RestrictedSuperAdminTests : IDisposable
         Assert.True(AccessControl.CanGrantModule(su, "materials"));
         Assert.True(AccessControl.CanGrantModule(su, "machines"));       // süper-admin-only devretmek için görünür
         Assert.True(AccessControl.CanGrantModule(su, "quota_monitor"));
-        Assert.True(AccessControl.CanGrantButton(su, SpecialButtons.ResetDatabase));
+        // ADR-179: örnek buton RestoreTrash oldu (btn-reset-db işlevsiz olduğu için katalogdan kaldırıldı).
+        Assert.True(AccessControl.CanGrantButton(su, SpecialButtons.RestoreTrash));
     }
 
     [Fact]
@@ -151,7 +152,8 @@ public class RestrictedSuperAdminTests : IDisposable
         Assert.True(AccessControl.CanGrantModule(admin, "materials"));
         Assert.False(AccessControl.CanGrantModule(admin, "machines"));   // süper-admin-only asla
         Assert.False(AccessControl.CanGrantModule(admin, "quota_monitor"));
-        Assert.True(AccessControl.CanGrantButton(admin, SpecialButtons.ChangeCompanyLogo));
+        // ADR-179: örnek buton BranchSelect oldu (btn-logo işlevsiz olduğu için katalogdan kaldırıldı).
+        Assert.True(AccessControl.CanGrantButton(admin, SpecialButtons.BranchSelect));
     }
 
     [Fact]
