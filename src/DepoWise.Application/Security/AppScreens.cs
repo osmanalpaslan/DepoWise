@@ -207,6 +207,10 @@ public static class AppScreens
         // kimseden rapor erişimi ALINMADI.
         new AppScreen("reports", "reports", "Operasyon Raporları", "Raporlar", Both, "reports", "reports"),
         new AppScreen("reports.manager", "reports", "Yönetici Raporları", "Raporlar", Both, "reports/manager", "reports:manager", WebPermOverride: "@admin"),
+        // ⭐ ARA İŞ 4 (ADR-186): RAPOR TASARIMCISI — kullanıcının kendi raporunu tanımladığı ekran.
+        // Modül anahtarı mevcut "reports"tır: YENİ YETKİ MODÜLÜ AÇILMADI (tasarımcıya erişim rapor
+        // yetkisiyle yönetilir; rapor BAŞINA erişim ise dinamik anahtarla — PK-CR-04=A, migration YOK).
+        new AppScreen("reports.designer", "reports", "Operasyon Raporları", "Rapor Tasarımcısı", Both, "reports/designer", "reports:designer"),
 
         // ═══ KURUMSAL YÖNETİM ═══════════════════════════════════════════════════════════════
         // ── Şube ve Personel ────────────────────────────────────────────────────────────────

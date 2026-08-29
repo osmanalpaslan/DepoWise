@@ -35,7 +35,11 @@ public sealed record CustomReportDefinition(
     /// <c>user_permissions.module_key</c> serbest metin olduğu için MIGRATION GEREKTİRMEZ.</summary>
     public string PermissionKey => PermissionKeyOf(Id);
 
-    public const string KeyPrefix = "custom:";
+    /// <summary>Katalog anahtarı öneki. ⚠️ Bilinçli olarak <c>:</c> DEĞİL <c>-</c> kullanılır:
+    /// anahtar <c>/api/reports/{type}</c> yolunda bir URL segmenti olarak taşınır; tire her istemcide
+    /// ve yönlendiricide kodlamasız güvenlidir. Mevcut sabit rapor anahtarları da tire kullanır
+    /// (ör. <c>vehicle-daily</c>) → desen tutarlıdır ve çakışma testle kilitlidir (CR28).</summary>
+    public const string KeyPrefix = "custom-";
     public const string PermissionPrefix = "report_custom_";
 
     public static string KeyOf(string id) => KeyPrefix + id;

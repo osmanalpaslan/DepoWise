@@ -53,6 +53,19 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// </summary>
     public IReadOnlyList<ReportDescriptor> ReportItems { get; }
 
+    /// <summary>⭐ ARA İŞ 4: kullanıcının custom raporları (yerel SQLite → çevrimdışı da çalışır).
+    /// Hata durumunda liste BOŞ döner; custom rapor altyapısı yoksa/erişilemezse ekran açılmaya
+    /// devam eder (sabit raporlar etkilenmez — geriye uyumluluk).</summary>
+    private static IEnumerable<ReportDescriptor> CustomRaporlar(SessionContext session, bool managerMode)
+    {
+        try
+        {
+            var liste = DesktopServices.CustomReports?.Catalog(session) ?? Array.Empty<ReportDescriptor>();
+            return managerMode ? liste : liste.Where(d => !d.IsManager);
+        }
+        catch { return Array.Empty<ReportDescriptor>(); }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowDate))]
     [NotifyPropertyChangedFor(nameof(ShowBranchSelect))]
@@ -230,6 +243,12 @@ public sealed partial class ReportsViewModel : ViewModelBase
             // web kataloğuyla AYNI kural, eşleme TEK merkezden (ReportCatalog.CategoryModule). Servis
             // kapısı (ReportService.Run) iki platformda da yerinde durur; bu yalnız görünürlüktür.
             .Where(d => AccessControl.Can(session, ReportCatalog.CategoryModule(d.Category), PermissionAction.View))
+            // ⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A, parite): kullanıcının CUSTOM raporları AYNI listede
+            // görünür — ikinci bir katalog YOKTUR. Süzme kuralları web ile birebir aynı ve
+            // CustomReportService.Catalog içinde TEK yerden uygulanır (reports · kapatılmış modül ·
+            // kategori · rapora özel dinamik anahtar). Tanımlar YEREL SQLite'tan okunur → ÇEVRİMDIŞI
+            // da listelenir ve çalışır. Servis kapısı (ReportService.Run) yerinde durur.
+            .Concat(CustomRaporlar(session, managerMode))
             .ToList();
         // Seçili rapor listede kalmalı (operasyon kipinde varsayılan yönetici raporu olamaz).
         if (ReportItems.Count > 0 && !ReportItems.Any(d => d.Key == _selectedReport.Key))

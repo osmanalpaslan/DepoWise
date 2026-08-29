@@ -306,7 +306,9 @@ public class AppScreensParityTests
             // "invoices", "finance") ve menüde eklendikleri sırayla görünür.
             ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
                                     "finance", "finance:new", "payments", "cost_centers" }),   // MLY-01
-            ("Operasyon Raporları", new[] { "reports" }),
+            // ⭐ ARA İŞ 4 (ADR-186): "reports:designer" = Rapor Tasarımcısı. Aynı "reports" modülüne
+            // bağlıdır (YENİ yetki modülü açılmadı); menüye BİLİNÇLİ olarak eklendi.
+            ("Operasyon Raporları", new[] { "reports", "reports:designer" }),
             // RPR-07 (2026-08-25): Yönetici Raporları artık AYRI gezinme anahtarı kullanır
             // (eskiden "reports" ile aynı ekranı açıyordu; iki menü girişi fiilen tek ekrandı).
             ("Yönetici Raporları", new[] { "reports:manager" }),
@@ -330,8 +332,9 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56. Ekran kaybı yok.
-        Assert.Equal(56, gercek.Sum(x => x.Item2.Length));
+        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57.
+        // Ekran kaybı yok; yeni ekran BİLİNÇLİ olarak eklendi (ADR-186).
+        Assert.Equal(57, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -359,7 +362,8 @@ public class AppScreensParityTests
                                     ("finance", "finance"), ("finance", "finance/new"),
                                     ("finance", "payments"),
                                     ("cost_centers", "cost-centers") }),   // G4 + MLY-01
-            ("Operasyon Raporları", new[] { ("reports", "reports") }),
+            // ⭐ ARA İŞ 4 (ADR-186): web'de de aynı ekran — yetki anahtarı "reports", rota "reports/designer".
+            ("Operasyon Raporları", new[] { ("reports", "reports"), ("reports", "reports/designer") }),
             // RPR-07: ayrı route → deep-link ve menü artık iki farklı ekranı gösterir.
             ("Yönetici Raporları", new[] { ("@admin", "reports/manager") }),
             ("Şube ve Personel", new[] { ("branches", "branches"), ("branches", "projects"), ("personnel", "personnel") }),   // PRJ-01: Projeler
@@ -387,8 +391,8 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63.
-        Assert.Equal(63, gercek.Sum(x => x.Item2.Length));
+        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186).
+        Assert.Equal(64, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>

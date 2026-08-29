@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:rep="using:DepoWise.Application.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.CustomReportsView"
+             x:DataType="vm:CustomReportsViewModel">
+
+    <!-- ARA İŞ 4 (ADR-186): Rapor Tasarımcısı.
+         ⚠️ Kullanıcı SQL YAZAMAZ: serbest metin yalnız rapor adı ve kolon ARAMA DEĞERİ içindir.
+         Kaynak ve kolonlar listeden SEÇİLİR (merkezî beyaz liste). -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Rapor Tasarımcısı"
+                      PrimaryActionText="Yeni Rapor" PrimaryActionCommand="{Binding TemizleCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
+                    <Button Classes="Secondary" Content="Kaydet" Command="{Binding KaydetCommand}" IsVisible="{Binding CanCreate}"/>
+                    <Button Classes="Secondary" Content="Sil" Command="{Binding SilCommand}" IsVisible="{Binding CanDelete}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Tanım formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="12">
+                <SelectableTextBlock Classes="SectionTitle" Text="Rapor Tanımı"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <StackPanel Spacing="4">
+                        <SelectableTextBlock Text="Rapor Adı"/>
+                        <TextBox Classes="Field" Width="260" Text="{Binding Name}" Watermark="Örn: Kritik Stok Dökümü"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <SelectableTextBlock Text="Veri Kaynağı"/>
+                        <ComboBox Width="220" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="rep:CustomReportSource">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Kaynak kuralı: tarih mi, filtre mi zorunlu -->
+                <SelectableTextBlock Text="{Binding RuleHint}" TextWrapping="Wrap" Opacity="0.85"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Kolonlar + filtreler -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0">
+            <Grid RowDefinitions="Auto,*">
+                <SelectableTextBlock Grid.Row="0" Classes="SectionTitle"
+                                     Text="Kolonlar — göstermek istediklerinizi işaretleyin, arama kutusuna yazarak filtreleyin"/>
+                <ScrollViewer Grid.Row="1" Margin="0,8,0,0">
+                    <ItemsControl ItemsSource="{Binding Columns}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CustomReportColumnRow">
+                                <Grid ColumnDefinitions="220,*" Margin="0,3">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding Selected}" Content="{Binding Label}"/>
+                                    <TextBox Grid.Column="1" Classes="Field" Text="{Binding Filter}"
+                                             Watermark="Filtre (isteğe bağlı) — aranacak değer"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Kayıtlı raporlar + mesaj -->
+        <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="8">
+                <SelectableTextBlock Classes="SectionTitle" Text="Kayıtlı Raporlarım"/>
+                <ComboBox Width="360" ItemsSource="{Binding Definitions}" SelectedItem="{Binding SelectedDefinition}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <SelectableTextBlock Text="Kaydedilen rapor, «Raporlar» ekranındaki listede görünür ve oradan çalıştırılır."
+                                     Opacity="0.85" TextWrapping="Wrap"/>
+                <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

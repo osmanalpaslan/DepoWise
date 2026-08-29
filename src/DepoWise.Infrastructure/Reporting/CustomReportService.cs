@@ -221,6 +221,52 @@ WHERE id=@i AND company_id=@c AND is_deleted=0;";
         tx.Commit();
     }
 
+    /// <summary>
+    /// ⭐ KATALOG GÖRÜNÜRLÜĞÜ — kullanıcının rapor listesinde göreceği custom raporlar.
+    ///
+    /// Süzme kuralları mevcut katalog süzmeleriyle BİREBİR AYNIDIR (RPR-12/RPR-15/RPT-YETKI deseni):
+    /// kullanıcının ÇALIŞTIRAMAYACAĞI rapor listede de görünmez. ⚠️ Bu yalnız GÖRÜNÜRLÜKTÜR —
+    /// asıl kapılar <see cref="ReportService.Run"/> içinde durur ve buradan bağımsız çalışır
+    /// (liste süzmesi tek başına güvenlik sayılmaz).
+    /// </summary>
+    public IReadOnlyList<ReportDescriptor> Catalog(SessionContext s)
+    {
+        // "reports" üst kapısı yoksa hiçbir custom rapor listelenmez.
+        if (!AccessControl.Can(s, "reports", PermissionAction.View)) return Array.Empty<ReportDescriptor>();
+
+        var sonuc = new List<ReportDescriptor>();
+        foreach (var def in List(s))
+        {
+            var src = CustomReportSources.ByKey(def.SourceKey);
+            if (src is null) continue;                               // bozuk tanım listede görünmez
+
+            // RPR-15: rolüne KAPATILMIŞ ekranın raporu listede de görünmez.
+            if (!s.IsSuperAdmin && !DeveloperMode.IsActive && s.BlockedModules.Contains(src.DataModule)) continue;
+            // ADR-181: kategori yetkisi olmayan o türü görmez.
+            if (!AccessControl.Can(s, ReportCatalog.CategoryModule(src.Category), PermissionAction.View)) continue;
+            // PK-CR-04=A: rapora özel dinamik anahtarı olmayan görmez (deny-by-default).
+            if (!AccessControl.Can(s, def.PermissionKey, PermissionAction.View)) continue;
+
+            sonuc.Add(new ReportDescriptor(
+                def.ReportKey, def.Name, $"Kullanıcı tanımlı rapor — {src.Label}", src.Category,
+                src.IsManager ? ReportGroup.Manager : ReportGroup.Standard,
+                src.RequiresDate ? ReportFilters.Date : ReportFilters.None,
+                RequiresDate: src.RequiresDate,
+                ExportButton: "btn-export-report",
+                InfoNote: src.RequiresFilter
+                    ? "Bu rapor tarih aralığı kullanmaz; çalıştırmak için en az bir filtre gerekir."
+                    : null,
+                DataModule: src.DataModule));
+        }
+        return sonuc;
+    }
+
+    /// <summary>⭐ TASARIMCI KATALOĞU — UI'nin ihtiyaç duyduğu GÜVENLİ metadata.
+    /// Yalnız kaynak/kolon ANAHTARLARI ve görünen adlar döner; SQL ifadesi, tablo adı veya alias
+    /// kullanıcıya ASLA açılmaz. Çalıştırma beyaz listesiyle AYNI kaynaktan (<see cref="CustomReportSources"/>)
+    /// türetilir — ikinci bir liste YOKTUR.</summary>
+    public static IReadOnlyList<CustomReportSource> DesignerCatalog() => CustomReportSources.All;
+
     // ══════════════════════════════════════ ÇALIŞTIRMA ══════════════════════════════════════
 
     /// <summary>

@@ -1133,6 +1133,13 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Duyurular";
                 CurrentContext = "Firma duyuruları: yayın penceresi, şube hedefi, önem";
                 break;
+            // ⭐ ARA İŞ 4 (ADR-186): Rapor Tasarımcısı — kullanıcı kendi raporunu tanımlar.
+            // Tanımlar yerel SQLite'ta + senkronda → ÇEVRİMDIŞI da çalışır. Kullanıcı SQL yazamaz.
+            case "reports:designer":
+                CurrentPage = new CustomReportsViewModel(_session);
+                CurrentTitle = "Rapor Tasarımcısı";
+                CurrentContext = "Kendi raporunuz: kaynak + kolon + filtre seçimi (SQL yazılmaz)";
+                break;
             // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul; yerel + senkron.
             case "purchasing":
                 CurrentPage = new PurchasingViewModel(_session);

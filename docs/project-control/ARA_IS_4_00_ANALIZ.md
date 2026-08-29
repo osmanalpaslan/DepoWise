@@ -506,6 +506,81 @@ EKLENMEDİ**. `sync_outbox` · ARA İŞ 3 · FIN-B1 · geçmiş veri · yeni kay
 > ayrıca "082 uygulanmış mı" kontrolünü içeriyor (asıl güvence güçlendi); FIN21 ise adı gereği yalnız
 > 81→82 adımını ölçmesi için koşumu `Version <= 82` ile sınırlandı. İkinci turda **0 başarısızlık**.
 
+## 12.10 FAZ 4 — API + UI + KATALOG ENTEGRASYONU (2026-08-30)
+
+### API (yeni uçlar — mevcut sözleşme KIRILMADI)
+
+| Uç | İş |
+|---|---|
+| `GET /api/custom-reports/sources` | **Tasarımcı kataloğu**: 3 kaynak + beyaz-listeli kolonlar (anahtar · görünen ad · sayısal mı · tarih/filtre kuralı). **SQL ifadesi/tablo adı/alias İÇERMEZ.** |
+| `GET /api/custom-reports` · `GET /{id}` | Tanım listesi / tekil |
+| `POST` · `PUT /{id}` · `DELETE /{id}` | Oluştur · güncelle · **yumuşak sil** |
+
+⚠️ **Çalıştırma için AYRI uç açılmadı**: custom raporlar mevcut `POST /api/reports/{type}` ucundan,
+anahtar `custom-<id>` biçiminde geçerek çalışır (PK-CR-03=A). `CustomReportDto`'da **`CompanyId` alanı
+YOKTUR** — firma daima oturumdan gelir.
+
+### Rapor anahtarı biçimi düzeltildi (uygulama riski, yayın öncesi)
+
+`custom:<id>` → **`custom-<id>`**. Gerekçe: anahtar `/api/reports/{type}` yolunda **URL segmenti**
+olarak taşınıyor; iki nokta kodlama/yönlendirme sorunu çıkarabilirdi. Mevcut sabit anahtarlar da tire
+kullanır (`vehicle-daily`). S2 yayınlanmadığı için değişiklik **bedelsiz**; KAT10 testi anahtarın
+URL'de değişmeden taşındığını ve sabit anahtarlarla çakışmadığını kilitler.
+
+### Katalog entegrasyonu (tek katalog, tek motor)
+
+`CustomReportService.Catalog(session)` custom raporları `ReportDescriptor`'a çevirir; görünürlük
+süzmeleri sabit raporlarla **birebir aynı**: `reports` üst yetkisi · kapatılmış modül (RPR-15) ·
+kategori (ADR-181) · rapora özel dinamik anahtar. **API** ve **masaüstü `ReportsViewModel`** aynı
+listeye ekler → kullanıcı tek yerde görür. Web listeyi API'den alır.
+
+> ⚠️ **Parite kilidinin yakaladığı gerçek zayıflama (düzeltildi):** API kataloğunda projeksiyonu
+> kopyalayınca `ReportFilterParityTests` "eksik API katalog alanı" kilidi **etkisizleşti** (alan iki
+> yerde geçtiği için eksiklik yakalanamıyordu). Testi değiştirmek yerine **kopya kaldırıldı**:
+> sabit + custom raporlar artık tek `ReportCatalogItem` projeksiyonundan geçiyor → kilit yeniden güçlü.
+
+### Masaüstü UI
+
+`CustomReportsViewModel` + `CustomReportsView.axaml` — kaynak seçimi · kolon işaretleme · kolon başına
+filtre kutusu · kaydet/sil/yenile · kayıtlı raporlar listesi · kaynak kuralı açıklaması.
+**Serbest metin yalnız rapor adı ve arama değeri içindir**; tablo/kolon adı, SQL, JOIN, ORDER BY
+girilebilecek alan YOKTUR. Tanımlar yerel SQLite'tan okunur → **çevrimdışı çalışır**.
+
+### Web UI
+
+`Components/Pages/CustomReports.razor` (`/reports/designer`) — aynı sözleşme, MudBlazor desenleriyle.
+Kaynak/kolon listesi **sunucudaki tek beyaz listeden** gelir. **`ProjectReference` EKLENMEDİ**; sayfa
+yalnız API JSON'ı ile çalışır (mimari sınır korundu).
+
+### Yetki ağacı
+
+Yeni ekran `reports.designer` **mevcut `reports` modülüne** bağlandı → **yeni yetki modülü açılmadı,
+migration gerekmedi**. Menü şeması ve ekran sayısı kilitleri (`AppScreensParityTests` S13/S14)
+bilinçli olarak güncellendi (masaüstü 56→57, web 63→64) — bu, yeni ekranın **kayda geçirilmesidir**.
+
+### FAZ 4 doğrulama sonuçları (2026-08-30)
+
+| Doğrulama | Geçen | Başarısız | Atlanan |
+|---|---|---|---|
+| **Tam test süiti** | **3.091** | **0** | 40 |
+| **İzole PostgreSQL** | **53** | **0** | **0** |
+| Custom rapor aileleri | **55** | 0 | 0 |
+| API / Web / Masaüstü Release | 0 hata | | |
+
+Taban 3.079 → **3.091** (+12 yeni katalog/tasarımcı testi). PostgreSQL'de şema **83**,
+`custom_report_defs` **14 kolon** doğrulandı. Guard **K4 (50 MB) gevşetilmedi**.
+
+> ⚠️ **Ortam notu (ürün hatası DEĞİL):** PG turundan önce scratch PostgreSQL'in ikilileri ve
+> veri dizinindeki boş klasörler geçici dosya temizliğinde silinmişti (`pgsql/` yok, `data/pg_notify`
+> yok). Bozuk kümeyi onarmak yerine ikililer zip'ten yeniden çıkarıldı ve **temiz bir küme
+> `initdb` ile kuruldu**; testler o kümede koştu. Ürün kodu veya guard **değiştirilmedi**.
+
+> ⚠️ **Parite kilitlerinin yakaladığı iki gerçek bulgu (düzeltildi, gizlenmedi):**
+> (1) API kataloğundaki projeksiyon kopyası `ReportFilterParityTests`'in "eksik alan" kilidini
+> etkisizleştiriyordu → **kopya kaldırıldı**, tek `ReportCatalogItem` projeksiyonu kullanıldı.
+> (2) `AppScreensParityTests` S13/S14 yeni ekranın menü şemasına ve ekran sayısına **bilinçli
+> kaydını** istedi → masaüstü 56→57, web 63→64 olarak güncellendi (gevşetme değil, kayıt).
+
 ## 13. FAZ TAKİP TABLOSU
 
 | Faz | Durum |
@@ -513,7 +588,8 @@ EKLENMEDİ**. `sync_outbox` · ARA İŞ 3 · FIN-B1 · geçmiş veri · yeni kay
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
 | FAZ 2 — karar paketi | ✅ **TAMAM — PK-CR-01…08 = A (ADR-186)** |
-| FAZ 3 — uygulama | ✅ **S1 TAMAM** (14/14, nokta 3 gerçek testle) · **PK-CR-09=A ve PK-CR-10=A kaydedildi** (§12.7/§12.8) · ✅ **S2 ALTYAPI TAMAM** (§12.9): Migration083 · kaynak beyaz listesi · tanım modeli · CustomReportService · dispatch + 6 kapı · senkron · API+masaüstü bağlaması · 43 yeni test. **UI ve API uçları bilinçli olarak SONRAKİ ADIMDA** |
+| FAZ 3 — uygulama | ✅ **S1 + S2 TAMAM** (§12.9): Migration083 · beyaz liste · CustomReportService · dispatch + 6 kapı · senkron · 43 test |
+| FAZ 4 — API + UI | ✅ **TAMAM** (§12.10): tasarımcı katalog ucu + CRUD uçları · katalog entegrasyonu (tek katalog) · masaüstü tasarımcı ekranı · web tasarımcı sayfası · yetki ağacı kaydı · +12 test |
 | FAZ 4 — test/doğrulama | ⛔ |
 | FAZ 5 — yayın öncesi kontrol | ⛔ |
 | FAZ 6 — production yayın | ⛔ "YAYINLA" olmadan yapılmaz |

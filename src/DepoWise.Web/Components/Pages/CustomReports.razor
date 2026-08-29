@@ -1,0 +1,261 @@
+@page "/reports/designer"
+@using System.Text.Json
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+@*
+    ⭐ ARA İŞ 4 (ADR-186) — RAPOR TASARIMCISI (web).
+
+    Masaüstü ekranıyla AYNI sözleşme: kullanıcı kaynak + kolon + filtre SEÇER; SQL YAZMAZ.
+    Kaynak/kolon listesi sunucudaki TEK beyaz listeden gelir (/api/custom-reports/sources) —
+    web'de ikinci bir liste tutulmaz. Kaydedilen rapor mevcut «Raporlar» ekranının listesinde
+    belirir ve oradaki ortak motorla (dört güvenlik kapısı) çalışır; ikinci rapor motoru YOKTUR.
+
+    ⚠️ Web'in mimari sınırı korunur: ProjectReference YOK — sayfa yalnız API JSON'ı ile çalışır.
+*@
+
+<PageTitle>Rapor Tasarımcısı</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Rapor Tasarımcısı</MudText>
+
+@if (_yukleniyor)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_kaynaklar.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Rapor tasarımcısı için yetkiniz bulunmuyor.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Rapor Tanımı</MudText>
+
+                <MudTextField @bind-Value="_ad" Label="Rapor Adı" Placeholder="Örn: Kritik Stok Dökümü" Class="mb-3" />
+
+                <MudSelect T="string" Value="_kaynakKey" ValueChanged="KaynakDegisti" Label="Veri Kaynağı" Class="mb-2">
+                    @foreach (var k in _kaynaklar)
+                    {
+                        <MudSelectItem T="string" Value="@k.Key">@k.Label</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (SeciliKaynak is { } sk)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                        @(sk.RequiresDate
+                            ? "Bu kaynak bir OLAY kaydıdır: raporu çalıştırırken tarih aralığı seçmeniz zorunludur."
+                            : "Bu kaynak ANA VERİDİR (tarih alanı yoktur): çok büyük sonuç oluşmaması için en az bir filtre girmelisiniz.")
+                    </MudAlert>
+                }
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Kayıtlı Raporlarım</MudText>
+                @if (_tanimlar.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">Henüz rapor tanımlamadınız.</MudText>
+                }
+                else
+                {
+                    <MudList T="string" Dense="true">
+                        @foreach (var t in _tanimlar)
+                        {
+                            <MudListItem T="string" OnClick="@(() => Duzenle(t))">
+                                @t.Name
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                               OnClick="@(() => Sil(t.Id))" title="Sil" />
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                <MudText Typo="Typo.caption" Class="mt-2">
+                    Kaydedilen rapor, «Raporlar» ekranındaki listede görünür ve oradan çalıştırılır.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">
+                    Kolonlar — göstermek istediklerinizi işaretleyin, arama kutusuna yazarak filtreleyin
+                </MudText>
+                @foreach (var c in _kolonlar)
+                {
+                    <div class="d-flex align-center gap-2 mb-1">
+                        <MudCheckBox T="bool" @bind-Value="c.Selected" Label="@c.Label" Dense="true" />
+                        <MudTextField @bind-Value="c.Filter" Placeholder="Filtre (isteğe bağlı)" Dense="true" />
+                    </div>
+                }
+            </MudPaper>
+
+            <div class="d-flex gap-2 mt-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Kaydet">Kaydet</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="Temizle">Yeni</MudButton>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_mesaj))
+            {
+                <MudAlert Severity="@(_hata ? Severity.Error : Severity.Success)" Dense="true" Class="mt-3">@_mesaj</MudAlert>
+            }
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private sealed class Kaynak
+    {
+        public string Key { get; set; } = "";
+        public string Label { get; set; } = "";
+        public bool RequiresDate { get; set; }
+        public bool RequiresFilter { get; set; }
+        public List<Kolon> Columns { get; set; } = new();
+    }
+
+    private sealed class Kolon
+    {
+        public string Key { get; set; } = "";
+        public string Label { get; set; } = "";
+        public bool Selected { get; set; }
+        public string Filter { get; set; } = "";
+    }
+
+    private sealed class Tanim
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string SourceKey { get; set; } = "";
+        public List<string> Columns { get; set; } = new();
+        public List<(string ColumnKey, string Value)> Filters { get; set; } = new();
+    }
+
+    private List<Kaynak> _kaynaklar = new();
+    private List<Kolon> _kolonlar = new();
+    private List<Tanim> _tanimlar = new();
+    private string _kaynakKey = "";
+    private string _ad = "";
+    private string? _duzenlenenId;
+    private string _mesaj = "";
+    private bool _hata;
+    private bool _yukleniyor = true;
+
+    private Kaynak? SeciliKaynak => _kaynaklar.FirstOrDefault(k => k.Key == _kaynakKey);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await KaynaklariYukle();
+        await TanimlariYukle();
+        _yukleniyor = false;
+    }
+
+    private async Task KaynaklariYukle()
+    {
+        try
+        {
+            foreach (var el in await Api.GetArrayAsync("/api/custom-reports/sources"))
+            {
+                var k = new Kaynak
+                {
+                    Key = el.GetProperty("key").GetString() ?? "",
+                    Label = el.GetProperty("label").GetString() ?? "",
+                    RequiresDate = el.GetProperty("requiresDate").GetBoolean(),
+                    RequiresFilter = el.GetProperty("requiresFilter").GetBoolean(),
+                };
+                foreach (var c in el.GetProperty("columns").EnumerateArray())
+                    k.Columns.Add(new Kolon
+                    {
+                        Key = c.GetProperty("key").GetString() ?? "",
+                        Label = c.GetProperty("label").GetString() ?? "",
+                    });
+                _kaynaklar.Add(k);
+            }
+            if (_kaynaklar.Count > 0) { _kaynakKey = _kaynaklar[0].Key; KolonlariKur(); }
+        }
+        catch { /* yetkisiz kullanıcıda liste boş kalır — sayfa bilgi mesajı gösterir */ }
+    }
+
+    private async Task TanimlariYukle()
+    {
+        _tanimlar = new List<Tanim>();
+        try
+        {
+            foreach (var el in await Api.GetArrayAsync("/api/custom-reports"))
+            {
+                var t = new Tanim
+                {
+                    Id = el.GetProperty("id").GetString() ?? "",
+                    Name = el.GetProperty("name").GetString() ?? "",
+                    SourceKey = el.GetProperty("sourceKey").GetString() ?? "",
+                };
+                foreach (var c in el.GetProperty("columns").EnumerateArray())
+                    t.Columns.Add(c.GetString() ?? "");
+                foreach (var f in el.GetProperty("filters").EnumerateArray())
+                    t.Filters.Add((f.GetProperty("columnKey").GetString() ?? "", f.GetProperty("value").GetString() ?? ""));
+                _tanimlar.Add(t);
+            }
+        }
+        catch { }
+    }
+
+    private void KaynakDegisti(string yeni) { _kaynakKey = yeni; KolonlariKur(); }
+
+    private void KolonlariKur()
+        => _kolonlar = (SeciliKaynak?.Columns ?? new List<Kolon>())
+            .Select(c => new Kolon { Key = c.Key, Label = c.Label })
+            .ToList();
+
+    private void Duzenle(Tanim t)
+    {
+        _duzenlenenId = t.Id;
+        _ad = t.Name;
+        _kaynakKey = t.SourceKey;
+        KolonlariKur();
+        foreach (var c in _kolonlar)
+        {
+            c.Selected = t.Columns.Contains(c.Key);
+            c.Filter = t.Filters.FirstOrDefault(f => f.ColumnKey == c.Key).Value ?? "";
+        }
+        _mesaj = "";
+    }
+
+    private void Temizle()
+    {
+        _duzenlenenId = null;
+        _ad = "";
+        KolonlariKur();
+        _mesaj = "";
+    }
+
+    private async Task Kaydet()
+    {
+        var govde = new
+        {
+            name = _ad,
+            sourceKey = _kaynakKey,
+            columns = _kolonlar.Where(c => c.Selected).Select(c => c.Key).ToList(),
+            filters = _kolonlar.Where(c => !string.IsNullOrWhiteSpace(c.Filter))
+                .Select(c => new { columnKey = c.Key, value = c.Filter.Trim() }).ToList(),
+            sortColumn = (string?)null,
+            sortDesc = false,
+            isActive = true,
+        };
+
+        var hata = _duzenlenenId is { } id
+            ? await Api.PutAsync($"/api/custom-reports/{id}", govde)
+            : await Api.PostAsync("/api/custom-reports", govde);
+
+        _hata = hata is not null;
+        _mesaj = hata ?? "Rapor kaydedildi. «Raporlar» ekranında görünmesi için ilgili yetkinin verilmiş olması gerekir.";
+        if (!_hata) await TanimlariYukle();
+    }
+
+    private async Task Sil(string id)
+    {
+        var hata = await Api.DeleteAsync($"/api/custom-reports/{id}");
+        _hata = hata is not null;
+        _mesaj = hata ?? "Rapor silindi.";
+        if (!_hata) { if (_duzenlenenId == id) Temizle(); await TanimlariYukle(); }
+    }
+}

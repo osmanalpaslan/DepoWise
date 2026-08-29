@@ -2992,22 +2992,116 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
     // TEK merkezden (ReportCatalog.CategoryModule) — masaüstü süzmesiyle birebir aynı kural.
     .Where(d => AccessControl.Can(sc, DepoWise.Application.Reports.ReportCatalog.CategoryModule(d.Category),
                 DepoWise.Application.Security.PermissionAction.View))
-    .Select(d => new
-    {
-        key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
-        category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
-        usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
-        usesVehicleType = d.UsesVehicleType, usesMaintenanceDef = d.UsesMaintenanceDef, usesTechnician = d.UsesTechnician,
-        usesSupplier = d.UsesSupplier, usesRequester = d.UsesRequester, usesStatus = d.UsesStatus,
-        usesLocation = d.UsesLocation,   // STK-06: stok deposu/şantiyesi filtresi
-        usesMovementType = d.UsesMovementType,   // STK-10b-1: stok hareket türü filtresi
-        usesSearch = d.UsesSearch,   // STK-10b-2: serbest metin arama
-        usesMaterial = d.UsesMaterial,   // STK-10b-3: malzeme filtresi (arama ile seçilir)
-        usesParty = d.UsesParty,   // G4-4b: cari filtresi (arama ile seçilir)
-        usesActivityType = d.UsesActivityType,   // ADR-182: günlük faaliyet kayıt tipi (sabit liste)
-        requiresDate = d.RequiresDate, manager = d.IsManager,
-        infoNote = d.InfoNote
-    }))).RequireAuthorization();
+    // ⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A): kullanıcının custom raporları AYNI katalogda görünür —
+    // ikinci bir liste/uç YOKTUR. Görünürlük süzmeleri (reports · kapatılmış modül · kategori ·
+    // rapora özel dinamik anahtar) CustomReportService.Catalog içinde, sabit raporlarla AYNI
+    // kurallarla uygulanır. Asıl güvenlik kapıları ReportService.Run'da durur.
+    //
+    // ⚠️ Projeksiyon TEK yerde (ReportCatalogItem): kopyalanırsa ReportFilterParityTests'in
+    // "eksik API katalog alanı" kilidi zayıflar (alan iki yerde geçince eksiklik yakalanamaz).
+    .Concat(svc.CustomReports.Catalog(sc))
+    .Select(ReportCatalogItem))).RequireAuthorization();
+
+/// <summary>Rapor kataloğu satırı — sabit ve custom raporlar için TEK projeksiyon.</summary>
+static object ReportCatalogItem(DepoWise.Application.Reports.ReportDescriptor d) => new
+{
+    key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
+    category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
+    usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
+    usesVehicleType = d.UsesVehicleType, usesMaintenanceDef = d.UsesMaintenanceDef, usesTechnician = d.UsesTechnician,
+    usesSupplier = d.UsesSupplier, usesRequester = d.UsesRequester, usesStatus = d.UsesStatus,
+    usesLocation = d.UsesLocation,   // STK-06: stok deposu/şantiyesi filtresi
+    usesMovementType = d.UsesMovementType,   // STK-10b-1: stok hareket türü filtresi
+    usesSearch = d.UsesSearch,   // STK-10b-2: serbest metin arama
+    usesMaterial = d.UsesMaterial,   // STK-10b-3: malzeme filtresi (arama ile seçilir)
+    usesParty = d.UsesParty,   // G4-4b: cari filtresi (arama ile seçilir)
+    usesActivityType = d.UsesActivityType,   // ADR-182: günlük faaliyet kayıt tipi (sabit liste)
+    requiresDate = d.RequiresDate, manager = d.IsManager,
+    infoNote = d.InfoNote
+};
+
+// ══════════════════ ⭐ ARA İŞ 4 (ADR-186) — CUSTOM RAPOR: TASARIMCI KATALOĞU + CRUD ══════════════════
+//
+// ⚠️ ÇALIŞTIRMA İÇİN AYRI UÇ YOKTUR: custom raporlar mevcut `/api/reports/{type}` ucundan, anahtarları
+// `custom-<id>` biçiminde geçirilerek çalışır (PK-CR-03=A — ikinci motor yok, sözleşme genişletilmedi).
+// Buradaki uçlar yalnız TANIM yönetimi ve tasarımcının ihtiyaç duyduğu güvenli metadata içindir.
+//
+// GÜVENLİK: company_id İSTEMCİDEN ALINMAZ — her işlem oturum bağlamındaki firmayla sınırlıdır
+// (servis içinde `s.CompanyId` süzgeci). Kullanıcı tablo adı, kolon adı, SQL ifadesi, JOIN veya
+// ORDER BY parçası gönderemez; yalnız beyaz listedeki ANAHTARLARI seçer (doğrulama serviste).
+
+/// <summary>Tasarımcı kataloğu: desteklenen 3 kaynak + her birinin beyaz-listeli kolonları.
+/// SQL ifadesi/tablo adı/alias İÇERMEZ — yalnız anahtar + görünen ad + tip/filtre bilgisi.</summary>
+app.MapGet("/api/custom-reports/sources", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "reports", PermissionAction.View);
+    return Results.Ok(DepoWise.Infrastructure.Reporting.CustomReportService.DesignerCatalog()
+        .Select(x => new
+        {
+            key = x.Key,
+            label = x.Label,
+            category = x.Category.ToString(),
+            categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(x.Category),
+            requiresDate = x.RequiresDate,        // olay verisi → tarih aralığı ZORUNLU
+            requiresFilter = x.RequiresFilter,    // ana veri → en az bir filtre ZORUNLU
+            manager = x.IsManager,
+            columns = x.Columns.Select(col => new { key = col.Key, label = col.Label, numeric = col.IsNumeric }),
+        }));
+}).RequireAuthorization();
+
+app.MapGet("/api/custom-reports", (HttpContext c, bool? all) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.CustomReports.List(s, includeInactive: all == true).Select(CustomReportDto));
+}).RequireAuthorization();
+
+app.MapGet("/api/custom-reports/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "reports", PermissionAction.View);
+    var def = svc.CustomReports.ById(s, id);
+    return def is null ? Results.NotFound() : Results.Ok(CustomReportDto(def));
+}).RequireAuthorization();
+
+app.MapPost("/api/custom-reports", (HttpContext c, CustomReportDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.CustomReports.Create(s, d.Name ?? "", d.SourceKey ?? "",
+        d.Columns ?? new List<string>(), CustomFilters(d), d.SortColumn, d.SortDesc == true);
+    return Results.Ok(new { id, reportKey = DepoWise.Application.Reports.CustomReportDefinition.KeyOf(id) });
+}).RequireAuthorization();
+
+app.MapPut("/api/custom-reports/{id}", (HttpContext c, string id, CustomReportDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.CustomReports.Update(s, id, d.Name ?? "", d.SourceKey ?? "",
+        d.Columns ?? new List<string>(), CustomFilters(d), d.SortColumn, d.SortDesc == true,
+        isActive: d.IsActive ?? true);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapDelete("/api/custom-reports/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.CustomReports.Delete(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+static object CustomReportDto(DepoWise.Application.Reports.CustomReportDefinition d) => new
+{
+    id = d.Id, name = d.Name, sourceKey = d.SourceKey, columns = d.Columns,
+    filters = d.Filters.Select(f => new { columnKey = f.ColumnKey, value = f.Value }),
+    sortColumn = d.SortColumn, sortDesc = d.SortDesc, isActive = d.IsActive,
+    reportKey = d.ReportKey, permissionKey = d.PermissionKey,
+    createdAt = d.CreatedAt, updatedAt = d.UpdatedAt,
+};
+
+static List<DepoWise.Application.Reports.CustomReportFilter> CustomFilters(CustomReportDto d)
+    => (d.Filters ?? new List<CustomReportFilterDto>())
+        .Where(f => !string.IsNullOrWhiteSpace(f.ColumnKey))
+        .Select(f => new DepoWise.Application.Reports.CustomReportFilter(f.ColumnKey!, f.Value ?? ""))
+        .ToList();
 
 // Rapor hücresi serileştirme: NumCell → {n:ham değer, t:görüntü} (istemci sayısal davranışı korur); diğer → olduğu gibi.
 static object? ReportCell(object? cell)
@@ -4099,6 +4193,12 @@ record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode,
 record LocalResetDto(string? CompanyId);   // ADR-084
 record MachineResetDto(string? MachineName);   // ADR-085
 record ListColumnsDto(List<string>? Columns);   // ADR-087 (liste kolon tercihi, kişisel)
+// ⭐ ARA İŞ 4 (ADR-186): custom rapor TANIMI. ⚠️ Ham SQL/tablo/kolon adı TAŞIMAZ — yalnız beyaz
+// listedeki ANAHTARLAR. company_id alanı BİLİNÇLİ olarak YOKTUR: firma daima oturumdan gelir.
+record CustomReportFilterDto(string? ColumnKey, string? Value);
+record CustomReportDto(string? Name, string? SourceKey, List<string>? Columns,
+    List<CustomReportFilterDto>? Filters, string? SortColumn, bool? SortDesc, bool? IsActive);
+
 record PageSizeDto(int PageSize);                // ADR-089 (kişisel sayfa boyutu)
 record WidthsDto(Dictionary<string, int>? Widths); // ADR-089 (kişisel kolon genişlikleri)
 record SortPrefDto(string? Key, bool Desc);        // Birim 4 (kişisel varsayılan sıralama — altyapı)
