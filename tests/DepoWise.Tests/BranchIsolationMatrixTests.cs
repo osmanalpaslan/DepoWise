@@ -113,6 +113,11 @@ public class BranchIsolationMatrixTests : IAsyncLifetime
         new ModulePermission("reports", true, false, false, false),
         new ModulePermission("inspection", true, false, false, false),
         new ModulePermission("personnel", true, false, false, false),
+        // RPT-YETKI (2026-08-29, PK-R2=A): rapor türleri kategori yetkili — bu matris stock-movements
+        // (report_stock), inspection (report_vehicle) ve personnel (report_management) raporlarını koşar.
+        new ModulePermission("report_stock", true, false, false, false),
+        new ModulePermission("report_vehicle", true, false, false, false),
+        new ModulePermission("report_management", true, false, false, false),
     };
 
     private static long Simdi => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

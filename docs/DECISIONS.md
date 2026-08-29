@@ -2843,3 +2843,22 @@ yeniden 81 = canlı şema → deploy'da runner NO-OP.
 **Sonuç:** FIN-B1 "tamamlandı" SAYILMAZ; roadmap'te "FIN-B1/Migration082 — ayrı onay bekliyor" olarak
 durur. Tasarım+kanıtlar git geçmişinde (`35d7bce`); onay gelince geri getirilir. Koşullu migration /
 runner'ı atlatan hack bilinçli olarak YAPILMADI (kullanıcı talimatı).
+
+## ADR-181 — Rapor ara işi: günlük araç raporu + rapor türü kategori yetkileri (2026-08-29)
+
+**Kararlar (kullanıcı):** PK-R1=A (günlük görünüm = yeni katalog satırı `vehicle-daily`; yeni ekran yok;
+mevcut `vehicle` raporuna dokunulmaz) · PK-R2=A (kategori bazlı 8 yetki anahtarı; `reports` üst kapı
+kalır; UI+servis+API çift kapı) · PK-R3=A (migration/backfill YOK — yayın sonrası kategoriler Yetkiler
+ekranından elle atanır; deny-by-default, admin bypass korunur) · PK-R4=B (Migration082 bu yayına dahil
+edilmez → ADR-180 geri çekmesi ön koşul oldu).
+
+**Uygulama:** gün anahtarı `tarih_ms/86400000` tam sayı bölmesi (iki lehçede birebir; RPR-06 UTC gün
+sınırı aynen); sabit 5 sorgu + bellekte birleştirme (gün başına sorgu yok); boş günler 0 satırıyla;
+TOPLAM satırı dönem raporuyla birebir (testle kilitli). Kategori eşlemesi tek merkez
+`ReportCatalog.CategoryModule` — API katalog süzmesi + masaüstü katalog süzmesi + `ReportService.Run`
+aynı eşlemeyi kullanır (tür adıyla atlatma imkânsız). RPR15d sözleşmesi bilinçli güncellendi:
+"yalnız reports yeter" → "reports + kategori yeter" (kullanıcı onayı; kapı gevşetilmedi).
+
+**Doğrulama:** izole tam süit 2.931 → 2.893 geçti / 0 başarısız / 38 bilinçli-atlanan; izole yerel PG
+46/46 (guard çift kilidi aynen); 3 Release build 0 hata. MIGRATION YOK — katalog azamisi 81 = canlı şema.
+Production'a bağlanılmadı; YAYIN AYRI ONAY bekliyor ("YAYINLA").

@@ -4,13 +4,18 @@
 
 ---
 
-## ⏳ ARA İŞ — RAPOR GÜNLÜK KIRILIM + RAPOR TÜRÜ YETKİLERİ (2026-08-29, kullanıcı talebi)
+## ✅ ARA İŞ — RAPOR GÜNLÜK KIRILIM + RAPOR TÜRÜ YETKİLERİ — KOD+TEST TAMAM · ⛔ YAYIN ONAYI BEKLİYOR (2026-08-29, ADR-181)
 
-AŞAMA 3 (FINAL karar paketi — ADR-179 ile UYGULANDI, yayın bekliyor) yayınından ÖNCE alınan ara iş:
-(1) araç raporunda gün bazlı kırılım, (2) rapor türlerine ayrı yetki. **Bu iş tamamlanınca YAYINLANACAK**
-(yayın master'daki havuzu — M+O+FIN+Migration082 — birlikte taşır). Analiz tamam, KOD YOK:
-[RAPOR_ARA_IS_00_ANALIZ.md](RAPOR_ARA_IS_00_ANALIZ.md) — **PK-R1..R4 kullanıcı kararı bekliyor.**
-Yayın sonrası ana plan dönüşü: **SONRAKİ ANA İŞ = AŞAMA 3/FINAL yayın sonrası doğrulama + 7b (serbest)**.
+PK-R1..R4 = **A·A·A·B** uygulandı — [RAPOR_ARA_IS_01.md](RAPOR_ARA_IS_01.md):
+(1) **"Araç Raporu — Günlük"** (`vehicle-daily`) katalog satırı — mevcut toplam rapora dokunulmadı,
+günlük≡dönem tutarlılığı testli, boş günler 0 satırıyla, iki lehçe birebir, MIGRATION YOK;
+(2) **8 rapor kategori yetkisi** (`report_vehicle`…`report_accounting`) — `reports` üst kapı + kategori
+ikinci kapı, üç katmanda (API katalog · masaüstü katalog · ortak `Run`), tek merkez eşleme, MIGRATION YOK;
+(3) **ADR-180 ön koşulu:** FIN-B1/Migration082 çifti master'dan geri çekildi → **katalog azamisi 81 =
+canlı şema, deploy'da migration ÇALIŞMAZ**; FIN-B1 ayrı onay bekliyor (tasarım `35d7bce`).
+Doğrulama: tam süit **2.893/0/38** · izole PG **46/46** · 3 Release build **0 hata** · prod'a bağlanılmadı.
+**Sıradaki adım: kullanıcının "YAYINLA" onayı** → deploy (M+O+FIN(082 hariç)+ara iş) → yayın sonrası
+salt-okunur kontroller → kategorileri Yetkiler ekranından atama → ana plana dönüş (AŞAMA 3: FIN-B1/082 ayrı onay).
 
 ---
 

@@ -52,6 +52,8 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | | 15 | N — Mobil | Önce responsive web | ⏭️ **ATLANDI** (kullanıcı kararı 2026-08-29 — bu geliştirme döngüsünde UYGULANMAYACAK; kod/analiz uygulaması yapılmadı) |
 | **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | ✅ **TAMAMLANDI** (2026-08-29, ADR-178 · production'a BAĞLANILMADI) — [FINAL_STABILIZASYON_01.md](FINAL_STABILIZASYON_01.md) · **KARAR PAKETİ de UYGULANDI** (ADR-179): FIN-B1 → **⚠️ ADR-180 (2026-08-29, PK-R4=B) ile MASTER'DAN GERİ ÇEKİLDİ — Migration082 AYRI ONAY BEKLİYOR (tasarım `35d7bce`; canlı şema 81; katalog azamisi yine 81; tamamlanmış SAYILMAZ)** · YET-01 kaldırıldı · ARC-01(a)/RPR-02 zaten çözülmüş çıktı · STK-B2 hayır · SNK-05(a) sözleşme kilitlendi · MAK-01/b korundu — [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) |
 
+| **ARA İŞ** | — | Rapor Günlük Kırılım + Rapor Türü Yetkileri | Kullanıcı talebi (2026-08-29) | ✅ **KOD+TEST TAMAM** (ADR-181 · PK-R1..R4=A·A·A·B · MIGRATION YOK · ⛔ **YAYIN ONAYI BEKLİYOR**) — [RAPOR_ARA_IS_01.md](RAPOR_ARA_IS_01.md). Ön koşul ADR-180: FIN-B1/Migration082 master'dan geri çekildi (katalog max 81 = canlı şema). Yayın sonrası SONRAKİ ANA İŞ: **AŞAMA 3 — FINAL karar paketi** (FIN-B1/082 AYRI onay; diğer 6 madde ADR-179'da kapandı ve korunuyor). |
+
 **Kilit bağımlılıklar:** F, (C+E+B+D)'ye · P, (C+D)'ye · B, E'ye · D, C'ye · H/I tam değeri F'ye ·
 L neredeyse hepsine bağlı. G Saha ayrı modül DEĞİL, C'nin içindedir. Erken yapılırsa yeniden yazım
 doğuranlar: F (C/E'siz), P (C/D'siz), L (erken pano).
