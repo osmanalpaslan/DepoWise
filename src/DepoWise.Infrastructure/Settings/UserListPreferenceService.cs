@@ -133,6 +133,29 @@ ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=@j, updated_at=@now;";
     public void SaveSort(SessionContext s, string listKey, string key, bool desc)
         => UpsertField(s, listKey, "sort_json", JsonSerializer.Serialize(new SortPref(key, desc)));
 
+    // ── Ekran içi "son seçim" hatırlama (ADR-182 · PK-V1=A, 2026-08-29) ──
+
+    /// <summary>
+    /// Bir formda EN SON seçilen değeri KİŞİSEL olarak hatırlar (ör. Yakıt Dağıtımı → "Yakıtı Veren").
+    /// Anahtar (user_id, prefKey); <c>user_id</c> DAİMA oturumdan gelir → başka kullanıcıya taşmaz,
+    /// firmalar arası sızmaz. Hiç kaydedilmediyse <c>null</c> (ekran ön-seçim yapmaz).
+    ///
+    /// <b>MIGRATION GEREKTİRMEZ:</b> değer, o alana AYRILMIŞ bir <c>list_key</c>
+    /// (<see cref="DepoWise.Application.Ui.UserPrefKeys"/>) altında TEK elemanlı liste olarak mevcut
+    /// <c>columns_json</c> alanında tutulur; ayrı anahtar kullanıldığı için hiçbir liste ekranının kolon
+    /// tercihiyle ÇAKIŞMAZ. Web aynı biçimi mevcut <c>/api/me/list-columns/{key}</c> ucundan yazar →
+    /// iki platform aynı kaydı okur.
+    /// </summary>
+    public string? GetLastChoice(SessionContext s, string prefKey)
+    {
+        var v = GetColumns(s, prefKey);
+        return v is { Count: > 0 } ? v[0] : null;
+    }
+
+    /// <summary>Son seçimi kaydeder. <c>null</c>/boş değer tercihi TEMİZLER (sonraki formda ön-seçim yok).</summary>
+    public void SaveLastChoice(SessionContext s, string prefKey, string? value)
+        => SaveColumns(s, prefKey, string.IsNullOrWhiteSpace(value) ? Array.Empty<string>() : new[] { value });
+
     /// <summary>Bir ekranın TÜM kişisel tercihini TEK sorguda okur (Birim 4 performans kuralı: ekran
     /// açılırken bir kez yüklenir, her işlemde tekrar tekrar okunmaz). Değerler yoksa ilgili alan null.</summary>
     public ListPreferences GetAll(SessionContext s, string listKey)

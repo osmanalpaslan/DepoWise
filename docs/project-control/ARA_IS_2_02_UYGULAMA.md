@@ -7,7 +7,7 @@
 | Adım | Konu | Durum |
 |---|---|---|
 | S1 | Yakıt: tarih yazım hatası + rapor kapsam sözleşmesi | ✅ **TAMAM** |
-| S2 | "Yakıtı Veren" son seçim | ⏳ sırada |
+| S2 | "Yakıtı Veren" son seçim | ✅ **TAMAM** |
 | S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ⏳ |
 | S4 | Günlük Faaliyet — Detay | ⏳ |
 | S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ⏳ |
@@ -66,3 +66,35 @@ değişikliği olacağından ayrı iş + ayrı test turu gerektirir.
 `src/DepoWise.Desktop/ViewModels/FuelViewModel.cs` · `src/DepoWise.Infrastructure/Reporting/ReportService.cs` ·
 `src/DepoWise.Application/Reports/ReportCatalog.cs` · `tests/DepoWise.Tests/FuelConsumptionTests.cs` ·
 **yeni** `tests/DepoWise.Tests/YakitTarihGunTests.cs`. **Web'e dokunulmadı** (hata web'de yoktu).
+
+---
+
+## S2 — "YAKITI VEREN" SON SEÇİMİ (✅ tamamlandı · PK-V1=A)
+
+**Davranış:** Yakıt Dağıtımı formunda en son seçilen "Yakıtı Veren" kişi, sonraki kayıtta otomatik
+ön-seçili gelir; kullanıcı değiştirirse yeni seçim son seçim olur. **"Yakıtı Alan" KAPSAM DIŞI** —
+her işlemde boş/değişken kalır (kullanıcı kuralı, testle kilitli).
+
+**Mimari (MIGRATION YOK):** değer mevcut `user_list_preferences` tablosunda, **ayrılmış bir anahtar**
+altında tek elemanlı liste olarak saklanır. Anahtar iki platformda **paylaşımlı** dosyadan gelir
+(`UserPrefKeys.FuelGiver`) → web/masaüstü anahtar sürüklenmesi imkânsız. Yeni servis yardımcıları:
+`UserListPreferenceService.GetLastChoice / SaveLastChoice` (mevcut `GetColumns/SaveColumns` üzerine
+ince sarmalayıcı → web mevcut `/api/me/list-columns/{key}` ucuyla AYNI biçimi yazar; **yeni API ucu
+GEREKMEDİ**). Tercih kişiseldir (`user_id` daima oturumdan) ve senkron listesine dokunulmaz.
+
+- **Masaüstü:** form açılışında (`ToggleDist`) ön-seçim; **yalnız başarılı kayıttan sonra** hatırlama.
+  Kayıtlı kişi listede yoksa (silinmiş/pasif) sessizce boş bırakılır.
+- **Web:** `OnInitializedAsync`'te ön-seçim; başarılı kayıttan sonra hatırlama + form temizlendikten
+  sonra "veren" ön-seçili kalır (Yakıtı Alan kalmaz).
+
+**Testler:** **yeni** `YakitVerenTercihTests` **8 test** — kayıt yoksa ön-seçim yok · son seçim geri
+okunur · yeni seçim öncekini ezer · boş değer tercihi temizler · **kullanıcılar arası taşmaz** ·
+liste ekranı kolon tercihiyle çakışmaz · **web biçimi ↔ masaüstü biçimi paritesi** · **"Yakıtı Alan"
+hatırlanmaz** (kaynak-düzeyi kilit + katalogda tek anahtar). Koşu: 91/91 (grid/liste tercihi
+regresyonu dahil). Web + Masaüstü Debug derlemeleri **0 hata**.
+
+### Değişen dosyalar (S2)
+**yeni** `src/DepoWise.Application/Ui/UserPrefKeys.cs` · `src/DepoWise.Web/DepoWise.Web.csproj`
+(paylaşımlı dosya satırı) · `src/DepoWise.Infrastructure/Settings/UserListPreferenceService.cs` ·
+`src/DepoWise.Desktop/ViewModels/FuelViewModel.cs` · `src/DepoWise.Web/Components/Pages/Fuel.razor` ·
+**yeni** `tests/DepoWise.Tests/YakitVerenTercihTests.cs`.

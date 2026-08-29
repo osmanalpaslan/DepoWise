@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Operations;
 using DepoWise.Infrastructure.Vehicles;
@@ -244,7 +245,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowDist = !ShowDist;
-        if (ShowDist) { EnsurePickers(); if (DistUnitPrice == 0) DistUnitPrice = CurrentPrice; }
+        if (ShowDist) { EnsurePickers(); if (DistUnitPrice == 0) DistUnitPrice = CurrentPrice; SonVereniUygula(); }
     }
 
     [RelayCommand]
@@ -252,6 +253,29 @@ public sealed partial class FuelViewModel : ViewModelBase
     {
         DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
         ShowDist = false;
+    }
+
+    /// <summary>
+    /// ⭐ YKT-VEREN (ADR-182 · PK-V1=A): "Yakıtı Veren" alanına kullanıcının EN SON seçtiği personeli
+    /// ön-seçer — aynı kişi çoğu kayıtta tekrarlandığı için her seferinde yeniden seçilmesi gereksiz işti.
+    /// Tercih KİŞİSELDİR (user_id ile anahtarlı) ve başka kullanıcıya taşmaz.
+    ///
+    /// ⚠️ "Yakıtı Alan" (<see cref="DistRecipient"/>) BİLİNÇLİ OLARAK kapsam DIŞIDIR — kullanıcı kuralı
+    /// gereği her işlemde değişken kalır ve asla ön-seçilmez.
+    ///
+    /// Kayıtlı kişi listede yoksa (silinmiş/pasif personel) sessizce boş bırakılır: kullanıcı, artık
+    /// geçerli olmayan bir kişiyle kayıt açmaya yönlendirilmez.
+    /// </summary>
+    private void SonVereniUygula()
+    {
+        if (DistPersonnel is not null) return;   // kullanıcı zaten seçmişse dokunma
+        try
+        {
+            var son = DesktopServices.ListPrefs.GetLastChoice(_session, UserPrefKeys.FuelGiver);
+            if (string.IsNullOrEmpty(son)) return;
+            DistPersonnel = Personnel.FirstOrDefault(p => p.Id == son);
+        }
+        catch { }   // tercih okunamazsa alan boş kalır — kayıt akışı etkilenmez
     }
 
     [RelayCommand]
@@ -274,6 +298,9 @@ public sealed partial class FuelViewModel : ViewModelBase
                 DistributionDate: IsGunuMs(DistDate)),   // TRH-01: iş günü — UTC gün başı (ADR-182)
                 Guid.NewGuid().ToString("N"));
             BaglaMaliyetMerkezi("fuel_distribution", distId, DistCostCenter);   // MLY-01
+            // YKT-VEREN (ADR-182): yalnız BAŞARILI kayıttan sonra hatırla; ClearDist alanı boşaltacağı
+            // için ondan ÖNCE yazılır. Yakıtı Alan bilinçli olarak hatırlanmaz.
+            try { DesktopServices.ListPrefs.SaveLastChoice(_session, UserPrefKeys.FuelGiver, DistPersonnel?.Id); } catch { }
             ClearDist(); Load();
             Status = "Dağıtım kaydedildi.";
         }

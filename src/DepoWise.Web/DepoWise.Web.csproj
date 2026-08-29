@@ -61,6 +61,10 @@
          verilemediği (ortak dosyaların aynası derlendiği) için burada da AYNI dosya derlenir →
          karar tek yerde kalır ve birim testinden Application üzerinden sınanır. -->
     <Compile Include="..\DepoWise.Application\Common\BaglantiIzleyici.cs" Link="Services\BaglantiIzleyici.cs" />
+    <!-- ADR-182 (2026-08-29, PK-V1=A): ekran içi "son seçim" tercih ANAHTARLARI. Aynı gerekçe: anahtar
+         iki platformda elle tekrarlansaydı biri değiştiğinde web ve masaüstü FARKLI tercih kaydını okur,
+         kullanıcı "web'de seçtiğim masaüstünde gelmiyor" derdi. Dosya SAF katalogdur (yalnız const). -->
+    <Compile Include="..\DepoWise.Application\Ui\UserPrefKeys.cs" Link="Services\UserPrefKeys.cs" />
   </ItemGroup>
 
 </Project>

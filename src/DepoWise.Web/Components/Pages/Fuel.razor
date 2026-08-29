@@ -207,6 +207,7 @@
         {
             _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
             _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+            await SonVereniYukle();   // YKT-VEREN (ADR-182): son seçilen "Yakıtı Veren" ön-seçilir
         }
         await LoadDist(); await LoadDepot(); await LoadSummary();
         _price = _currentPrice; _dPrice = _currentPrice;   // varsayılan: güncel fiyat
@@ -267,7 +268,14 @@
                 costCenterId = string.IsNullOrEmpty(_distCostCenterId) ? null : _distCostCenterId   // MLY-01
             });
             _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
-            if (_ok) { ClearDist(); await LoadDist(); await LoadSummary(); }
+            if (_ok)
+            {
+                var veren = _person;                       // YKT-VEREN (ADR-182): ClearDist alanı boşaltmadan ÖNCE al
+                await SonVereniKaydet(veren);
+                ClearDist();
+                _person = veren;                           // sonraki kayıt için ön-seçili kalır (Yakıtı Alan KALMAZ)
+                await LoadDist(); await LoadSummary();
+            }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
@@ -291,6 +299,32 @@
         }
         catch (Exception ex) { _dOk = false; _dMsg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    // ── YKT-VEREN (ADR-182 · PK-V1=A): "Yakıtı Veren" son seçimi KİŞİSEL olarak hatırlanır ──
+    // Aynı kişi çoğu kayıtta tekrarlandığı için her seferinde yeniden seçmek gereksiz işti. Tercih
+    // kullanıcıya özeldir (user_id sunucuda oturumdan gelir) ve masaüstüyle AYNI anahtarı/biçimi kullanır.
+    // ⚠️ "Yakıtı Alan" (_recipient) BİLİNÇLİ OLARAK kapsam DIŞIDIR — her işlemde değişken kalır.
+    private async Task SonVereniYukle()
+    {
+        try
+        {
+            var kayit = await Api.GetListColumnsAsync(UserPrefKeys.FuelGiver);
+            var son = kayit is { Count: > 0 } ? kayit[0] : null;
+            // Silinmiş/pasif personel listede olmaz → ön-seçim yapılmaz (geçersiz kişiyle kayıt açtırmayız).
+            if (!string.IsNullOrEmpty(son) && _personnel.Any(p => p.Id == son)) _person = son;
+        }
+        catch { }   // tercih okunamazsa alan boş kalır — kayıt akışı etkilenmez
+    }
+
+    private async Task SonVereniKaydet(string? veren)
+    {
+        try
+        {
+            await Api.SaveListColumnsAsync(UserPrefKeys.FuelGiver,
+                string.IsNullOrEmpty(veren) ? new List<string>() : new List<string> { veren });
+        }
+        catch { }
     }
 
     private void ClearDist() { _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null; }
