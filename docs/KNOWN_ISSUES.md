@@ -1,6 +1,22 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-29 (ADR-180: FIN-B1/Migration082 master'dan GERİ ÇEKİLDİ — ayrı onay bekliyor)
+> Son güncelleme: 2026-08-29 (ARA İŞ 3 — tarih kayması analizi tamam, karar bekliyor)
+
+## 🔵 TARİH KAYMASI (ARA İŞ 3) — ANALİZ TAMAM, KARAR BEKLİYOR (2026-08-29)
+
+- **Belirti:** kullanıcının seçtiği takvim/iş günü, yerel saat dilimi (TR = UTC+3) yüzünden unix ms'e
+  çevrilirken **bir gün erken** yazılabiliyor (2 Ağustos → 1 Ağustos 21:00 UTC).
+- **Kapsam (ARA İŞ 3'te yeniden sayıldı):** **11 ekran / 19 masaüstü yazım noktası** — Stok Girişi(3) ·
+  Stok Sayım · Stok Dağıtım · Fatura(2) · Finans(2) · Muayene(2) · Bakım · Günlük Faaliyet(3) ·
+  Cari(2) · Ödeme · Talep. **Ayrıca WEB'de 1 gerçek hata: `Stock.razor:258`** (S1d yalnız masaüstünü
+  taramıştı). Web'in kalan 10 tarih noktası **DOĞRU** (`FieldChecks.ToUnixMs`).
+- **Şiddet:** stok belgelerinde (masaüstü + web) **her zaman** kayar; diğer alanlarda kullanıcı gün
+  seçtiğinde ya da 00:00–03:00 arasında kayıt açtığında kayar.
+- **Durum:** ⛔ **DÜZELTİLMEDİ** — PK-TAR-01…07 kararları bekleniyor. **Migration GEREKMİYOR.**
+  Analiz: `docs/project-control/ARA_IS_3_00_ANALIZ.md`.
+- **Geçmiş veri:** canlıdaki eski kayıtlara **dokunulmadı**; ileriye dönük mü yoksa ayrı veri düzeltme
+  işi mi olacağı PK-TAR-02'de. Canlı ölçüm production bağlantısı gerektirir ve **YAPILMADI**.
+- ⭐ Emsal çözüm: aynı hata sınıfı Yakıt ekranında **ADR-182** ile düzeltildi.
 
 ## 🟠 FIN-B1 / Migration082 — GERİ ÇEKİLDİ, AYRI ONAY BEKLİYOR (2026-08-29, ADR-180 · PK-R4=B)
 

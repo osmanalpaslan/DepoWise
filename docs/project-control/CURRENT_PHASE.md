@@ -79,7 +79,7 @@ uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: AD
 
 | Ara iş | Bulunduğu faz | Not |
 |---|---|---|
-| **(yeni ara iş)** | **FAZ 0 — DURUM DOĞRULAMA tamam** | ⏳ **İŞ TANIMI BEKLENİYOR** — kullanıcının protokol mesajında tanım yer tutucusu boş geldi; tanım gelince FAZ 1 analiz başlar. Kod yazılmadı, production'a bağlanılmadı. |
+| **⭐ ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** | **FAZ 0 ✅ · FAZ 1 🔵 sürüyor · FAZ 2 ⛔ KARAR BEKLİYOR** | Analiz: [ARA_IS_3_00_ANALIZ.md](ARA_IS_3_00_ANALIZ.md). Kullanıcının seçtiği takvim tarihinin yerel ofset yüzünden **bir gün erken** yazılması. **Yeniden sayıldı: 11 ekran / 19 masaüstü noktası** (S1d'deki "10/17" eksikti) **+ web'de 1 gerçek hata** (`Stock.razor:258` — S1d yalnız masaüstünü taramıştı). Web'in kalan 10 noktası DOĞRU. **KOD YOK · MIGRATION GEREKMİYOR · production'a dokunulmadı.** Bekleyen: **PK-TAR-01…07**. |
 | ARA İŞ 2 PAKET-1 (+ADR-183) | ✅ FAZ 8 — TAMAMLANDI, ana roadmap'e dönüldü | Yayınlandı: kod `7cbb52b`, kayıt `e5583c4`, masaüstü 1.0.162 |
 | Rapor Ara İşi (ADR-181) | ✅ FAZ 8 | Yayınlandı |
 | Custom Rapor | ⏸️ FAZ 1 öncesi (analiz çerçevesi var, KOD YOK) | Ayrı faz — **migration gerektirir** |
@@ -126,18 +126,23 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **YOK** — yeni ara işin TANIMI bekleniyor (FAZ 0 tamam) |
-| Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** (her şey canlıda) |
+| Aktif ara iş / aşaması | **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** · **FAZ 1 analiz bitti → FAZ 2 KARAR BEKLİYOR** (PK-TAR-01…07) · **kod yazılmadı** |
+| Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** (ARA İŞ 3 henüz kodlanmadı) |
 | Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
 | Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
 | Production durumu | Son yayın 2026-08-29; **bu turda dokunulmadı** |
 | Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
 | Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
 | Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | Yeni ara işin tanımının alınması → FAZ 1 analiz → PK kararları → DUR |
+| Sonraki TEK iş | **PK-TAR-01…07 kararlarının verilmesi** → sonra "UYGULAMA BAŞLASIN" |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
-**AÇIK BULGU (kaybolmasın):** S1d taramasında masaüstünde **10 ekran / 17 tarih yazım noktasında**
+**⭐ S1d ARTIK AKTİF ARA İŞTİR (ARA İŞ 3).** Aşağıdaki eski özet, ARA İŞ 3'ün FAZ 1 analiziyle
+**düzeltildi ve genişletildi**: gerçek sayı **11 ekran / 19 masaüstü noktası + web'de 1 nokta**
+(`Stock.razor:258`). Güncel ve bağlayıcı liste: [ARA_IS_3_00_ANALIZ.md](ARA_IS_3_00_ANALIZ.md) §8.
+Henüz **düzeltilmedi** — PK-TAR kararları bekleniyor.
+
+**ESKİ ÖZET (tarihsel):** S1d taramasında masaüstünde **10 ekran / 17 tarih yazım noktasında**
 aynı saat-dilimi kayması sınıfı bulundu (en ağırı stok belge tarihleri: Stok Girişi ×3, Stok Sayım,
 Stok Dağıtım — her seferinde bir gün kayıyor; ayrıca bakım, muayene, fatura, cari, ödeme, finans,
 günlük faaliyet, talep ekranlarında kullanıcı gün seçince kayıyor). **Bu bulgular HENÜZ DÜZELTİLMEDİ**
