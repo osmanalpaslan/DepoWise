@@ -436,6 +436,76 @@ WHERE'e indirilecek · tarih aralığı olmadan rapor çalıştırılmayacak."*
 **Not:** Satır tavanı (PK-CR-06'nın diğer yarısı) her üç kaynakta da **sorunsuz uygulanabilir** —
 `SearchGrid` zaten sayfalıdır (`page`, `pageSize`) ve tavan SQL'e iner.
 
+## 12.9 FAZ 3 / S2 — UYGULAMA KAYDI (2026-08-29)
+
+**PK-CR-10 = A onaylandı** (tarih zorunluluğu kaynak bazlı) → S2 uygulandı.
+
+### Eklenen/değişen kod
+
+| Katman | Dosya | İçerik |
+|---|---|---|
+| Application | `Reports/CustomReportSources.cs` **(YENİ)** | Merkezî kaynak+kolon beyaz listesi; **tam 3 kaynak** (PK-CR-09=A); her kaynak `DataModule`·`Category`·`IsManager`·`RequiresDate`·`RequiresFilter` taşır |
+| Application | `Reports/CustomReportDefinition.cs` **(YENİ)** | Tanım modeli (ham SQL YOK) · `ReportKey` (`custom:` öneki) · `PermissionKey` (`report_custom_…`) · `CustomReportRules` doğrulayıcı (istisna atmaz, sonuç döner) |
+| Infrastructure | `Database/Migrations/Migration083_CustomReports.cs` **(YENİ)** | `custom_report_defs` tablosu — tek CREATE, FK yalnız `companies`, backfill YOK |
+| Infrastructure | `Database/Migrations/MigrationCatalog.cs` | 083 kaydı → katalog azamisi **83** |
+| Infrastructure | `Reporting/CustomReportService.cs` **(YENİ)** | CRUD + çalıştırma; mevcut `SearchGrid`'lere bağlanır, `TableModel`'e projeksiyon yapar; sayfalı çekim (SQL LIMIT) |
+| Infrastructure | `Reporting/ReportService.cs` | `Custom` bağlayıcısı + `Run` içinde custom çözümleme; **dört kapı + iki ek kapı** aynı yerde |
+| Infrastructure | `Operations/DailyActivityService.cs` | `SearchGrid`'e **opsiyonel** `fromDateMs`/`toDateMs` → iş günü aralığı **SQL'e iner** (mevcut çağrılar ve API sözleşmesi birebir aynı) |
+| Infrastructure | `Sync/BusinessSyncService.cs` | `custom_report_defs` tablo listesine (sona, FK bağımlılığı yok) + push yetki haritasına (`reports`) eklendi |
+| API | `ServerServices.cs` | `CustomReports` bağlandı |
+| Desktop | `DesktopServices.cs` | `CustomReports` bağlandı (çevrimdışı çalışır) |
+
+### Güvenlik kapıları (custom rapor yolunda)
+
+1. Katalog çözümleme · 2. Yönetici kapısı · 3. `DataModule` (RPR-15) · 4. Kategori (ADR-181) —
+**dördü de aynen çalışır**; ayrıca custom yola özel iki kapı eklendi:
+5. **`reports` üst kapısı** · 6. **rapor başına dinamik yetki anahtarı** (PK-CR-04=A, migration YOK).
+
+> ⚠️ **Testle bulunan gerçek açık (düzeltildi):** custom rapor gövdesi alttaki `SearchGrid`
+> servislerine gittiği için onlar yalnız kendi modüllerini (`materials`/`vehicles`/`daily_activity`)
+> istiyordu → **`reports` üst kapısı boşta kalıyordu**. CR19 testi yakaladı; `Run` içinde açıkça
+> istenerek kapatıldı.
+
+### Tarih / filtre / limit (PK-CR-06 + PK-CR-10 = A)
+
+- **Günlük Faaliyet:** iş günü aralığı **zorunlu** ve `da.activity_date` üzerinden **SQL'e iner**.
+  Zorunluluk, motorun "Bu Ay varsayılanı" bloğundan **ÖNCE** doğrulanır — aksi hâlde varsayılan
+  devreye girer ve kural fiilen uygulanmamış olurdu.
+- **Malzeme / Araç:** tarih filtresi **YOK**; `created_at`/`updated_at` iş günü olarak **kullanılmaz**
+  (CR17 kilidi bunu ayrıca kanıtlar). Yerine **en az bir beyaz-listeli filtre zorunludur**.
+- **Satır tavanı:** her sorgu `SearchGrid`'in `LIMIT/OFFSET`'i ile sınırlı; toplam
+  `CustomReportRules.MaxRows` (5.000) ile kesilir. "Önce hepsini çek sonra kes" YAPILMAZ.
+
+### Kapsam dışı bırakılan (bilinçli)
+
+Tasarımcı **UI** (masaüstü + web) ve **API uçları** bu turda yapılmadı — kullanıcı talimatı:
+*"S2'de veri/motor/senkron/altyapı kurulumu öncelikli; UI kapsamını kendiliğinden büyütme."*
+Web'e `<Compile Include>` eklenmedi (kullanılmayan kod olurdu); mimari sınır korundu, **`ProjectReference`
+EKLENMEDİ**. `sync_outbox` · ARA İŞ 3 · FIN-B1 · geçmiş veri · yeni kaynaklar: **dokunulmadı**.
+
+### S2 doğrulama sonuçları (2026-08-30)
+
+| Doğrulama | Geçen | Başarısız | Atlanan |
+|---|---|---|---|
+| **Tam test süiti** | **3.079** | **0** | 40 |
+| **İzole PostgreSQL** (127.0.0.1:5544, temiz DB) | **53** | **0** | **0** |
+| Custom rapor aile testleri | **43** | 0 | 0 |
+| API / Web / Masaüstü Release | 0 hata | | |
+
+Önceki taban 3.036 → **3.079** (+43 yeni test). PG turunda atlanan **0** → guard gevşetilmedi,
+**K4 (`MaxDbSizeMb=50`) kuralına dokunulmadı**; tur öncesi test veritabanı temizlendi.
+
+**PostgreSQL'de Migration083 doğrulandı:** `schema_migrations` azamisi **83**; `custom_report_defs`
+14 kolonla kuruldu (`information_schema` çıktısı). SQLite tarafı CR01/CR02/CR03 ile ayrıca kilitli.
+
+> ⚠️ **Şeffaflık — ilk tam süitte 2 başarısızlık çıktı, gizlenmedi:**
+> `FIN20_Katalog_Azamisi_82` ve `FIN21_Yukseltme_81den82ye…` (ikisi de FIN-B1 turunda benim yazdığım
+> kilitler). **Kök neden:** bu testler kataloğun azami sürümünü **sabit "82" sayısına** bağlamıştı;
+> Migration083 eklenince eskidiler — **ürün hatası değil, test sözleşmesinin eskimesi**.
+> **Düzeltme (gevşetme DEĞİL):** FIN20 artık BAR15 ile aynı biçimde **kataloğun kendisine** bağlı ve
+> ayrıca "082 uygulanmış mı" kontrolünü içeriyor (asıl güvence güçlendi); FIN21 ise adı gereği yalnız
+> 81→82 adımını ölçmesi için koşumu `Version <= 82` ile sınırlandı. İkinci turda **0 başarısızlık**.
+
 ## 13. FAZ TAKİP TABLOSU
 
 | Faz | Durum |
@@ -443,7 +513,7 @@ WHERE'e indirilecek · tarih aralığı olmadan rapor çalıştırılmayacak."*
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
 | FAZ 2 — karar paketi | ✅ **TAMAM — PK-CR-01…08 = A (ADR-186)** |
-| FAZ 3 — uygulama | 🟡 **S1 ✅ TAMAM (14/14, nokta 3 gerçek testle)** · **PK-CR-09 = A ✅ kaydedildi** (§12.7) · **S2 ⛔ DURDURULDU — PK-CR-10 karar bekliyor** (§12.8: zorunlu tarih ↔ v1 kaynakları çelişkisi). Ürün kodu/migration **YOK** |
+| FAZ 3 — uygulama | ✅ **S1 TAMAM** (14/14, nokta 3 gerçek testle) · **PK-CR-09=A ve PK-CR-10=A kaydedildi** (§12.7/§12.8) · ✅ **S2 ALTYAPI TAMAM** (§12.9): Migration083 · kaynak beyaz listesi · tanım modeli · CustomReportService · dispatch + 6 kapı · senkron · API+masaüstü bağlaması · 43 yeni test. **UI ve API uçları bilinçli olarak SONRAKİ ADIMDA** |
 | FAZ 4 — test/doğrulama | ⛔ |
 | FAZ 5 — yayın öncesi kontrol | ⛔ |
 | FAZ 6 — production yayın | ⛔ "YAYINLA" olmadan yapılmaz |

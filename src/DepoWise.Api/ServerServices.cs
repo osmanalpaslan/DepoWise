@@ -95,6 +95,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Materials.MaterialTemplateService MaterialTemplates { get; }
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
+    /// <summary>⭐ ARA İŞ 4 (ADR-186): custom rapor tanımları (CRUD) — çalıştırma <see cref="Reports"/> üzerinden.</summary>
+    public DepoWise.Infrastructure.Reporting.CustomReportService CustomReports { get; }
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     /// <summary>Filtrelenmiş liste sonuçlarını Excel'e aktarma (kullanıcı isteği 2026-07-19).</summary>
     public DepoWise.Infrastructure.Reporting.ExcelExportService Excel { get; }
@@ -203,6 +205,11 @@ public sealed class ServerServices
         MaterialTemplates = new DepoWise.Infrastructure.Materials.MaterialTemplateService(Factory, clock);
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
+        // ⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A): custom rapor BAĞLAYICISI — ikinci motor değil, aynı
+        // ReportService.Run üzerinden çalışır ve dört güvenlik kapısından geçer.
+        CustomReports = new DepoWise.Infrastructure.Reporting.CustomReportService(
+            Factory, Materials, Vehicles, DailyActivity, clock);
+        Reports.Custom = CustomReports;
         // BLD-01 (ADR-172): sunucuda evrak servisi verilir → evrak geçerlilik bildirimleri üretilir.
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection, Documents);
         Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();

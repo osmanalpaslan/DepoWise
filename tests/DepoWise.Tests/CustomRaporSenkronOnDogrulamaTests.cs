@@ -134,7 +134,7 @@ public class CustomRaporSenkronOnDogrulamaTests : IDisposable
         InsertPersonnel(_src, "P2", "Veli", updatedAt: 5000);
 
         var snapshot = new BusinessSyncService(_src, _clock).BuildSnapshot("CR-A");
-        var bozulmus = PaketeBilinmeyenTabloEkle(snapshot, "custom_report_defs");
+        var bozulmus = PaketeBilinmeyenTabloEkle(snapshot, "gelecekteki_tanim_tablosu");
 
         using var doc = JsonDocument.Parse(bozulmus);
 
@@ -147,11 +147,11 @@ public class CustomRaporSenkronOnDogrulamaTests : IDisposable
         Assert.True(sonuc.Upserted >= 2, $"En az 2 satır uygulanmalıydı, uygulanan: {sonuc.Upserted}");
 
         // (c) Bilinmeyen tablo için HATA ÜRETİLMEDİ (sessiz yok sayma)
-        Assert.DoesNotContain(sonuc.Errors, e => e.Contains("custom_report_defs", StringComparison.Ordinal));
+        Assert.DoesNotContain(sonuc.Errors, e => e.Contains("gelecekteki_tanim_tablosu", StringComparison.Ordinal));
 
         // (d) Bilinmeyen tablo yerelde OLUŞTURULMADI (senkron şema yaratmaz)
         Assert.Equal("0", Scalar(_dst,
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='custom_report_defs';"));
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='gelecekteki_tanim_tablosu';"));
     }
 
     /// <summary>⭐ Aynı senaryo GÖNDERME (push) yönünde: sunucu, eski istemciden gelen ve bilinmeyen
@@ -216,7 +216,7 @@ public class CustomRaporSenkronOnDogrulamaTests : IDisposable
         for (int i = 1; i <= 10; i++) InsertPersonnel(_src, $"PB{i}", $"Kişi {i}", updatedAt: 8000);
 
         var snapshot = new BusinessSyncService(_src, _clock).BuildSnapshot("CR-A");
-        using var doc = JsonDocument.Parse(PaketeBilinmeyenTabloEkle(snapshot, "custom_report_defs"));
+        using var doc = JsonDocument.Parse(PaketeBilinmeyenTabloEkle(snapshot, "gelecekteki_tanim_tablosu"));
 
         new BusinessSyncService(_dst, _clock).ApplyPull("CR-A", doc.RootElement);
 
@@ -232,7 +232,7 @@ public class CustomRaporSenkronOnDogrulamaTests : IDisposable
         var oncekiTabloSayisi = Scalar(_dst, "SELECT COUNT(*) FROM sqlite_master WHERE type='table';");
 
         var snapshot = new BusinessSyncService(_src, _clock).BuildSnapshot("CR-A");
-        using var doc = JsonDocument.Parse(PaketeBilinmeyenTabloEkle(snapshot, "custom_report_defs"));
+        using var doc = JsonDocument.Parse(PaketeBilinmeyenTabloEkle(snapshot, "gelecekteki_tanim_tablosu"));
         new BusinessSyncService(_dst, _clock).ApplyPull("CR-A", doc.RootElement);
 
         Assert.Equal(oncekiTabloSayisi, Scalar(_dst, "SELECT COUNT(*) FROM sqlite_master WHERE type='table';"));

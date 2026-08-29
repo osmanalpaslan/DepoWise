@@ -440,14 +440,27 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
         }
     }
 
-    /// <summary>⭐ Katalog azamisi 82 ve Migration082 uygulanmış olmalı (şema kayıt dışı değişmez).</summary>
+    /// <summary>⭐ Migration082 UYGULANMIŞ olmalı ve şema kataloğun azamisiyle TUTARLI olmalı
+    /// (kayıt dışı şema değişikliği olamaz).
+    ///
+    /// <b>Tarihçe (sözleşme düzeltmesi, GEVŞETME DEĞİL):</b> bu kilit önce sabit "82" sayısına
+    /// bağlıydı ve ARA İŞ 4'te Migration083 eklenince ESKİDİ — oysa kilidin amacı "katalog azamisi
+    /// 82'dir" değil, "**082 uygulanmıştır ve şema kayıt dışı değişmemiştir**"tir. Kilit artık
+    /// BAR15 ile aynı biçimde KATALOĞUN KENDİSİNE bağlandı; böylece her yeni migration'da tekrar
+    /// eskimez ve asıl güvence korunur.</summary>
     [Fact]
-    public void FIN20_Katalog_Azamisi_82()
+    public void FIN20_Migration082_Uygulandi_ve_Sema_Katalogla_Tutarli()
     {
         using var conn = _f.Create();
         using var cmd = conn.CreateCommand();
+
+        // 082 GERÇEKTEN uygulanmış (FIN-B1'in şema yarısı yerinde).
+        cmd.CommandText = "SELECT COUNT(*) FROM schema_migrations WHERE version=82;";
+        Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
+
+        // Şema, kataloğun azamisiyle birebir (kayıt dışı değişiklik yok).
         cmd.CommandText = "SELECT MAX(version) FROM schema_migrations;";
-        Assert.Equal(82L, Convert.ToInt64(cmd.ExecuteScalar()));
+        Assert.Equal((long)MigrationCatalog.All().Max(m => m.Version), Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
     /// <summary>⭐ GERÇEK YÜKSELTME YOLU (81 → 82): MEVCUT VERİSİ OLAN bir şema-81 veritabanı üzerinde
@@ -470,7 +483,10 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
             Assert.Equal(81L, SemaSurumu(f81));
 
             // 2) YÜKSELTME → 82
-            var uygulanan = new MigrationRunner(f81).Run();
+            // ⚠️ Katalogda 82'den SONRA migration'lar da olabilir (ör. ARA İŞ 4'ün 083'ü). Bu test
+            // ADI GEREĞİ yalnız 81→82 adımını ölçer; bu yüzden koşum 82 ile SINIRLANIR. Aksi hâlde
+            // her yeni migration bu kilidi eskitirdi (sözleşme netleştirmesi, gevşetme değil).
+            var uygulanan = new MigrationRunner(f81, MigrationCatalog.All().Where(m => m.Version <= 82)).Run();
             Assert.Contains(82, uygulanan);
             Assert.Equal(82L, SemaSurumu(f81));
 

@@ -28,6 +28,13 @@ public sealed class ReportService
         _clock = clock ?? new SystemClock();
     }
 
+    /// <summary>⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A) — CUSTOM RAPOR BAĞLAYICISI.
+    ///
+    /// İkinci bir rapor motoru KURULMAZ: custom raporlar da bu servisin <see cref="Run"/> metodundan,
+    /// AYNI dört güvenlik kapısından geçerek çalışır. Bağlayıcı verilmezse custom rapor anahtarları
+    /// eskisi gibi "bilinmeyen rapor" sayılır → mevcut davranış birebir korunur (geriye uyumluluk).</summary>
+    public CustomReportService? Custom { get; set; }
+
     public TableModel StockStatus(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -1943,7 +1950,34 @@ ORDER BY br.name, p.full_name;";
 
     public TableModel Run(SessionContext s, string key, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
     {
-        var desc = ReportCatalog.ByKey(key) ?? throw new ArgumentException("Bilinmeyen rapor tipi: " + key);
+        // ⭐ ARA İŞ 4 (ADR-186) — CUSTOM RAPOR ÇÖZÜMLEMESİ.
+        //
+        // Sabit katalogda bulunmayan anahtar, ÖNCE custom rapor olarak çözülmeye çalışılır. Çözülürse
+        // kaynak kayıt defterinden (CustomReportSources) bir ReportDescriptor ÜRETİLİR ve aşağıdaki
+        // DÖRT KAPININ TAMAMINDAN aynen geçer — kapılar tek yerde kalır, custom yol onları ATLAMAZ.
+        // Güvenlik meta verisi (DataModule · Category · IsManager) TANIMDAN DEĞİL kaynaktan gelir →
+        // kullanıcı tanımı düzenleyerek yetkisini genişletemez.
+        // Çözülemezse (bağlayıcı yok, tanım yok, başka firmanın tanımı, pasif) davranış eskisi gibi:
+        // "Bilinmeyen rapor tipi" — istisna üzerinden kapı atlatılamaz.
+        CustomReportDefinition? customDef = null;
+        ReportDescriptor? desc;
+        if (CustomReportDefinition.IdFromKey(key) is { } customId)
+        {
+            customDef = Custom?.ById(s, customId);
+            var kaynak = customDef is { IsActive: true } ? CustomReportSources.ByKey(customDef.SourceKey) : null;
+            desc = kaynak is null || customDef is null ? null : new ReportDescriptor(
+                key, customDef.Name, "Kullanıcı tanımlı rapor", kaynak.Category,
+                // IsManager türetilmiştir (Group == Manager) → yönetici kapısı kaynak meta verisinden gelir.
+                kaynak.IsManager ? ReportGroup.Manager : ReportGroup.Standard,
+                kaynak.RequiresDate ? ReportFilters.Date : ReportFilters.None,
+                RequiresDate: kaynak.RequiresDate,
+                ExportButton: "btn-export-report",
+                InfoNote: null,
+                DataModule: kaynak.DataModule);
+        }
+        else desc = ReportCatalog.ByKey(key);
+
+        if (desc is null) throw new ArgumentException("Bilinmeyen rapor tipi: " + key);
 
         // ⭐ RPR-07 (denetim 2026-08-25) — YÖNETİCİ RAPORU KAPISI (tek nokta: hem masaüstü hem API buradan geçer).
         //
@@ -1993,6 +2027,29 @@ ORDER BY br.name, p.full_name;";
         // AYNEN korunur — bu kapı hiçbirini gevşetmez, yalnız EKLENİR.
         AccessControl.Require(s, ReportCatalog.CategoryModule(desc.Category), PermissionAction.View);
 
+        if (customDef is not null)
+        {
+            // ⭐ "reports" ÜST KAPISI — custom yolda AÇIKÇA istenir.
+            //
+            // Sabit raporlarda bu kapı her rapor METODUNUN başında uygulanır (AccessControl.Require(s,
+            // Module, View)). Custom rapor gövdesi ise alttaki SearchGrid servislerine gider ve onlar
+            // yalnız KENDİ modüllerini (materials/vehicles/daily_activity) ister → üst kapı boşta kalırdı.
+            // Bu kontrol o boşluğu kapatır: rapor yetkisi olmayan kullanıcı, ekran yetkisiyle custom
+            // rapor çalıştıramaz. (Testle yakalandı: CR19.)
+            AccessControl.Require(s, Module, PermissionAction.View);
+
+            // ⭐ PK-CR-04=A — RAPOR BAŞINA DİNAMİK YETKİ ANAHTARI (deny-by-default).
+            // `user_permissions.module_key` serbest metin olduğu için MIGRATION GEREKTİRMEZ.
+            AccessControl.Require(s, customDef.PermissionKey, PermissionAction.View);
+
+            // ⭐ PK-CR-10=A — OLAY VERİSİNDE TARİH ARALIĞI AÇIKÇA ZORUNLUDUR.
+            // Bu kontrol, aşağıdaki "RequiresDate → Bu Ay varsayılanı" bloğundan ÖNCE çalışır; aksi
+            // hâlde varsayılan devreye girer ve "tarihsiz custom rapor çalışmaz" kuralı fiilen
+            // uygulanmamış olurdu. Sabit raporların varsayılan davranışı DEĞİŞMEZ.
+            var kural = CustomReportRules.ValidateRun(customDef, req.FromDate, req.ToDate);
+            if (!kural.Ok) throw new ArgumentException(kural.Error);
+        }
+
         // Tarih varsayılanı (sunucu-taraflı zorlama — istemci göndermese bile korur).
         if (desc.RequiresDate && (req.FromDate is null || req.ToDate is null))
         {
@@ -2000,7 +2057,10 @@ ORDER BY br.name, p.full_name;";
             req = req with { FromDate = req.FromDate ?? from, ToDate = req.ToDate ?? to };
         }
 
-        var table = Dispatch(s, key, req, maxRows);
+        // Custom rapor: mevcut TableModel'e projeksiyon (ikinci motor YOK — PK-CR-03=A).
+        var table = customDef is not null
+            ? Custom!.Run(s, customDef, req.FromDate, req.ToDate, maxRows)
+            : Dispatch(s, key, req, maxRows);
 
         // Maksimum kayıt koruması: patholojik sonuçta üstten kes (normal raporlar sınırın çok altında).
         // ⚠️ STK-10a/D-2: bu kesme BELLEKTE yapılır — sorgu zaten tüm eşleşen satırları getirmiş olur.

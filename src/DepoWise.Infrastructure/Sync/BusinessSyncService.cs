@@ -145,6 +145,12 @@ public sealed class BusinessSyncService
         "finance_accounts",
         "finance_transactions",
         "invoice_allocations",
+        // ⭐ ARA İŞ 4 (ADR-186, PK-CR-02=A): CUSTOM RAPOR TANIMLARI. Masaüstü raporu YEREL çalıştırdığı
+        // için (ReportsViewModel → ReportService.Run) tanım senkronla yerele inmezse custom rapor
+        // ÇEVRİMDIŞI çalışmaz. Duyuru deseniyle aynı: FK yalnız companies → SIRA BAĞIMLILIĞI YOK,
+        // bu yüzden listenin SONUNA eklendi. Eski istemciler bu tabloyu bilmez ve SESSİZCE atlar —
+        // davranış gerçek testle kanıtlandı (CustomRaporSenkronOnDogrulamaTests, 5/5).
+        "custom_report_defs",
     };
 
     /// <summary>Her iş tablosunun ait olduğu yetki modülü (business-push yetki kontrolü için).
@@ -214,6 +220,9 @@ public sealed class BusinessSyncService
         ["finance_accounts"] = "finance",
         ["finance_transactions"] = "finance",
         ["invoice_allocations"] = "finance",
+        // ⭐ ARA İŞ 4: custom rapor tanımı push'u "reports" ÜST KAPISINA bağlıdır — rapor yetkisi
+        // olmayan kullanıcı tanım gönderemez (senkron yolu yetki kapısını ATLAMAZ).
+        ["custom_report_defs"] = "reports",
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).

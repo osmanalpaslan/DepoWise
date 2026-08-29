@@ -346,8 +346,14 @@ WHERE da.company_id = @c";
     /// 2026-07-19: Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI — ADR-087/088/089 deseni).
     /// "Tarih" YALNIZ sıralanır (bkz. <see cref="DailyActivityGridFilter"/>), filtre kutusu yoktur.</summary>
     /// <param name="includeCancelled">K3: varsayılan GİZLİ; true ise iptal edilen faaliyetler de gelir.</param>
+    /// <param name="fromDateMs">⭐ ARA İŞ 4 (ADR-186 / PK-CR-10=A) — İŞ GÜNÜ aralığının başlangıcı.
+    /// Custom rapor OLAY verisinde tarih aralığını ZORUNLU kılar ve bu aralık <b>SQL'e iner</b>
+    /// (<c>da.activity_date</c> — gerçek iş günü alanı; <c>created_at</c> ASLA kullanılmaz).
+    /// Varsayılan <c>null</c> → mevcut tüm çağrılar ve API sözleşmesi BİREBİR AYNI çalışır.</param>
+    /// <param name="toDateMs">İş günü aralığının bitişi (dahil).</param>
     public GridResult<DailyActivityGridRow> SearchGrid(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
-        string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false)
+        string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false,
+        long? fromDateMs = null, long? toDateMs = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -374,7 +380,10 @@ WHERE da.company_id = @c";
         // önceliği burada anlamsız — tarih her zaman kazanır).
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
         // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubede işlenen (+ şubesiz eski) faaliyetler; Tüm Şubeler → hepsi.
-        var inner = GridInnerSql + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id");
+        var inner = GridInnerSql + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id")
+            // ⭐ ARA İŞ 4 / PK-CR-10=A: iş günü aralığı SQL'de süzülür (bellekte kesme YOK).
+            + (fromDateMs is not null ? " AND da.activity_date >= @crFrom" : "")
+            + (toDateMs is not null ? " AND da.activity_date <= @crTo" : "");
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -382,6 +391,8 @@ WHERE da.company_id = @c";
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
             if (BranchScope.Active(s) is { } b0) cnt.AddWithValue("@opb", b0);
+            if (fromDateMs is { } cf0) cnt.AddWithValue("@crFrom", cf0);
+            if (toDateMs is { } ct0) cnt.AddWithValue("@crTo", ct0);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -392,6 +403,8 @@ WHERE da.company_id = @c";
             cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
             if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
+            if (fromDateMs is { } cf1) cmd.AddWithValue("@crFrom", cf1);
+            if (toDateMs is { } ct1) cmd.AddWithValue("@crTo", ct1);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);
