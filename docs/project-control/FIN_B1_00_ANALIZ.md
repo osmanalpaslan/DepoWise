@@ -1,6 +1,10 @@
 # FIN-B1 / Migration082 — FAZ 1 ANALİZ + FAZ 2 KARAR PAKETİ
 
-> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 1 ✅ · FAZ 2 ⏸️ KARAR BEKLİYOR**
+> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-185) · FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" BEKLİYOR**
+>
+> **ONAYLANAN KARARLAR: PK-FIN-01=A · PK-FIN-02=B · PK-FIN-03=C · PK-FIN-04=A · PK-FIN-05=A**
+> → `sync_inbox` **FIN-B1 kapsamına ALINDI** (7. hedef) · normal UNIQUE index (CONCURRENTLY yok) ·
+> FIN5 yeni sözleşmeye çevrilecek · **tek yayın**: Migration082 + kod + masaüstü **1.0.164**
 > ⛔ **KOD YOK · MIGRATION YOK · TEST DEĞİŞİKLİĞİ YOK · PRODUCTION'A BAĞLANILMADI (SELECT dahil) · DEPLOY YOK**
 > Tasarım temeli: `35d7bce` (ADR-179) · Geri çekme: ADR-180 · Bu analiz ARA İŞ 3'ü (kapalı) **açmaz**.
 
@@ -323,7 +327,10 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
 
 ## 22. PK-FIN KARAR PAKETİ
 
-### PK-FIN-01 — FIN-B1 uygulanacak mı, hangi biçimde?
+> ✅ **KARARLAR ONAYLANDI (ADR-185, 2026-08-29):** PK-FIN-01=**A** · PK-FIN-02=**B** · PK-FIN-03=**C** ·
+> PK-FIN-04=**A** · PK-FIN-05=**A**. Aşağıdaki seçenekler **kayıt amaçlıdır**, yeniden sorulmayacaktır.
+
+### PK-FIN-01 — FIN-B1 uygulanacak mı, hangi biçimde? → **KARAR: A**
 
 | | Seçenek |
 |---|---|
@@ -338,7 +345,7 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
 - Kullanıcı etkisi: yok (görünmez düzeltme) · Veri etkisi: yok · Migration: **A→gerekli**, B/C→yok
 - Sync etkisi: PK-FIN-02'ye bağlı · Eski istemci: bozulmaz · Rollback: §18 · Risk: R1, R3
 
-### PK-FIN-02 — `sync_inbox` firma kapsamına alınacak mı? ⭐ (bu analizin yeni bulgusu)
+### PK-FIN-02 — `sync_inbox` firma kapsamına alınacak mı? ⭐ → **KARAR: B (EVET, kapsama alındı)**
 
 | | Seçenek |
 |---|---|
@@ -354,7 +361,7 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
 - ⚠️ B'nin maliyeti: `sync_inbox` tablosu büyük olabilir → indeks yeniden kurma süresi daha uzun (R1/R6 artar).
 - Migration: B → Migration082'ye 7. hedef eklenir · Sync sözleşmesi: **değişmez** (yalnız kapsam daralır)
 
-### PK-FIN-03 — İndeks kurulum yöntemi (kilit süresi)
+### PK-FIN-03 — İndeks kurulum yöntemi (kilit süresi) → **KARAR: C**
 
 | | Seçenek |
 |---|---|
@@ -367,7 +374,7 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
   güvenliğini korur ve tek gerçek bilinmezliği (tablo boyutu) yayın öncesi ölçümle kapatır.
 - Risk: R1, R6
 
-### PK-FIN-04 — `FIN5` kilidinin tersine çevrilmesi
+### PK-FIN-04 — `FIN5` kilidinin tersine çevrilmesi → **KARAR: A**
 
 | | Seçenek |
 |---|---|
@@ -376,7 +383,7 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
 
 - **Öneri: A** · Bu bir **sözleşme değişikliğidir**, test gevşetmesi değildir; ADR'de açıkça yazılır.
 
-### PK-FIN-05 — Yayın biçimi
+### PK-FIN-05 — Yayın biçimi → **KARAR: A (tek yayın, masaüstü 1.0.164)**
 
 | | Seçenek |
 |---|---|
@@ -406,15 +413,48 @@ Masaüstü sürümü 1.0.163 → 1.0.164 ile aynı pakette dağıtılır (yerel 
 
 ---
 
+## 23.1 ⭐ PK-FIN-02 SONRASI: `sync_inbox`'ın fiziksel biçimi — KANITLA ÇÖZÜLDÜ
+
+Kullanıcı §6'da haklı olarak sordu: *"`sync_inbox` için yalnız indeks değişikliği yeterli mi, yoksa
+yeni sütun mu gerekiyor — bu 'yeni sütun yok' sınırıyla çelişir mi?"* **Cevap kanıtla nettir: çelişki yok.**
+
+| Soru | Kanıt | Cevap |
+|---|---|---|
+| `company_id` inbox tablosunda var mı? | [Migration001_CoreSchema.cs:156-165](src/DepoWise.Infrastructure/Database/Migrations/Migration001_CoreSchema.cs:156) → `company_id TEXT NOT NULL` | ✅ **VAR ve NOT NULL** |
+| Dolduruluyor mu? | [SyncServer.cs:154-169](src/DepoWise.Infrastructure/Sync/SyncServer.cs:154) `InsertInbox(... @c ...)` | ✅ **Her kayıtta yazılıyor** |
+| Yeni sütun gerekiyor mu? | — | ❌ **HAYIR** — "yeni sütun yok" sınırı korunur |
+| Mevcut kayıtlarda duplicate riski? | Bugün `operation_id` **küresel** benzersiz → `(company_id, operation_id)` çiftleri kendiliğinden benzersiz | ❌ **YOK** (kısıt gevşiyor) |
+| Backfill gerekiyor mu? | `company_id` zaten dolu | ❌ **HAYIR** |
+| Yalnız indeks değişikliği yeterli mi? | — | ✅ **EVET** — `ux_inbox_operation` → `(company_id, operation_id)` |
+| Kod tarafında ne gerekiyor? | [SyncServer.cs:145-152](src/DepoWise.Infrastructure/Sync/SyncServer.cs:145) | `InboxHas` firma süzgeçli olacak (FAZ 3) |
+
+**Sonuç:** `sync_inbox` diğer 6 hedefle **birebir aynı biçimdedir** → Migration082'nin **7. hedefi**
+olur. Sync protokolü değişmez.
+
+⚠️ **FAZ 3 başlangıcında yeniden doğrulanacak tek teknik nokta:** `sync_inbox` **büyüklüğü**. Bu tablo
+her push işleminde birikir, dolayısıyla 6 operasyon tablosundan büyük olabilir → indeks yeniden kurma
+süresi ve ACCESS EXCLUSIVE kilidi daha uzun sürebilir. PK-FIN-03=C gereği **yayın öncesi ölçülecektir**
+(bu turda production'a bağlanılmadığı için ölçüm YAPILMADI).
+
+## 23.2 FAZ 3'te analiz edilecek eski istemci senaryoları (karar gereği)
+
+1. Eski desktop (≤1.0.163) + yeni şema (82)
+2. Yeni desktop (1.0.164) + yeni şema (82)
+3. Eski desktop + yeni API
+4. Senkronla gelen eski `operation_id` davranışı
+5. Migration sonrası eski istemcinin insert/update davranışı
+6. Rollback sonrası eski istemci davranışı
+
 ## 24. Faz takip tablosu
 
 | Faz | Durum |
 |---|---|
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
-| FAZ 2 — karar paketi | ⏸️ **PK-FIN-01…05 KARAR BEKLİYOR** |
-| FAZ 3 — uygulama | ⛔ "UYGULAMA BAŞLASIN" onayı olmadan başlamaz |
-| FAZ 4–8 | ⛔ |
+| FAZ 2 — karar paketi | ✅ **KARARLAR ONAYLANDI (ADR-185)** — PK-FIN-01=A · 02=B · 03=C · 04=A · 05=A |
+| FAZ 3 — uygulama | ⏸️ **"UYGULAMA BAŞLASIN" onayı bekliyor** — kod/migration/test YOK |
+| TEST | ⏸️ |
+| YAYIN | ⏸️ (tek yayın: Migration082 + kod + masaüstü 1.0.164) |
 
 ## 25. Git durumu ve production teyidi
 

@@ -3029,3 +3029,64 @@ gerekmez ve yazılmış veri geri alınmaz (ileriye dönük düzeltme).
 **Durum.** FAZ 2 kararları ONAYLANDI; **FAZ 3 uygulama, kullanıcının ayrıca vereceği
 "UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken kod/test/migration üretilmedi,
 production'a bağlanılmadı.
+
+## ADR-185 — FIN-B1 / Migration082: kararlar onaylandı (2026-08-29) — `sync_inbox` KAPSAMA ALINDI
+
+**Bağlam:** ADR-179'da tasarlanan FIN-B1 çifti ADR-180 ile master'dan geri çekilmişti (canlı şema 81).
+FAZ 1 analizi (`FIN_B1_00_ANALIZ.md`) tasarımı bugünkü kodla yeniden doğruladı ve ADR-179'da
+bulunmayan bir boşluk buldu: **`sync_inbox` firma-kördür** ve Push akışında servis katmanından ÖNCE
+çalışır — bu yüzden yalnız 6 tablo düzeltilirse çevrimdışı masaüstünden senkronla gelen işlemlerde
+hata KAPANMAZ. Çevrimdışı masaüstü bu projenin birincil istemcisidir.
+
+**Kullanıcı kararları (kesin):**
+
+- **PK-FIN-01 = A** — FIN-B1 UYGULANACAK; ADR-179 tasarımı esas alınır (6 eski tabloda
+  `operation_id` benzersizliği + 8 idempotency kontrolü firma kapsamına alınır).
+- **PK-FIN-02 = B** — ⭐ **`sync_inbox` FIN-B1 KAPSAMINDADIR.** Firma kapsamlı idempotency senkron
+  giriş kapısında da sağlanacak; böylece çevrimdışı masaüstü akışındaki firma-körlüğü kapanır.
+  Senkron **protokolü** (istek/yanıt biçimi, cursor, çakışma mantığı, LWW sözleşmesi) DEĞİŞMEZ —
+  yalnız yinelenme kontrolünün kapsamı daralır. SNK-05(a) aynen korunur.
+- **PK-FIN-03 = C** — **Normal `CREATE UNIQUE INDEX`** kullanılacak; `CONCURRENTLY` SEÇİLMEDİ
+  (mevcut MigrationRunner her migration'ı tek transaction'da çalıştırır; `CONCURRENTLY` transaction
+  içinde çalışamaz → runner mimarisi değiştirilmeyecek). Production tablo boyutu ölçümü **bu karar
+  turunda YAPILMADI**; yayın öncesi kontrollü bir adım olarak protokole yazıldı.
+- **PK-FIN-04 = A** — `FinalStabilizasyonTests.FIN5` yeni sözleşmeye çevrilecek: farklı `company_id`
+  altında aynı `operation_id` birbirinden bağımsız meşru işlemlerdir. Bu bir **sözleşme
+  değişikliğidir**, test gevşetmesi değildir.
+- **PK-FIN-05 = A** — **TEK YAYIN**: yedek → Migration082 → FIN-B1 kodu → `sync_inbox` düzeltmesi →
+  yeni testler → masaüstü **1.0.164** → uyumluluk kontrolleri → tam doğrulama → deploy → yayın
+  sonrası salt-okunur kontroller. Migration082 bu yayına **DAHİLDİR** ve **başka bir migration'la
+  BİRLEŞTİRİLMEZ**.
+
+**Migration082 kapsamı (karara bağlanan sınırlar):** yeni tablo YOK · yeni işlevsel sütun YOK ·
+backfill YOK · veri dönüşümü YOK · yalnız indeks kapsamı değişir. Kısıt **gevşediği** için duplicate
+riski yapısal olarak sıfırdır.
+
+**`sync_inbox`'ın fiziksel biçimi — FAZ 1'de KANITLA ÇÖZÜLDÜ (yeni sütun gerekmiyor):**
+`Migration001_CoreSchema.cs:156-166` — `sync_inbox` tablosunda **`company_id TEXT NOT NULL` sütunu
+ZATEN VARDIR** ve her kayıtta yazılır (`SyncServer.InsertInbox:154-169`). Dolayısıyla `sync_inbox`
+diğer 6 hedefle **aynı biçimdedir**: yalnız `ux_inbox_operation` küresel indeksi
+`(company_id, operation_id)` kapsamına taşınır (7. hedef) + `SyncServer.InboxHas:145` firma süzgeçli
+olur. Mevcut kayıtlarda duplicate riski yoktur (bugün `operation_id` küresel benzersiz olduğu için
+`(company_id, operation_id)` çiftleri kendiliğinden benzersizdir). ⚠️ **Tek açık nokta:** `sync_inbox`
+büyüklüğü — her push işlemi burada birikir; indeks yeniden kurma süresi/kilidi diğer tablolardan uzun
+olabilir. Bu, PK-FIN-03=C gereği **yayın öncesi ölçülecek** ve FAZ 3 başlangıcında yeniden
+doğrulanacaktır.
+
+**Kapsam DIŞI (bilinçli):** geçmiş veri düzeltmesi · production ölçümü (bu tur) · Custom Rapor ·
+Ekip+Hiyerarşi+Onay · N/Mobil · ARA İŞ 3 (kapalı ve yayınlanmış — durumu DEĞİŞMEZ) · web'de paralel
+idempotency mantığı (web'in kendi kopyası yoktur, API üzerinden gelir).
+
+**Rollback:** migration hatasında runner transaction'ı geri alır → şema **81**'de kalır, veri
+değişmez. Yayın sonrası geri dönüş, ters migration ile mümkündür; arada firmalar arası aynı
+`operation_id` kayıt oluşmuşsa küresel benzersizlik yeniden kurulamayacağı için geri dönüş penceresi
+kısa tutulur.
+
+**Eski istemciler:** ≤1.0.163 sözleşme açısından bozulmaz. FAZ 3'te şu altı senaryo ayrıca analiz
+edilecektir: eski desktop + yeni şema · yeni desktop + yeni şema · eski desktop + yeni API · senkronla
+gelen eski `operation_id` · migration sonrası eski istemci insert/update · rollback sonrası eski
+istemci.
+
+**Durum.** FAZ 2 kararları ONAYLANDI. **FAZ 3 uygulama, kullanıcının ayrıca vereceği
+"UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken **kod/test/migration üretilmedi**,
+**production'a bağlanılmadı (SELECT dahil)**, deploy yapılmadı; katalog azamisi **81** olarak kaldı.

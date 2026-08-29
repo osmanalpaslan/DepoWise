@@ -40,8 +40,21 @@
   BİREBİR geri çekildi** (kod+migration ÇİFT olarak — yarım sözleşme yok). Eski davranış (farklı
   firmadan aynı operation_id → sessiz atlama) geri döndü ve `FinalStabilizasyonTests.FIN5` ile yeniden
   kilitli. Tasarım+kanıtlar git geçmişinde: `35d7bce`. **Migration katalog azamisi yine 81 = canlı şema.**
-- **Sıradaki adım:** kullanıcı Migration082 için AYRI ve AÇIK onay verdiğinde `35d7bce` içeriği geri
-  getirilir (önkoşul: pg_dump yedeği + kısa indeks kilidi). O zamana dek risk ~sıfır (GUID op-id'ler).
+- **⭐ GÜNCELLEME (2026-08-29, ADR-185): KARARLAR ONAYLANDI, UYGULAMA ONAYI BEKLİYOR.**
+  PK-FIN-01=A (uygulanacak) · **PK-FIN-02=B → `sync_inbox` FIN-B1 KAPSAMINA ALINDI** · PK-FIN-03=C
+  (normal UNIQUE index; `CONCURRENTLY` yok — runner tek transaction) · PK-FIN-04=A (FIN5 yeni
+  sözleşmeye çevrilecek) · PK-FIN-05=A (tek yayın: Migration082 + kod + masaüstü **1.0.164**).
+- **FAZ 1 analizinin yeni bulgusu:** `sync_inbox` **firma-kördü** (`ux_inbox_operation` küresel —
+  Migration001:166; `SyncServer.InboxHas`:145 süzgeçsiz) ve Push akışında servis katmanından **önce**
+  çalışıyor (:39). Senkronun kritik tipleri (`stock_movement`, `vehicle_maintenance`,
+  `fuel_distribution`) tam da FIN-B1 tablolarıdır → yalnız 6 tablo düzeltilse hata **çevrimdışı
+  masaüstü senkron yolunda kapanmazdı**. Bu yüzden kapsama alındı.
+- **Fiziksel biçim kanıtla çözüldü:** `sync_inbox.company_id TEXT NOT NULL` **zaten var**
+  (Migration001:156-165) ve her kayıtta yazılıyor → **yeni sütun/backfill GEREKMİYOR**; yalnız indeks
+  `(company_id, operation_id)` kapsamına taşınır (7. hedef) + `InboxHas` firma süzgeçli olur.
+- **Sıradaki adım:** kullanıcının **"UYGULAMA BAŞLASIN"** onayı → FAZ 3. Önkoşullar: pg_dump yedeği +
+  yayın öncesi tablo boyutu ölçümü (özellikle `sync_inbox` — en büyük tablo olabilir, indeks yeniden
+  kurma kilidi uzayabilir). O zamana dek risk ~sıfır (GUID op-id'ler). Katalog azamisi **81** kalır.
 
 ## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179; FIN-B1 hariç — yukarı bak)
 
