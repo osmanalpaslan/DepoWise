@@ -1,6 +1,16 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-28** (⭐ TOPLU YAYIN yapıldı — 12 iş canlıda) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-29** (ARA İŞ — Rapor geliştirmeleri: ANALİZ tamam, PK-R1..R4 karar bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## ⏳ ARA İŞ — RAPOR GÜNLÜK KIRILIM + RAPOR TÜRÜ YETKİLERİ (2026-08-29, kullanıcı talebi)
+
+AŞAMA 3 (FINAL karar paketi — ADR-179 ile UYGULANDI, yayın bekliyor) yayınından ÖNCE alınan ara iş:
+(1) araç raporunda gün bazlı kırılım, (2) rapor türlerine ayrı yetki. **Bu iş tamamlanınca YAYINLANACAK**
+(yayın master'daki havuzu — M+O+FIN+Migration082 — birlikte taşır). Analiz tamam, KOD YOK:
+[RAPOR_ARA_IS_00_ANALIZ.md](RAPOR_ARA_IS_00_ANALIZ.md) — **PK-R1..R4 kullanıcı kararı bekliyor.**
+Yayın sonrası ana plan dönüşü: **SONRAKİ ANA İŞ = AŞAMA 3/FINAL yayın sonrası doğrulama + 7b (serbest)**.
 
 ---
 
