@@ -1,8 +1,10 @@
 # FINAL — KARAR PAKETİ (S5, 2026-08-29 · ADR-178) — ✅ KARARLAR VERİLDİ ve UYGULANDI (ADR-179)
 
 > **SONUÇ (2026-08-29, kullanıcı onayı + AŞAMA 3 uygulaması):**
-> **1. FIN-B1 → KABUL:** Migration082 + 8 noktada firma süzgeci uygulandı, iki lehçede testli;
-> ⛔ **production'da ÇALIŞTIRILMADI** (canlı şema 81 — yayın penceresi bekliyor).
+> **1. FIN-B1 → KABUL edilmişti; ⚠️ ADR-180 (2026-08-29) ile MASTER'DAN GERİ ÇEKİLDİ (PK-R4=B):**
+> Migration082 + 8 noktada firma süzgeci rapor ara işinin yayınına karışmasın diye çift olarak geri
+> alındı; eski sözleşme (sessiz atlama) FIN5 ile yeniden kilitli; tasarım `35d7bce`'de, **AYRI ONAY
+> BEKLİYOR**. Tarihsel not: uygulanmış ve iki lehçede testliydi; production'da hiç çalıştırılmadı.
 > **2. YET-01 → KALDIRILDI** (katalog + test kilidi tam güçte; migration yok, yetim satırlar zararsız).
 > **3. ARC-01 → (a):** rapor seçicisi RPR-04'te ZATEN süzülmüş çıktı (kod gerekmedi); operasyonel
 > seçiciler bilinçli firma-geneli KALIR.

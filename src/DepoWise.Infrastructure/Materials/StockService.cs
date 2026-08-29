@@ -835,7 +835,7 @@ LIMIT @take;";
         var date = docDate ?? now;
 
         // Idempotency: bu operationId daha önce işlendiyse mevcut belgeyi döndür (çift yazma yok)
-        var existing = FindDocumentByOperation(conn, tx, s.CompanyId, operationId);
+        var existing = FindDocumentByOperation(conn, tx, operationId);
         if (existing is not null) return existing;
 
         // STK-03: LOKASYON SAHİPLİĞİ — belgeye giren her şube oturumun FİRMASINA ait olmalı.
@@ -1129,17 +1129,13 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         return $"{prefix}-{year}-{next:0000}";
     }
 
-    // ⭐ FIN-B1 (ADR-179, Migration082 ile birlikte): idempotency FİRMA KAPSAMINDADIR. Eskiden company_id
-    // süzgeci yoktu — BAŞKA firmada aynı operation_id kullanılmışsa bu firmanın işlemi "zaten yapılmış"
-    // sayılıp SESSİZCE atlanabiliyordu. Meşru aynı-firma retry davranışı birebir aynıdır.
-    private static StockDocResult? FindDocumentByOperation(DbConnection conn, DbTransaction tx, string companyId, string baseOperationId)
+    private static StockDocResult? FindDocumentByOperation(DbConnection conn, DbTransaction tx, string baseOperationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT d.id, d.doc_no FROM stock_movements mv JOIN stock_documents d ON d.id = mv.document_id " +
-            "WHERE mv.company_id=@c AND mv.operation_id LIKE @op LIMIT 1;";
-        cmd.AddWithValue("@c", companyId);
+            "WHERE mv.operation_id LIKE @op LIMIT 1;";
         cmd.AddWithValue("@op", baseOperationId + ":%");
         using var r = cmd.ExecuteReader();
         return r.Read() ? new StockDocResult(r.GetString(0), r.GetString(1)) : null;

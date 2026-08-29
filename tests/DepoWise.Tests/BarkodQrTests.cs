@@ -290,7 +290,8 @@ VALUES(@id,@c,'TAL-777',1,@b,'pending',1,1,1,0);";
     /// <summary>⭐ Şema, migration KATALOĞUYLA tutarlıdır (runner her kayıtlı migration'ı uygular).
     /// Tarihçe: BAR-01 turunda sabit "81" idi ("BAR migration getirmez" kilidi — hâlâ doğru: BAR
     /// migration eklemedi). ADR-179'da Migration082 BİLİNÇLİ eklendiği için sabit ESKİDİ; kilit artık
-    /// eskimeyecek biçimde kataloğun kendisine bağlandı (amaç aynı: kayıt dışı şema değişikliği olamaz).</summary>
+    /// eskimeyecek biçimde kataloğun kendisine bağlandı (amaç aynı: kayıt dışı şema değişikliği olamaz).
+    /// ADR-180 (2026-08-29): Migration082 master'dan geri çekildi (PK-R4=B) — katalog max yine 81.</summary>
     [Fact]
     public void BAR15_Sema_Katalogla_Tutarli()
     {

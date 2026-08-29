@@ -75,9 +75,11 @@ iki lehçede testli, ⛔ PRODUCTION'DA ÇALIŞTIRILMADI — CANLI ŞEMA 81, yay�
 (önkoşul: pg_dump + kısa indeks kilidi) + 8 noktada firma-kapsamlı idempotency · YET-01 iki işlevsiz
 anahtar kaldırıldı · ARC-01(a) ve RPR-02 incelemede ZATEN çözülmüş çıktı (RPR-04/RPR-07 — kod
 gerekmedi) · STK-B2 hayır (FIN8 kilidi) · SNK-05(a) mevcut sözleşme kilitlendi (online ilk-kazanır ·
-offline LWW; senkron koduna dokunulmadı) · MAK-01/b korundu. **⛔ Yayın bekleyen kod havuzu: M (EXL-01)
-+ O (BAR-01) + FIN düzeltmeleri + Migration082.** Yeni strateji (kullanıcı, 2026-08-28): **uzun süre
-production yayın YOK** — işler build+test seviyesinde kalır, canlı veriyle test yapılmaz.
+offline LWW; senkron koduna dokunulmadı) · MAK-01/b korundu. **⚠️ ADR-180 (2026-08-29, PK-R4=B):
+FIN-B1/Migration082 çifti master'dan GERİ ÇEKİLDİ** — rapor ara işinin yayınına karışmaması için;
+eski sözleşme FIN5 ile yeniden kilitli, katalog azamisi 81 = canlı şema; **FIN-B1 tamamlanmış sayılmaz,
+AYRI onay bekliyor** (tasarım `35d7bce`). **⛔ Yayın bekleyen kod havuzu: M (EXL-01) + O (BAR-01) +
+FIN düzeltmeleri (082 HARİÇ) + rapor ara işi.**
 (+ ayrı küçük iş: Bakım-Ekipman 7b.)
 
 **FAZ 1 TAMAMLANDI:** C — Proje/Şantiye ✅ (ADR-164) · A — Evrak/Belge ✅ (ADR-165) ·

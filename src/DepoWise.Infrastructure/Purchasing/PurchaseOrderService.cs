@@ -329,10 +329,7 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
         using (var chk = conn.CreateCommand())
         {
             chk.Transaction = tx;
-            // ⭐ FIN-B1 (ADR-179, Migration082 ile birlikte): FİRMA süzgeci — başka firmanın aynı
-            // operation_id'si bu firmanın mal kabulünü sessizce no-op yapamaz. Aynı-firma retry aynen.
-            chk.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE company_id=@c AND operation_id LIKE @op;";
-            chk.AddWithValue("@c", s.CompanyId);
+            chk.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE operation_id LIKE @op;";
             chk.AddWithValue("@op", stockOp + "%");
             if (Convert.ToInt64(chk.ExecuteScalar()) > 0) { tx.Commit(); return stockOp; }
         }

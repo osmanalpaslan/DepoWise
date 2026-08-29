@@ -1,15 +1,23 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-29 (FINAL karar paketi uygulandı — ADR-179)
+> Son güncelleme: 2026-08-29 (ADR-180: FIN-B1/Migration082 master'dan GERİ ÇEKİLDİ — ayrı onay bekliyor)
 
-## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179)
+## 🟠 FIN-B1 / Migration082 — GERİ ÇEKİLDİ, AYRI ONAY BEKLİYOR (2026-08-29, ADR-180 · PK-R4=B)
 
-- **FIN-B1 — operation_id firma kapsamına ALINDI (kod + Migration082; ⛔ production'da ÇALIŞTIRILMADI).**
-  6 eski indeks aynı adlarla `(company_id, operation_id)` benzersizliğine taşındı; 8 idempotency
-  kontrolüne firma süzgeci eklendi. Duplicate riski yapısal olarak sıfır (benzersizlik GEVŞEDİ).
-  İki lehçede bit-bit + indeks-kolonu + idempotency kanıtları testli (`FinalStabilizasyonTests` +
-  `PostgresMigration082Tests`). **Canlı şema 81'de** — Migration082 yayın penceresini bekliyor
-  (önkoşul: pg_dump yedeği; kısa indeks kilidi). `sync_inbox/outbox` bilinçli kapsam dışı.
+- **Durum:** ADR-179'da uygulanan FIN-B1 çifti (Migration082 + 8 idempotency firma süzgeci +
+  yeni-sözleşme testleri) rapor ara işinin yayınına Migration082'nin karışmaması için **master'dan
+  BİREBİR geri çekildi** (kod+migration ÇİFT olarak — yarım sözleşme yok). Eski davranış (farklı
+  firmadan aynı operation_id → sessiz atlama) geri döndü ve `FinalStabilizasyonTests.FIN5` ile yeniden
+  kilitli. Tasarım+kanıtlar git geçmişinde: `35d7bce`. **Migration katalog azamisi yine 81 = canlı şema.**
+- **Sıradaki adım:** kullanıcı Migration082 için AYRI ve AÇIK onay verdiğinde `35d7bce` içeriği geri
+  getirilir (önkoşul: pg_dump yedeği + kısa indeks kilidi). O zamana dek risk ~sıfır (GUID op-id'ler).
+
+## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179; FIN-B1 hariç — yukarı bak)
+
+- ~~**FIN-B1 — operation_id firma kapsamına ALINDI (kod + Migration082)**~~ → **ADR-180 ile GERİ
+  ÇEKİLDİ** (yukarıdaki bölüm geçerli). Tarihsel not: 6 eski indeks aynı adlarla
+  `(company_id, operation_id)` benzersizliğine taşınmış, 8 idempotency kontrolüne firma süzgeci
+  eklenmiş, iki lehçede bit-bit + indeks-kolonu + idempotency kanıtları testlenmişti (`35d7bce`).
 - **YET-01 — işlevsiz iki yetki anahtarı KALDIRILDI** (`btn-reset-db`, `btn-logo`). Katalogdan
   çıkarıldı; ağaçta artık her buton gerçek bir kapıdır (`ButtonPermissionCatalogTests` istisna listesi
   BOŞALDI — kilit tam güçte). Yetim eski izin satırları zararsız (deny-by-default; migration yazılmadı).
@@ -32,8 +40,8 @@
 
 ## 🟡 FINAL STABİLİZASYON TURUNDA AÇIK BIRAKILAN (2026-08-29, izole simülasyon bulguları — ADR-178)
 
-- ~~**FIN-B1**~~ → **2026-08-29'da ADR-179 ile KAPATILDI** (yukarıdaki bölüme bak; Migration082 hazır,
-  production'da çalıştırılmadı). Aşağıdaki metin tarihsel kayıttır:
+- **FIN-B1** → ADR-179 ile kapatılmıştı, **ADR-180 ile GERİ ÇEKİLDİ — aşağıdaki metin YİNE GEÇERLİ
+  mevcut durumdur** (en üstteki 🟠 bölüme de bak; karar/onay kullanıcıda):
   **FIN-B1 — operation_id benzersizliği eski tablolarda FİRMA-ÜSTÜ (KARAR SİZDE).** `stock_movements`,
   `vehicle_maintenances`, `fuel_depot_entries`, `fuel_distributions`, `daily_activities`,
   `assignment_movements` tablolarında `operation_id` ŞEMA GEREĞİ tüm firmalar genelinde benzersizdir

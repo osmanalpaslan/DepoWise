@@ -2824,3 +2824,22 @@ Ayrıntı: `docs/project-control/FINAL_STABILIZASYON_01.md`.
   canlı veri değişmedi; deploy yok; M import kapsamı aynen.
 
 Ayrıntı: `docs/project-control/FINAL_KARAR_PAKETI.md` + `docs/KNOWN_ISSUES.md` (2026-08-29 bölümü).
+
+## ADR-180 — FIN-B1/Migration082'nin master'dan geri çekilmesi (2026-08-29)
+
+**Bağlam:** Rapor ara işi (günlük araç raporu + rapor türü yetkileri) yayınlanacak; kullanıcı kararı
+PK-R4=B: Migration082 bu yayına DAHİL EDİLMEYECEK ve production'da çalıştırılması onaylı değil. Master
+tek gerçek kaynak olduğundan ve migration çalıştırıcısı bekleyenleri sırayla uyguladığından, master'da
+kayıtlı Migration082 her deploy'da canlıda çalışırdı.
+
+**Karar:** ADR-179'un FIN-B1 çifti master'dan BİREBİR geri çekildi: Migration082 dosyası + katalog
+kaydı silindi, 8 servisteki firma-kapsam düzenlemeleri `35d7bce~1` hâline döndürüldü,
+`PostgresMigration082Tests` kaldırıldı, `FinalStabilizasyonTests` FIN1–FIN5 eski sözleşme sürümlerine
+döndü (FIN5 sessiz-atlama kilidi dahil). ADR-179'un Migration082'den bağımsız kalanları KORUNDU:
+YET-01 kaldırımı, FIN8 (STK-B2), FIN9/FIN10 (SNK-05), BAR15 katalog-max bağlaması, ARC-01a/RPR-02
+kapanışları, MAK-01/b. Kod+migration ÇİFT geri çekildiği için yarım sözleşme oluşmadı; katalog azamisi
+yeniden 81 = canlı şema → deploy'da runner NO-OP.
+
+**Sonuç:** FIN-B1 "tamamlandı" SAYILMAZ; roadmap'te "FIN-B1/Migration082 — ayrı onay bekliyor" olarak
+durur. Tasarım+kanıtlar git geçmişinde (`35d7bce`); onay gelince geri getirilir. Koşullu migration /
+runner'ı atlatan hack bilinçli olarak YAPILMADI (kullanıcı talimatı).

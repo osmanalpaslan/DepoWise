@@ -116,7 +116,15 @@ gerekmedi, kayıtlar kapatıldı. **STK-B2=HAYIR** (FIN8 kilidi). **SNK-05(a)** 
 (online ilk-kazanır FIN9 · offline LWW FIN10; senkron koduna dokunulmadı). **MAK-01/b** korundu.
 Ayrıntı: [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) · KNOWN_ISSUES 2026-08-29 bölümü · ADR-179.
 
+## EK-2 — FIN-B1/Migration082 geri çekildi (2026-08-29, ADR-180 · PK-R4=B)
+
+Rapor ara işinin yayınına Migration082'nin karışmaması için FIN-B1 çifti (Migration082 + 8 firma-süzgeci
++ yeni-sözleşme testleri FIN1–FIN7 + `PostgresMigration082Tests`) master'dan BİREBİR geri çekildi;
+FIN8/FIN9/FIN10 kilitleri ve YET-01 KALDI. Eski sözleşme FIN5 ile yeniden kilitli; katalog azamisi 81.
+**FIN-B1 tamamlanmış SAYILMAZ — ayrı onay bekliyor** (tasarım `35d7bce`).
+
 ## Sonraki iş
 
 FINAL fazı ve karar paketi **build+test seviyesinde TAMAMLANDI** (yayın yok — yeni strateji).
-Yayın bekleyen kod havuzu: M + O + FIN düzeltmeleri + **Migration082**. 7b Bakım-Ekipman serbest sırada.
+Yayın bekleyen kod havuzu: M + O + FIN düzeltmeleri (**Migration082 HARİÇ — ADR-180 ile geri çekildi,
+ayrı onay bekliyor**) + rapor ara işi. 7b Bakım-Ekipman serbest sırada.
