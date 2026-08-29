@@ -121,6 +121,27 @@
         </MudGrid>
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fotoğraflar</MudText>
+        @* ⭐ ADR-182 (ARA İŞ 2 / S5, PK-F2 + PK-F3): KAYITLI fotoğraflar — Malzemeler ekranıyla aynı kural.
+           Kapatılan hata: kayıtlı fotoğraflar hiç gösterilmiyordu. Silme yalnız düzenleme formunda ve
+           SİLME yetkisiyle görünür. *@
+        @if (_editId is not null && _detailPhotos.Count > 0)
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıtlı fotoğraflar</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-1 mb-2">
+                @foreach (var p in _detailPhotos)
+                {
+                    <div style="position:relative;width:84px;height:84px;margin:0 8px 8px 0;">
+                        <MudImage Src="@p.Url" Width="84" Height="84" ObjectFit="ObjectFit.Cover" Style="border-radius:8px;" />
+                        @if (Auth.CanDelete("vehicles"))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                           Style="position:absolute;top:0;right:0;background:rgba(0,0,0,.45);"
+                                           Title="Sil" OnClick="@(() => DeletePhoto(p.Id))" />
+                        }
+                    </div>
+                }
+            </MudStack>
+        }
         <InputFile OnChange="OnFiles" multiple accept=".jpg,.jpeg,.png" />
         @if (_uploadWarning is not null) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_uploadWarning</MudAlert> }
         @if (_staged.Count > 0)
@@ -664,13 +685,15 @@
         catch { }
     }
 
+    /// <summary>ADR-182 (PK-F3): kayıtlı fotoğrafı siler — yalnız düzenleme formundan; düğme SİLME
+    /// yetkisine bağlıdır. Asıl kapı sunucudadır (FileService → Delete).</summary>
     private async Task DeletePhoto(string fileId)
     {
-        if (_detail is null) return;
-        var id = Str(_detail.Value, "id");
+        var id = _editId ?? (_detail is null ? null : Str(_detail.Value, "id"));
+        if (string.IsNullOrEmpty(id)) return;
         if (!await Dialog.Confirm("Bu fotoğraf silinsin mi?", "Evet, Sil", danger: true)) return;
         await Api.DeleteAsync($"/api/vehicles/{id}/photos/{fileId}");
-        await LoadDetailPhotos(id);
+        await LoadDetailPhotos(id!);
     }
 
     /// <summary>BAR-01 (ADR-177): QR etiketi indir — kod SUNUCUDA kaynak servisle çözülür (yetki/tenant serviste).</summary>
@@ -688,6 +711,7 @@
         var d = _detail.Value;
         _editId = Str(d, "id");
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
+        await LoadDetailPhotos(_editId);   // ADR-182: kayıtlı fotoğraflar düzenleme formunda görünür/silinebilir
         _template = NullS(d, "templateId"); _lastTemplate = _template;   // mevcut şablon bağı (diff prefill tetiklemesin)
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
         _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");

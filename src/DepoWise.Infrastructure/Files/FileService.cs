@@ -7,7 +7,9 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Files;
 
-public sealed record FileRecordDto(string Id, string EntityType, string EntityId, string StorageKey, string? Mime, long? SizeBytes);
+/// <summary>Dosya künyesi. ⚠️ <c>Sha256</c> ADR-182 (2026-08-29) ile SONA eklendi: masaüstü, yerelde
+/// kalmış eski fotoğrafları sunucuya bir kez taşırken mükerrer yüklemeyi bu özetle önler.</summary>
+public sealed record FileRecordDto(string Id, string EntityType, string EntityId, string StorageKey, string? Mime, long? SizeBytes, string? Sha256 = null);
 
 /// <summary>
 /// Dosya/fotoğraf servisi: doğrulama (boyut/MIME/magic-byte) + güvenli ad + provider'a yaz + file_records
@@ -76,7 +78,7 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "file_record", id, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"entity\":\"{entityType}\",\"mime\":\"{optMime}\"}}"), _clock);
         tx.Commit();
-        return new FileRecordDto(id, entityType, entityId, storageKey, optMime, optBytes.Length);
+        return new FileRecordDto(id, entityType, entityId, storageKey, optMime, optBytes.Length, sha);
     }
 
     public IReadOnlyList<FileRecordDto> GetPhotos(SessionContext s, string entityType, string entityId)
@@ -85,7 +87,7 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, entity_type, entity_id, storage_key, mime, size_bytes FROM file_records " +
+            "SELECT id, entity_type, entity_id, storage_key, mime, size_bytes, sha256 FROM file_records " +
             "WHERE company_id=@c AND entity_type=@et AND entity_id=@eid AND kind='photo' AND is_deleted=0 ORDER BY created_at;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@et", entityType);
@@ -94,7 +96,8 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new FileRecordDto(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetInt64(5)));
+                r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetInt64(5),
+                r.IsDBNull(6) ? null : r.GetString(6)));
         return list;
     }
 

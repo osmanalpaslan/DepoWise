@@ -406,6 +406,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditMode))]
     [NotifyPropertyChangedFor(nameof(FormTitle))]
+    [NotifyPropertyChangedFor(nameof(CanDeletePhoto))]   // ADR-182 (PK-F3): silme yalnız düzenleme modunda
     private string? _editId;
     public bool IsEditMode => EditId != null;
     public string FormTitle => IsEditMode ? "MALZEME DÜZENLE" : "YENİ MALZEME";
@@ -522,7 +523,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
                 foreach (var remId in _origEquivIds.Where(x => !chosenIds.Contains(x)))
                     DesktopServices.Materials.RemoveEquivalent(_session, EditId!, remId);
 
-                SaveStagedPhotos(EditId!);
+                await SaveStagedPhotosAsync(EditId!);
                 Clear(); Load(); Status = "Malzeme güncellendi.";
             }
             catch (DepoWise.Application.Security.ConcurrencyException ex)
@@ -568,10 +569,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             foreach (var eq in ChosenEquivalents)
                 DesktopServices.Materials.AddEquivalent(_session, id, eq.Id);
 
-            SaveStagedPhotos(id);
+            await SaveStagedPhotosAsync(id);
+            var fotoUyarisi = Status;   // yükleme uyarısı varsa korunur (Clear/Load ezmesin)
             Clear();
             Load();
-            Status = "Malzeme eklendi.";
+            Status = fotoUyarisi is not null && fotoUyarisi.StartsWith("Kayıt tamam", StringComparison.Ordinal)
+                ? fotoUyarisi : "Malzeme eklendi.";
         }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
@@ -719,7 +722,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             FlushPendingRefresh();   // detay kapandı → bekletilen eşitleme yenilemesi şimdi uygulanır
             return;
         }
-        try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); LoadDetailPhotos(value.Id); }
+        try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); _ = LoadDetailPhotosAsync(value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
         MaterialHistory.Clear();
         try { foreach (var m in DesktopServices.Stock.RecentForMaterial(_session, value.Id, 100)) MaterialHistory.Add(m); } catch { }
@@ -901,15 +904,28 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [RelayCommand]
     private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
 
-    /// <summary>Detaydaki kayıtlı fotoğrafı sil (onaylı).</summary>
+    /// <summary>
+    /// Kayıtlı fotoğrafı siler — ⭐ ADR-182 (PK-F3): YALNIZ düzenleme modunda ve SİLME yetkisiyle.
+    ///
+    /// 🔴 Kapatılan iki hata: (1) silme düğmesi salt-okunur bilgi panelindeydi, yani kullanıcı Düzenle'ye
+    /// geçmeden fotoğrafı silebiliyordu; (2) düğme <c>CanEdit</c> ile gösteriliyor ama sunucu <c>Delete</c>
+    /// yetkisi istiyordu → düzenleme yetkisi olup silme yetkisi olmayan kullanıcı düğmeyi görüp hata alıyordu.
+    /// </summary>
     [RelayCommand]
     private async Task DeleteDetailPhoto(DetailPhoto? p)
     {
-        if (p is null || Selected is null) return;
-        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (p is null) return;
+        var kayitId = EditId ?? Selected?.Id;
+        if (kayitId is null) return;
+        if (!IsEditMode) { Status = "Fotoğraf silmek için önce Düzenle'ye geçin."; return; }
+        if (!CanDelete) { Status = "Yetki yok."; return; }
         if (!await ConfirmService.AskAsync("Bu fotoğraf silinsin mi?", "Fotoğraf Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
-        try { DesktopServices.Files.DeletePhoto(_session, p.FileId); LoadDetailPhotos(Selected.Id); Status = "Fotoğraf silindi."; }
-        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+
+        var r = await DesktopPhotos.SilAsync("material", kayitId, p.FileId);
+        if (r.Offline) { Status = "Fotoğraf silme çevrimiçi olmayı gerektirir."; return; }
+        if (!r.Ok) { Status = "Silinemedi: " + (r.Error ?? "bilinmeyen hata"); return; }
+        await LoadDetailPhotosAsync(kayitId);
+        Status = "Fotoğraf silindi.";
     }
 
     /// <summary>Uyumlu araç satırına tıkla → Araçlar ekranında o aracın detayını aç.</summary>
@@ -930,32 +946,42 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             ?? new MaterialRow(r.Id, r.Code, r.Name, null, 0, "TRY", 0, 0);
     }
 
-    private void SaveStagedPhotos(string materialId)
+    /// <summary>⭐ ADR-182 (PK-F1=A): fotoğraflar artık SUNUCUYA yüklenir → başka makine/kullanıcı da görür.
+    /// Çevrimdışıysa yerele YAZILMAZ (PK-F4=A): kullanıcı "yüklendi" sanmasın diye NET uyarı verilir.</summary>
+    private async Task SaveStagedPhotosAsync(string materialId)
     {
-        foreach (var ph in Photos)
-        {
-            try
-            {
-                var bytes = File.ReadAllBytes(ph.LocalPath);
-                DesktopServices.Files.SavePhoto(_session, "material", materialId, Path.GetFileName(ph.LocalPath), null, bytes);
-            }
-            catch (Exception ex) { Status = "Foto kaydedilemedi: " + ex.Message; }
-        }
+        if (Photos.Count == 0) return;
+        var sonuc = await DesktopPhotos.KaydetAsync("material", materialId, Photos.Select(p => p.LocalPath));
+        if (sonuc.Cevrimdisi)
+            Status = "Kayıt tamam; fotoğraflar YÜKLENEMEDİ (çevrimdışı). Çevrimiçi olduğunuzda fotoğrafı yeniden ekleyin.";
+        else if (sonuc.Hata is not null)
+            Status = "Kayıt tamam; fotoğraf yüklenemedi: " + sonuc.Hata;
     }
 
-    private void LoadDetailPhotos(string materialId)
+    /// <summary>Kayıtlı fotoğrafları SUNUCUDAN yükler; çevrimdışıysa bu makinedeki eski kopyalara düşer
+    /// ve kullanıcıya durumu söyler (sessizce boş göstermez).</summary>
+    private async Task LoadDetailPhotosAsync(string materialId)
     {
         DetailPhotos.Clear();
-        try
+        var (fotograflar, cevrimdisi) = await DesktopPhotos.YukleAsync(_session, "material", materialId);
+        foreach (var f in fotograflar)
         {
-            foreach (var f in DesktopServices.Files.GetPhotos(_session, "material", materialId))
-            {
-                var bytes = DesktopServices.Storage.Read(f.StorageKey);
-                DetailPhotos.Add(new DetailPhoto(f.Id, new Bitmap(new MemoryStream(bytes))));
-            }
+            try { DetailPhotos.Add(new DetailPhoto(f.FileId, new Bitmap(new MemoryStream(f.Bytes)))); }
+            catch { /* bozuk görsel atlanır */ }
         }
-        catch { /* foto yoksa sessiz */ }
+        PhotosOffline = cevrimdisi;
     }
+
+    /// <summary>Çevrimdışı görüntüleme uyarısı — ekranda küçük bir not olarak gösterilir.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PhotosOfflineNote))]
+    private bool _photosOffline;
+    public string? PhotosOfflineNote => PhotosOffline
+        ? "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor."
+        : null;
+
+    /// <summary>PK-F3 — fotoğraf silme düğmesi YALNIZ düzenleme modunda ve SİLME yetkisiyle görünür.</summary>
+    public bool CanDeletePhoto => CanDelete && IsEditMode;
 
     private void NotifyListState()
     {

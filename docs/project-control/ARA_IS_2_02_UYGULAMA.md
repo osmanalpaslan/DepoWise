@@ -10,7 +10,7 @@
 | S2 | "Yakıtı Veren" son seçim | ✅ **TAMAM** |
 | S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ✅ **TAMAM** |
 | S4 | Günlük Faaliyet — Detay | ✅ **TAMAM** |
-| S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ⏳ |
+| S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ✅ **TAMAM** |
 | S6 | Kapanış doğrulaması + yayın öncesi rapor | ⏳ |
 
 ---
@@ -192,3 +192,53 @@ etiket+CategoryModule+descriptor) · `ReportModels.cs` (ActivityTypes) · `AppMo
 `Desktop/Views/ReportsView.axaml` · testler: **yeni** `GunlukFaaliyetRaporuTests.cs`,
 `PostgresGunlukRaporlarTests.cs` (genişletildi), `ReportArchitectureTests.cs`, `ScreenTreeParityTests.cs`,
 `ReportFilterParityTests.cs`, `StockReportLocationTests.cs`, `RaporKapsamliTaramaTests.cs`.
+
+---
+
+## S5 — FOTOĞRAF: SUNUCU-OTORİTELİ + SİLME KAPISI (✅ tamamlandı · PK-F1=A·F2·F3·F4=A·F5=A)
+
+**Kök neden (kullanıcının şikâyeti):** masaüstü fotoğrafı YALNIZ kendi diskine + kendi yerel
+`file_records` tablosuna yazıyordu. Bu tablo iş senkronunda YOKTUR ve ikili içerik hiçbir pakette
+taşınmaz → **üç ayrı silo** (A makinesi · B makinesi · sunucu). Web zaten sunucuya yüklüyordu.
+
+**Çözüm (PK-F1=A):** Evrak modülünde kurulu "içerik sunucuda durur, iki platform aynı API'yi çağırır"
+deseni fotoğraflara uygulandı. **Sunucu uçları zaten vardı; masaüstü hiç çağırmıyordu.** Yeni ortak
+katman `DesktopPhotos` (yükle/kaydet/sil/taşı) + `OrgServerClient`'a 4 fotoğraf metodu (belge yükleme
+deseninin aynısı). **Yeni tablo, migration ve senkron sözleşmesi değişikliği YOK** — `file_records`
+hâlâ senkron listesinde değil (testle kilitli).
+
+- **PK-F4=A (çevrimdışı):** fotoğraf EKLEME çevrimiçi gerektirir; kayıt yine kaydedilir ve kullanıcıya
+  net uyarı verilir ("Kayıt tamam; fotoğraflar YÜKLENEMEDİ (çevrimdışı)…"). GÖRÜNTÜLEME çevrimdışıyken
+  bu makinedeki eski kopyalara düşer ve ekranda "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar
+  gösteriliyor." notu çıkar — kullanıcı sessizce boş ekran görmez.
+- **PK-F5=A (eski yerel fotoğraflar):** kayıt açıldığında yereldekiler sunucuya **BİR KEZ taşınır**.
+  YALNIZ EKLEME: hiçbir kayıt silinmez/değiştirilmez; içerik özeti (sha256) sunucuda varsa atlanır →
+  mükerrer yükleme olmaz. Bunun için `GET .../photos` yanıtına **eklemeli** `sha256` alanı eklendi
+  (eski istemciler alanı yok sayar) ve `FileRecordDto`'ya `Sha256` SONA eklendi.
+- **PK-F3 (silme kapısı):** iki platformda da silme **yalnız Düzenle modunda + SİLME yetkisiyle**.
+  🔴 Kapatılan iki hata: (1) masaüstünde silme düğmesi salt-okunur bilgi panelindeydi → kullanıcı
+  düzenlemeye geçmeden silebiliyordu; (2) düğme `CanEdit`'e bağlıydı ama sunucu `Delete` istiyordu →
+  düzenleme yetkisi olup silme yetkisi olmayan kullanıcı düğmeyi görüp hata alıyordu. Artık kayıtlı
+  fotoğraflar düzenleme formunda gösterilir, düğme `CanDeletePhoto` (= Delete ∧ düzenleme modu).
+- **PK-F2 (web eksiği):** 🔴 web fotoğrafı yüklüyor ama **kayıtlı fotoğrafları hiç göstermiyordu**
+  (yükleme/silme kodu vardı, hiçbir yerde çizilmiyordu). Malzeme ve Araç formlarına "Kayıtlı
+  fotoğraflar" bloğu eklendi; silme düğmesi `Auth.CanDelete(...)` ile kapılı.
+
+**Testler:** **yeni** `FotografSunucuOtoriteliTests` **10 test** — A kullanıcısının yüklediğini AYNI
+firmadaki başka kullanıcı/makine görür (araçta da) · sha256 künyede dolu ve içeriğe duyarlı (taşıma
+güvencesi) · **silme Düzenleme yetkisiyle YAPILAMAZ, Silme yetkisi gerekir** · yükleme Düzenleme
+yetkisi ister · **tenant: başka firma göremez/silemez** · **kaynak-düzeyi kilitler**: masaüstü yerele
+yazamaz (`DesktopServices.Files.SavePhoto/DeletePhoto` çağrısı YOK, `DesktopPhotos.*` var), XAML
+`CanDeletePhoto`'ya bağlı, web "Kayıtlı fotoğraflar" bloğu + `Auth.CanDelete` var · **senkron
+sözleşmesi değişmedi** (`file_records` hâlâ listede değil). Koşu 10/10; dosya/malzeme/araç/tenant/
+şablon regresyonu **381/383** (1 atlanan PG + düzeltilen 1 sıra nöbetçisi).
+`StockMovementsMaterialFilterTests` alan-sırası nöbetçisi yeni alan için bir sıra kaydırıldı
+(gevşetilmedi — `ActivityTypes` artık son alan).
+
+### Değişen dosyalar (S5)
+**yeni** `src/DepoWise.Desktop/DesktopPhotos.cs` · `Desktop/OrgServerClient.cs` (4 fotoğraf metodu) ·
+`Desktop/ViewModels/MaterialsViewModel.cs` · `Desktop/ViewModels/VehiclesViewModel.cs` ·
+`Desktop/Views/MaterialsView.axaml` · `Desktop/Views/VehiclesView.axaml` ·
+`Infrastructure/Files/FileService.cs` (Sha256) · `Api/Program.cs` (2 uçta eklemeli sha256) ·
+`Web/Components/Pages/Materials.razor` · `Web/Components/Pages/Vehicles.razor` · testler:
+**yeni** `FotografSunucuOtoriteliTests.cs`, `StockMovementsMaterialFilterTests.cs` (sıra nöbetçisi).

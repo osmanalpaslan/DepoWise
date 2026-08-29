@@ -111,6 +111,73 @@ public static class OrgServerClient
     public static Task<Result> DeleteDocumentAsync(string id)
         => SendOkAsync(HttpMethod.Delete, $"/api/documents/{id}", null);
 
+    // ═══ FOTOĞRAFLAR — SUNUCU OTORİTELİ (ADR-182 · ARA İŞ 2 / S5, PK-F1=A) ═══
+    //
+    // 🔴 Kapatılan hata: masaüstü fotoğrafı YALNIZ kendi diskine + kendi yerel file_records'una yazıyordu.
+    // `file_records` iş senkronunda YOKTUR ve ikili içerik hiçbir pakette taşınmaz → A makinesinde eklenen
+    // fotoğrafı B makinesi ve web ASLA göremiyordu (üç ayrı silo). Belgeler (EVR-01) için doğru desen
+    // zaten kurulmuştu; fotoğraflar o karardan ÖNCE yazıldığı için yerel yolda kalmıştı.
+    //
+    // Çözüm: fotoğraf da belgeler gibi SUNUCUDA durur; masaüstü web ile AYNI uçları çağırır. Yeni tablo,
+    // yeni migration ve senkron sözleşmesi değişikliği GEREKMEZ.
+    // <paramref name="entity"/>: "materials" | "vehicles" (API yol parçası).
+
+    /// <summary>Sunucudaki fotoğraf künyeleri. <c>null</c> = ÇEVRİMDIŞI (hata değil; çağıran yerele düşer).</summary>
+    public static async Task<List<RemotePhoto>?> ListPhotosAsync(string entity, string entityId)
+    {
+        using var doc = await GetJsonAsync($"/api/{entity}/{entityId}/photos");
+        if (doc is null) return null;
+        var list = new List<RemotePhoto>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+            list.Add(new RemotePhoto(Str(e, "id"), NullS(e, "sha256")));
+        return list;
+    }
+
+    /// <summary>Fotoğraf baytları. <c>null</c> = çevrimdışı/başarısız.</summary>
+    public static async Task<byte[]?> DownloadPhotoAsync(string entity, string entityId, string fileId)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url + $"/api/{entity}/{entityId}/photos/{fileId}");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadAsByteArrayAsync();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Fotoğraf yükler (multipart — belge yüklemenin aynısı). Doğrulama/optimizasyon SUNUCUDA yapılır
+    /// (7 MB sınırı, JPEG/PNG sihirli bayt kontrolü, yeniden boyutlandırma) → iki platform aynı kuralı uygular.</summary>
+    public static async Task<Result> UploadPhotoAsync(string entity, string entityId, string fileName, string? mime, byte[] bytes)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return OfflineResult;
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(mime) ? "image/jpeg" : mime!);
+            form.Add(content, "file", fileName);
+            using var req = new HttpRequestMessage(HttpMethod.Post, url + $"/api/{entity}/{entityId}/photos") { Content = form };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            var text = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode) return new Result(false, false, ExtractError(text, (int)resp.StatusCode), null, (int)resp.StatusCode);
+            return new Result(true, false, null, null);
+        }
+        catch { return OfflineResult; }
+    }
+
+    /// <summary>Fotoğrafı sunucudan siler. Yetki kapısı SUNUCUDADIR (files/materials/vehicles → Delete).</summary>
+    public static Task<Result> DeletePhotoAsync(string entity, string entityId, string fileId)
+        => SendOkAsync(HttpMethod.Delete, $"/api/{entity}/{entityId}/photos/{fileId}", null);
+
+    /// <summary>Sunucudaki bir fotoğrafın kimliği + içerik özeti (mükerrer taşımayı önlemek için).</summary>
+    public sealed record RemotePhoto(string Id, string? Sha256);
+
     private static long? Num(JsonElement e, string key)
         => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 

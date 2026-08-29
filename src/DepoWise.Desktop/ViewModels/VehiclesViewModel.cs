@@ -509,7 +509,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm — kayıt arada değiştiyse sessizce ezme.
                     expectedVersion: Detail?.Version);
 
-                SaveStagedPhotos(EditId!);
+                await SaveStagedPhotosAsync(EditId!);
 
                 if (NewMeter != _loadedMeter)
                 {
@@ -549,10 +549,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                 VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                 BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
                 TemplateId: _templateId));
-            SaveStagedPhotos(id);
+            await SaveStagedPhotosAsync(id);
+            var fotoUyarisi = Status;   // yükleme uyarısı varsa korunur (Clear/Load ezmesin)
             Clear();
             Load();
-            Status = "Araç eklendi.";
+            Status = fotoUyarisi is not null && fotoUyarisi.StartsWith("Kayıt tamam", StringComparison.Ordinal)
+                ? fotoUyarisi : "Araç eklendi.";
         }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
@@ -632,6 +634,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditMode))]
     [NotifyPropertyChangedFor(nameof(FormTitle))]
+    [NotifyPropertyChangedFor(nameof(CanDeletePhoto))]   // ADR-182 (PK-F3): silme yalnız düzenleme modunda
     private string? _editId;
     public bool IsEditMode => EditId != null;
     public string FormTitle => IsEditMode ? "ARAÇ DÜZENLE" : "YENİ ARAÇ";
@@ -650,7 +653,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             FlushPendingRefresh();   // detay kapandı → eşitleme sırasında bekletilen yenileme şimdi uygulanır
             return;
         }
-        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); LoadDetailPhotos(value.Id); LoadVehicleTabs(value.Id, value.Code); }
+        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); _ = LoadDetailPhotosAsync(value.Id); LoadVehicleTabs(value.Id, value.Code); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
@@ -780,43 +783,62 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [RelayCommand]
     private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
 
-    /// <summary>Detaydaki kayıtlı fotoğrafı sil (onaylı).</summary>
+    /// <summary>
+    /// Kayıtlı fotoğrafı siler — ⭐ ADR-182 (PK-F3): YALNIZ düzenleme modunda ve SİLME yetkisiyle.
+    /// (Malzemeler ekranıyla aynı kural; ikisi de aynı ortak fotoğraf katmanını kullanır.)
+    /// </summary>
     [RelayCommand]
     private async Task DeleteDetailPhoto(DetailPhoto? p)
     {
-        if (p is null || Selected is null) return;
-        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (p is null) return;
+        var kayitId = EditId ?? Selected?.Id;
+        if (kayitId is null) return;
+        if (!IsEditMode) { Status = "Fotoğraf silmek için önce Düzenle'ye geçin."; return; }
+        if (!CanDelete) { Status = "Yetki yok."; return; }
         if (!await ConfirmService.AskAsync("Bu fotoğraf silinsin mi?", "Fotoğraf Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
-        try { DesktopServices.Files.DeletePhoto(_session, p.FileId); LoadDetailPhotos(Selected.Id); Status = "Fotoğraf silindi."; }
-        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+
+        var r = await DesktopPhotos.SilAsync("vehicle", kayitId, p.FileId);
+        if (r.Offline) { Status = "Fotoğraf silme çevrimiçi olmayı gerektirir."; return; }
+        if (!r.Ok) { Status = "Silinemedi: " + (r.Error ?? "bilinmeyen hata"); return; }
+        await LoadDetailPhotosAsync(kayitId);
+        Status = "Fotoğraf silindi.";
     }
 
-    private void SaveStagedPhotos(string vehicleId)
+    /// <summary>⭐ ADR-182 (PK-F1=A): fotoğraflar SUNUCUYA yüklenir → başka makine/kullanıcı da görür.
+    /// Çevrimdışıysa yerele YAZILMAZ (PK-F4=A); kullanıcıya net uyarı verilir.</summary>
+    private async Task SaveStagedPhotosAsync(string vehicleId)
     {
-        foreach (var ph in Photos)
-        {
-            try
-            {
-                var bytes = File.ReadAllBytes(ph.LocalPath);
-                DesktopServices.Files.SavePhoto(_session, "vehicle", vehicleId, Path.GetFileName(ph.LocalPath), null, bytes);
-            }
-            catch (Exception ex) { Status = "Foto kaydedilemedi: " + ex.Message; }
-        }
+        if (Photos.Count == 0) return;
+        var sonuc = await DesktopPhotos.KaydetAsync("vehicle", vehicleId, Photos.Select(p => p.LocalPath));
+        if (sonuc.Cevrimdisi)
+            Status = "Kayıt tamam; fotoğraflar YÜKLENEMEDİ (çevrimdışı). Çevrimiçi olduğunuzda fotoğrafı yeniden ekleyin.";
+        else if (sonuc.Hata is not null)
+            Status = "Kayıt tamam; fotoğraf yüklenemedi: " + sonuc.Hata;
     }
 
-    private void LoadDetailPhotos(string vehicleId)
+    /// <summary>Kayıtlı fotoğrafları SUNUCUDAN yükler; çevrimdışıysa bu makinedeki eski kopyalara düşer.</summary>
+    private async Task LoadDetailPhotosAsync(string vehicleId)
     {
         DetailPhotos.Clear();
-        try
+        var (fotograflar, cevrimdisi) = await DesktopPhotos.YukleAsync(_session, "vehicle", vehicleId);
+        foreach (var f in fotograflar)
         {
-            foreach (var f in DesktopServices.Files.GetPhotos(_session, "vehicle", vehicleId))
-            {
-                var bytes = DesktopServices.Storage.Read(f.StorageKey);
-                DetailPhotos.Add(new DetailPhoto(f.Id, new Bitmap(new MemoryStream(bytes))));
-            }
+            try { DetailPhotos.Add(new DetailPhoto(f.FileId, new Bitmap(new MemoryStream(f.Bytes)))); }
+            catch { /* bozuk görsel atlanır */ }
         }
-        catch { /* foto yoksa sessiz */ }
+        PhotosOffline = cevrimdisi;
     }
+
+    /// <summary>Çevrimdışı görüntüleme uyarısı — ekranda küçük bir not olarak gösterilir.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PhotosOfflineNote))]
+    private bool _photosOffline;
+    public string? PhotosOfflineNote => PhotosOffline
+        ? "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor."
+        : null;
+
+    /// <summary>PK-F3 — fotoğraf silme düğmesi YALNIZ düzenleme modunda ve SİLME yetkisiyle görünür.</summary>
+    public bool CanDeletePhoto => CanDelete && IsEditMode;
 }
 
 public sealed record VehicleRow(string Id, string Code, string? Plate, string Status, decimal Meter, string MeterUnit,

@@ -171,11 +171,12 @@ public class StockMovementsMaterialFilterTests : IDisposable
     {
         var ctor = typeof(ReportRequest).GetConstructors().OrderByDescending(c => c.GetParameters().Length).First();
         var p = ctor.GetParameters();
-        Assert.Equal("PartyIds", p[^1].Name);      // G4-4 (en son eklenen — SIRA KAYDIRILDI, gevşetilmedi)
-        Assert.Equal("MaterialIds", p[^2].Name);   // STK-10b-3
-        Assert.Equal("SearchText", p[^3].Name);    // STK-10b-2
-        Assert.Equal("MovementTypes", p[^4].Name); // STK-10b-1
-        Assert.Equal("LocationIds", p[^5].Name);   // STK-06
+        Assert.Equal("ActivityTypes", p[^1].Name); // ADR-182 (en son eklenen — SIRA KAYDIRILDI, gevşetilmedi)
+        Assert.Equal("PartyIds", p[^2].Name);      // G4-4
+        Assert.Equal("MaterialIds", p[^3].Name);   // STK-10b-3
+        Assert.Equal("SearchText", p[^4].Name);    // STK-10b-2
+        Assert.Equal("MovementTypes", p[^5].Name); // STK-10b-1
+        Assert.Equal("LocationIds", p[^6].Name);   // STK-06
     }
 
     // ══════════════ 2. TEMEL DAVRANIŞ ══════════════

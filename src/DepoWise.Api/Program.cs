@@ -957,8 +957,10 @@ app.MapPost("/api/materials/{id}/equivalents", (HttpContext c, string id, IdDto 
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Materials.AddEquivalent(s, id, d.Id)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // Malzeme fotoğrafları (file_records + disk storage)
+// ADR-182 (ARA İŞ 2 / S5): yanıta `sha256` EKLENDİ (eklemeli — eski istemciler alanı yok sayar).
+// Masaüstü, yerelde kalmış eski fotoğrafları sunucuya BİR KEZ taşırken bu özetle mükerrer yüklemeyi önler.
 app.MapGet("/api/materials/{id}/photos", (HttpContext c, string id) =>
-    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "material", id).Select(p => new { id = p.Id, url = $"/api/materials/{id}/photos/{p.Id}" })) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "material", id).Select(p => new { id = p.Id, url = $"/api/materials/{id}/photos/{p.Id}", sha256 = p.Sha256 })) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/materials/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -3499,8 +3501,9 @@ app.MapGet("/api/vehicles/alerts", (HttpContext c) =>
     return Results.Ok(map.Select(kv => new { vehicleId = kv.Key, text = string.Join(" / ", kv.Value) }));
 }).RequireAuthorization();
 // Araç fotoğrafları
+// ADR-182 (ARA İŞ 2 / S5): yanıta `sha256` EKLENDİ (eklemeli — eski istemciler alanı yok sayar).
 app.MapGet("/api/vehicles/{id}/photos", (HttpContext c, string id) =>
-    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "vehicle", id).Select(p => new { id = p.Id, url = $"/api/vehicles/{id}/photos/{p.Id}" })) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "vehicle", id).Select(p => new { id = p.Id, url = $"/api/vehicles/{id}/photos/{p.Id}", sha256 = p.Sha256 })) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();

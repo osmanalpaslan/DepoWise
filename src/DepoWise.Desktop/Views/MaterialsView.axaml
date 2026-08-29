@@ -229,6 +229,31 @@
                 <!-- Fotoğraflar -->
                 <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
                 <StackPanel Spacing="8">
+                    <!-- ADR-182 (PK-F3): KAYITLI fotoğraflar YALNIZ burada (düzenleme formunda) silinebilir.
+                         Düğme ayrıca SİLME yetkisine bağlıdır — sunucu da Delete ister (arayüz kilidi tek
+                         başına güvenlik sayılmaz). Yeni kayıtta (EditId yok) bu blok görünmez. -->
+                    <SelectableTextBlock Text="Kayıtlı fotoğraflar" Classes="Hint" IsVisible="{Binding IsEditMode}"/>
+                    <ItemsControl ItemsSource="{Binding DetailPhotos}" IsVisible="{Binding IsEditMode}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DetailPhoto">
+                                <Panel Margin="0,0,8,8" Width="84" Height="84">
+                                    <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
+                                            CommandParameter="{Binding Image}">
+                                        <Border CornerRadius="8" ClipToBounds="True">
+                                            <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                        </Border>
+                                    </Button>
+                                    <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
+                                            IsVisible="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).CanDeletePhoto}"
+                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).DeleteDetailPhotoCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </Panel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
                             Command="{Binding AddPhotosCommand}"/>
                     <ItemsControl ItemsSource="{Binding Photos}">
@@ -725,15 +750,15 @@
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
                                     </Border>
                                 </Button>
-                                <Button Classes="Icon" Content="×" Width="22" Height="22"
-                                        HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
-                                        IsVisible="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).CanEdit}"
-                                        Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).DeleteDetailPhotoCommand}"
-                                        CommandParameter="{Binding}"/>
+                                <!-- ADR-182 (PK-F3): SİLME DÜĞMESİ BURADAN KALDIRILDI. Bu panel salt-okunur
+                                     GÖRÜNTÜLEME alanıdır; fotoğraf silme yalnız Düzenle formunda ve SİLME
+                                     yetkisiyle yapılır (eskiden görüntüleme modunda silinebiliyordu). -->
                             </Panel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint"
+                                     IsVisible="{Binding PhotosOffline}" TextWrapping="Wrap"/>
                 <WrapPanel>
                   <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0"
                           Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
