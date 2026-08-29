@@ -9,34 +9,35 @@
 | İş | Durum | Not |
 |---|---|---|
 | RAPOR ARA İŞİ (ADR-181: vehicle-daily + 8 kategori yetkisi) | ⛔ **YAYIN BEKLİYOR** | Kod+test tamam; "YAYINLA" onayı bekleniyor |
-| İŞ 1 — Fotoğraf sunucu-otoriteli + silme kapısı | 🟢 **KARAR VERİLDİ** (PK-F1=A·F2=EVET·F3·F4=A·F5=A) | Plan: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md) S5 |
-| İŞ 2 — Yakıt raporu tarih/araç listesi | 🟢 **KARAR VERİLDİ** (PK-T1=A·T2=EVET·T3=A·T4=A) | Plan S1 — masaüstü yazım saat dilimi bugu + yalnız-verili-araç sözleşmesi |
-| İŞ 3 — "Yakıtı Veren" son seçim | 🟢 **KARAR VERİLDİ** (PK-V1=A) | Plan S2 — migration'sız |
-| İŞ 4 — Yakıt Günlük + Stok Hareketleri Günlük | 🟢 **KARAR VERİLDİ** (PK-G1=A·G2=A) | Plan S3 — migration'sız |
-| İŞ 5 — Günlük Faaliyet — Detay raporu | 🟢 **KARAR VERİLDİ** (PK-D1=A: yeni kategori + `report_daily_activity`) | Plan S4 — migration'sız |
+| İŞ 1 — Fotoğraf sunucu-otoriteli + silme kapısı | ✅ **KOD+TEST TAMAM** (S5 · commit `a638c51`) | Sunucu-otoriteli; web görüntüleme/silme tamamlandı; silme yalnız Düzenle+Delete; eski yereller sha256 ile bir kez taşınır |
+| İŞ 2 — Yakıt raporu tarih/araç listesi | ✅ **KOD+TEST TAMAM** (S1 · commit `fc3e2fd`) | Masaüstü tarih bugu düzeltildi (web'e dokunulmadı); rapor yalnız verisi olan araçları listeler; canlı kayıtlar korundu; PK-T4 taraması raporlandı |
+| İŞ 3 — "Yakıtı Veren" son seçim | ✅ **KOD+TEST TAMAM** (S2 · commit `f2d7daf`) | Kişisel tercih; "Yakıtı Alan" kapsam dışı; migration/yeni API ucu YOK |
+| İŞ 4 — Yakıt Günlük + Stok Hareketleri Günlük | ✅ **KOD+TEST TAMAM** (S3 · commit `142b2b5`) | `fuel-daily` + `stock-movements-daily`; mevcut raporlar regresyonla korundu |
+| İŞ 5 — Günlük Faaliyet — Detay raporu | ✅ **KOD+TEST TAMAM** (S4 · commit `77805cd`) | Yeni çoklu-seçim filtresi (6 katman) + 9. kategori `report_daily_activity` (kapalı başlar) |
 | İŞ 6 — Custom Rapor Tasarımcısı | ⏸️ **AYRI FAZ** (kullanıcı kararı — PAKET-1 dışı, kodlanmaz) | ⚠️ MIGRATION GEREKİR; çerçeve: Plan §5 |
 | İŞ 7 — Ekip + Hiyerarşi + Onay + Onaylamalarım | ⏸️ **AYRI FAZ** (kullanıcı kararı — PAKET-1 dışı, kodlanmaz) | ⚠️ MIGRATION+SENKRON GEREKİR; çerçeve: Plan §5 |
 | FIN-B1 / Migration082 | ⛔ **AYRI ONAY BEKLİYOR** | Tasarım `35d7bce`; canlı şema 81 (ADR-180) |
 | N — Mobil | ⏭️ **ATLANDI** | Kod yazılmadı; bu döngüde uygulanmayacak |
 
-**PAKET-1 kapsamı (kullanıcı onaylı):** İş 1+2+3+4+5 — tamamı migration'sız; sıra S1..S6
-([ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md)). Bitince yayın öncesi rapor + "YAYINLA" onayı istenir
-(yayın ERTELENMEZ). **Sıradaki adım: kullanıcının UYGULAMA BAŞLASIN onayı.**
+**PAKET-1 (İş 1+2+3+4+5) ✅ KOD+TEST TAMAM — ⛔ YAYIN ONAYI BEKLİYOR.** Tamamı MIGRATION'SIZ;
+uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: ADR-182.
 
 ### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29)
-- **Son tamamlanan iş:** ARA İŞ 2 birleşik analiz + karar kaydı + uygulama planı (kod YOK)
-- **Son commit:** bkz. git log (ARA_IS_2_01_PLAN commit'i) — öncesi `b27f52f` (analiz), `5890633` (ADR-181)
-- **Production yayınlandı mı:** HAYIR (canlıda hâlâ API v174 · Web v199 · Masaüstü 1.0.160)
-- **Production migration çalıştı mı:** HAYIR — **canlı şema 81**
-- **Yayın bekleyen havuz:** M (Excel Merkezi) + O (Barkod/QR) + FIN düzeltmeleri (082 HARİÇ) + Rapor Ara İşi (ADR-181) + [tamamlanınca] ARA İŞ 2 PAKET-1
-- **Ayrı onay bekleyen işler:** FIN-B1/Migration082 (tasarım `35d7bce`) · İş 6 Custom Rapor (ayrı faz) · İş 7 Ekip+Onay (ayrı faz)
-- **Atlanan işler:** N — Mobil
-- **Şu an aktif faz:** ARA İŞ 2 PAKET-1 — KARAR VERİLDİ, uygulama onayı bekliyor
-- **Bir sonraki yapılacak iş:** kullanıcı onayı gelince Plan S1 (yakıt tarih bugu + rapor sözleşmesi)
-- **Bir sonraki ana roadmap aşaması:** AŞAMA 3 — FINAL KARAR PAKETİ (ara işler roadmap'in yerine geçmez)
-- **Kullanıcıdan beklenen karar:** "UYGULAMA BAŞLASIN" (PAKET-1) · [sonra] "YAYINLA" (yayın öncesi rapor sonrası)
-- **Yeni oturumda okunacak belgeler:** CURRENT_PHASE.md → MASTER_ROADMAP.md → ARA_IS_2_01_PLAN.md → ARA_IS_2_00_ANALIZ.md → RAPOR_ARA_IS_01.md
-- Claude Code yeni oturumda önce CURRENT_PHASE.md + MASTER_ROADMAP.md + son analiz/uygulama raporunu okuyarak devam noktasını kendisi tespit etmelidir.
+- **Son tamamlanan iş:** ARA İŞ 2 PAKET-1 (S1 yakıt · S2 yakıtı veren · S3 günlük raporlar · S4 günlük faaliyet detayı · S5 fotoğraf) — **kod + test bitti, yayınlanmadı**
+- **Yarım kalan iş:** YOK. S1–S5'in tamamı tamamlandı ve push edildi; yalnız YAYIN adımı bekliyor.
+- **Son commit:** `a638c51` (S5) — zincir: `fc3e2fd` S1 → `f2d7daf` S2 → `142b2b5` S3 → `77805cd` S4 → `a638c51` S5
+- **Yayına hazır kod havuzu:** M (Excel Merkezi) + O (Barkod/QR) + FIN düzeltmeleri (**082 HARİÇ**) + Rapor Ara İşi (ADR-181) + **ARA İŞ 2 PAKET-1 (ADR-182)**
+- **Production yayınlandı mı:** HAYIR — canlıda hâlâ API v174 · Web v199 · Masaüstü 1.0.160
+- **Production migration çalıştı mı:** HAYIR — **canlı şema 81** (katalog azamisi de 81; bu pakette hiç migration eklenmedi)
+- **FIN-B1 / Migration082:** master'dan geri çekilmiş (ADR-180), tasarım `35d7bce`'de, **AYRI onay bekliyor**; bu yayında ÇALIŞMAYACAK
+- **Ayrı faza bırakılanlar:** İş 6 **Custom Rapor** (migration gerekir — henüz uygulanmadı) · İş 7 **Ekip + Hiyerarşi + Onay** (migration + senkron gerekir — henüz uygulanmadı)
+- **Atlanan iş:** N — Mobil (kod yazılmadı)
+- **Şu an aktif faz:** ARA İŞ 2 PAKET-1 — **YAYIN BEKLİYOR**
+- **Bir sonraki yapılacak TEK iş:** kullanıcının **"YAYINLA"** onayı → deploy (API + Web + masaüstü paketi) → yayın sonrası salt-okunur kontroller → **kullanıcı işi:** `report_daily_activity` yetkisini Yetkiler ekranından açmak
+- **AŞAMA 3'e dönüldüğünde izlenecek adım:** ana roadmap sıradaki iş **AŞAMA 3 — FINAL KARAR PAKETİ**; ilk madde FIN-B1/Migration082'nin ayrı onayı (diğer 6 madde ADR-179'da kapandı ve korunuyor)
+- **Kullanıcıdan beklenen karar:** "YAYINLA"
+- **Yeni oturumda okunacak belgeler:** CURRENT_PHASE.md → MASTER_ROADMAP.md → ARA_IS_2_02_UYGULAMA.md → ARA_IS_2_00_ANALIZ.md → RAPOR_ARA_IS_01.md → DECISIONS.md (ADR-180/181/182)
+- Claude Code yeni oturumda önce CURRENT_PHASE.md + MASTER_ROADMAP.md + son uygulama raporunu okuyarak devam noktasını kendisi tespit etmelidir.
 
 ---
 

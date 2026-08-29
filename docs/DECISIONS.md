@@ -2862,3 +2862,64 @@ aynı eşlemeyi kullanır (tür adıyla atlatma imkânsız). RPR15d sözleşmesi
 **Doğrulama:** izole tam süit 2.931 → 2.893 geçti / 0 başarısız / 38 bilinçli-atlanan; izole yerel PG
 46/46 (guard çift kilidi aynen); 3 Release build 0 hata. MIGRATION YOK — katalog azamisi 81 = canlı şema.
 Production'a bağlanılmadı; YAYIN AYRI ONAY bekliyor ("YAYINLA").
+
+---
+
+## ADR-182 — ARA İŞ 2 / PAKET-1: yakıt tarihi, rapor kapsamı, son seçim, günlük raporlar, faaliyet detayı, fotoğraf sunucu-otoriteliği (2026-08-29)
+
+**Bağlam.** Kullanıcı, rapor ara işinin (ADR-181) üzerine 8 yeni ara iş bildirdi. Analiz sonrası kararlar:
+**PK-F1=A · PK-F2=EVET · PK-F3 · PK-F4=A · PK-F5=A · PK-T1=A · PK-T2=EVET · PK-T3=A · PK-T4=A ·
+PK-V1=A · PK-G1=A · PK-G2=A · PK-D1=A**; İş 6 (Custom Rapor) ve İş 7 (Ekip+Onay) migration
+gerektirdiği için **ayrı fazlara** bırakıldı (bu pakette kod YOK).
+
+**Karar ve uygulama (S1–S5, tamamı MIGRATION'SIZ):**
+
+1. **S1 — Yakıt.** (a) Masaüstü yakıt fişi/depo girişi tarihi HAM `DateTimeOffset` yerine **UTC gün
+   başı** olarak yazılır (`FuelViewModel.IsGunuMs`). Bulunan hata: Avalonia DatePicker günü yerel
+   ofsetle veriyordu (TR +03:00) → seçilen 2 Ağustos veritabanına 1 Ağustos 21:00 UTC yazılıyor, fiş
+   tarih-filtreli tüm raporlarda **bir gün erken** görünüyordu; web bu hatayı taşımıyordu (dokunulmadı).
+   (b) **Sözleşme değişikliği (PK-T1=A):** "Yakıt Tüketim" raporu artık yalnız aralıkta fişi OLAN
+   araçları listeler (derived table'a INNER JOIN). Bu **yalnız bu rapora** aittir; `vehicle` ve
+   `vehicle-daily` TAM FİLO davranışını korur (regresyon testleriyle kilitli). (c) **PK-T3=A:** canlı
+   kayıtlara DOKUNULMADI — eski masaüstü fişleri bir gün erken görünmeye devam eder (bilinçli kabul).
+   (d) **PK-T4=A salt tarama:** aynı hata sınıfı 10 ekranda/17 yazım noktasında daha var (en ağırı
+   stok belge tarihleri) — **düzeltilmedi, ayrı karara bırakıldı** (ARA_IS_2_02_UYGULAMA.md'de liste).
+
+2. **S2 — "Yakıtı Veren" son seçimi (PK-V1=A).** Kişisel tercih olarak hatırlanır; **"Yakıtı Alan"
+   BİLİNÇLİ OLARAK kapsam dışıdır**. Mevcut `user_list_preferences` tablosunda ayrılmış anahtar altında
+   saklanır (yeni sütun/tablo YOK); anahtar iki platformda paylaşımlı dosyadan gelir (`UserPrefKeys`)
+   ve web mevcut `/api/me/list-columns/{key}` ucunu kullanır → **yeni API ucu da gerekmedi**.
+
+3. **S3 — Gün bazlı iki yeni rapor.** `fuel-daily` (PK-G1=A: yalnız fişi olan araç+gün; günlerin
+   toplamı dönem raporuna eşit — testle kilitli) ve `stock-movements-daily` (PK-G2=A: gün × hareket
+   türü özeti; miktar toplamları `ExactSumText` ile kesin). Mevcut `fuel`(S1b hariç)/`stock-movements`/
+   `vehicle-daily` davranışları regresyonla korundu. Gün anahtarı yine `ms/86400000` (iki lehçe birebir).
+
+4. **S4 — "Günlük Faaliyet — Detay" (PK-D1=A).** Yeni katalog raporu (yeni ekran/menü YOK), tarih
+   ZORUNLU, **kayıt tipi çoklu seçimi** (hiçbiri seçilmezse TÜM tipler). Tip iki sütunla kodlandığı
+   için (activity_type + movement_kind) eşleme tek merkezde; etiketler paylaşımlı `DailyActivityTypeOptions`
+   kataloğundan (üçüncü kopya üretilmedi). Yeni `ReportFilters.ActivityType` bayrağı 6 katmanın
+   hepsine bağlandı; `ReportRequest.ActivityTypes` **SONA** eklendi (pozisyonel kurulum nöbetçisi
+   güncellendi). **9. rapor kategorisi + `report_daily_activity` yetki anahtarı** — `reports` üst
+   kapısı korundu, kategori ikinci kapı; anahtar serbest metin olduğundan MIGRATION YOK ve
+   deny-by-default gereği **herkese kapalı başlar** (yayın sonrası elle açılacak).
+
+5. **S5 — Fotoğraf (PK-F1=A·F2·F3·F4=A·F5=A).** Kök neden: masaüstü fotoğrafı yalnız kendi diskine
+   yazıyordu; `file_records` senkronda YOK ve ikili içerik taşınmıyor → üç ayrı silo. Evrak modülünün
+   "içerik sunucuda durur" deseni fotoğraflara uygulandı (sunucu uçları zaten vardı, masaüstü hiç
+   çağırmıyordu): yeni ortak katman `DesktopPhotos` + `OrgServerClient` fotoğraf metotları.
+   Çevrimdışıda ekleme yapılmaz, **net uyarı** verilir; görüntüleme yereldeki eski kopyalara düşer ve
+   durum ekranda yazar. Yereldeki eski fotoğraflar **bir kez, YALNIZ EKLEME** olarak sunucuya taşınır
+   (mükerrer önleme için `GET .../photos` yanıtına **eklemeli** `sha256` alanı eklendi). Silme iki
+   platformda da **yalnız Düzenle modunda + SİLME yetkisiyle** (eskiden görüntüleme modunda ve
+   `CanEdit` ile mümkündü — sunucu ise `Delete` istiyordu). Web'de kayıtlı fotoğrafların hiç
+   gösterilmediği eksik tamamlandı. **Senkron sözleşmesi DEĞİŞMEDİ** (`file_records` hâlâ listede yok).
+
+**Alternatifler ve reddedilme gerekçeleri.** Fotoğrafta `file_records` + ikili içeriği senkron paketine
+eklemek: paket şişer, sözleşme değişir ve yalnız künye taşımak kırık küçük resim üretirdi → reddedildi.
+Tercih saklama için yeni tablo: migration gerektirirdi, mevcut kişisel tercih tablosu yetti → reddedildi.
+Yakıt raporunda "tam filo + gizle onay kutusu": iki davranış birden, daha çok yüzey → kullanıcı A'yı seçti.
+
+**Doğrulama.** İzole yerel PG **47/47** (PostgresTestGuard çift kilidi aynen; port 5544 zorunlu tutuldu,
+kilit gevşetilmedi). Tam süit ve 3 Release build sonuçları ARA_IS_2_02_UYGULAMA.md'de. **MIGRATION YOK —
+katalog azamisi 81 = canlı şema.** Production'a hiçbir aşamada bağlanılmadı; **yayın AYRI onay bekliyor**.

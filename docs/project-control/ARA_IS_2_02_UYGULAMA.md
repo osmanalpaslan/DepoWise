@@ -1,4 +1,4 @@
-# ARA İŞ 2 — PAKET-1 UYGULAMA KAYDI (2026-08-29, ADR-182) — 🔨 SÜRÜYOR
+# ARA İŞ 2 — PAKET-1 UYGULAMA KAYDI (2026-08-29, ADR-182) — ✅ KOD+TEST TAMAM · ⛔ YAYIN ONAYI BEKLİYOR
 
 > Plan: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md) · Analiz: [ARA_IS_2_00_ANALIZ.md](ARA_IS_2_00_ANALIZ.md)
 > Kararlar: PK-F1=A·F2·F3·F4=A·F5=A · T1=A·T2·T3=A·T4=A · V1=A · G1=A·G2=A · D1=A.
@@ -11,7 +11,22 @@
 | S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ✅ **TAMAM** |
 | S4 | Günlük Faaliyet — Detay | ✅ **TAMAM** |
 | S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ✅ **TAMAM** |
-| S6 | Kapanış doğrulaması + yayın öncesi rapor | ⏳ |
+| S6 | Kapanış doğrulaması + yayın öncesi rapor | ✅ **TAMAM** |
+
+## S6 — KAPANIŞ DOĞRULAMASI (✅ 2026-08-29)
+
+| Doğrulama | Sonuç |
+|---|---|
+| **TAM SÜİT (izole SQLite)** | **3.015 test → 2.976 geçti / 0 başarısız / 39 bilinçli-atlanan** (PG sınıfları; ayrıca aşağıda koşuldu) |
+| **İzole yerel PostgreSQL süiti** | **47/47** (guard çift kilidi AYNEN; sunucu 127.0.0.1:**5544** zorunlu tutuldu — kilit gevşetilmedi, sunucu yanlış portta açılınca port düzeltildi) |
+| **Release derlemeleri** | API **0 hata** · Web **0 hata** · Masaüstü **0 hata** |
+| **Migration** | **YOK** — son migration dosyası `Migration081_Announcements.cs`, katalog `new Migration081_Announcements()` ile bitiyor → **katalog azamisi 81 = canlı şema**; deploy'da runner NO-OP |
+| **Production** | **HİÇBİR aşamada bağlanılmadı** — ne API'ye, ne Neon'a; canlı veri okunmadı/yazılmadı |
+| **Çalışma ağacı** | Temiz (yalnız kullanıcının 2 takip-dışı dosyası — dokunulmadı) |
+| **Test PostgreSQL** | Doğrulama bitince durduruldu (kalan süreç 0) |
+| **Toplam değişiklik** | 7 commit · 41 dosya · +3.429 / −119 satır (yeni testler dahil) |
+
+Önceki tam süit 2.931→2.893 idi; bu pakette **+84 yeni test** eklendi ve 0 başarısızlıkla kapandı.
 
 ---
 
