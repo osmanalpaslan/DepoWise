@@ -11,8 +11,10 @@ using Xunit;
 namespace DepoWise.Tests;
 
 /// <summary>
-/// Yakıt Tüketim Raporu (2026-08-08 — Araç Raporu standardına taşındı) hesaplama + davranış doğruluğu. Veri doğrudan
-/// SQL ile seed edilir (deterministik). Senaryolar: KM aracı, SAAT iş makinesi, yakıtsız araç (tam filo), eksik
+/// Yakıt Tüketim Raporu (2026-08-08 — Araç Raporu standardına taşındı) hesaplama + davranış doğruluğu.
+/// ⭐ ADR-182 (2026-08-29, PK-T1=A): KAPSAM DEĞİŞTİ — yalnız aralıkta yakıt fişi OLAN araçlar listelenir
+/// (eski "tam filo" sözleşmesi bu raporda kaldırıldı; `vehicle`/`vehicle-daily` tam filo KALDI). Veri doğrudan
+/// SQL ile seed edilir (deterministik). Senaryolar: KM aracı, SAAT iş makinesi, yakıtsız araç (listelenmez), eksik
 /// prev/current sayaç, sıfıra bölme, ağırlıklı ortalama fiyat, araç/tür/şube filtreleri, yetkisiz şube (fail-closed),
 /// akıllı toplam (homojen vs karışık birim), TotalRow'un satırlardan ayrı olması (web özeti çift saymaz), NumCell
 /// HAM değer + "-" görüntüsü. Tek-geçiş SQL (N+1 yok) çıktısı test edilir. Kolon sırası:
@@ -56,7 +58,7 @@ public class FuelConsumptionTests : IDisposable
 
         Veh("v1", "V1", "34ABC01", "km", "B1", "T1", "BR1", "MD1");
         Veh("v2", "V2", null, "hour", "B2", "T2", null, null);
-        Veh("v3", "V3", null, "km", "B2", "T1", null, null);   // yakıtsız (tam filo)
+        Veh("v3", "V3", null, "km", "B2", "T1", null, null);   // yakıtsız → ADR-182 sonrası LİSTELENMEZ
         Veh("v4", "V4", null, "km", "B1", "T1", null, null);   // eksik prev sayaç
 
         // V1 (KM): 2 fiş → km=300, litre=150, tutar=100*40+50*44=6200
@@ -77,7 +79,8 @@ public class FuelConsumptionTests : IDisposable
         var t = Run();
         Assert.Equal("Yakıt Tüketim", t.Title);
         Assert.Equal(13, t.Headers.Count);
-        Assert.Equal(4, t.Rows.Count);        // 4 araç; TOPLAM ayrı TotalRow'da
+        // ADR-182 (PK-T1=A): aralıkta fişi OLAN araçlar → V1, V2, V4 (V3'ün hiç fişi yok, artık listelenmez).
+        Assert.Equal(3, t.Rows.Count);        // TOPLAM ayrı TotalRow'da
         Assert.NotNull(t.Numeric);
         Assert.NotNull(t.TotalRow);
     }
@@ -120,14 +123,21 @@ public class FuelConsumptionTests : IDisposable
         Assert.EndsWith("/Saat", Disp(v2[12]));
     }
 
+    /// <summary>
+    /// ⭐ ADR-182 (2026-08-29, PK-T1=A) — SÖZLEŞME DEĞİŞİKLİĞİ, testin gevşetilmesi DEĞİL.
+    /// Eski kilit: <c>YakitAlmayanArac_TamFilo_GoruntudeTire_DegerSifir</c> — yakıt almayan araç 0/"-"
+    /// ile LİSTELENİR derdi. Kullanıcı kararıyla bu rapor artık yalnız aralıkta fişi olan araçları
+    /// gösterir; yeni kural burada kilitlenir. Tam filo görünürlüğü <c>vehicle</c> / <c>vehicle-daily</c>
+    /// raporlarında KORUNUR (regresyon: <c>YakitTarihGunTests</c>).
+    /// </summary>
     [Fact]
-    public void YakitAlmayanArac_TamFilo_GoruntudeTire_DegerSifir()
+    public void YakitAlmayanArac_ARTIK_Listelenmez()
     {
-        var v3 = Row(Run(), "V3");                     // hiç yakıt yok
-        Assert.Equal("-", Disp(v3[8]));               // litre görüntüde "-"
-        Assert.Equal(0.0, D(v3[8]), 3);               // HAM değer 0
-        Assert.Equal("-", Disp(v3[11]));              // toplam maliyet "-"
-        Assert.Equal(0.0, D(v3[11]), 3);
+        var t = Run();
+        Assert.DoesNotContain(t.Rows, r => (string)r[1]! == "V3");   // V3'ün hiç yakıt fişi yok
+        Assert.Contains(t.Rows, r => (string)r[1]! == "V1");         // fişi olanlar aynen listelenir
+        Assert.Contains(t.Rows, r => (string)r[1]! == "V2");
+        Assert.Contains(t.Rows, r => (string)r[1]! == "V4");
     }
 
     [Fact]

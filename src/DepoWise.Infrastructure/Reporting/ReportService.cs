@@ -418,12 +418,16 @@ GROUP BY branch_id;";
     /// işlem sayısı, dönem sayaç mesafesi, litre, ortalama tüketim, AĞIRLIKLI ortalama yakıt fiyatı, toplam yakıt
     /// maliyeti ve birim başına maliyet; sayaç birimine (km/saat) duyarlı.
     ///
-    /// KAPSAM (rule 1): seçili tarih/şube kapsamındaki TÜM araçlar listelenir — o dönem yakıt almayan araç da 0
-    /// (görüntüde "-") ile görünür (tam filo görünürlüğü, Araç Raporu ile aynı davranış). Tarih filtresi YAKIT
-    /// fişlerine uygulanır; araçlar her hâlde listelenir.
+    /// ⭐ KAPSAM (ADR-182, 2026-08-29 · PK-T1=A — DAVRANIŞ DEĞİŞTİ): yalnız SEÇİLEN TARİH ARALIĞINDA yakıt
+    /// fişi OLAN araçlar listelenir (derived table'a INNER JOIN). Önceki davranış "tam filo" idi: yakıt
+    /// almayan araç da 0 / "-" ile görünürdü; kullanıcı gün bazlı incelemede bu boş satırların gürültü
+    /// yarattığını ve raporu okunamaz kıldığını bildirdi.
+    /// <b>Bu değişiklik YALNIZ bu rapora aittir</b> — <c>vehicle</c> (Araç Raporu) ve <c>vehicle-daily</c>
+    /// (Araç Raporu — Günlük) TAM FİLO davranışını KORUR; ikisi de regresyon testleriyle kilitlidir.
+    /// Tarih filtresi yine YAKIT fişlerine uygulanır (araç kartının kendi tarihine değil).
     ///
     /// PERFORMANS — N+1 YOK: yakıt maliyeti/mesafe/litre/işlem araç bazında ÖNCEDEN TEK türetilmiş tabloda toplanır
-    /// ve araca 1:1 LEFT JOIN edilir (satır çarpımı yok, dış GROUP BY yok). PG + SQLite ORTAK: yalnız CAST(... AS REAL)
+    /// ve araca 1:1 JOIN edilir (satır çarpımı yok, dış GROUP BY yok). PG + SQLite ORTAK: yalnız CAST(... AS REAL)
     /// + COALESCE + standart JOIN kullanılır (DB'ye özel sözdizimi yok); işlem sayısı REAL alınır (PG bigint/SQLite
     /// int ayrımı GetDouble ile güvenli okunur).
     ///
@@ -456,7 +460,7 @@ LEFT JOIN brands br ON br.id=v.brand_id
 LEFT JOIN vehicle_models vmd ON vmd.id=v.vehicle_model_id
 LEFT JOIN vehicle_types vt ON vt.id=v.vehicle_type_id
 LEFT JOIN branches bch ON bch.id=v.branch_id
-LEFT JOIN (
+JOIN (   -- ADR-182 (PK-T1=A): INNER — aralıkta fişi OLMAYAN araç listelenmez (eskiden LEFT = tam filo)
     SELECT vehicle_id,
       CAST(COUNT(*) AS REAL) AS cnt,
       SUM(CASE WHEN prev_meter IS NOT NULL AND current_meter IS NOT NULL

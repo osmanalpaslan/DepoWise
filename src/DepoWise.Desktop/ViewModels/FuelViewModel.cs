@@ -59,6 +59,22 @@ public sealed partial class FuelViewModel : ViewModelBase
     /// <summary>TRH-01 — DEPO GİRİŞİ işlem tarihi (iş günü). Dağıtımdan ayrıdır: iki farklı işlem.</summary>
     [ObservableProperty] private DateTimeOffset? _depotDate = new DateTimeOffset(DateTime.Today);
 
+    /// <summary>
+    /// ⭐ YKT-TRH (ADR-182, 2026-08-29 · PK-T2): seçilen GÜN, <b>UTC 00:00</b> olarak yazılır.
+    ///
+    /// <b>Bulunan hata:</b> önceki kod <c>DateTimeOffset.ToUnixTimeMilliseconds()</c> ile HAM
+    /// gönderiyordu. Avalonia <c>DatePicker</c> günü YEREL ofsetle verir (TR = +03:00) → kullanıcının
+    /// seçtiği 2 Ağustos, veritabanına <b>1 Ağustos 21:00 UTC</b> olarak yazılıyor; fiş tarih filtreli
+    /// yakıt/araç raporlarında <b>BİR GÜN ERKEN</b> görünüyordu. Web (<c>Fuel.razor</c>) ve rapor
+    /// tarih sınırı (<c>ReportDateRange</c>) zaten UTC gün başlangıcı kullanır — bu yardımcı ikisiyle
+    /// BİREBİR aynı kuraldır. Masaüstünün Duyuru/Zimmet/Takvim/Evrak/Proje/Satın Alma/İş Emri
+    /// ekranları da aynı deseni uygular.
+    ///
+    /// <b>Kapsam (PK-T3=A):</b> yalnız İLERİYE dönük düzeltmedir; mevcut canlı kayıtlara DOKUNULMAZ.
+    /// </summary>
+    private static long? IsGunuMs(DateTimeOffset? d)
+        => d is null ? null : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
     /// <summary>TRH-01 — kullanıcı işlem tarihini değiştirebilir mi (btn-backdate). Yetki yoksa alan
     /// kilitlenir. Asıl kapı SUNUCUDADIR (DateEntryPolicy); arayüz kilidi güvenlik sayılmaz.</summary>
     public bool CanBackDate => DepoWise.Application.Security.DateEntryPolicy.Serbest(_session);
@@ -255,7 +271,7 @@ public sealed partial class FuelViewModel : ViewModelBase
                 VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
                 PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
-                DistributionDate: DistDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
+                DistributionDate: IsGunuMs(DistDate)),   // TRH-01: iş günü — UTC gün başı (ADR-182)
                 Guid.NewGuid().ToString("N"));
             BaglaMaliyetMerkezi("fuel_distribution", distId, DistCostCenter);   // MLY-01
             ClearDist(); Load();
@@ -323,7 +339,7 @@ public sealed partial class FuelViewModel : ViewModelBase
             var depotId = DesktopServices.Fuel.AddDepotEntry(_session, new NewDepotEntry(
                 Liters: DepotLiters, UnitPrice: DepotPrice, SupplierId: DepotSupplier?.Id,
                 InvoiceNo: string.IsNullOrWhiteSpace(DepotInvoice) ? null : DepotInvoice.Trim(),
-                EntryDate: DepotDate?.ToUnixTimeMilliseconds()),   // TRH-01: iş günü
+                EntryDate: IsGunuMs(DepotDate)),   // TRH-01: iş günü — UTC gün başı (ADR-182)
                 Guid.NewGuid().ToString("N"));
             BaglaMaliyetMerkezi("fuel_depot_entry", depotId, DepotCostCenter);   // MLY-01
             ClearDepot(); Load();

@@ -191,11 +191,13 @@ public static class ReportCatalog
             DataModule: "stock"),
         // Yakıt Tüketim — Araç Raporu standardına taşındı (kullanıcı isteği 2026-08-08): araç başına işlem/mesafe/
         // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
-        // tek-geçiş (N+1 yok), tam filo. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
+        // tek-geçiş (N+1 yok). Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
+        // ⭐ ADR-182 (2026-08-29, PK-T1=A): KAPSAM "tam filo" DEĞİL — yalnız aralıkta fişi olan araçlar
+        // listelenir. `vehicle` ve `vehicle-daily` tam filo davranışını KORUR (yalnız bu rapor değişti).
         new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç başına tüketim, ortalama fiyat ve birim maliyet (km/saat duyarlı)",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Yakıt tüketimi ve mesafe, seçilen tarih aralığındaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            InfoNote: "Seçilen tarih aralığında YAKIT FİŞİ OLAN araçlar listelenir; o aralıkta yakıt almayan araçlar rapora GİRMEZ (tüm filoyu 0 değerleriyle görmek için «Araç Raporu» ya da «Araç Raporu — Günlük» kullanın). Yakıt tüketimi ve mesafe, aralıktaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
             DataModule: "fuel"),
         // Bakım Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her bakım kaydı TEK satır (detay/işlem
         // listesi), işlenen şube (op_branch_id), km/saat duyarlı sayaç, malzeme maliyeti + kalem sayısı derived-table'dan
