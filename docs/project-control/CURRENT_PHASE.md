@@ -126,7 +126,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** · **FAZ 3 ✅ uygulama + test tamam → YAYIN ⏸️ "YAYINLA" bekliyor** |
+| Aktif ara iş / aşaması | **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI** · **FAZ 3 ✅ · YAYIN ÖNCESİ DOĞRULAMA ✅ (rapor: `ARA_IS_3_01_YAYIN_ONCESI.md`) → ⏸️ "YAYINLA" bekliyor** |
 | Yayın bekleyen işler | **ARA İŞ 3** (migration'sız; tek başına yayınlanacak — PK-TAR-07=A) |
 | Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
 | Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
