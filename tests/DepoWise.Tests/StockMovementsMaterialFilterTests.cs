@@ -151,7 +151,8 @@ public class StockMovementsMaterialFilterTests : IDisposable
     {
         var d = ReportCatalog.ByKey(Rapor)!;
         Assert.True(d.UsesMaterial);
-        Assert.Equal(new[] { Rapor }, ReportCatalog.All.Where(x => x.UsesMaterial).Select(x => x.Key));
+        // ADR-182 (PK-G2=A): günlük ÖZET rapor da aynı filtre kümesini kullanır (tek filtre kaynağı).
+        Assert.Equal(new[] { Rapor, "stock-movements-daily" }, ReportCatalog.All.Where(x => x.UsesMaterial).Select(x => x.Key));
 
         // Önceki bayraklar korunuyor (kapsam kayması nöbetçisi).
         Assert.True(d.UsesDate); Assert.True(d.UsesLocation);

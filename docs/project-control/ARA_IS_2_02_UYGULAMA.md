@@ -8,7 +8,7 @@
 |---|---|---|
 | S1 | Yakıt: tarih yazım hatası + rapor kapsam sözleşmesi | ✅ **TAMAM** |
 | S2 | "Yakıtı Veren" son seçim | ✅ **TAMAM** |
-| S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ⏳ |
+| S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ✅ **TAMAM** |
 | S4 | Günlük Faaliyet — Detay | ⏳ |
 | S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ⏳ |
 | S6 | Kapanış doğrulaması + yayın öncesi rapor | ⏳ |
@@ -93,8 +93,53 @@ liste ekranı kolon tercihiyle çakışmaz · **web biçimi ↔ masaüstü biçi
 hatırlanmaz** (kaynak-düzeyi kilit + katalogda tek anahtar). Koşu: 91/91 (grid/liste tercihi
 regresyonu dahil). Web + Masaüstü Debug derlemeleri **0 hata**.
 
-### Değişen dosyalar (S2)
+### Değişen dosyalar (S2 — aşağıda; S3 kaydı bu bölümün ardındadır)
 **yeni** `src/DepoWise.Application/Ui/UserPrefKeys.cs` · `src/DepoWise.Web/DepoWise.Web.csproj`
 (paylaşımlı dosya satırı) · `src/DepoWise.Infrastructure/Settings/UserListPreferenceService.cs` ·
 `src/DepoWise.Desktop/ViewModels/FuelViewModel.cs` · `src/DepoWise.Web/Components/Pages/Fuel.razor` ·
 **yeni** `tests/DepoWise.Tests/YakitVerenTercihTests.cs`.
+
+---
+
+## S3 — GÜN BAZLI YENİ RAPORLAR (✅ tamamlandı · PK-G1=A · PK-G2=A)
+
+İki yeni KATALOG raporu (yeni ekran/menü YOK — iki platform aynı katalogdan besleniyor; Excel mevcut
+merkezi mekanizmadan; kategori yetkileri ADR-181 çift kapısıyla otomatik):
+
+**1) `fuel-daily` — "Yakıt Tüketim — Günlük"** (kategori Yakıt → `report_fuel`)
+Her satır bir (ARAÇ, GÜN). **PK-G1=A: yalnız o gün fişi OLAN araçlar** — boş gün satırı üretilmez
+(tüm filo × tüm gün görünümü bilinçli olarak `vehicle-daily`'de kaldı). Kolonlar dönem raporuyla
+hizalı (Tarih + Şube · İç Kod · Plaka · Araç Adı · Araç Türü · Sayaç Birimi · İşlem · Mesafe · Litre ·
+Ort. Tüketim · Ort. Fiyat · Maliyet · Birim Maliyet). Oranlar **günün** değerlerinden yeniden
+hesaplanır (toplanmaz); TOPLAM satırı **dönemin tamamından** gelir (satır sınırına takılsa bile) →
+**günlerin toplamı = dönem raporu** güvencesi testle kilitli. TEK sorgu + GROUP BY (N+1 yok).
+
+**2) `stock-movements-daily` — "Stok Hareketleri — Günlük"** (kategori Stok → `report_stock`)
+**PK-G2=A: gün × hareket türü ÖZETİ** (Tarih · Tür · İşlem Sayısı · Giriş Miktarı · Çıkış Miktarı).
+Mevcut **detay** rapor aynen korundu (regresyonla kilitli). Filtreler (lokasyon/tür/arama/malzeme)
+mevcut **tek kaynaktan** (`StockMovementFilterSql`) gelir → ekran = detay = özet. Tarih yine tek
+kaynak `IslemTarihiSql` (`doc_date`, yoksa `created_at`). Miktar toplamları `SqlDialect.ExactSumText`
+ile toplanır → PG'de tam kesinlik, SQLite'ta temiz ondalık (10,5 + 4,5 = **15**, kayan nokta artığı yok).
+Transfer defterde iki bacaktır ve öyle sayılır; farklı birimlerin aynı toplamda birleştiği sınırlama
+InfoNote'ta kullanıcıya açıkça yazıldı.
+
+**Gün anahtarı** her iki raporda `tarih_ms / 86400000` tam sayı bölmesi → SQLite = PostgreSQL birebir,
+UTC gün sınırıyla (00:00:00.000 – 23:59:59.999, iki uç dahil) hizalı.
+
+**Testler:** **yeni** `GunlukRaporlarTests` **20 test** (katalog tanımları · gün kırılımı · günlük oranlar ·
+**günlük≡dönem birebir + TOPLAM eşitliği** · gün sınırı iki uç · boş gün satırı üretilmez · araç/şube
+filtreleri · tenant · BranchAccess · `reports`+kategori çift kapısı (403'ler) · sıralama · gün×tür özeti ·
+kesin ondalık toplam · transfer iki bacak · filtreler tek kaynaktan · TOPLAM dönemden · **regresyon:
+detay stok raporu ve `vehicle-daily` tam filo DEĞİŞMEDİ**) — ilk koşuda 20/20.
+**yeni** `PostgresGunlukRaporlarTests` (izole PG: gün bölmesi · sınırlar · yalnız-fişli · günlük≡dönem ·
+numeric kesin toplam · transfer · detay regresyonu) — PG koşusu **2/2** (mevcut `vehicle-daily` PG
+testiyle birlikte). Katalog sayaç kilidi 22→**24**; iki "filtre yayılmasın" nöbetçisi (lokasyon/tür/
+arama/malzeme listeleri) yeni raporu **kapsayacak** şekilde güncellendi — listeler hâlâ tüketici
+(gevşetme değil). Hedefli koşu **98/99** (1 atlanan = PG sınıfı).
+
+### Değişen dosyalar (S3)
+`src/DepoWise.Application/Reports/ReportCatalog.cs` (2 katalog satırı) ·
+`src/DepoWise.Infrastructure/Reporting/ReportService.cs` (2 yeni metot + 2 dispatch satırı) ·
+`tests/DepoWise.Tests/ReportArchitectureTests.cs` · `StockReportLocationTests.cs` ·
+`StockMovementsMaterialFilterTests.cs` · **yeni** `GunlukRaporlarTests.cs` ·
+**yeni** `PostgresGunlukRaporlarTests.cs`. **UI dosyalarına DOKUNULMADI** (katalogdan beslenirler).

@@ -318,25 +318,28 @@ public class StockReportLocationTests : IDisposable
     [Fact]
     public void Lokasyon_Filtresi_Yalniz_Stok_Raporlarinda_Acik()
     {
+        // ADR-182 (ARA İŞ 2 / S3, PK-G2=A): "stock-movements-daily" BİLİNÇLİ olarak detay raporla AYNI
+        // filtre kümesini kullanır (özet, detayın aynı süzgeçleriyle daralır — StockMovementFilterSql tek
+        // kaynak). Liste hâlâ TÜKETİCİDİR: başka bir rapora sızarsa bu kilit düşer.
         var lokasyonlu = ReportCatalog.All.Where(d => d.UsesLocation).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "stock", "stock-count", "stock-movements" }, lokasyonlu);
+        Assert.Equal(new[] { "stock", "stock-count", "stock-movements", "stock-movements-daily" }, lokasyonlu);
 
         // Branch ve Location AYRI bayraklardır: stok raporlarında Branch AÇILMADI.
         Assert.False(ReportCatalog.ByKey("stock")!.UsesBranch);
         Assert.False(ReportCatalog.ByKey("stock-count")!.UsesBranch);
         Assert.False(ReportCatalog.ByKey("stock-movements")!.UsesBranch);
 
-        // STK-10b-1: hareket türü filtresi YALNIZ hareket raporunda açıldı (körlemesine yayılmadı).
+        // STK-10b-1: hareket türü filtresi yalnız hareket raporlarında (detay + ADR-182 günlük özet).
         var turluler = ReportCatalog.All.Where(d => d.UsesMovementType).Select(d => d.Key).ToList();
-        Assert.Equal(new[] { "stock-movements" }, turluler);
+        Assert.Equal(new[] { "stock-movements", "stock-movements-daily" }, turluler);
 
-        // STK-10b-2: arama filtresi de YALNIZ hareket raporunda açıldı.
+        // STK-10b-2: arama filtresi de yalnız hareket raporlarında.
         var aramalilar = ReportCatalog.All.Where(d => d.UsesSearch).Select(d => d.Key).ToList();
-        Assert.Equal(new[] { "stock-movements" }, aramalilar);
+        Assert.Equal(new[] { "stock-movements", "stock-movements-daily" }, aramalilar);
 
-        // STK-10b-3: malzeme filtresi de YALNIZ hareket raporunda açıldı (körlemesine yayılmadı).
+        // STK-10b-3: malzeme filtresi de yalnız hareket raporlarında (körlemesine yayılmadı).
         var malzemeliler = ReportCatalog.All.Where(d => d.UsesMaterial).Select(d => d.Key).ToList();
-        Assert.Equal(new[] { "stock-movements" }, malzemeliler);
+        Assert.Equal(new[] { "stock-movements", "stock-movements-daily" }, malzemeliler);
 
         // G4-4b: CARİ filtresi (8192) BİLİNÇLİ olarak açıldı — yalnız ön muhasebe raporlarında.
         // Nöbetçi KALDIRILMADI: hangi raporlarda açıldığı kilitlenir + sıradaki boş bayrak korunur.

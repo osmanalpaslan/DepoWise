@@ -185,6 +185,14 @@ public static class ReportCatalog
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
             InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. «Atanmamış» bir depo değildir: lokasyonu girilmemiş harekettir.",
             DataModule: "stock"),
+        // Stok Hareketleri — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · PK-G2=A): defterin gün × HAREKET TÜRÜ ÖZETİ.
+        // Detay rapor (yukarıdaki "stock-movements") satır-satır kalır ve DEĞİŞMEDİ; buradaki katma değer
+        // özet olmasıdır. Filtreler aynı TEK kaynaktan (StockMovementFilterSql) gelir → ekran=rapor=özet.
+        new ReportDescriptor("stock-movements-daily", "Stok Hareketleri — Günlük", "Gün × hareket türü özeti: işlem sayısı, giriş ve çıkış toplamları",
+            ReportCategory.Stock, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
+            InfoNote: "Her satır bir GÜN ve bir HAREKET TÜRÜDÜR; hareketi olmayan gün/tür satırı gösterilmez. «Giriş» ve «Çıkış» o gün o türde eklenen/çıkan MİKTAR toplamlarıdır — farklı birimlerdeki (adet, kg, litre…) malzemeler aynı toplamda birleşir, bu yüzden anlamlı bir miktar toplamı için malzeme ya da depo filtresi kullanın. Transfer defterde iki satırdır: hem çıkış hem giriş olarak sayılır. Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999).",
+            DataModule: "stock"),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
             InfoNote: "Sayım tek bir depoya/şantiyeye aittir. «Sistem» sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir.",
@@ -198,6 +206,15 @@ public static class ReportCatalog
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
             InfoNote: "Seçilen tarih aralığında YAKIT FİŞİ OLAN araçlar listelenir; o aralıkta yakıt almayan araçlar rapora GİRMEZ (tüm filoyu 0 değerleriyle görmek için «Araç Raporu» ya da «Araç Raporu — Günlük» kullanın). Yakıt tüketimi ve mesafe, aralıktaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            DataModule: "fuel"),
+        // Yakıt Tüketim — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · PK-G1=A): dönem raporunun gün gün kırılımı.
+        // Yalnız FİŞİ OLAN (araç, gün) satırları listelenir — "tüm filo × tüm günler" görünümü bilinçli
+        // olarak Araç Raporu — Günlük'e bırakıldı (amaç: hatalı/eksik günlük girişleri gürültüsüz görmek).
+        // Gün anahtarı tam sayı bölmesidir (ms/86.400.000) → SQLite ve PostgreSQL BİREBİR aynı sonucu verir.
+        new ReportDescriptor("fuel-daily", "Yakıt Tüketim — Günlük", "Yakıt tüketiminin gün gün kırılımı (yalnız fiş olan araç/günler)",
+            ReportCategory.Fuel, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
+            InfoNote: "Her satır bir ARAÇ ve bir GÜNDÜR; yalnız o gün yakıt fişi olan araçlar görünür. Oranlar (ortalama tüketim, ortalama fiyat, birim maliyet) her gün için o günün değerlerinden yeniden hesaplanır — günlük oranlar toplanmaz. TOPLAM satırı seçilen DÖNEMİN tamamını gösterir ve «Yakıt Tüketim» raporunun toplamıyla aynıdır. Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999, iki uç dahil).",
             DataModule: "fuel"),
         // Bakım Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her bakım kaydı TEK satır (detay/işlem
         // listesi), işlenen şube (op_branch_id), km/saat duyarlı sayaç, malzeme maliyeti + kalem sayısı derived-table'dan

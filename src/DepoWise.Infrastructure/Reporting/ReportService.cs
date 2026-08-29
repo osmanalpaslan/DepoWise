@@ -540,6 +540,127 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan sir
     }
 
     /// <summary>
+    /// YAKIT TÜKETİM — GÜNLÜK (ARA İŞ 2 / S3, 2026-08-29 · ADR-182 · PK-G1=A).
+    /// Dönem raporunun (<see cref="FuelConsumption"/>) GÜN GÜN kırılımı: her satır bir (ARAÇ, GÜN).
+    ///
+    /// KAPSAM (PK-G1=A): yalnız o gün yakıt fişi OLAN araçlar. "Tüm filo × tüm günler" görünümü bilinçli
+    /// olarak <see cref="VehicleDailyReport"/>'a bırakıldı — buradaki amaç hatalı/eksik GÜNLÜK girişleri
+    /// gürültüsüz görmektir (kullanıcı isteği). Bu yüzden boş gün satırı ÜRETİLMEZ.
+    ///
+    /// GÜN ANAHTARI: <c>distribution_date / 86400000</c> — TAM SAYI bölmesi. Lehçeye özel tarih işlevi
+    /// KULLANILMAZ; SQLite ve PostgreSQL birebir aynı kovayı üretir ve kova sınırı RPR-06'nın UTC gün
+    /// sınırıyla (00:00:00.000 – 23:59:59.999, iki uç dahil) hizalıdır.
+    ///
+    /// PERFORMANS: TEK sorgu, veritabanında GROUP BY — gün başına ya da araç başına sorgu YOKTUR (N+1 yok).
+    ///
+    /// TOPLAM: satır sınırına (<paramref name="maxRows"/>) takılsa bile toplamlar TÜM dönemden hesaplanır →
+    /// "günlerin toplamı = dönem toplamı" güvencesi bozulmaz (testle kilitli). Oranlar (ortalama tüketim/
+    /// fiyat/birim maliyet) her gün için O GÜNÜN değerlerinden yeniden hesaplanır — asla toplanmaz.
+    /// </summary>
+    public TableModel FuelDailyConsumption(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        const long GunMs = 86_400_000;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var vehIn = InList("v.id", "@rv", req.VehicleIds);
+        var typeIn = InList("v.vehicle_type_id", "@rt", req.VehicleTypeIds);
+        cmd.CommandText = @"
+SELECT f.distribution_date / 86400000 AS gun,
+       COALESCE(bch.name,'') AS branch_name, v.internal_code, COALESCE(v.plate,''),
+       TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
+       COALESCE(vt.name,'') AS type_name, v.meter_unit,
+       CAST(COUNT(*) AS REAL) AS cnt,
+       COALESCE(SUM(CASE WHEN f.prev_meter IS NOT NULL AND f.current_meter IS NOT NULL
+            THEN CAST(f.current_meter AS REAL)-CAST(f.prev_meter AS REAL) ELSE 0 END),0) AS km,
+       COALESCE(SUM(CAST(f.liters AS REAL)),0) AS litre,
+       COALESCE(SUM(CAST(f.liters AS REAL)*CAST(f.unit_price AS REAL)),0) AS fuelcost
+FROM fuel_distributions f
+JOIN vehicles v ON v.id = f.vehicle_id AND v.company_id = f.company_id AND v.is_deleted = 0
+LEFT JOIN brands br ON br.id = v.brand_id
+LEFT JOIN vehicle_models vmd ON vmd.id = v.vehicle_model_id
+LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+LEFT JOIN branches bch ON bch.id = v.branch_id
+WHERE f.company_id=@c AND f.is_deleted=0" + DateFilter(req, "f.distribution_date")
+            + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn + typeIn + @"
+GROUP BY f.distribution_date / 86400000, v.id, COALESCE(bch.name,''), v.internal_code, COALESCE(v.plate,''),
+         TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')), COALESCE(vt.name,''), v.meter_unit
+ORDER BY gun, branch_name, veh_name, v.internal_code;";
+        cmd.AddWithValue("@c", companyId);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindList(cmd, "@rt", req.VehicleTypeIds);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        double tCnt = 0, tKm = 0, tLitre = 0, tFuel = 0;
+        var units = new HashSet<string>(StringComparer.Ordinal);
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var gun = Convert.ToInt64(r.GetValue(0));
+                var meterUnit = r.GetString(6);
+                double cnt = r.GetDouble(7), km = r.GetDouble(8), litre = r.GetDouble(9), fuel = r.GetDouble(10);
+
+                // TOPLAM önce toplanır: satır sınırına takılan kayıtlar da dönem toplamına dâhildir.
+                tCnt += cnt; tKm += km; tLitre += litre; tFuel += fuel;
+                units.Add(meterUnit);
+                if (rows.Count >= maxRows) continue;
+
+                double consumption = km > 0 ? litre / km : 0;    // L/birim — GÜNÜN değerlerinden
+                double avgPrice = litre > 0 ? fuel / litre : 0;   // ağırlıklı ort. ₺/L
+                double perUnit = km > 0 ? fuel / km : 0;          // ₺/birim
+                rows.Add(new object?[]
+                {
+                    DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr),
+                    r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4).Trim(), r.GetString(5),
+                    meterUnit == "hour" ? "Saat" : "KM",
+                    Num(cnt, FmtCount),
+                    Num(km, x => FmtDistance(x, meterUnit)),
+                    Num(litre, FmtLiter),
+                    Num(consumption, x => FmtConsumption(x, meterUnit)),
+                    Num(avgPrice, FmtMoney),
+                    Num(fuel, FmtMoney),
+                    Num(perUnit, x => FmtPerUnit(x, meterUnit)),
+                });
+            }
+
+        // Dönem raporuyla AYNI akıllı toplam kuralı: karışık birimde mesafe/tüketim/birim-maliyet BOŞ.
+        IReadOnlyList<object?>? totalRow = null;
+        if (rows.Count > 0)
+        {
+            bool homo = units.Count <= 1;
+            var unit = units.Count == 1 ? units.First() : "km";
+            double totConsumption = tKm > 0 ? tLitre / tKm : 0;
+            double totAvgPrice = tLitre > 0 ? tFuel / tLitre : 0;
+            double totPerUnit = tKm > 0 ? tFuel / tKm : 0;
+            totalRow = new object?[]
+            {
+                "TOPLAM (DÖNEM)", "", "", "", "", "", "",
+                Num(tCnt, FmtCount),
+                homo ? Num(tKm, x => FmtDistance(x, unit)) : (object?)"",
+                Num(tLitre, FmtLiter),
+                homo ? Num(totConsumption, x => FmtConsumption(x, unit)) : (object?)"",
+                Num(totAvgPrice, FmtMoney),
+                Num(tFuel, FmtMoney),
+                homo ? Num(totPerUnit, x => FmtPerUnit(x, unit)) : (object?)"",
+            };
+        }
+
+        var numeric = new[] { false, false, false, false, false, false, false, true, true, true, true, true, true, true };
+
+        return new TableModel("Yakıt Tüketim — Günlük", new[]
+        {
+            "Tarih", "Şube", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü", "Sayaç Birimi",
+            "İşlem Sayısı", "Mesafe", "Litre", "Ortalama Yakıt Tüketimi", "Ortalama Yakıt Fiyatı",
+            "Toplam Yakıt Maliyeti", "Birim Başına Yakıt Maliyeti",
+        }, rows, numeric, totalRow);
+    }
+
+    /// <summary>
     /// ARAÇ RAPORU (kullanıcı isteği 2026-08-07) — "Genel Rapor"un YERİNE. Araç başına TEK satır: yakıt +
     /// bakım malzemesi + DOĞRUDAN parça (bakım-dışı stok çıkışı) maliyeti, sayaç birimine (km/saat) duyarlı
     /// birim maliyet ve ortalamalar. Karar destek raporu.
@@ -1194,6 +1315,97 @@ WHERE sm.company_id = @c"
         }, rows, numeric, totalRow);
     }
 
+    /// <summary>
+    /// STOK HAREKETLERİ — GÜNLÜK (ARA İŞ 2 / S3, 2026-08-29 · ADR-182 · PK-G2=A).
+    /// Defterin GÜN × HAREKET TÜRÜ özeti: her satır bir (GÜN, TÜR) → işlem sayısı, giriş ve çıkış toplamı.
+    ///
+    /// NEDEN ÖZET: detay rapor (<see cref="StockMovements"/>) zaten satır-satır ve tarih sıralıdır; onu
+    /// "günlük" diye tekrarlamak katma değer üretmezdi. Detay rapor DEĞİŞMEDİ ve aynen durur.
+    ///
+    /// TEK FİLTRE KAYNAĞI: lokasyon/tür/arama/malzeme süzgeçleri <see cref="StockMovementFilterSql"/>'den
+    /// gelir — Stok Hareketleri EKRANI ve DETAY raporuyla aynı üreteç → üçü ayrışamaz. Şube kapsamı
+    /// (<see cref="ReportScope"/>) DIŞ SINIRDIR; filtreler yalnız AND ile daraltır.
+    ///
+    /// TARİH: işlem tarihi tek kaynaktan (<see cref="StockMovementFilterSql.IslemTarihiSql"/>); gün kovası
+    /// tam sayı bölmesidir (ms/86.400.000) → iki lehçede birebir, UTC gün sınırıyla hizalı.
+    ///
+    /// MİKTAR KESİNLİĞİ: toplamlar <see cref="SqlDialect.ExactSumText"/> ile METİN olarak toplanır ve
+    /// <see cref="Money.Parse"/> ile okunur → PostgreSQL'de tam kesinlik, SQLite'ta temiz 6 ondalık
+    /// (kayan nokta artığı görünmez). Farklı BİRİMDEKİ malzemeler aynı toplamda birleşir; bu sınırlama
+    /// kullanıcıya InfoNote ile açıkça söylenir (yeni varsayım uydurulmaz).
+    /// </summary>
+    public TableModel StockMovementsDaily(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        const long GunMs = 86_400_000;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var filtre = StockMovementFilterSql.Build(req.LocationIds, req.MovementTypes, req.SearchText, req.MaterialIds);
+        var gunSql = StockMovementFilterSql.IslemTarihiSql + " / 86400000";
+
+        cmd.CommandText = @"
+SELECT " + gunSql + @" AS gun, sm.movement_type, CAST(COUNT(*) AS REAL) AS adet,
+       " + SqlDialect.ExactSumText(conn, "CASE WHEN sm.direction > 0 THEN sm.quantity ELSE '0' END") + @" AS giris,
+       " + SqlDialect.ExactSumText(conn, "CASE WHEN sm.direction < 0 THEN sm.quantity ELSE '0' END") + @" AS cikis
+FROM stock_movements sm
+JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
+LEFT JOIN stock_documents d ON d.id = sm.document_id
+WHERE sm.company_id = @c"
+            + ReportScope.BranchSql(s, req, "sm.branch_id")
+            + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)
+            + filtre.Sql + @"
+GROUP BY " + gunSql + @", sm.movement_type
+ORDER BY gun, sm.movement_type;";
+
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        filtre.Bind(cmd);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        decimal tGiris = 0m, tCikis = 0m;
+        double tAdet = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var gun = Convert.ToInt64(r.GetValue(0));
+                var tur = r.GetString(1);
+                var adet = r.GetDouble(2);
+                var giris = Money.Parse(r.GetString(3));
+                var cikis = Money.Parse(r.GetString(4));
+
+                // TOPLAM önce: satır sınırına takılan gün/tür de dönem toplamına dâhildir.
+                tAdet += adet; tGiris += giris; tCikis += cikis;
+                if (rows.Count >= maxRows) continue;
+
+                rows.Add(new object?[]
+                {
+                    DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr),
+                    MovementTypeOptions.Label(tur),          // STK-B1: etiket TEK KAYNAKTAN
+                    Num(adet, FmtCount),
+                    Num((double)giris, _ => giris.ToString("0.##")),
+                    Num((double)cikis, _ => cikis.ToString("0.##")),
+                });
+            }
+
+        var numeric = new[] { false, false, true, true, true };
+        var totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM (DÖNEM)", "",
+            Num(tAdet, FmtCount),
+            Num((double)tGiris, _ => tGiris.ToString("0.##")),
+            Num((double)tCikis, _ => tCikis.ToString("0.##")),
+        };
+
+        return new TableModel("Stok Hareketleri — Günlük", new[]
+        {
+            "Tarih", "Tür", "İşlem Sayısı", "Giriş Miktarı", "Çıkış Miktarı",
+        }, rows, numeric, totalRow);
+    }
+
     /// <summary>Lokasyon adı: boş kimlik → "Atanmamış" (gerçek depo gibi gösterilmez, STK-06 standardı);
     /// adı okunamayan kimlik → kimliğin kendisi (sessizce gizlenmez).</summary>
     private static string LocName(string? id, string? name)
@@ -1660,11 +1872,13 @@ ORDER BY br.name, p.full_name;";
         "acc-cash" => AccountingReports.Cash(_factory, s, req),
 
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
+        "stock-movements-daily" => StockMovementsDaily(s, req, maxRows),   // ADR-182 (PK-G2=A): gün×tür özeti
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),
         "vehicle-daily" => VehicleDailyReport(s, req, maxRows),   // RPT-GUNLUK (PK-R1=A): gün×araç kırılımı
         "maintenance" => Maintenance(s, req),
         "fuel" => FuelConsumption(s, req),
+        "fuel-daily" => FuelDailyConsumption(s, req, maxRows),   // ADR-182 (PK-G1=A): gün×araç kırılımı
         "fuel-depot" => FuelDepot(s, req),
         "stock-count" => StockCount(s, req),
         "requests" => Requests(s, req),
