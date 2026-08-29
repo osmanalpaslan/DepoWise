@@ -622,7 +622,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 Description: string.IsNullOrWhiteSpace(MntDescription) ? null : MntDescription.Trim(),
                 PerformedKm: MntKm > 0 ? MntKm : (decimal?)null,
                 PerformedHour: MntHour > 0 ? MntHour : (decimal?)null,
-                PerformedDate: MntDate?.ToUnixTimeMilliseconds(),
+                PerformedDate: IsGunuTarihi.Ms(MntDate),   // ADR-184: takvim tarihi → UTC gün başı
                 Materials: materials,
                 // BKM-04: KULLANICININ SEÇTİĞİ depo — olduğu gibi gider. Depo yoksa null → ATANMAMIŞ
                 // (bakım stok yüzünden engellenmez, KARAR-9 md. 8).

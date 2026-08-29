@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Organization;
 
@@ -169,8 +170,7 @@ public sealed partial class ProjectsViewModel : ViewModelBase
     private void CancelAdd() { ShowAdd = false; EditId = null; _editVersion = null; }
 
     /// <summary>Tarih = İŞ GÜNÜ anlamı (web ile aynı dönüşüm: günün UTC gece yarısı, Unix ms).</summary>
-    private static long? ToMs(DateTimeOffset? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private static long? ToMs(DateTimeOffset? d) => IsGunuTarihi.Ms(d);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

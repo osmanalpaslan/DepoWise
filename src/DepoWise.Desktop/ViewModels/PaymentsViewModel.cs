@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Accounting;
 
@@ -302,7 +303,7 @@ public sealed partial class PaymentsViewModel : ViewModelBase
             var r = DesktopServices.Finance.Add(_session, new NewFinanceEntry(
                 FAccountId!, FType, FAmount, _operationId,
                 PartyId: FPartyId,
-                TxnDate: FDate?.ToUnixTimeMilliseconds(),
+                TxnDate: IsGunuTarihi.Ms(FDate),   // ADR-184: takvim tarihi → UTC gün başı
                 Description: Nz(FDescription),
                 DocNo: Nz(FDocNo),
                 PaymentMethod: Nz(FPaymentMethod),

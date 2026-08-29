@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Accounting;
 using DepoWise.Infrastructure.Materials;
@@ -341,8 +342,8 @@ public sealed partial class InvoicesViewModel : ViewModelBase
                 SeriesId: null,
                 ExternalNo: string.IsNullOrWhiteSpace(FExternalNo) ? null : FExternalNo,
                 BranchId: string.IsNullOrWhiteSpace(FBranchId) ? null : FBranchId,
-                InvoiceDate: FInvoiceDate?.ToUnixTimeMilliseconds(),
-                DueDate: FDueDate?.ToUnixTimeMilliseconds(),
+                InvoiceDate: IsGunuTarihi.Ms(FInvoiceDate),   // ADR-184: takvim tarihi → UTC gün başı
+                DueDate: IsGunuTarihi.Ms(FDueDate),           // ADR-184
                 Currency: "TRY",
                 Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote,
                 AffectsStock: FAffectsStock);

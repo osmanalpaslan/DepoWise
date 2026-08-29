@@ -211,8 +211,7 @@ public sealed partial class WorkOrdersViewModel : ViewModelBase
     [RelayCommand]
     private void CancelAdd() { ShowAdd = false; EditId = null; _editVersion = null; }
 
-    private static long? Ms(DateTimeOffset? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private static long? Ms(DateTimeOffset? d) => IsGunuTarihi.Ms(d);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

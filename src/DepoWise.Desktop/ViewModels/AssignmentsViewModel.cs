@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Assignments;
 
@@ -146,8 +147,7 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     private static string OpCode(string display) => display switch
     { "İade" => "return", "Hasarlı İade" => "damaged", "Devir" => "transfer", "Kayıp" => "lost", _ => "issue" };
 
-    private long? DocDateMs => FormDocDate is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(FormDocDate.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private long? DocDateMs => IsGunuTarihi.Ms(FormDocDate);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Accounting;
 
@@ -353,9 +354,9 @@ public sealed partial class PartiesViewModel : ViewModelBase
             var partyId = Selected.Party.Id;
             await Task.Run(() => DesktopServices.PartyLedger.Add(_session, new NewLedgerEntry(
                 partyId, EDocType, EAmount, EIsDebit,
-                EntryDate: EDate?.ToUnixTimeMilliseconds(),
+                EntryDate: IsGunuTarihi.Ms(EDate),   // ADR-184: takvim tarihi → UTC gün başı
                 DocNo: N(EDocNo), Description: N(EDescription),
-                DueDate: EDueDate?.ToUnixTimeMilliseconds(),
+                DueDate: IsGunuTarihi.Ms(EDueDate),   // ADR-184
                 // Tek jeton: kaydetme tekrarlanırsa (ağ/çift tık) ikinci hareket OLUŞMAZ.
                 OperationId: Guid.NewGuid().ToString("N"))));
 

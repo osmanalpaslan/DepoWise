@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Accounting;
 
@@ -325,7 +326,7 @@ public sealed partial class FinanceViewModel : ViewModelBase
         {
             DesktopServices.Finance.Add(_session, new NewFinanceEntry(
                 Selected.Account.Id, EType, EAmount, _entryOp,
-                TxnDate: EDate?.ToUnixTimeMilliseconds(),
+                TxnDate: IsGunuTarihi.Ms(EDate),   // ADR-184: takvim tarihi → UTC gün başı
                 Description: Nz(EDescription)));
             Status = "Hareket kaydedildi.";
             EntryOpen = false;
@@ -380,7 +381,7 @@ public sealed partial class FinanceViewModel : ViewModelBase
         try
         {
             var r = DesktopServices.Finance.Transfer(_session, new NewFinanceTransfer(
-                TFrom!, TTo!, TAmount, _transferOp, TDate?.ToUnixTimeMilliseconds(), Nz(TDescription)));
+                TFrom!, TTo!, TAmount, _transferOp, IsGunuTarihi.Ms(TDate), Nz(TDescription)));   // ADR-184
             Status = r.AlreadyExisted
                 ? "Bu transfer zaten kaydedilmişti — ikinci kayıt oluşturulmadı."
                 : "Transfer kaydedildi. (Toplam para değişmedi: bir hesaptan çıktı, diğerine girdi.)";

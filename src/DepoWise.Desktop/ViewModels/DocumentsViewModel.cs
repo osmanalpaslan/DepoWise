@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Files;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -198,8 +199,7 @@ public sealed partial class DocumentsViewModel : ViewModelBase
         FormFilePath = yol;
     }
 
-    private static long? ToMs(DateTimeOffset? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private static long? ToMs(DateTimeOffset? d) => IsGunuTarihi.Ms(d);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

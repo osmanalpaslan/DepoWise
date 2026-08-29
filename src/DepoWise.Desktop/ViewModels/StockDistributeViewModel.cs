@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Organization;
@@ -168,7 +169,7 @@ public sealed partial class StockDistributeViewModel : ViewModelBase
             DesktopServices.Stock.DistributeUnassigned(_session,
                 sel.Select(l => new StockLine(l.MaterialId, l.Amount)).ToList(),
                 Target.Id, Guid.NewGuid().ToString("N"), note: null,
-                docDate: DocDate?.ToUnixTimeMilliseconds());   // TRH-01: iş günü (created_at DEĞİL)
+                docDate: IsGunuTarihi.Ms(DocDate));   // TRH-01: iş günü (created_at DEĞİL) — ADR-184
             Status = $"Dağıtım kaydedildi: {sel.Count} malzeme → {Target.Name}.";
             Load();   // kalan atanmamış miktarlar tazelensin
         }

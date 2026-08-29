@@ -254,8 +254,14 @@
     /// </summary>
     private DateTime? _docDate = DateTime.Today;
 
-    /// <summary>Seçilen günü API sözleşmesinin beklediği Unix ms değerine çevirir (masaüstüyle aynı).</summary>
-    private long? DocDateMs() => _docDate is null ? null : new DateTimeOffset(_docDate.Value.Date).ToUnixTimeMilliseconds();
+    /// <summary>
+    /// Seçilen günü API sözleşmesinin beklediği Unix ms değerine çevirir.
+    /// 🔴 ADR-184 (ARA İŞ 3): burada <c>new DateTimeOffset(gun)</c> kullanılıyordu — bu YEREL saat
+    /// dilimini uygular (TR = UTC+3) ve seçilen gün bir gün ERKENE kayardı (2 Ağustos → 1 Ağustos
+    /// 21:00 UTC). Web'in TEK doğru kaynağı <c>FieldChecks.ToUnixMs</c>'tir; artık ona bağlıdır ve
+    /// masaüstüyle (<c>IsGunuTarihi.Ms</c>) birebir aynı değeri üretir (parite testle kilitli).
+    /// </summary>
+    private long? DocDateMs() => DepoWise.Web.Services.FieldChecks.ToUnixMs(_docDate);
     // Depo Çıkışı alt-türü (kullanıcı isteği 2026-08-07): Şube İçi (issue) / Şube Dışı (transfer).
     private string _exitScope = "Şube İçi";
     private bool IsNew => _kind == "Yeni Kayıt";

@@ -85,6 +85,7 @@ public sealed partial class CostCentersViewModel : ViewModelBase
     {
         long Ms(DateTimeOffset? d, bool son) => new DateTimeOffset(DateTime.SpecifyKind(
             (d?.Date ?? DateTime.Today).AddDays(son ? 1 : 0).AddMilliseconds(son ? -1 : 0), DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    // NOT (ADR-184): burada gün SONU hesabı da var; ortak kaynak karşılığı IsGunuTarihi.Ms / GunSonuMs'tir.
         return (Ms(FromDate, false), Ms(ToDate, true));
     }
 

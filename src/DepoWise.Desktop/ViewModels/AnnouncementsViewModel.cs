@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Announcements;
 
@@ -138,8 +139,7 @@ public sealed partial class AnnouncementsViewModel : ViewModelBase
     [RelayCommand]
     private void CancelAdd() { ShowAdd = false; EditId = null; _editVersion = null; }
 
-    private static long? Ms(DateTimeOffset? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private static long? Ms(DateTimeOffset? d) => IsGunuTarihi.Ms(d);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

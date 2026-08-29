@@ -1,8 +1,8 @@
 # ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI (TARİH KAYMASI) · 00 ANALİZ
 
-> **DURUM: FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (2026-08-29, ADR-184) ·
-> FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" ONAYI BEKLİYOR**
-> **KOD YAZILMADI · TEST KOŞULMADI · MIGRATION OLUŞTURULMADI · PRODUCTION'A BAĞLANILMADI (SELECT dahil).**
+> **DURUM: FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ (ADR-184) · FAZ 3 ✅ UYGULAMA TAMAM · TEST ✅ ·
+> YAYIN ⏸️ "YAYINLA" ONAYI BEKLİYOR**
+> **MIGRATION OLUŞTURULMADI · PRODUCTION'A BAĞLANILMADI (SELECT dahil) · DEPLOY YAPILMADI.**
 > Onaylanan kararlar: **PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A** (ayrıntı §9).
 > Tarih: 2026-08-29 · Kaynak talep: kullanıcının "TARİH / TARİH-SÜRE DÖNÜŞÜM HATALARININ AYRIŞTIRILMASI"
 > ara iş talimatı + ARA İŞ 2'de bırakılan S1d bulgusu.
@@ -56,7 +56,7 @@ kapsam dışı refactor.
 
 | İş | FAZ 0 | FAZ 1 | FAZ 2 | Karar | Uygulama | Test | Yayın | Durum |
 |---|---|---|---|---|---|---|---|---|
-| İŞ-1 Tarih kayması | ✅ | ✅ | ✅ | ✅ **ONAYLANDI** (ADR-184) | ⏸️ | ⏸️ | ⏸️ | **FAZ 3 — "UYGULAMA BAŞLASIN" ONAYI BEKLİYOR** |
+| İŞ-1 Tarih kayması | ✅ | ✅ | ✅ | ✅ **ONAYLANDI** (ADR-184) | ✅ **FAZ 3 TAMAM** | ✅ | ⏸️ | **YAYIN: "YAYINLA" ONAYI BEKLİYOR** |
 
 > FAZ 2 kullanıcı tarafından **kesin olarak onaylandı** (2026-08-29). Uygulama/test/yayın fazları
 > kullanıcının ayrıca vereceği **"UYGULAMA BAŞLASIN"** onayı olmadan başlatılmaz.
@@ -266,7 +266,49 @@ kilit). Yeni düzeltmeler için benzer **yazım yolu** kilitleri gerekecek (§11
 
 ---
 
-## 10. Uygulama planı (yalnız PLAN — henüz uygulanmadı)
+## 9.5 FAZ 3 — UYGULAMA ✅ (2026-08-29)
+
+### Merkezi mimari (PK-TAR-03=A)
+**YENİ tek kaynak:** `src/DepoWise.Application/Common/IsGunuTarihi.cs` — "iş günü / takvim tarihi →
+UTC gün başı (ve gün sonu)" kuralının TEK gövdesi. `ReportDateRange.ToMs` (RPR-06 rapor sınırları)
+artık bu kaynağa **yönlendirir** → yazma ve okuma yolları aynı tanımı paylaşır (davranış birebir aynı;
+mevcut RPR-06 testleri aynen kilitliyor).
+**Web:** kendi tek kaynağı `FieldChecks.ToUnixMs` KORUNDU; web'e proje referansı EKLENMEDİ (bilinçli
+mimari sınır), paylaşımlı dosya da eklenmedi — gerek kalmadı.
+
+### Düzeltilen 20 nokta
+**Masaüstü (19 nokta / 11 ekran)** — hepsi `IsGunuTarihi.Ms(...)` çağırır:
+Stok Girişi ×3 · Stok Sayım · Stok Dağıtım · Fatura (InvoiceDate + DueDate) · Finans (TxnDate +
+transfer) · Muayene (Next/Postpone + LastDate) · Bakım (PerformedDate) · Günlük Faaliyet ×3 ·
+Cari (EntryDate + DueDate) · Ödeme (TxnDate) · Talep (RequestDate).
+**Web (1 nokta):** `Stock.razor` → `DocDateMs()` artık `FieldChecks.ToUnixMs(_docDate)`.
+
+### Ek: mükerrer kuralların tek kaynağa bağlanması (PK-TAR-03 gereği)
+Zaten DOĞRU çalışan ama kuralı kendi içinde tekrarlayan 8 masaüstü ekranı da ortak kaynağa bağlandı
+(davranış değişmedi): Duyurular · Zimmet · Takvim · Evrak · Proje · Satın Alma · İş Emri · Yakıt
+(ADR-182'de eklenen özel yardımcı artık ortak kaynağa yönlendiriyor). Maliyet Merkezi'nde gün-sonu
+hesabı olduğundan yalnız açıklama notu eklendi, davranışa dokunulmadı.
+
+### Dokunulmayanlar
+`created_at` · `updated_at` · audit · gerçek zaman damgaları (PK-TAR-04=A) · `DateEntryPolicy` ve
+`btn-backdate` kapısı · API/DB sözleşmesi · şema · senkron · yetki/tenant/BranchAccess/export ·
+rapor OKUMA davranışı · web'in doğru çalışan 10 tarih noktası · **geçmiş canlı kayıtlar** (PK-TAR-02=A).
+
+### Kaynak taraması (uygulama sonrası)
+Masaüstü ViewModel'lerde `?.ToUnixTimeMilliseconds()` deseni: **0 sonuç.**
+Web'de yerel-ofset uygulayan `new DateTimeOffset(x).ToUnixTimeMilliseconds()` deseni: **0 sonuç.**
+
+### Testler
+**YENİ `TarihKaymasiTests` (14 test / 30+ senaryo):** kural 6 farklı saat diliminde · `DateTime` Kind
+bağımsızlığı · gün içi saatler (00:00–03:00 dahil) · ay/yıl/artık-yıl sınırları · gün sonu sınırı ·
+null davranışı · **eski ham dönüşümün bir gün erkene düştüğünün belgesi** · yazma↔okuma sınır
+tutarlılığı · **11 masaüstü ekranı için kaynak-düzeyi kilit** (ham desen yok + beklenen çağrı sayısı) ·
+**web `Stock.razor` kilidi** · **web'in doğru 8+2 noktasının korunduğu regresyonu** · zaman damgası
+ayrımının korunduğu · kuralın tek gövdede olduğu.
+**GÜNCELLENEN:** `YakitTarihGunTests.YKT3` — kural ortak kaynağa taşındığı için kilit "ekranda
+`DateTimeKind.Utc` ara" yerine "ortak kaynağa yönlendiriyor mu" olarak güncellendi (gevşetme değil).
+
+## 10. Uygulama planı (FAZ 3'te uygulandı — §9.5)
 
 1. Ortak "iş günü → UTC ms" kuralının tek kaynağa alınması (PK-TAR-03).
 2. 🔴 A-1 noktaları: Stok Girişi (3) · Stok Sayım · Stok Dağıtım (masaüstü) + **web `Stock.razor`**.
@@ -314,7 +356,7 @@ Kod düzeltmesi olduğundan geri dönüş = önceki imaja/sürüme dönüş; **�
 
 - **Ana roadmap aşaması:** AŞAMA 3 — FINAL KARAR PAKETİ (bu ara iş onu ilerletmez)
 - **Aktif ara iş:** **ARA İŞ 3 — TARİH DÖNÜŞÜM HATALARI**
-- **Aktif faz:** **FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-184) → FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" bekliyor**
+- **Aktif faz:** **FAZ 3 ✅ UYGULAMA + TEST TAMAM → YAYIN ⏸️ "YAYINLA" onayı bekliyor**
 - **Tamamlanan ara işler:** ARA İŞ 2 PAKET-1 (+ADR-183) · Rapor Ara İşi (ADR-181)
 - **Yayınlanmış işler:** ARA İŞ 2 PAKET-1 · ADR-181 · ADR-183 · M · O · FIN (082 hariç)
 - **Verilen kararlar:** **PK-TAR-01=A · 02=A · 03=A · 04=A · 05=A · 06=B · 07=A** (§9.0 · ADR-184) —
@@ -322,9 +364,10 @@ Kod düzeltmesi olduğundan geri dönüş = önceki imaja/sürüme dönüş; **�
 - **Bekleyen kararlar:** ana roadmap'te **FIN-B1/Migration082** (bu ara işin dışında)
 - **Migration durumu:** bu ara iş için **GEREKMİYOR**; canlı şema **81**; Migration082 master'da yok
 - **Production durumu:** **DOKUNULMADI** (PK-TAR-06=B gereği uygulama boyunca da dokunulmayacak)
-- **Kod yazıldı mı:** **HAYIR** · **Test koşuldu mu:** HAYIR · **Migration:** oluşturulmadı
+- **Kod yazıldı mı:** **EVET** (20 nokta + tek kaynak; §9.5) · **Test:** eklendi ve koşuldu ·
+  **Migration:** oluşturulmadı (gerekmedi)
 - **Son commit:** ARA İŞ 3 karar kaydı (öncesi `832efb3` analiz · `e5583c4` yayın · `7cbb52b` son kod)
 - **Son başarılı test:** tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`)
-- **Sıradaki TEK iş:** kullanıcının **"UYGULAMA BAŞLASIN"** onayı → FAZ 3 uygulama
+- **Sıradaki TEK iş:** kullanıcının **"YAYINLA"** onayı → API + Web + masaüstü (1.0.163) yayını
 - **Ara iş tamamlanınca dönülecek nokta:** **AŞAMA 3 — FIN-B1 / Migration082 ayrı onay süreci**
 - **Ayrı fazlar (dokunulmadı):** Custom Rapor ⏸️ · Ekip+Hiyerarşi+Onay ⏸️ · N/Mobil ⏭️ ATLANDI

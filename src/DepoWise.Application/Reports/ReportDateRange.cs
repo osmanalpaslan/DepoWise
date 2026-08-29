@@ -33,11 +33,12 @@ public static class ReportDateRange
     /// Web'deki <c>DepoWise.Web.Services.FieldChecks.ToUnixMs</c> ile AYNI kuraldır
     /// (web projesi referans veremediği için orada aynası tutulur; parite testle kilitlidir).
     /// </summary>
+    /// <remarks>
+    /// ⭐ ARA İŞ 3 / ADR-184 (PK-TAR-03=A): kuralın GÖVDESİ artık
+    /// <see cref="DepoWise.Application.Common.IsGunuTarihi"/>'dedir — takvim tarihi → UTC gün sınırı
+    /// dönüşümü tüm projede TEK kaynaktan gelir (rapor OKUMA sınırları + ekranların YAZMA yolları).
+    /// Davranış birebir aynıdır; bu yalnız yönlendirmedir (mevcut RPR-06 testleri aynen kilitler).
+    /// </remarks>
     public static long? ToMs(DateTimeOffset? d, bool endOfDay)
-    {
-        if (d is null) return null;
-        var gun = DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified);
-        var an = endOfDay ? gun.AddDays(1).AddMilliseconds(-1) : gun;
-        return new DateTimeOffset(an, TimeSpan.Zero).ToUnixTimeMilliseconds();
-    }
+        => endOfDay ? Common.IsGunuTarihi.GunSonuMs(d) : Common.IsGunuTarihi.Ms(d);
 }

@@ -349,7 +349,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 WarehouseId: FormWarehouse?.Id,
                 ApproverId: FormApprover?.Id,
                 Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
-                RequestDate: FormDate?.ToUnixTimeMilliseconds(),
+                RequestDate: IsGunuTarihi.Ms(FormDate),   // ADR-184: takvim tarihi → UTC gün başı
                 SubmitImmediately: true,
                 // B-2: seçilen öncelik artık servise TAŞINIYOR (eskiden parametre hiç verilmiyor,
                 // varsayılan Normal yazılıyordu). Etiket → db değeri ortak katalogla çevrilir.

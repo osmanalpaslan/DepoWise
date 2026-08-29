@@ -192,8 +192,7 @@ public sealed partial class PurchasingViewModel : ViewModelBase
         catch { }
     }
 
-    private long? DocDateMs(DateTimeOffset? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    private long? DocDateMs(DateTimeOffset? d) => IsGunuTarihi.Ms(d);   // ADR-184: tek kaynak
 
     [RelayCommand]
     private async Task Save()

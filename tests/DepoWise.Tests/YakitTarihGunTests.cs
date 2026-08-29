@@ -118,7 +118,10 @@ public class YakitTarihGunTests : IDisposable
         Assert.DoesNotContain("DepotDate?.ToUnixTimeMilliseconds()", vm, StringComparison.Ordinal);
         Assert.Contains("IsGunuMs(DistDate)", vm, StringComparison.Ordinal);
         Assert.Contains("IsGunuMs(DepotDate)", vm, StringComparison.Ordinal);
-        Assert.Contains("DateTimeKind.Utc", vm, StringComparison.Ordinal);
+        // ⭐ ADR-184 (ARA İŞ 3 / PK-TAR-03=A) ile GÜNCELLENDİ — gevşetme DEĞİL, mimari değişikliğin kanıtı:
+        // kuralın gövdesi artık ekranda değil, ORTAK kaynakta (IsGunuTarihi). Ekran ona yönlendirir.
+        // Eskiden burada "DateTimeKind.Utc" aranıyordu; kural taşındığı için artık tek kaynak aranır.
+        Assert.Contains("IsGunuTarihi.Ms(d)", vm, StringComparison.Ordinal);
     }
 
     /// <summary>Uçtan uca: masaüstü kuralıyla yazılan fiş, seçilen GÜNÜN raporunda görünür; bir önceki

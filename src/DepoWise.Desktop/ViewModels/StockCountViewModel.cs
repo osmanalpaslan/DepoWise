@@ -232,7 +232,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
             // kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
             DesktopServices.Stock.Count(_session, lines, Reason.Trim(), Guid.NewGuid().ToString("N"),
                 branchId: CountLocationId,
-                docDate: DocDate?.ToUnixTimeMilliseconds());   // TRH-01: iş günü (created_at DEĞİL)
+                docDate: IsGunuTarihi.Ms(DocDate));   // TRH-01: iş günü (created_at DEĞİL) — ADR-184
             Status = lines.Count == 1
                 ? "Sayım kaydedildi (fark stoğa yansıdı)."
                 : $"Sayım kaydedildi ({lines.Count} malzeme, tek belge).";

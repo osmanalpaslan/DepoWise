@@ -527,7 +527,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
                     PerformedKm: MKm > 0 ? MKm : (decimal?)null,
                     PerformedHour: MHour > 0 ? MHour : (decimal?)null,
-                    PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
+                    PerformedDate: IsGunuTarihi.Ms(FormDate),   // ADR-184
                     Materials: materials,
                     StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo
                 ShowForm = false; Load();
@@ -557,7 +557,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
                     PerformedKm: MKm > 0 ? MKm : (decimal?)null,
                     PerformedHour: MHour > 0 ? MHour : (decimal?)null,
-                    PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
+                    PerformedDate: IsGunuTarihi.Ms(FormDate),   // ADR-184
                     Materials: materials,
                     StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo
                 ShowForm = false; Load();
@@ -580,7 +580,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                 OperatorId: FormOperator?.Id,
                 DurationDays: FormDuration > 0 ? (int)FormDuration : null,
                 Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
-                ActivityDate: FormDate?.ToUnixTimeMilliseconds()), Guid.NewGuid().ToString("N"));
+                ActivityDate: IsGunuTarihi.Ms(FormDate)), Guid.NewGuid().ToString("N"));   // ADR-184
             ShowForm = false; Load();
             Status = IsTransfer ? "Transfer kaydedildi (araç pasife alındı)." : "Hareket kaydedildi.";
         }

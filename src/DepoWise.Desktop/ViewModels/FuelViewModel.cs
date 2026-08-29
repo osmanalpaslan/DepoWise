@@ -73,8 +73,9 @@ public sealed partial class FuelViewModel : ViewModelBase
     ///
     /// <b>Kapsam (PK-T3=A):</b> yalnız İLERİYE dönük düzeltmedir; mevcut canlı kayıtlara DOKUNULMAZ.
     /// </summary>
-    private static long? IsGunuMs(DateTimeOffset? d)
-        => d is null ? null : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+    /// <remarks>ADR-184 (PK-TAR-03=A): kuralın gövdesi artık ortak
+    /// <see cref="DepoWise.Application.Common.IsGunuTarihi"/>'dedir; bu yalnız yönlendirmedir.</remarks>
+    private static long? IsGunuMs(DateTimeOffset? d) => IsGunuTarihi.Ms(d);
 
     /// <summary>TRH-01 — kullanıcı işlem tarihini değiştirebilir mi (btn-backdate). Yetki yoksa alan
     /// kilitlenir. Asıl kapı SUNUCUDADIR (DateEntryPolicy); arayüz kilidi güvenlik sayılmaz.</summary>

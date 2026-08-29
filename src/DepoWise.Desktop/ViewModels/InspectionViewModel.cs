@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Vehicles;
@@ -141,10 +142,10 @@ public sealed partial class InspectionViewModel : ViewModelBase
         try
         {
             // Ertelendi ise sonraki tarih = erteleme tarihi → uyarılar bu tarihe göre çalışır
-            var nextMs = (IsPostponed ? FPostponeDate : FNextDate)?.ToUnixTimeMilliseconds();
+            var nextMs = IsGunuTarihi.Ms(IsPostponed ? FPostponeDate : FNextDate);   // ADR-184
             DesktopServices.Inspection.Save(_session, new NewInspection(
                 VehicleId: FVehicle.Id, DocType: Code(FDocType),
-                LastDate: FLastDate?.ToUnixTimeMilliseconds(),
+                LastDate: IsGunuTarihi.Ms(FLastDate),   // ADR-184
                 NextDate: nextMs,
                 Result: IsInspectionType ? FResult : null,
                 Place: string.IsNullOrWhiteSpace(FPlace) ? null : FPlace.Trim(),
