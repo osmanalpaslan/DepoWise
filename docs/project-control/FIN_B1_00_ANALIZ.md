@@ -525,10 +525,88 @@ kapsamlıydı** — dokunulmadı.
 Önceki tur: 3.026 / 0 / 39 → **+10 yeni test** (FIN11–FIN13, FIN16–FIN22 ve PG 082 testi).
 PG turunda atlanan **0** → guard gevşetilmedi, testler gerçekten koştu.
 
-> ⚠️ **Şeffaflık notu:** ilk PG denemesinde 40 test başarısız göründü. Neden: o sırada **tam süit arka
-> planda koşuyordu** ve iki `dotnet test` süreci aynı test DLL'ini yeniden derliyordu. Tam süit bitince
-> PG turu **çakışmasız** tekrarlandı → **53/53**. Tekil koşumlarda da hepsi geçiyordu. Bu bir ürün
-> kusuru değil, koşum ortamı çakışmasıdır; gizlenmedi, kayda geçirildi.
+> ⚠️ **Şeffaflık notu — İLK TEŞHİS YANLIŞTI, KÖK NEDEN BULUNDU (yayın öncesi kontrolde):**
+> PG turunda 40 test başarısız oldu. İlk açıklamam "eşzamanlı derleme çakışması" idi; yayın öncesi
+> kontrolde tur **tek başına** tekrarlanınca hata **yeniden üretildi** → o açıklama YANLIŞTI.
+>
+> **Gerçek kök neden:** `PostgresTestGuard` **K4 kuralı — test veritabanı 50 MB'ı aşarsa guard
+> istisna fırlatır** (`MaxDbSizeMb = 50`). Yerel scratch PostgreSQL'i tekrarlanan koşumlarla şişmişti
+> (koşum başlangıcında **36,5 MB**); tur ilerledikçe DB 50 MB'ı aşıyor ve kalan testler guard'da
+> patlıyordu — bu yüzden tekil sınıflar geçiyor, toplu tur düşüyordu (13 geçti / 40 düştü / 3 sn).
+>
+> **Çözüm:** izole test veritabanı boşaltılıp yeniden oluşturuldu (7,7 MB) → tur **53/53**.
+> **Guard GEVŞETİLMEDİ** — tersine, guard tasarlandığı gibi çalıştı ve kendi scratch ortamımın
+> bakımsızlığını yakaladı. Bu bir **ürün kusuru DEĞİLDİR**; Migration082 veya FIN-B1 koduyla ilgisi
+> yoktur (tüm PG testleri temiz DB'de geçiyor). Gizlenmedi, düzeltilerek kayda geçirildi.
+
+## 23.4 YAYIN ÖNCESİ SON KONTROL (2026-08-29) — kod/migration/test DEĞİŞTİRİLMEDİ
+
+### A) Depo ve migration doğrulaması
+
+| Kontrol | Sonuç |
+|---|---|
+| HEAD | **`d9fc350`** · origin/master ile **birebir eşit** |
+| Çalışma ağacı | **temiz** (takip edilen kirli dosya: 0) |
+| Takip dışı dosyalar | `SECURITY_CREDENTIAL_ROTATION_PLAN.md`, `kilavuzlar/` — **dokunulmadı, commit edilmedi** |
+| Katalog sırası | `…080 → 081 → **082**` (son kayıt) |
+| Migration082 kimliği | `Version => 82` · `Name => "operation_id_company_scope"` |
+| Hedef sayısı | **7** (6 operasyon tablosu + `sync_inbox`) |
+| Yasaklı DDL/DML (çalışan kodda) | `CREATE TABLE` 0 · `ALTER TABLE` 0 · `ADD COLUMN` 0 · `INSERT` 0 · `UPDATE` 0 · `DELETE` 0 · `DROP TABLE` 0 |
+| `CONCURRENTLY` | çalışan SQL'de **YOK** (yalnız 2 açıklama satırında geçiyor) |
+| Firma-kör kalan idempotency sorgusu | **0** |
+| Firma kapsamlı sorgu | 13 (9 FIN-B1 + `sync_inbox` + zaten doğru olan 3 muhasebe sorgusu) |
+
+### B) İzole PostgreSQL'de indeks doğrulaması (production'a bağlanılmadan)
+
+`pg_indexes` çıktısı — **7/7 doğru**, adlar korundu, hepsi `UNIQUE … (company_id, operation_id)`;
+`schema_migrations` azamisi **82**.
+
+### D) Boyut ölçümü — PK-FIN-03=C
+
+⚠️ **PRODUCTION BOYUTU ÖLÇÜLMEDİ** (production erişimi yasak). Aşağıdaki rakamlar **yalnız izole test
+veritabanına** aittir ve **canlı boyut için gösterge DEĞİLDİR** (test DB'sinde veri yok denecek kadar az):
+
+| Tablo | Satır | Toplam | operation indeksi |
+|---|---|---|---|
+| `fuel_distributions` | 5 | 80 kB | 16 kB |
+| `assignment_movements` | 0 | 48 kB | 8 kB |
+| `daily_activities` | 0 | 40 kB | 8 kB |
+| `stock_movements` | 0 | 40 kB | 8 kB |
+| `fuel_depot_entries` | 0 | 32 kB | 8 kB |
+| `vehicle_maintenances` | 0 | 32 kB | 8 kB |
+| **`sync_inbox`** | 0 | 24 kB | 8 kB |
+
+**`sync_inbox` canlı boyutu BİLİNMİYOR** ve tahmin edilmeyecektir. Yayın anında (yedekten sonra,
+migration'dan önce) salt-okunur olarak ölçülmesi **zorunlu adımdır**.
+
+### E) Yayın riski — yeniden değerlendirme
+
+| Konu | Değerlendirme |
+|---|---|
+| `CREATE UNIQUE INDEX` kilidi | PostgreSQL'de tabloya kısa **ACCESS EXCLUSIVE** kilit; süre tablo boyutuyla orantılı → boyut ölçülmeden yayın yapılmamalı |
+| `sync_inbox` büyüklüğü | **Bilinmiyor** — her push'ta biriktiği için en büyük hedef olabilir; ana kilit riski budur |
+| Runner davranışı | migration başına tek transaction; DDL transaction'lı → hatada **tam geri alma** |
+| Migration başarısız | şema **81**'de kalır, veri değişmez (FIN22 ile kanıtlandı) |
+| Migration başarılı | şema **82** |
+| Kod + migration birlikte | **ZORUNLU** — yeni kod + eski şema 81 güvenli DEĞİL (firma süzgeçli kod + küresel indeks = UNIQUE ihlali) |
+| Eski kod + yeni şema 82 | **Güvenli yön** (benzersizlik gevşemiş; eski kod çalışmaya devam eder) |
+| Ters migration | Mümkün, ancak arada **firmalar arası aynı `operation_id`** kayıt oluşmuşsa küresel UNIQUE yeniden kurulamaz → geri dönüş engellenir |
+| Bu riskin olasılığı | **Çok düşük**: normal işlemde `operation_id` **GUID**; Excel içe aktarımda hash'e `companyId` dahil. **Ancak API `operationId`'yi istemciden kabul ettiği için teorik olarak mümkündür** → rollback penceresi kısa tutulmalı |
+
+### F) Yayın paketi ve önerilen sıra (BU TURDA UYGULANMADI — yalnız plan)
+
+**Paket:** Migration082 · 9 idempotency düzeltmesi · `sync_inbox` düzeltmesi · güncellenmiş FIN testleri ·
+API · Web · Masaüstü **1.0.164**. (ARA İŞ 3'ün 1.0.163 yayını **değiştirilmez**.)
+
+1. **`pg_dump` yedeği** (zorunlu ön koşul)
+2. Yedek doğrulaması
+3. **Salt-okunur boyut ölçümü** (7 tablo + indeksler, özellikle `sync_inbox`) — PK-FIN-03=C
+4. API + Web deploy (Migration082 API açılışında runner ile uygulanır)
+5. Migration sonucu doğrulama: `schema_migrations` azamisi **82** + 7 indeksin kolonları
+6. API/Web sağlık kontrolü
+7. Kritik salt-okunur doğrulamalar
+8. Masaüstü **1.0.164** paketi + yayını
+9. Yayın sonrası doğrulama
 
 ## 24. Faz takip tablosu
 
