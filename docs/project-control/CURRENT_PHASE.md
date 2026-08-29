@@ -127,6 +127,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
 | Aktif ara iş / aşaması | **YOK** — ARA İŞ 3 ✅ **YAYINLANDI** (masaüstü **1.0.163**, API + Web güncel, şema **81**); ana roadmap'e dönüldü |
+| Ana roadmap aktif iş | **AŞAMA 3 — FIN-B1 / Migration082** · **FAZ 1 ✅ analiz tamam** (`FIN_B1_00_ANALIZ.md`) · **FAZ 2 ⏸️ PK-FIN-01…05 karar bekliyor** · kod/migration/test YOK, production'a bağlanılmadı |
 | Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** |
 | Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
 | Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
@@ -134,7 +135,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
 | Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
 | Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | **AŞAMA 3 — FINAL KARAR PAKETİ (FIN-B1 / Migration082)** — kullanıcı onayı bekliyor |
+| Sonraki TEK iş | **PK-FIN-01…05 kararları** (FIN-B1 / Migration082) → sonra "UYGULAMA BAŞLASIN" |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
