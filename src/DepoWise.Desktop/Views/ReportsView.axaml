@@ -181,6 +181,22 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- ADR-182: GÜNLÜK FAALİYET KAYIT TİPİ filtresi. Hareket Türü ile AYNI desen; sabit
+                     liste, TEK kaynak: DailyActivityTypeOptions → web ile AYNI seçenekler ve AYNI
+                     Türkçe etiketler. Boş = TÜM tipler. Sorgu/ağ yok → çevrimdışı çalışır. -->
+                <ctrl:FormField Label="Kayıt Tipi (çoklu; boş=tümü)" Width="200" IsVisible="{Binding ShowActivityType}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding ActivityTypes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
                 <!-- STK-10b-3: MALZEME filtresi (Stok Hareketleri Raporu). Liste ÖN YÜKLENMEZ — mevcut
                      yerel arama deseni (Materials.List(term), ilk 30) kullanılır: ağ YOK, çevrimdışı
                      çalışır. Seçilen malzemenin ADI kutuda görünür; isteğe materials.id gider.

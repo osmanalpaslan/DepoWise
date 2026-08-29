@@ -65,6 +65,11 @@
          iki platformda elle tekrarlansaydı biri değiştiğinde web ve masaüstü FARKLI tercih kaydını okur,
          kullanıcı "web'de seçtiğim masaüstünde gelmiyor" derdi. Dosya SAF katalogdur (yalnız const). -->
     <Compile Include="..\DepoWise.Application\Ui\UserPrefKeys.cs" Link="Services\UserPrefKeys.cs" />
+    <!-- ADR-182 (2026-08-29, PK-D1=A): GÜNLÜK FAALİYET kayıt tipi kataloğu — MovementTypeOptions ile
+         AYNI gerekçe: rapor filtresinin seçenekleri ve Türkçe etiketleri iki platformda tek kaynaktan
+         gelmeli (etiket bugün zaten iki yerde tekrarlanıyordu; üçüncü kopya ıraksama üretirdi).
+         Dosya SAF katalogdur (yalnız const + static liste, bağımlılık yok). -->
+    <Compile Include="..\DepoWise.Application\Ui\DailyActivityTypeOptions.cs" Link="Services\DailyActivityTypeOptions.cs" />
   </ItemGroup>
 
 </Project>

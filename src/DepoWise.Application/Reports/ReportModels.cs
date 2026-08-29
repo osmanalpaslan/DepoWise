@@ -66,7 +66,14 @@ public sealed record ReportRequest(
     // G4-4: CARİ filtresi (ön muhasebe raporları). Boş/null = TÜM cariler.
     // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek
     // mevcut çağrıların argümanlarını sessizce kaydırırdı).
-    IReadOnlyList<string>? PartyIds = null);
+    IReadOnlyList<string>? PartyIds = null,
+
+    // ADR-182 (ARA İŞ 2 / S4, PK-D1=A): GÜNLÜK FAALİYET KAYIT TİPİ filtresi. Değerler SABİT listeden
+    // gelir (DepoWise.Application.Ui.DailyActivityTypeOptions) — DB'den değil. Boş/null = TÜM tipler
+    // (kullanıcı kuralı: hiçbir tip seçilmezse hepsi listelenir).
+    // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek mevcut
+    // çağrıların argümanlarını sessizce kaydırırdı).
+    IReadOnlyList<string>? ActivityTypes = null);
 
 public static class ReportGate
 {

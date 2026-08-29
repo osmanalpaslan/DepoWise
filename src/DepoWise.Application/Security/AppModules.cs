@@ -88,6 +88,10 @@ public static class AppModules
         ("report_management", "Rapor: Yönetim"),
         ("report_material", "Rapor: Malzeme"),
         ("report_accounting", "Rapor: Ön Muhasebe"),
+        // ADR-182 (2026-08-29, PK-D1=A): 9. rapor kategorisi — "Günlük Faaliyet — Detay" raporu.
+        // Yeni anahtar MIGRATION GEREKTİRMEZ (user_permissions.module_key serbest metindir) ve
+        // deny-by-default gereği HERKESE KAPALI başlar; yayın sonrası Yetkiler ekranından açılır.
+        ("report_daily_activity", "Rapor: Günlük Faaliyet"),
         ("import_export", "İçe Aktarım (Import)"),   // 2026-07-26: yalnız İÇE AKTARIM
         ("export", "Dışa Aktarım (Export)"),         // 2026-07-26: ayrı DIŞA AKTARIM (liste Excel butonları dahil)
         ("files", "Dosya / Fotoğraf"),

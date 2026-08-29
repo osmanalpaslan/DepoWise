@@ -37,6 +37,11 @@ public enum ReportFilters
     // YÜKLENMEZ — Material (STK-10b-3) ile AYNI desen: yaz → sunucu tarafı arama → seç.
     // Binlerce cariyi rapor açılışında indirmek performans kuralına aykırı olurdu.
     Party = 8192,
+    // ADR-182 (ARA İŞ 2 / S4, PK-D1=A): GÜNLÜK FAALİYET KAYIT TİPİ çoklu filtre. Seçenekler SABİT
+    // listedir ve TEK doğru kaynaktan gelir: DepoWise.Application.Ui.DailyActivityTypeOptions
+    // (MovementType/Status ile AYNI desen — web bu dosyayı derler, /api/reports/scope'a alan EKLENMEDİ).
+    // HİÇBİRİ seçilmezse TÜM tipler listelenir (kullanıcı kuralı) — boş liste "filtre yok" demektir.
+    ActivityType = 16384,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -66,7 +71,9 @@ public enum ReportGroup { Standard, Manager }
 /// <summary>Rapor KATEGORİSİ (kullanıcı isteği 2026-08-07): ileride çok sayıda rapor eklendiğinde temaya göre
 /// gruplamak için (UI'da alt-başlık/klasör olarak kullanılabilir — mimari şimdiden hazır). Yeni kategori
 /// eklemek için buraya değer + <see cref="ReportCatalog.CategoryLabel"/>'a etiket eklenir.</summary>
-public enum ReportCategory { Vehicle, Material, Fuel, Maintenance, Requests, Purchasing, Stock, Management, Accounting }
+/// ⚠️ Yeni değer DAİMA SONA eklenir: web ikon eşlemesi kategori ADINA bakar, sıra değişirse
+/// mevcut kategorilerin ikonları/gruplaması sessizce kayardı.
+public enum ReportCategory { Vehicle, Material, Fuel, Maintenance, Requests, Purchasing, Stock, Management, Accounting, DailyActivity }
 
 /// <summary>
 /// TEK doğru kaynak rapor tanımı (kullanıcı isteği 2026-08-07 — ortak rapor mimarisi). Hem masaüstü hem web
@@ -123,6 +130,7 @@ public sealed record ReportDescriptor(
     public bool UsesSearch => Filters.HasFlag(ReportFilters.Search);   // STK-10b-2: serbest metin arama
     public bool UsesMaterial => Filters.HasFlag(ReportFilters.Material);   // STK-10b-3: malzeme (arama ile seçilir)
     public bool UsesParty => Filters.HasFlag(ReportFilters.Party);   // G4-4b: cari (arama ile seçilir)
+    public bool UsesActivityType => Filters.HasFlag(ReportFilters.ActivityType);   // ADR-182: kayıt tipi (sabit liste)
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -148,6 +156,7 @@ public static class ReportCatalog
         ReportCategory.Management => "report_management",
         ReportCategory.Material => "report_material",
         ReportCategory.Accounting => "report_accounting",
+        ReportCategory.DailyActivity => "report_daily_activity",   // ADR-182 (PK-D1=A) — 9. kategori anahtarı
         _ => throw new ArgumentOutOfRangeException(nameof(c), c,
             "Bu rapor kategorisi için yetki modülü tanımlanmadı — AppModules + CategoryModule birlikte güncellenmeli."),
     };
@@ -329,6 +338,18 @@ public static class ReportCatalog
             ReportFilters.Date | ReportFilters.Branch, false, ExportStandard,
             InfoNote: "Bakiye = Σ giriş − Σ çıkış; SAKLANMAZ. Tarih aralığı verilirse giriş/çıkış o aralıktan, bakiye ise TÜM hareketlerden hesaplanır (dönem hareketi ile güncel bakiye ayrı okunur). İptal edilen hareketler hiçbirine girmez.",
             RequiredModule: "finance"),
+
+        // ADR-182 (ARA İŞ 2 / S4, PK-D1=A): GÜNLÜK FAALİYET — DETAY. Günlük Faaliyet ekranındaki
+        // kayıtların gün gün dökümü; kayıt tipi ÇOKLU seçilebilir (hiçbiri seçilmezse TÜM tipler).
+        // Yeni EKRAN/menü açılmadı: mevcut Raporlar ekranının katalog listesine tek satırla girer.
+        // Kategori 9. kategoridir ve kendi yetki anahtarını taşır (report_daily_activity, MIGRATION YOK).
+        new ReportDescriptor("daily-activity", "Günlük Faaliyet — Detay",
+            "Günlük faaliyet kayıtlarının gün gün dökümü (kayıt tipi seçilebilir)",
+            ReportCategory.DailyActivity, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.ActivityType,
+            true, ExportStandard,
+            InfoNote: "Her satır bir günlük faaliyet kaydıdır; en yeni gün üsttedir. «Kayıt Tipi» filtresinde hiçbir seçim yapılmazsa TÜM tipler listelenir. İptal edilen (silinen) kayıtlar raporda görünmez. Şube, kaydın İŞLENDİĞİ şubedir. Tarih aralığı zorunludur.",
+            DataModule: "daily_activity"),
     };
 
     public static ReportDescriptor? ByKey(string key) => All.FirstOrDefault(d => d.Key == key);
@@ -345,6 +366,7 @@ public static class ReportCatalog
         ReportCategory.Stock => "Stok",
         ReportCategory.Management => "Yönetim",
         ReportCategory.Accounting => "Ön Muhasebe",
+        ReportCategory.DailyActivity => "Günlük Faaliyet",   // ADR-182
         _ => c.ToString(),
     };
 

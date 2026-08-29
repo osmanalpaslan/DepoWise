@@ -9,7 +9,7 @@
 | S1 | Yakıt: tarih yazım hatası + rapor kapsam sözleşmesi | ✅ **TAMAM** |
 | S2 | "Yakıtı Veren" son seçim | ✅ **TAMAM** |
 | S3 | Yakıt-Günlük + Stok Hareketleri-Günlük | ✅ **TAMAM** |
-| S4 | Günlük Faaliyet — Detay | ⏳ |
+| S4 | Günlük Faaliyet — Detay | ✅ **TAMAM** |
 | S5 | Fotoğraf sunucu-otoriteli + silme kapısı | ⏳ |
 | S6 | Kapanış doğrulaması + yayın öncesi rapor | ⏳ |
 
@@ -143,3 +143,52 @@ arama/malzeme listeleri) yeni raporu **kapsayacak** şekilde güncellendi — li
 `tests/DepoWise.Tests/ReportArchitectureTests.cs` · `StockReportLocationTests.cs` ·
 `StockMovementsMaterialFilterTests.cs` · **yeni** `GunlukRaporlarTests.cs` ·
 **yeni** `PostgresGunlukRaporlarTests.cs`. **UI dosyalarına DOKUNULMADI** (katalogdan beslenirler).
+
+---
+
+## S4 — "GÜNLÜK FAALİYET — DETAY" RAPORU (✅ tamamlandı · PK-D1=A)
+
+Yeni katalog raporu `daily-activity` — **yeni ekran/menü AÇILMADI**, mevcut Raporlar ekranının tür
+listesinden çalışır. Tarih **ZORUNLU**; satırlar gün gün (en yeni üstte); silinmiş kayıtlar hariç;
+kolonlar: Tarih · Kayıt Tipi · Şube · Araç · Nereden → Nereye · Operatör · Süre (gün) · Açıklama;
+TOPLAM satırı kayıt sayısı + süre toplamı.
+
+**Kayıt tipi — yeni ÇOKLU SEÇİM filtresi.** Tip veritabanında İKİ sütunla kodlanır
+(`activity_type` + `movement_kind`): Bakım · İlave Yağ · İlave Filtre · Tamir · **Hareket**
+(movement ∧ kind≠transfer) · **Transfer** (movement ∧ kind=transfer). Seçenekler ve Türkçe etiketler
+artık **paylaşımlı tek kaynaktan** (`DailyActivityTypeOptions`, web csproj'a eklendi) gelir — etiket
+daha önce iki yerde tekrarlanıyordu, üçüncü kopya üretilmedi. **Hiçbir tip seçilmezse TÜM tipler**
+listelenir (boş liste = filtre yok). Bilinmeyen anahtar parametre olarak bağlanır ve hiçbir satırla
+eşleşmez (fail-closed; enjeksiyon yüzeyi yok).
+
+**Yeni filtre 6 katmanın hepsinde bağlandı** (parite testi bu zinciri makine ile denetler):
+katalog bayrağı `ReportFilters.ActivityType` + `UsesActivityType` · `ReportRequest.ActivityTypes`
+(**SONA** eklendi — API kaydı pozisyonel kuruyor) · API katalog alanı `usesActivityType` + `ReportReqDto`
+alanı + **sorgu ve export uçlarında birebir aynı aktarım** · web filtre bloğu + `CatItem` + iki gövde ·
+masaüstü `ShowActivityType` + picks + `BuildTable` · masaüstü XAML bloğu.
+
+**Yeni kategori + yeni yetki (MIGRATION YOK):** 9. kategori `ReportCategory.DailyActivity`
+("Günlük Faaliyet") ve yeni anahtar **`report_daily_activity`** — `reports` üst kapısı KORUNDU, kategori
+ikinci kapı olarak üç noktada (API katalog süzmesi · masaüstü katalog süzmesi · ortak `Run`) aynı
+merkezden uygulanır. Anahtar deny-by-default: **yayın sonrası Yetkiler ekranından elle açılacak.**
+Ayrıca `DataModule: "daily_activity"` → Günlük Faaliyet ekranı role kapalıysa rapor da kapalıdır.
+
+**Testler:** **yeni** `GunlukFaaliyetRaporuTests` **19 test** (katalog + yeni anahtarın varlığı · kolonlar ·
+**tip seçilmezse TÜM tipler** · boş liste = tümü · tek/çoklu tip · **Hareket ↔ Transfer ayrışması** ·
+bilinmeyen anahtar fail-closed · silinmiş kayıt görünmez · aralık dışı görünmez · gün sınırı + sıralama ·
+tenant · BranchAccess · araç filtresi · **çift kapı 403 matrisi** · yeni kategori başka raporu açmaz ·
+TOPLAM satırı · tip kataloğu tek kaynak) — 19/19. `PostgresGunlukRaporlarTests` genişletildi (PG'de tip
+eşlemesi + çoklu seçim + süre toplamı) — **PG 1/1**. Kilit güncellemeleri: katalog sayacı 24→**25** ·
+`ScreenTreeParity` menüsüz-modül listesine yeni anahtar · `ReportFilterParity` haritasına yeni satır ·
+"kayıt tipi yalnız bu raporda" nöbetçisi + **sıradaki boş bayrak (32768) nöbetçisi bir sıra ileri alındı** ·
+`RaporKapsamliTarama` sweep'ine muafiyet YAZILMADI, **gerçek faaliyet kaydı seed edildi** (raporun boş
+dönmediği asıl kuralla kanıtlandı). Hedefli koşu **134/134**; 4 proje Debug derlemesi 0 hata.
+
+### Değişen dosyalar (S4)
+**yeni** `src/DepoWise.Application/Ui/DailyActivityTypeOptions.cs` · `ReportCatalog.cs` (bayrak+kategori+
+etiket+CategoryModule+descriptor) · `ReportModels.cs` (ActivityTypes) · `AppModules.cs` (yeni anahtar) ·
+`ReportService.cs` (rapor metodu + filtre SQL/bind + dispatch) · `Api/Program.cs` (katalog alanı + DTO +
+2 uç) · `Web/Reports.razor` · `Web/DepoWise.Web.csproj` · `Desktop/ReportsViewModel.cs` ·
+`Desktop/Views/ReportsView.axaml` · testler: **yeni** `GunlukFaaliyetRaporuTests.cs`,
+`PostgresGunlukRaporlarTests.cs` (genişletildi), `ReportArchitectureTests.cs`, `ScreenTreeParityTests.cs`,
+`ReportFilterParityTests.cs`, `StockReportLocationTests.cs`, `RaporKapsamliTaramaTests.cs`.

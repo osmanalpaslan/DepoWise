@@ -1406,6 +1406,125 @@ ORDER BY gun, sm.movement_type;";
         }, rows, numeric, totalRow);
     }
 
+    /// <summary>
+    /// GÜNLÜK FAALİYET — DETAY (ARA İŞ 2 / S4, 2026-08-29 · ADR-182 · PK-D1=A).
+    /// Günlük Faaliyet ekranındaki kayıtların gün gün dökümü; her satır BİR kayıttır (en yeni gün üstte).
+    ///
+    /// KAYIT TİPİ FİLTRESİ: sabit listeden çoklu seçim (<see cref="DailyActivityTypeOptions"/>).
+    /// <b>Hiçbir tip seçilmezse TÜM tipler listelenir</b> (kullanıcı kuralı — boş liste "filtre yok"tur).
+    /// Tip iki sütunla kodlandığı için (activity_type + movement_kind) eşleme SQL'de tek yerde yapılır:
+    /// "Hareket" = movement ∧ kind≠transfer · "Transfer" = movement ∧ kind=transfer. Bilinmeyen anahtar
+    /// parametre olarak bağlanır ve hiçbir satırla eşleşmez (fail-closed; enjeksiyon yüzeyi yok).
+    ///
+    /// KAPSAM: iptal/silinmiş kayıtlar HARİÇ (<c>is_deleted=0</c> — ekranla aynı varsayılan). Şube kapsamı
+    /// diğer raporlarla aynı yoldan (<see cref="ReportScope"/>) ve kaydın İŞLENDİĞİ şube (<c>op_branch_id</c>)
+    /// üzerinden uygulanır. Tarih ZORUNLUDUR (RequiresDate) — defter sürekli büyür, tarihsiz tam tarama yok.
+    /// </summary>
+    public TableModel DailyActivityDetail(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT da.activity_date, da.activity_type, COALESCE(da.movement_kind,'') AS kind,
+       COALESCE(ob.name,'') AS branch_text,
+       CASE WHEN v.internal_code IS NULL THEN ''
+            WHEN v.plate IS NULL OR v.plate='' THEN v.internal_code
+            ELSE v.internal_code || ' - ' || v.plate END AS vehicle_text,
+       CASE WHEN fb.name IS NULL AND tb.name IS NULL THEN ''
+            WHEN tb.name IS NULL THEN fb.name
+            WHEN fb.name IS NULL THEN '→ ' || tb.name
+            ELSE fb.name || ' → ' || tb.name END AS route_text,
+       COALESCE(p.full_name,'') AS operator_text,
+       da.duration_days, COALESCE(da.description,'') AS description
+FROM daily_activities da
+LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
+LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
+LEFT JOIN branches tb ON tb.id = da.to_location_id AND tb.company_id = da.company_id
+LEFT JOIN branches ob ON ob.id = da.op_branch_id AND ob.company_id = da.company_id
+LEFT JOIN personnel p ON p.id = da.operator_id AND p.company_id = da.company_id
+WHERE da.company_id = @c AND da.is_deleted = 0"
+            + ReportScope.BranchSql(s, req, "da.op_branch_id")
+            + DateFilter(req, "da.activity_date")
+            + InList("da.vehicle_id", "@rv", req.VehicleIds)
+            + ActivityTypeSql(req.ActivityTypes)
+            + $" ORDER BY da.activity_date DESC, {SqlDialect.RowTieBreaker(conn, "da")} DESC LIMIT @lim;";
+
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindActivityTypes(cmd, req.ActivityTypes);
+        cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        double tGun = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var tip = r.GetString(1);
+                var kind = r.GetString(2);
+                // Etiket TEK KAYNAKTAN: ikinci bir Türkçe eşleme kurulmaz (STK-B1 dersi).
+                var tipAnahtar = tip == "movement"
+                    ? (kind == DailyActivityTypeOptions.Transfer ? DailyActivityTypeOptions.Transfer : DailyActivityTypeOptions.Movement)
+                    : tip;
+                double gun = r.IsDBNull(7) ? 0 : Convert.ToDouble(r.GetValue(7));
+                tGun += gun;
+
+                rows.Add(new object?[]
+                {
+                    DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).UtcDateTime.ToString("dd.MM.yyyy", Tr),
+                    DailyActivityTypeOptions.Label(tipAnahtar),
+                    r.GetString(3), r.GetString(4), r.GetString(5), r.GetString(6),
+                    Num(gun, x => x.ToString("0.##", Tr)),
+                    r.GetString(8),
+                });
+            }
+
+        var numeric = new[] { false, false, false, false, false, false, true, false };
+        var totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", $"{rows.Count} kayıt", "", "", "", "", Num(tGun, x => x.ToString("0.##", Tr)), "",
+        };
+
+        return new TableModel("Günlük Faaliyet — Detay", new[]
+        {
+            "Tarih", "Kayıt Tipi", "Şube", "Araç", "Nereden → Nereye", "Operatör", "Süre (gün)", "Açıklama",
+        }, rows, numeric, totalRow);
+    }
+
+    /// <summary>ADR-182 — kayıt tipi filtresinin SQL'i. Boş seçim → filtre YOK (tüm tipler).
+    /// "Hareket"/"Transfer" aynı <c>activity_type='movement'</c> satırlarının <c>movement_kind</c> ile
+    /// ayrılmış hâlleridir; diğer tipler doğrudan eşleşir ve PARAMETRE olarak bağlanır.</summary>
+    private static string ActivityTypeSql(IReadOnlyList<string>? secilen)
+    {
+        var keys = Temizle(secilen);
+        if (keys.Count == 0) return "";
+        var parcalar = new List<string>();
+        var dogrudan = Dogrudan(keys);
+        for (int i = 0; i < dogrudan.Count; i++) parcalar.Add($"da.activity_type=@at{i}");
+        if (keys.Contains(DailyActivityTypeOptions.Movement))
+            parcalar.Add("(da.activity_type='movement' AND COALESCE(da.movement_kind,'') <> 'transfer')");
+        if (keys.Contains(DailyActivityTypeOptions.Transfer))
+            parcalar.Add("(da.activity_type='movement' AND da.movement_kind='transfer')");
+        return " AND (" + string.Join(" OR ", parcalar) + ")";
+    }
+
+    private static void BindActivityTypes(DbCommand cmd, IReadOnlyList<string>? secilen)
+    {
+        var dogrudan = Dogrudan(Temizle(secilen));
+        for (int i = 0; i < dogrudan.Count; i++) cmd.AddWithValue($"@at{i}", dogrudan[i]);
+    }
+
+    private static List<string> Temizle(IReadOnlyList<string>? v)
+        => (v ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).ToList();
+
+    private static List<string> Dogrudan(List<string> keys)
+        => keys.Where(k => k != DailyActivityTypeOptions.Movement && k != DailyActivityTypeOptions.Transfer).ToList();
+
     /// <summary>Lokasyon adı: boş kimlik → "Atanmamış" (gerçek depo gibi gösterilmez, STK-06 standardı);
     /// adı okunamayan kimlik → kimliğin kendisi (sessizce gizlenmez).</summary>
     private static string LocName(string? id, string? name)
@@ -1873,6 +1992,7 @@ ORDER BY br.name, p.full_name;";
 
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock-movements-daily" => StockMovementsDaily(s, req, maxRows),   // ADR-182 (PK-G2=A): gün×tür özeti
+        "daily-activity" => DailyActivityDetail(s, req, maxRows),   // ADR-182 (PK-D1=A): faaliyet detayı
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),
         "vehicle-daily" => VehicleDailyReport(s, req, maxRows),   // RPT-GUNLUK (PK-R1=A): gün×araç kırılımı

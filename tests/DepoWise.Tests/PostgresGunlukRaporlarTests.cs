@@ -130,6 +130,37 @@ public class PostgresGunlukRaporlarTests
 
         // Detay rapor DEĞİŞMEDİ (regresyon): 5 hareket satır-satır.
         Assert.Equal(5, reports.Run(s, "stock-movements", istek).Rows.Count);
+
+        // ── daily-activity (ADR-182 · S4): kayıt tipi eşlemesi ve çoklu seçim PG'de de aynı ──
+        Exec("INSERT INTO personnel(id,company_id,full_name,created_at,updated_at,version,is_deleted) " +
+             "VALUES('p1','A','Ali Usta',@n,@n,1,0);", ("@n", Day(0)));
+
+        void Faaliyet(string id, string tip, string? kind, long tarih, string aciklama, int? gun) =>
+            Exec(@"INSERT INTO daily_activities(id,company_id,activity_type,movement_kind,vehicle_id,from_location_id,to_location_id,
+                       operator_id,duration_days,description,source_module,stock_processed,activity_date,operation_id,op_branch_id,
+                       created_at,updated_at,version,is_deleted)
+                   VALUES(@id,'A',@t,@k,'v1','B1',NULL,'p1',@g,@a,'daily_activity',0,@d,@op,'B1',@n,@n,1,0);",
+                ("@id", id), ("@t", tip), ("@k", (object?)kind), ("@g", (object?)gun), ("@a", aciklama),
+                ("@d", tarih), ("@op", "op-" + id), ("@n", Day(0)));
+
+        Faaliyet("d1", "maintenance", null, Day(1), "Bakım", 2);
+        Faaliyet("d2", "movement", "movement", Day(2), "Sahaya sevk", null);
+        Faaliyet("d3", "movement", "transfer", Day(3), "Transfer", 1);
+
+        var hepsi = reports.Run(s, "daily-activity", istek);                       // tip seçilmedi → TÜM tipler
+        Assert.Equal(8, hepsi.Headers.Count);
+        Assert.Equal(3, hepsi.Rows.Count);
+        Assert.Equal("Transfer", (string)hepsi.Rows[0][1]!);                       // en yeni gün üstte
+
+        var yalnizHareket = reports.Run(s, "daily-activity",
+            new ReportRequest(true, Day(1), Day(3) + G - 1, ActivityTypes: new[] { "movement" }));
+        Assert.Single(yalnizHareket.Rows);                                          // transfer AYRIŞTI
+        Assert.Equal("Hareket", (string)yalnizHareket.Rows[0][1]!);
+
+        var ikili = reports.Run(s, "daily-activity",
+            new ReportRequest(true, Day(1), Day(3) + G - 1, ActivityTypes: new[] { "maintenance", "transfer" }));
+        Assert.Equal(2, ikili.Rows.Count);
+        Assert.Equal(3.0, Deger(ikili.TotalRow![6]), 3);                            // süre toplamı 2 + 1
     }
 
     private static double Deger(object? v) => v switch

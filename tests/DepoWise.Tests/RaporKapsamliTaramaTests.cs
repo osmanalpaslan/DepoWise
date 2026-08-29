@@ -141,6 +141,13 @@ public class RaporKapsamliTaramaTests : IDisposable
         new InspectionService(_f, _clock).Save(_admin,
             new NewInspection(arac, "inspection", Simdi, Simdi + 86_400_000L * 30));
 
+        // Günlük faaliyet (ADR-182 · S4): "Günlük Faaliyet — Detay" raporunun verisi de NORMAL yoldan
+        // girilir — muafiyet listesine yazmak yerine gerçek kayıt üretilir (bu sınıfın asıl kuralı).
+        new DailyActivityService(_f, new MaintenanceService(_f, _clock), _clock).SaveMovement(_admin,
+            new NewMovementActivity("movement", VehicleId: arac, FromLocationId: depo,
+                OperatorId: personel, Description: "Sahaya sevk", ActivityDate: Simdi), Op());
+        _clock.Advance(60_000);
+
         // Talep
         new RequestService(_f, stock, _clock).Create(_admin, new NewRequest(
             new[] { new RequestItemInput(mat, 2m) }, BranchId: depo, RequesterId: personel,

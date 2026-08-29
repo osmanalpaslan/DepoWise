@@ -65,6 +65,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowStatus))]
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
+    [NotifyPropertyChangedFor(nameof(ShowActivityType))]
     [NotifyPropertyChangedFor(nameof(ShowSearch))]
     [NotifyPropertyChangedFor(nameof(ShowMaterial))]
     [NotifyPropertyChangedFor(nameof(ShowParty))]
@@ -105,6 +106,11 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// <summary>STK-10b-1 — stok HAREKET TÜRÜ filtresi. Seçenekler STK-B1'in TEK kaynağından
     /// (<see cref="MovementTypeOptions"/>) gelir; masaüstünde ayrı bir liste TUTULMAZ ve ağ gerekmez.</summary>
     public bool ShowMovementType => SelectedReport?.UsesMovementType == true;
+
+    /// <summary>ADR-182 (PK-D1=A) — GÜNLÜK FAALİYET KAYIT TİPİ filtresi. Hareket Türü ile AYNI desen:
+    /// seçenekler TEK kaynaktan (<see cref="DailyActivityTypeOptions"/>) gelir, sorgu/ağ GEREKMEZ
+    /// (çevrimdışı çalışır) ve web ile birebir aynı etiketleri gösterir.</summary>
+    public bool ShowActivityType => SelectedReport?.UsesActivityType == true;
 
     /// <summary>STK-10b-2 (ADR-104) — serbest metin arama. SKALER alan (liste değil); semantiği
     /// mevcut Stok Hareketleri ekranından aynen taşındı ve SUNUCU/SQL tarafında uygulanır.</summary>
@@ -155,6 +161,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// TEK doğru kaynak <see cref="MovementTypeOptions"/> (STK-B1). Id = KANONİK `movement_type`
     /// anahtarı, gösterilen ad ise katalogdaki Türkçe etiket → web ile birebir aynı seçenekler.</summary>
     public ObservableCollection<BranchPick> MovementTypes { get; } = new();
+    /// <summary>ADR-182 — günlük faaliyet KAYIT TİPİ filtresi. Sabit liste; TEK doğru kaynak
+    /// <see cref="DailyActivityTypeOptions"/>. Id = filtre anahtarı, gösterilen ad Türkçe etiket.</summary>
+    public ObservableCollection<BranchPick> ActivityTypes { get; } = new();
     [ObservableProperty] private string _vehicleSearch = "";
     partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
@@ -243,6 +252,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadRequesters();
         LoadStatuses();
         LoadMovementTypes();
+        LoadActivityTypes();
         ApplyDateDefault();
     }
 
@@ -328,6 +338,14 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void LoadMovementTypes()
     {
         foreach (var (key, label) in MovementTypeOptions.All) MovementTypes.Add(new BranchPick(key, label));
+    }
+
+    /// <summary>ADR-182 — günlük faaliyet kayıt tipleri: sabit liste, TEK kaynak
+    /// (<see cref="DailyActivityTypeOptions"/>). Web de AYNI sabitten beslenir (paylaşılan dosya) →
+    /// iki platformda aynı seçenek ve aynı etiket. Sorgu YOK, ağ YOK → çevrimdışı çalışır.</summary>
+    private void LoadActivityTypes()
+    {
+        foreach (var (key, label) in DailyActivityTypeOptions.All) ActivityTypes.Add(new BranchPick(key, label));
     }
 
     /// <summary>STK-10b-3 — malzeme ARAMA (yerel). Mevcut desenin aynısı (Talep/Bakım/Stok ekranları):
@@ -537,6 +555,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var movementTypes = ShowMovementType
             ? MovementTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        // ADR-182: seçili kayıt tipleri. Hiçbiri seçili değilse null → TÜM tipler (kullanıcı kuralı).
+        var activityTypes = ShowActivityType
+            ? ActivityTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         // STK-10b-2: serbest metin arama (skaler). Bayrak kapalıysa GÖNDERİLMEZ.
         var searchText = ShowSearch ? SearchText : null;
         // STK-10b-3: seçili malzeme → TEK elemanlı liste. Seçim yoksa null → TÜM malzemeler.
@@ -565,7 +587,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
             SearchText: string.IsNullOrWhiteSpace(searchText) ? null : searchText,
             MaterialIds: materialIds,
             // G4-4b: seçili cari → TEK elemanlı liste. Seçim yoksa null → TÜM cariler.
-            PartyIds: ShowParty && PickedParty is not null ? new List<string> { PickedParty.Id } : null);
+            PartyIds: ShowParty && PickedParty is not null ? new List<string> { PickedParty.Id } : null,
+            // ADR-182: seçili kayıt tipleri. Boş → null → TÜM tipler.
+            ActivityTypes: activityTypes is { Count: > 0 } ? activityTypes : null);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

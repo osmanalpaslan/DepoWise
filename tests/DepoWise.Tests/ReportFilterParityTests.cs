@@ -115,6 +115,10 @@ public class ReportFilterParityTests
         // ⚠️ Etiket parçası "Cari (" — yalnız "Cari" yazsaydık "Cari Ekstre"/"Cari Bakiye" rapor ADLARINA
         //    da takılırdı ve blok silinse bile test geçerdi (Search'teki zayıflığın aynısı).
         new Wiring(ReportFilters.Party,          "ShowParty",          new[] { "PartyIds" },           "Cari (kod/ünvan"),
+        // ADR-182 (ARA İŞ 2 / S4, PK-D1=A) — GÜNLÜK FAALİYET KAYIT TİPİ. MovementType ile AYNI desen:
+        // seçenekler SABİT listeden (DailyActivityTypeOptions) gelir, web bu dosyayı derler →
+        // /api/reports/scope'a alan EKLENMEDİ. Boş seçim = TÜM tipler (kullanıcı kuralı).
+        new Wiring(ReportFilters.ActivityType,   "ShowActivityType",   new[] { "ActivityTypes" },      "Kayıt Tipi"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);

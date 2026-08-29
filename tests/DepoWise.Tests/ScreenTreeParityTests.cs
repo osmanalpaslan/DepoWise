@@ -242,6 +242,7 @@ public class ScreenTreeParityTests
             // Raporlar ekranının İÇİNDE tür listesini süzer ve ReportService.Run ikinci kapısıdır.
             "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
             "report_requests", "report_management", "report_material", "report_accounting",
+            "report_daily_activity",   // ADR-182 (PK-D1=A): 9. kategori — aynı gerekçe (menüde madde değil)
         };
 
         var oksuz = ModuleKeys()

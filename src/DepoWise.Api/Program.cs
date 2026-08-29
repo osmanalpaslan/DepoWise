@@ -3002,6 +3002,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         usesSearch = d.UsesSearch,   // STK-10b-2: serbest metin arama
         usesMaterial = d.UsesMaterial,   // STK-10b-3: malzeme filtresi (arama ile seçilir)
         usesParty = d.UsesParty,   // G4-4b: cari filtresi (arama ile seçilir)
+        usesActivityType = d.UsesActivityType,   // ADR-182: günlük faaliyet kayıt tipi (sabit liste)
         requiresDate = d.RequiresDate, manager = d.IsManager,
         infoNote = d.InfoNote
     }))).RequireAuthorization();
@@ -3014,7 +3015,7 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
     var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);   // RPR-07 + TNT-05
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -3034,7 +3035,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
@@ -4114,6 +4115,9 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     List<string>? MaterialIds = null,
     // G4-4: ön muhasebe raporlarında CARİ filtresi. ⚠️ SONA EKLENDİ (kayıt pozisyonel de kuruluyor).
     List<string>? PartyIds = null,
+    // ADR-182 (2026-08-29, PK-D1=A): GÜNLÜK FAALİYET kayıt tipi filtresi (sabit liste anahtarları).
+    // Boş/gönderilmemiş = TÜM tipler. ⚠️ SONA EKLENDİ (kayıt pozisyonel de kuruluyor).
+    List<string>? ActivityTypes = null,
     // ⭐ RPR-07 (2026-08-25): "Operasyon Raporları" ekranının ÇALIŞMA ŞUBESİ (giriş ekranında seçilen şube).
     // Masaüstünde bu bilgi oturumda zaten vardır; WEB oturumu onu TAŞIMIYORDU (R33) → web raporu kullanıcının
     // TÜM izinli şubelerini topluyordu. Alan opsiyoneldir: gönderilmezse davranış eskisiyle BİREBİR aynıdır.
