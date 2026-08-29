@@ -1,6 +1,41 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-29** (ARA İŞ 2 — kararlar verildi, birleşik uygulama planı hazır, UYGULAMA ONAYI bekliyor; rapor ara işi ADR-181 yayın onayı bekliyor) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-29** (⭐ **TOPLU YAYIN YAPILDI** — M + O + FIN(082 hariç) + ADR-181 + ADR-182 canlıda; masaüstü **1.0.161**; **canlı şema 81 DEĞİŞMEDİ**) · Bu dosya **her iş sonunda** güncellenir.
+
+---
+
+## ⭐ YAYIN — 2026-08-29 (ADR-182 dalgası) — ✅ BAŞARILI
+
+**Yayınlanan commit:** `386b22d` · **Masaüstü:** 1.0.160 → **1.0.161** (checksum `FDEC8079…B38BFCB8`, 86,2 MB)
+**API** (`fly.toml` → depowise-erp) ve **Web** (`fly.web.toml` → depowise-web) yeniden dağıtıldı.
+
+| Bileşen | Durum |
+|---|---|
+| **M — Excel Merkezi** (ADR-176) | ✅ YAYINLANDI |
+| **O — Barkod/QR** (ADR-177) | ✅ YAYINLANDI |
+| **FIN düzeltmeleri — Migration082 HARİÇ** (ADR-178/179 + ADR-180 geri çekmesi) | ✅ YAYINLANDI |
+| **Rapor Ara İşi** (ADR-181: `vehicle-daily` + 8 kategori yetkisi) | ✅ YAYINLANDI |
+| **ARA İŞ 2 PAKET-1** (ADR-182: S1–S5) | ✅ YAYINLANDI |
+
+**MIGRATION SONUCU: HİÇBİR MİGRATION UYGULANMADI — canlı şema 81'de KALDI.** Kanıt: yayınlanan imajda
+`Migration082` dosyası YOK ve katalogda 0 referans var; katalog azamisi **81** = yayın öncesi canlı şema;
+runner yalnız mevcut sürümden BÜYÜK migration uygular → uygulanacak hiçbir şey yoktu. API açılışta
+migration çalıştırır; başarısız olsaydı ayağa kalkamazdı — API sağlıklı ve gerçek istemciler senkron oluyor.
+⚠️ Üretim veritabanına **doğrudan bağlanılmadı** (SELECT dahil) — kanıt yapısaldır, DB'den okuma değil.
+
+**Yayın sonrası salt-okunur kontroller: 28/28 BAŞARILI** (test hesabıyla; hiçbir kayıt oluşturulmadı/
+değiştirilmedi). Öne çıkanlar: canlı rapor kataloğu **25 rapor** · yeni raporların üçü de katalogda ve
+çalışıyor (`fuel-daily` 213 satır · `stock-movements-daily` 1 satır · `daily-activity` 8 kolon) ·
+**yeni kapsam sözleşmesi canlıda görünür: `vehicle` 68 araç (tam filo) ↔ `fuel` 46 araç (yalnız fişi olan)** ·
+token'sız 401 · bilinmeyen rapor türü 400 · sahte `companyId` ile veri sızmıyor · QR/fotoğraf/kişisel
+tercih uçları canlı. `daily-activity` 0 satır döndü çünkü **Günlük Faaliyet ekranının kendisi canlıda
+0 kayıt içeriyor** (`/api/daily` → 0 ile doğrulandı) — sorun değil.
+
+⚠️ **KULLANICI İŞİ:** yeni **`Rapor: Günlük Faaliyet`** (`report_daily_activity`) yetkisi hiçbir role
+otomatik açılmadı (deny-by-default) — Yetkiler ekranından açılmalı. Admin/firma admini bypass ile görür.
+Masaüstü makineler uygulama açıkken ≤60 sn'de "Yeni güncelleme mevcut" uyarısı alır → **1.0.161**.
+
+---
 
 ---
 
@@ -19,24 +54,52 @@
 | FIN-B1 / Migration082 | ⛔ **AYRI ONAY BEKLİYOR** | Tasarım `35d7bce`; canlı şema 81 (ADR-180) |
 | N — Mobil | ⏭️ **ATLANDI** | Kod yazılmadı; bu döngüde uygulanmayacak |
 
-**PAKET-1 (İş 1+2+3+4+5) ✅ KOD+TEST TAMAM — ⛔ YAYIN ONAYI BEKLİYOR.** Tamamı MIGRATION'SIZ;
+**PAKET-1 (İş 1+2+3+4+5) ✅ TAMAMLANDI ve ✅ YAYINLANDI (2026-08-29).** Tamamı MIGRATION'SIZ;
 uygulama kaydı: [ARA_IS_2_02_UYGULAMA.md](ARA_IS_2_02_UYGULAMA.md) · karar: ADR-182.
 
-### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29)
-- **Son tamamlanan iş:** ARA İŞ 2 PAKET-1 (S1 yakıt · S2 yakıtı veren · S3 günlük raporlar · S4 günlük faaliyet detayı · S5 fotoğraf) — **kod + test bitti, yayınlanmadı**
-- **Yarım kalan iş:** YOK. S1–S5'in tamamı tamamlandı ve push edildi; yalnız YAYIN adımı bekliyor.
-- **Son commit:** `a638c51` (S5) — zincir: `fc3e2fd` S1 → `f2d7daf` S2 → `142b2b5` S3 → `77805cd` S4 → `a638c51` S5
-- **Yayına hazır kod havuzu:** M (Excel Merkezi) + O (Barkod/QR) + FIN düzeltmeleri (**082 HARİÇ**) + Rapor Ara İşi (ADR-181) + **ARA İŞ 2 PAKET-1 (ADR-182)**
-- **Production yayınlandı mı:** HAYIR — canlıda hâlâ API v174 · Web v199 · Masaüstü 1.0.160
-- **Production migration çalıştı mı:** HAYIR — **canlı şema 81** (katalog azamisi de 81; bu pakette hiç migration eklenmedi)
-- **FIN-B1 / Migration082:** master'dan geri çekilmiş (ADR-180), tasarım `35d7bce`'de, **AYRI onay bekliyor**; bu yayında ÇALIŞMAYACAK
-- **Ayrı faza bırakılanlar:** İş 6 **Custom Rapor** (migration gerekir — henüz uygulanmadı) · İş 7 **Ekip + Hiyerarşi + Onay** (migration + senkron gerekir — henüz uygulanmadı)
-- **Atlanan iş:** N — Mobil (kod yazılmadı)
-- **Şu an aktif faz:** ARA İŞ 2 PAKET-1 — **YAYIN BEKLİYOR**
-- **Bir sonraki yapılacak TEK iş:** kullanıcının **"YAYINLA"** onayı → deploy (API + Web + masaüstü paketi) → yayın sonrası salt-okunur kontroller → **kullanıcı işi:** `report_daily_activity` yetkisini Yetkiler ekranından açmak
-- **AŞAMA 3'e dönüldüğünde izlenecek adım:** ana roadmap sıradaki iş **AŞAMA 3 — FINAL KARAR PAKETİ**; ilk madde FIN-B1/Migration082'nin ayrı onayı (diğer 6 madde ADR-179'da kapandı ve korunuyor)
-- **Kullanıcıdan beklenen karar:** "YAYINLA"
-- **Yeni oturumda okunacak belgeler:** CURRENT_PHASE.md → MASTER_ROADMAP.md → ARA_IS_2_02_UYGULAMA.md → ARA_IS_2_00_ANALIZ.md → RAPOR_ARA_IS_01.md → DECISIONS.md (ADR-180/181/182)
+### 🤖 CHATGPT DEVAM NOKTASI (2026-08-29 · yayın sonrası)
+
+**YAYIN DURUMU**
+- **ARA İŞ 2 PAKET-1:** ✅ TAMAMLANDI + ✅ **YAYINLANDI**
+- **Rapor Ara İşi ADR-181:** ✅ **YAYINLANDI**
+- **M — Excel Merkezi:** ✅ **YAYINLANDI**
+- **O — Barkod/QR:** ✅ **YAYINLANDI**
+- **FIN düzeltmeleri (082 hariç):** ✅ **YAYINLANDI**
+- **N — Mobil:** ⏭️ **ATLANDI** (kod yazılmadı)
+- **FIN-B1 / Migration082:** ⏸️ **AYRI ONAY BEKLİYOR** — master'dan geri çekilmiş (ADR-180), tasarım `35d7bce`'de; **canlı şema 81**
+- **Custom Rapor:** ⏸️ **AYRI FAZ — henüz başlanmadı**
+- **Ekip + Onay:** ⏸️ **AYRI FAZ — henüz başlanmadı**
+
+**CANLI DURUM**
+- Yayınlanan commit: **`386b22d`** · Masaüstü **1.0.161** (önce 1.0.160) · API + Web yeniden dağıtıldı
+- **Canlı şema: 81** — bu yayında **hiçbir migration uygulanmadı** (imajda Migration082 yok, katalog azamisi 81)
+- Yayın sonrası salt-okunur kontroller: **28/28 başarılı**; canlı rapor kataloğu **25 rapor**
+- Production veritabanına doğrudan bağlanılmadı (SELECT dahil)
+
+**ANA DEVAM NOKTASI: AŞAMA 3 — FINAL KARAR PAKETİ**
+Ara işlerin yayınlanmış olması ana roadmap sırasını **değiştirmez**. AŞAMA 3 maddelerinin dosyadaki
+gerçek son durumu (kararlar TEKRAR SORULMAZ):
+| Madde | Durum |
+|---|---|
+| **FIN-B1 / Migration082** | ⏸️ **TEK AÇIK MADDE** — ayrı onay bekliyor; canlı şema 81; tasarım `35d7bce` |
+| YET-01 | ✅ uygulandı (ADR-179) — iki işlevsiz yetki anahtarı kaldırıldı |
+| ARC-01(a) | ✅ incelemede zaten çözülmüş çıktı (kod gerekmedi) |
+| STK-B2 | ✅ karar: HAYIR (mevcut davranış korunuyor; FIN8 kilidi) |
+| RPR-02 | ✅ zaten çözülmüş çıktı (RPR-04/RPR-07) |
+| SNK-05 | ✅ karar (a): mevcut sözleşme kilitlendi (online ilk-kazanır · offline LWW) |
+| MAK-01/b | ✅ korundu |
+
+**AÇIK BULGU (kaybolmasın):** S1d taramasında masaüstünde **10 ekran / 17 tarih yazım noktasında**
+aynı saat-dilimi kayması sınıfı bulundu (en ağırı stok belge tarihleri: Stok Girişi ×3, Stok Sayım,
+Stok Dağıtım — her seferinde bir gün kayıyor; ayrıca bakım, muayene, fatura, cari, ödeme, finans,
+günlük faaliyet, talep ekranlarında kullanıcı gün seçince kayıyor). **Bu bulgular HENÜZ DÜZELTİLMEDİ**
+— kullanıcı kararıyla ileride ayrı iş olarak ele alınacak. Tam liste: ARA_IS_2_02_UYGULAMA.md § S1d.
+
+**KULLANICI İŞİ (yayın sonrası):** `Rapor: Günlük Faaliyet` (`report_daily_activity`) yetkisini
+Yetkiler ekranından ilgili rollere açmak; açılana dek admin olmayanlar bu raporu göremez (bilinçli).
+
+- **Bir sonraki yapılacak TEK iş:** AŞAMA 3 — FIN-B1/Migration082 için kullanıcı kararı
+- **Yeni oturumda okunacak belgeler:** CURRENT_PHASE.md → MASTER_ROADMAP.md → ARA_IS_2_02_UYGULAMA.md → FINAL_KARAR_PAKETI.md → DECISIONS.md (ADR-180/181/182)
 - Claude Code yeni oturumda önce CURRENT_PHASE.md + MASTER_ROADMAP.md + son uygulama raporunu okuyarak devam noktasını kendisi tespit etmelidir.
 
 ---

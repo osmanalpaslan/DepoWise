@@ -1,4 +1,8 @@
-# ARA İŞ 2 — PAKET-1 UYGULAMA KAYDI (2026-08-29, ADR-182) — ✅ KOD+TEST TAMAM · ⛔ YAYIN ONAYI BEKLİYOR
+# ARA İŞ 2 — PAKET-1 UYGULAMA KAYDI (2026-08-29, ADR-182) — ✅ TAMAMLANDI ve ✅ YAYINLANDI
+
+> **YAYIN: 2026-08-29 · BAŞARILI.** Yayınlanan commit `386b22d` · masaüstü **1.0.161** · API + Web
+> yeniden dağıtıldı · **hiçbir migration uygulanmadı, canlı şema 81'de kaldı** · yayın sonrası
+> salt-okunur kontroller **28/28**. Ayrıntı: CURRENT_PHASE.md "YAYIN — 2026-08-29" bölümü.
 
 > Plan: [ARA_IS_2_01_PLAN.md](ARA_IS_2_01_PLAN.md) · Analiz: [ARA_IS_2_00_ANALIZ.md](ARA_IS_2_00_ANALIZ.md)
 > Kararlar: PK-F1=A·F2·F3·F4=A·F5=A · T1=A·T2·T3=A·T4=A · V1=A · G1=A·G2=A · D1=A.
