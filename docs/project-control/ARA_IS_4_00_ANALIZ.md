@@ -322,6 +322,72 @@ davranışı · 13. API sözleşmesinin korunması · 14. `TableModel`'in yenide
 
 ---
 
+## 12.5 ⭐ FAZ 3 / S1 — 14 TEKNİK NOKTANIN YENİDEN DOĞRULANMASI (2026-08-29)
+
+> Yalnız **doğrulama** yapıldı; **ürün kodu değiştirilmedi**, migration oluşturulmadı,
+> production'a bağlanılmadı. Tek eklenen dosya bir **doğrulama testidir**.
+
+| # | Nokta | Sonuç | Kanıt |
+|---|---|---|---|
+| 1 | Tanım tablosunun şeması | **BELİRLENDİ** | Alan listesi §12.6'da; mevcut migration desenine uygun |
+| 2 | Senkron sırası | **GEÇTİ** | `BusinessSyncService.Tables` FK sıralı 63 kayıt + `TableModule` yetki haritası ([:32, :152](src/DepoWise.Infrastructure/Sync/BusinessSyncService.cs:32)); duyuru emsali |
+| 3 | **Eski istemci — bilinmeyen tablo** | ✅ **GERÇEK TESTLE KANITLANDI (5/5)** | `CustomRaporSenkronOnDogrulamaTests` — aşağıda |
+| 4 | FK bağımlılıkları | **GEÇTİ** | Duyuru deseni: FK yalnız `companies`/`branches` → sıra bağımlılığı yok |
+| 5 | PostgreSQL + SQLite | **GEÇTİ** | `SqlDialect` 11 yardımcı (`PortableSql`, `LikeTr`, `NowMs`, `NumericValue`…) ([SqlDialect.cs:17-147](src/DepoWise.Infrastructure/Database/SqlDialect.cs:17)) |
+| 6 | SQL üretim güvenliği | **GEÇTİ (şartlı)** | `GridQuery.Build` → değer **parametreli** (`@gf0n`), kolon ifadesi **koddan** ([GridQuery.cs:57-95](src/DepoWise.Infrastructure/Database/GridQuery.cs:57)). ⚠️ `rawAlias` SQL'e **düz metin** giriyor → alias **yalnız** beyaz-listeden gelmeli |
+| 7 | Whitelist modeli | ⚠️ **DEĞİŞTİ** | `ListColumns` yalnız **3 katalog / 36 kolon** (Malzeme · Araç · Günlük Faaliyet) — tüm rapor kaynaklarını kapsamıyor |
+| 8 | Zorunlu tarih filtresi | **GEÇTİ** | `ReportFilters.Date = 1` bit bayrağı + `RequiresDate` sunucu-taraflı zorlama ([ReportService.cs:1997](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1997)); ARA İŞ 3'ün `IsGunuTarihi` altyapısı **dokunulmadan** kullanılacak |
+| 9 | SQL seviyesinde satır limiti | **GEÇTİ** | Emsal mevcut: "SQL'e inen satır tavanı" ([ReportService.cs:1223](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1223)); genel yol hâlâ bellekte kesiyor ([:2009](src/DepoWise.Infrastructure/Reporting/ReportService.cs:2009)) → custom raporda SQL'e inecek |
+| 10 | Dispatch entegrasyonu | **GEÇTİ** | `ByKey` ([:360](src/DepoWise.Application/Reports/ReportCatalog.cs:360)) + `Run` ([:1946](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1946)) + kapalı `Dispatch` switch ([:2017](src/DepoWise.Infrastructure/Reporting/ReportService.cs:2017)) — çözümleyici ile genişletilebilir |
+| 11 | Yetki kapıları | **GEÇTİ** | Dört kapı yerinde: yönetici ([:1960](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1960)) · `DataModule` ([:1979](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1979)) · kategori ([:1994](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1994)) · katalog ([:1946](src/DepoWise.Infrastructure/Reporting/ReportService.cs:1946)). `CategoryModule` kapalı switch, tanımsızda **istisna** |
+| 12 | Masaüstü çevrimdışı | **GEÇTİ** | `DesktopServices.Reports.Run(...)` yerel yürütme ([ReportsViewModel.cs:594](src/DepoWise.Desktop/ViewModels/ReportsViewModel.cs:594)) |
+| 13 | API sözleşmesi | **GEÇTİ** | `/api/reports/catalog`, `/{type}`, `/{type}/export` ([Program.cs:2977](src/DepoWise.Api/Program.cs:2977)) — genişletme yeterli, kırılma gerekmiyor |
+| 14 | `TableModel` yeniden kullanımı | **GEÇTİ** | `TableModel(Title, Headers, Rows, Numeric, TotalRow)` tamamen jenerik ([ReportModels.cs:15](src/DepoWise.Application/Reports/ReportModels.cs:15)) |
+
+### Nokta 3 — GERÇEK TEST SONUCU (varsayımla kapatılmadı)
+
+`tests/DepoWise.Tests/CustomRaporSenkronOnDogrulamaTests.cs` — **5/5 GEÇTİ**:
+
+| Test | Kanıtlanan |
+|---|---|
+| **ESK-01** | Alıcının tanımadığı tablo içeren **pull** paketi: istisna YOK · bilinen tablolar normal uygulandı · bilinmeyen tablo için hata üretilmedi · yerelde tablo oluşmadı |
+| **ESK-02** | Aynısı **push** yönünde: sunucu bozulmadı |
+| **ESK-03** | **Gerçek eski şema provası:** şema 80'de kurulan DB'de `announcements` yok ama güncel `Tables` listesinde var → `TableExists` kapısı atladı, diğer tablolar uygulandı |
+| **ESK-04** | Bilinmeyen tablo, 10 geçerli satırın transaction'ını **rollback ettirmedi** |
+| **ESK-05** | **Senkron şema YARATMAZ** — tablo yalnız migration ile gelir (tasarım sınırı kilitlendi) |
+
+**Mekanizma (kodda doğrulandı):** `ApplyCore` döngüsü **alıcının kendi** `Tables` dizisini gezer, paketin
+tablolarını değil ([:915](src/DepoWise.Infrastructure/Sync/BusinessSyncService.cs:915)); ayrıca
+`TableExists` ikinci kapıdır ([:919](src/DepoWise.Infrastructure/Sync/BusinessSyncService.cs:919)).
+→ **PK-CR-02=A güvenle uygulanabilir.**
+
+Regresyon: `Sync|Report|CustomRapor` aileleri **514 geçti / 0 başarısız / 3 atlandı** (atlananlar ayrı
+ortam isteyen PG sınıflarıdır).
+
+## 12.6 ⛔ YENİ KARAR NOKTASI — PK-CR-09 (FAZ 3 DURDURULDU)
+
+**Bulgu (nokta 7'nin sonucu):** Güvenli, hazır ve beyaz-listeli veri kaynağı sayısı **3'tür**:
+`MaterialService.SearchGrid` · `VehicleService.SearchGrid` · `DailyActivityService.SearchGrid`
+([MaterialService.cs:685](src/DepoWise.Infrastructure/Materials/MaterialService.cs:685) ·
+[VehicleService.cs:307](src/DepoWise.Infrastructure/Vehicles/VehicleService.cs:307) ·
+[DailyActivityService.cs:349](src/DepoWise.Infrastructure/Operations/DailyActivityService.cs:349)) —
+ve bunlar `ListColumns`'taki 3 katalogla **birebir** eşleşir.
+
+Mevcut **25 rapor metodu** ise sabit kolonlu `TableModel` üretir; **rastgele kolon alt kümesi
+projeksiyonu yapamaz** → doğrudan "custom rapor kaynağı" olamazlar.
+
+**Neden karar gerekiyor:** ADR-186 kaynak *kümesini* belirlemedi ("yeni veri kaynağı kod tarafında
+tanımlanır" dedi). İki okuma **maddi olarak farklı iş** üretir:
+
+| | Seçenek | Sonuç |
+|---|---|---|
+| **A** | v1 = **mevcut 3 SearchGrid kaynağı** (Malzeme · Araç · Günlük Faaliyet) | En küçük güvenli kapsam; yeni sorgu yüzeyi yok; hızlı ve düşük riskli. Kullanıcı yakıt/bakım/stok hareketi/fatura üzerinden custom rapor **YAPAMAZ** |
+| **B** | v1 = 3 kaynak + **seçilecek N kaynak için yeni beyaz-liste + grid katmanı** | Daha geniş fayda; her yeni kaynak için kolon kataloğu + güvenli sorgu üreticisi + testler ⇒ iş hacmi kaynak başına büyür |
+| **C** | v1 = yalnız **mevcut raporu kişiselleştir** (kolon gizle/sırala/yeniden adlandır) | En küçük iş; ama "kendi raporunu tasarla" beklentisini karşılamaz |
+
+**Öneri: A** (v1'i mevcut güvenli yüzeyle sınırla, sonraki sürümde kaynak ekle) — ancak bu **sizin
+kararınızdır**; kapsamı kendiliğinden genişletmedim ve **kod yazmadan durdum**.
+
 ## 13. FAZ TAKİP TABLOSU
 
 | Faz | Durum |
@@ -329,7 +395,7 @@ davranışı · 13. API sözleşmesinin korunması · 14. `TableModel`'in yenide
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
 | FAZ 2 — karar paketi | ✅ **TAMAM — PK-CR-01…08 = A (ADR-186)** |
-| FAZ 3 — uygulama | ⏸️ **"UYGULAMA BAŞLASIN" onayı bekliyor** — kod/migration/test **YOK** |
+| FAZ 3 — uygulama | 🟡 **S1 ✅ TAMAM (14/14 doğrulandı, nokta 3 gerçek testle)** · **S2 ⛔ DURDURULDU — PK-CR-09 karar bekliyor** (§12.6). Ürün kodu/migration **YOK**; yalnız doğrulama testi eklendi |
 | FAZ 4 — test/doğrulama | ⛔ |
 | FAZ 5 — yayın öncesi kontrol | ⛔ |
 | FAZ 6 — production yayın | ⛔ "YAYINLA" olmadan yapılmaz |
