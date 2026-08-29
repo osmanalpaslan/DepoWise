@@ -126,7 +126,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **ARA İŞ 4 — CUSTOM RAPOR** · **FAZ 0 ✅ · FAZ 1 ✅ analiz tamam** ([ARA_IS_4_00_ANALIZ.md](ARA_IS_4_00_ANALIZ.md)) · **FAZ 2 ⏸️ PK-CR-01…08 karar bekliyor** · kod/migration/test YOK, production'a bağlanılmadı |
+| Aktif ara iş / aşaması | **ARA İŞ 4 — CUSTOM RAPOR** · **FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-186)** · **FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" BEKLİYOR** ([ARA_IS_4_00_ANALIZ.md](ARA_IS_4_00_ANALIZ.md)) · kararlar: **PK-CR-01…08 = A** · **kod DEĞİŞMEDİ · test DEĞİŞMEDİ · MIGRATION OLUŞTURULMADI (katalog azamisi 82) · production'a BAĞLANILMADI (SELECT dahil) · deploy YOK** |
 | *(geçmiş)* ARA İŞ 3 | ✅ **TAMAMLANDI + YAYINLANDI** — masaüstü **1.0.163**; o yayın anında şema 81'di, **şu anki canlı şema 82'dir** (FIN-B1/Migration082 sonrası) |
 | Ana roadmap aktif iş | **YOK** — **FIN-B1 / Migration082 ✅ TAMAMLANDI ve YAYINLANDI (2026-08-29)**: kod `d9fc350`, **canlı şema 81 → 82**, masaüstü **1.0.164**, API + Web yeniden dağıtıldı; 7 indeks `UNIQUE (company_id, operation_id)`; **hiçbir kayıt değişmedi** (683/220/3 satır birebir aynı) |
 | Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** |
@@ -136,7 +136,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
 | Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
 | Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | **PK-CR-01…08 kararları** (ARA İŞ 4 — Custom Rapor) → sonra "UYGULAMA BAŞLASIN". Ekip+Hiyerarşi+Onay ⏸️ başlanmadı; N/Mobil ⏭️ ATLANDI |
+| Sonraki TEK iş | **Kullanıcının "UYGULAMA BAŞLASIN" onayı** → ARA İŞ 4 FAZ 3 (ilk adım: 14 teknik noktanın yeniden doğrulanması). Ekip+Hiyerarşi+Onay ⏸️ başlanmadı; N/Mobil ⏭️ ATLANDI |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 

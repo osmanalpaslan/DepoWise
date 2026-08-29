@@ -1,6 +1,9 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-29 (ARA İŞ 3 — tarih kayması analizi tamam, karar bekliyor)
+> Son güncelleme: 2026-08-29 — ARA İŞ 3 (tarih kayması) ve FIN-B1/Migration082 **çözüldü ve
+> YAYINLANDI** (canlı şema **82**, masaüstü **1.0.164**). Aktif iş: **ARA İŞ 4 — Custom Rapor**,
+> FAZ 2 kararları onaylandı (ADR-186), **uygulama bekliyor** — bu bir hata kaydı değildir, planlı
+> özelliktir; ayrıntı `project-control/ARA_IS_4_00_ANALIZ.md`.
 
 ## 🟢 TARİH KAYMASI (ARA İŞ 3) — ✅ DÜZELTİLDİ VE YAYINLANDI (2026-08-29, ADR-184)
 

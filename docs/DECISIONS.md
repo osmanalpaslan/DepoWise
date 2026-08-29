@@ -3145,3 +3145,68 @@ Gerekirse **ayrı iş** olarak ele alınır.
 kayıt oluşmadıkça — yayın anında 683/683 benzersizlik doğrulandı).
 
 **Eski istemciler (≤1.0.163):** bozulmadı; sözleşme değişmedi ve eski kod + yeni şema 82 güvenli yöndür.
+
+## ADR-186 — ARA İŞ 4 / Custom Rapor: FAZ 2 kararları onaylandı (2026-08-29) — UYGULAMA BAŞLAMADI
+
+**Bağlam:** `ARA_IS_4_00_ANALIZ.md` (FAZ 0 + FAZ 1) Custom Rapor'un gerçek kapsamını repository
+kanıtıyla çıkardı: Custom Rapor kodu **hiç yoktu** (0 dosya); `TableModel` altı jenerik (kolaylaştırıcı);
+`ReportCatalog.All` 25 sabit kayıt + `ReportService.Dispatch` kapalı switch (ana engel); `Run` dört
+güvenlik kapısı uyguluyor; **masaüstü raporu yerel/çevrimdışı** çalıştırıyor, web ise çevrimiçi ve
+kendi motoru yok. Kullanıcı **sekiz kararın tamamını (A)** onayladı — analizdeki önerilerle birebir aynı.
+
+**Kararlar (bağlayıcı):**
+
+- **PK-CR-01 = A — Tanım modeli ve SQL güvenliği.** Tek merkezî tanım modeli. **Kullanıcı ham SQL
+  YAZAMAZ**; serbest JOIN YOK. Kaynak ve kolonlar **beyaz-listeden**; filtreler sistemin tanımladığı
+  güvenli alanlardan; SQL yalnız **güvenli üretim katmanı** tarafından kurulur. Tenant/company
+  izolasyonu ve veri modülü kontrolleri korunur. **Mevcut dört kapı Custom Rapor yolunda da
+  ZORUNLUDUR:** (1) yönetici kapısı · (2) RPR-15 veri modülü kapısı · (3) ADR-181 kategori yetkisi ·
+  (4) katalog çözümleme. Hiçbiri atlanacak biçimde tasarlanmaz.
+- **PK-CR-02 = A — Saklama ve senkron.** Tanımlar **yeni bir tabloda** saklanır ve
+  `BusinessSyncService` üzerinden **senkronlanır** → masaüstü **çevrimdışı da** custom raporu
+  kullanabilir. Tanım verisi yalnız web/sunucuda tutulmaz. **Senkron protokolü korunur**; mevcut
+  tablo-senkron deseni (duyuru emsali) kullanılır. **Eski istemcinin bilinmeyen tabloyu nasıl ele
+  aldığı FAZ 3 başında GERÇEK TESTLE doğrulanacak — varsayımla kapatılmayacak.** Migration
+  **gerekecektir** (canlı şema **82** → sıradaki uygun numara, muhtemelen **083**);
+  ⛔ **FAZ 3 başlamadan oluşturulmayacak.**
+- **PK-CR-03 = A — Mevcut motora bağlanma.** `ReportCatalog.All` · `ReportService.Dispatch/Run` ·
+  `TableModel` · mevcut rapor API uçları · masaüstü `ReportsViewModel` · web `Reports` **korunarak
+  genişletilir**. **İkinci bir rapor motoru kurulmaz.** Mevcut API/rapor sözleşmesi gereksiz
+  değiştirilmez; `TableModel(Title, Headers, Rows, Numeric, TotalRow)` masaüstü grid · web · Excel ·
+  API'de yeniden kullanılır. **Mevcut raporların çıktısı bozulmaz.**
+- **PK-CR-04 = A — Yetki modeli.** Rapor başına **dinamik permission key**
+  (`user_permissions.module_key` serbest metin olduğu için **migration gerekmez**). Tanım en azından
+  **DataModule · Category · IsManager · permission/module key** bağlamını açıkça taşır. Dinamik
+  raporlar mevcut kategori/modül yetki sistemini **bypass etmez**. `AppScreens` statik ağacının nasıl
+  genişleyeceği FAZ 3'te **kod tarafında** çözülür (migration ile değil). **Paralel yeni bir yetki
+  sistemi icat edilmez.**
+- **PK-CR-05 = A — Kolon beyaz-listesi.** Merkezî whitelist (`ListColumns` veya mimariye uygun
+  eşdeğeri). Kullanıcı **tablo adı · kolon adı · SQL ifadesi · JOIN · ORDER BY parçası · aggregate
+  parçası** veremez. Whitelist dışı hiçbir alan çalıştırılmaz. Whitelist **merkezî** tutulur; her
+  ekran için ayrı liste üretilmez. Yeni kaynak/kolon **kod tarafında açıkça** tanımlanır.
+- **PK-CR-06 = A — Satır tavanı ve performans.** `maxRows` **yalnız bellekte uygulanmayacak**;
+  sınır **SQL'e indirilecek**. Custom Rapor'da **tarih filtresi zorunlu**. Sorgu şu dört ilkeyle
+  kurulur: zorunlu tarih aralığı · güvenli filtreler · **SQL seviyesinde LIMIT/eşdeğeri** · whitelist.
+  Mevcut `maxRows` davranışı korunarak SQL seviyesine taşınır; yalnız UI'da limit göstermek
+  **yeterli sayılmaz**. **PostgreSQL ve SQLite ayrı ayrı** dikkate alınır.
+- **PK-CR-07 = A — Yayın stratejisi.** **Tek yayın**: yedek → migration → API → Web → masaüstü →
+  doğrulama. **FIN-B1/Migration082 emsali** kullanılır. Yeni kod + eski şema kombinasyonu güvenli
+  değilse production'da bırakılmaz; migration ve kod **aynı paketin** parçasıdır. Production'a
+  geçmeden **pg_dump** + gerekli **salt-okunur boyut ölçümleri** + migration öncesi doğrulamalar
+  yapılır. Production erişimi FAZ 3'te bile yalnız **açıkça gerekli ve onaylı** yayın adımlarında olur.
+  **FAZ 2'de production erişimi YOKTUR.**
+- **PK-CR-08 = A — Fazlama.** FAZ 3 uygulama · FAZ 4 test/doğrulama · FAZ 5 yayın öncesi kontrol ·
+  FAZ 6 production yayın · FAZ 7 yayın sonrası doğrulama.
+
+**FAZ 3 başında YENİDEN DOĞRULANACAK 14 teknik nokta (karar gereği):** tanım tablosunun kesin şeması ·
+senkron sırası · **eski istemcinin bilinmeyen tabloyu ele alışı** · FK bağımlılıkları · PostgreSQL +
+SQLite uyumluluğu · SQL üretim güvenliği · whitelist modeli · zorunlu tarih filtresi · SQL seviyesinde
+satır limiti · dispatch entegrasyonu · yetki kapılarının Custom Rapor yolunda korunması · masaüstü
+çevrimdışı davranışı · API sözleşmesinin korunması · `TableModel`'in yeniden kullanımı.
+
+**Kapsam dışı (bilinçli, değişmedi):** `sync_outbox` · geçmiş veri düzeltmeleri · ARA İŞ 3 ·
+FIN-B1/Migration082 · N/Mobil · Ekip+Hiyerarşi+Onay. Ana roadmap sırası **değişmedi**.
+
+**Durum.** FAZ 2 kararları ONAYLANDI. **FAZ 3 uygulama, kullanıcının ayrıca vereceği
+"UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken **kod/test/migration üretilmedi**,
+**production'a bağlanılmadı (SELECT dahil)**, deploy yapılmadı; katalog azamisi **82** olarak kaldı.

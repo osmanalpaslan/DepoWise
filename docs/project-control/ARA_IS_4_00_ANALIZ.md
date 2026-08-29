@@ -1,6 +1,8 @@
 # ARA İŞ 4 — CUSTOM RAPOR — FAZ 0 + FAZ 1 ANALİZ
 
-> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ⏸️ KARAR BEKLİYOR**
+> Tarih: **2026-08-29** · Aşama: **AŞAMA 3 — FINAL KARAR PAKETİ** · Durum: **FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-186) · FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" BEKLİYOR**
+>
+> **ONAYLANAN KARARLAR: PK-CR-01…08 = A (sekizinin tamamı)** — ayrıntı §11.5
 > ⛔ **KOD YOK · MIGRATION YOK · TEST DEĞİŞTİRİLMEDİ/ÇALIŞTIRILMADI · PRODUCTION'A BAĞLANILMADI (SELECT dahil) · DEPLOY YOK**
 > Bu analiz ARA İŞ 3'ü ve FIN-B1'i **açmaz**; ana roadmap sırası **değişmez**.
 
@@ -222,7 +224,37 @@ yeni bir problem tespit edilmedi.
 
 ---
 
-## 12. PK-CR KARAR PAKETİ (kararları kullanıcı verir)
+## 11.5 ⭐ FAZ 2 — KARARLAR ONAYLANDI (2026-08-29, ADR-186)
+
+> Aşağıdaki §12'de yazan seçenekler artık **öneri DEĞİL**; kullanıcı **sekizinin tamamını (A)**
+> onaylamıştır ve **BAĞLAYICIDIR**. FAZ 1 bulguları değiştirilmedi/silinmedi.
+> ⛔ **FAZ 3 HENÜZ BAŞLAMADI** — kod/migration/test üretilmedi, production'a bağlanılmadı.
+
+| Karar | Sonuç | Özet |
+|---|---|---|
+| **PK-CR-01** | **A** | Merkezî tanım modeli · **ham SQL YOK, serbest JOIN YOK** · kaynak+kolon beyaz-listeden · güvenli sorgu üretim katmanı · **dört güvenlik kapısı zorunlu** (yönetici · RPR-15 veri modülü · ADR-181 kategori · katalog çözümleme) |
+| **PK-CR-02** | **A** | Yeni tanım tablosu + **`BusinessSyncService` ile senkron** → masaüstü **çevrimdışı** çalışır · senkron protokolü korunur · **eski istemci davranışı FAZ 3 başında GERÇEK TESTLE doğrulanacak** · migration gerekecek (şema 82 → sıradaki numara), **FAZ 3'ten önce oluşturulmayacak** |
+| **PK-CR-03** | **A** | Mevcut motor **genişletilir**, ikinci motor kurulmaz · `ReportCatalog`/`Dispatch`/`Run`/`TableModel`/API uçları/masaüstü+web ekranları korunur · mevcut raporların çıktısı bozulmaz |
+| **PK-CR-04** | **A** | Rapor başına **dinamik permission key** (`module_key` serbest metin → **migration yok**) · tanım **DataModule · Category · IsManager · key** taşır · `AppScreens` genişletmesi **kod tarafında** · paralel yetki sistemi icat edilmez |
+| **PK-CR-05** | **A** | **Merkezî** kolon beyaz-listesi · kullanıcı tablo/kolon adı, SQL ifadesi, JOIN, ORDER BY veya aggregate parçası **veremez** · whitelist dışı alan çalışmaz · yeni kaynak/kolon kod tarafında tanımlanır |
+| **PK-CR-06** | **A** | `maxRows` **SQL'e indirilecek** (yalnız bellek/UI limiti yetersiz sayılır) · **tarih filtresi zorunlu** · **PostgreSQL ve SQLite ayrı ayrı** ele alınacak |
+| **PK-CR-07** | **A** | **Tek yayın**: yedek → migration → API → Web → masaüstü → doğrulama (FIN-B1 emsali) · migration ve kod aynı pakette · **pg_dump + salt-okunur boyut ölçümü** yayın ön koşulu · FAZ 2'de production erişimi YOK |
+| **PK-CR-08** | **A** | FAZ 3 uygulama → FAZ 4 test → FAZ 5 yayın öncesi kontrol → FAZ 6 yayın → FAZ 7 yayın sonrası doğrulama |
+
+### FAZ 3 başında yeniden doğrulanacak 14 teknik nokta (karar gereği)
+
+1. Tanım tablosunun kesin şeması · 2. Senkron sırası · 3. **Eski istemcinin bilinmeyen tabloyu ele
+alışı** · 4. FK bağımlılıkları · 5. PostgreSQL + SQLite uyumluluğu · 6. SQL üretim güvenliği ·
+7. Whitelist modeli · 8. Zorunlu tarih filtresi · 9. SQL seviyesinde satır limiti · 10. Dispatch
+entegrasyonu · 11. Yetki kapılarının Custom Rapor yolunda korunması · 12. Masaüstü çevrimdışı
+davranışı · 13. API sözleşmesinin korunması · 14. `TableModel`'in yeniden kullanımı.
+
+---
+
+## 12. PK-CR KARAR PAKETİ — ✅ TAMAMI ONAYLANDI (ADR-186)
+
+> Aşağıdaki A/B/C seçenekleri **kayıt amaçlıdır**; **hepsinde karar = A** (bkz. §11.5).
+> Yeniden sorulmayacaktır.
 
 ### PK-CR-01 — v1 kapsamı ve sorgu güvenliği
 - **A (ÖNERİLEN):** Tek kaynak (mevcut rapor/servis beyaz-listesinden) → kolon seç/sırala →
@@ -296,9 +328,12 @@ yeni bir problem tespit edilmedi.
 |---|---|
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
-| FAZ 2 — karar paketi | ⏸️ **PK-CR-01…08 KARAR BEKLİYOR** |
-| FAZ 3 — uygulama | ⛔ "UYGULAMA BAŞLASIN" olmadan başlamaz |
-| YAYIN | ⛔ "YAYINLA" olmadan yapılmaz |
+| FAZ 2 — karar paketi | ✅ **TAMAM — PK-CR-01…08 = A (ADR-186)** |
+| FAZ 3 — uygulama | ⏸️ **"UYGULAMA BAŞLASIN" onayı bekliyor** — kod/migration/test **YOK** |
+| FAZ 4 — test/doğrulama | ⛔ |
+| FAZ 5 — yayın öncesi kontrol | ⛔ |
+| FAZ 6 — production yayın | ⛔ "YAYINLA" olmadan yapılmaz |
+| FAZ 7 — yayın sonrası doğrulama | ⛔ |
 
 ## 14. PRODUCTION DOĞRULAMASI GEREKTİREN NOKTALAR
 
@@ -310,7 +345,10 @@ yeni bir problem tespit edilmedi.
 
 ## 15. CHATGPT DEVAM NOKTASI
 
-**ARA İŞ 4 — CUSTOM RAPOR · FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ⏸️ PK-CR-01…08 karar bekliyor.**
-Kod/migration/test **yok**; production'a **bağlanılmadı**. Migration katalog azamisi **82** (canlı şema 82).
+**ARA İŞ 4 — CUSTOM RAPOR · FAZ 0 ✅ · FAZ 1 ✅ · FAZ 2 ✅ KARARLAR ONAYLANDI (ADR-186) ·
+FAZ 3 ⏸️ "UYGULAMA BAŞLASIN" bekliyor.**
+Kararlar: **PK-CR-01…08 = A**. Kod/migration/test **yok**; production'a **bağlanılmadı (SELECT dahil)**.
+Migration katalog azamisi **82** (canlı şema 82) — yeni migration FAZ 3'te açılacak.
 ARA İŞ 3 ve FIN-B1 **kapalı + yayınlanmış** olarak korunuyor; ana roadmap sırası **değişmedi**.
-Kararlar verilince: ADR + `CURRENT_PHASE`/`MASTER_ROADMAP` güncellenir, sonra "UYGULAMA BAŞLASIN" beklenir.
+FAZ 3'ün ilk işi: §11.5'teki **14 teknik noktanın yeniden doğrulanması** (özellikle eski istemcinin
+bilinmeyen tabloyu ele alışı — gerçek testle).
