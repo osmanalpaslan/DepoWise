@@ -105,6 +105,8 @@ public class AccountingReportPartyTests : IDisposable
             new ModulePermission(PartyService.Module, true, true, true, true),
             new ModulePermission(InvoiceService.Module, true, true, true, true),
             new ModulePermission(FinanceService.Module, true, true, true, true),
+            // RPT-YETKI (2026-08-29, PK-R2=A): acc-* raporları artık kategori yetkisi de ister.
+            new ModulePermission("report_accounting", true, false, false, false),
         }, new[] { SpecialButtons.BranchSelect }))
         { ScopeBranchIds = scope.Length == 0 ? null : scope };
 

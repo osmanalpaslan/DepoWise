@@ -133,6 +133,25 @@ public static class ReportCatalog
     public const string ExportStandard = "btn-export-reports";
     public const string ExportManager = "btn-export-mgr-reports";
 
+    /// <summary>⭐ RPT-YETKI (2026-08-29, PK-R2=A) — kategori → yetki modülü eşlemesi, TEK MERKEZ.
+    /// "reports" ÜST KAPI olarak kalır; bu eşlemenin döndürdüğü anahtar İKİNCİ kapıdır ve
+    /// katalog süzmesi (API + masaüstü) ile ReportService.Run AYNI eşlemeyi kullanır — rapor tür
+    /// adı değiştirilerek atlatılamaz. Purchasing kategorisinde bugün rapor YOK: ileride eklenirse
+    /// bilinçli olarak burada patlar (sessizce yetkisiz kalması yerine) ve yeni anahtar açılır.</summary>
+    public static string CategoryModule(ReportCategory c) => c switch
+    {
+        ReportCategory.Vehicle => "report_vehicle",
+        ReportCategory.Stock => "report_stock",
+        ReportCategory.Fuel => "report_fuel",
+        ReportCategory.Maintenance => "report_maintenance",
+        ReportCategory.Requests => "report_requests",
+        ReportCategory.Management => "report_management",
+        ReportCategory.Material => "report_material",
+        ReportCategory.Accounting => "report_accounting",
+        _ => throw new ArgumentOutOfRangeException(nameof(c), c,
+            "Bu rapor kategorisi için yetki modülü tanımlanmadı — AppModules + CategoryModule birlikte güncellenmeli."),
+    };
+
     public static readonly IReadOnlyList<ReportDescriptor> All = new[]
     {
         // Araç Raporu — "Genel Rapor"un YERİNE geçti (kullanıcı isteği 2026-08-07): araç başına yakıt + bakım
@@ -142,6 +161,14 @@ public static class ReportCatalog
             ReportCategory.Vehicle, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
             InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar.",
+            DataModule: "vehicles"),
+        // ⭐ RPT-GUNLUK (2026-08-29, PK-R1=A): Araç Raporu'nun GÜN BAZLI kırılımı — AYRI rapor türü
+        // (mevcut "vehicle" toplam raporuna DOKUNULMADI). Aralıktaki HER GÜN gösterilir (boş gün = 0);
+        // amaç afaki/hatalı günlük girişin görünürlüğü. Filtre/kapsam/tarih semantiği dönem raporuyla aynı.
+        new ReportDescriptor("vehicle-daily", "Araç Raporu — Günlük", "Araç maliyetlerinin gün gün kırılımı (boş günler dahil)",
+            ReportCategory.Vehicle, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
+            InfoNote: "Her satır bir GÜN×ARAÇ'tır; veri girilmeyen günler 0 (-) olarak görünür. Değerler dönem raporuyla aynı kaynaklardan hesaplanır ve günlerin toplamı dönem toplamına eşittir. Uzun tarih aralığında araç filtresi kullanmanız önerilir.",
             DataModule: "vehicles"),
         // STK-06: depo bazlı stoktan sonra bu raporun iki modu var — filtre BOŞken firma geneli toplam
         // (eski davranış birebir), depo seçilince o deponun kırılımı + "Depo" kolonu.

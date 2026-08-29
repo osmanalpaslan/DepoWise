@@ -85,8 +85,14 @@ public class ApiReportScopeTests : IAsyncLifetime
         // Yalnız ŞUBE 1'e bağlı DEPO PERSONELİ + rapor görüntüleme yetkisi.
         var depoId = _svc.Users.CreateUser(sa, new NewUser("rpt_depo1", Pass, "Depo 1",
             new[] { RoleKeys.Staff }, CoA, BranchId: _b1));
+        // RPT-YETKI (2026-08-29, PK-R2=A): rapor türleri kategori yetkili — bu sınıf stok hareketleri
+        // raporunu çalıştırır; "reports" üst kapısına report_stock eklenir (kapsam testleri değişmez).
         _svc.Permissions.SaveForUser(sa, depoId,
-            new[] { new ModulePermission("reports", true, false, false, false) }, Array.Empty<string>());
+            new[]
+            {
+                new ModulePermission("reports", true, false, false, false),
+                new ModulePermission("report_stock", true, false, false, false),
+            }, Array.Empty<string>());
 
         _adminA = await _host.LoginAsync("rpt_admin_a", Pass, CoA);
         _adminB = await _host.LoginAsync("rpt_admin_b", Pass, CoB);
@@ -97,7 +103,11 @@ public class ApiReportScopeTests : IAsyncLifetime
         var cokId = _svc.Users.CreateUser(sa, new NewUser("rpt_cok", Pass, "Çok Şubeli",
             new[] { RoleKeys.Staff }, CoA, BranchId: _b1));
         _svc.Permissions.SaveForUser(sa, cokId,
-            new[] { new ModulePermission("reports", true, false, false, false) }, Array.Empty<string>());
+            new[]
+            {
+                new ModulePermission("reports", true, false, false, false),
+                new ModulePermission("report_stock", true, false, false, false),   // RPT-YETKI (PK-R2=A)
+            }, Array.Empty<string>());
         _svc.Permissions.SaveBranchScope(sa, cokId, new[] { _b1, _b2 });
         _cokSubeli = await _host.LoginAsync("rpt_cok", Pass, CoA, _b1);
 
@@ -106,7 +116,11 @@ public class ApiReportScopeTests : IAsyncLifetime
         var seciciId = _svc.Users.CreateUser(sa, new NewUser("rpt_secici", Pass, "Seçici",
             new[] { RoleKeys.Staff }, CoA, BranchId: _b1));
         _svc.Permissions.SaveForUser(sa, seciciId,
-            new[] { new ModulePermission("reports", true, false, false, false) },
+            new[]
+            {
+                new ModulePermission("reports", true, false, false, false),
+                new ModulePermission("report_stock", true, false, false, false),   // RPT-YETKI (PK-R2=A)
+            },
             new[] { SpecialButtons.BranchSelect, SpecialButtons.ExportReports });
         _svc.Permissions.SaveBranchScope(sa, seciciId, new[] { _b1, _b2 });
         _secici = await _host.LoginAsync("rpt_secici", Pass, CoA, _b1);
@@ -470,6 +484,45 @@ public class ApiReportScopeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         var j = await ApiTestHost.JsonAsync(r);
         return j.EnumerateArray().Select(x => x.GetProperty("key").GetString() ?? "").ToList();
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    //  RPT-YETKI (2026-08-29, PK-R2=A) — RAPOR KATEGORİ YETKİSİ HTTP KAPISI
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ R30 — kategori yetkisi endpoint'te de zorlanır: depo kullanıcısında yalnız
+    /// report_stock var → rapor TÜR ADINI değiştirerek (vehicle) doğrudan API çağrısı REDDEDİLİR;
+    /// export ucu da aynı kapıdadır. UI gizlemesi tek başına güvence DEĞİLDİR.</summary>
+    [Fact]
+    public async Task R30_Kategori_Yetkisi_Endpointte_Zorlanir()
+    {
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/vehicle", Istek());
+        Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
+
+        var rd = await _depoB1.PostAsJsonAsync("/api/reports/vehicle-daily", Istek());
+        Assert.True(ApiTestHost.IsDenied(rd), $"beklenen: reddedilme, gelen: {(int)rd.StatusCode}");
+
+        // Export yolu da aynı merkezi kapıdan geçer (secici kullanıcının Export butonu VAR ama
+        // araç kategorisi YOK → buton yetkisi kategori kapısını AŞAMAZ).
+        var re = await _secici.PostAsJsonAsync("/api/reports/vehicle/export", Istek());
+        Assert.True(ApiTestHost.IsDenied(re), $"beklenen: reddedilme, gelen: {(int)re.StatusCode}");
+    }
+
+    /// <summary>⭐ R31 — katalog süzmesi: kategori yetkisi olmayan tür LİSTEDE DE görünmez;
+    /// yetkili olduğu stok raporları durur (yanlış pozitif yok). Admin daralmaz (R29 ayrıca kilitler).</summary>
+    [Fact]
+    public async Task R31_Katalog_Kategori_Yetkisine_Gore_Suzulur()
+    {
+        var anahtarlar = await KatalogAnahtarlariAsync(_depoB1);
+
+        Assert.Contains("stock-movements", anahtarlar);   // report_stock VAR
+        Assert.Contains("stock", anahtarlar);
+        Assert.DoesNotContain("vehicle", anahtarlar);      // report_vehicle YOK
+        Assert.DoesNotContain("vehicle-daily", anahtarlar);
+        Assert.DoesNotContain("fuel", anahtarlar);         // report_fuel YOK
+
+        var admin = await KatalogAnahtarlariAsync(_adminA);
+        Assert.Contains("vehicle-daily", admin);           // admin bypass: yeni tür admin listesinde
     }
 
     /// <summary>R17 — çalışma şubesi GÖNDERİLMEZSE eski davranış: tüm izinli şubeler.</summary>

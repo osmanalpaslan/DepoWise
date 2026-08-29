@@ -217,6 +217,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
                         || session.IsSuperAdmin
                         || DeveloperMode.IsActive
                         || !session.BlockedModules.Contains(d.DataModule))
+            // ⭐ RPT-YETKI (2026-08-29, PK-R2=A, parite): kategori yetkisi olmayan tür listede görünmez —
+            // web kataloğuyla AYNI kural, eşleme TEK merkezden (ReportCatalog.CategoryModule). Servis
+            // kapısı (ReportService.Run) iki platformda da yerinde durur; bu yalnız görünürlüktür.
+            .Where(d => AccessControl.Can(session, ReportCatalog.CategoryModule(d.Category), PermissionAction.View))
             .ToList();
         // Seçili rapor listede kalmalı (operasyon kipinde varsayılan yönetici raporu olamaz).
         if (ReportItems.Count > 0 && !ReportItems.Any(d => d.Key == _selectedReport.Key))

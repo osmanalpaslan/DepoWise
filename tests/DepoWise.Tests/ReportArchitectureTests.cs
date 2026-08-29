@@ -49,7 +49,8 @@ public class ReportArchitectureTests : IDisposable
         // 19 → 21: RPR-10 `inspection` + RPR-11 `personnel`, denetim 2026-08-26).
         // Gevşetme değil: aşağıdaki döngü HER rapor için ad/açıklama/kategori/RequiresDate ve `ByKey`
         // çözümlemesini sınamaya devam ediyor; sayı yalnız "sessizce rapor eklendi/silindi" nöbetçisidir.
-        Assert.Equal(21, ReportCatalog.All.Count);
+        // 21 → 22: RPT-GUNLUK `vehicle-daily` (2026-08-29, PK-R1=A — Araç Raporu günlük kırılımı).
+        Assert.Equal(22, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

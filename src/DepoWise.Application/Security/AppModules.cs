@@ -75,6 +75,19 @@ public static class AppModules
         ("request_ops_purchase", "Talep Operasyonları — Satın Alma"),
         ("personnel", "Personel"),
         ("reports", "Raporlar"),
+        // RPT-YETKI (2026-08-29, PK-R2=A): rapor türleri KATEGORİ bazında ikinci kapıya bağlanır.
+        // "reports" ÜST KAPI olarak kalır (menü/ekran + rapor filtre uçları); aşağıdaki 8 anahtar
+        // ilgili kategorinin raporlarını açar. Eşleme tek merkezden: ReportCatalog.CategoryModule.
+        // Deny-by-default: yeni anahtarlar yayında HERKESTE kapalı başlar (PK-R3=A — migration YOK,
+        // yayın sonrası Yetkiler ekranından elle atanır); admin/firma admini mevcut bypass kuralıyla görür.
+        ("report_vehicle", "Rapor: Araç"),
+        ("report_stock", "Rapor: Stok"),
+        ("report_fuel", "Rapor: Yakıt"),
+        ("report_maintenance", "Rapor: Bakım"),
+        ("report_requests", "Rapor: Talepler"),
+        ("report_management", "Rapor: Yönetim"),
+        ("report_material", "Rapor: Malzeme"),
+        ("report_accounting", "Rapor: Ön Muhasebe"),
         ("import_export", "İçe Aktarım (Import)"),   // 2026-07-26: yalnız İÇE AKTARIM
         ("export", "Dışa Aktarım (Export)"),         // 2026-07-26: ayrı DIŞA AKTARIM (liste Excel butonları dahil)
         ("files", "Dosya / Fotoğraf"),

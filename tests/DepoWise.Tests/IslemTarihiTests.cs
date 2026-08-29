@@ -101,6 +101,10 @@ public class IslemTarihiTests : IDisposable
                 new ModulePermission("fuel", true, true, true, false),
                 new ModulePermission("materials", true, false, false, false),
                 new ModulePermission("reports", true, false, false, false),
+                // RPT-YETKI (2026-08-29, PK-R2=A): rapor türleri kategori yetkili — bu sınıf stok
+                // hareketleri (TRH9) ve yakıt (TRH10) raporlarını çalıştırır.
+                new ModulePermission("report_stock", true, false, false, false),
+                new ModulePermission("report_fuel", true, false, false, false),
             },
             butonlar);
         return new SessionContext(uid, Co, new[] { RoleKeys.Staff }, izin);

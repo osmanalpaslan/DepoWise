@@ -2985,6 +2985,11 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
                 || sc.IsSuperAdmin
                 || DepoWise.Application.Security.DeveloperMode.IsActive
                 || !sc.BlockedModules.Contains(d.DataModule))
+    // ⭐ RPT-YETKI (2026-08-29, PK-R2=A): rapor KATEGORİ yetkisi olmayan kullanıcı o türü listede de
+    // görmez (deny-by-default ile tutarlı). Servis kapısı (ReportService.Run) yerinde durur; eşleme
+    // TEK merkezden (ReportCatalog.CategoryModule) — masaüstü süzmesiyle birebir aynı kural.
+    .Where(d => AccessControl.Can(sc, DepoWise.Application.Reports.ReportCatalog.CategoryModule(d.Category),
+                DepoWise.Application.Security.PermissionAction.View))
     .Select(d => new
     {
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),

@@ -670,6 +670,203 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
     private static string FmtPerUnit(double v, string unit) => "₺ " + v.ToString("#,##0.00", Tr) + (unit == "hour" ? "/Saat" : "/km");
 
     /// <summary>
+    /// ⭐ RPT-GUNLUK (2026-08-29, PK-R1=A) — ARAÇ RAPORU · GÜNLÜK KIRILIM. Amaç: afaki/hatalı günlük
+    /// veri girişinin (tek güne sıkışmış aşırı yakıt/bakım/sayaç) GÖRÜNÜR olması — alarm/eşik/otomatik
+    /// düzeltme YOK, yalnız görünürlük.
+    ///
+    /// TEMEL İLKE: bu rapor <see cref="VehicleReport"/>'un YENİ bir hesap mantığı DEĞİL, aynı üç maliyet
+    /// kaynağının (yakıt fişi · bakım malzemesi · doğrudan parça) TARİH ekseninde ayrıntılı gösterimidir.
+    /// Mevcut dönem raporuna TEK SATIR dokunulmadı; günlük değerlerin toplamı dönem raporuyla tutarlıdır
+    /// (VehicleDailyReportTests kilitler).
+    ///
+    /// GÜN ANAHTARI: <c>tarih_ms / 86400000</c> TAM SAYI bölmesi — SQLite ve PostgreSQL'de birebir aynı
+    /// (BIGINT unix ms; lehçe fonksiyonu GEREKMEZ) ve RPR-06'nın UTC gün sınırıyla (00:00:00.000 —
+    /// 23:59:59.999) örtüşür; mevcut tarih semantiği DEĞİŞMEZ (DateFilter/BindDates aynen kullanılır).
+    ///
+    /// PERFORMANS: gün başına sorgu YOK — sabit 5 sorgu (araçlar + 3 gün-gruplu toplam + gün-içi son
+    /// sayaç için ham yakıt fişleri), birleştirme bellekte (kullanıcı onaylı desen). BOŞ GÜNLER dahil
+    /// edilir (0 → "-" görünür): veri girilmeyen gün ile kaydı olmayan durum ayırt edilir. Satır sayısı
+    /// gün×araç olduğundan maxRows koruması ÜRETİM SIRASINDA uygulanır; TOPLAM satırı yine TÜM dönemin
+    /// toplamlarını taşır (kesmeden etkilenmez).
+    ///
+    /// ORANLAR (ort. fiyat/tüketim/birim maliyet): TOPLANMAZ — o günün değerlerinden aynı formülle
+    /// yeniden hesaplanır (dönem raporuyla aynı iş anlamı). "Gün İçi Son Sayaç" = o günkü SON yakıt
+    /// fişindeki sayaç (fiş yoksa "-"); "günlük tüketim" ile "gün sonu sayaç" ayrımını netleştirir.
+    /// Veri modeline dokunulmadı: yeni kolon/tablo/yazma YOK, salt-okunur.
+    /// </summary>
+    public TableModel VehicleDailyReport(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        const long GunMs = 86_400_000;
+        // RequiresDate=true → Run tarih varsayılanını doldurur; yine de savunmacı davran.
+        long fromMs = req.FromDate ?? 0, toMs = req.ToDate ?? 0;
+        long gunBas = fromMs / GunMs, gunSon = toMs / GunMs;
+
+        using var conn = _factory.Create();
+
+        // 1) Araç listesi — DÖNEM raporuyla AYNI kapsam/filtre/sıralama (şube kapsamı dahil).
+        var araclar = new List<(string Id, string Kod, string Plaka, string Ad, string Sube, string Birim)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT v.id, v.internal_code, COALESCE(v.plate,''),
+       TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
+       COALESCE(bch.name,'') AS branch_name, v.meter_unit
+FROM vehicles v
+LEFT JOIN brands br ON br.id=v.brand_id
+LEFT JOIN vehicle_models vmd ON vmd.id=v.vehicle_model_id
+LEFT JOIN branches bch ON bch.id=v.branch_id
+WHERE v.company_id=@c AND v.is_deleted=0" + ReportScope.BranchSql(s, req, "v.branch_id")
+                + InList("v.id", "@rv", req.VehicleIds) + InList("v.vehicle_type_id", "@rt", req.VehicleTypeIds) + @"
+ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";
+            cmd.AddWithValue("@c", companyId);
+            ReportScope.BindBranch(cmd, s, req);
+            BindList(cmd, "@rv", req.VehicleIds);
+            BindList(cmd, "@rt", req.VehicleTypeIds);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                araclar.Add((r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3).Trim(), r.GetString(4), r.GetString(5)));
+        }
+
+        // 2-4) Gün-gruplu toplamlar — DÖNEM raporundaki ÜÇ alt-sorgunun birebir aynısı + gün anahtarı.
+        var yakit = new Dictionary<(string, long), (double Km, double Litre, double Maliyet)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT vehicle_id, distribution_date / 86400000 AS gun,
+  COALESCE(SUM(CASE WHEN prev_meter IS NOT NULL AND current_meter IS NOT NULL
+       THEN CAST(current_meter AS REAL)-CAST(prev_meter AS REAL) ELSE 0 END),0) AS km,
+  COALESCE(SUM(CAST(liters AS REAL)),0) AS litre,
+  COALESCE(SUM(CAST(liters AS REAL)*CAST(unit_price AS REAL)),0) AS fuelcost
+FROM fuel_distributions
+WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "distribution_date") + @"
+GROUP BY vehicle_id, gun;";
+            cmd.AddWithValue("@c", companyId);
+            BindDates(cmd, req);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                yakit[(r.GetString(0), Convert.ToInt64(r.GetValue(1)))] = (r.GetDouble(2), r.GetDouble(3), r.GetDouble(4));
+        }
+
+        var bakim = new Dictionary<(string, long), double>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT vm.vehicle_id, vm.performed_date / 86400000 AS gun,
+  COALESCE(SUM(CAST(mm.quantity AS REAL)*CAST(COALESCE(mm.unit_price,'0') AS REAL)),0) AS matcost
+FROM vehicle_maintenances vm JOIN maintenance_materials mm ON mm.maintenance_id=vm.id
+WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @"
+GROUP BY vm.vehicle_id, gun;";
+            cmd.AddWithValue("@c", companyId);
+            BindDates(cmd, req);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                bakim[(r.GetString(0), Convert.ToInt64(r.GetValue(1)))] = r.GetDouble(2);
+        }
+
+        var parca = new Dictionary<(string, long), double>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT sd.vehicle_id, sd.doc_date / 86400000 AS gun,
+  COALESCE(SUM(CAST(sm.quantity AS REAL)*CAST(COALESCE(sm.unit_price,'0') AS REAL)),0) AS partcost
+FROM stock_documents sd JOIN stock_movements sm ON sm.document_id=sd.id
+WHERE sd.company_id=@c AND sd.is_deleted=0 AND sd.doc_type='out' AND sd.status='active'
+      AND sd.vehicle_id IS NOT NULL" + DateFilter(req, "sd.doc_date") + @"
+GROUP BY sd.vehicle_id, gun;";
+            cmd.AddWithValue("@c", companyId);
+            BindDates(cmd, req);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                parca[(r.GetString(0), Convert.ToInt64(r.GetValue(1)))] = r.GetDouble(2);
+        }
+
+        // 5) Gün içi SON sayaç — o günkü en geç yakıt fişinin current_meter'ı. TEXT sayaç alanı C#'ta
+        // ayrıştırılır (PNum — PG'de CAST('' AS REAL) patlar; mevcut desen).
+        var sonSayac = new Dictionary<(string, long), (long Ts, double Deger)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT vehicle_id, distribution_date, COALESCE(current_meter,'')
+FROM fuel_distributions
+WHERE company_id=@c AND is_deleted=0 AND current_meter IS NOT NULL" + DateFilter(req, "distribution_date") + ";";
+            cmd.AddWithValue("@c", companyId);
+            BindDates(cmd, req);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var anahtar = (r.GetString(0), r.GetInt64(1) / GunMs);
+                var ts = r.GetInt64(1);
+                var deger = PNum(Convert.ToString(r.GetValue(2), CultureInfo.InvariantCulture) ?? "");
+                if (deger <= 0) continue;
+                if (!sonSayac.TryGetValue(anahtar, out var mevcut) || ts >= mevcut.Ts)
+                    sonSayac[anahtar] = (ts, deger);
+            }
+        }
+
+        // TOPLAM satırı TÜM dönemden hesaplanır (satır kesmesinden ETKİLENMEZ) — dönem raporuyla tutarlılık.
+        double tLitre = yakit.Values.Sum(x => x.Litre), tFuel = yakit.Values.Sum(x => x.Maliyet),
+               tMat = bakim.Values.Sum(), tPart = parca.Values.Sum();
+        double tTotal = tFuel + tMat + tPart;
+
+        // Satırlar: GÜN → ARAÇ (aralıktaki HER GÜN, boş günler dahil). maxRows üretim sırasında korur
+        // (gün×araç çarpımı patholojik aralıkta büyüyebilir; bellekte gereksiz üretim yapılmaz).
+        var rows = new List<IReadOnlyList<object?>>();
+        var kesildi = false;
+        for (var gun = gunBas; gun <= gunSon && !kesildi; gun++)
+        {
+            var tarih = DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr);
+            foreach (var a in araclar)
+            {
+                if (rows.Count >= maxRows) { kesildi = true; break; }
+                yakit.TryGetValue((a.Id, gun), out var f);
+                bakim.TryGetValue((a.Id, gun), out var mat);
+                parca.TryGetValue((a.Id, gun), out var part);
+                var sayacVar = sonSayac.TryGetValue((a.Id, gun), out var sayac);
+                double avgPrice = f.Litre > 0 ? f.Maliyet / f.Litre : 0;
+                double consumption = f.Km > 0 ? f.Litre / f.Km : 0;
+                double total = f.Maliyet + mat + part;
+                double perUnit = f.Km > 0 ? total / f.Km : 0;
+                var unitTr = a.Birim == "hour" ? "Saat" : "KM";
+                rows.Add(new object?[]
+                {
+                    tarih, a.Kod, a.Plaka, a.Ad, a.Sube, unitTr,
+                    Num(f.Km, x => FmtDistance(x, a.Birim)),
+                    Num(f.Litre, FmtLiter),
+                    Num(avgPrice, FmtMoney),
+                    Num(f.Maliyet, FmtMoney),
+                    Num(consumption, x => FmtConsumption(x, a.Birim)),
+                    Num(mat, FmtMoney),
+                    Num(part, FmtMoney),
+                    Num(total, FmtMoney),
+                    Num(perUnit, x => FmtPerUnit(x, a.Birim)),
+                    sayacVar ? Num(sayac.Deger, x => FmtDistance(x, a.Birim)) : Num(0, _ => "-"),
+                });
+            }
+        }
+
+        // Dönem raporuyla AYNI kural: ortalamalar ve km↔saat karışabilen kolonlar toplam satırında BOŞ.
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM (DÖNEM)", "", "", "", "", "",
+            "", Num(tLitre, FmtLiter), "", Num(tFuel, FmtMoney), "", Num(tMat, FmtMoney), Num(tPart, FmtMoney), Num(tTotal, FmtMoney), "", "",
+        };
+
+        var numeric = new[] { false, false, false, false, false, false, true, true, true, true, true, true, true, true, true, true };
+
+        return new TableModel("Araç Raporu — Günlük", new[]
+        {
+            "Tarih", "İç Kod", "Plaka", "Araç Adı", "Şube", "Sayaç Birimi", "Günlük Sayaç Mesafesi",
+            "Yakıt (Litre)", "Ortalama Yakıt Fiyatı", "Yakıt Maliyeti", "Ortalama Yakıt Tüketimi",
+            "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Maliyet", "Birim Başına Maliyet",
+            "Gün İçi Son Sayaç",
+        }, rows, numeric, totalRow);
+    }
+
+    /// <summary>
     /// BAKIM RAPORU (kullanıcı isteği 2026-08-08) — ortak standarda taşındı. Her bakım kaydı TEK satır (detay/işlem
     /// listesi; araç başına toplu DEĞİL). İptal edilen (is_cancelled) kayıtlar hariç. Şube = bakımın İŞLENDİĞİ şube
     /// (op_branch_id). Sayaç, bakımın yapıldığı andaki değerdir; araç birimine (km/saat) duyarlı. Maliyet YALNIZ
@@ -1416,6 +1613,17 @@ ORDER BY br.name, p.full_name;";
             throw new ForbiddenException(
                 $"Bu rapor «{AppModules.Label(veriModulu)}» ekranının verisini gösterir; o ekran rolünüze kapatılmıştır.");
 
+        // ⭐ RPT-YETKI (2026-08-29, PK-R2=A) — RAPOR TÜRÜ (KATEGORİ) İKİNCİ KAPISI.
+        //
+        // "reports" ÜST KAPI olarak kalır (her rapor metodu başında zaten istenir); buna EK olarak
+        // raporun kategorisine bağlı modül izni istenir (eşleme TEK merkezden: ReportCatalog.CategoryModule —
+        // katalog süzmeleri de aynısını kullanır, tür adı değiştirerek atlatılamaz). Tek nokta: masaüstü,
+        // API ve Excel dışa aktarma hepsi buradan geçer. Admin/firma admini mevcut bypass kuralıyla geçer;
+        // deny-by-default gereği yeni anahtarlar atanana dek normal kullanıcıda kapalıdır (PK-R3=A).
+        // Mevcut kapılar (tenant · BranchAccess · manager · RequiredModule · DataModule · export butonu)
+        // AYNEN korunur — bu kapı hiçbirini gevşetmez, yalnız EKLENİR.
+        AccessControl.Require(s, ReportCatalog.CategoryModule(desc.Category), PermissionAction.View);
+
         // Tarih varsayılanı (sunucu-taraflı zorlama — istemci göndermese bile korur).
         if (desc.RequiresDate && (req.FromDate is null || req.ToDate is null))
         {
@@ -1450,6 +1658,7 @@ ORDER BY br.name, p.full_name;";
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),
+        "vehicle-daily" => VehicleDailyReport(s, req, maxRows),   // RPT-GUNLUK (PK-R1=A): gün×araç kırılımı
         "maintenance" => Maintenance(s, req),
         "fuel" => FuelConsumption(s, req),
         "fuel-depot" => FuelDepot(s, req),

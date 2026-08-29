@@ -71,6 +71,10 @@ public class RaporKapaliModulBypassTests : IDisposable
                new PermissionSet(new[]
                {
                    new ModulePermission("reports", CanView: true, CanCreate: false, CanEdit: false, CanDelete: false),
+                   // RPT-YETKI (2026-08-29, PK-R2=A): rapor türleri kategori yetkisine bağlandı — bu sınıf
+                   // stok raporlarını test eder, bu yüzden report_stock verilir ("reports" tek başına artık
+                   // rapor ÇALIŞTIRMAYA yetmez; üst kapı olarak kalır). DataModule/rol-blok sözleşmesi AYNEN.
+                   new ModulePermission("report_stock", CanView: true, CanCreate: false, CanEdit: false, CanDelete: false),
                }))
         {
             BlockedModules = new HashSet<string>(kapali, StringComparer.Ordinal),
@@ -126,9 +130,12 @@ public class RaporKapaliModulBypassTests : IDisposable
 
     // ── 3) REGRESYON KİLİTLERİ: kimsenin mevcut erişimi KESİLMEMELİ ───────────────────────────
 
-    /// <summary>⭐ Kritik kilit: hiçbir modül kapatılmamışsa, yalnız "Raporlar" yetkisi YETMEYE devam eder.</summary>
+    /// <summary>⭐ Kritik kilit — SÖZLEŞME GÜNCELLENDİ (RPT-YETKI 2026-08-29, PK-R2=A, kullanıcı onayı):
+    /// eski kural "yalnız reports yeter" idi; yeni kural "reports (üst kapı) + raporun KATEGORİ yetkisi
+    /// yeter"dir. Kapatma (rol-blok) yoksa bu ikili başka hiçbir şart aranmadan YETMEYE devam eder —
+    /// kapı gevşetilmedi, bilinçli olarak kategori katmanı EKLENDİ.</summary>
     [Fact]
-    public void RPR15d_Kapatma_Yoksa_Yalniz_Raporlar_Yetkisi_YETER()
+    public void RPR15d_Kapatma_Yoksa_Reports_Arti_Kategori_Yetkisi_YETER()
     {
         var s = Personel();   // hiçbir modül kapalı değil
         var t = _reports.Run(s, "stock-movements", Istek());

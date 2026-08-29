@@ -238,6 +238,10 @@ public class ScreenTreeParityTests
             "stock_change_log", "audit", "backup",
             "material_templates", "vehicle_templates",
             "inspection", "request_approval", "request_ops",
+            // RPT-YETKI (2026-08-29, PK-R2=A): rapor KATEGORİ yetkileri — menüde ayrı madde değildir;
+            // Raporlar ekranının İÇİNDE tür listesini süzer ve ReportService.Run ikinci kapısıdır.
+            "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
+            "report_requests", "report_management", "report_material", "report_accounting",
         };
 
         var oksuz = ModuleKeys()
