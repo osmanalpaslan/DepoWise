@@ -33,6 +33,26 @@
   işi mi olacağı PK-TAR-02'de. Canlı ölçüm production bağlantısı gerektirir ve **YAPILMADI**.
 - ⭐ Emsal çözüm: aynı hata sınıfı Yakıt ekranında **ADR-182** ile düzeltildi.
 
+## 🟢 FIN-B1 / Migration082 — ✅ ÇÖZÜLDÜ ve YAYINLANDI (2026-08-29, ADR-185)
+
+> **CANLIDA ÇÖZÜLDÜ.** Migration082 uygulandı → **canlı şema 82**; 7 indeks
+> `UNIQUE (company_id, operation_id)` (6 operasyon tablosu + **`sync_inbox`**), indeks adları korundu.
+> 9 idempotency sorgusu + `SyncServer.InboxHas` firma kapsamlı. Masaüstü **1.0.164**, API + Web güncel.
+> Yayın öncesi `pg_dump` yedeği alındı/doğrulandı; **hiçbir canlı kayıt değişmedi**
+> (683/220/3 satır yayın öncesi ve sonrası birebir aynı).
+>
+> **Bilinçli kapsam sınırı (kusur DEĞİL):** `sync_outbox.ux_outbox_operation` tek kolonlu UNIQUE olarak
+> KALDI — ADR-179/185'te kapsam dışı bırakılmıştı. Gerekçe kanıtlı: sunucuda **0 satır**, tablo
+> masaüstünün **yerel** gönderim kuyruğudur ve okuma sorgusu zaten firma kapsamlıdır
+> (`OutboxWriter.cs:37`); yerel veritabanı tek firmalı olduğu için küresel benzersizlik zararsızdır.
+> İleride gerekirse **ayrı iş** olarak ele alınır; bu yayında kapsam genişletilmedi.
+>
+> **Eski istemciler (≤1.0.163):** bozulmadı — API/DB sözleşmesi değişmedi ve eski kod + yeni şema 82
+> güvenli yöndür (benzersizlik gevşedi). Güncelleyene kadar kendi yerel DB'lerinde eski davranışı
+> sürdürürler (yerel DB tek firmalı olduğu için pratik etkisi yoktur).
+
+<details><summary>Geçmiş kayıt — ADR-180 geri çekmesi (kapandı)</summary>
+
 ## 🟠 FIN-B1 / Migration082 — GERİ ÇEKİLDİ, AYRI ONAY BEKLİYOR (2026-08-29, ADR-180 · PK-R4=B)
 
 - **Durum:** ADR-179'da uygulanan FIN-B1 çifti (Migration082 + 8 idempotency firma süzgeci +
@@ -58,9 +78,11 @@
   (40 atlanan), izole PG **53/53** (0 atlanan), 3 Release **0 hata**.
 - **⚠️ HENÜZ YAYINLANMADI:** **canlı şema HÂLÂ 81**; katalog azamisi depoda 82'ye çıktı. Yayınlanana
   kadar canlıda eski (firma-kör) davranış sürüyor.
-- **Sıradaki adım:** kullanıcının **"YAYINLA"** onayı. Önkoşullar: **pg_dump yedeği** + **yayın öncesi
-  tablo/indeks boyutu ölçümü** (özellikle `sync_inbox` — en büyük tablo olabilir, indeks yeniden kurma
-  kilidi uzayabilir; PK-FIN-03=C). O zamana dek risk ~sıfır (GUID op-id'ler).
+- **Sonuç:** yayınlandı (yukarıdaki yeşil bölüme bakın). Yayın öncesi ölçüm, korkulan `sync_inbox`
+  büyüklüğünün gerçekte **0 satır / 24 kB** olduğunu gösterdi; en büyük hedef `stock_movements`
+  (683 satır / 152 kB indeks) → kilit süresi ihmal edilebilirdi.
+
+</details>
 
 ## ✅ KAPATILAN (2026-08-29 — FINAL karar paketi, ADR-179; FIN-B1 hariç — yukarı bak)
 

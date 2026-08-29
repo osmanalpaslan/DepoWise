@@ -3116,3 +3116,32 @@ API+Web+Masaüstü Release **0 hata**.
 ⛔ **YAYINLANMADI: canlı şema HÂLÂ 81.** Production'a bağlanılmadı (SELECT dahil), deploy yapılmadı,
 canlı tablo boyutu ölçülmedi. Yayın için ayrı `YAYINLA` onayı ve önkoşul olarak pg_dump yedeği +
 tablo/indeks boyutu ölçümü (PK-FIN-03=C) gerekir. Hedef masaüstü sürüm: **1.0.164**.
+
+### ADR-185 — YAYIN KAYDI (2026-08-29) — ✅ CANLIDA, ŞEMA 81 → 82
+
+**Yayınlanan kod:** `d9fc350` (ADR-185 kararları aynen; tasarım değişmedi).
+
+| Adım | Sonuç |
+|---|---|
+| 1. `pg_dump` yedeği | ✅ **683.818 bayt**, custom format; `pg_restore -l` ile doğrulandı: **92 tablo verisi**, 7 hedef tablonun tamamı içinde. Yedek scratch'te tutuldu, **depoya girmedi** |
+| 2. Salt-okunur boyut ölçümü (PK-FIN-03=C) | ✅ `stock_movements` 968 kB / **683 satır** (en büyük, indeks 152 kB) · `fuel_distributions` 248 kB / 220 · `fuel_depot_entries` 3 · diğerleri 0 · **`sync_inbox` 0 satır / 24 kB** → korkulan kilit riski **gerçekleşmedi**, risk beklenenden DÜŞÜK çıktı |
+| 3. API deploy (`fly.toml`) | ✅ makine `started` |
+| 4. Migration082 | ✅ **şema 81 → 82**; `schema_migrations`: version 82 · `operation_id_company_scope` · 2026-08-29 19:42:07 UTC. 7 indeks `UNIQUE (company_id, operation_id)`, **adlar korundu**. Transaction içinde, `CONCURRENTLY` yok |
+| 5. Veri bütünlüğü | ✅ satır sayıları **birebir aynı** (683 / 220 / 3 / 0 / 0 / 0 / 0); `stock_movements`: 683 satır = **683 benzersiz (company_id, operation_id) çifti** |
+| 6. Web deploy (`fly.web.toml`) | ✅ makine `started` |
+| 7. Sağlık | ✅ `/health` 200 · web `/` `/reports` `/stock` `/branches` `/fuel` `/assignments` hepsi **200** |
+| 8. Masaüstü | ✅ **1.0.163 → 1.0.164** · `DepoWise-desktop-1.0.164.zip` **90.408.351 bayt (86,2 MB)**, 253 dosya · checksum `DA127644…947A789B` · `/api/releases/latest` = **1.0.164** |
+
+**Production'da oluşturulan/değiştirilen iş kaydı: 0.** Yalnız `SELECT` ve şema (indeks) değişimi;
+`INSERT`/`UPDATE`/`DELETE` yapılmadı, geçmiş veriye dokunulmadı.
+
+**Bilinçli kapsam sınırı — `sync_outbox`:** `ux_outbox_operation` tek kolonlu UNIQUE olarak KALDI
+(ADR-179/185'te kapsam dışıydı). Yayın sonrası doğrulamada tespit edildi ve **kapsam genişletilmedi**.
+Gerekçe kanıtlı: sunucuda 0 satır; tablo masaüstünün yerel gönderim kuyruğudur ve okuma sorgusu zaten
+firma kapsamlıdır (`OutboxWriter.cs:37`); yerel DB tek firmalı → küresel benzersizlik zararsız.
+Gerekirse **ayrı iş** olarak ele alınır.
+
+**Rollback:** gerekmedi. Yedek duruyor; ters migration mümkün (arada firmalar arası aynı `operation_id`
+kayıt oluşmadıkça — yayın anında 683/683 benzersizlik doğrulandı).
+
+**Eski istemciler (≤1.0.163):** bozulmadı; sözleşme değişmedi ve eski kod + yeni şema 82 güvenli yöndür.
