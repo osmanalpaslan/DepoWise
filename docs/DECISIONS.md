@@ -3210,3 +3210,28 @@ FIN-B1/Migration082 · N/Mobil · Ekip+Hiyerarşi+Onay. Ana roadmap sırası **d
 **Durum.** FAZ 2 kararları ONAYLANDI. **FAZ 3 uygulama, kullanıcının ayrıca vereceği
 "UYGULAMA BAŞLASIN" onayını bekler.** Bu ADR yazılırken **kod/test/migration üretilmedi**,
 **production'a bağlanılmadı (SELECT dahil)**, deploy yapılmadı; katalog azamisi **82** olarak kaldı.
+
+### ADR-186 — EK: PK-CR-09 = A (2026-08-29) ve yeni çelişki PK-CR-10
+
+**PK-CR-09 = A (kullanıcı kararı):** Custom Rapor **v1 yalnızca 3 doğrulanmış kaynağı** destekler —
+`MaterialService.SearchGrid` · `VehicleService.SearchGrid` · `DailyActivityService.SearchGrid`.
+Yakıt · Bakım · Stok Hareketleri · Faturalar **v1 dışıdır**; mevcut 25 rapor metoduna dinamik kolon
+projeksiyonu eklenmeyecek; kaynak sayısı kendiliğinden artırılmayacak (B ve C seçilmedi).
+
+**⛔ S2 DURDURULDU — PK-CR-06=A ile PK-CR-09=A arasında GERÇEK ÇELİŞKİ.**
+PK-CR-06=A "tarih filtresi ZORUNLU ve SQL'e insin" der; ancak v1 kaynaklarının ikisi **ana veridir**
+ve **iş günü tarihi taşımaz**: `materials` ve `vehicles` tablolarında yalnız `created_at`/`updated_at`
+vardır (Migration005:77 · Migration007:85). Yalnız `daily_activities` gerçek iş günü alanı taşır
+(`activity_date`, Migration009:74). Ayrıca üç `SearchGrid` metodunun **hiçbiri** tarih aralığı
+parametresi almaz (MaterialService:685 · VehicleService:307 · DailyActivityService:349) → tarihi SQL'e
+indirmek **yayınlanmış servis kodunu ve API uçlarını** değiştirmeyi gerektirir. Malzeme/Araç için
+`created_at` kullanmak ise **kayıt anını iş günü gibi** kullandırır ve ADR-184'ün bilinçli ayrımıyla
+çelişir (o altyapıya dokunulmayacaktır).
+
+**PK-CR-10 (karar bekliyor):** (A) **ÖNERİLEN** — tarih zorunluluğu **kaynak-bazlı**: olay verisinde
+(Günlük Faaliyet) zorunlu; ana veride (Malzeme, Araç) tarih yok, yerine **zorunlu SQL satır tavanı +
+en az bir filtre** · (B) v1'i yalnız Günlük Faaliyet'e indir · (C) üç SearchGrid'e tarih ekle,
+Malzeme/Araç'ta `created_at` kullan (**önerilmez**).
+
+**Durum:** kullanıcı talimatı gereği ("çelişki varsa uygulamadan önce DUR") **ürün kodu yazılmadı,
+Migration083 oluşturulmadı, production'a bağlanılmadı**. Katalog azamisi **82**.

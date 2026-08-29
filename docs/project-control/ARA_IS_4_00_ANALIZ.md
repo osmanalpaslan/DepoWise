@@ -388,6 +388,54 @@ tanımlanır" dedi). İki okuma **maddi olarak farklı iş** üretir:
 **Öneri: A** (v1'i mevcut güvenli yüzeyle sınırla, sonraki sürümde kaynak ekle) — ancak bu **sizin
 kararınızdır**; kapsamı kendiliğinden genişletmedim ve **kod yazmadan durdum**.
 
+## 12.7 PK-CR-09 = A — KARAR KAYDEDİLDİ (2026-08-29)
+
+**Karar:** Custom Rapor **v1 yalnızca 3 doğrulanmış kaynağı** destekler:
+`MaterialService.SearchGrid` · `VehicleService.SearchGrid` · `DailyActivityService.SearchGrid`.
+**B ve C seçilmedi.** Yakıt · Bakım · Stok Hareketleri · Faturalar **v1 kapsamı DIŞINDADIR**;
+mevcut 25 rapor metoduna dinamik kolon projeksiyonu eklenmeyecek; kaynak sayısı kendiliğinden
+artırılmayacak.
+
+## 12.8 ⛔ S2 DURDURULDU — YENİ ÇELİŞKİ: PK-CR-10 (zorunlu tarih ↔ v1 kaynakları)
+
+S2 uygulamasına başlamadan önceki son doğrulamada, **iki bağlayıcı karar arasında gerçek bir
+çelişki** bulundu. Kullanıcı talimatı gereği (*"PK-CR kararlarıyla çelişen bir durum varsa
+uygulamadan önce DUR"*) **kod yazılmadı**.
+
+### Çelişki
+
+**PK-CR-06 = A:** *"Custom raporlarda tarih filtresi ZORUNLU · bellekte değil, SQL seviyesinde
+WHERE'e indirilecek · tarih aralığı olmadan rapor çalıştırılmayacak."*
+
+**PK-CR-09 = A:** v1 kaynakları = Malzeme · Araç · Günlük Faaliyet.
+
+**Kanıt — üç kaynağın tarih gerçeği:**
+
+| Kaynak | Tabloda iş günü tarihi | Grid filtresinde tarih alanı | `SearchGrid` tarih parametresi |
+|---|---|---|---|
+| Malzeme | ❌ **YOK** — yalnız `created_at`/`updated_at` ([Migration005_Materials.cs:77](src/DepoWise.Infrastructure/Database/Migrations/Migration005_Materials.cs:77)) | ❌ yok (`MaterialGridFilter` 15 alan, tarih yok) | ❌ yok ([MaterialService.cs:685](src/DepoWise.Infrastructure/Materials/MaterialService.cs:685)) |
+| Araç | ❌ **YOK** — yalnız `created_at`/`updated_at` ([Migration007_Vehicles.cs:85](src/DepoWise.Infrastructure/Database/Migrations/Migration007_Vehicles.cs:85)) | ❌ yok (`VehicleGridFilter` 14 alan) | ❌ yok ([VehicleService.cs:307](src/DepoWise.Infrastructure/Vehicles/VehicleService.cs:307)) |
+| Günlük Faaliyet | ✅ **VAR** — `activity_date` ([Migration009:74](src/DepoWise.Infrastructure/Database/Migrations/Migration009_FuelDailyActivity.cs:74)) | ❌ yok (`DailyActivityGridFilter` 6 alan) | ❌ yok ([DailyActivityService.cs:349](src/DepoWise.Infrastructure/Operations/DailyActivityService.cs:349)) |
+
+**Neden basit bir ekleme değil:**
+1. **Malzeme ve Araç ANA VERİDİR** (katalog), olay verisi değil. Zorunlu tarih aralığı ancak
+   `created_at` üzerinden kurulabilir — bu **kayıt anıdır**, iş günü değil. ARA İŞ 3 / ADR-184 bu iki
+   semantiği **bilinçli olarak ayırmıştır** ve o altyapıya **dokunmam yasaktır**.
+2. Üç `SearchGrid` metodunun **hiçbiri** tarih aralığı parametresi almıyor → tarihi SQL'e indirmek,
+   **yayınlanmış ve testli servis kodunu** (ve API uçlarını) değiştirmeyi gerektirir; bu "rapor
+   motorunu genişlet" kapsamının dışına çıkar.
+
+### PK-CR-10 — Zorunlu tarih filtresi ile v1 kaynak kümesinin uyumu
+
+| | Seçenek | Sonuç |
+|---|---|---|
+| **A (ÖNERİLEN)** | **Tarih zorunluluğu kaynak-bazlı olsun:** tarih filtresi yalnız **olay** verisi taşıyan kaynakta (Günlük Faaliyet) zorunlu; **ana veri** kaynaklarında (Malzeme, Araç) tarih filtresi **yok**, yerine **zorunlu SQL satır tavanı** + **en az bir filtre** şartı | PK-CR-06'nın asıl amacı (sınırsız/aşırı geniş sorguyu engellemek) korunur · semantik bozulmaz · yayınlanmış `SearchGrid` kodu **değişmez** · ADR-184 ayrımına dokunulmaz |
+| **B** | **v1'i tek kaynağa indir:** yalnız Günlük Faaliyet | PK-CR-06 aynen korunur ama v1 çok dar; PK-CR-09=A'nın 3 kaynağı fiilen 1'e düşer |
+| **C** | Üç `SearchGrid`'e tarih aralığı ekle; Malzeme/Araç'ta `created_at` kullan | Yayınlanmış servis kodu + API değişir; **kayıt anını iş günü gibi** kullandırır (ADR-184 ile çelişir) → **ÖNERİLMEZ** |
+
+**Not:** Satır tavanı (PK-CR-06'nın diğer yarısı) her üç kaynakta da **sorunsuz uygulanabilir** —
+`SearchGrid` zaten sayfalıdır (`page`, `pageSize`) ve tavan SQL'e iner.
+
 ## 13. FAZ TAKİP TABLOSU
 
 | Faz | Durum |
@@ -395,7 +443,7 @@ kararınızdır**; kapsamı kendiliğinden genişletmedim ve **kod yazmadan durd
 | FAZ 0 — durum doğrulama | ✅ TAMAM |
 | FAZ 1 — analiz | ✅ TAMAM (bu belge) |
 | FAZ 2 — karar paketi | ✅ **TAMAM — PK-CR-01…08 = A (ADR-186)** |
-| FAZ 3 — uygulama | 🟡 **S1 ✅ TAMAM (14/14 doğrulandı, nokta 3 gerçek testle)** · **S2 ⛔ DURDURULDU — PK-CR-09 karar bekliyor** (§12.6). Ürün kodu/migration **YOK**; yalnız doğrulama testi eklendi |
+| FAZ 3 — uygulama | 🟡 **S1 ✅ TAMAM (14/14, nokta 3 gerçek testle)** · **PK-CR-09 = A ✅ kaydedildi** (§12.7) · **S2 ⛔ DURDURULDU — PK-CR-10 karar bekliyor** (§12.8: zorunlu tarih ↔ v1 kaynakları çelişkisi). Ürün kodu/migration **YOK** |
 | FAZ 4 — test/doğrulama | ⛔ |
 | FAZ 5 — yayın öncesi kontrol | ⛔ |
 | FAZ 6 — production yayın | ⛔ "YAYINLA" olmadan yapılmaz |
