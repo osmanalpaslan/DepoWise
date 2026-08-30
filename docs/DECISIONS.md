@@ -3235,3 +3235,36 @@ Malzeme/Araç'ta `created_at` kullan (**önerilmez**).
 
 **Durum:** kullanıcı talimatı gereği ("çelişki varsa uygulamadan önce DUR") **ürün kodu yazılmadı,
 Migration083 oluşturulmadı, production'a bağlanılmadı**. Katalog azamisi **82**.
+
+### ADR-186 — YAYIN KAYDI (2026-08-30) — ✅ CANLIDA, ŞEMA 82 → 83, MASAÜSTÜ 1.0.165
+
+**Yayınlanan kod:** `2669176` (FAZ 4) — S2 altyapısı `eec03eb` dâhil. Yeni ADR açılmadı; ADR-186
+kararları (PK-CR-01…10) aynen uygulandı.
+
+| Adım | Sonuç |
+|---|---|
+| 1. Ön yayın git | HEAD `2669176` = origin/master · çalışma ağacı temiz · katalog 083 · **084+ YOK** |
+| 2. `pg_dump` yedeği | ✅ **694.485 bayt**, custom format, gerçek production (`depowise_prod` @ Neon); `pg_restore -l` **okunabilir**, **92 tablo verisi**. Yedek scratch'te — **depoya girmedi** |
+| 3. Salt-okunur ölçüm | Şema **82** · `custom_report_defs` **YOK** · DB **19 MB** · satırlar: materials 2492 · vehicles 164 · stock_movements 683 · fuel_distributions 308 · fuel_depot_entries 4 · diğer 3 tablo 0 |
+| 4. API deploy + Migration083 | ✅ makine `started`; migration açılışta uygulandı |
+| 5. Şema doğrulama | ✅ **82 → 83**; `schema_migrations`: 83 · `custom_reports` · **2026-08-30 07:52:37 UTC**. `custom_report_defs` **14 kolon**, indeksler: PK + `ix_crd_company(company_id, is_deleted)`, **1 FK** (companies). Beklenmeyen tablo/sütun YOK (92 → **93** tablo = yalnız yeni tablo) |
+| 6. Veri bütünlüğü | ✅ materials 2492→2492 · vehicles 164→164 · stock_movements 683→683 · fuel_depot_entries 4→4 · maintenances/daily/assignments 0→0. `custom_report_defs` **0 satır** (yeni özellik). ⚠️ `fuel_distributions` 308→**315**: bu **migration etkisi DEĞİL** — son kayıtların `created_at` değerleri **07:48–07:51 UTC**, migration ise **07:52:37**'de çalıştı ⇒ **canlı kullanıcı girişi** (kanıtlandı, varsayılmadı). Migration083 hiçbir satır oluşturmadı/değiştirmedi |
+| 7. Web deploy | ✅ makine `started` |
+| 8. Sağlık/smoke | `/health` 200 · web `/` `/reports` **`/reports/designer`** `/stock` `/branches` = **200** · yeni API uçları kimliksiz **401** (deny-by-default doğrulandı) |
+| 9. Fonksiyonel (salt-okunur, test hesabı) | `/api/custom-reports/sources` → **3 kaynak** doğru metadata ile (`requiresDate`/`requiresFilter`) · `/api/custom-reports` → `[]` (yeni özellik, normal) · `/api/reports/catalog` → **25** sabit rapor. **Hiçbir kayıt oluşturulmadı/değiştirilmedi** |
+| 10. Masaüstü | ✅ **1.0.164 → 1.0.165** · `DepoWise-desktop-1.0.165.zip` **90.430.808 bayt (86,2 MB)**, 253 dosya · checksum `3F16FDE9F6AC…` · `/api/releases/latest` = **1.0.165** |
+
+**Production'da oluşturulan/değiştirilen iş kaydı: 0.** Yalnız `SELECT` + tek `CREATE TABLE`/`CREATE INDEX`;
+`INSERT`/`UPDATE`/`DELETE` yapılmadı, geçmiş veriye dokunulmadı.
+
+**Eski istemciler (≤1.0.164):** bozulmaz. Şema 83 yalnız YENİ tablo ekler; eski istemci onu bilmez ve
+senkronda **sessizce atlar** — davranış FAZ 3'te gerçek testlerle kanıtlandı (ESK-01…05) ve FAZ 4'te
+regresyonla korundu (CR33). Sözleşme değişmedi.
+
+**Rollback:** gerekmedi. Yedek duruyor; geri dönüş `DROP TABLE custom_report_defs` + kod revert ile
+mümkündür (tablo yalnız yeni özelliğe aittir, mevcut veriyle ilişkisi yoktur). **Migration084
+üretilmedi.**
+
+**Kapsam dışı (dokunulmadı):** ARA İŞ 3 / ADR-184 · FIN-B1 / Migration082 / ADR-185 · `sync_outbox` ·
+geçmiş veri düzeltmesi · yeni custom rapor kaynakları · yeni rapor motoru · yeni yetki sistemi ·
+web `ProjectReference` mimarisi.

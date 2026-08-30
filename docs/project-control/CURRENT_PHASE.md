@@ -126,7 +126,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **ARA İŞ 4 — CUSTOM RAPOR** · FAZ 0–2 ✅ (ADR-186: PK-CR-01…08 = A) · **FAZ 3 / S1 ✅ 14 teknik nokta doğrulandı** (nokta 3 **gerçek testle**: `CustomRaporSenkronOnDogrulamaTests` **5/5**) · **PK-CR-09=A · PK-CR-10=A ✅** · ✅ **S2 ALTYAPI TAMAM**: **Migration083** (`custom_report_defs`, katalog azamisi **83**) · merkezî beyaz liste (3 kaynak) · `CustomReportService` · dispatch + **6 güvenlik kapısı** · senkron kaydı · **FAZ 4 TAMAM**: tasarımcı katalog + CRUD API uçları · tek katalog entegrasyonu · masaüstü tasarımcı ekranı · web `/reports/designer` · yetki ağacında `reports.designer` (yeni modül YOK) · **55 custom rapor testi**. ⚠️ **CANLI ŞEMA HÂLÂ 82** — yayın yapılmadı, production'a bağlanılmadı |
+| Aktif ara iş / aşaması | **ARA İŞ 4 — CUSTOM RAPOR** · FAZ 0–2 ✅ (ADR-186: PK-CR-01…08 = A) · **FAZ 3 / S1 ✅ 14 teknik nokta doğrulandı** (nokta 3 **gerçek testle**: `CustomRaporSenkronOnDogrulamaTests` **5/5**) · **PK-CR-09=A · PK-CR-10=A ✅** · ✅ **S2 ALTYAPI TAMAM**: **Migration083** (`custom_report_defs`, katalog azamisi **83**) · merkezî beyaz liste (3 kaynak) · `CustomReportService` · dispatch + **6 güvenlik kapısı** · senkron kaydı · **FAZ 4 TAMAM**: tasarımcı katalog + CRUD API uçları · tek katalog entegrasyonu · masaüstü tasarımcı ekranı · web `/reports/designer` · yetki ağacında `reports.designer` (yeni modül YOK) · **55 custom rapor testi**. ✅ **YAYINLANDI (2026-08-30)** — canlı şema **82 → 83**, masaüstü **1.0.165**, API + Web güncel |
 | *(geçmiş)* ARA İŞ 3 | ✅ **TAMAMLANDI + YAYINLANDI** — masaüstü **1.0.163**; o yayın anında şema 81'di, **şu anki canlı şema 82'dir** (FIN-B1/Migration082 sonrası) |
 | Ana roadmap aktif iş | **YOK** — **FIN-B1 / Migration082 ✅ TAMAMLANDI ve YAYINLANDI (2026-08-29)**: kod `d9fc350`, **canlı şema 81 → 82**, masaüstü **1.0.164**, API + Web yeniden dağıtıldı; 7 indeks `UNIQUE (company_id, operation_id)`; **hiçbir kayıt değişmedi** (683/220/3 satır birebir aynı) |
 | Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** |
@@ -136,7 +136,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
 | Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
 | Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | **PK-CR-10 kararı** — zorunlu tarih filtresi (PK-CR-06=A) ile v1 kaynakları (PK-CR-09=A) çelişiyor: Malzeme ve Araç **ana veridir, iş günü tarihi taşımaz**. Seçenekler: **A**=tarih zorunluluğu kaynak-bazlı (öneri) · **B**=v1'i yalnız Günlük Faaliyet'e indir · **C**=SearchGrid'lere tarih ekle (önerilmez). Ekip+Hiyerarşi+Onay ⏸️; N/Mobil ⏭️ ATLANDI |
+| Sonraki TEK iş | **AŞAMA 3'ün kalan maddesi: Ekip + Hiyerarşi + Onay** (ayrı faz, başlanmadı — kullanıcı kararı bekliyor). N/Mobil ⏭️ ATLANDI. Custom Rapor v1 yayında; yeni kaynak eklenmesi ayrı iştir. |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
