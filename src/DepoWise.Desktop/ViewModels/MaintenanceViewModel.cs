@@ -701,6 +701,108 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasRows));
     }
+
+    // ═══════════ 7b — EKİPMAN BAKIMLARI SEKMESİ (PK-F9, ADR-191) ═══════════════════════════════
+    //
+    // ⚠️ Yukarıdaki ARAÇ bakım akışı HİÇ DEĞİŞTİRİLMEDİ. Bu bölüm onun EKİPMAN ikizidir ve
+    // ayrı servis/tablolar üzerinden çalışır (EquipmentMaintenanceService).
+    //
+    // Hedef seçimi ekranın MEVCUT sekme yapısıyla yapılır (yeni AppScreen açılmadı):
+    //   "Bakım Tanımları" · "Araç Bakımları" · "Ekipman Bakımları" · "Uyarılar"
+    //
+    // ⚠️ Bilinçli KAPSAM: ekipmanda SAYAÇ YOKTUR (PK-F8) → araç tarafındaki sayaç ilerletme ve
+    // araç DURUM değişikliği burada YOKTUR. Yetersiz stok uyarısı/taslak talep akışı da v1'de
+    // araç sekmesine özgü kalır; ekipman kaydı stok kuralları açısından servis tarafında araçla
+    // AYNI davranır (negatif stok engellenmez, ekip stoğu merkezden düşmez).
+
+    public ObservableCollection<EquipmentPick> EqmEquipment { get; } = new();
+    public ObservableCollection<EquipmentMaintenanceRow> EqmRows { get; } = new();
+    public ObservableCollection<MntMaterialLine> EqmLines { get; } = new();
+
+    [ObservableProperty] private EquipmentPick? _eqmSelected;
+    [ObservableProperty] private MaintenanceDefinitionRow? _eqmDef;
+    [ObservableProperty] private string _eqmDescription = "";
+    [ObservableProperty] private long? _eqmPerformedDate;
+    [ObservableProperty] private EquipmentMaintenanceRow? _eqmSelectedRow;
+    [ObservableProperty] private string _eqmCancelReason = "";
+
+    /// <summary>Ekipman sekmesi verisini yükler — ekipman listesi + mevcut bakım kayıtları.</summary>
+    [RelayCommand]
+    public void LoadEquipmentTab()
+    {
+        try
+        {
+            EqmEquipment.Clear();
+            foreach (var e in DesktopServices.Equipment.List(_session))
+                EqmEquipment.Add(new EquipmentPick(e.Id, string.IsNullOrWhiteSpace(e.Name) ? e.Code : $"{e.Code} — {e.Name}"));
+            RefreshEquipmentRows();
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
+
+    private void RefreshEquipmentRows()
+    {
+        EqmRows.Clear();
+        try
+        {
+            foreach (var r in DesktopServices.EquipmentMaintenance.List(_session,
+                         EqmSelected is null ? null : EqmSelected.Id))
+                EqmRows.Add(r);
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
+
+    partial void OnEqmSelectedChanged(EquipmentPick? value) => RefreshEquipmentRows();
+
+    [RelayCommand]
+    private async Task SaveEquipmentMaintenance()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Bakım Takibi")) return;
+        if (EqmSelected is null) { Status = "Ekipman seçin."; return; }
+        if (EqmDef is null) { Status = "Bakım tanımı seçin."; return; }
+        if (EqmLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }
+
+        try
+        {
+            var mats = EqmLines
+                .Select(l => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock))
+                .ToList();
+            DesktopServices.EquipmentMaintenance.Save(_session,
+                new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
+                    EquipmentId: EqmSelected.Id, DefinitionId: EqmDef.Id,
+                    Description: string.IsNullOrWhiteSpace(EqmDescription) ? null : EqmDescription.Trim(),
+                    PerformedDate: EqmPerformedDate, Materials: mats,
+                    StockLocationId: MntLocation?.Id),          // araç sekmesiyle AYNI depo seçimi kullanılır
+                Guid.NewGuid().ToString("N"));
+            EqmLines.Clear();
+            EqmDescription = "";
+            RefreshEquipmentRows();
+            Status = "Ekipman bakımı kaydedildi.";
+        }
+        catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void CancelEquipmentMaintenance()
+    {
+        if (EqmSelectedRow is null) { Status = "Kayıt seçin."; return; }
+        if (string.IsNullOrWhiteSpace(EqmCancelReason)) { Status = "İptal gerekçesi zorunlu."; return; }
+        try
+        {
+            DesktopServices.EquipmentMaintenance.Cancel(_session, EqmSelectedRow.Id, EqmCancelReason.Trim());
+            EqmCancelReason = "";
+            RefreshEquipmentRows();
+            Status = "Ekipman bakımı iptal edildi.";
+        }
+        catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
+    }
+}
+
+/// <summary>Ekipman seçici satırı (7b) — araç tarafındaki <c>VehiclePick</c> ile aynı rol.</summary>
+public sealed record EquipmentPick(string Id, string Display)
+{
+    public override string ToString() => Display;
 }
 
 /// <summary>Bakım/Günlük Faaliyet formundaki malzeme satırı — İKİ EKRAN da bu sınıfı paylaşır (ortak davranış).</summary>

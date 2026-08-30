@@ -34,7 +34,14 @@ public sealed record WorkOrderAssignmentRow(string Id, string ResourceType, stri
 public sealed record WorkOrderLinkRow(string Id, string EntityType, string EntityId, string Label)
 {
     public string EntityTypeDisplay => EntityType switch
-    { "stock_document" => "Malzeme Tüketimi", "vehicle_maintenance" => "Bakım", "purchase_order" => "Sipariş", _ => EntityType };
+    {
+        "stock_document" => "Malzeme Tüketimi",
+        "vehicle_maintenance" => "Bakım",
+        // ⭐ 7b (ADR-191): ekipman bakımı da iş emrine bağlanabilir. Araç bağı DEĞİŞMEDİ.
+        "equipment_maintenance" => "Ekipman Bakımı",
+        "purchase_order" => "Sipariş",
+        _ => EntityType,
+    };
 }
 
 public sealed record WorkOrderHistoryRow(string? FromStatus, string ToStatus, string UserName, string? Note, long CreatedAt)
@@ -437,6 +444,7 @@ WHERE a.company_id=@c AND a.work_order_id=@w AND a.is_deleted=0 ORDER BY a.creat
         var tablo = entityType switch
         {
             "vehicle_maintenance" => "vehicle_maintenances",
+            "equipment_maintenance" => "equipment_maintenances",   // ⭐ 7b (ADR-191)
             "purchase_order" => "purchase_orders",
             _ => throw new ArgumentException("Bağlanabilir kayıt: bakım veya sipariş."),
         };
@@ -466,11 +474,13 @@ WHERE a.company_id=@c AND a.work_order_id=@w AND a.is_deleted=0 ORDER BY a.creat
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT l.id, l.entity_type, l.entity_id,
-       COALESCE(sd.doc_no, po.order_no, vm.id, l.entity_id)
+       COALESCE(sd.doc_no, po.order_no, vm.id, em.id, l.entity_id)
 FROM work_order_links l
 LEFT JOIN stock_documents sd ON l.entity_type='stock_document' AND sd.id = l.entity_id
 LEFT JOIN purchase_orders po ON l.entity_type='purchase_order' AND po.id = l.entity_id
 LEFT JOIN vehicle_maintenances vm ON l.entity_type='vehicle_maintenance' AND vm.id = l.entity_id
+-- ⭐ 7b (ADR-191): ekipman bakım bağı. Araç JOIN'i olduğu gibi kaldı.
+LEFT JOIN equipment_maintenances em ON l.entity_type='equipment_maintenance' AND em.id = l.entity_id
 WHERE l.company_id=@c AND l.work_order_id=@w AND l.is_deleted=0 ORDER BY l.created_at;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@w", workOrderId);
@@ -520,6 +530,21 @@ FROM work_order_links l
 JOIN vehicle_maintenances vm ON vm.id = l.entity_id AND vm.is_cancelled=0 AND vm.is_deleted=0
 JOIN maintenance_materials mm ON mm.maintenance_id = vm.id
 WHERE l.company_id=@c AND l.work_order_id=@w AND l.entity_type='vehicle_maintenance' AND l.is_deleted=0;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@w", workOrderId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) Ekle("Bakım Malzemesi", "TRY", D(r, 0) * D(r, 1));
+        }
+        // ⭐ 7b (ADR-191): EKİPMAN bakım malzemesi de maliyete girer — araç sorgusunun ikizi,
+        // AYNI "Bakım Malzemesi" kategorisinde toplanır (yeni kategori açılmaz).
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT mm.quantity, mm.unit_price
+FROM work_order_links l
+JOIN equipment_maintenances em ON em.id = l.entity_id AND em.is_cancelled=0 AND em.is_deleted=0
+JOIN equipment_maintenance_materials mm ON mm.maintenance_id = em.id
+WHERE l.company_id=@c AND l.work_order_id=@w AND l.entity_type='equipment_maintenance' AND l.is_deleted=0;";
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@w", workOrderId);
             using var r = cmd.ExecuteReader();

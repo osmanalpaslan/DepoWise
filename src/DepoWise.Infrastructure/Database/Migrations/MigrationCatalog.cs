@@ -90,5 +90,6 @@ public static class MigrationCatalog
         new Migration083_CustomReports(),
         new Migration084_Teams(),
         new Migration085_ApprovalChain(),
+        new Migration086_EquipmentMaintenance(),
     };
 }

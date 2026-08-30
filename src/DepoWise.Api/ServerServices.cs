@@ -63,6 +63,9 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Vehicles.VehicleService Vehicles { get; }
     public DepoWise.Infrastructure.Maintenance.MaintenanceService Maintenance { get; }
     public DepoWise.Infrastructure.Maintenance.InspectionService Inspection { get; }
+    /// <summary>⭐ 7b (PK-F9, ADR-191): EKİPMAN bakım hattı — araç servislerinin paraleli, onların yerine geçmez.</summary>
+    public DepoWise.Infrastructure.Maintenance.EquipmentMaintenanceService EquipmentMaintenance { get; }
+    public DepoWise.Infrastructure.Maintenance.EquipmentInspectionService EquipmentInspection { get; }
     public DepoWise.Infrastructure.Operations.FuelService Fuel { get; }
     public DepoWise.Infrastructure.Operations.DailyActivityService DailyActivity { get; }
     public DepoWise.Infrastructure.Requests.RequestService Requests { get; }
@@ -183,6 +186,9 @@ public sealed class ServerServices
         Vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(Factory, clock);
         Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);
         Inspection = new DepoWise.Infrastructure.Maintenance.InspectionService(Factory, clock);
+        // ⭐ 7b (ADR-191): ekipman bakım/muayene hattı. Araç servisleri DEĞİŞTİRİLMEDİ.
+        EquipmentMaintenance = new DepoWise.Infrastructure.Maintenance.EquipmentMaintenanceService(Factory, clock);
+        EquipmentInspection = new DepoWise.Infrastructure.Maintenance.EquipmentInspectionService(Factory, clock);
         Fuel = new DepoWise.Infrastructure.Operations.FuelService(Factory, clock);
         MaintenanceDefinitions = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(Factory, clock);
         DailyActivity = new DepoWise.Infrastructure.Operations.DailyActivityService(Factory, Maintenance, clock, MaintenanceDefinitions);

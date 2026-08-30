@@ -108,6 +108,81 @@
     @* ═══════════ ARAÇ BAKIMLARI ═══════════ *@
     @if (_sec == "records")
     {
+        @* ⭐ 7b (PK-F9, ADR-191) — HEDEF SEÇİMİ. Araç akışı HİÇ DEĞİŞMEDİ; "Ekipman" seçilince
+           ekipman bakım uçları kullanılır. Yeni ekran/route/AppScreen AÇILMADI: hedef bu ekranın
+           içindedir (masaüstünde aynı iş sekme ile yapılır). *@
+        <MudToggleGroup T="string" @bind-Value="_hedef" Class="mb-4" SelectionMode="SelectionMode.SingleSelection">
+            <MudToggleItem T="string" Value="@("vehicle")" Text="Araç" />
+            <MudToggleItem T="string" Value="@("equipment")" Text="Ekipman" />
+        </MudToggleGroup>
+    }
+
+    @if (_sec == "records" && _hedef == "equipment")
+    {
+        @if (_eqmHata is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@_eqmHata</MudAlert>
+        }
+        @if (Auth.CanCreate("maintenance"))
+        {
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:820px;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ EKİPMAN BAKIM KAYDI</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" @bind-Value="_eqmEquipmentId" Label="Ekipman *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                            @foreach (var e in _eqmEquipment)
+                            {
+                                <MudSelectItem T="string" Value="@e.Id">@e.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" @bind-Value="_eqmDefId" Label="Bakım Tanımı *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                            @foreach (var d in _defOpts)
+                            {
+                                <MudSelectItem T="string" Value="@d.Id">@d.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_eqmDescription" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
+                    </MudItem>
+                </MudGrid>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                    Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="_eqmBusy" OnClick="EqmKaydet">Kaydet</MudButton>
+            </MudPaper>
+        }
+
+        <MudPaper Class="pa-4" Elevation="0">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">EKİPMAN BAKIM KAYITLARI</MudText>
+            @if (_eqmRows.Count == 0)
+            {
+                <MudText Typo="Typo.body2">Kayıt yok.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead><tr><th>Ekipman</th><th>Bakım</th><th>Yapılan</th><th>Durum</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _eqmRows)
+                        {
+                            <tr>
+                                <td>@r.EquipmentCode</td>
+                                <td>@r.DefinitionName</td>
+                                <td>@r.Performed</td>
+                                <td>@r.Status</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
+
+    @if (_sec == "records" && _hedef == "vehicle")
+    {
         @if (Auth.CanCreate("maintenance"))
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:820px;">
@@ -351,6 +426,54 @@
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
+    // ── 7b (PK-F9, ADR-191): EKİPMAN hedefi. Araç alanlarına DOKUNULMADI. ────────────────────
+    private sealed record EqmRow(string EquipmentCode, string DefinitionName, string Performed, string Status);
+    private string _hedef = "vehicle";
+    private List<ApiClient.Opt> _eqmEquipment = new();
+    private List<EqmRow> _eqmRows = new();
+    private string? _eqmEquipmentId, _eqmDefId, _eqmHata;
+    private string _eqmDescription = "";
+    private bool _eqmBusy;
+
+    /// <summary>Ekipman listesi + ekipman bakım kayıtları (yalnız hedef "Ekipman" iken çağrılır).</summary>
+    private async Task EqmYukle()
+    {
+        try
+        {
+            _eqmEquipment = await Api.OptionsAsync("/api/equipment", "id", "code", "name");
+            _eqmRows = (await Api.GetArrayAsync("/api/equipment-maintenance"))
+                .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(e => new EqmRow(
+                    Str(e, "equipmentCode"), Str(e, "definitionName"),
+                    Str(e, "performedDisplay"), Str(e, "statusText")))
+                .ToList();
+            _eqmHata = null;
+        }
+        catch { _eqmHata = "Ekipman bakım verisi alınamadı."; }
+    }
+
+    private async Task EqmKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(_eqmEquipmentId)) { _eqmHata = "Ekipman seçin."; return; }
+        if (string.IsNullOrWhiteSpace(_eqmDefId)) { _eqmHata = "Bakım tanımı seçin."; return; }
+        _eqmBusy = true;
+        try
+        {
+            // Firma gövdeye KONMAZ; sunucu oturumdan alır. Ekipman sahipliği serviste doğrulanır.
+            var hata = await Api.PostAsync("/api/equipment-maintenance", new
+            {
+                equipmentId = _eqmEquipmentId,
+                definitionId = _eqmDefId,
+                description = string.IsNullOrWhiteSpace(_eqmDescription) ? null : _eqmDescription.Trim(),
+                performedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            });
+            _eqmHata = hata;
+            if (hata is null) { _eqmDescription = ""; }
+        }
+        finally { _eqmBusy = false; }
+        await EqmYukle();
+    }
+
     private List<ApiClient.Opt> _defOpts = new(), _mSubOpts = new(), _technicians = new();
 
     // Tab 1: definitions
@@ -408,6 +531,7 @@
         _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
         await LoadLocations();
         await LoadDefs(); await LoadMaint(); await LoadAlerts();
+        await EqmYukle();   // 7b: ekipman hedefi verisi (araç yüklemeleri değişmedi)
     }
 
     /// <summary>BKM-04: depo seçenekleri (oturumda TEK indirme — LocationOptions önbellekli, N+1 yok)

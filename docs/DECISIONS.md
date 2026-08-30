@@ -3535,3 +3535,78 @@ ikincisi sunucudaki atomik `UPDATE … WHERE status='pending'` ile reddedilir. L
 **Kapsam.** İkinci onay motoru/kataloğu **kurulmadı** · yeni yetki modülü **yok** · `users`'a hiyerarşi
 kolonu **yok** · onay tabloları senkrona **girmedi** · `sync_outbox`'a onay **yazılmıyor** ·
 production'a **hiçbir erişim yapılmadı** (canlı şema **83**, katalog **85**).
+
+---
+
+## ADR-191 — 7b Bakım-Ekipman Genişletmesi (PK-F9): SEÇENEK B — ayrı ekipman bakım tabloları (2026-08-30)
+
+> **Karar: SEÇENEK B.** Ekipman bakım/muayene hattı **ayrı tablolarla** kurulur; mevcut araç bakım
+> tablolarına **hiç dokunulmaz**.
+
+### Neden A (mevcut tabloyu genişletme) ELENDİ
+
+A, `vehicle_maintenances.vehicle_id`'yi nullable yapmayı gerektiriyordu. SQLite `DROP NOT NULL`
+desteklemez → **tablo yeniden kurma** şart. Ancak:
+- `vehicle_maintenances`'a **İKİ tablo FK veriyor**: `maintenance_materials.maintenance_id` (M008) ve
+  `daily_activity.maintenance_id` (M009:79),
+- masaüstünde `PRAGMA foreign_keys=ON` (`SqliteConnectionFactory:53`) ve `MigrationRunner` her
+  migration'ı **transaction içinde** çalıştırıyor (`:33-34`); SQLite'ta bu pragma **transaction içinde
+  no-op**'tur → FK zorlaması kapatılamaz,
+- projedeki üç yeniden-kurma içtihadı (Migration062/064/072) **gelen FK'si SIFIR** tablolardadır.
+
+Yani A, mevcut migration altyapısıyla **güvenli uygulanamıyordu**. Kazandığı mimari sadelik, canlı
+bakım verisi taşıyan bir tabloda ilk kez FK'li rebuild denemeye değmez.
+**Seçenek C** (yalnız `ADD COLUMN` ile hedef ayrıştırıcı) da elendi: `vehicle_id` NOT NULL kaldığı
+sürece ekipman kaydı o tabloya YAZILAMIYOR.
+
+### Migration086_EquipmentMaintenance
+
+Yalnız **CREATE TABLE + CREATE INDEX**; **hiç ALTER yok**, backfill yok, veri taşıma yok.
+Tablolar: `maintenance_definition_equipment` · `equipment_maintenances` ·
+`equipment_maintenance_materials` · `equipment_inspections`.
+Alan kümeleri araç ikizlerinden **gerçek koddan** çıkarıldı (`op_branch_id` M027'den,
+`from_team_stock` M059'dan, çocuk `company_id` M062 yönünden).
+**`operation_id` benzersizliği doğrudan FİRMA KAPSAMLI** kuruldu (`ux_equipment_maintenances_op`) —
+`vehicle_maintenances` FIN-B1/Migration082 ile o sözleşmeye taşınmıştı; eski firma-kör biçim tekrarlanmadı.
+Rollback: 4 DROP + `schema_migrations` satırı.
+
+### Servisler
+
+`EquipmentMaintenanceService` + `EquipmentInspectionService`. **`MaintenanceService` HİÇ
+DEĞİŞTİRİLMEDİ.** Stok defteri/bakiye için mevcut `StockBalanceWriter`, uyarı eşikleri için
+`AlertRules`, belge tipi/eşik için `InspectionService.ApproachingDays` **aynen** kullanılır — ikinci
+stok/uyarı mekanizması kurulmadı. `MaintenanceDefinitionService`'e yalnız `GetEquipmentIds`/
+`SetEquipment` eklendi (araç eşlemesine dokunulmadı).
+
+**Sayaç YOK (PK-F8):** ekipmanda sayaç kavramı olmadığı için araç tarafındaki `AdvanceMeterInTx`
+karşılığı bilinçli olarak uygulanmadı; `performed_km/hour` yalnız kayıt olarak saklanır.
+
+### Yetki / güvenlik
+
+Yeni yetki modülü **YOK**: bakım `maintenance`, muayene `inspection`. Ekipman/malzeme/personel/depo
+sahipliği **serviste** doğrulanır (masaüstü bu servisleri çevrimdışı da çağırır). API DTO'larında
+`company_id` alanı yoktur — firma daima oturumdan.
+
+### İş emri
+
+`entity_type='equipment_maintenance'` eklendi; `WorkOrderService`'in **dört noktası** genişletildi
+(görünen ad, `LinkExisting` tablo eşlemesi, `Links` projeksiyonu, maliyet toplama). Ekipman bakım
+malzemesi **aynı "Bakım Malzemesi" kategorisinde** toplanır — yeni kategori açılmadı.
+Araç bağı (`vehicle_maintenance`) **birebir korundu**.
+
+### Senkron / eski istemci
+
+Dört tablo `BusinessSyncService.Tables`'a **ebeveynlerinden sonra** eklendi (masaüstü bakımı
+çevrimdışı çalıştığı için senkron kapsamındadır — onay tabloları gibi "yalnız çevrimiçi" değildir).
+`TableModule`, `CrossCompanyRefs`, `OrphanCheckedChildren` ve `ParentReplaceChildren` sözlüklerine
+araç ikizleriyle aynı ilkeyle kayıt eklendi. Yeni tablolar `company_id` taşıdığı için
+`CompanyScopedChildren` gerekmedi.
+**Eski istemci (şema 85):** yeni tabloları bilmez, araç bakımını eskisi gibi sürdürür (OM03 deseni).
+
+### UI
+
+Yeni **AppScreen açılmadı**: masaüstünde ekranın MEVCUT sekme yapısına "Ekipman Bakımları" sekmesi,
+web'de `records` bölümüne **Araç / Ekipman hedef seçimi** eklendi. Parite testleri değişmedi.
+
+**Kapsam dışı:** İş Emri yeniden tasarımı · onay zinciri · PK-F8 sayaç · SNK-A7 · YTK-07.
+Production'a **hiçbir erişim yapılmadı** (canlı şema 85; Migration086 **uygulanmadı**).

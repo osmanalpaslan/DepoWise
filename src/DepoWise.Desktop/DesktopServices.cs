@@ -66,6 +66,9 @@ public static class DesktopServices
     public static MaintenanceService Maintenance { get; private set; } = null!;
     public static MaintenanceDefinitionService MaintenanceDefs { get; private set; } = null!;
     public static InspectionService Inspection { get; private set; } = null!;
+    /// <summary>7b (ADR-191): ekipman bakim/muayene hatti - arac servislerinin paraleli.</summary>
+    public static EquipmentMaintenanceService EquipmentMaintenance { get; private set; } = null!;
+    public static EquipmentInspectionService EquipmentInspection { get; private set; } = null!;
     public static DepoWise.Infrastructure.Org.PersonnelService Personnel { get; private set; } = null!;
     public static DepoWise.Infrastructure.Org.PersonnelTitleService PersonnelTitles { get; private set; } = null!;
     public static FuelService Fuel { get; private set; } = null!;
@@ -166,6 +169,8 @@ public static class DesktopServices
         Stock = new StockService(Factory, clock);
         StockChangeLog = new StockChangeLogService(Factory, Stock, clock);
         Maintenance = new MaintenanceService(Factory, clock);
+        EquipmentMaintenance = new EquipmentMaintenanceService(Factory, clock);
+        EquipmentInspection = new EquipmentInspectionService(Factory, clock);
         MaintenanceDefs = new MaintenanceDefinitionService(Factory, clock);
         // ⚠️ SIRA ÖNEMLİ: DailyActivity, Maintenance/MaintenanceDefs'i constructor'da SAKLAR (readonly alan) —
         // bu yüzden ikisi de ATANDIKTAN SONRA oluşturulmalı (eskiden Maintenance henüz null'ken geçiliyordu).

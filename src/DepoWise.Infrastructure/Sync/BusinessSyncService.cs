@@ -82,6 +82,15 @@ public sealed class BusinessSyncService
         "maintenance_definition_vehicles",
         "vehicle_maintenances",
         "maintenance_materials",
+        // ⭐ 7b (PK-F9, ADR-191): EKİPMAN bakım hattı. Araç satırlarının HEMEN ARDINDA ve
+        // ebeveynlerinden SONRA gelir — FK sırası: equipment (70) + maintenance_definitions (45)
+        // ZATEN yukarıdadır; equipment_maintenance_materials de kendi ebeveyninden sonradır.
+        // Masaüstü bakım ekranı çevrimdışı çalıştığı için bu tablolar senkron kapsamındadır
+        // (araç bakımıyla aynı gerekçe); onay tabloları gibi "yalnız çevrimiçi" DEĞİLDİR.
+        "maintenance_definition_equipment",
+        "equipment_maintenances",
+        "equipment_maintenance_materials",
+        "equipment_inspections",
         "fuel_depot_entries",
         "fuel_distributions",
         "daily_activities",
@@ -200,6 +209,11 @@ public sealed class BusinessSyncService
         ["request_status_history"] = "requests",
         ["vehicle_maintenances"] = "maintenance",
         ["maintenance_materials"] = "maintenance",
+        // ⭐ 7b (ADR-191): ekipman bakım hattı — araçla AYNI push yetki kapısı (yeni modül YOK).
+        ["maintenance_definition_equipment"] = "maintenance",
+        ["equipment_maintenances"] = "maintenance",
+        ["equipment_maintenance_materials"] = "maintenance",
+        ["equipment_inspections"] = "inspection",
         ["fuel_depot_entries"] = "fuel",
         ["fuel_distributions"] = "fuel",
         ["daily_activities"] = "daily_activity",
@@ -394,6 +408,13 @@ public sealed class BusinessSyncService
             ["material_request_items"] = ("material_id", "materials"),
             ["maintenance_materials"] = ("material_id", "materials"),
             ["stock_count_lines"] = ("material_id", "materials"),
+            // ⭐ 7b (ADR-191): ekipman hattının ÇAPRAZ FİRMA kapıları — araç ikizleriyle aynı ilke.
+            // Satırın kendi company_id'si doğru olsa bile YABANCI bir ekipmana/malzemeye
+            // referans veremez (TNT-01 sınıfı koruma).
+            ["maintenance_definition_equipment"] = ("equipment_id", "equipment"),
+            ["equipment_maintenances"] = ("equipment_id", "equipment"),
+            ["equipment_maintenance_materials"] = ("material_id", "materials"),
+            ["equipment_inspections"] = ("equipment_id", "equipment"),
         };
 
     /// <summary>
@@ -443,6 +464,8 @@ public sealed class BusinessSyncService
         {
             ["vehicle_template_materials"] = ("vehicle_templates", "template_id"),
             ["maintenance_materials"] = ("vehicle_maintenances", "maintenance_id"),
+            // ⭐ 7b (ADR-191): ekipman bakım malzemesi de ebeveynsiz (orphan) gelemez.
+            ["equipment_maintenance_materials"] = ("equipment_maintenances", "maintenance_id"),
             ["material_request_items"] = ("material_requests", "request_id"),
             ["stock_count_lines"] = ("stock_documents", "document_id"),
             ["request_status_history"] = ("material_requests", "request_id"),
@@ -504,6 +527,9 @@ public sealed class BusinessSyncService
             ["material_equivalents"] = ("materials", "material_id"),
             ["material_compatible_vehicles"] = ("materials", "material_id"),
             ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
+            // ⭐ 7b (ADR-191): tanımın EKİPMAN kapsamı da ebeveyn bazlı tam değiştirmeye girer —
+            // araç eşlemesiyle aynı davranış (SNK-A6: fiziksel silinen çocuk karşı tarafta kalmasın).
+            ["maintenance_definition_equipment"] = ("maintenance_definitions", "definition_id"),
         };
 
     /// <summary>Firma kapsamı için <c>EXISTS</c> koşulu. Kolonu olan tabloda <c>""</c> döner

@@ -425,6 +425,68 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═══════════ EKİPMAN BAKIMLARI (7b / PK-F9, ADR-191) ═══════════
+                 ⚠️ Üstteki "Araç Bakımları" sekmesine HİÇ dokunulmadı. Hedef seçimi ekranın MEVCUT
+                 sekme yapısıyla yapılır — yeni ekran/menü açılmadı. Ekipmanda sayaç yoktur (PK-F8). -->
+            <TabItem Header="Ekipman Bakımları">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Ekipman Bakımları">
+                        <ctrl:Toolbar.FilterContent>
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadEquipmentTabCommand}"/>
+                                <Button Classes="Secondary" Content="Kaydet" Command="{Binding SaveEquipmentMaintenanceCommand}"/>
+                                <Button Classes="Secondary" Content="İptal Et" Command="{Binding CancelEquipmentMaintenanceCommand}"/>
+                            </StackPanel>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
+
+                    <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
+                        <StackPanel Spacing="12">
+                            <SelectableTextBlock Classes="SectionTitle" Text="Yeni Ekipman Bakımı"/>
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <StackPanel Spacing="4">
+                                    <SelectableTextBlock Text="Ekipman"/>
+                                    <ComboBox Width="240" ItemsSource="{Binding EqmEquipment}" SelectedItem="{Binding EqmSelected}"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <SelectableTextBlock Text="Bakım Tanımı"/>
+                                    <ComboBox Width="240" ItemsSource="{Binding Defs}" SelectedItem="{Binding EqmDef}"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <SelectableTextBlock Text="Açıklama"/>
+                                    <TextBox Classes="Field" Width="260" Text="{Binding EqmDescription}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <SelectableTextBlock Classes="Helper"
+                                                 Text="Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir. Malzeme çekilen depo, Araç Bakımları sekmesinde seçilen depodur."
+                                                 TextWrapping="Wrap"/>
+                            <StackPanel Spacing="4">
+                                <SelectableTextBlock Text="İptal Gerekçesi (iptal için zorunlu)"/>
+                                <TextBox Classes="Field" Width="380" Text="{Binding EqmCancelReason}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0">
+                        <DockPanel>
+                            <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Ekipman Bakım Kayıtları"/>
+                            <ListBox ItemsSource="{Binding EqmRows}" SelectedItem="{Binding EqmSelectedRow}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="inf:EquipmentMaintenanceRow">
+                                        <Grid ColumnDefinitions="180,*,150,120">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding EquipmentCode}"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding DefinitionName}"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="{Binding PerformedDisplay}"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="{Binding StatusText}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
             <!-- ═══════════ UYARILAR ═══════════ -->
             <TabItem Header="Uyarılar">
                 <Grid RowDefinitions="Auto,*" Margin="0,12,0,0">

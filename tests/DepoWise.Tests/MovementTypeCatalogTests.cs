@@ -52,6 +52,10 @@ public class MovementTypeCatalogTests
     private static readonly string StockSvc = Src("src", "DepoWise.Infrastructure", "Materials", "StockService.cs");
     private static readonly string OpeningSvc = Src("src", "DepoWise.Infrastructure", "Materials", "OpeningStockService.cs");
     private static readonly string MaintSvc = Src("src", "DepoWise.Infrastructure", "Maintenance", "MaintenanceService.cs");
+    /// <summary>⭐ 7b (ADR-191): EKİPMAN bakım hattı da stok defterine yazar. Kilit GEVŞETİLMEDİ —
+    /// yeni yol BİLİNÇLİ olarak tarama kapsamına ALINDI; böylece bu dosyadaki hareket türleri de
+    /// katalog kontrolünden geçer (guard'ın uyardığı "kör nokta" açıkta kalmaz).</summary>
+    private static readonly string EqmMaintSvc = Src("src", "DepoWise.Infrastructure", "Maintenance", "EquipmentMaintenanceService.cs");
     private static readonly string WebMovements = Src("src", "DepoWise.Web", "Components", "Pages", "StockMovements.razor");
     private static readonly string WebCsproj = Src("src", "DepoWise.Web", "DepoWise.Web.csproj");
 
@@ -164,7 +168,7 @@ public class MovementTypeCatalogTests
     public void Uretim_Kodundaki_Her_Hareket_Turu_Katalogda_Var()
     {
         var bulunan = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var kaynak in new[] { StockSvc, OpeningSvc, MaintSvc })
+        foreach (var kaynak in new[] { StockSvc, OpeningSvc, MaintSvc, EqmMaintSvc })
         {
             var tekSatir = Regex.Replace(kaynak, @"\s+", " ");   // çok satırlı çağrılar tek satıra
             foreach (var kalip in new[]
@@ -200,9 +204,11 @@ public class MovementTypeCatalogTests
     public void Hareket_Defterine_Yazan_Yol_Sayisi_Degismedi()
     {
         int Say(string s) => Regex.Matches(s, @"INSERT INTO stock_movements").Count;
-        var toplam = Say(StockSvc) + Say(OpeningSvc) + Say(MaintSvc);
-        Assert.True(toplam == 3,
-            $"`stock_movements`'a yazan ifade sayısı 3 değil ({toplam}). Yeni bir yazma yolu eklendiyse " +
+        var toplam = Say(StockSvc) + Say(OpeningSvc) + Say(MaintSvc) + Say(EqmMaintSvc);
+        // 3 -> 4: 7b (ADR-191) ile EKİPMAN bakım hattı da deftere yazıyor. Sayı GEVŞETİLMEDİ,
+        // yeni yol yukarıdaki kaynak taramasına da EKLENDİ (kör nokta kapatıldı).
+        Assert.True(toplam == 4,
+            $"`stock_movements`'a yazan ifade sayısı 4 değil ({toplam}). Yeni bir yazma yolu eklendiyse " +
             "hareket türü kaynak taraması (Uretim_Kodundaki_Her_Hareket_Turu_Katalogda_Var) onu görmeyebilir — " +
             "tarama kalıbı güncellenmeli.");
 
@@ -211,7 +217,12 @@ public class MovementTypeCatalogTests
             .Where(f => !f.Contains("\\obj\\") && !f.Contains("\\bin\\"))
             .Where(f => File.ReadAllText(f).Contains("INSERT INTO stock_movements", StringComparison.Ordinal))
             .Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal).ToList();
-        Assert.Equal(new[] { "MaintenanceService.cs", "OpeningStockService.cs", "StockService.cs" }, digerleri);
+        // ⭐ 7b (ADR-191): EquipmentMaintenanceService BİLİNÇLİ olarak eklendi — listeden çıkarma/
+        // gevşetme DEĞİL, yeni yolun kayda geçirilmesidir. Dosya yukarıdaki kaynak taramasına da dâhildir.
+        Assert.Equal(new[]
+        {
+            "EquipmentMaintenanceService.cs", "MaintenanceService.cs", "OpeningStockService.cs", "StockService.cs",
+        }, digerleri);
     }
 
     // ══════════════ 3. TEK KAYNAK — ÜÇ YÜZEY DE KENDİ SWITCH'İNİ KULLANMIYOR ══════════════

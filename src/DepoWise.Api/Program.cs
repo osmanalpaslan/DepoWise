@@ -3548,6 +3548,58 @@ app.MapGet("/api/maintenance/definitions/{id}/vehicles", (HttpContext c, string 
     S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.GetVehicleIds(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/maintenance/{id}/materials", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Maintenance.GetMaintenanceMaterials(s, id)) : Results.Unauthorized()).RequireAuthorization();
+// ═══════════════ 7b — EKİPMAN BAKIM/MUAYENE (PK-F9, ADR-191) ═══════════════
+// Araç uçları (/api/maintenance, /api/inspection) HİÇ DEĞİŞMEDİ; bunlar onların EKİPMAN ikizidir.
+// Yetki: mevcut `maintenance` / `inspection` modülleri (yeni yetki modülü YOK) — kapı serviste.
+// TENANT: firma daima oturumdan; `equipmentId` sahipliği serviste doğrulanır (IDOR kapalı).
+
+app.MapGet("/api/equipment-maintenance", (HttpContext c, string? equipmentId) =>
+    S(c) is { } s ? Results.Ok(svc.EquipmentMaintenance.List(s, Doc(equipmentId))) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPost("/api/equipment-maintenance", (HttpContext c, EquipmentMaintenanceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(
+        m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
+    var id = svc.EquipmentMaintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
+        d.EquipmentId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
+        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "equipment_maintenance", id, d.CostCenterId);
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
+app.MapPut("/api/equipment-maintenance/{id}/metadata", (HttpContext c, string id, MaintenanceMetaDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.EquipmentMaintenance.UpdateMetadata(
+        s, id, d.Description, d.SubDefinitionNote, d.TechnicianId, d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPost("/api/equipment-maintenance/cancel", (HttpContext c, IdReasonDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.EquipmentMaintenance.Cancel(
+        s, d.Id, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapGet("/api/equipment-maintenance/{id}/materials", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.EquipmentMaintenance.Materials(s, id)) : Results.Unauthorized()).RequireAuthorization();
+
+// Bakım tanımı ↔ EKİPMAN eşlemesi (araçtaki /definitions/{id}/vehicles ikizi).
+app.MapGet("/api/maintenance/definitions/{id}/equipment", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.GetEquipmentIds(s, id)) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPut("/api/maintenance/definitions/{id}/equipment", (HttpContext c, string id, IdListDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.MaintenanceDefinitions.SetEquipment(
+        s, id, d.Ids ?? new List<string>())) }) : Results.Unauthorized()).RequireAuthorization();
+
+// Ekipman muayene/belge (araçtaki /api/inspection ikizi).
+app.MapGet("/api/equipment-inspection", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.EquipmentInspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPost("/api/equipment-inspection", (HttpContext c, EquipmentInspectionDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.EquipmentInspection.Save(s,
+        new DepoWise.Infrastructure.Maintenance.NewEquipmentInspection(
+            d.EquipmentId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note))) }) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapDelete("/api/equipment-inspection/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.EquipmentInspection.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
 app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -4517,6 +4569,13 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
+// ⭐ 7b (ADR-191): ekipman bakım/muayene DTO'ları — araç ikizlerinin aynısı, `VehicleId` → `EquipmentId`.
+// company_id alanı BİLİNÇLİ olarak YOKTUR: firma daima oturumdan gelir.
+record EquipmentMaintenanceDto(string EquipmentId, string DefinitionId, string? SubDefinitionId, string? TechnicianId,
+    string? Description, string? SubDefinitionNote, decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
+    List<MaintLineDto>? Materials, string? BranchId = null, string? CostCenterId = null);
+record EquipmentInspectionDto(string EquipmentId, string DocType, long? LastDate, long? NextDate,
+    string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate, string? CostCenterId = null);
 record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null, string? CostCenterId = null);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);

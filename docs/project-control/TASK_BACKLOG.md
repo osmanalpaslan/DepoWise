@@ -718,3 +718,28 @@ CanViewAllBranches / kapsamsız) ETKİLENMEZ · push kapısı manipüle edilmiş
 Invoices / Parties iptalleri bu butonu İSTEMİYOR → onları gizlemek **arayüzü sunucudan KATI**
 yapardı ve kullanıcı hakkı olan bir yeteneği kaybederdi. O dört ekran **geri alındı**.
 Uygulanan: `Fuel.razor` (2 yer) + `Stock.razor` (1 yer) — sunucu kuralıyla birebir aynı.
+
+---
+
+## 🔄 BACKLOG ↔ KOD UYUM DÜZELTMESİ (2026-08-30, AŞAMA 3 başlangıç denetimi)
+
+AŞAMA 3 başlangıç analizinde yukarıdaki 🔴/🟠 maddelerin bir bölümü **koddan tek tek ölçüldü** ve
+**2026-08-18'de zaten düzeltilmiş** oldukları görüldü; backlog o sırada işaretlenmemişti. Aşağıdaki
+maddeler **KAPANMIŞTIR** (kanıt: dosya:satır):
+
+| Madde | Durum | Kanıt |
+|---|---|---|
+| `GUV-A1` paket yetki sırası | ✅ KAPANDI | `Program.cs:4127` — yetki dosya yazımından ÖNCE + boyut sınırı |
+| `DEN-E2` Stok Durumu şube kapsamı | ✅ KAPANDI | `ReportService.cs:~71` — `BranchAccess.Allowed` + fail-closed |
+| `SNK-A1` / `SNK-A2` iptal senkronu | ✅ KAPANDI | Migration069 `updated_at` + `StampColumn` `COALESCE(updated_at, created_at)` |
+| `SNK-A3` muayene senkronu | ✅ KAPANDI | `vehicle_inspections` `BusinessSyncService.Tables`'ta |
+| `SNK-A4` sayım satırları | ✅ KAPANDI | `stock_count_lines` Tables'ta |
+| `SNK-A5` yardımcı tablolar | ✅ KAPANDI | 5 tablonun tamamı Tables'ta |
+| `SNK-A6` fiziksel silinen çocuklar | ✅ KAPANDI | `ParentReplaceChildren` |
+| `DEN-F1` web buton yetkisi | ✅ KAPANDI | menü ucunda `buttons` + `AuthState.CanButton` |
+| `SIF-02` açık oturumda sıfırlama | ✅ KAPANDI | `ShellViewModel.cs:357` |
+
+**Hâlâ AÇIK olan ve KULLANICI KARARI bekleyenler:** `SNK-A7` (senkron şube kapsamı — davranış
+değiştirir) · `YTK-07` (mevcut şube kapsamlarının gözden geçirilmesi).
+
+**Not:** bu bölüm yalnız backlog'u kod gerçekliğiyle eşitler; hiçbir kod değişikliği içermez.

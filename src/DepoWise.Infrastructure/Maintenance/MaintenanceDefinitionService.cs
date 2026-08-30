@@ -200,6 +200,60 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
         tx.Commit();
     }
 
+    // ══════════ 7b — EKİPMAN EŞLEMESİ (PK-F9, ADR-191) ══════════════════════════════════════
+    // Araç eşlemesi (GetVehicleIds/SetVehicles) HİÇ DEĞİŞTİRİLMEDİ; aşağısı onun EKİPMAN ikizidir.
+    // Aynı yetki modülü, aynı sahiplik kapıları, ayrı tablo (maintenance_definition_equipment).
+
+    /// <summary>Tanıma bağlı (periyodik takip edilen) ekipman kimlikleri.</summary>
+    public IReadOnlyList<string> GetEquipmentIds(SessionContext s, string defId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        EnsureDefinitionOwned(conn, null, s.CompanyId, defId);   // yabancı tanımın ekipmanları okunamaz
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT equipment_id FROM maintenance_definition_equipment WHERE definition_id=@d AND company_id=@c;";
+        cmd.AddWithValue("@d", defId);
+        cmd.AddWithValue("@c", s.CompanyId);
+        var list = new List<string>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list;
+    }
+
+    /// <summary>Tanımın EKİPMAN kapsamını TAM değiştirir (araç kapsamına dokunmaz).</summary>
+    public void SetEquipment(SessionContext s, string defId, IEnumerable<string> equipmentIds)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureDefinitionOwned(conn, tx, s.CompanyId, defId);     // yabancı tanım değiştirilemez
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText =
+                "DELETE FROM maintenance_definition_equipment WHERE definition_id=@d AND company_id=@c;";
+            del.AddWithValue("@d", defId);
+            del.AddWithValue("@c", s.CompanyId);
+            del.ExecuteNonQuery();
+        }
+        foreach (var eid in equipmentIds.Distinct())
+        {
+            // yabancı ekipman bağlanamaz (araç tarafındaki T-2b korumasının aynısı)
+            EquipmentMaintenanceService.EnsureEquipmentOwned(conn, tx, s.CompanyId, eid);
+            using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText =
+                "INSERT INTO maintenance_definition_equipment(definition_id, equipment_id, company_id) " +
+                "VALUES(@d,@e,@c) ON CONFLICT DO NOTHING;";
+            ins.AddWithValue("@d", defId);
+            ins.AddWithValue("@e", eid);
+            ins.AddWithValue("@c", s.CompanyId);
+            ins.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
     // ── firma sahipliği kontrolleri (T-2 / T-3 / Y-2, 2026-08-09) ──────────────────────────────
     //
     // NEDEN SERVİS KATMANI: bu metotlar hem API'den hem MASAÜSTÜNDEN doğrudan çağrılıyor
