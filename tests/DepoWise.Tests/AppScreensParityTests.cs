@@ -301,7 +301,9 @@ public class AppScreensParityTests
             ("Günlük Faaliyet", new[] { "daily_activity" }),
             ("Bakım Takibi", new[] { "maintenance:defs", "maintenance:records" }),
             ("Yakıt", new[] { "fuel:dist", "fuel:depot", "fuel:summary" }),
-            ("Talepler", new[] { "requests:form", "requests:approve", "request_ops:board" }),
+            // ⭐ ARA İŞ 5 / ALT FAZ 3 (ADR-189): "Onaylamalarım" BİLİNÇLİ olarak eklendi — yeni yetki
+            // modülü DEĞİL; mevcut request_approval modülüne bağlı AYRI ekran.
+            ("Talepler", new[] { "requests:form", "requests:approve", "approvals", "request_ops:board" }),
             // G4-1 cari + G4-2 fatura + G4-3 kasa/banka. Her biri AYRI modüldür ("parties",
             // "invoices", "finance") ve menüde eklendikleri sırayla görünür.
             ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
@@ -314,7 +316,9 @@ public class AppScreensParityTests
             ("Yönetici Raporları", new[] { "reports:manager" }),
             // PRJ-01 (ADR-164): Projeler ekranı — yetki anahtarı branches (PK-C4).
             ("Şube ve Personel", new[] { "branches", "projects", "personnel" }),
-            ("Kullanıcı Yönetimi", new[] { "users", "permissions", "permission_templates" }),
+            // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): "Ekipler" BİLİNÇLİ olarak eklendi — yeni yetki modülü DEĞİL,
+            // ModuleKey="users" ile aynı modüle bağlı AYRI ekran (reports.designer ile aynı içtihat).
+            ("Kullanıcı Yönetimi", new[] { "users", "users:teams", "permissions", "permission_templates" }),
             ("Evrak", new[] { "documents" }),   // EVR-01 (ADR-165)
             ("Duyurular", new[] { "announcements" }),   // DYR-01 (ADR-173)
             ("Denetim", new[] { "audit", "stock_change_log" }),
@@ -332,9 +336,10 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57.
+        // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57,
+        // + ARA İŞ 5 / ALT FAZ 1 Ekipler = 58, + ALT FAZ 3 Onaylamalarım = 59 (ADR-187/189).
         // Ekran kaybı yok; yeni ekran BİLİNÇLİ olarak eklendi (ADR-186).
-        Assert.Equal(57, gercek.Sum(x => x.Item2.Length));
+        Assert.Equal(59, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -356,7 +361,8 @@ public class AppScreensParityTests
             ("Günlük Faaliyet", new[] { ("daily_activity", "daily") }),
             ("Bakım Takibi", new[] { ("maintenance", "maintenance/defs"), ("maintenance", "maintenance/records") }),
             ("Yakıt", new[] { ("fuel", "fuel/dist"), ("fuel", "fuel/depot"), ("fuel", "fuel/summary") }),
-            ("Talepler", new[] { ("requests", "requests"), ("requests", "requests/approve"), ("request_ops", "request-operations") }),
+            // ⭐ ARA İŞ 5 / ALT FAZ 3: web tarafında da aynı ekran — yetki "request_approval", rota "approvals".
+            ("Talepler", new[] { ("requests", "requests"), ("requests", "requests/approve"), ("request_approval", "approvals"), ("request_ops", "request-operations") }),
             ("Ön Muhasebe", new[] { ("parties", "parties"), ("parties", "parties/new"),
                                     ("invoices", "invoices"), ("invoices", "invoices/new"),
                                     ("finance", "finance"), ("finance", "finance/new"),
@@ -367,7 +373,8 @@ public class AppScreensParityTests
             // RPR-07: ayrı route → deep-link ve menü artık iki farklı ekranı gösterir.
             ("Yönetici Raporları", new[] { ("@admin", "reports/manager") }),
             ("Şube ve Personel", new[] { ("branches", "branches"), ("branches", "projects"), ("personnel", "personnel") }),   // PRJ-01: Projeler
-            ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
+            // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): web'de de aynı ekran — yetki anahtarı "users", rota "teams".
+            ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("users", "teams"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Evrak", new[] { ("files", "documents") }),   // EVR-01
             ("Duyurular", new[] { ("announcements", "announcements") }),   // DYR-01
             ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
@@ -391,8 +398,9 @@ public class AppScreensParityTests
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
-        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186).
-        Assert.Equal(64, gercek.Sum(x => x.Item2.Length));
+        // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186),
+        // + ARA İŞ 5 / ALT FAZ 1 Ekipler → 65, + ALT FAZ 3 Onaylamalarım → 66 (ADR-187/189).
+        Assert.Equal(66, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>

@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.ApprovalsView"
+             x:DataType="vm:ApprovalsViewModel">
+
+    <!-- ARA İŞ 5 / ALT FAZ 3: Onaylamalarım.
+         ⚠️ Onay verisi SUNUCUDADIR (senkron dışı) → liste ve karar YALNIZ ÇEVRİMİÇİ çalışır (İK-9).
+         Çevrimdışıyken kullanıcıya açık uyarı gösterilir ve yerelde hiçbir kayıt oluşmaz. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Onaylamalarım">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
+                    <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>
+                    <Button Classes="Secondary" Content="Reddet" Command="{Binding RejectCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="6">
+                <SelectableTextBlock TextWrapping="Wrap"
+                                     Text="Size atanmış ve sırası gelmiş onay adımları. Onay yalnız çevrimiçi verilebilir; bağlantı yoksa işlem yapılmaz."/>
+                <SelectableTextBlock Text="{Binding Status}" TextWrapping="Wrap"
+                                     IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0">
+            <DockPanel>
+                <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Bekleyen Onaylar"/>
+                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:OnayIsiSatiri">
+                            <Grid ColumnDefinitions="160,*,120,110">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding EntityLabel}"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding DocNo}"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Tarih}"/>
+                                <SelectableTextBlock Grid.Column="3" Text="{Binding StepLabel}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Ret gerekçesi ZORUNLU (mevcut davranış korunur) ve herkes tarafından görülebilir (İK-10). -->
+        <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="4">
+                <SelectableTextBlock Text="Ret Gerekçesi (reddetmek için zorunlu)"/>
+                <TextBox Classes="Field" Text="{Binding RejectReason}"
+                         Watermark="Örn: Bütçe uygun değil"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

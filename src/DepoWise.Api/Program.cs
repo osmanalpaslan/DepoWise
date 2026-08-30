@@ -1598,6 +1598,20 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         vehicleModels = Rows("SELECT id,name,brand_id FROM vehicle_models WHERE company_id=@c AND is_deleted=0;"),
         branches = Rows("SELECT id,name,kind,parent_id FROM branches WHERE company_id=@c AND is_deleted=0;"),
 
+        // ═══ ARA İŞ 5 / ALT FAZ 1 (ADR-187) — EKİP AYNASI ════════════════════════════════════
+        // Ekipler masaüstüne BU YOLDAN iner; `BusinessSyncService.Tables`'a EKLENMEZ. Gerekçe
+        // şube/menü ile aynı: bu SUNUCU OTORİTELİ yapılandırmadır — masaüstü ekip verisini asla
+        // YAZMAZ, yalnız okur → çakışma/LWW sorusu doğmaz ve sync_outbox protokolüne dokunulmaz.
+        // Sıra ÖNEMLİ: `teams` üyelerden ÖNCE gelir (team_members → teams FK'si yereldeki yazımda
+        // ebeveynin önce var olmasını gerektirir). `user_id`/`lead_user_id` yerelde FK DEĞİLDİR —
+        // `users` masaüstüne inmediği için Migration084 bilinçli olarak o FK'leri kurmaz.
+        teams = Rows("SELECT id,name,lead_user_id,is_active FROM teams WHERE company_id=@c AND is_deleted=0;"),
+        teamMembers = Rows("SELECT id,team_id,user_id,is_lead FROM team_members WHERE company_id=@c AND is_deleted=0;"),
+        // ⭐ ARA İŞ 5 / ALT FAZ 2 (PK-EK-02): hiyerarşi de sunucu otoriteli AYNADIR — masaüstü yazmaz,
+        // yalnız çevrimdışı GÖRÜNÜRLÜK için okur. approval_instance/approval_step BURAYA GİRMEZ:
+        // onay yalnız çevrimiçi ve yalnız sunucuda yürür (PK-EK-05 / İK-9).
+        userHierarchy = Rows("SELECT id,user_id,manager_user_id FROM user_hierarchy WHERE company_id=@c AND is_deleted=0;"),
+
         // ═══ MNU-B1 DÜZELTMESİ (2026-08-18) ═══════════════════════════════════════════════════
         // Ekran platform ayarı ve menü düzeni masaüstüne BU YOLDAN iner. Eskiden HİÇBİR yoldan
         // inmiyordu: `screen_platform_visibility` ne BusinessSyncService.Tables listesinde ne de
@@ -3088,6 +3102,158 @@ app.MapDelete("/api/custom-reports/{id}", (HttpContext c, string id) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ═══════════════════ ARA İŞ 5 / ALT FAZ 1 (ADR-187) — EKİP TANIMI ═══════════════════
+// TENANT: firma DAİMA oturumdan (S(c).CompanyId). Hiçbir uçta gövdeden company_id OKUNMAZ —
+// DTO'larda böyle bir alan YOKTUR; istemci firma değiştirerek başka firmaya erişemez (IDOR kapalı).
+// YETKİ: PK-EK-07=B → yeni modül yok, mevcut `users` modülü (kapı serviste; İK-6 lider istisnası dahil).
+// ONAY İLE BAĞ YOK: ekip lideri otomatik onaycı DEĞİLDİR (ADR-187 §3/§5) — burada onay ucu yoktur.
+
+app.MapGet("/api/teams", (HttpContext c, bool? all) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Teams.List(s, includeInactive: all == true).Select(TeamDtoOut));
+}).RequireAuthorization();
+
+app.MapGet("/api/teams/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var t = svc.Teams.ById(s, id);
+    return t is null ? Results.NotFound() : Results.Ok(TeamDtoOut(t));
+}).RequireAuthorization();
+
+app.MapPost("/api/teams", (HttpContext c, TeamDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { id = svc.Teams.Create(s, d.Name ?? "") });
+}).RequireAuthorization();
+
+// Lider ancak EKİBİN AKTİF ÜYESİ olabilir — doğrulama serviste (ADR-187 zorunluluğu).
+app.MapPut("/api/teams/{id}", (HttpContext c, string id, TeamDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Teams.Update(s, id, d.Name ?? "", d.LeadUserId, d.IsActive ?? true);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Yumuşak silme (fiziksel silme YOK) — üyelikler de birlikte kapatılır.
+app.MapDelete("/api/teams/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Teams.Delete(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapGet("/api/teams/{id}/members", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Teams.Members(s, id)
+        .Select(m => new { id = m.Id, teamId = m.TeamId, userId = m.UserId, isLead = m.IsLead }));
+}).RequireAuthorization();
+
+// İK-1: aynı kullanıcı BAŞKA ekiplere de eklenebilir; aynı ekibe iki kez eklenemez.
+app.MapPost("/api/teams/{id}/members", (HttpContext c, string id, TeamMemberDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { id = svc.Teams.AddMember(s, id, d.UserId ?? "") });
+}).RequireAuthorization();
+
+app.MapDelete("/api/teams/{id}/members/{userId}", (HttpContext c, string id, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Teams.RemoveMember(s, id, userId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Bir kullanıcının ekipleri (İK-1 gereği birden fazla olabilir).
+app.MapGet("/api/users/{userId}/teams", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Teams.TeamsOfUser(s, userId).Select(TeamDtoOut));
+}).RequireAuthorization();
+
+// ═══════════════════ ARA İŞ 5 / ALT FAZ 2 (ADR-187 + ADR-188) — HİYERARŞİ + ONAY ═══════════════════
+// TENANT: firma DAİMA oturumdan. Hiçbir uçta gövdeden company_id, approver_user_id veya instance
+// sahipliği OKUNMAZ — zincir sunucuda hiyerarşiden çözülür (ADR-188 §3).
+// YETKİ: hiyerarşi yönetimi `users`; onay eylemi varlığın MEVCUT modülü (request_approval / purchasing).
+
+app.MapGet("/api/hierarchy", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Hierarchy.List(s).Select(e => new
+    {
+        id = e.Id, userId = e.UserId, managerUserId = e.ManagerUserId,
+    }));
+}).RequireAuthorization();
+
+// Üst atama — self-reference, döngü ve 4 seviye sınırı SERVİSTE zorlanır (UI'ya güvenilmez).
+app.MapPut("/api/hierarchy/{userId}", (HttpContext c, string userId, HierarchyDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { id = svc.Hierarchy.SetManager(s, userId, d.ManagerUserId ?? "") });
+}).RequireAuthorization();
+
+app.MapDelete("/api/hierarchy/{userId}", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Hierarchy.RemoveManager(s, userId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Bir kullanıcının onay zinciri (en yakın üstten yukarıya, en çok 3 kişi).
+app.MapGet("/api/hierarchy/{userId}/chain", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Hierarchy.ResolveChain(s, userId));
+}).RequireAuthorization();
+
+// ── ONAY (yalnız çevrimiçi — bu uçlar sunucu otoritesidir) ──────────────────────────────────
+// ⭐ ALT FAZ 3 "Onaylamalarım" ekranının TEK veri kaynağı. Kullanıcı ve firma DAİMA oturumdan —
+// istemci başkasının kuyruğunu isteyemez (parametre bile yoktur). Tek sorgu (N+1 yok).
+app.MapGet("/api/approvals/mine", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Approvals.MyPending(s).Select(x => new
+    {
+        instanceId = x.InstanceId, stepId = x.StepId,
+        entityType = x.EntityType, entityLabel = x.EntityLabel, entityId = x.EntityId,
+        stepNo = x.StepNo, totalSteps = x.TotalSteps, stepLabel = x.StepLabel,
+        docNo = x.DocNo, entityDate = x.EntityDate,
+        startedBy = x.StartedBy, startedAt = x.StartedAt,
+    }));
+}).RequireAuthorization();
+
+app.MapGet("/api/approvals/{instanceId}/steps", (HttpContext c, string instanceId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // İK-10: ret gerekçesi görünürlüğü DARALTILMAZ — bugünkü davranış korunur.
+    return Results.Ok(svc.Approvals.Steps(s, instanceId).Select(x => new
+    {
+        id = x.Id, stepNo = x.StepNo, approverUserId = x.ApproverUserId, status = x.Status,
+        actedBy = x.ActedBy, actedAt = x.ActedAt, reason = x.Reason,
+    }));
+}).RequireAuthorization();
+
+// Adım sahipliği, sıra, self-approval ve eşzamanlılık kapıları SERVİSTE (istemciye güvenilmez).
+app.MapPost("/api/approvals/steps/{stepId}/approve", (HttpContext c, string stepId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Approvals.Approve(s, stepId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/approvals/steps/{stepId}/reject", (HttpContext c, string stepId, IdReasonDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Approvals.Reject(s, stepId, d?.Reason ?? "");
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+static object TeamDtoOut(DepoWise.Application.Teams.Team t) => new
+{
+    id = t.Id, name = t.Name, leadUserId = t.LeadUserId, isActive = t.IsActive,
+    createdAt = t.CreatedAt, updatedAt = t.UpdatedAt,
+};
+
 static object CustomReportDto(DepoWise.Application.Reports.CustomReportDefinition d) => new
 {
     id = d.Id, name = d.Name, sourceKey = d.SourceKey, columns = d.Columns,
@@ -4198,6 +4364,13 @@ record ListColumnsDto(List<string>? Columns);   // ADR-087 (liste kolon tercihi,
 record CustomReportFilterDto(string? ColumnKey, string? Value);
 record CustomReportDto(string? Name, string? SourceKey, List<string>? Columns,
     List<CustomReportFilterDto>? Filters, string? SortColumn, bool? SortDesc, bool? IsActive);
+// ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): ekip tanımı. company_id alanı BİLİNÇLİ olarak YOKTUR —
+// firma daima oturumdan gelir (istemci gövdeyle firma değiştiremez).
+record TeamDto(string? Name, string? LeadUserId, bool? IsActive);
+record TeamMemberDto(string? UserId);
+// ⭐ ARA İŞ 5 / ALT FAZ 2: hiyerarşi. company_id YOK (oturumdan); onaycı belirleme alanı da YOK —
+// zincir sunucuda hiyerarşiden çözülür (ADR-188 §3: istemciden approver alınmaz).
+record HierarchyDto(string? ManagerUserId);
 
 record PageSizeDto(int PageSize);                // ADR-089 (kişisel sayfa boyutu)
 record WidthsDto(Dictionary<string, int>? Widths); // ADR-089 (kişisel kolon genişlikleri)

@@ -3268,3 +3268,270 @@ mümkündür (tablo yalnız yeni özelliğe aittir, mevcut veriyle ilişkisi yok
 **Kapsam dışı (dokunulmadı):** ARA İŞ 3 / ADR-184 · FIN-B1 / Migration082 / ADR-185 · `sync_outbox` ·
 geçmiş veri düzeltmesi · yeni custom rapor kaynakları · yeni rapor motoru · yeni yetki sistemi ·
 web `ProjectReference` mimarisi.
+
+
+## ADR-187 — ARA İŞ 5: Ekip + Hiyerarşi + Onay — ✅ KARARLAR KESİNLEŞTİ / FAZ 2 TAMAMLANDI (2026-08-30)
+
+> **Durum: KARARLAR KESİNLEŞTİ.** Aşağıdaki 17 madde kullanıcı tarafından açıkça seçilmiştir ve
+> **bağlayıcıdır**. ⛔ **FAZ 3 BAŞLAMADI**: bu ADR yazılırken kod/migration/test üretilmedi,
+> production'a bağlanılmadı. Kararlar FAZ 3'te kod/migration/test tasarımına dönüştürülecektir.
+
+**Bağlam (FAZ 1'de dosya:satır ile kanıtlandı):** sistemde **ekip varlığı ve personel/kullanıcı
+hiyerarşisi YOKTUR** (`users`'ta `manager_id`/`parent_user_id`/`is_manager` yok; tek self-reference'lar
+`branches.parent_id`, `material_categories.parent_id`). Tek adımlı onay **yalnız Malzeme
+Talebi'ndedir** (`material_requests` + `request_status_history` + `request_approval` modülü +
+`EnsureIsDesignatedApprover`; onaycı **personel**, `users.personnel_id` bağıyla çözülür; ret gerekçesi
+zorunlu). **İş Emri ve Satın Alma'da onay katmanı YOKTUR** (`PurchaseOrderService.cs:390`).
+Senkronda `personnel`/`material_requests`/`request_status_history` **var**, `users`/`roles`/
+`user_permissions` **yok**; `/api/lookups/sync` sunucu-otoriteli yapılandırma aynası mevcuttur
+(`Program.cs:1569-1614`). **SNK-05 bağlayıcıdır** (onayda LWW yasak; FIN9/FIN10 kilitli).
+
+### Kesinleşen ana kararlar
+
+- **PK-EK-01 = C — Onay zinciri kapsamı: Malzeme Talebi + Satın Alma.**
+  **İş Emri kapsam DIŞIDIR.** *Teknik sonuç:* Satın Alma'ya bugün bulunmayan bir onay katmanı
+  eklenecektir; bu artık **kapsam içidir** ve FAZ 3 tasarımında ele alınacaktır. `purchase_orders`
+  tarafında onay bağlantısı ve migration kapsamı buna göre genişler.
+- **PK-EK-02 = B — Hiyerarşi tabanı: kullanıcı tabanlı + `/api/lookups/sync` aynası.**
+  Hiyerarşi **`users` tablosunda tutulmayacaktır**; `users`'a `manager_id`/`parent_user_id` benzeri
+  **hiyerarşi sütunu EKLENMEYECEKTİR**. Hiyerarşi **ayrı yapıda** tutulacak ve `users`'a referans
+  verecektir. `users` masaüstünde senkronlu olmadığı için çevrimdışı **görünürlük**
+  sunucu-otoriteli **lookups/sync aynası** ile sağlanacaktır.
+- **PK-EK-03 = B — Zincir saklama: ayrı `approval_instance` / `approval_step` yapısı.**
+  Mevcut `material_requests` ve `request_status_history` **tamamen yok sayılmayacak**; mevcut
+  tek-adımlı davranışın **geriye uyumluluğu korunacaktır**.
+- **PK-EK-04 = A — Zincir anlık görüntüsü: süreç başlarken dondurulur.** Bir onay süreci
+  başladıktan sonra o sürecin zinciri organizasyon/hiyerarşi değişikliklerinden **etkilenmez**;
+  zincir başlangıçta snapshot olarak sabitlenir.
+- **PK-EK-05 = A — Çevrimdışı onay: yalnız çevrimiçi.** Onay işlemi yalnızca çevrimiçi yapılabilir;
+  çevrimdışı onay **kabul edilmeyecektir**.
+- **PK-EK-06 = A — Fazlama: 3 alt faz.** Sıra: **(1) Ekip tanımı → (2) Onay zinciri motoru →
+  (3) Onaylamalarım ekranı.** Bu fazlama korunacaktır.
+- **PK-EK-07 = B — Ekip yetkisi: mevcut Kullanıcılar (`users`) modülüne bağlanır.**
+  **Yeni `teams` yetki modülü OLUŞTURULMAYACAKTIR.**
+
+### Kesinleşen iş kuralları
+
+| # | Kural | Karar |
+|---|---|---|
+| 1 | Çoklu ekip üyeliği | **Evet** — bir personel birden fazla ekipte bulunabilir (model **çoka-çok** üyeliği desteklemelidir) |
+| 2 | Hiyerarşi derinliği | **N seviye, N = 4** — sınırsız hiyerarşi uygulanmayacaktır |
+| 3 | Zincir zorunluluğu | **Opsiyonel** — zincir tanımlı değilse mevcut tek-adımlı/geriye uyumlu davranış korunur |
+| 4 | Reddedilen talebin yeniden gönderimi | **Hayır** — `rejected → pending` akışı oluşturulmayacaktır |
+| 5 | Self-approval | **Yalnız admin** — normal kullanıcı kendi talebini onaylayamaz |
+| 6 | Ekip yöneticisi yetkisi | **İkisi de** — üye ekler/çıkarır **ve** onay verir |
+| 7 | Ekipler arası görünürlük | **Evet** — ekipler birbirinin üyelerini/taleplerini görebilir; gereksiz izolasyon eklenmeyecektir |
+| 8 | Ekip kapsamı | **Firma bazlı** — `company_id` kapsamında; şube bazlı ekip modeli uygulanmayacak, `BranchAccess` ekip kapsamı için genişletilmeyecektir |
+| 9 | Çevrimdışı onay yasağı | **Kesin yasak** — ürün davranışı aynen: *"çevrimdışıyken onay ekranından onay vermeye çalışırsa hem engellenmeli hem uyarı mesajı verilmeli; sadece çevrimiçi onay verilebilir"* |
+| 10 | Ret gerekçesi görünürlüğü | **Herkes** — bugünkü davranış korunur; gereksiz API daraltması yapılmayacaktır |
+
+### Kapsam notları (kararların doğrudan sonucu)
+
+1. **Satın Alma'ya onay katmanı eklenecektir** (PK-EK-01=C) — kapsam içi, FAZ 3 tasarımında.
+2. **İş Emri onay zinciri kapsam DIŞIDIR.**
+3. Kullanıcı tabanlı hiyerarşi kullanılacak; **`users` tablosuna hiyerarşi sütunu eklenmeyecek**,
+   ayrı yapı `users`'a referans verecektir.
+4. Çevrimdışı hiyerarşi **görünürlüğü** `/api/lookups/sync` sunucu-otoriteli aynası üzerinden.
+5. **Yeni `teams` yetki modülü yok**; ekip yönetimi `users` yetki kapsamına bağlı.
+6. Çoklu ekip üyeliği → model **çoka-çok** olmalıdır.
+7. Hiyerarşi azami **4 seviye**; **döngü engelleme doğrulaması FAZ 3 tasarımında zorunludur**.
+8. Onay zinciri **snapshot** olarak süreç başlangıcında dondurulacaktır.
+9. Çevrimdışı onay kesin yasak: **UI'da engelleme + kullanıcıya uyarı**, ayrıca **servis/API
+   seviyesinde güvenlik kapısı** FAZ 3 tasarımında korunacaktır.
+10. **SNK-05 LWW yasağı korunacaktır**; onay sunucu-otoriteli çevrimiçi akışta kalır.
+11. **Mevcut Malzeme Talebi tek-adımlı onay davranışı bozulmayacaktır** (opsiyonel zincir gereği,
+    zinciri olmayan mevcut talepler geriye uyumlu davranır).
+12. Ret sonrası yeniden gönderim **yoktur**.
+13. Self-approval **yalnız admin**.
+14. Ekip yöneticisi **hem üye yönetir hem onay verir**.
+15. Ekipler arası görünürlük **açıktır**.
+16. Ekipler **firma bazlıdır**; `company_id` zorunluluğu korunur.
+
+### Zorunlu tasarım şartları (karar değil, FAZ 3 ön koşulu)
+
+Döngü engeli (A→B→C→A) DB+servis düzeyinde · kullanıcı kendini üst atayamaz · tüm yeni tablolar
+`company_id`'li · `CompanyId` istemciden alınmaz (firma daima oturumdan) · ekip/zincir tanımlı
+değilse mevcut onay birebir çalışmaya devam eder · web'e `ProjectReference` eklenmez ·
+`sync_outbox` kapsam dışıdır.
+
+**Durum.** FAZ 0 ✅ · FAZ 1 ✅ · **FAZ 2 ✅ KARARLAR KESİNLEŞTİ** · **FAZ 3 BAŞLATILMADI**.
+Migration084 **oluşturulmadı**; katalog azamisi **83**, canlı şema **83**. Kod/test **değişmedi**;
+production'a **bağlanılmadı**. FAZ 3 yalnızca kullanıcının açık **"UYGULAMA BAŞLASIN"** onayıyla
+başlar. Ayrıntı: `docs/project-control/ARA_IS_5_00_ANALIZ.md`.
+
+---
+
+## ADR-188 — ARA İŞ 5 / FAZ 3: §9'un 6 açık noktası KESİNLEŞTİ + ALT FAZ 1 uygulandı (2026-08-30)
+
+> **Durum: KARARLAR KESİN + ALT FAZ 1 UYGULANDI.** Bu ADR, ADR-187'nin 17 kararını **değiştirmez**;
+> FAZ 3 planlama turunda açık kalan 6 noktayı kapatır ve ALT FAZ 1'in uygulama sonucunu kaydeder.
+> ADR-187 **beklemeye alınmamıştır**.
+
+### Kesinleşen 6 karar (kullanıcı, 2026-08-30)
+
+| # | Konu | **KESİN KARAR** |
+|---|---|---|
+| 1 | Satın Alma onayı neyi engeller | **Onay tamamlanmadan MAL KABUL (`Receive`) yapılamaz.** Kapı hem UI'da hem **servis/API'da** olacak; yalnız butonu gizlemek YETERSİZDİR. İptal edilmiş siparişte mevcut engel aynen kalır. |
+| 2 | PO onay durumu nerede tutulur | **`purchase_orders.status` DEĞİŞMEZ** (`open \| closed \| cancelled` sözleşmesi korunur). Onay durumu `approval_instance`/`approval_step`tedir. `Receive` kontrolü **atomik/yarış-güvenli** olacak. |
+| 3 | PO'da onaycı kim | **Ayrı `approver_user_id` alanı YOK.** Zincir **kullanıcı hiyerarşisinden** çözülür. **Ekip lideri otomatik onaycı DEĞİLDİR.** Snapshot sonrası ekip/hiyerarşi değişikliği o süreci etkilemez. |
+| 4 | Satın Alma'da zincir zorunlu mu | **Opsiyonel** (İK-3 Satın Alma için de geçerli). **Zincir yok → mal kabul serbest. Zincir başlatıldı → tamamlanmadan mal kabul YOK.** |
+| 5 | Ekip ↔ zincir ilişkisi | **Zincirin kaynağı USER HİYERARŞİSİDİR.** Ekipler zincir oluşturmaz; organizasyonel gruplama + üye yönetimi + görünürlük içindir. Ekip yöneticisi yalnız **kendisine düşen** onay adımını onaylar. Azami derinlik **4**. |
+| 6 | Çevrimdışı PO | PO çevrimdışı **oluşturulabilir/senkronlanabilir**; **onay ASLA çevrimdışı yapılamaz** (kuyruk yok, `sync_outbox`'a onay yazılmaz). Zinciri aktif PO'da **çevrimdışı mal kabul de YOK**. Engel servis/API'da zorunludur. |
+
+### ALT FAZ 1 — EKİP TANIMI (uygulandı)
+
+- **Migration084_Teams** — `teams` + `team_members`. `company_id` zorunlu; **`branch_id` YOK** (İK-8);
+  **`users`'a ALTER YOK** (PK-EK-02); **backfill YOK**. Aktif üyelik benzersizliği **kısmi indeks**
+  (`ux_team_members_active … WHERE is_deleted = 0`) → İK-1 çoklu üyelik serbest, aynı ekibe çift üyelik
+  yasak, yumuşak silinen üyelik yeniden eklenebilir.
+- **FK kararı (teknik):** `lead_user_id` ve `user_id` için **`users`'a FK VERİLMEDİ**. Gerekçe kanıtlı:
+  `users` masaüstüne **senkronlanmaz ve aynada da yoktur** (yerel `users` tablosuna hiçbir yazım yok);
+  FK verilseydi ekip aynası masaüstüne inerken `foreign_keys=ON` altında **FK ihlaliyle kırardı**.
+  Bütünlük **sunucu servis katmanında** zorlanır (`users` orada otoritedir) — Migration081/083 içtihadı.
+- **`TeamService`** — CRUD + üyelik. Yetki **`users` modülü** (PK-EK-07=B; yeni modül YOK).
+  **İK-6 istisnası:** ekip lideri, `users` düzenleme yetkisi olmasa da **kendi ekibinin** üyelerini
+  yönetir; ayrıcalık başka ekibe geçmez ve ekip oluşturma/silme hakkı vermez.
+  **Lider gerçekten üye olmalı** — üye olmayan lider atanamaz; lider çıkarılırsa liderlik temizlenir.
+- **API** — `/api/teams` (CRUD), `/api/teams/{id}/members` (ekle/çıkar/listele), `/api/users/{id}/teams`.
+  **DTO'larda `companyId` alanı YOKTUR**; firma daima oturumdan. IDOR testlerle kilitli.
+- **Ayna** — `teams`/`teamMembers` `/api/lookups/sync` yanıtına eklendi; **`BusinessSyncService.Tables`'a
+  EKLENMEDİ** (sunucu otoriteli ayna → çakışma/LWW sorusu doğmaz, `sync_outbox` protokolüne dokunulmadı).
+  Masaüstü tüketicisi **replace** semantiğiyle yazar (sunucuda silinen yerelde de düşer), sunucu
+  kimliklerini korur ve **tablo yoksa sessizce atlar** → eski istemci bozulmaz.
+- **Ekran** — `AppScreens`'e `teams` eklendi: **ModuleKey = `users`** (ayrı yetki modülü değil;
+  `reports.designer` içtihadı). Web `/teams` tam CRUD; **masaüstü SALT OKUNUR** (ekip verisi sunucu
+  otoriteli olduğu için masaüstünden yazılmaz — kullanıcının ALT FAZ 1 talimatının doğrudan sonucu).
+- **Parite kilitleri** — `AppScreensParityTests` S13/S14 **gevşetilmedi**, yeni ekran **bilinçli olarak
+  kaydedildi** (masaüstü 57→58, web 64→65). `CustomRaporTests.CR01` sabit `83` yerine **katalog azamisi +
+  açık "083 uygulandı" kontrolü** ile **güçlendirildi**.
+
+**Kapsam sınırı.** ALT FAZ 1'de `user_hierarchy`, `approval_instance`, `approval_step` **oluşturulmadı**
+(test EK03 bunu kilitler). Bunlar **ALT FAZ 2** kapsamındadır. Production'a **hiçbir erişim yapılmadı**;
+canlı şema **83**, katalog azamisi **84**.
+
+---
+
+## ADR-189 — ARA İŞ 5 / FAZ 3 / ALT FAZ 2: Hiyerarşi + Onay Zinciri UYGULANDI (2026-08-30)
+
+> **Yeni ÜRÜN kararı içermez.** ADR-187'nin 17 kararı ve ADR-188'in 6 kararı **değiştirilmedi**;
+> bu ADR yalnız uygulamanın teknik sonucunu kaydeder.
+
+### Migration085_ApprovalChain
+
+`user_hierarchy` · `approval_instance` · `approval_step`. **Mevcut hiçbir tabloya ALTER YOK** —
+`users` (PK-EK-02), `material_requests` ve `purchase_orders` dokunulmadı; `purchase_orders.status`
+sözleşmesi (`open|closed|cancelled`) **korundu** (ADR-188 §2). **Backfill YOK** → hiyerarşi
+tanımlanana kadar sistemin davranışı **birebir aynı** (İK-3 opsiyonelliğin doğrudan sonucu).
+
+Kısmi benzersiz indeksler: `ux_user_hierarchy_active(company_id,user_id) WHERE is_deleted=0`
+(bir kullanıcının **tek aktif üstü**) · `ux_approval_instance_open(company_id,entity_type,entity_id)
+WHERE is_deleted=0 AND status='pending'` (**çift süreç yasağı**) · `ux_approval_step_no(instance_id,step_no)`.
+**FK kararı Migration084 içtihadıyla aynı:** kullanıcı referanslarına FK verilmedi (`users` masaüstüne
+inmez; ayna FK ihlaliyle kırardı) — bütünlük sunucu servisinde.
+
+### Hiyerarşi (PK-EK-02, İK-2)
+
+`UserHierarchyService`. **İK-2 = 4 DÜĞÜM** (ADR-187 örneği bağlayıcı: `A→B→C→D` geçerli,
+`A→B→C→D→E` geçersiz) → bir kullanıcının üstünde **en çok 3 onaycı**. Derinlik kontrolü
+**yukarı + aşağı** birlikte ölçülür; yalnız yukarı bakan bir kontrol zincirin üstüne kenar
+eklenmesini kaçırırdı. Döngü hem **yazımda** hem **çözümlemede** engellenir. Zincir çözümleme
+firmanın kenarlarını **tek sorguda** okur → N+1 yok. Yetki modülü **`users`** (yeni modül YOK).
+
+### Onay motoru (PK-EK-03/04/05)
+
+`ApprovalService` — **tek motor**, iki varlık türü (`material_request`, `purchase_order`).
+İş Emri **kapsam dışı** ve `ApprovalEntityTypes` kapalı listesiyle kilitli.
+**Snapshot:** adım sahipleri süreç başlarken yazılır; sonradan hiyerarşi/ekip değişse bile açık süreç
+**etkilenmez**. **Kapılar:** adım tenant → süreç açık mı → **mevcut** modül yetkisi
+(`request_approval` / `purchasing`) → **snapshot adım sahipliği** → sıra → **self-approval yalnız admin**
+(mevcut `AccessControl.IsAdmin`). **Eşzamanlılık:** `BeginImmediate` + `UPDATE … WHERE status='pending'`
+→ aynı adıma iki onaydan **yalnız biri** başarılı; LWW değildir. Süreç kapanışı ile varlık güncellemesi
+**aynı transaction'da**.
+
+### Malzeme Talebi (İK-3/4/5/10)
+
+Zincir **Submit/onaya gönderim** anında başlar. **Zincir yoksa** bugünkü tek-adımlı akış (`approver_id`,
+`EnsureIsDesignatedApprover`, admin istisnası, ret gerekçesi) **birebir** sürer. **Zincir varsa** eski
+tek-adımlı yol **kapalıdır** (bypass kapısı) — aksi hâlde zincir sessizce atlanırdı. Reddedilen adımın
+ardındaki adımlar `skipped` olur, **silinmez** (İK-10 görünürlük). **İK-4** mevcut
+`RequestStatusMachine`'de zaten kilitliydi (`rejected` uçtur) — testle sabitlendi.
+
+### Satın Alma (ADR-188 §1/§2/§4)
+
+Zincir **sipariş oluşturulurken sunucuda** hiyerarşiden kurulur (istemciden onaycı **alınmaz**).
+`Receive()` içine **onay kapısı** eklendi: zincir varsa süreç `approved` olmadan mal kabul **reddedilir**;
+zincir yoksa bugünkü akış sürer; `cancelled` engeli aynen. Kapı `Receive`'ın **kendi transaction'ında**,
+stok hareketinden **önce** → onay ile mal kabul arasında yarış oluşamaz ve **eski istemci bypass edemez**
+(istek nereden gelirse gelsin aynı sunucu servisinden geçer).
+
+### Çevrimdışı onay (PK-EK-05 / İK-9)
+
+Onay tabloları **hiçbir senkron yolunda değil** — `BusinessSyncService.Tables`'a girmedi, aynada da yok.
+Motor **yalnız sunucuda** kurulur (`ServerServices`); masaüstü onay motoru **almaz** → çevrimdışı onay
+"engellenmiş" değil, **teknik olarak imkânsızdır**. Masaüstü onay/ret artık yerele yazmaz; yeni
+`OnlineApprovalClient` ile **doğrudan sunucuya** gider ve çevrimdışıysa **açık uyarı** verip hiçbir şey
+yazmaz (`sync_outbox`'a onay kaydı **düşmez** — testle kanıtlı).
+
+### Ayna / eski istemci
+
+`user_hierarchy` `/api/lookups/sync` aynasına eklendi (sunucu otoriteli, replace semantiği, sunucu
+kimlikleri korunur, **tablo yoksa sessizce atlanır**). `sync_outbox` protokolüne **dokunulmadı**.
+
+**Kapsam sınırı.** ALT FAZ 3 **"Onaylamalarım" ekranı YAPILMADI** — yalnız servis/API sözleşmesi
+(`/api/approvals/mine`) verildi; `AppScreens`'e **yeni ekran eklenmedi**. Production'a **hiçbir erişim
+yapılmadı**; canlı şema **83**, katalog azamisi **85**.
+
+---
+
+## ADR-190 — ARA İŞ 5 / FAZ 3 / ALT FAZ 3: "Onaylamalarım" ekranı UYGULANDI (2026-08-30)
+
+> **Yeni ÜRÜN kararı içermez.** ADR-187 (17 karar), ADR-188 (6 karar) ve ADR-189 **değiştirilmedi**;
+> bu ADR yalnız ALT FAZ 3'ün teknik sonucunu kaydeder. **ARA İŞ 5 böylece TAMAMLANMIŞTIR.**
+
+### Migration YOK
+
+`Migration086 OLUŞTURULMADI` — kanıt: ekranın ihtiyaç duyduğu her alan mevcut şemada var
+(`approval_step.step_no`, toplam adım sayısı aynı tablodan sayılabiliyor, belge/sipariş no
+`material_requests.doc_no` / `purchase_orders.order_no`, iş günü tarihi `request_date` / `order_date`).
+ALT FAZ 3 tamamen **UI + mevcut API projeksiyonu** ile çözüldü. Katalog azamisi **85** olarak kaldı.
+
+### Veri kaynağı — tek uç, tek sorgu
+
+`ApprovalService.MyPending` yeniden yazıldı: kullanıcıya düşen ve **sırası gelmiş** adımlar
+**TEK sorguda** üretilir (`NOT EXISTS` ile sıra, alt-sorgu ile toplam adım, `LEFT JOIN` ile belge/sipariş
+no). **Bulunan gerçek sorun:** önceki sürüm satır başına `IsCurrent` çağırıyordu — yani **N+1** vardı
+ve aynı bağlantıda iç içe okuyucu açıyordu. Düzeltildi ve `SayanFabrika` ile **sorgu sayan test**
+eklendi (5 satırlık listede **1 komut**).
+
+Kullanıcı ve firma **daima oturumdan**: uçta kullanıcı/firma parametresi **yoktur**, dolayısıyla
+başkasının kuyruğu istenemez (OY02 bunu sorgu parametresi denemeleriyle kilitler).
+
+### Ekran kaydı — yeni yetki modülü YOK
+
+`AppScreens`'e `approvals` eklendi: **ModuleKey = `request_approval`** (mevcut "Talep Onaylama"
+modülü), grup "Talepler", rota `/approvals`, masaüstü nav `approvals`. Parite kilitleri
+**gevşetilmedi**, ekran **bilinçli olarak kaydedildi** (masaüstü 58→59, web 65→66).
+
+**Yetki sözleşmesi:** listede satır görünmesi **onaylama yetkisi değildir**. Liste zaten yalnız
+kullanıcının kendi snapshot adımlarını içerir (veri sızıntısı olamaz); gerçek karar
+`ApprovalService`'in mevcut kapılarından geçer — Malzeme Talebi `request_approval`, Satın Alma
+`purchasing`. OY06 bunu kilitler.
+
+### Masaüstü + web
+
+Masaüstü `ApprovalsViewModel` + `ApprovalsView`: **salt görüntüleme + karar**, yerel onay tablolarına
+**hiç dokunmaz** (o tablolar masaüstüne zaten inmez). Liste ve karar `OnlineApprovalClient` üzerinden
+**sunucudan** gelir → **çevrimdışıyken liste de gelmez, karar da verilemez**; kullanıcıya açık uyarı
+gösterilir ve **hiçbir yerel kayıt / `sync_outbox` kaydı oluşmaz** (İK-9). Çevrimdışı kuyruk YOKTUR.
+
+Web `/approvals` (MudBlazor, **ProjectReference YOK**) aynı uçları kullanır. Ret gerekçesi her iki
+platformda da **zorunlu**; gerekçe kayıtta görünür kalır (İK-10).
+
+### Eşzamanlılık
+
+UI'da kilit/ön-kontrol **yapılmadı** (§9): aynı adıma iki karar denemesinden yalnız ilki geçer,
+ikincisi sunucudaki atomik `UPDATE … WHERE status='pending'` ile reddedilir. LWW yoktur.
+
+**Kapsam.** İkinci onay motoru/kataloğu **kurulmadı** · yeni yetki modülü **yok** · `users`'a hiyerarşi
+kolonu **yok** · onay tabloları senkrona **girmedi** · `sync_outbox`'a onay **yazılmıyor** ·
+production'a **hiçbir erişim yapılmadı** (canlı şema **83**, katalog **85**).

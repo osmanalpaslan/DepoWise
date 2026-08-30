@@ -1,0 +1,157 @@
+@page "/approvals"
+@inject ApiClient Api
+
+@*
+    ⭐ ARA İŞ 5 / ALT FAZ 3 (ADR-187/188/189) — ONAYLAMALARIM (web).
+
+    Bu ekran bir onay MOTORU DEĞİLDİR: mevcut sunucu motorunun (ALT FAZ 2) üstünde çalışan ince bir
+    arayüzdür. Veri kaynağı TEK uçtur (/api/approvals/mine) ve o uç yalnız oturumdaki kullanıcının
+    KENDİ snapshot adımlarını döner — istemci başkasının kuyruğunu isteyemez (parametre bile yoktur).
+
+    Onay/ret kararı mevcut sunucu kapılarından geçer: adım sahipliği · sıra · modül yetkisi
+    (request_approval / purchasing) · self-approval yalnız admin · atomik eşzamanlılık.
+    Listede satır görünmesi onaylama yetkisi ANLAMINA GELMEZ.
+
+    ⚠️ Web'in mimari sınırı korunur: ProjectReference YOK — sayfa yalnız API JSON'ı ile çalışır.
+*@
+
+<PageTitle>Onaylamalarım</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Onaylamalarım</MudText>
+
+@if (_yukleniyor)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    @if (_hata is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_hata</MudAlert>
+    }
+
+    @if (_satirlar.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">Onayınızı bekleyen kayıt yok.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Süreç</th>
+                        <th>Belge / Sipariş No</th>
+                        <th>Tarih</th>
+                        <th>Adım</th>
+                        <th style="text-align:right">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _satirlar)
+                    {
+                        <tr>
+                            <td>@r.EntityLabel</td>
+                            <td>@r.DocNo</td>
+                            <td>@Tarih(r.EntityDate)</td>
+                            <td>@r.StepLabel</td>
+                            <td style="text-align:right">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                           Disabled="_islemde" OnClick="@(() => Onayla(r.StepId))">Onayla</MudButton>
+                                <MudButton Size="Size.Small" Color="Color.Error"
+                                           Disabled="_islemde" OnClick="@(() => RedAc(r.StepId))">Reddet</MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        @* Ret gerekçesi ZORUNLU (mevcut davranış korunur) ve herkes tarafından görülebilir (İK-10). *@
+        @if (_redStepId is not null)
+        {
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Ret Gerekçesi</MudText>
+                <MudTextField @bind-Value="_redGerekce" Label="Gerekçe (zorunlu)"
+                              Placeholder="Örn: Bütçe uygun değil" Class="mb-3" />
+                <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="_islemde"
+                           OnClick="Reddet" Class="mr-2">Reddi Onayla</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="@(() => _redStepId = null)">Vazgeç</MudButton>
+            </MudPaper>
+        }
+    }
+}
+
+@code {
+    private sealed record Satir(string StepId, string EntityLabel, string DocNo, string StepLabel, long? EntityDate);
+
+    private bool _yukleniyor = true;
+    private bool _islemde;
+    private string? _hata;
+    private List<Satir> _satirlar = new();
+
+    private string? _redStepId;
+    private string _redGerekce = "";
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    private static string Tarih(long? ms)
+        => ms is null ? "" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).UtcDateTime.ToString("dd/MM/yyyy");
+
+    private async Task Yukle()
+    {
+        _yukleniyor = true;
+        try
+        {
+            _satirlar = (await Api.GetArrayAsync("/api/approvals/mine"))
+                .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(e => new Satir(
+                    Metin(e, "stepId"), Metin(e, "entityLabel"), Metin(e, "docNo"), Metin(e, "stepLabel"),
+                    e.TryGetProperty("entityDate", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Number
+                        && d.TryGetInt64(out var ms) ? ms : (long?)null))
+                .ToList();
+            _hata = null;
+        }
+        catch { _satirlar = new(); _hata = "Onay listesi alınamadı."; }
+        finally { _yukleniyor = false; }
+    }
+
+    private static string Metin(System.Text.Json.JsonElement e, string alan)
+        => e.TryGetProperty(alan, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
+            ? v.GetString() ?? "" : "";
+
+    private async Task Onayla(string stepId)
+    {
+        _islemde = true;
+        try
+        {
+            // Karar SUNUCUDA verilir; eşzamanlı ikinci onay burada değil, sunucudaki atomik geçişte reddedilir.
+            var hata = await Api.PostAsync($"/api/approvals/steps/{stepId}/approve", new { });
+            _hata = hata;
+        }
+        finally { _islemde = false; }
+        await Yukle();
+    }
+
+    private void RedAc(string stepId)
+    {
+        _redStepId = stepId;
+        _redGerekce = "";
+    }
+
+    private async Task Reddet()
+    {
+        if (_redStepId is null) return;
+        if (string.IsNullOrWhiteSpace(_redGerekce)) { _hata = "Ret gerekçesi zorunlu."; return; }
+        _islemde = true;
+        try
+        {
+            var hata = await Api.PostAsync($"/api/approvals/steps/{_redStepId}/reject",
+                new { reason = _redGerekce.Trim() });
+            _hata = hata;
+            if (hata is null) _redStepId = null;
+        }
+        finally { _islemde = false; }
+        await Yukle();
+    }
+}

@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:team="using:DepoWise.Application.Teams"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.TeamsView"
+             x:DataType="vm:TeamsViewModel">
+
+    <!-- ARA İŞ 5 / ALT FAZ 1 (ADR-187): Ekipler.
+         ⚠️ SALT OKUNUR: ekip verisi SUNUCU OTORİTELİDİR ve eşitleme ile buraya iner. Masaüstünden
+         değiştirilseydi çakışma/LWW modeli gerekirdi — ADR-187 bunu yasaklar. Tanımlama web'de yapılır.
+         Ekip lideri onaycı DEĞİLDİR: onay zinciri kullanıcı hiyerarşisinden çözülür. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Ekipler">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="6">
+                <SelectableTextBlock Text="Ekipler organizasyonel gruplamadır. Tanımlama ve üye yönetimi web üzerinden yapılır; buraya eşitleme ile iner ve çevrimdışı da okunabilir."
+                                     TextWrapping="Wrap"/>
+                <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                                     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="320,16,*" Margin="0,16,0,0">
+
+            <Border Grid.Column="0" Classes="Panel">
+                <DockPanel>
+                    <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Ekip Listesi"/>
+                    <ListBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="team:Team">
+                                <StackPanel Spacing="2">
+                                    <SelectableTextBlock Text="{Binding Name}"/>
+                                    <SelectableTextBlock Text="Pasif" FontSize="11"
+                                                         IsVisible="{Binding !IsActive}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="2" Classes="Panel">
+                <DockPanel>
+                    <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Üyeler"/>
+                    <!-- Projede DataGrid paketi kullanılmıyor; liste ekranlarının ortak deseni ListBox'tır. -->
+                    <ListBox ItemsSource="{Binding Members}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TeamMemberRow">
+                                <Grid ColumnDefinitions="*,150">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Display}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="Ekip Yöneticisi"
+                                                         IsVisible="{Binding IsLead}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

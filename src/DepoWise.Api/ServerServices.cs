@@ -97,6 +97,13 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
     /// <summary>⭐ ARA İŞ 4 (ADR-186): custom rapor tanımları (CRUD) — çalıştırma <see cref="Reports"/> üzerinden.</summary>
     public DepoWise.Infrastructure.Reporting.CustomReportService CustomReports { get; }
+    /// <summary>⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): ekip tanımı + üyelik. Yetki modülü `users` (PK-EK-07=B).</summary>
+    public DepoWise.Infrastructure.Teams.TeamService Teams { get; }
+    /// <summary>⭐ ARA İŞ 5 / ALT FAZ 2 (ADR-187 PK-EK-02): kullanıcı hiyerarşisi (azami 4 seviye, döngüsüz).</summary>
+    public DepoWise.Infrastructure.Approvals.UserHierarchyService Hierarchy { get; }
+    /// <summary>⭐ ARA İŞ 5 / ALT FAZ 2 (PK-EK-03/04): TEK onay motoru — snapshot'lı zincir.
+    /// YALNIZ SUNUCUDA vardır: onay sunucu otoritesindedir (PK-EK-05 / İK-9 çevrimdışı onay yasağı).</summary>
+    public DepoWise.Infrastructure.Approvals.ApprovalService Approvals { get; }
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     /// <summary>Filtrelenmiş liste sonuçlarını Excel'e aktarma (kullanıcı isteği 2026-07-19).</summary>
     public DepoWise.Infrastructure.Reporting.ExcelExportService Excel { get; }
@@ -210,6 +217,29 @@ public sealed class ServerServices
         CustomReports = new DepoWise.Infrastructure.Reporting.CustomReportService(
             Factory, Materials, Vehicles, DailyActivity, clock);
         Reports.Custom = CustomReports;
+        // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): ekipler ORGANİZASYONEL gruplamadır — onay zinciriyle bağlı DEĞİLDİR.
+        Teams = new DepoWise.Infrastructure.Teams.TeamService(Factory, clock);
+
+        // ═══ ARA İŞ 5 / ALT FAZ 2 (ADR-187 + ADR-188) — HİYERARŞİ + TEK ONAY MOTORU ═══
+        // Motor YALNIZ sunucuda kurulur: onay çevrimdışı yapılamaz (PK-EK-05 / İK-9). Masaüstü bu
+        // servisleri hiç almaz → çevrimdışı onay teknik olarak MÜMKÜN DEĞİLDİR, yalnız "engellenmiş"
+        // değildir. Bağlayıcılar (handler) süreç kapanışını AYNI transaction'da varlığa uygular.
+        Hierarchy = new DepoWise.Infrastructure.Approvals.UserHierarchyService(Factory, clock);
+        Approvals = new DepoWise.Infrastructure.Approvals.ApprovalService(Factory, clock);
+        Approvals.Register(DepoWise.Application.Approvals.ApprovalEntityTypes.MaterialRequest,
+            (conn, tx, session, _, entityId, approved, reason, now) =>
+                Requests.ApplyChainDecision(conn, tx, session, entityId, approved, reason, now));
+        // Satın Alma'da varlık kaydı DEĞİŞMEZ: ADR-188 §2 gereği `purchase_orders.status` sözleşmesi
+        // (open|closed|cancelled) korunur; onay durumu approval_instance'ta yaşar ve mal kabul kapısı
+        // (PurchaseOrderService.EnsureApprovedForReceive) onu okur.
+        Approvals.Register(DepoWise.Application.Approvals.ApprovalEntityTypes.PurchaseOrder,
+            (conn, tx, session, _, entityId, approved, _, now) =>
+                DepoWise.Infrastructure.Database.AuditWriter.Write(conn, tx,
+                    new DepoWise.Application.Common.AuditEntry(session.CompanyId, "purchase_order", entityId,
+                        DepoWise.Application.Common.AuditActions.Update, session.UserId,
+                        AfterJson: $"{{\"approval\":\"{(approved ? "approved" : "rejected")}\"}}"), clock));
+        Requests.Approvals = Approvals;
+        Purchasing.Approvals = Approvals;
         // BLD-01 (ADR-172): sunucuda evrak servisi verilir → evrak geçerlilik bildirimleri üretilir.
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection, Documents);
         Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();

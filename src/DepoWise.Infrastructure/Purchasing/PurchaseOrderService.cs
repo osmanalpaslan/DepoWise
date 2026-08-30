@@ -70,6 +70,13 @@ public sealed class PurchaseOrderService
     private readonly StockService _stock;
     private readonly CostCenterService _costCenters;
 
+    /// <summary>
+    /// ⭐ ARA İŞ 5 / ALT FAZ 2 (ADR-187 / ADR-188 §4): OPSİYONEL onay zinciri motoru.
+    /// <b>null olabilir</b> — bağlanmazsa bu servis BUGÜNKÜ davranışını birebir sürdürür.
+    /// Bağlı olsa bile siparişi oluşturanın hiyerarşide üstü yoksa zincir OLUŞMAZ (İK-3 opsiyonellik).
+    /// </summary>
+    public DepoWise.Infrastructure.Approvals.ApprovalService? Approvals { get; set; }
+
     public PurchaseOrderService(IDbConnectionFactory factory, IClock? clock = null)
     {
         _factory = factory;
@@ -234,6 +241,12 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "purchase_order", id, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"orderNo\":\"{dto.OrderNo.Trim()}\",\"lines\":{dto.Lines.Count}}}"), _clock);
+        // ⭐ ARA İŞ 5 / ALT FAZ 2: onay zinciri SUNUCU tarafında, siparişi oluşturanın hiyerarşisinden
+        // kurulur (ADR-188 §3: istemciden onaycı ALINMAZ). Üstü yoksa zincir oluşmaz → bugünkü akış.
+        // `purchase_orders.status` DEĞİŞMEZ (ADR-188 §2) — onay durumu approval_instance'tadır.
+        if (Approvals is not null && DbIntrospect.TableExists(conn, tx, "approval_instance"))
+            Approvals.Start(conn, tx, s, DepoWise.Application.Approvals.ApprovalEntityTypes.PurchaseOrder,
+                id, s.UserId, now);
         tx.Commit();
         return id;
     }
@@ -322,6 +335,7 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
 
         var (durum, branchId) = EnsureOrderVisible(s, conn, tx, orderId);
         if (durum == "cancelled") throw new ArgumentException("İptal edilmiş siparişe mal kabul yapılamaz.");
+        EnsureApprovedForReceive(conn, tx, s, orderId);   // ⭐ ADR-188 §1: onaysız mal kabul YOK
         if (string.IsNullOrWhiteSpace(branchId))
             throw new ArgumentException("Mal kabul için siparişte teslim deposu (şube) seçili olmalı.");
 
@@ -434,6 +448,32 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
     // ══════════════ yardımcılar ══════════════
 
     /// <summary>Tenant + kapsam + (verilmişse) düzenleme kilidi. Dönüş: (status, branch_id).</summary>
+    /// <summary>
+    /// ═══ ADR-188 §1 — ONAYSIZ MAL KABUL ENGELİ ═══
+    ///
+    /// Sipariş için bir onay zinciri BAŞLATILMIŞSA, süreç <c>approved</c> olmadan mal kabul yapılamaz.
+    /// Zincir hiç başlatılmamışsa (hiyerarşi tanımsız → İK-3 opsiyonellik) bugünkü akış BİREBİR sürer.
+    ///
+    /// <b>Kapı neden BURADA:</b> UI'da butonu gizlemek yetersizdir (ADR-188 §1). Bu kontrol
+    /// <see cref="Receive"/>'ın <c>BeginImmediate</c> transaction'ı İÇİNDE, stok hareketinden ÖNCE
+    /// çalışır → onay ile mal kabul arasında yarış oluşamaz. Eski istemcinin sunucuya gönderdiği
+    /// mal kabul isteği de aynı sunucu servisinden geçtiği için bu kapıyı BYPASS EDEMEZ.
+    ///
+    /// <b>Şema toleransı:</b> Migration085 uygulanmamış bir veritabanında tablo yoktur → kapı sessizce
+    /// geçer; eski şema bozulmaz.
+    /// </summary>
+    private static void EnsureApprovedForReceive(DbConnection conn, DbTransaction tx, SessionContext s, string orderId)
+    {
+        if (!DbIntrospect.TableExists(conn, tx, "approval_instance")) return;
+        var durum = DepoWise.Infrastructure.Approvals.ApprovalService.LatestStatus(
+            conn, tx, s.CompanyId, DepoWise.Application.Approvals.ApprovalEntityTypes.PurchaseOrder, orderId);
+        if (durum is null) return;                       // zincir YOK → mevcut davranış (İK-3)
+        if (durum == DepoWise.Application.Approvals.ApprovalStatus.Approved) return;
+        throw new ArgumentException(durum == DepoWise.Application.Approvals.ApprovalStatus.Rejected
+            ? "Bu siparişin onayı REDDEDİLDİ; mal kabul yapılamaz."
+            : "Bu sipariş onay bekliyor; onay tamamlanmadan mal kabul yapılamaz.");
+    }
+
     private static (string Status, string? BranchId) EnsureOrderVisible(SessionContext s, DbConnection conn,
         DbTransaction? tx, string id, long? expectedVersion = null)
     {

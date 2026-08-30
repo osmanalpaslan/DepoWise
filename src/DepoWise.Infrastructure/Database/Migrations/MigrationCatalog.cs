@@ -88,5 +88,7 @@ public static class MigrationCatalog
         new Migration081_Announcements(),
         new Migration082_OperationIdCompanyScope(),
         new Migration083_CustomReports(),
+        new Migration084_Teams(),
+        new Migration085_ApprovalChain(),
     };
 }

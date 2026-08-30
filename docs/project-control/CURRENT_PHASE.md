@@ -126,17 +126,18 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Alan | Değer |
 |---|---|
 | Ana roadmap aşaması | **AŞAMA 3 — FINAL KARAR PAKETİ** (ara işler bu sırayı değiştirmez) |
-| Aktif ara iş / aşaması | **ARA İŞ 4 — CUSTOM RAPOR** · FAZ 0–2 ✅ (ADR-186: PK-CR-01…08 = A) · **FAZ 3 / S1 ✅ 14 teknik nokta doğrulandı** (nokta 3 **gerçek testle**: `CustomRaporSenkronOnDogrulamaTests` **5/5**) · **PK-CR-09=A · PK-CR-10=A ✅** · ✅ **S2 ALTYAPI TAMAM**: **Migration083** (`custom_report_defs`, katalog azamisi **83**) · merkezî beyaz liste (3 kaynak) · `CustomReportService` · dispatch + **6 güvenlik kapısı** · senkron kaydı · **FAZ 4 TAMAM**: tasarımcı katalog + CRUD API uçları · tek katalog entegrasyonu · masaüstü tasarımcı ekranı · web `/reports/designer` · yetki ağacında `reports.designer` (yeni modül YOK) · **55 custom rapor testi**. ✅ **YAYINLANDI (2026-08-30)** — canlı şema **82 → 83**, masaüstü **1.0.165**, API + Web güncel |
-| *(geçmiş)* ARA İŞ 3 | ✅ **TAMAMLANDI + YAYINLANDI** — masaüstü **1.0.163**; o yayın anında şema 81'di, **şu anki canlı şema 82'dir** (FIN-B1/Migration082 sonrası) |
+| Aktif ara iş / aşaması | **ARA İŞ 5 — EKİP + HİYERARŞİ + ONAY** · **✅ TAMAMLANDI (kod seviyesinde; YAYINLANMADI)** — FAZ 0/1/2 ✅ (ADR-187) · FAZ 3 ✅: ALT FAZ 1 ✅ (ADR-188) · ALT FAZ 2 ✅ (ADR-189) · **ALT FAZ 3 "Onaylamalarım" ✅ (ADR-190)** — 17 karar + 6 karar ([ARA_IS_5_00_ANALIZ.md](ARA_IS_5_00_ANALIZ.md)) · **Migration084_Teams + Migration085_ApprovalChain** (katalog azamisi **85**; **ALT FAZ 3 için Migration086 GEREKMEDİ**; **canlı şema 83 — production'a DOKUNULMADI**) · ekip + hiyerarşi (4 düğüm, döngüsüz) + **tek onay motoru** (snapshot, eşzamanlılık güvenli, N+1'siz liste) + Malzeme Talebi opsiyonel zinciri + **Satın Alma'da onaysız mal kabul engeli** + **çevrimdışı onay imkânsız** + masaüstü/web **Onaylamalarım** ekranı · commit/push **yapılmadı**, **yayın yapılmadı** |
+| *(geçmiş)* ARA İŞ 4 — Custom Rapor | ✅ **TAMAMLANDI + YAYINLANDI (2026-08-30)** — canlı şema **83**, masaüstü **1.0.165**, kod `2669176`, yayın kaydı `492b14c` |
+| *(geçmiş)* ARA İŞ 3 | ✅ **TAMAMLANDI + YAYINLANDI** — masaüstü **1.0.163**; o yayın anında şema 81'di, **şu anki canlı şema 83'tür** (Migration082 + Migration083 sonrası) |
 | Ana roadmap aktif iş | **YOK** — **FIN-B1 / Migration082 ✅ TAMAMLANDI ve YAYINLANDI (2026-08-29)**: kod `d9fc350`, **canlı şema 81 → 82**, masaüstü **1.0.164**, API + Web yeniden dağıtıldı; 7 indeks `UNIQUE (company_id, operation_id)`; **hiçbir kayıt değişmedi** (683/220/3 satır birebir aynı) |
-| Yayın bekleyen işler | **YOK — yayın havuzu BOŞ** |
-| Kodlanmamış ayrı fazlar | Custom Rapor (migration'lı) · Ekip+Hiyerarşi+Onay (migration+senkron'lu) |
-| Migration durumu | **Canlı şema 81** · katalog azamisi 81 · Migration082 master'da YOK |
-| Production durumu | Son yayın 2026-08-29; **bu turda dokunulmadı** |
-| Son commit | `e5583c4` (yayın kaydı) · son kod commit'i `7cbb52b` |
-| Son başarılı test | Tam süit **2.977/0/39** · izole PG **47/47** · 3 Release **0 hata** (`7cbb52b`) |
-| Bekleyen ana karar | **FIN-B1 / Migration082** (AŞAMA 3'ün tek açık maddesi) |
-| Sonraki TEK iş | **AŞAMA 3'ün kalan maddesi: Ekip + Hiyerarşi + Onay** (ayrı faz, başlanmadı — kullanıcı kararı bekliyor). N/Mobil ⏭️ ATLANDI. Custom Rapor v1 yayında; yeni kaynak eklenmesi ayrı iştir. |
+| Yayın bekleyen işler | ⏳ **ARA İŞ 5 — EKİP + HİYERARŞİ + ONAY** (kod tamam, commit'li, **YAYINLANMADI**). Yayın kapsamı: **canlı şema 83 → 85** (Migration084_Teams + Migration085_ApprovalChain) · API + Web yeniden dağıtım · masaüstü yeni sürüm. Yayın **açık "YAYINLA" onayı** bekliyor |
+| Kodlanmamış ayrı fazlar | **YOK** — Custom Rapor ✅ yayınlandı · Ekip+Hiyerarşi+Onay ✅ kodlandı (yayın bekliyor) |
+| Migration durumu | **Canlı şema 83** (ARA İŞ 4 / Migration083 sonrası) · **katalog azamisi 85** · Migration084 + Migration085 master'da VAR, **production'da UYGULANMADI** · Migration086 YOK |
+| Production durumu | Son yayın 2026-08-30 (ARA İŞ 4); **ARA İŞ 5 turlarında hiç dokunulmadı — SELECT dâhil 0 erişim** |
+| Son commit | ARA İŞ 5 kapanış commit'i (aşağıdaki "son kod commit'i") · **push YAPILMADI**; önceki yayın kaydı `492b14c` |
+| Son başarılı test | Tam süit **3.172/0/45** · ARA İŞ 5 grupları **100/100** · izole PG **53/53** · Debug + Release **0 hata** |
+| Bekleyen ana karar | **YOK** — FIN-B1/Migration082 ✅ kapandı, ARA İŞ 5 kararları (ADR-187/188) ✅ kesinleşti |
+| Sonraki TEK iş | **Kullanıcının açık "YAYINLA" onayı** → ARA İŞ 5 yayını (şema 83 → 85, API + Web dağıtım, masaüstü yeni sürüm). Kod **tamam ve commit'li**; **push da yayın da açık onay bekliyor**. Yayın sonrası ana roadmap **AŞAMA 3**'e dönülür. N/Mobil ⏭️ ATLANDI |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 

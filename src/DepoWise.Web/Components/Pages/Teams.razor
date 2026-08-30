@@ -1,0 +1,276 @@
+@page "/teams"
+@inject ApiClient Api
+
+@*
+    ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187) — EKİPLER (web).
+
+    Ekip bir ORGANİZASYONEL GRUPLAMADIR. Onay zinciriyle bağı YOKTUR: zincir kullanıcı
+    hiyerarşisinden çözülür ve ekip lideri otomatik onaycı DEĞİLDİR (ADR-187 §3/§5).
+    Bu ekranda bilerek hiçbir onay kavramı yoktur.
+
+    Yetki: PK-EK-07=B → yeni modül yok; ekran mevcut «Kullanıcılar» (users) yetkisine bağlıdır.
+    Kapı sunucudadır; buradaki gizleme yalnız görünürlük kolaylığıdır.
+
+    ⚠️ Web'in mimari sınırı korunur: ProjectReference YOK — sayfa yalnız API JSON'ı ile çalışır.
+    Firma (company_id) hiçbir istekte gövdeye konmaz; sunucu daima oturumdan alır.
+*@
+
+<PageTitle>Ekipler</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Ekipler</MudText>
+
+@if (_yukleniyor)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_yetkisiz)
+{
+    <MudAlert Severity="Severity.Info">Ekipleri görüntüleme yetkiniz bulunmuyor.</MudAlert>
+}
+else
+{
+    @if (_hata is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_hata</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Yeni Ekip</MudText>
+                <MudTextField @bind-Value="_yeniAd" Label="Ekip Adı" Class="mb-3" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="EkipEkle">Ekle</MudButton>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Ekipler</MudText>
+                @if (_ekipler.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">Henüz ekip tanımlanmadı.</MudText>
+                }
+                else
+                {
+                    <MudList T="string" Dense="true">
+                        @foreach (var e in _ekipler)
+                        {
+                            <MudListItem T="string" OnClick="@(() => EkipSec(e.Id))">
+                                <MudText Typo="Typo.body1">
+                                    @e.Name @(e.IsActive ? "" : " (pasif)")
+                                </MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="7">
+            @if (_secili is not null)
+            {
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">Ekip Bilgisi</MudText>
+                    <MudTextField @bind-Value="_ad" Label="Ekip Adı" Class="mb-3" />
+
+                    @* Lider YALNIZ mevcut üyeler arasından seçilebilir — sunucu da bunu doğrular. *@
+                    <MudSelect T="string" @bind-Value="_liderUserId" Label="Ekip Yöneticisi" Clearable="true" Class="mb-3">
+                        @foreach (var u in _uyeler)
+                        {
+                            <MudSelectItem T="string" Value="@u.UserId">@KullaniciAdi(u.UserId)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSwitch T="bool" @bind-Value="_aktif" Label="Aktif" Color="Color.Primary" Class="mb-3" />
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="EkipKaydet" Class="mr-2">Kaydet</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="EkipSil">Sil</MudButton>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">Üyeler</MudText>
+
+                    @* İK-1: bir kullanıcı birden fazla ekipte olabilir; aynı ekibe iki kez eklenemez. *@
+                    <MudSelect T="string" @bind-Value="_eklenecekUserId" Label="Kullanıcı" Class="mb-2">
+                        @foreach (var u in _kullanicilar.Where(x => _uyeler.All(m => m.UserId != x.Id)))
+                        {
+                            <MudSelectItem T="string" Value="@u.Id">@u.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" OnClick="UyeEkle" Class="mb-3">Üye Ekle</MudButton>
+
+                    @if (_uyeler.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">Bu ekipte üye yok.</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true">
+                            <tbody>
+                                @foreach (var m in _uyeler)
+                                {
+                                    <tr>
+                                        <td>@KullaniciAdi(m.UserId)</td>
+                                        <td>@(m.IsLead ? "Ekip Yöneticisi" : "")</td>
+                                        <td style="text-align:right">
+                                            <MudButton Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UyeCikar(m.UserId))">Çıkar</MudButton>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudPaper>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info">Soldan bir ekip seçin.</MudAlert>
+            }
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private sealed record EkipSatir(string Id, string Name, string? LeadUserId, bool IsActive);
+    private sealed record UyeSatir(string UserId, bool IsLead);
+    private sealed record KullaniciSatir(string Id, string Name);
+
+    private bool _yukleniyor = true;
+    private bool _yetkisiz;
+    private string? _hata;
+
+    private List<EkipSatir> _ekipler = new();
+    private List<UyeSatir> _uyeler = new();
+    private List<KullaniciSatir> _kullanicilar = new();
+
+    private EkipSatir? _secili;
+    private string _yeniAd = "";
+    private string _ad = "";
+    private string? _liderUserId;
+    private bool _aktif = true;
+    private string? _eklenecekUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await KullanicilariYukle();
+        await EkipleriYukle();
+        _yukleniyor = false;
+    }
+
+    private string KullaniciAdi(string userId)
+        => _kullanicilar.FirstOrDefault(x => x.Id == userId)?.Name ?? userId;
+
+    private async Task KullanicilariYukle()
+    {
+        try
+        {
+            _kullanicilar = (await Api.GetArrayAsync("/api/users"))
+                .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(e => new KullaniciSatir(
+                    e.TryGetProperty("id", out var i) ? i.GetString() ?? "" : "",
+                    e.TryGetProperty("fullName", out var f) && f.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? f.GetString() ?? ""
+                        : (e.TryGetProperty("username", out var u) ? u.GetString() ?? "" : "")))
+                .Where(x => x.Id != "")
+                .OrderBy(x => x.Name)
+                .ToList();
+        }
+        catch { _kullanicilar = new(); }
+    }
+
+    private async Task EkipleriYukle()
+    {
+        try
+        {
+            _ekipler = (await Api.GetArrayAsync("/api/teams?all=true"))
+                .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(e => new EkipSatir(
+                    e.GetProperty("id").GetString() ?? "",
+                    e.GetProperty("name").GetString() ?? "",
+                    e.TryGetProperty("leadUserId", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? l.GetString() : null,
+                    !e.TryGetProperty("isActive", out var a) || a.ValueKind != System.Text.Json.JsonValueKind.False))
+                .ToList();
+            _yetkisiz = false;
+        }
+        catch { _yetkisiz = true; }
+    }
+
+    private async Task EkipSec(string id)
+    {
+        _hata = null;
+        _secili = _ekipler.FirstOrDefault(x => x.Id == id);
+        if (_secili is null) return;
+        _ad = _secili.Name;
+        _liderUserId = _secili.LeadUserId;
+        _aktif = _secili.IsActive;
+        _eklenecekUserId = null;
+        await UyeleriYukle(id);
+    }
+
+    private async Task UyeleriYukle(string teamId)
+    {
+        try
+        {
+            _uyeler = (await Api.GetArrayAsync($"/api/teams/{teamId}/members"))
+                .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(e => new UyeSatir(
+                    e.GetProperty("userId").GetString() ?? "",
+                    e.TryGetProperty("isLead", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.True))
+                .ToList();
+        }
+        catch { _uyeler = new(); }
+    }
+
+    private async Task EkipEkle()
+    {
+        _hata = null;
+        if (string.IsNullOrWhiteSpace(_yeniAd)) { _hata = "Ekip adı zorunludur."; return; }
+        var err = await Api.PostAsync("/api/teams", new { name = _yeniAd.Trim() });
+        if (err is not null) { _hata = err; return; }
+        _yeniAd = "";
+        await EkipleriYukle();
+    }
+
+    private async Task EkipKaydet()
+    {
+        _hata = null;
+        if (_secili is null) return;
+        var err = await Api.PutAsync($"/api/teams/{_secili.Id}",
+            new { name = _ad, leadUserId = _liderUserId, isActive = _aktif });
+        if (err is not null) { _hata = err; return; }
+        var id = _secili.Id;
+        await EkipleriYukle();
+        await EkipSec(id);
+    }
+
+    private async Task EkipSil()
+    {
+        _hata = null;
+        if (_secili is null) return;
+        var err = await Api.DeleteAsync($"/api/teams/{_secili.Id}");
+        if (err is not null) { _hata = err; return; }
+        _secili = null;
+        _uyeler = new();
+        await EkipleriYukle();
+    }
+
+    private async Task UyeEkle()
+    {
+        _hata = null;
+        if (_secili is null || string.IsNullOrWhiteSpace(_eklenecekUserId)) return;
+        var err = await Api.PostAsync($"/api/teams/{_secili.Id}/members", new { userId = _eklenecekUserId });
+        if (err is not null) { _hata = err; return; }
+        _eklenecekUserId = null;
+        await UyeleriYukle(_secili.Id);
+    }
+
+    private async Task UyeCikar(string userId)
+    {
+        _hata = null;
+        if (_secili is null) return;
+        var err = await Api.DeleteAsync($"/api/teams/{_secili.Id}/members/{userId}");
+        if (err is not null) { _hata = err; return; }
+        var id = _secili.Id;
+        await EkipleriYukle();
+        await EkipSec(id);
+    }
+}

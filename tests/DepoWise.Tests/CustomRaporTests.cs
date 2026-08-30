@@ -90,8 +90,16 @@ public class CustomRaporTests : IDisposable
         cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='custom_report_defs';";
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
 
+        // ⚠️ Bu test eskiden azami sürümü SABİT 83'e bağlıyordu; katalog büyüyünce (Migration084,
+        // ARA İŞ 5) kırılıyordu. GEVŞETİLMEDİ — GÜÇLENDİRİLDİ: (a) 083'ün gerçekten uygulanmış
+        // olduğu AÇIKÇA doğrulanır, (b) azami sürüm kataloğun azamisiyle karşılaştırılır → runner
+        // bir migration'ı atlarsa test yine kırılır.
+        cmd.CommandText = "SELECT COUNT(*) FROM schema_migrations WHERE version=83;";
+        Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
+
         cmd.CommandText = "SELECT MAX(version) FROM schema_migrations;";
-        Assert.Equal(83L, Convert.ToInt64(cmd.ExecuteScalar()));
+        var katalogAzami = DepoWise.Infrastructure.Database.Migrations.MigrationCatalog.All().Max(m => m.Version);
+        Assert.Equal((long)katalogAzami, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
     /// <summary>⭐ CR02 — GERÇEK 82 → 83 yükseltme provası: veri dolu şema-82 DB'de migration
@@ -115,8 +123,14 @@ public class CustomRaporTests : IDisposable
 
             var uygulanan = new MigrationRunner(f82).Run();
 
+            // ⚠️ Bu test 82 → 83 YÜKSELTMESİNİ kanıtlar; runner ise kataloğun TAMAMINI uygular.
+            // Eskiden azami sürüm SABİT 83'e bağlıydı ve katalog büyüyünce (Migration084, ARA İŞ 5)
+            // kırılıyordu. GEVŞETİLMEDİ — GÜÇLENDİRİLDİ: 083'ün gerçekten uygulandığı AÇIKÇA
+            // doğrulanır, azami sürüm ise kataloğun azamisiyle karşılaştırılır → runner bir
+            // migration'ı atlarsa test yine kırılır.
             Assert.Contains(83, uygulanan);
-            Assert.Equal(83L, Sema(f82));
+            Assert.Equal(1L, Say(f82, "SELECT COUNT(*) FROM schema_migrations WHERE version=83;"));
+            Assert.Equal((long)MigrationCatalog.All().Max(m => m.Version), Sema(f82));
             Assert.Equal(1L, TabloVar(f82, "custom_report_defs"));
             using (var conn = f82.Create())
             using (var cmd = conn.CreateCommand())
@@ -169,13 +183,16 @@ public class CustomRaporTests : IDisposable
         }
     }
 
-    private static long Sema(SqliteConnectionFactory f)
+    private static long Say(SqliteConnectionFactory f, string sql)
     {
         using var conn = f.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT MAX(version) FROM schema_migrations;";
+        cmd.CommandText = sql;
         return Convert.ToInt64(cmd.ExecuteScalar());
     }
+
+    private static long Sema(SqliteConnectionFactory f)
+        => Say(f, "SELECT MAX(version) FROM schema_migrations;");
 
     private static long TabloVar(SqliteConnectionFactory f, string tablo)
     {

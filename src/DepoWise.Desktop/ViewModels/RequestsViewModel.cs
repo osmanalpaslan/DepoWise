@@ -383,9 +383,14 @@ public sealed partial class RequestsViewModel : ViewModelBase
     // SubmitImmediately: true ile oluşturduğu için taslak zaten üretilmiyordu.
     // RequestService.Submit metodu KALDIRILMADI — EditFlowTests hâlâ kullanıyor ve taslak durumu
     // veri modelinde/durum makinesinde korunuyor (kullanıcı kararı K5).
+    // ⭐ ARA İŞ 5 / ALT FAZ 2 (ADR-187, PK-EK-05 / İK-9): ONAY YALNIZ ÇEVRİMİÇİ.
+    // Onay/ret artık YEREL veritabanına yazılmaz ve senkron kuyruğuna girmez; doğrudan SUNUCUYA
+    // gönderilir. Çevrimdışıyken işlem yapılmaz ve kullanıcıya açık uyarı gösterilir.
+    // Sunucu, talebin onay ZİNCİRİ varsa kararı zincire göre uygular; yoksa bugünkü tek-adımlı
+    // davranış birebir sürer.
     [RelayCommand]
     private async System.Threading.Tasks.Task Approve()
-        => await Act(id => DesktopServices.Requests.Approve(_session, id), "Talep onaylandı.",
+        => await OnayAct(id => OnlineApprovalClient.ApproveAsync(id), "Talep onaylandı.",
             $"\"{Selected?.DocNo}\" talebini ONAYLAMAK istiyor musunuz?");
 
     [RelayCommand]
@@ -393,8 +398,24 @@ public sealed partial class RequestsViewModel : ViewModelBase
     {
         if (Selected is null) { Status = "Talep seçin."; return; }
         if (string.IsNullOrWhiteSpace(RejectReason)) { Status = "Ret gerekçesi zorunlu."; return; }
-        await Act(id => DesktopServices.Requests.Reject(_session, id, RejectReason.Trim()), "Talep reddedildi.",
+        var gerekce = RejectReason.Trim();
+        await OnayAct(id => OnlineApprovalClient.RejectAsync(id, gerekce), "Talep reddedildi.",
             $"\"{Selected.DocNo}\" talebini REDDETMEK istiyor musunuz?");
+    }
+
+    /// <summary>Onay/ret akışı — SUNUCU otoritesinde. Başarısızlıkta yerelde hiçbir değişiklik olmaz.</summary>
+    private async System.Threading.Tasks.Task OnayAct(
+        Func<string, System.Threading.Tasks.Task<(bool Ok, string Message)>> islem, string ok, string? confirm)
+    {
+        if (Selected is null) { Status = "Talep seçin."; return; }
+        if (confirm is not null && !await ConfirmService.AskAsync(confirm, "Onay")) return;
+        var id = Selected.Id;
+        var (basarili, mesaj) = await islem(id);
+        if (!basarili) { Status = mesaj; return; }
+        RejectReason = "";
+        // Sunucudaki karar yerele senkronla iner; listeyi hemen tazeleyip kullanıcıya sonucu gösteriyoruz.
+        Load();
+        Status = ok;
     }
 
     /// <summary>

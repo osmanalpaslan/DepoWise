@@ -1140,6 +1140,20 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Rapor Tasarımcısı";
                 CurrentContext = "Kendi raporunuz: kaynak + kolon + filtre seçimi (SQL yazılmaz)";
                 break;
+            // ⭐ ARA İŞ 5 / ALT FAZ 3 (ADR-189): Onaylamalarım — kullanıcıya düşen onay adımları.
+            // Veri ve karar SUNUCUDADIR (onay senkron dışı); ekran yalnız çevrimiçi çalışır (İK-9).
+            case "approvals":
+                CurrentPage = new ApprovalsViewModel(_session);
+                CurrentTitle = "Onaylamalarım";
+                CurrentContext = "Size atanmış bekleyen onaylar — onay yalnız çevrimiçi verilebilir";
+                break;
+            // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): Ekipler — SALT OKUNUR. Ekip verisi sunucu otoriteli
+            // olduğu için masaüstünde değiştirilmez; tanımlama web'de, buraya lookup aynasıyla iner.
+            case "users:teams":
+                CurrentPage = new TeamsViewModel(_session);
+                CurrentTitle = "Ekipler";
+                CurrentContext = "Ekip ve üyeleri (görüntüleme) — tanımlama web üzerinden yapılır";
+                break;
             // STN-01 (ADR-169): Satın Alma — sipariş + mal kabul; yerel + senkron.
             case "purchasing":
                 CurrentPage = new PurchasingViewModel(_session);

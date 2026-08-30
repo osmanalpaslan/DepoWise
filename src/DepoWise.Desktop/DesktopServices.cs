@@ -76,6 +76,9 @@ public static class DesktopServices
     public static ReportService Reports { get; private set; } = null!;
     /// <summary>⭐ ARA İŞ 4 (ADR-186): custom rapor tanımları — çevrimdışı da çalışır (yerel SQLite).</summary>
     public static CustomReportService CustomReports { get; private set; } = null!;
+    /// <summary>ARA IS 5 / ALT FAZ 1 (ADR-187): ekip aynasi. Masaustunde SALT OKUNUR kullanilir --
+    /// ekip verisi sunucu otoritelidir, yerelde degistirilmez.</summary>
+    public static DepoWise.Infrastructure.Teams.TeamService Teams { get; private set; } = null!;
     public static ExcelExportService Excel { get; private set; } = null!;
     public static MaterialImportService MaterialImport { get; private set; } = null!;
     public static DepoWise.Infrastructure.Files.TrashService Trash { get; private set; } = null!;
@@ -202,6 +205,7 @@ public static class DesktopServices
         // bağlayıcısı burada da kurulur → tanım senkronla yerele indiğinde rapor ÇEVRİMDIŞI çalışır.
         CustomReports = new CustomReportService(Factory, Materials, Vehicles, DailyActivity, clock);
         Reports.Custom = CustomReports;
+        Teams = new DepoWise.Infrastructure.Teams.TeamService(Factory, clock);
         Excel = new ExcelExportService();
         Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         Audit = new AuditLogService(Factory);

@@ -67,6 +67,14 @@ public sealed class RequestService
     private readonly StockService _stock;
     private readonly IClock _clock;
 
+    /// <summary>
+    /// ⭐ ARA İŞ 5 / ALT FAZ 2 (ADR-187, İK-3): OPSİYONEL onay zinciri motoru.
+    /// <b>null olabilir</b> — masaüstünün çevrimdışı yolunda ve zincir kurulmamış kurulumlarda
+    /// bağlanmaz; o durumda bu servis <b>bugünkü tek-adımlı davranışını BİREBİR sürdürür</b>.
+    /// Bağlıysa bile talebi başlatan kişinin hiyerarşide üstü yoksa zincir OLUŞMAZ.
+    /// </summary>
+    public DepoWise.Infrastructure.Approvals.ApprovalService? Approvals { get; set; }
+
     public RequestService(IDbConnectionFactory factory, StockService stock, IClock? clock = null)
     {
         _factory = factory;
@@ -125,6 +133,8 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
         }
         WriteHistory(conn, tx, id, null, status, s.UserId, null, now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", id, AuditActions.Create, s.UserId), _clock);
+        // ⭐ Doğrudan onaya gönderilen talepte zincir BURADA başlar (aynı transaction → yarım durum yok).
+        if (status == RequestStatus.Pending) ZinciriBaslat(conn, tx, s, id, now);
         tx.Commit();
         return new RequestHeader(id, docNo, status, s.CompanyId);
     }
@@ -251,6 +261,9 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
 
     public void Approve(SessionContext s, string requestId)
     {
+        // ⭐ ARA İŞ 5 / ALT FAZ 2: bu talebin AÇIK bir onay ZİNCİRİ varsa tek-adımlı yol KAPALIDIR —
+        // aksi hâlde zincir sessizce atlanır (güvenlik açığı). Zincir yoksa aşağısı BİREBİR eskisi gibi.
+        EnsureNoOpenChain(s, requestId);
         // Onay ayrı ekran/yetki: "Talep Onaylama" (request_approval). Form (requests) Edit'i YETMEZ.
         EnsureIsDesignatedApprover(s, requestId);
         // Onaylanınca operasyon süreci BAŞLAR: operation_status = Beklemede (kullanıcı kararı B, 2026-08-08).
@@ -261,8 +274,55 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
     public void Reject(SessionContext s, string requestId, string reason)
     {
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Ret gerekçesi zorunlu.");
+        EnsureNoOpenChain(s, requestId);
         EnsureIsDesignatedApprover(s, requestId);
         Transition(s, requestId, RequestStatus.Rejected, PermissionAction.Edit, reason, gateModule: ApprovalModule);
+    }
+
+    /// <summary>
+    /// ⭐ ARA İŞ 5 / ALT FAZ 2 — ZİNCİR BYPASS KAPISI.
+    ///
+    /// Talep için AÇIK bir <c>approval_instance</c> varsa tek-adımlı <see cref="Approve"/>/<see cref="Reject"/>
+    /// yolu KAPALIDIR: karar zincirin adımları üzerinden verilir. Bu kapı olmasaydı zinciri olan bir talep
+    /// eski ekrandan tek hamlede onaylanır ve zincir anlamsızlaşırdı.
+    ///
+    /// <b>Zincir yoksa hiçbir şey değişmez</b> (İK-3 opsiyonellik): kapı sessizce geçer.
+    /// <b>Motor bağlı değilse</b> (masaüstü/çevrimdışı yol) tablo dahi sorgulanmaz — eski istemci ve
+    /// zincirsiz kurulum etkilenmez.
+    /// </summary>
+    private void EnsureNoOpenChain(SessionContext s, string requestId)
+    {
+        if (Approvals is null) return;
+        using var conn = _factory.Create();
+        if (!DbIntrospect.TableExists(conn, null, "approval_instance")) return;   // Migration085 yoksa
+        var acik = DepoWise.Infrastructure.Approvals.ApprovalService.OpenInstanceId(
+            conn, null, s.CompanyId, DepoWise.Application.Approvals.ApprovalEntityTypes.MaterialRequest, requestId);
+        if (acik is not null)
+            throw new InvalidOperationException(
+                "Bu talep onay zincirine bağlı: karar 'Onaylarım' akışındaki kendi adımınızdan verilir.");
+    }
+
+    /// <summary>Zincir başlatma yardımcısı — talebi OLUŞTURAN kullanıcı üzerinden hiyerarşi çözülür.</summary>
+    private void ZinciriBaslat(DbConnection conn, DbTransaction tx, SessionContext s, string requestId, long now)
+    {
+        if (Approvals is null) return;
+        if (!DbIntrospect.TableExists(conn, tx, "approval_instance")) return;
+        Approvals.Start(conn, tx, s, DepoWise.Application.Approvals.ApprovalEntityTypes.MaterialRequest,
+            requestId, s.UserId, now);
+    }
+
+    /// <summary>
+    /// ⭐ Zincir TAMAMLANDIĞINDA motorun çağırdığı bağlayıcı. Talebin kendi durumu AYNI transaction'da,
+    /// mevcut <see cref="Transition"/> çekirdeğiyle (durum makinesi + geçmiş + audit) güncellenir →
+    /// onaylı talepte operasyon süreci de bugünkü gibi başlar. Yetki ve adım sahipliği kapıları
+    /// motorda GEÇİLMİŞTİR; burada tekrar onaycı kısıtı UYGULANMAZ (zincir zaten karar vermiştir).
+    /// </summary>
+    public void ApplyChainDecision(DbConnection conn, DbTransaction tx, SessionContext s,
+        string requestId, bool approved, string? reason, long now)
+    {
+        var hedef = approved ? RequestStatus.Approved : RequestStatus.Rejected;
+        TransitionTx(conn, tx, s, requestId, hedef, reason, setApproval: approved,
+            startOperations: approved, now: now);
     }
 
     /// <summary>
@@ -450,7 +510,18 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
+        TransitionTx(conn, tx, s, requestId, to, reason, setApproval, startOperations, now);
+        tx.Commit();
+    }
 
+    /// <summary>
+    /// Durum geçişinin ÇEKİRDEĞİ — çağıranın transaction'ı içinde çalışır. Böylece onay zinciri
+    /// tamamlandığında talebin durumu, geçmişi ve audit'i süreç kapanışıyla AYNI transaction'da yazılır.
+    /// Davranış <see cref="Transition"/> ile birebir aynıdır (durum makinesi, tenant, geçmiş, audit).
+    /// </summary>
+    private void TransitionTx(DbConnection conn, DbTransaction tx, SessionContext s, string requestId,
+        RequestStatus to, string? reason, bool setApproval, bool startOperations, long now)
+    {
         var (from, companyId) = LoadStatusTx(conn, tx, s.CompanyId, requestId);
         TenantAccessGuard.EnsureOwnership(s, companyId);
         if (!RequestStatusMachine.CanTransition(from, to))
@@ -474,7 +545,8 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
         WriteHistory(conn, tx, requestId, from, to, s.UserId, reason, now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId,
             AfterJson: $"{{\"status\":\"{RequestStatusMachine.ToDb(to)}\"}}"), _clock);
-        tx.Commit();
+        // ⭐ Onaya gönderim anı = sürecin BAŞLANGICI (PK-EK-04 snapshot burada dondurulur).
+        if (to == RequestStatus.Pending) ZinciriBaslat(conn, tx, s, requestId, now);
     }
 
     private (RequestStatus Status, string CompanyId) LoadStatus(SessionContext s, string requestId)

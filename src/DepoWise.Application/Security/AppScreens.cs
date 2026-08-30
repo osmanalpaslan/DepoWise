@@ -176,6 +176,11 @@ public static class AppScreens
         // ── Talepler (en üst seviye, üst grubu yok — kullanıcı şeması 2026-08-19) ────────────
         new AppScreen("requests.form", "requests", "Talepler", "Talep Formu", Both, "requests", "requests:form"),
         new AppScreen("requests.approve", "request_approval", "Talepler", "Talep Onaylama", Both, "requests/approve", "requests:approve", WebPermOverride: "requests"),
+        // ⭐ ARA İŞ 5 / ALT FAZ 3 (ADR-187/188/189): "Onaylamalarım" — kullanıcıya DÜŞEN onay adımları.
+        // YENİ YETKİ MODÜLÜ YOK: mevcut "Talep Onaylama" (request_approval) modülüne bağlıdır.
+        // Liste zaten yalnız kullanıcının KENDİ snapshot adımlarını içerir; gerçek onay/ret eylemi
+        // varlığın kendi modülünden geçer (request_approval / purchasing) — ekranda görünmek yetki değildir.
+        new AppScreen("approvals", "request_approval", "Talepler", "Onaylamalarım", Both, "approvals", "approvals"),
         new AppScreen("request_ops", "request_ops", "Talepler", "Talep Operasyonları", Both, "request-operations", "request_ops:board"),
 
         // ═══ FİNANS ═════════════════════════════════════════════════════════════════════════
@@ -240,6 +245,9 @@ public static class AppScreens
 
         // ── Kullanıcı Yönetimi ──────────────────────────────────────────────────────────────
         new AppScreen("users", "users", "Kullanıcı Yönetimi", "Kullanıcı Tanım", Both, "users", "users"),
+        // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187, PK-EK-07=B): ekipler AYRI EKRAN ama AYRI YETKİ MODÜLÜ DEĞİL —
+        // ModuleKey = "users" (yeni `teams` modülü OLUŞTURULMAZ). `reports.designer` ile aynı içtihat.
+        new AppScreen("teams", "users", "Kullanıcı Yönetimi", "Ekipler", Both, "teams", "users:teams"),
         new AppScreen("permissions", "permissions", "Kullanıcı Yönetimi", "Yetkiler", Both, "permissions", "permissions"),
         new AppScreen("permission_templates", "permission_templates", "Kullanıcı Yönetimi", "Yetki Şablonları", Both, "permission-templates", "permission_templates"),
 

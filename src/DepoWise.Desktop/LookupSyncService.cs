@@ -61,6 +61,8 @@ public static class LookupSyncService
             Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, "brand_id");
             Upsert(conn, tx, "branches", root, "branches", companyId!, now, "kind", "parent_id");
             ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
+            ApplyTeams(conn, tx, root, companyId!, now);        // ARA IS 5 / ALT FAZ 1: ekip aynasi
+            ApplyHierarchy(conn, tx, root, companyId!, now);    // ARA IS 5 / ALT FAZ 2: hiyerarsi aynasi
             tx.Commit();
         }
         catch { /* senkron başarısızsa giriş akışı etkilenmez */ }
@@ -99,6 +101,8 @@ public static class LookupSyncService
             Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, "brand_id");
             Upsert(conn, tx, "branches", root, "branches", companyId!, now, "kind", "parent_id");
             ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
+            ApplyTeams(conn, tx, root, companyId!, now);        // ARA IS 5 / ALT FAZ 1: ekip aynasi
+            ApplyHierarchy(conn, tx, root, companyId!, now);    // ARA IS 5 / ALT FAZ 2: hiyerarsi aynasi
             tx.Commit();
             progress?.Invoke(100);
             return true;
@@ -215,6 +219,155 @@ public static class LookupSyncService
     /// arac modeli markasini, alt kategori ustunu kaybediyordu. Kayip sonra push ile SUNUCUYA da
     /// tasiniyordu (yerel <c>updated_at</c> "simdi" damgalandigi icin LWW yerel satiri yeni sayar).
     /// </summary>
+    /// <summary>
+    /// ═══ ARA İŞ 5 / ALT FAZ 1 (ADR-187) — EKİP AYNASINI YERELE İNDİR ═══
+    ///
+    /// Ekip verisi <b>sunucu otoritelidir</b>: masaüstü ekip/üyelik YAZMAZ, yalnız okur. Bu yüzden
+    /// menü ayarlarındaki gibi <b>DEĞİŞTİRME (replace)</b> uygulanır — upsert değil: sunucuda silinen
+    /// ekip ya da çıkarılan üye yerelde de düşmeli. LWW veya çakışma modeli KURULMAZ ve
+    /// <c>sync_outbox</c>'a hiçbir şey yazılmaz.
+    ///
+    /// <b>Genel <see cref="Upsert"/> neden kullanılmıyor:</b> o yardımcı her satırda <c>name</c>
+    /// kolonu bekler; <c>team_members</c>'ta <c>name</c> yoktur.
+    ///
+    /// <b>ÇEVRİMDIŞI / ESKİ SÜRÜM GÜVENLİĞİ:</b> alan yanıtta hiç YOKSA (eski sunucu) yerele
+    /// DOKUNULMAZ; yerel veritabanında tablo YOKSA (Migration084 uygulanmamış eski istemci) işlem
+    /// sessizce atlanır → eski istemci bozulmaz.
+    ///
+    /// <b>SIRA:</b> silme üyeden ebeveyne, yazma ebeveynden üyeye — <c>team_members → teams</c> FK'si
+    /// yerelde <c>foreign_keys=ON</c> altında zorunludur. <c>user_id</c>/<c>lead_user_id</c> yerelde
+    /// FK DEĞİLDİR (<c>users</c> masaüstüne inmez) → kullanıcı satırı olmadan da ayna tutarlıdır.
+    /// </summary>
+    private static void ApplyTeams(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
+        JsonElement root, string companyId, long now)
+    {
+        if (!root.TryGetProperty("teams", out var teams) || teams.ValueKind != JsonValueKind.Array) return;
+        if (!DepoWise.Infrastructure.Database.DbIntrospect.TableExists(conn, tx, "teams")) return;
+        if (!DepoWise.Infrastructure.Database.DbIntrospect.TableExists(conn, tx, "team_members")) return;
+
+        Sil("team_members");
+        Sil("teams");
+
+        foreach (var row in teams.EnumerateArray())
+        {
+            var id = Str(row, "id");
+            var name = Str(row, "name");
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name)) continue;
+            try
+            {
+                using var ins = conn.CreateCommand();
+                ins.Transaction = tx;
+                ins.CommandText =
+                    "INSERT INTO teams(id, company_id, name, lead_user_id, is_active, " +
+                    "created_at, updated_at, version, is_deleted) VALUES(@i,@c,@n,@l,@a,@now,@now,1,0);";
+                ins.AddWithValue("@i", id);
+                ins.AddWithValue("@c", companyId);
+                ins.AddWithValue("@n", name);
+                var lead = Str(row, "lead_user_id");
+                ins.AddWithValue("@l", string.IsNullOrEmpty(lead) ? DBNull.Value : lead);
+                ins.AddWithValue("@a", Bayrak(row, "is_active", varsayilan: 1L));
+                ins.AddWithValue("@now", now);
+                ins.ExecuteNonQuery();
+            }
+            catch { /* tek bozuk satır tüm aynayı düşürmesin */ }
+        }
+
+        if (!root.TryGetProperty("teamMembers", out var members) || members.ValueKind != JsonValueKind.Array) return;
+        foreach (var row in members.EnumerateArray())
+        {
+            var id = Str(row, "id");
+            var teamId = Str(row, "team_id");
+            var userId = Str(row, "user_id");
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(teamId) || string.IsNullOrEmpty(userId)) continue;
+            try
+            {
+                using var ins = conn.CreateCommand();
+                ins.Transaction = tx;
+                ins.CommandText =
+                    "INSERT INTO team_members(id, company_id, team_id, user_id, is_lead, " +
+                    "created_at, updated_at, version, is_deleted) VALUES(@i,@c,@t,@u,@l,@now,@now,1,0);";
+                ins.AddWithValue("@i", id);
+                ins.AddWithValue("@c", companyId);
+                ins.AddWithValue("@t", teamId);
+                ins.AddWithValue("@u", userId);
+                ins.AddWithValue("@l", Bayrak(row, "is_lead", varsayilan: 0L));
+                ins.AddWithValue("@now", now);
+                ins.ExecuteNonQuery();
+            }
+            catch { /* ebeveyni düşmüş üyelik satırı atlanır */ }
+        }
+
+        void Sil(string table)
+        {
+            using var del = conn.CreateCommand();
+            del.Transaction = tx;
+            del.CommandText = $"DELETE FROM {table} WHERE company_id=@c;";
+            del.AddWithValue("@c", companyId);
+            del.ExecuteNonQuery();
+        }
+
+        static long Bayrak(JsonElement row, string key, long varsayilan)
+        {
+            if (!row.TryGetProperty(key, out var v)) return varsayilan;
+            return v.ValueKind switch
+            {
+                JsonValueKind.True => 1L,
+                JsonValueKind.False => 0L,
+                JsonValueKind.Number => v.TryGetInt64(out var n) && n != 0 ? 1L : 0L,
+                _ => varsayilan,
+            };
+        }
+    }
+
+    /// <summary>
+    /// ═══ ARA İŞ 5 / ALT FAZ 2 (ADR-187, PK-EK-02) — HİYERARŞİ AYNASINI YERELE İNDİR ═══
+    ///
+    /// Ekip aynasıyla AYNI sözleşme: <b>sunucu otoriteli</b>, masaüstü YAZMAZ, <b>replace</b> semantiği
+    /// (sunucuda kaldırılan ilişki yerelde de düşer), sunucu kimlikleri korunur, tablo yoksa
+    /// <b>sessizce atlanır</b> (Migration085 uygulanmamış eski istemci bozulmaz).
+    ///
+    /// <b>ONAY BURAYA GİRMEZ:</b> <c>approval_instance</c>/<c>approval_step</c> hiçbir senkron yoluna
+    /// dâhil değildir — onay yalnız çevrimiçi ve yalnız sunucuda yürür (PK-EK-05 / İK-9).
+    /// Hiyerarşi yalnız GÖRÜNÜRLÜK içindir; masaüstünde onay kararı üretmez.
+    /// </summary>
+    private static void ApplyHierarchy(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
+        JsonElement root, string companyId, long now)
+    {
+        if (!root.TryGetProperty("userHierarchy", out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+        if (!DepoWise.Infrastructure.Database.DbIntrospect.TableExists(conn, tx, "user_hierarchy")) return;
+
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM user_hierarchy WHERE company_id=@c;";
+            del.AddWithValue("@c", companyId);
+            del.ExecuteNonQuery();
+        }
+
+        foreach (var row in arr.EnumerateArray())
+        {
+            var id = Str(row, "id");
+            var userId = Str(row, "user_id");
+            var managerId = Str(row, "manager_user_id");
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(managerId)) continue;
+            try
+            {
+                using var ins = conn.CreateCommand();
+                ins.Transaction = tx;
+                ins.CommandText =
+                    "INSERT INTO user_hierarchy(id, company_id, user_id, manager_user_id, " +
+                    "created_at, updated_at, version, is_deleted) VALUES(@i,@c,@u,@m,@now,@now,1,0);";
+                ins.AddWithValue("@i", id);
+                ins.AddWithValue("@c", companyId);
+                ins.AddWithValue("@u", userId);
+                ins.AddWithValue("@m", managerId);
+                ins.AddWithValue("@now", now);
+                ins.ExecuteNonQuery();
+            }
+            catch { /* tek bozuk satır tüm aynayı düşürmesin */ }
+        }
+    }
+
     private static void Upsert(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
         string table, JsonElement root, string jsonKey, string companyId, long now, params string[] extra)
     {
