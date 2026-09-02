@@ -531,18 +531,60 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         SelectedAlert = null;   // aynı satıra ikinci kez tıklanabilsin (seçim takılı kalmasın)
     }
 
-    /// <summary>Uyarıdan bakım kaydına köprü: önce (araç + bakım tanımı), bulunamazsa yalnız araç eşleşir.
-    /// Hiç bakım kaydı yoksa (ilk bakım bekleyen uyarı) kullanıcıya bunu açıkça söyler.</summary>
+    /// <summary>
+    /// Uyarıdan bakım kaydına köprü — <b>KİMLİKLE</b> eşleşir.
+    ///
+    /// ⚠️ 2026-09-02 DÜZELTMESİ (kullanıcı bildirimi: "10.000 bakıma tıklıyorum, 100.000'lik başka bir
+    /// bakıma yönlendiriyor"). Önceki sürüm (araç + bakım ADI) ile arıyor, bulamazsa <b>yalnız araca</b>
+    /// düşüp o aracın EN YENİ bakımını açıyordu. "Hiç yapılmamış" uyarılarda eşleşme zaten YOKTUR →
+    /// her seferinde alakasız bir kayıt açılıyordu (canlıda 75 "hiç yapılmamış" uyarının 23'ü, başka
+    /// bakım kaydı olan araçlarda — yani bu yol gerçekten tetikleniyordu).
+    ///
+    /// Artık uyarı, dayandığı bakım kaydının KİMLİĞİNİ taşır (<see cref="MaintenanceAlertRow.MaintenanceId"/>):
+    /// kimlik yoksa <b>hiçbir kayıt açılmaz</b>, kullanıcıya "ilk bakım bekliyor" denir. Kimlik varsa
+    /// kayıt listede yoksa (liste sınırı) o aracın kayıtları getirilip yeniden aranır — sessiz yanlış
+    /// eşleşme mümkün değildir.
+    /// </summary>
     public void OpenAlert(MaintenanceAlertRow row)
     {
         SelectedTab = 1;                       // Araç Bakımları
         if (Maintenances.Count == 0) LoadMaint();
-        var hit = Maintenances.FirstOrDefault(m => m.VehicleId == row.VehicleId && m.DefinitionName == row.Definition)
-                  ?? Maintenances.FirstOrDefault(m => m.VehicleId == row.VehicleId);
+
+        if (string.IsNullOrEmpty(row.MaintenanceId))
+        {
+            // İlk bakım bekleyen uyarı: açılacak kayıt YOK. Yanlış kayıt açmak yerine listeyi o araca
+            // daraltıp durumu söylüyoruz — kullanıcı aracın mevcut bakımlarını yine de görebilir.
+            AracaDaralt(row.VehicleId);
+            SelectedMaint = null;
+            Status = $"{row.VehicleCode} · \"{row.Definition}\" için henüz bakım kaydı yok (ilk bakım bekliyor). " +
+                     "Liste bu aracın kayıtlarına daraltıldı.";
+            return;
+        }
+
+        var hit = Maintenances.FirstOrDefault(m => m.Id == row.MaintenanceId);
+        if (hit is null)
+        {
+            AracaDaralt(row.VehicleId);        // liste sınırı dışında kalmış olabilir
+            hit = Maintenances.FirstOrDefault(m => m.Id == row.MaintenanceId);
+        }
+
         SelectedMaint = hit;
         Status = hit is null
-            ? $"{row.VehicleCode} · \"{row.Definition}\" için henüz bakım kaydı yok (ilk bakım bekliyor)."
+            ? $"{row.VehicleCode} · \"{row.Definition}\" kaydı bulunamadı (silinmiş veya yetki dışı olabilir)."
             : $"{row.VehicleCode} · \"{row.Definition}\" bakım kaydı açıldı.";
+    }
+
+    /// <summary>Bakım listesini TEK araca daraltır. "Yenile" (LoadMaint) tam listeye geri döner.</summary>
+    private void AracaDaralt(string vehicleId)
+    {
+        try
+        {
+            Maintenances.Clear();
+            foreach (var r in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) Maintenances.Add(r);
+            OnPropertyChanged(nameof(MaintEmpty));
+            OnPropertyChanged(nameof(HasMaint));
+        }
+        catch (Exception ex) { MaintError = ex.Message; }
     }
 
     private void LoadMntPickers()
@@ -733,7 +775,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 var code = codes.TryGetValue(a.VehicleId, out var c) ? c : a.VehicleId;
                 plates.TryGetValue(a.VehicleId, out var plate);
                 Items.Add(new MaintenanceAlertRow(code, a.DefinitionName, a.Level, a.Progress, a.Consumed,
-                    a.Interval, a.VehicleId, plate));
+                    a.Interval, a.VehicleId, plate, a.MaintenanceId));
             }
         }
         catch (Exception ex) { LoadError = ex.Message; }
@@ -858,7 +900,9 @@ public sealed partial class MntMaterialLine : ObservableObject
 }
 
 public sealed record MaintenanceAlertRow(string VehicleCode, string Definition, AlertLevel Level,
-    double Progress, decimal Consumed, decimal Interval, string VehicleId = "", string? Plate = null)
+    double Progress, decimal Consumed, decimal Interval, string VehicleId = "", string? Plate = null,
+    // Uyarının dayandığı bakım kaydının kimliği; "hiç yapılmamış" uyarıda null (bkz. OpenAlert).
+    string? MaintenanceId = null)
 {
     /// <summary>Plakası olmayan araçta boş kutu yerine tire gösterilir (kolon hizası bozulmasın).</summary>
     public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;

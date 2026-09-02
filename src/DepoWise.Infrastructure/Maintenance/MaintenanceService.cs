@@ -35,7 +35,13 @@ public sealed record NewMaintenance(
 
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
-    bool NeverPerformed = false);   // araca atanmış ama HİÇ yapılmamış bakım → "ilk bakım bekliyor" (2026-07-25)
+    bool NeverPerformed = false,   // araca atanmış ama HİÇ yapılmamış bakım → "ilk bakım bekliyor" (2026-07-25)
+    // ⭐ 2026-09-02: uyarının DAYANDIĞI bakım kaydının kimliği — "uyarıya tıkla, kaydı aç" köprüsü bunu
+    // kullanır. Önceden köprü (araç + bakım ADI) ile eşleştirmeye çalışıyordu; eşleşme bulunamayınca
+    // aracın EN YENİ bakımına düşüyor ve ALAKASIZ bir kayıt açıyordu (kullanıcı bildirimi: "10.000'e
+    // tıklıyorum 100.000 açılıyor"). Kimlik taşınınca tahmin gerekmez.
+    // HİÇ YAPILMAMIŞ uyarıda null'dır → çağıran "kayıt yok" der, yanlış kayıt AÇMAZ.
+    string? MaintenanceId = null);
 
 public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
@@ -311,11 +317,11 @@ public sealed class MaintenanceService
         // Kolon sırası AYNI (okuyucu değişmedi): 0..10 = vehicle_id..created_at.
         cmd.CommandText = @"
 SELECT vehicle_id, maintenance_def_id, name, interval_value, interval_unit,
-       performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at
+       performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at, maintenance_id
 FROM (
     SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
            vm.performed_km, vm.performed_hour, vm.performed_date,
-           v.current_meter, v.meter_unit, vm.created_at,
+           v.current_meter, v.meter_unit, vm.created_at, vm.id AS maintenance_id,
            ROW_NUMBER() OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS rn
     FROM vehicle_maintenances vm
     JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
@@ -350,7 +356,8 @@ WHERE rn = 1;";
             };
             if (consumed < 0) consumed = 0;
             var progress = AlertRules.Progress(consumed, interval);
-            list.Add(new MaintenanceAlert(vehicleId, defId, defName, AlertRules.Level(progress), progress, consumed, interval));
+            list.Add(new MaintenanceAlert(vehicleId, defId, defName, AlertRules.Level(progress), progress, consumed, interval,
+                MaintenanceId: r.IsDBNull(11) ? null : r.GetString(11)));
         }
 
         // HİÇ YAPILMAMIŞ atanmış bakımlar (2026-07-25 kullanıcı bulgusu: "bakım periyodu doldu ama uyarı çıkmadı"):

@@ -9,6 +9,7 @@
 @* Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02) *@
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -186,7 +187,19 @@
 
     @if (_sec == "records" && _hedef == "vehicle")
     {
-        @if (Auth.CanCreate("maintenance"))
+        @* İNCELEME MODU (kullanıcı isteği 2026-09-02): uyarıdan yeni sekmede açılan kayıt.
+           Yeni kayıt formu GİZLENİR — aksi hâlde ekran "yeni kayıt formu" gibi açılıyordu. *@
+        @if (_viewMode)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Visibility">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                    <span>İnceleme modu — bakım uyarısından açılan kayıt sağdaki panelde gösteriliyor.</span>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               OnClick="@(() => Nav.NavigateTo("/maintenance/records"))">İncelemeden Çık</MudButton>
+                </MudStack>
+            </MudAlert>
+        }
+        @if (Auth.CanCreate("maintenance") && !_viewMode)
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:820px;">
                 <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ BAKIM KAYDI</MudText>
@@ -427,6 +440,12 @@
 
 @code {
     [Parameter] public string? Section { get; set; }
+
+    /// <summary>İNCELEME MODU (kullanıcı isteği 2026-09-02): <c>/maintenance/records?view=&lt;bakımId&gt;</c>.
+    /// Bakım uyarısı YENİ SEKMEDE bu adresi açar; sayfa yeni kayıt formunu göstermez, ilgili kaydı seçer.</summary>
+    [SupplyParameterFromQuery(Name = "view")] public string? ViewId { get; set; }
+    private bool _viewMode => !string.IsNullOrWhiteSpace(ViewId);
+    private string? _uygulananView;   // aynı kaydı iki kez seçmeye çalışma
     private string _sec => (Section ?? "records").ToLowerInvariant();
     private string SecTitle => _sec switch { "defs" => "Bakım Tanımları", "alerts" => "Uyarılar", _ => "Araç Bakımları" };
 
@@ -538,7 +557,23 @@
         await LoadLocations();
         await LoadDefs(); await LoadMaint(); await LoadAlerts();
         await EqmYukle();   // 7b: ekipman hedefi verisi (araç yüklemeleri değişmedi)
+        await ViewParametresiniUygula();
     }
+
+    /// <summary>Adreste <c>?view=</c> varsa o bakım kaydını seçer (inceleme modu). Kayıt listede yoksa
+    /// kullanıcı sessiz bırakılmaz — silinmiş/yetki dışı olabileceği söylenir.</summary>
+    private async Task ViewParametresiniUygula()
+    {
+        if (!_viewMode || _uygulananView == ViewId) return;
+        _uygulananView = ViewId;
+        _hedef = "vehicle";                     // 7b ekipman hedefi açıksa araç hedefine dön
+        if (_maint is null) await LoadMaint();
+        var hit = (_maint ?? Array.Empty<JsonElement>()).FirstOrDefault(m => Str(m, "id") == ViewId);
+        if (hit.ValueKind != JsonValueKind.Undefined) await OpenMaint(hit);
+        else Snackbar.Add("Bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir).", Severity.Warning);
+    }
+
+    protected override async Task OnParametersSetAsync() => await ViewParametresiniUygula();
 
     /// <summary>BKM-04: depo seçenekleri (oturumda TEK indirme — LocationOptions önbellekli, N+1 yok)
     /// + varsayılanın oturum şubesine ayarlanması. Varsayılan YALNIZ burada, bir kez atanır.</summary>
@@ -678,26 +713,35 @@
         try { _maintMaterials = await Api.GetArrayAsync($"/api/maintenance/{id}/materials"); } catch { _maintMaterials = Array.Empty<JsonElement>(); }
     }
 
-    /// <summary>Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02). Araç Bakımları bölümüne geçer ve
-    /// uyarıya sebep olan kaydı inceleme panelinde açar. Önce (araç + bakım tanımı), bulunamazsa yalnız araç
-    /// eşleşir; hiç kayıt yoksa (ilk bakım bekleyen uyarı) kullanıcıya açıkça bildirilir.
-    /// <c>forceLoad</c> KULLANILMAZ: bileşen aynıdır, yalnız Section parametresi değişir → yüklü veri korunur.</summary>
+    /// <summary>
+    /// Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02, 2026-09-02'de DÜZELTİLDİ).
+    ///
+    /// ⚠️ İlk sürüm aynı sekmede <c>/maintenance/records</c>'a gidiyordu; o bölümün EN ÜSTÜ "YENİ BAKIM
+    /// KAYDI" formudur → ekran "yeni kayıt formu" gibi açılıyordu (kullanıcı bildirimi). Ayrıca kayıt
+    /// (araç + bakım ADI) ile aranıyor, bulunamazsa aracın başka bir bakımına düşüyordu.
+    ///
+    /// Artık: uyarı, dayandığı kaydın KİMLİĞİNİ taşır (<c>maintenanceId</c>) ve kayıt
+    /// <b>YENİ SEKMEDE, İNCELEME MODUNDA</b> açılır (<c>?view=</c>). Kimlik yoksa hiçbir kayıt açılmaz.
+    /// </summary>
     private async Task OpenAlert(JsonElement alert)
     {
-        var vid = Str(alert, "vehicleId");
+        var mid = Str(alert, "maintenanceId");
         var def = Str(alert, "definition");
         var code = Str(alert, "vehicleCode");
-        if (_maint is null) await LoadMaint();
 
-        var liste = _maint ?? Array.Empty<JsonElement>();
-        var hit = liste.FirstOrDefault(m => Str(m, "vehicleId") == vid && Str(m, "definitionName") == def);
-        if (hit.ValueKind == JsonValueKind.Undefined)
-            hit = liste.FirstOrDefault(m => Str(m, "vehicleId") == vid);
+        if (string.IsNullOrWhiteSpace(mid))
+        {
+            Snackbar.Add($"{code} · \"{def}\" için henüz bakım kaydı yok (ilk bakım bekliyor).", Severity.Info);
+            return;
+        }
 
-        _hedef = "vehicle";                       // 7b ekipman hedefi açıksa araç hedefine dön
-        Nav.NavigateTo("/maintenance/records");
-        if (hit.ValueKind != JsonValueKind.Undefined) await OpenMaint(hit);
-        else Snackbar.Add($"{code} · \"{def}\" için henüz bakım kaydı yok (ilk bakım bekliyor).", Severity.Info);
+        var url = $"/maintenance/records?view={Uri.EscapeDataString(mid)}";
+        try
+        {
+            if (await JS.InvokeAsync<bool>("dwOpenInNewTab", url)) return;
+        }
+        catch { /* JS erişilemedi → aynı sekmede aç */ }
+        Nav.NavigateTo(url);   // yeni sekme engellendiyse güvenli dönüş (yine inceleme modu)
     }
 
     private async Task SaveMnt()

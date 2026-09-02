@@ -3620,6 +3620,9 @@ app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
         return new
         {
             vehicleId = a.VehicleId,
+            // Uyarının DAYANDIĞI bakım kaydı — "uyarıya tıkla, kaydı incele" köprüsü bunu kullanır.
+            // "Hiç yapılmamış" uyarıda null'dır; arayüz o zaman kayıt açmaz, açıklama gösterir.
+            maintenanceId = a.MaintenanceId,
             vehicleCode = v?.InternalCode ?? a.VehicleId,
             plate = string.IsNullOrWhiteSpace(v?.Plate) ? "—" : v!.Plate!,
             definition = a.DefinitionName,

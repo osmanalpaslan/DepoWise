@@ -3727,3 +3727,56 @@ yalnız Süper Admin'e açık · geçersiz checksum mevcut kaydı bozmaz.
 `app_releases` içinde 1.0.168 için **tek satır**, checksum ve paket boyutu **değişmedi**
 (`C355B854…AE3577B5` · 90.496.541 bayt), canlı veri birebir aynı (malzeme 2492 · araç 166 ·
 stok hareketi 683 · yakıt 647).
+
+---
+
+## ADR-194 — Bakım uyarısı köprüsü: kayıt KİMLİĞİYLE eşleşir; web'de yeni sekmede inceleme (2026-09-02)
+
+**Bağlam.** ADR-192'deki köprü canlıda kullanıcı tarafından denendi ve iki bulgu iletildi:
+"uyarıdaki bakım ile açılan bakım tutarsız — 10.000 bakıma tıklıyorum 100.000'lik başka bir bakıma
+yönlendiriyor" · "web tarafında bakım direkt yeni kayıt formu gibi açılıyor".
+Talep: **web** → ilgili kayıt **yeni sekmede, inceleme modunda**; **masaüstü** → ilgili kayıt seçilsin
+ve paneli otomatik açılsın.
+
+### Kök neden 1 — ADLA eşleştirme ve "araca düşme" (her iki platform)
+
+Köprü kaydı (araç + bakım **ADI**) ile arıyor, bulamazsa **yalnız araca** düşüp o aracın **EN YENİ**
+bakımını açıyordu. "Hiç yapılmamış" (ilk bakım bekleyen) uyarılarda eşleşme **zaten yoktur** → her
+seferinde alakasız bir kayıt açılıyordu.
+
+**Canlı kanıt (salt-okuma):** 75 "hiç yapılmamış" uyarı var; bunların **23'ü**, başka bakım kaydı
+bulunan araçlara ait → hatalı yol gerçekten tetikleniyordu. (Aynı ada sahip bakım tanımı grubu: 0 —
+yani sorun ad çakışması değil, **fallback**'ti. Toplam bakım kaydı 51 < 200 → liste sınırı da neden
+değildi; iki alternatif hipotez ölçümle elendi.)
+
+**Karar.** Uyarı, dayandığı bakım kaydının **kimliğini taşır** (`MaintenanceAlert.MaintenanceId`,
+`GetAlerts` sorgusunda zaten hesaplanan "her (araç,tanım) için EN SON kayıt" satırından gelir; API'de
+`maintenanceId`). Kimlik yoksa (ilk bakım bekliyor) **hiçbir kayıt açılmaz**, kullanıcıya sebebi
+söylenir. **Araca düşme yolu KALDIRILDI** — sessiz yanlış eşleşme artık mümkün değil.
+Masaüstünde kayıt listede yoksa (liste sınırı) o aracın kayıtları getirilip yeniden aranır.
+
+### Kök neden 2 — Web'de "yeni kayıt formu gibi açılıyor"
+
+`/maintenance/records` bölümünün **en üstü "YENİ BAKIM KAYDI" formudur**; köprü aynı sekmede oraya
+gidiyor, detay paneli ise sayfanın altında kalıyordu → ekran yeni kayıt formu gibi açılıyordu.
+
+**Karar (web).** Uyarı satırı kaydı **YENİ SEKMEDE, İNCELEME MODUNDA** açar:
+`/maintenance/records?view=<bakımId>`. Bu adreste sayfa **yeni kayıt formunu göstermez**, ilgili kaydı
+seçer ve "İnceleme modu" bandı + "İncelemeden Çık" düğmesi gösterir. Yeni sekme engellenirse aynı
+sekmede yine inceleme modunda açılır (sessiz başarısızlık yok).
+
+**Karar (masaüstü).** Davranış istendiği gibi: Araç Bakımları sekmesine geçilir, kayıt **seçilir** ve
+detay paneli (`HasMaintSelection`) **otomatik açılır**. Masaüstünde yeni pencere/sekme açılmaz.
+
+### Araç kodu + plaka
+
+Kolonlar ADR-192'de eklendi ve kodda **mevcuttur** (`MaintenanceView.axaml` ARAÇ KODU + PLAKA;
+API `vehicleCode` + `plate`). Canlıda **166/166 aracın plakası dolu**. Kullanıcının görmemesinin
+nedeni kod değil **sürüm**: bu değişiklik yalnız masaüstü **1.0.168**'dedir ve aynı gün yayınlanmıştır.
+
+**Testler (BakimUyariKopruTests, 3 → 3 + genişletildi):** BK5 tam olarak hatanın kurgusunu kilitler —
+araca iki tanım atanır, biri yapılmış biri hiç yapılmamış; yapılanın uyarısı **o kaydın** kimliğini
+taşır, hiç yapılmamışınki **null**'dır (diğer kayda düşmez).
+
+**Kapsam dışı:** migration YOK · yeni ekran/route YOK (yalnız mevcut sayfaya query parametresi) ·
+yeni yetki YOK · bakım kaydetme/iptal akışları değişmedi.

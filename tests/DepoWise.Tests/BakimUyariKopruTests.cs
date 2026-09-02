@@ -1,6 +1,7 @@
 using DepoWise.Api;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Maintenance;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -18,6 +19,8 @@ namespace DepoWise.Tests;
 ///  BK2 — Uyarı satırı <c>vehicleId</c> döndürür (köprü bunsuz kurulamaz).
 ///  BK3 — Yüzde alanı (<c>progressText</c>) doldurulur.
 ///  BK4 — Plakasız araçta plaka alanı boş STRING değil, görünür bir tire olur (kolon kaymaz).
+///  BK5 — ⭐ Uyarı, DAYANDIĞI bakım kaydının kimliğini taşır; "hiç yapılmamış" uyarıda null'dır →
+///        köprü asla aracın BAŞKA bir bakımına düşmez (2026-09-02 kullanıcı bildirimi).
 /// </summary>
 [Collection("PostgresSchema")]   // ApiTestHost süreç-geneli ortam değişkeni yazar → seri koşmalı
 public class BakimUyariKopruTests : IAsyncLifetime
@@ -79,5 +82,38 @@ public class BakimUyariKopruTests : IAsyncLifetime
         var satir = liste.EnumerateArray().Single(x => x.GetProperty("vehicleId").GetString() == aracId);
 
         Assert.Equal("—", satir.GetProperty("plate").GetString());
+    }
+
+    /// <summary>
+    /// BK5 — ⭐ <b>YANLIŞ KAYIT AÇILMASININ ÖNLENMESİ</b> (kullanıcı bildirimi 2026-09-02:
+    /// "10.000 bakıma tıklıyorum, 100.000'lik başka bir bakıma yönlendiriyor").
+    ///
+    /// Kurgu tam olarak hatanın çıktığı durum: araca İKİ tanım atanmış; birinin bakımı YAPILMIŞ,
+    /// diğerinin HİÇ yapılmamış. Köprü kayıt kimliğini uyarıdan almazsa "hiç yapılmamış" uyarıya
+    /// tıklanınca aracın DİĞER bakımına düşerdi.
+    ///
+    /// Kilit: yapılmış bakımın uyarısı O KAYDIN kimliğini taşır · hiç yapılmamış bakımın uyarısında
+    /// kimlik <b>null</b>'dır (arayüz kayıt açmaz, "ilk bakım bekliyor" der).
+    /// </summary>
+    [Fact]
+    public async Task BK5_Uyari_Dayandigi_Kaydin_Kimligini_Tasir_Yanlis_Kayda_Dusmez()
+    {
+        var arac = _svc.Vehicles.Create(_s, new DepoWise.Infrastructure.Vehicles.NewVehicle("UYR-003", Plate: "34 XYZ 99"));
+
+        var yapilan = _svc.MaintenanceDefinitions.Create(_s, new NewMaintenanceDefinition("YAPILAN BAKIM", 30m, "day", null, null));
+        var hicYapilmayan = _svc.MaintenanceDefinitions.Create(_s, new NewMaintenanceDefinition("HIC YAPILMAYAN BAKIM", 30m, "day", null, null));
+        _svc.MaintenanceDefinitions.SetVehicles(_s, yapilan, new[] { arac });
+        _svc.MaintenanceDefinitions.SetVehicles(_s, hicYapilmayan, new[] { arac });
+
+        var kayitId = _svc.Maintenance.Save(_s,
+            new NewMaintenance(arac, yapilan, PerformedDate: 1), Guid.NewGuid().ToString("N"));
+
+        var liste = (await ApiTestHost.JsonAsync(await _c.GetAsync("/api/maintenance/alerts"))).EnumerateArray().ToList();
+
+        var yapilanUyari = liste.Single(x => x.GetProperty("definition").GetString() == "YAPILAN BAKIM");
+        Assert.Equal(kayitId, yapilanUyari.GetProperty("maintenanceId").GetString());
+
+        var bosUyari = liste.Single(x => x.GetProperty("definition").GetString() == "HIC YAPILMAYAN BAKIM");
+        Assert.Equal(JsonValueKind.Null, bosUyari.GetProperty("maintenanceId").ValueKind);   // ⭐ diğer kayda DÜŞMEZ
     }
 }
