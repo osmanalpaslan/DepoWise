@@ -3697,3 +3697,33 @@ Canlı veri birebir korundu: malzeme 2492 · araç 166 · stok hareketi 683 · y
 → olmayan kayıt 403 ve **hiçbir yazma yok**, ekipman ucu 200, 4 web sayfası 200).
 ⚠️ Kozmetik: paket yayın notu yükleme sırasında ilk `;` karakterinde kesildi; `app_releases`'e aynı
 sürüm için ikinci satır eklememek adına düzeltilmedi (sürüm/checksum/paket doğru).
+
+---
+
+## ADR-193 — Aynı sürümü yeniden yayınlama: `ReleaseService.Publish` artık GÜNCELLER (2026-09-02)
+
+**Bağlam.** ADR-192 yayınında masaüstü paketinin **yayın notu kesildi** (yükleme komutunda `;` ayraç
+sanıldı). Notu düzeltmek için sürümü yeniden yayınlamak gerekti; bu sırada **gerçek bir kusur** çıktı.
+
+**Bulunan kusur.** `app_releases(version)` üzerinde **UNIQUE index** vardır (Migration012), ama
+`Publish` koşulsuz `INSERT` yapıyordu → aynı sürüm ikinci kez yayınlanınca unique ihlaliyle
+**patlıyordu**. Uç (`POST /api/releases`) ise paket dosyasını **bu çağrıdan ÖNCE** diske yazar ve
+dosyayı sürüm adıyla **ezer**. Sonuç: diskte YENİ paket, veritabanında ESKİ checksum/boyut →
+istemci checksum doğrulamasında paketi **bozuk sayar ve kurmaz**. Yani yeniden yayın denemesi
+güncelleme mekanizmasını **bozabilecek** bir durumdu (ADR-183 sınıfı bir kesinti riski).
+
+**Karar.** "X sürümünü yayınla" işlemi **yeniden çalıştırılabilir** olmalıdır: sürüm zaten varsa satır
+**GÜNCELLENİR** (kimlik korunur, denetim kaydı `Update` olarak yazılır), yoksa eklenir. Böylece
+veritabanı kaydı diskteki paketle daima tutarlı kalır ve `Latest()` tek satır görür (ikizlenme yok).
+Doğrulama kapıları (Süper Admin · SemVer · 64 hex checksum) **aynen korundu** — bozuk bir yeniden
+yayın mevcut sağlam kaydı bozamaz.
+
+**Testler (4 yeni, `ReleaseRepublishTests`):** yeniden yayın kaydı günceller + kimlik korunur +
+ikizlenmez · farklı sürümler ayrı kalır ve `Latest()` en yüksek SemVer'i döndürür · yeniden yayın da
+yalnız Süper Admin'e açık · geçersiz checksum mevcut kaydı bozmaz.
+
+**Uygulama (2026-09-02).** API yeniden dağıtıldı (**migration YOK**, şema 86'da kaldı) ve masaüstü
+**1.0.168** doğru yayın notuyla yeniden yayınlandı: dönen kimlik **aynı** (`9bc96ec2…`), canlıda
+`app_releases` içinde 1.0.168 için **tek satır**, checksum ve paket boyutu **değişmedi**
+(`C355B854…AE3577B5` · 90.496.541 bayt), canlı veri birebir aynı (malzeme 2492 · araç 166 ·
+stok hareketi 683 · yakıt 647).

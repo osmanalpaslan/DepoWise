@@ -22,7 +22,7 @@ stok hareketi **683 → 683** · yakıt dağıtımı **647 → 647** · kullanı
 | `/api/equipment-maintenance` (7b) | ✅ HTTP 200 |
 | Web sayfaları (`/`, `/maintenance/alerts`, `/fuel`, `/vehicles`) | ✅ 4/4 HTTP 200 |
 
-⚠️ **Bilinen kozmetik eksik:** paket yayın notu, yükleme sırasında ilk `;` karakterinde kesildi →
+✅ **Yayın notu düzeltildi (aynı gün):** ilk yüklemede not `;` karakterinde kesilmişti. Nedeni araştırılırken **gerçek bir kusur** bulundu ve onarıldı (**ADR-193**): `app_releases(version)` UNIQUE olduğu hâlde `Publish` koşulsuz INSERT yapıyordu → aynı sürümü yeniden yayınlamak patlıyor, ama paket dosyası bundan ÖNCE ezildiği için kayıt ile paket tutarsız kalabiliyordu. `Publish` artık mevcut sürümü **günceller**. API yeniden dağıtıldı (**migration YOK**), 1.0.168 doğru notla yeniden yayınlandı: **tek satır**, aynı kimlik, checksum ve boyut değişmedi.
 güncelleme penceresinde notun tamamı yerine ilk cümlesi görünüyor. Sürüm/checksum/paket **doğru**;
 düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için **bilerek yapılmadı**.
 

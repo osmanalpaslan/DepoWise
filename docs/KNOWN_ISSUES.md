@@ -590,3 +590,17 @@ Ayrıntı: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](ANALIZ_SUBE_VE_SIFIRLAMA.md)
   `overflow-x:auto` ile korunuyor; dar ekranda kullanıcı sağa kaydırmalı.
 
 - 2026-08-28 · SNK-13 (kayıt): `material_compatible_vehicles` tablosunda zaman damgası kolonu yok → delta senkron filtresi uygulanamıyor, tablo her deltada TAM iniyor (canlıda 22 satır — zararsız) ve firma sürüm hesabına girmiyor. Toplu yayın doğrulamasında fark edildi; yayından bağımsız, önceden var olan davranış. Ayrıntı: docs/project-control/TOPLU_YAYIN_2026-08-28.md §4.
+
+- **2026-09-02 · TEST ALTYAPISI — `EditLockCoverageTests.Talep_DUZENLEME_KILIDI_eski_surumle_kaydetmeyi_engeller`
+  tam süitte BİR KEZ başarısız oldu (kararsız / flaky).**
+  Kanıt: aynı test **tek başına geçti**; tam süit **yeniden koşturulduğunda 3.211 geçti / 0 başarısız**
+  oldu. Aradaki tek kod farkı `ReleaseService.Publish` idi — talep/düzenleme kilidi kodu **hiç
+  değişmedi**, dolayısıyla regresyon değildir.
+  **Neden ürün hatası olmadığı:** senaryo determinist — iki `GetForEdit` aynı sürümü okur, A'nın
+  `Update`'i sürümü +1 yapar, B'nin eski sürümü zorunlu olarak bayat kalır. "Sessizce üzerine yazma"
+  (assertion'ın hiç atmaması) bu kurguda mümkün değildir; başarısızlık büyük olasılıkla ağır paralel
+  yük altında `BeginImmediate`'in SQLite kilit/IO hatasıyla **farklı tipte istisna** atmasıdır.
+  **Yapılmayanlar (bilinçli):** test silinmedi, `Skip` eklenmedi, assertion gevşetilmedi, retry ile
+  gizlenmedi, `EditLockGuard` değiştirilmedi — hepsi kullanıcı kuralı gereği yasaktır.
+  **Sıradaki adım (ayrı iş):** tekrarlanırsa istisna tipi loglanarak kök neden kesinleştirilmeli;
+  gerekiyorsa test altyapısındaki paralellik/temp-dosya baskısı azaltılmalı (ürün kodu değil).

@@ -31,16 +31,33 @@ public sealed class ReleaseService
         if (dto.ChecksumSha256?.Length != 64 || !IsHex(dto.ChecksumSha256))
             throw new ArgumentException("Geçersiz SHA-256 checksum (64 hex).");
 
-        var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+
+        // ⚠️ 2026-09-02 DÜZELTMESİ — AYNI SÜRÜMÜ YENİDEN YAYINLAMA.
+        // `app_releases(version)` ÜZERİNDE UNIQUE INDEX VARDIR (Migration012). Eskiden burada koşulsuz
+        // INSERT yapılıyordu; aynı sürüm ikinci kez yayınlandığında bu INSERT unique ihlaliyle PATLIYORDU.
+        // Ama uç (`POST /api/releases`) paket dosyasını BU ÇAĞRIDAN ÖNCE diske yazar ve dosyayı sürüm
+        // adıyla EZER → sonuç: disktekiler yeni paket, veritabanındaki checksum/boyut/not ESKİ kayıt.
+        // Yani "sürüm kaydı ile paket birbirini tutmuyor" durumu oluşuyordu (güncelleme checksum
+        // doğrulamasında bozuk paket sayılır ve KURULMAZ).
+        // Doğru semantik: "X sürümünü yayınla" YENİDEN yayınlanabilir olmalı ve kaydı GÜNCELLEMELİDİR.
+        // Kimlik (id) korunur; sürüm satırı ikizlenmez → Latest() belirsizliğe düşmez.
+        var mevcutId = FindIdByVersion(conn, tx, dto.Version);
+        var id = mevcutId ?? Guid.NewGuid().ToString("N");
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = @"
+            cmd.CommandText = mevcutId is null
+                ? @"
 INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, published_at, created_at, is_deleted)
-VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@now,@now,0);";
+VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@now,@now,0);"
+                : @"
+UPDATE app_releases
+   SET checksum_sha256=@cs, size_bytes=@sz, min_supported_version=@min, release_notes=@notes,
+       signed=@signed, download_url=@url, published_at=@now, is_deleted=0
+ WHERE id=@id;";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@v", dto.Version);
             cmd.AddWithValue("@cs", dto.ChecksumSha256.ToUpperInvariant());
@@ -52,10 +69,21 @@ VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@now,@now,0);";
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
-        AuditWriter.Write(conn, tx, new AuditEntry("__global__", "app_release", id, AuditActions.Create, s.UserId,
+        AuditWriter.Write(conn, tx, new AuditEntry("__global__", "app_release", id,
+            mevcutId is null ? AuditActions.Create : AuditActions.Update, s.UserId,
             AfterJson: $"{{\"version\":\"{dto.Version}\"}}"), _clock);
         tx.Commit();
         return id;
+    }
+
+    /// <summary>Bu sürüm zaten yayınlanmış mı? (Yeniden yayında kaydın kimliği korunur.)</summary>
+    private static string? FindIdByVersion(DbConnection conn, DbTransaction tx, string version)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT id FROM app_releases WHERE version=@v;";
+        cmd.AddWithValue("@v", version);
+        return cmd.ExecuteScalar() as string;
     }
 
     /// <summary>En güncel (en yüksek SemVer) yayın. Yoksa null.</summary>
