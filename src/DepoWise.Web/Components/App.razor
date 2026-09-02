@@ -79,6 +79,20 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        // Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılsın.
+        // true → yeni sekme açıldı · false → engellendi (çağıran aynı sekmede açarak geri düşer).
+        window.dwOpenInNewTab = (url) => {
+            // NOT: 'noopener' pencere-özelliği olarak verilirse window.open ŞARTNAME GEREĞİ null döner;
+            // o zaman "engellendi" sanıp aynı sekmede de açardık (çift açılma). Bu yüzden özellik olarak
+            // verilmez, opener referansı sonradan koparılır.
+            try {
+                const w = window.open(url, '_blank');
+                if (!w) return false;
+                try { w.opener = null; } catch (e) { }
+                return true;
+            } catch (e) { return false; }
+        };
+
         // Tarayıcı otomatik-doldurmasını (Chrome/Edge "reklam", "'" vb.) kesin kapat:
         // autocomplete=off + name/id rastgeleleştir + parola yöneticisi ignore işaretleri.
         window.dwKillAutofill = () => {

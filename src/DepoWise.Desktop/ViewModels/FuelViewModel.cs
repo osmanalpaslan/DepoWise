@@ -137,6 +137,53 @@ public sealed partial class FuelViewModel : ViewModelBase
     [ObservableProperty] private FuelRow? _selectedDistribution;
     [ObservableProperty] private FuelDepotRow? _selectedDepotEntry;
 
+    // ═══ YAKIT DAĞITIMI DÜZELTME (kullanıcı isteği + kararı 2026-09-02) ══════════════════════════
+    //
+    // Kullanıcı: "girilen kayıtlarda güncelleme yapmam gerekebiliyor ... bağlantılı olduğu her alanda
+    // güncellenmeli." Kayıt üzerine YAZILMAZ (depo bakiyesi + araç sayacı + rapor geçmişi birbirine
+    // bağlıdır): servis eski kaydı iptal edip düzeltilmiş kaydı TEK transaction'da oluşturur
+    // (FuelService.UpdateDistribution). Kullanıcı için tek adımdır.
+
+    /// <summary>Düzeltilen kaydın kimliği — doluysa form DÜZELTME modundadır.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DistFormTitle))]
+    [NotifyPropertyChangedFor(nameof(DistSaveText))]
+    private string? _distEditId;
+
+    public string DistFormTitle => DistEditId is null ? "YENİ DAĞITIM" : "DAĞITIM DÜZELTME";
+    public string DistSaveText => DistEditId is null ? "Kaydet" : "Düzeltmeyi Kaydet";
+
+    /// <summary>Düzeltme, ters kayıt (iptal) + yeni kayıt içerir → her iki yetki de aranır.</summary>
+    public bool CanEditFuel => CanWrite && CanCancelFuel;
+
+    [RelayCommand]
+    private void BeginEditDistribution()
+    {
+        if (!CanEditFuel) { Status = "Yetki yok."; return; }
+        if (SelectedDistribution is not { } row) { Status = "Düzeltilecek kaydı seçin."; return; }
+        if (row.IsCancelled) { Status = "İptal edilmiş kayıt düzeltilemez."; return; }
+
+        EnsurePickers();
+        DistEditId = row.Id;
+        DistVehicle = Vehicles.FirstOrDefault(v => v.Id == row.VehicleId);
+        // ⚠️ SIRA: DistVehicle atanınca OnDistVehicleChanged sayacı aracın güncel değerine çeker;
+        // bu yüzden kaydın KENDİ sayaç/başlangıç değerleri ONDAN SONRA yazılır.
+        DistPrevMeter = row.PrevMeter;
+        DistMeter = row.CurrentMeter;
+        DistLiters = row.Liters;
+        DistUnitPrice = row.UnitPrice;
+        DistPersonnel = Personnel.FirstOrDefault(p => p.Id == row.PersonnelId);
+        DistRecipient = Personnel.FirstOrDefault(p => p.Id == row.RecipientPersonnelId);
+        DistDate = DateTimeOffset.FromUnixTimeMilliseconds(row.DistributionDate).LocalDateTime;
+        _distNote = row.Note;   // formda alanı yok → düzeltmede KORUNUR, silinmez
+        SelectedTab = 0;
+        ShowDist = true;
+        Status = "Düzeltme modu: kaydı değiştirip “Düzeltmeyi Kaydet”e basın.";
+    }
+
+    /// <summary>Formda alanı olmayan ama kayıtta bulunan açıklama — düzeltmede aynen taşınır.</summary>
+    private string? _distNote;
+
     [RelayCommand]
     private async System.Threading.Tasks.Task CancelDistribution()
     {
@@ -190,7 +237,8 @@ public sealed partial class FuelViewModel : ViewModelBase
             foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v);
             foreach (var d in DesktopServices.Fuel.ListDistributions(_session, 200, ShowCancelled))
                 Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
-                    d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled));
+                    d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled,
+                    d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note));
             foreach (var e in DesktopServices.Fuel.ListDepotEntries(_session, 200, ShowCancelled))
                 DepotEntries.Add(e);
 
@@ -253,6 +301,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     private void ClearDist()
     {
         DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
+        DistEditId = null; _distNote = null;   // düzeltme modundan çık (kalıntı bırakma)
         ShowDist = false;
     }
 
@@ -289,21 +338,37 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; } // madde 8
         if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(DistLiters)
             && !await ConfirmService.AskAsync($"Litre değeri çok büyük görünüyor ({DistLiters:0.##}). Emin misiniz?", "Litre Uyarısı", "Evet, Doğru")) return; // madde 7
-        if (!await ConfirmService.AskAsync($"{DistLiters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {DistTotalText})", "Kaydet")) return;
+        // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
+        string? duzeltmeGerekcesi = null;
+        if (DistEditId is not null)
+        {
+            duzeltmeGerekcesi = await ConfirmService.AskReasonAsync(
+                $"Bu yakıt kaydı düzeltilecek ({DistLiters:0.##} L · Toplam {DistTotalText}).\n\n" +
+                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar " +
+                "buna göre güncellenir. Araç sayacı geri alınmaz.",
+                "Yakıt Kaydı Düzeltme");
+            if (duzeltmeGerekcesi is null) return;
+        }
+        else if (!await ConfirmService.AskAsync($"{DistLiters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {DistTotalText})", "Kaydet")) return;
         try
         {
-            var distId = DesktopServices.Fuel.Distribute(_session, new NewDistribution(
+            var dto = new NewDistribution(
                 VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
                 PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
-                DistributionDate: IsGunuMs(DistDate)),   // TRH-01: iş günü — UTC gün başı (ADR-182)
-                Guid.NewGuid().ToString("N"));
+                DistributionDate: IsGunuMs(DistDate),   // TRH-01: iş günü — UTC gün başı (ADR-182)
+                Note: _distNote,                        // formda alanı yok → düzeltmede korunur
+                PrevMeter: DistEditId is null ? null : DistPrevMeter);
+            var distId = DistEditId is { } duzeltilen
+                ? DesktopServices.Fuel.UpdateDistribution(_session, duzeltilen, dto, Guid.NewGuid().ToString("N"), duzeltmeGerekcesi!)
+                : DesktopServices.Fuel.Distribute(_session, dto, Guid.NewGuid().ToString("N"));
+            var duzeltmeMi = DistEditId is not null;
             BaglaMaliyetMerkezi("fuel_distribution", distId, DistCostCenter);   // MLY-01
             // YKT-VEREN (ADR-182): yalnız BAŞARILI kayıttan sonra hatırla; ClearDist alanı boşaltacağı
             // için ondan ÖNCE yazılır. Yakıtı Alan bilinçli olarak hatırlanmaz.
             try { DesktopServices.ListPrefs.SaveLastChoice(_session, UserPrefKeys.FuelGiver, DistPersonnel?.Id); } catch { }
             ClearDist(); Load();
-            Status = "Dağıtım kaydedildi.";
+            Status = duzeltmeMi ? "Dağıtım düzeltildi (eski kayıt iptal edildi)." : "Dağıtım kaydedildi.";
         }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
     }
@@ -378,7 +443,10 @@ public sealed partial class FuelViewModel : ViewModelBase
 }
 
 public sealed record FuelRow(string Id, string VehicleCode, decimal PrevMeter, decimal CurrentMeter, decimal Liters,
-    decimal UnitPrice, string Currency, long DistributionDate, bool IsCancelled = false)
+    decimal UnitPrice, string Currency, long DistributionDate, bool IsCancelled = false,
+    // Düzeltme formunu ön-doldurmak için (kullanıcı isteği 2026-09-02). VehicleId de gerekir: liste araç
+    // KODUNU gösterir, düzeltme ise araç KAYDINI seçmek zorundadır.
+    string VehicleId = "", string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null)
 {
     /// <summary>İptal edilen satır listede ayırt edilir (kullanıcı kararı Y3).</summary>
     public string StatusText => IsCancelled ? "İptal edildi" : "";

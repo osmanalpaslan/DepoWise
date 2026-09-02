@@ -6,6 +6,9 @@
 @inject IDialogService Dialog
 @* BKM-04: malzemenin çekildiği depo seçenekleri (oturumda tek indirme, önbellekli) *@
 @inject LocationOptions Locations
+@* Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02) *@
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -405,10 +408,13 @@
         else if (_alerts.Length == 0) { <MudText Class="mud-text-secondary">Aktif periyodik bakım uyarısı bulunmuyor.</MudText> }
         else
         {
-            <MudTable Items="_alerts" Dense="true" Hover="true" Striped="true" T="JsonElement">
-                <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>BAKIM TANIMI</MudTh><MudTh>İLERLEME</MudTh><MudTh>TÜKETİLEN / PERİYOT</MudTh><MudTh>DURUM</MudTh></HeaderContent>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Satıra tıklayın: ilgili araç bakım kaydı açılır.</MudText>
+            <MudTable Items="_alerts" Dense="true" Hover="true" Striped="true" T="JsonElement"
+                      OnRowClick="@(e => OpenAlert(e.Item))" Style="cursor:pointer;">
+                <HeaderContent><MudTh>ARAÇ KODU</MudTh><MudTh>PLAKA</MudTh><MudTh>BAKIM TANIMI</MudTh><MudTh>İLERLEME</MudTh><MudTh>TÜKETİLEN / PERİYOT</MudTh><MudTh>DURUM</MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd>@Str(context, "vehicleCode")</MudTd>
+                    <MudTd>@Str(context, "plate")</MudTd>
                     <MudTd>@Str(context, "definition")</MudTd>
                     <MudTd>@Str(context, "progressText")</MudTd>
                     <MudTd>@Str(context, "consumedText")</MudTd>
@@ -670,6 +676,28 @@
     {
         _selMaint = row; _cancelReason = ""; var id = Str(row, "id");
         try { _maintMaterials = await Api.GetArrayAsync($"/api/maintenance/{id}/materials"); } catch { _maintMaterials = Array.Empty<JsonElement>(); }
+    }
+
+    /// <summary>Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02). Araç Bakımları bölümüne geçer ve
+    /// uyarıya sebep olan kaydı inceleme panelinde açar. Önce (araç + bakım tanımı), bulunamazsa yalnız araç
+    /// eşleşir; hiç kayıt yoksa (ilk bakım bekleyen uyarı) kullanıcıya açıkça bildirilir.
+    /// <c>forceLoad</c> KULLANILMAZ: bileşen aynıdır, yalnız Section parametresi değişir → yüklü veri korunur.</summary>
+    private async Task OpenAlert(JsonElement alert)
+    {
+        var vid = Str(alert, "vehicleId");
+        var def = Str(alert, "definition");
+        var code = Str(alert, "vehicleCode");
+        if (_maint is null) await LoadMaint();
+
+        var liste = _maint ?? Array.Empty<JsonElement>();
+        var hit = liste.FirstOrDefault(m => Str(m, "vehicleId") == vid && Str(m, "definitionName") == def);
+        if (hit.ValueKind == JsonValueKind.Undefined)
+            hit = liste.FirstOrDefault(m => Str(m, "vehicleId") == vid);
+
+        _hedef = "vehicle";                       // 7b ekipman hedefi açıksa araç hedefine dön
+        Nav.NavigateTo("/maintenance/records");
+        if (hit.ValueKind != JsonValueKind.Undefined) await OpenMaint(hit);
+        else Snackbar.Add($"{code} · \"{def}\" için henüz bakım kaydı yok (ilk bakım bekliyor).", Severity.Info);
     }
 
     private async Task SaveMnt()

@@ -384,6 +384,21 @@
         return Task.CompletedTask;
     }
 
+    /// <summary>Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılır —
+    /// böylece liste ekranı (filtre/sayfa) kaybolmaz. Tarayıcı yeni sekmeyi engellerse (pop-up engelleyici)
+    /// sessiz kalınmaz: aynı sekmede açılarak eski davranışa güvenli şekilde düşülür.</summary>
+    private async Task EditNavNewTab(string id)
+    {
+        var url = $"/vehicles/new?edit={id}";
+        try
+        {
+            var acildi = await JS.InvokeAsync<bool>("dwOpenInNewTab", url);
+            if (acildi) return;
+        }
+        catch { /* JS erişilemedi → aynı sekmede aç */ }
+        await EditNav(id);
+    }
+
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private string? _editId;
@@ -644,7 +659,7 @@
         if (res is null || res.Canceled) return;
         // ARC-01: "Tam Düzenleme" seçildi → şablon/birim/fotoğraf/geçmiş dahil tam forma git.
         // Kayıt değişmediği için listeyi tazelemeye gerek yok (form dönüşünde zaten yenilenir).
-        if (res.Data as string == "fulledit") { await EditNav(id); return; }
+        if (res.Data as string == "fulledit") { await EditNavNewTab(id); return; }
         await Load();
         if (res.Data as string == "deleted") _detail = null;
         else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);

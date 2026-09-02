@@ -3610,3 +3610,78 @@ web'de `records` bölümüne **Araç / Ekipman hedef seçimi** eklendi. Parite t
 
 **Kapsam dışı:** İş Emri yeniden tasarımı · onay zinciri · PK-F8 sayaç · SNK-A7 · YTK-07.
 Production'a **hiçbir erişim yapılmadı** (canlı şema 85; Migration086 **uygulanmadı**).
+
+---
+
+## ADR-192 — Masaüstü/Web alan düzeltmeleri: uyarı köprüsü, form tazeleme, yakıt düzeltme, yeni sekme, çift-tıkta fotoğraf (2026-09-02)
+
+**Bağlam.** Kullanıcı masaüstünde test ederken beş bulgu/istek iletti ve **her ikisinin de (masaüstü +
+web) analiz edilmesini** şart koştu: "belirttiğim hatalar web te de var anlamına gelmiyor. 2 ortamda
+kontrol edilerek işlemlerin yapılması gerek."
+
+**Analiz sonucu — hangi platformda gerçekten sorun vardı:**
+
+| # | İstek | Masaüstü | Web |
+|---|---|---|---|
+| 1 | Bakım uyarısı: plaka + yüzde + kayda köprü | yüzde ✅ vardı · plaka ❌ · köprü ❌ | yüzde ✅ vardı · plaka ❌ (kod+plaka birleşikti) · köprü ❌ |
+| 2 | Araç formunda önceki aracın verisi kalıyor | ❌ **hata vardı** | ✅ hata **yoktu** (form `forceLoad` ile baştan kurulur) |
+| 3 | Yakıt dağıtımına "Düzenle" | ❌ yoktu | ❌ yoktu |
+| 4 | "Tam Düzenleme" yeni sekmede | — (masaüstünde sekme kavramı yok) | ❌ aynı sekmede açılıyordu |
+| 5 | Çift-tık penceresinde fotoğraf | ❌ hiç yoktu | ❌ hiç yoktu |
+
+### Karar 1 — Uyarı → bakım kaydı köprüsü (madde 1)
+
+Uyarı satırına **araç kodu ve plaka AYRI kolon** olarak eklendi; `/api/maintenance/alerts` artık
+`vehicleId` ve `plate` de döndürür (`vehicleCode` bundan böyle **yalnız iç koddur**, birleşik
+"kod - plaka" değil). Satıra tıklanınca **Araç Bakımları** bölümüne geçilir ve kayıt inceleme
+panelinde açılır: önce (araç + bakım tanımı), bulunamazsa yalnız araç eşleşir; hiç kayıt yoksa
+("ilk bakım bekliyor" uyarısı) kullanıcıya bu **açıkça** söylenir. Masaüstünde MEVCUT köprü altyapısı
+(`IDeepLinkTarget` / `OpenEntity`) kullanıldı, yeni motor yazılmadı.
+Masaüstü uyarı satırında `SelectableTextBlock` → `TextBlock`: metin seçimi tıklamayı yutuyordu.
+
+### Karar 2 — Araç formu araç değişince tazelenir (madde 2, yalnız masaüstü)
+
+`BeginEdit`'in gövdesi `LoadEditForm(VehicleDetail)` olarak ayrıldı ve `OnSelectedChanged`'den de
+çağrılır. **Yalnız DÜZENLEME modunda** (`EditId is not null`) tazelenir — "yeni araç" formu bilerek
+korunur, kullanıcının yazdığı veri silinmez. Formda araca ait olmayan iki kalıntı da temizlendi:
+yüklenmeyi bekleyen fotoğraflar ve satır-içi "yeni tip/marka/model/kategori/şube/sürücü adı" kutuları.
+
+### Karar 3 — Yakıt dağıtımı düzeltme = İPTAL + YENİDEN KAYIT (madde 3) ⭐
+
+Kullanıcıya iki seçenek sunuldu; **güvenli yöntem seçildi ve TÜM alanların düzenlenebilir olması
+istendi.** Yerinde `UPDATE` **reddedildi**: bir dağıtım kaydı depo bakiyesini, aracın sayacını ve
+rapor/denetim geçmişini birlikte besler; üzerine yazmak bu üçünü sessizce tutarsız bırakır ve
+CLAUDE.md §4'e aykırıdır ("yakıt/stok/sayaçta LWW yasak", "operasyonel kayıt fiziksel silinmez").
+
+`FuelService.UpdateDistribution(...)`: **tek transaction** içinde eski kaydı iptal eder (gerekçe
+zorunlu, denetim kaydına yazılır) ve düzeltilmiş kaydı oluşturur. `Distribute`'un gövdesi
+`DistributeTx(conn, tx, ...)` olarak ayrıldı — davranışı değişmedi, yalnız bağlantı/transaction
+dışarıdan gelir. **Sıra kritiktir:** önce iptal, sonra yeni kayıt → eski litre depoya döner ve kayıt
+"kendi litresi yüzünden" yetersiz bakiye hatası almaz. Başlangıç sayacı (`prev_meter`) yeni kayda
+**taşınır** (Y2 zinciri); araç sayacı **asla geri alınmaz**. `operation_id` ile **idempotenttir**.
+Yetki: `fuel/Edit` + `fuel/Create` + **`btn-reverse`** (deny-by-default; düzeltme bir ters kayıt içerir).
+
+API: **`PUT /api/fuel/{id}`** (yeni `FuelUpdateDto`; `DistributionDto` sözleşmesine dokunulmadı).
+`FuelDistributionRow` sonuna `PersonnelId` / `RecipientPersonnelId` / `Note` **eklendi** (varsayılanlı →
+mevcut çağıranlar etkilenmez) — düzeltme formu bu alanlar olmadan onları sessizce boşaltırdı.
+Formda alanı olmayan **açıklama düzeltmede korunur**. Masaüstü ve web **aynı servisi** çağırır.
+
+### Karar 4 — "Tam Düzenleme" yeni sekmede (madde 4, yalnız web)
+
+Bilgi penceresindeki "Tam Düzenleme" artık `window.dwOpenInNewTab(url)` ile **yeni sekmede** açılır;
+liste ekranının filtre/sayfa durumu korunur. Tarayıcı yeni sekmeyi engellerse **sessiz kalınmaz**,
+eski davranışa (aynı sekme) düşülür. `noopener` pencere-özelliği olarak **verilmez** — şartname gereği
+`window.open` o durumda `null` döner ve "engellendi" sanılıp sayfa iki kez açılırdı; opener referansı
+sonradan koparılır. Bu desene sahip tek iki ekran (Araçlar, Malzemeler) güncellendi.
+
+### Karar 5 — Çift-tık penceresinde fotoğraf (madde 5)
+
+Fotoğraf altyapısı **zaten doğruydu** (ADR-182: içerik sunucuda, iki platform aynı API'yi çağırır);
+eksik olan yalnız **çift-tık pencerelerinde gösterim**di. Dört yere **salt görüntüleme** fotoğraf şeridi
+eklendi: masaüstü `VehicleQuickEditWindow` + `MaterialQuickEditWindow`, web `VehicleEditDialog` +
+`MaterialEditDialog`. Ekleme/silme **tam düzenleme ekranında kalır** (bu pencerelerin "fotoğrafı
+değiştirmez, korur" sözleşmesi bozulmadı). Masaüstünde yükleme **asenkrondur** (pencere açılışı
+bloklanmaz) ve hata hâlinde bölüm gizli kalır; çevrimdışıysa kullanıcı bunu ekranda görür.
+
+**Kapsam dışı:** yeni migration YOK (hiçbir madde şema değiştirmedi) · yeni AppScreen YOK · yeni yetki
+modülü YOK · araç bakımı, onay motoru ve senkron sözleşmesi değişmedi.

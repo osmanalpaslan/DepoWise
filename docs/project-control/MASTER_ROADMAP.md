@@ -1,7 +1,8 @@
 # Alpnex — MASTER ROADMAP (Yeni Özellik Yol Haritası)
 
-> Son güncelleme: **2026-08-27** · Kaynak: yeni özellik teknik analizi (aynı gün) + kullanıcının
-> "Canlı Veri Koruma Odaklı Geliştirme Protokolü".
+> Son güncelleme: **2026-09-02** (ADR-192 — kullanıcının bildirdiği 5 alan düzeltmesi kodlandı;
+> **migration gerekmedi**. 7b ile birlikte aynı yayında çıkar → canlı şema 85 → 86.) · Kaynak: yeni
+> özellik teknik analizi (2026-08-27) + kullanıcının "Canlı Veri Koruma Odaklı Geliştirme Protokolü".
 > **Bu dosya yeni özellik geliştirmenin ANA KONTROL BELGESİDİR** — her özellik başlamadan önce ilgili
 > bölüm okunur, bittikten sonra güncellenir. Sıra kullanıcı onayı olmadan DEĞİŞTİRİLMEZ.
 
@@ -41,7 +42,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | | 5 | D — Maliyet Merkezi | Alt menü (Finans) | ✅ **TAMAMLANDI** (2026-08-28, ADR-168 · YAYINLANDI 2026-08-28) |
 | | 6 | P — Satın Alma | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-169 · YAYINLANDI 2026-08-28) — **FAZ 2 BİTTİ** |
 | **FAZ 3 — İş yönetimi** | 7 | F — İş Emri | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-170 · YAYINLANDI 2026-08-28) — [F_ISEMRI_01.md](F_ISEMRI_01.md) |
-| | 7b | Bakım-Ekipman genişletmesi (PK-F9 ayrı işi) | Mevcut modüle küçük ekleme | 🟢 **KOD TAMAMLANDI — YAYINLANMADI** (2026-08-30, **ADR-191**) · FAZ 2 kararı **SEÇENEK B**: ekipman hattı **ayrı tablolarla** (A elendi — `vehicle_maintenances`'a 2 gelen FK var, SQLite'ta transaction içinde FK kapatılamadığı için rebuild güvenli değil; içtihatların üçü de FK'siz tablolarda). **Migration086_EquipmentMaintenance** (4 tablo, **hiç ALTER yok**, backfill yok; katalog azamisi **86**, canlı şema **85**). `EquipmentMaintenanceService` + `EquipmentInspectionService` (mevcut `StockBalanceWriter`/`AlertRules` ortak; `MaintenanceService` **hiç değişmedi**); tanım↔ekipman eşlemesi; 9 API ucu; iş emri `entity_type='equipment_maintenance'` (4 nokta, araç bağı korundu); 4 tablo senkronda (ebeveyn sırası doğru); UI'da **yeni ekran YOK** — masaüstünde sekme, web'de hedef seçimi. Yeni yetki modülü **YOK** (`maintenance`/`inspection`). Test: 7b **27/27** · izole PG **3/3** · tam süit 0 başarısız · Debug+Release 0 hata. Production'a **dokunulmadı** · commit/push **yok**. |
+| | 7b | Bakım-Ekipman genişletmesi (PK-F9 ayrı işi) | Mevcut modüle küçük ekleme | 🟢 **KOD TAMAMLANDI — YAYINLANMADI** (2026-08-30, **ADR-191**) · FAZ 2 kararı **SEÇENEK B**: ekipman hattı **ayrı tablolarla** (A elendi — `vehicle_maintenances`'a 2 gelen FK var, SQLite'ta transaction içinde FK kapatılamadığı için rebuild güvenli değil; içtihatların üçü de FK'siz tablolarda). **Migration086_EquipmentMaintenance** (4 tablo, **hiç ALTER yok**, backfill yok; katalog azamisi **86**, canlı şema **85**). `EquipmentMaintenanceService` + `EquipmentInspectionService` (mevcut `StockBalanceWriter`/`AlertRules` ortak; `MaintenanceService` **hiç değişmedi**); tanım↔ekipman eşlemesi; 9 API ucu; iş emri `entity_type='equipment_maintenance'` (4 nokta, araç bağı korundu); 4 tablo senkronda (ebeveyn sırası doğru); UI'da **yeni ekran YOK** — masaüstünde sekme, web'de hedef seçimi. Yeni yetki modülü **YOK** (`maintenance`/`inspection`). Test: 7b **24/24** · izole PG **56/56** · tam süit **3.196/0/48** · Debug+Release+test build 0 hata. Commit `db49f29` **push edildi** (2026-08-30); production'a **dokunulmadı**, **YAYINLANMADI** (canlı şema 85, Migration086 uygulanmadı). |
 | | 8 | H — Takvim | Yeni ana menü (tek ekran) | ✅ **TAMAMLANDI** (2026-08-28, ADR-171 · YAYINLANDI 2026-08-28) — [H_TAKVIM_01.md](H_TAKVIM_01.md) |
 | **FAZ 4 — Bilgilendirme/UX** | 9 | I — Bildirim Merkezi | Uyarılar genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-172 · MIGRATION YOK · YAYINLANDI 2026-08-28) — [I_BILDIRIM_01.md](I_BILDIRIM_01.md) |
 | | 10 | J — Duyuru | Yeni ana menü | ✅ **TAMAMLANDI** (2026-08-28, ADR-173 · YAYINLANDI 2026-08-28) — [J_DUYURU_01.md](J_DUYURU_01.md) |

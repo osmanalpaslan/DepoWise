@@ -22,6 +22,11 @@
                         <ctrl:Toolbar.FilterContent>
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
     <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center"/>
+                                <!-- Kullanıcı isteği (2026-09-02): yakıt kaydı düzeltilebilsin. Kayıt üzerine
+                                     YAZILMAZ; eski kayıt iptal edilip düzeltilmiş kayıt oluşturulur (tek işlem). -->
+                                <Button Classes="Secondary" Content="Düzenle" Margin="8,0,0,0"
+                                        IsVisible="{Binding CanEditFuel}" Command="{Binding BeginEditDistributionCommand}"
+                                        ToolTip.Tip="Seçili yakıt dağıtımını düzeltir: eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar buna göre güncellenir."/>
                                 <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
                                         IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
                                         ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
@@ -32,7 +37,7 @@
 
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDist}">
                         <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
-                            <SelectableTextBlock Text="YENİ DAĞITIM" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="{Binding DistFormTitle}" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
                                     <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
@@ -83,7 +88,7 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDistCommand}"/>
-                                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDistCommand}"/>
+                                <Button Classes="Primary" Content="{Binding DistSaveText}" Command="{Binding SaveDistCommand}"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>

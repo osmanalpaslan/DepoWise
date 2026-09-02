@@ -513,7 +513,36 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     public void OpenEntity(string vehicleId)
     {
         SelectedTab = 1;                       // Araç Bakımları
+        if (Maintenances.Count == 0) LoadMaint();
         SelectedMaint = Maintenances.FirstOrDefault(m => m.VehicleId == vehicleId); // en yeni (DESC) → detay paneli açılır
+    }
+
+    // ── Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02) ──────────────────────────────
+    // Kullanıcı uyarı listesinde "hangi araç, hangi bakım" sorusunu cevaplayamıyordu. Satıra
+    // tıklayınca Araç Bakımları sekmesine geçilir ve ilgili kayıt İNCELEME (detay) panelinde açılır.
+
+    /// <summary>Uyarı listesinde tıklanan satır — köprüyü tetikler, sonra tekrar tıklanabilsin diye boşalır.</summary>
+    [ObservableProperty] private MaintenanceAlertRow? _selectedAlert;
+
+    partial void OnSelectedAlertChanged(MaintenanceAlertRow? value)
+    {
+        if (value is null) return;
+        OpenAlert(value);
+        SelectedAlert = null;   // aynı satıra ikinci kez tıklanabilsin (seçim takılı kalmasın)
+    }
+
+    /// <summary>Uyarıdan bakım kaydına köprü: önce (araç + bakım tanımı), bulunamazsa yalnız araç eşleşir.
+    /// Hiç bakım kaydı yoksa (ilk bakım bekleyen uyarı) kullanıcıya bunu açıkça söyler.</summary>
+    public void OpenAlert(MaintenanceAlertRow row)
+    {
+        SelectedTab = 1;                       // Araç Bakımları
+        if (Maintenances.Count == 0) LoadMaint();
+        var hit = Maintenances.FirstOrDefault(m => m.VehicleId == row.VehicleId && m.DefinitionName == row.Definition)
+                  ?? Maintenances.FirstOrDefault(m => m.VehicleId == row.VehicleId);
+        SelectedMaint = hit;
+        Status = hit is null
+            ? $"{row.VehicleCode} · \"{row.Definition}\" için henüz bakım kaydı yok (ilk bakım bekliyor)."
+            : $"{row.VehicleCode} · \"{row.Definition}\" bakım kaydı açıldı.";
     }
 
     private void LoadMntPickers()
@@ -688,13 +717,23 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             LoadError = null;
             Items.Clear();
             var codes = new Dictionary<string, string>();
-            try { foreach (var v in DesktopServices.Vehicles.List(_session)) codes[v.Id] = v.InternalCode; }
+            var plates = new Dictionary<string, string?>();
+            try
+            {
+                foreach (var v in DesktopServices.Vehicles.List(_session))
+                {
+                    codes[v.Id] = v.InternalCode;
+                    plates[v.Id] = v.Plate;   // kullanıcı isteği: uyarı listesinde plaka da görünsün
+                }
+            }
             catch { }
             foreach (var a in DesktopServices.Maintenance.GetAlerts(_session)
                          .OrderByDescending(x => (int)x.Level).ThenByDescending(x => x.Progress))
             {
                 var code = codes.TryGetValue(a.VehicleId, out var c) ? c : a.VehicleId;
-                Items.Add(new MaintenanceAlertRow(code, a.DefinitionName, a.Level, a.Progress, a.Consumed, a.Interval));
+                plates.TryGetValue(a.VehicleId, out var plate);
+                Items.Add(new MaintenanceAlertRow(code, a.DefinitionName, a.Level, a.Progress, a.Consumed,
+                    a.Interval, a.VehicleId, plate));
             }
         }
         catch (Exception ex) { LoadError = ex.Message; }
@@ -819,8 +858,10 @@ public sealed partial class MntMaterialLine : ObservableObject
 }
 
 public sealed record MaintenanceAlertRow(string VehicleCode, string Definition, AlertLevel Level,
-    double Progress, decimal Consumed, decimal Interval)
+    double Progress, decimal Consumed, decimal Interval, string VehicleId = "", string? Plate = null)
 {
+    /// <summary>Plakası olmayan araçta boş kutu yerine tire gösterilir (kolon hizası bozulmasın).</summary>
+    public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;
     public string ProgressText => $"%{Progress * 100:0}";
     public string ConsumedText => $"{Consumed:0.##} / {Interval:0.##}";
     public string LevelText => Level switch

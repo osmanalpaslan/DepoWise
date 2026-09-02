@@ -184,6 +184,41 @@ public partial class VehicleQuickEditWindow : Window
         };
 
         cancelBtn.Click += (_, _) => Close(null);
+
+        // Fotoğraflar sunucudan ASENKRON gelir (pencere açılışı bloklanmaz). Hata olursa bölüm gizli kalır.
+        _ = FotograflariYukleAsync(session, vehicleId);
+    }
+
+    /// <summary>Kullanıcı isteği (2026-09-02): çift-tık penceresinde de fotoğraflar görünür.
+    /// Kaynak SUNUCUDUR (ADR-182) → başka bilgisayarda eklenen fotoğraf da gelir. Salt görüntüleme.</summary>
+    private async Task FotograflariYukleAsync(SessionContext session, string vehicleId)
+    {
+        var section = this.FindControl<StackPanel>("PhotoSection");
+        var panel = this.FindControl<StackPanel>("PhotoPanel");
+        var note = this.FindControl<SelectableTextBlock>("PhotoNote");
+        if (section is null || panel is null || note is null) return;
+        try
+        {
+            var (fotograflar, cevrimdisi) = await DesktopPhotos.YukleAsync(session, "vehicle", vehicleId);
+            panel.Children.Clear();
+            foreach (var f in fotograflar)
+            {
+                try
+                {
+                    panel.Children.Add(new Avalonia.Controls.Image
+                    {
+                        Source = new Avalonia.Media.Imaging.Bitmap(new System.IO.MemoryStream(f.Bytes)),
+                        Height = 110,
+                        Stretch = Avalonia.Media.Stretch.Uniform,
+                    });
+                }
+                catch { /* bozuk görsel atlanır */ }
+            }
+            note.Text = "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor.";
+            note.IsVisible = cevrimdisi;
+            section.IsVisible = panel.Children.Count > 0 || cevrimdisi;
+        }
+        catch { /* fotoğraf yüklenemedi → bölüm gizli kalır, düzenleme akışı etkilenmez */ }
     }
 
     private static List<Opt> Load(Func<IReadOnlyList<LookupItem>> get)

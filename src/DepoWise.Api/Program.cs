@@ -3603,7 +3603,10 @@ app.MapDelete("/api/equipment-inspection/{id}", (HttpContext c, string id) =>
 app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var vmap = svc.Vehicles.List(s).ToDictionary(v => v.Id, v => v.Display);
+    // Kullanıcı isteği (2026-09-02): uyarıda araç KODU ve PLAKA ayrı görünsün + satırdan bakım kaydına
+    // köprü kurulabilsin. Bunun için satıra vehicleId ve plate eklendi; vehicleCode artık birleşik
+    // "kod - plaka" değil, yalnız iç koddur (plaka kendi kolonunda gösterilir).
+    var vmap = svc.Vehicles.List(s).ToDictionary(v => v.Id, v => v);
     string LevelText(DepoWise.Application.Maintenance.AlertLevel l) => l switch
     {
         DepoWise.Application.Maintenance.AlertLevel.Approaching => "Bakım Yaklaşıyor",
@@ -3611,13 +3614,19 @@ app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
         DepoWise.Application.Maintenance.AlertLevel.Overdue => "Bakım Gecikti",
         _ => "Normal",
     };
-    var rows = svc.Maintenance.GetAlerts(s).Select(a => new
+    var rows = svc.Maintenance.GetAlerts(s).Select(a =>
     {
-        vehicleCode = vmap.TryGetValue(a.VehicleId, out var code) ? code : a.VehicleId,
-        definition = a.DefinitionName,
-        progressText = $"%{(int)(a.Progress * 100)}",
-        consumedText = $"{a.Consumed:0.##} / {a.Interval:0.##}",
-        levelText = LevelText(a.Level),
+        var v = vmap.TryGetValue(a.VehicleId, out var found) ? found : null;
+        return new
+        {
+            vehicleId = a.VehicleId,
+            vehicleCode = v?.InternalCode ?? a.VehicleId,
+            plate = string.IsNullOrWhiteSpace(v?.Plate) ? "—" : v!.Plate!,
+            definition = a.DefinitionName,
+            progressText = $"%{(int)(a.Progress * 100)}",
+            consumedText = $"{a.Consumed:0.##} / {a.Interval:0.##}",
+            levelText = LevelText(a.Level),
+        };
     });
     return Results.Ok(rows);
 }).RequireAuthorization();
@@ -3655,6 +3664,20 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
         RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N"));
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id = distId });
+}).RequireAuthorization();
+// ── Yakıt dağıtımı DÜZELTME (kullanıcı isteği + kararı 2026-09-02) ────────────────────────────────
+// Yerinde UPDATE YOKTUR: servis eski kaydı iptal edip düzeltilmiş kaydı TEK transaction'da oluşturur
+// (bkz. FuelService.UpdateDistribution). Masraf merkezi bağı yeni kayda taşınır.
+app.MapPut("/api/fuel/{id}", (HttpContext c, string id, FuelUpdateDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur.");
+    var yeniId = svc.Fuel.UpdateDistribution(s, id, new DepoWise.Infrastructure.Operations.NewDistribution(
+        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter),
+        Guid.NewGuid().ToString("N"), d.Reason ?? "");
+    if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", yeniId, d.CostCenterId);
+    return Results.Ok(new { id = yeniId });
 }).RequireAuthorization();
 // ── Yakıt kaydı İPTALİ (kullanıcı kararları Y1–Y5, 2026-08-09) — ortak FuelService; sayaç GERİ ALINMAZ ──
 app.MapPost("/api/fuel/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
@@ -4578,6 +4601,11 @@ record EquipmentInspectionDto(string EquipmentId, string DocType, long? LastDate
     string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate, string? CostCenterId = null);
 record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null, string? CostCenterId = null);
+// Yakıt dağıtımı düzeltme (2026-09-02): DistributionDto ile aynı alanlar + zorunlu gerekçe.
+// DistributionDto'ya alan EKLENMEDİ — o DTO'nun başka çağıranları var, sözleşmesi korunur.
+record FuelUpdateDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId,
+    long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null,
+    string? CostCenterId = null, string? Reason = null);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,

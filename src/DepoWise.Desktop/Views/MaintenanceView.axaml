@@ -502,34 +502,44 @@
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                         </Grid.ColumnDefinitions>
-                                        <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
-                                        <SelectableTextBlock Grid.Column="1" Text="BAKIM TANIMI" MinWidth="160"/>
-                                        <SelectableTextBlock Grid.Column="2" Text="İLERLEME" MinWidth="90"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="ARAÇ KODU" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="PLAKA" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="BAKIM TANIMI" MinWidth="160"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="İLERLEME" MinWidth="90"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="110"/>
                                     </Grid>
                                 </Border>
-                                <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                                <!-- Satıra tıklama = köprü (kullanıcı isteği 2026-09-02): Araç Bakımları sekmesine
+                                     geçer ve ilgili kayıt inceleme panelinde açılır. Tıklamanın satıra ulaşması
+                                     için burada SelectableTextBlock DEĞİL, düz TextBlock kullanılır — aksi hâlde
+                                     metin seçimi tıklamayı yutar ve köprü çalışmaz. -->
+                                <ListBox Classes="Table" ItemsSource="{Binding Items}"
+                                         SelectedItem="{Binding SelectedAlert}" Cursor="Hand"
+                                         ToolTip.Tip="Satıra tıklayın: ilgili araç bakım kaydı açılır.">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:MaintenanceAlertRow">
                                             <Grid ctrl:ColumnRules.Enabled="True">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                 </Grid.ColumnDefinitions>
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
-                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
-                                                <SelectableTextBlock Grid.Column="2" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                                <SelectableTextBlock Grid.Column="3" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center" Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>
+                                                <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="110" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <ctrl:StatusBadge Grid.Column="5" MinWidth="110" VerticalAlignment="Center" Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>

@@ -653,7 +653,17 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             FlushPendingRefresh();   // detay kapandı → eşitleme sırasında bekletilen yenileme şimdi uygulanır
             return;
         }
-        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); _ = LoadDetailPhotosAsync(value.Id); LoadVehicleTabs(value.Id, value.Code); }
+        try
+        {
+            Detail = DesktopServices.Vehicles.Get(_session, value.Id);
+            _ = LoadDetailPhotosAsync(value.Id);
+            LoadVehicleTabs(value.Id, value.Code);
+
+            // Kullanıcı isteği (2026-09-02): DÜZENLEME formu açıkken başka araca geçilirse form da
+            // tazelenir — aksi hâlde önceki aracın değerleri (ör. km/saat) ekranda kalıyordu.
+            // YENİ KAYIT formu (EditId == null) BİLEREK dokunulmaz: kullanıcının yazdığı veri silinmez.
+            if (ShowAdd && EditId is not null && Detail is not null) LoadEditForm(Detail);
+        }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
@@ -720,8 +730,20 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         if (!CanEdit) { Status = "Yetki yok."; return; }
         if (!await ConfirmService.AskAsync("Bu aracı düzenlemek istiyor musunuz?", "Düzenle")) return;
 
+        LoadEditForm(Detail);
+        ShowAdd = true;
+    }
+
+    /// <summary>Formu VERİLEN aracın kendi değerleriyle baştan doldurur.
+    ///
+    /// ⚠️ Kullanıcı bulgusu (2026-09-02): "bir önceki aracın bilgileri ekranda kalabiliyor — önceki araç
+    /// sayacı km, yenisi saat iken km alanı dolu geliyor." Sebep, formun BİR KEZ doldurulup araç değişince
+    /// tazelenmemesiydi. Bu metot artık hem <see cref="BeginEdit"/> hem de seçim değişikliği tarafından
+    /// çağrılır ve formda araca ait OLMAYAN hiçbir değer bırakmaz: bekleyen fotoğraflar ve satır-içi
+    /// "yeni tip/marka/model/kategori/şube/sürücü adı" kutuları da temizlenir.</summary>
+    private void LoadEditForm(VehicleDetail d)
+    {
         LoadVehLookups();
-        var d = Detail;
         EditId = d.Id;
         NewCode = d.InternalCode;
         NewPlate = d.Plate ?? "";
@@ -740,8 +762,14 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         SelModel = VehicleModels.FirstOrDefault(x => x.Id == d.VehicleModelId);
         // Mevcut şablon bağı (EditId set edildiği için changed-handler prefill YAPMAZ; yalnız bağ yüklenir).
         SelectedTemplate = Templates.FirstOrDefault(x => x.Id == d.TemplateId);
+
+        // Önceki araçtan TAŞINABİLECEK kalıntılar: yüklenmeyi bekleyen fotoğraflar ve satır-içi
+        // "yeni lookup adı" kutuları. Bunlar araca ait değildir → her doldurmada sıfırlanır.
+        Photos.Clear();
+        NewTypeName = ""; NewBrandName = ""; NewModelName = "";
+        NewCatName = ""; NewBranchName = ""; NewDriverName = "";
+
         TriedSave = false;
-        ShowAdd = true;
     }
 
     [RelayCommand]

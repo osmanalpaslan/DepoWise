@@ -20,7 +20,10 @@ public sealed record NewDistribution(string VehicleId, decimal Liters, decimal C
 
 public sealed record FuelDistributionRow(string Id, string VehicleId, string? VehicleCode,
     decimal PrevMeter, decimal CurrentMeter, decimal Liters, decimal UnitPrice, string Currency, long DistributionDate,
-    bool IsCancelled = false)
+    bool IsCancelled = false,
+    // Düzeltme formunu ÖN-DOLDURMAK için (kullanıcı isteği 2026-09-02). Sona EKLENDİ ve varsayılanlıdır →
+    // mevcut çağıranların sözleşmesi değişmez.
+    string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null)
 {
     public string StatusText => IsCancelled ? "İptal edildi" : "";
 }
@@ -99,8 +102,23 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
 
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
+        var yeni = DistributeTx(conn, tx, s, dto, operationId, now);
+        tx.Commit();
+        return yeni;
+    }
+
+    /// <summary>
+    /// Dağıtımın ÇEKİRDEĞİ — AÇIK bir transaction içinde çalışır; commit ÇAĞIRANIN işidir.
+    ///
+    /// Düzeltme akışı (<see cref="UpdateDistribution"/>) iptal ile bunu AYNI transaction'da kullanır;
+    /// böylece "eski kayıt iptal oldu ama düzeltilmiş kayıt oluşmadı" yarım durumu İMKÂNSIZDIR.
+    /// Davranış <see cref="Distribute"/> ile birebir aynıdır (yalnız bağlantı/transaction dışarıdan gelir).
+    /// </summary>
+    private string DistributeTx(DbConnection conn, DbTransaction tx, SessionContext s, NewDistribution dto,
+        string operationId, long now)
+    {
         var existing = FindDistribution(conn, tx, s.CompanyId, operationId);
-        if (existing is not null) { tx.Commit(); return existing; }
+        if (existing is not null) return existing;
 
         // Depo bakiyesi (tüm zamanlar) yeterli mi
         var depot = DepotBalance(conn, tx, s.CompanyId);
@@ -160,8 +178,73 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now
         }
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_distribution", id, AuditActions.Create, s.UserId), _clock);
-        tx.Commit();
         return id;
+    }
+
+    /// <summary>
+    /// ═══ YAKIT DAĞITIMI DÜZELTME (kullanıcı isteği + kararı 2026-09-02) ═══
+    ///
+    /// <b>Neden yerinde UPDATE yok:</b> bir dağıtım kaydı üç yeri birden besler — depo bakiyesi, aracın
+    /// sayacı ve denetim/rapor geçmişi. Kaydın üzerine yazmak bu üçünü sessizce tutarsız bırakır ve
+    /// CLAUDE.md §4'e aykırıdır ("operasyonel kaydı fiziksel silme; iptal/ters kayıt kullan", "yakıtta
+    /// LWW yasaktır"). Bu yüzden düzeltme = <b>eski kaydı İPTAL et + düzeltilmiş YENİ kaydı oluştur</b>,
+    /// ikisi de TEK transaction'da. Kullanıcı için tek adımdır; veri için tam izlenebilirdir.
+    ///
+    /// <b>Sıra önemlidir:</b> önce iptal edilir, sonra yeni kayıt yazılır — böylece eski kaydın litresi
+    /// depo bakiyesine geri döner ve "kendi litresi yüzünden yetersiz bakiye" hatası oluşmaz.
+    ///
+    /// <b>Başlangıç sayacı (Y2):</b> çağıran açıkça vermediyse eski kaydın <c>prev_meter</c>'ı yeni kayda
+    /// taşınır; aksi hâlde ortadaki bir kayıt düzeltilince rapor km'si bozulurdu. Aracın <c>current_meter</c>
+    /// değeri ASLA geri alınmaz (yalnız ileri gider — <see cref="MeterRule.ShouldAdvance"/>).
+    ///
+    /// <b>Idempotent:</b> aynı <paramref name="operationId"/> ile ikinci çağrı yeni kayıt oluşturmaz.
+    /// </summary>
+    /// <returns>Oluşan DÜZELTİLMİŞ kaydın kimliği.</returns>
+    public string UpdateDistribution(SessionContext s, string id, NewDistribution dto, string operationId, string reason)
+    {
+        // Düzeltme hem TERS KAYIT hem YENİ KAYIT içerir → her iki yetki de aranır (deny-by-default).
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        AccessControl.RequireButton(s, SpecialButtons.Reverse);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Düzeltme gerekçesi zorunlu.");
+        if (dto.Liters <= 0) throw new ArgumentException("Litre pozitif olmalı.");
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate();
+
+        // Aynı düzeltme ikinci kez gönderildiyse (ağ yeniden denemesi) hiçbir şey tekrarlanmaz.
+        var varOlan = FindDistribution(conn, tx, s.CompanyId, operationId);
+        if (varOlan is not null) { tx.Commit(); return varOlan; }
+
+        var (_, zatenIptal) = LoadForCancel(conn, tx, "fuel_distributions", "liters", s.CompanyId, id);
+        if (zatenIptal) throw new InvalidOperationException("Bu yakıt kaydı iptal edilmiş; düzeltilemez.");
+
+        var eskiPrev = ReadPrevMeter(conn, tx, s.CompanyId, id);
+
+        MarkCancelled(conn, tx, "fuel_distributions", s.CompanyId, id, now);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_distribution", id, AuditActions.Reverse,
+            s.UserId, AfterJson: $"{{\"reason\":\"{Escape(reason)}\"}}"), _clock);
+
+        var yeniId = DistributeTx(conn, tx, s, dto with { PrevMeter = dto.PrevMeter ?? eskiPrev }, operationId, now);
+
+        // Denetim izi: düzeltilmiş kayıt hangi kaydın yerine geçti?
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_distribution", yeniId, AuditActions.Update,
+            s.UserId, AfterJson: $"{{\"corrects\":\"{Escape(id)}\",\"reason\":\"{Escape(reason)}\"}}"), _clock);
+
+        tx.Commit();
+        return yeniId;
+    }
+
+    /// <summary>Kaydın başlangıç sayacı (düzeltmede yeni kayda taşınır). Bulunamazsa null.</summary>
+    private static decimal? ReadPrevMeter(DbConnection conn, DbTransaction tx, string companyId, string id)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT prev_meter FROM fuel_distributions WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() is string v ? Money.Parse(v) : null;
     }
 
     /// <summary>Bu operation_id daha önce işlendi mi? (İÇE AKTARIM için salt-okunur kontrol.)
@@ -317,7 +400,8 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
-       fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted
+       fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
+       fd.personnel_id, fd.recipient_personnel_id, fd.note
 FROM fuel_distributions fd
 LEFT JOIN vehicles v ON v.id = fd.vehicle_id
 WHERE fd.company_id=@c" + (includeCancelled ? "" : " AND fd.is_deleted=0") + BranchScope.Sql(s, "fd.op_branch_id") + @"
@@ -331,7 +415,10 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
             list.Add(new FuelDistributionRow(
                 r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
                 Money.Parse(r.GetString(3)), Money.Parse(r.GetString(4)), Money.Parse(r.GetString(5)),
-                Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1));
+                Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
+                r.IsDBNull(10) ? null : r.GetString(10),
+                r.IsDBNull(11) ? null : r.GetString(11),
+                r.IsDBNull(12) ? null : r.GetString(12)));
         return list;
     }
 

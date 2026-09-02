@@ -24,7 +24,7 @@
         @if (Auth.CanCreate("fuel"))
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:760px;">
-                <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ DAĞITIM</MudText>
+                <MudText Typo="Typo.subtitle1" Class="mb-2">@DistFormTitle</MudText>
                 <MudGrid Spacing="2">
                     <MudItem xs="12" md="6">
                         <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
@@ -56,7 +56,7 @@
                 </MudGrid>
                 <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text" OnClick="ClearDist">İptal</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Distribute" Disabled="_busy">Kaydet</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Distribute" Disabled="_busy">@DistSaveText</MudButton>
                 </MudStack>
                 @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             </MudPaper>
@@ -82,10 +82,22 @@
                     <MudTd Style="text-align:right">@Date(context, "distributionDate")</MudTd>
                     <MudTd Style="text-align:right">
                         @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
-                        else if (Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse"))
+                        else
                         {
-                            <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
-                                       OnClick="@(() => CancelDist(Str(context, "id")))">İptal Et</MudButton>
+                            @* Kullanıcı isteği (2026-09-02): kayıt düzeltilebilsin. Üzerine YAZILMAZ —
+                               eski kayıt iptal edilip düzeltilmiş kayıt oluşturulur (tek işlem). *@
+                            @if (CanEditFuel)
+                            {
+                                <MudTooltip Text="Kaydı düzelt: eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar buna göre güncellenir.">
+                                    <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Text"
+                                               OnClick="@(() => BeginEditDist(context))">Düzenle</MudButton>
+                                </MudTooltip>
+                            }
+                            @if (Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse"))
+                            {
+                                <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                           OnClick="@(() => CancelDist(Str(context, "id")))">İptal Et</MudButton>
+                            }
                         }
                     </MudTd>
                 </RowTemplate>
@@ -254,20 +266,43 @@
         if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_liters)
             && !await Dialog.Confirm($"Litre değeri çok büyük görünüyor ({_liters:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
+        // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
+        string? duzeltmeGerekcesi = null;
+        if (_editDistId is not null)
+        {
+            duzeltmeGerekcesi = await Dialog.AskReason(
+                $"Bu yakıt kaydı düzeltilecek ({_liters:0.##} L · Toplam {(_liters * _price):0.##} ₺). " +
+                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar " +
+                "buna göre güncellenir. Araç sayacı geri alınmaz.");
+            if (duzeltmeGerekcesi is null) return;
+        }
         // Masaüstüyle parite: onayda litre + TOPLAM TUTAR (₺) gösterilir — para ile ilgili son kontrol.
-        if (!await Dialog.Confirm($"{_liters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {(_liters * _price):0.##} ₺)")) return;
+        else if (!await Dialog.Confirm($"{_liters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {(_liters * _price):0.##} ₺)")) return;
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/fuel/distribute", new
+            var govde = new Dictionary<string, object?>
             {
-                vehicleId = _vehicle.Id, liters = _liters, currentMeter = _meter,
-                unitPrice = _price > 0 ? (decimal?)_price : null, personnelId = _person,
-                recipientPersonnelId = string.IsNullOrEmpty(_recipient) ? null : _recipient,
-                distributionDate = _distDateMs,   // TRH-01: iş günü
-                costCenterId = string.IsNullOrEmpty(_distCostCenterId) ? null : _distCostCenterId   // MLY-01
-            });
-            _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
+                ["vehicleId"] = _vehicle.Id,
+                ["liters"] = _liters,
+                ["currentMeter"] = _meter,
+                ["unitPrice"] = _price > 0 ? (decimal?)_price : null,
+                ["personnelId"] = _person,
+                ["recipientPersonnelId"] = string.IsNullOrEmpty(_recipient) ? null : _recipient,
+                ["distributionDate"] = _distDateMs,   // TRH-01: iş günü
+                ["costCenterId"] = string.IsNullOrEmpty(_distCostCenterId) ? null : _distCostCenterId,   // MLY-01
+            };
+            string? err;
+            if (_editDistId is { } duzeltilen)
+            {
+                govde["note"] = _editNote;              // formda alanı yok → düzeltmede korunur
+                govde["prevMeter"] = _prevMeter;        // Y2: başlangıç sayacı taşınır (rapor km'si bozulmasın)
+                govde["reason"] = duzeltmeGerekcesi;
+                err = await Api.PutAsync($"/api/fuel/{duzeltilen}", govde);
+            }
+            else err = await Api.PostAsync("/api/fuel/distribute", govde);
+            var duzeltmeMi = _editDistId is not null;
+            _ok = err is null; _msg = err ?? (duzeltmeMi ? "Dağıtım düzeltildi (eski kayıt iptal edildi)." : "Dağıtım kaydedildi.");
             if (_ok)
             {
                 var veren = _person;                       // YKT-VEREN (ADR-182): ClearDist alanı boşaltmadan ÖNCE al
@@ -327,7 +362,49 @@
         catch { }
     }
 
-    private void ClearDist() { _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null; }
+    private void ClearDist()
+    {
+        _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null;
+        _editDistId = null; _editNote = null;   // düzeltme modundan çık (kalıntı bırakma)
+    }
+
+    // ═══ YAKIT DAĞITIMI DÜZELTME (kullanıcı isteği + kararı 2026-09-02) ═══════════════════════════
+    //
+    // Kayıt ÜZERİNE YAZILMAZ: depo bakiyesi + araç sayacı + rapor geçmişi birbirine bağlıdır. Sunucu
+    // eski kaydı iptal edip düzeltilmiş kaydı TEK transaction'da oluşturur (PUT /api/fuel/{id}).
+    // Masaüstü ile AYNI davranış (ortak servis: FuelService.UpdateDistribution).
+
+    /// <summary>Düzeltilen kaydın kimliği — doluysa form DÜZELTME modundadır.</summary>
+    private string? _editDistId;
+    /// <summary>Formda alanı olmayan ama kayıtta bulunan açıklama — düzeltmede aynen taşınır.</summary>
+    private string? _editNote;
+
+    private string DistFormTitle => _editDistId is null ? "YENİ DAĞITIM" : "DAĞITIM DÜZELTME";
+    private string DistSaveText => _editDistId is null ? "Kaydet" : "Düzeltmeyi Kaydet";
+
+    /// <summary>Düzeltme, ters kayıt (iptal) + yeni kayıt içerir → her iki yetki de aranır.</summary>
+    private bool CanEditFuel => Auth.CanCreate("fuel") && Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse");
+
+    private void BeginEditDist(JsonElement row)
+    {
+        _msg = null;
+        _editDistId = Str(row, "id");
+        // Araç alanı Autocomplete: listeden değil, satırın kendi kimlik+kodundan kurulur.
+        _vehicle = new ApiClient.Opt(Str(row, "vehicleId"), Str(row, "vehicleCode"));
+        _lastVehicle = _vehicle;
+        _prevMeter = Dec(row, "prevMeter");
+        _meter = Dec(row, "currentMeter");
+        _liters = Dec(row, "liters");
+        _price = Dec(row, "unitPrice");
+        _person = NullText(Str(row, "personnelId"));
+        _recipient = NullText(Str(row, "recipientPersonnelId"));
+        _editNote = NullText(Str(row, "note"));
+        var ms = row.TryGetProperty("distributionDate", out var dd) && dd.ValueKind == JsonValueKind.Number ? dd.GetInt64() : 0;
+        if (ms > 0) _distDate = DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.Date;
+        _ok = true; _msg = "Düzeltme modu: kaydı değiştirip “Düzeltmeyi Kaydet”e basın.";
+    }
+
+    private static string? NullText(string v) => string.IsNullOrWhiteSpace(v) ? null : v;
     private void ClearDepot() { _dLiters = 0; _dPrice = _currentPrice; _dSupplier = _dInvoice = null; }
 
     // ── KAYIT İPTALİ (kullanıcı kararları Y1–Y5) — ortak FuelService/API; sayaç geri alınmaz ──

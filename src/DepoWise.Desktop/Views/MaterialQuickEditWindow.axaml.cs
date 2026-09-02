@@ -332,6 +332,41 @@ public partial class MaterialQuickEditWindow : Window
                 return;
             Close(null);
         };
+
+        // Fotoğraflar sunucudan ASENKRON gelir (pencere açılışı bloklanmaz).
+        _ = FotograflariYukleAsync(session, materialId);
+    }
+
+    /// <summary>Kullanıcı isteği (2026-09-02): çift-tık penceresinde de fotoğraflar görünür.
+    /// Kaynak SUNUCUDUR (ADR-182) → başka bilgisayarda eklenen fotoğraf da gelir. Salt görüntüleme.</summary>
+    private async System.Threading.Tasks.Task FotograflariYukleAsync(SessionContext session, string materialId)
+    {
+        var section = this.FindControl<StackPanel>("PhotoSection");
+        var panel = this.FindControl<StackPanel>("PhotoPanel");
+        var note = this.FindControl<SelectableTextBlock>("PhotoNote");
+        if (section is null || panel is null || note is null) return;
+        try
+        {
+            var (fotograflar, cevrimdisi) = await DesktopPhotos.YukleAsync(session, "material", materialId);
+            panel.Children.Clear();
+            foreach (var f in fotograflar)
+            {
+                try
+                {
+                    panel.Children.Add(new Image
+                    {
+                        Source = new Avalonia.Media.Imaging.Bitmap(new System.IO.MemoryStream(f.Bytes)),
+                        Height = 110,
+                        Stretch = Stretch.Uniform,
+                    });
+                }
+                catch { /* bozuk görsel atlanır */ }
+            }
+            note.Text = "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor.";
+            note.IsVisible = cevrimdisi;
+            section.IsVisible = panel.Children.Count > 0 || cevrimdisi;
+        }
+        catch { /* fotoğraf yüklenemedi → bölüm gizli kalır */ }
     }
 
     private static List<Opt> Load(Func<IReadOnlyList<LookupItem>> get)

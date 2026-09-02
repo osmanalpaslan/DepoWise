@@ -119,8 +119,22 @@
                 </MudItem>
                 <MudItem xs="6"><MudField Label="Sayaç" Variant="Variant.Text">@_meter @_meterUnit</MudField></MudItem>
             </MudGrid>
+            @* Kullanıcı isteği (2026-09-02): "başka makinede eklenen fotoğrafı çift tıkta göremiyorum."
+               Fotoğraflar SUNUCUDAN gelir → hangi bilgisayardan eklendiği fark etmez. Burada yalnız
+               GÖRÜNTÜLENİR; ekleme/silme "Tam Düzenleme" ekranındadır. *@
+            @if (_photos.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">Kayıtlı fotoğraflar</MudText>
+                <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-1">
+                    @foreach (var url in _photos)
+                    {
+                        <MudImage Src="@url" Width="84" Height="84" ObjectFit="ObjectFit.Cover"
+                                  Style="border-radius:8px;margin:0 8px 8px 0;" />
+                    }
+                </MudStack>
+            }
             @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
-            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">İç kod ve sayaç bu pencerede değişmez; fotoğraflar için liste ekranındaki “Düzenle”yi kullanın.</MudText> }
+            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">İç kod ve sayaç bu pencerede değişmez; fotoğraf eklemek/silmek için “Tam Düzenleme”yi kullanın.</MudText> }
         }
     </DialogContent>
     <DialogActions>
@@ -169,6 +183,23 @@
     private decimal _meter;
     private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _branches = new(), _drivers = new();
 
+    /// <summary>Salt görüntüleme fotoğrafları (data-URL). Sunucudan gelir → makineler arası ortaktır.</summary>
+    private readonly List<string> _photos = new();
+
+    private async Task LoadPhotos()
+    {
+        _photos.Clear();
+        try
+        {
+            foreach (var p in await Api.GetArrayAsync($"/api/vehicles/{Id}/photos"))
+            {
+                var url = await Api.GetImageDataUrlAsync(Str(p, "url"));
+                if (url is not null) _photos.Add(url);
+            }
+        }
+        catch { /* fotoğraf yüklenemedi → bölüm gizli kalır, düzenleme akışı etkilenmez */ }
+    }
+
     private async Task OnBrandChanged(string? v)
     {
         _brand = v; _model = null;
@@ -194,6 +225,7 @@
             _model = NullId(d, "vehicleModelId"); _branch = NullId(d, "branchId"); _driver = NullId(d, "driverPersonnelId");
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
             _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+            await LoadPhotos();   // kullanıcı isteği 2026-09-02: fotoğraflar bu pencerede de görünsün
         }
         catch { _notFound = true; }
         finally { _loading = false; }

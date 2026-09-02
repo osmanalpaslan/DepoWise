@@ -426,6 +426,18 @@
     /// boş açılırdı. Tam sayfa yüklemesi başlangıç akışını (tanımlar + kaydı yükle) yeniden çalıştırır.
     private void EditNav(string id) => Nav.NavigateTo($"/materials/new?edit={id}", forceLoad: true);
 
+    /// <summary>Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılır —
+    /// böylece liste ekranı (filtre/sayfa) kaybolmaz. Yeni sekme engellenirse aynı sekmede açılır.</summary>
+    private async Task EditNavNewTab(string id)
+    {
+        try
+        {
+            if (await JS.InvokeAsync<bool>("dwOpenInNewTab", $"/materials/new?edit={id}")) return;
+        }
+        catch { /* JS erişilemedi → aynı sekmede aç */ }
+        EditNav(id);
+    }
+
     /// <summary>URL'de <c>?edit=</c> var mı — yani form YENİ KAYIT için mi, DÜZENLEME için mi açıldı.
     /// İlk render'dan ÖNCE (OnInitializedAsync'in ilk await'inden önce) belirlenir; <c>_editId</c> o anda
     /// henüz set edilmemiş olabileceği için yetki kapısı buna bakar, <c>_editId</c>'ye değil.</summary>
@@ -705,7 +717,7 @@
         if (res is null || res.Canceled) return;
         // G2-01: "Tam Düzenleme" seçildi → fotoğraf/muadil/uyumlu araç dahil tam forma git.
         // Kayıt değişmediği için listeyi tazelemeye gerek yok (form dönüşünde zaten yenilenir).
-        if (res.Data as string == "fulledit") { EditNav(id); return; }
+        if (res.Data as string == "fulledit") { await EditNavNewTab(id); return; }
         await Load();
         if (res.Data as string == "deleted") _detail = null;
         else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);
