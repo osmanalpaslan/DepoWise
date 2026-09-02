@@ -3685,3 +3685,15 @@ bloklanmaz) ve hata hâlinde bölüm gizli kalır; çevrimdışıysa kullanıcı
 
 **Kapsam dışı:** yeni migration YOK (hiçbir madde şema değiştirmedi) · yeni AppScreen YOK · yeni yetki
 modülü YOK · araç bakımı, onay motoru ve senkron sözleşmesi değişmedi.
+
+**YAYIN (2026-09-02).** ADR-192 (`0ed02e1`) ve ADR-191/7b (`db49f29`) **birlikte** yayınlandı — ayrı
+yayınlanamazlardı: API açılışta migration çalıştırır, dolayısıyla herhangi bir dağıtım Migration086'yı
+da uygular. Kullanıcı 7b'nin yayınlanmasını açıkça onayladı.
+**API v181 · Web v206 · Masaüstü 1.0.168** (253 dosya, self-contained, checksum `c355b854…ae3577b5`) ·
+**canlı şema 85 → 86**. Yayın öncesi yedek: 756.635 bayt / 553 nesne (`pg_restore -l` ile doğrulandı).
+Canlı veri birebir korundu: malzeme 2492 · araç 166 · stok hareketi 683 · yakıt 647 · kullanıcı 9;
+`equipment_maintenances` 0 satır (backfill yok). Yayın sonrası salt-okuma kontrolleri **9/9 başarılı**
+(uyarı sözleşmesi `vehicleId`+`plate`+`%`, yakıt düzeltme alanları, `PUT /api/fuel/{id}` yönlendirmesi
+→ olmayan kayıt 403 ve **hiçbir yazma yok**, ekipman ucu 200, 4 web sayfası 200).
+⚠️ Kozmetik: paket yayın notu yükleme sırasında ilk `;` karakterinde kesildi; `app_releases`'e aynı
+sürüm için ikinci satır eklememek adına düzeltilmedi (sürüm/checksum/paket doğru).

@@ -1,5 +1,33 @@
 # AKTİF DURUM
 
+## ⭐ YAYIN — 2026-09-02 (ADR-192 + ADR-191/7b) — ✅ BAŞARILI
+
+**Yayınlanan commit:** `0ed02e1` (ADR-192) + `db49f29` (7b/ADR-191) · **API v181** · **Web v206** ·
+**Masaüstü 1.0.168** (253 dosya, **self-contained**, 90.496.541 bayt, checksum `c355b854…ae3577b5`)
+**Canlı şema 85 → 86** (Migration086_EquipmentMaintenance — 4 yeni tablo, ALTER/backfill YOK).
+
+**Yayın öncesi yedek:** `depowise_prod_pre_migration086.dump` — 756.635 bayt, **553 nesne** (`pg_restore -l` ile doğrulandı).
+
+**Canlı veri birebir korundu** (yayın öncesi → sonrası): malzeme **2492 → 2492** · araç **166 → 166** ·
+stok hareketi **683 → 683** · yakıt dağıtımı **647 → 647** · kullanıcı **9 → 9** · yeni tablo
+`equipment_maintenances` **0 satır** (backfill yok).
+
+**Yayın sonrası kontroller (test hesabı, salt-okuma — hiçbir kayıt oluşturulmadı/değiştirilmedi):**
+
+| Kontrol | Sonuç |
+|---|---|
+| `/api/maintenance/alerts` yeni sözleşme | ✅ `vehicleId` + `plate` + `%` geliyor (örn. `TOP-S 001` · `12-2008-90` · `%74`) |
+| `/api/fuel` düzeltme alanları | ✅ `personnelId` · `recipientPersonnelId` · `note` geliyor |
+| `PUT /api/fuel/{id}` (yeni uç) | ✅ yönlendirme çalışıyor; olmayan kayıt → **403**, hiçbir yazma yapılmadı |
+| `/api/equipment-maintenance` (7b) | ✅ HTTP 200 |
+| Web sayfaları (`/`, `/maintenance/alerts`, `/fuel`, `/vehicles`) | ✅ 4/4 HTTP 200 |
+
+⚠️ **Bilinen kozmetik eksik:** paket yayın notu, yükleme sırasında ilk `;` karakterinde kesildi →
+güncelleme penceresinde notun tamamı yerine ilk cümlesi görünüyor. Sürüm/checksum/paket **doğru**;
+düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için **bilerek yapılmadı**.
+
+---
+
 > Son güncelleme: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
@@ -130,14 +158,14 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | *(geçmiş)* ARA İŞ 4 — Custom Rapor | ✅ **TAMAMLANDI + YAYINLANDI (2026-08-30)** — canlı şema **83**, masaüstü **1.0.165**, kod `2669176`, yayın kaydı `492b14c` |
 | *(geçmiş)* ARA İŞ 3 | ✅ **TAMAMLANDI + YAYINLANDI** — masaüstü **1.0.163**; o yayın anında şema 81'di, **şu anki canlı şema 83'tür** (Migration082 + Migration083 sonrası) |
 | Ana roadmap aktif iş | **YOK** — **FIN-B1 / Migration082 ✅ TAMAMLANDI ve YAYINLANDI (2026-08-29)**: kod `d9fc350`, **canlı şema 81 → 82**, masaüstü **1.0.164**, API + Web yeniden dağıtıldı; 7 indeks `UNIQUE (company_id, operation_id)`; **hiçbir kayıt değişmedi** (683/220/3 satır birebir aynı) |
-| Yayın bekleyen işler | ⏳ **ADR-192 (5 alan düzeltmesi)** + **7b — BAKIM-EKİPMAN GENİŞLETMESİ** (`db49f29`). ⚠️ **Ayrı yayınlanamazlar:** API açılışta migration çalıştırır, bu yüzden herhangi bir dağıtım Migration086'yı da uygular → **canlı şema 85 → 86**. Kullanıcı 2026-09-02'de **7b'nin yayınlanmasını açıkça onayladı** ("evet 7 b yayınlanabilir. tamamlanmış bütün işleri yayınla") |
+| Yayın bekleyen işler | **YOK** — ADR-192 + 7b/ADR-191 **2026-09-02 tarihinde YAYINLANDI** (API v181 · Web v206 · masaüstü **1.0.168** · canlı şema **86**) |
 | Kodlanmamış ayrı fazlar | **YOK** — Custom Rapor ✅ yayınlandı · Ekip+Hiyerarşi+Onay ✅ kodlandı (yayın bekliyor) |
 | Migration durumu | **Canlı şema 85** (ARA İŞ 5 yayını, 2026-08-30) · **katalog azamisi 86** · **Migration086_EquipmentMaintenance** (7b) master'da HENÜZ YOK — commit bekliyor; **production'da UYGULANMADI** |
-| Production durumu | Son yayın 2026-08-30 (**ARA İŞ 5** — şema 85, masaüstü 1.0.166, API+Web dağıtıldı, smoke test geçti); süper admin credential rotasyonu tamamlandı. **7b turlarında production'a hiç dokunulmadı — SELECT dâhil 0 erişim** |
+| Production durumu | **Son yayın 2026-09-02** (ADR-192 + 7b) — canlı şema **86**, masaüstü **1.0.168**, API v181 + Web v206 dağıtıldı, yayın öncesi yedek alındı ve doğrulandı, yayın sonrası kontroller **9/9 başarılı**, canlı veri birebir korundu |
 | Son commit | **ADR-192 — 5 alan düzeltmesi** (masaüstü + web + API + 2 yeni test dosyası) · önceki `db49f29` (7b, push edildi, bu yayında çıkıyor) · `d589d3f` (ARA İŞ 5, yayında) |
 | Son başarılı test | Tam süit **3.207 geçti / 0 başarısız / 48 atlanan** (2026-09-02; taban 3.196 + 11 yeni test) · **FuelUpdateTests 9/9** (atomiklik, idempotency, tenant, yetki dâhil) · **BakimUyariKopruTests 2/2** · Release derleme (API + Web + Masaüstü) **0 hata** |
 | Bekleyen ana karar | **YOK** — FIN-B1/Migration082 ✅ kapandı, ARA İŞ 5 kararları (ADR-187/188) ✅ kesinleşti |
-| Sonraki TEK iş | **ADR-192 + 7b ortak yayını** (şema 85 → 86, API + Web dağıtım, masaüstü yeni sürüm **self-contained**). Kod ve testler tamam; kullanıcı yayını açıkça onayladı. N/Mobil ⏭️ ATLANDI |
+| Sonraki TEK iş | **YOK** — yayın tamamlandı. Sıradaki iş kullanıcının yeni talebiyle belirlenir. N/Mobil ⏭️ ATLANDI |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 
