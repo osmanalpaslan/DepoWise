@@ -3780,3 +3780,15 @@ taşır, hiç yapılmamışınki **null**'dır (diğer kayda düşmez).
 
 **Kapsam dışı:** migration YOK · yeni ekran/route YOK (yalnız mevcut sayfaya query parametresi) ·
 yeni yetki YOK · bakım kaydetme/iptal akışları değişmedi.
+
+**YAYIN (2026-09-02, aynı gün ikinci yayın).** ADR-194 yayınlandı: **API v183 · Web v207 · Masaüstü
+1.0.169** (253 dosya, self-contained, 90.497.086 bayt, checksum `9c7080cd…bd23d633`).
+**MIGRATION YOK — canlı şema 86'da kaldı** (bu nedenle yayın öncesi yedek gerekmedi; şema
+değişmiyor ve hiçbir veri dönüşümü yapılmıyor).
+**Canlı kanıt:** `/api/maintenance/alerts` 124 uyarı döndürüyor — **75'inde `maintenanceId` null**
+(hiç yapılmamış → artık yanlış kayıt AÇILMIYOR), **49'unda gerçek kayıt kimliği** var. Bu, düzeltme
+öncesi ölçülen "75 hiç-yapılmamış uyarı" sayısıyla birebir örtüşüyor.
+`app_releases` içinde 1.0.168 ve 1.0.169 için **ikişer değil birer satır** var (ADR-193 upsert'i doğru
+çalışıyor). Web `/maintenance/records?view=…` adresi 200 dönüyor.
+**Veri kaybı yok:** araç 166 ve yakıt 647 aynı; malzeme 2492→**2497**, stok hareketi 683→**693**,
+bakım 51→**52** — bu artışlar kullanıcının **canlı veri girişine devam etmesinden** kaynaklanıyor.

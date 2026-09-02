@@ -2,7 +2,7 @@
 
 ## ⭐ YAYIN — 2026-09-02 (ADR-192 + ADR-191/7b) — ✅ BAŞARILI
 
-**Yayınlanan commit:** `0ed02e1` (ADR-192) + `db49f29` (7b/ADR-191) · **API v181** · **Web v206** ·
+**Yayınlanan commit:** `f221bad` (ADR-194) → API **v183** · Web **v207** · Masaüstü **1.0.169** (migration YOK, şema 86). *(aynı gün önceki)* `0ed02e1` (ADR-192) + `db49f29` (7b/ADR-191) · **API v181** · **Web v206** ·
 **Masaüstü 1.0.168** (253 dosya, **self-contained**, 90.496.541 bayt, checksum `c355b854…ae3577b5`)
 **Canlı şema 85 → 86** (Migration086_EquipmentMaintenance — 4 yeni tablo, ALTER/backfill YOK).
 
