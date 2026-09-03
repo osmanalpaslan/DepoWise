@@ -3935,3 +3935,12 @@ form açılır kutusu ve bilgi penceresi.
 
 **Kapsam dışı:** alan zorunluluğu ekranı (sıradaki iş — küçük eklemeli migration ile) · kayıt tipi
 yetkisi · buton gizleme genişletmesi · Tanımlar eksikleri. Migration YOK.
+
+**YAYIN (2026-09-03).** ADR-195 (`294b972`) + ADR-196 (`5735e26`) + ADR-197 (`981c6d7`) birlikte
+yayınlandı: **API v184 · Web v208 · Masaüstü 1.0.170** (253 dosya, self-contained, 90.526.627 bayt,
+checksum `fd5e67e9…26be6529`). **MIGRATION YOK — canlı şema 86'da kaldı** (yedek gerekmedi; veri
+dönüşümü yok). **Canlı kanıtlar:** uyarı detayı artık "TAN-S 011 · 34-00-17-18350 · %2486 (Gecikti)"
+biçiminde · `/api/modules` 8 kategori + 26 rapor kalemi (`rpt_*`) döndürüyor · rapor kataloğu 26 rapor
+(yeni Dönem/Toplam dahil) · web /reports /permissions /import 200. Veri kaybı yok — sayılardaki artış
+canlı veri girişinden (malzeme 2503 · araç 167 · stok hareketi 700 · yakıt 691); sunucudaki fotoğraf
+18 (otomatik taşıma, babanın makinesi 1.0.170'i açınca kalan tümünü yükleyecek).
