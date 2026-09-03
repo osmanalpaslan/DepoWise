@@ -1,7 +1,9 @@
 # Alpnex — MASTER ROADMAP (Yeni Özellik Yol Haritası)
 
-> Son güncelleme: **2026-09-02** (ADR-192 — kullanıcının bildirdiği 5 alan düzeltmesi **YAYINLANDI**;
-> **ADR-192 için migration gerekmedi**; aynı yayında 7b/Migration086 da çıktı → **canlı şema 86**, masaüstü **1.0.168**.) · Kaynak: yeni
+> Son güncelleme: **2026-09-03** (ADR-195…199 dalgaları **YAYINLANDI** — rapor bazlı yetki · kategorize
+> yetki ağacı · Alan Ayarları ekranı (**Migration087 → canlı şema 87**) · Günlük Faaliyet kayıt tipi
+> yetkisi · Tanımlar'a Araç Modelleri · Excel şube şifresi · sekmeler · fotoğraf otomatik taşıma.
+> Masaüstü **1.0.171**, API **v185**, Web **v209**. Ayrıntı: `CURRENT_PHASE.md`.) · Kaynak: yeni
 > özellik teknik analizi (2026-08-27) + kullanıcının "Canlı Veri Koruma Odaklı Geliştirme Protokolü".
 > **Bu dosya yeni özellik geliştirmenin ANA KONTROL BELGESİDİR** — her özellik başlamadan önce ilgili
 > bölüm okunur, bittikten sonra güncellenir. Sıra kullanıcı onayı olmadan DEĞİŞTİRİLMEZ.

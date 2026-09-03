@@ -1,6 +1,31 @@
 # AKTİF DURUM
 
-## ⭐ YAYIN — 2026-09-02 (ADR-192 + ADR-191/7b) — ✅ BAŞARILI
+## ⭐ YAYIN — 2026-09-03 (ADR-198 + ADR-199) — ✅ BAŞARILI · **MIGRATION VAR: canlı şema 86 → 87**
+
+**Yayınlanan commit:** `7549737` (ADR-199; ADR-198 `ea2bbf3` aynı yayında) → **API v185** · **Web v209** ·
+**Masaüstü 1.0.171** (253 dosya, **self-contained**, 3 runtime DLL, 90.547.562 bayt zip,
+checksum `C7B2C59B…95B3AA73`, eski paketler otomatik temizlendi ~1,11 GB).
+
+**Yayın öncesi yedek:** `artifacts/backups/depowise_prod_pre_migration087.dump` — 787.525 bayt,
+**596 nesne** (`pg_restore -l` ile doğrulandı).
+
+**Migration087_FieldRequirements uygulandı:** şema **86 → 87**, yalnız EK tablo `field_requirements`
+(0 satır — satır yoksa katalog varsayılanı, yayın günü hiçbir form değişmedi).
+
+**Canlı veri birebir korundu** (öncesi → sonrası): malzeme **2503 → 2503** · araç **167 → 167** ·
+stok hareketi **700 → 700** · yakıt **691 → 691** · kullanıcı **9 → 9** · günlük faaliyet **3 → 3**.
+
+**Yayın sonrası kontroller (test hesabı, salt-okuma):** login ✅ · `/api/daily/allowed-types` ✅ 6 tip
+(atamasız kullanıcı tümünü görür — geçiş güvenli kural canlıda doğrulandı) ·
+`/api/field-requirements/vehicles` ✅ boş liste (varsayılan) · `/api/modules` ✅ 6 `datype_*` kalemi +
+grup alanları · `/api/releases/latest` ✅ 1.0.171 · web `/`, `/definitions`, `/daily`,
+`/field-settings` ✅ 4/4 HTTP 200.
+
+**Doğrulama:** tam süit **3242 geçti / 0 başarısız / 48 atlanan** · 3 Release build **0 hata**.
+
+---
+
+## YAYIN — 2026-09-02 (ADR-192 + ADR-191/7b) — ✅ BAŞARILI
 
 **Yayınlanan commit:** `f221bad` (ADR-194) → API **v183** · Web **v207** · Masaüstü **1.0.169** (migration YOK, şema 86). *(aynı gün önceki)* `0ed02e1` (ADR-192) + `db49f29` (7b/ADR-191) · **API v181** · **Web v206** ·
 **Masaüstü 1.0.168** (253 dosya, **self-contained**, 90.496.541 bayt, checksum `c355b854…ae3577b5`)
@@ -28,7 +53,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
