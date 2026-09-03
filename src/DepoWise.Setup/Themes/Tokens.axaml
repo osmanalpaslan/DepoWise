@@ -1,0 +1,64 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ═══ ALPNEX KURULUM — TASARIM BELİRTEÇLERİ (TEK KAYNAK) ═══
+         Kural: hiçbir görünümde gömülü renk/ölçü YOKTUR; hepsi buradan {StaticResource} ile alınır.
+         Palet, uygulamanın mevcut kurumsal mavisiyle (#3B82F6) uyumludur; zemin bir tık daha
+         derindir ki kurulum ekranı "sistem penceresi" değil, ürünün kendisi gibi dursun. -->
+
+    <!-- ── Zemin ve yüzeyler ── -->
+    <Color x:Key="ZeminColor">#0B1220</Color>
+    <Color x:Key="YuzeyColor">#111C2E</Color>
+    <Color x:Key="YuzeyYuksekColor">#16233A</Color>
+    <Color x:Key="CizgiColor">#1E2B42</Color>
+
+    <!-- ── Metin ── -->
+    <Color x:Key="MetinColor">#F1F5F9</Color>
+    <Color x:Key="MetinIkincilColor">#94A3B8</Color>
+    <Color x:Key="MetinSonukColor">#64748B</Color>
+
+    <!-- ── Marka ve durum ── -->
+    <Color x:Key="MarkaColor">#3B82F6</Color>
+    <Color x:Key="MarkaAcikColor">#60A5FA</Color>
+    <Color x:Key="BasariColor">#22C55E</Color>
+    <Color x:Key="UyariColor">#F59E0B</Color>
+    <Color x:Key="HataColor">#EF4444</Color>
+
+    <SolidColorBrush x:Key="ZeminBrush" Color="{StaticResource ZeminColor}"/>
+    <SolidColorBrush x:Key="YuzeyBrush" Color="{StaticResource YuzeyColor}"/>
+    <SolidColorBrush x:Key="YuzeyYuksekBrush" Color="{StaticResource YuzeyYuksekColor}"/>
+    <SolidColorBrush x:Key="CizgiBrush" Color="{StaticResource CizgiColor}"/>
+    <SolidColorBrush x:Key="MetinBrush" Color="{StaticResource MetinColor}"/>
+    <SolidColorBrush x:Key="MetinIkincilBrush" Color="{StaticResource MetinIkincilColor}"/>
+    <SolidColorBrush x:Key="MetinSonukBrush" Color="{StaticResource MetinSonukColor}"/>
+    <SolidColorBrush x:Key="MarkaBrush" Color="{StaticResource MarkaColor}"/>
+    <SolidColorBrush x:Key="MarkaAcikBrush" Color="{StaticResource MarkaAcikColor}"/>
+    <SolidColorBrush x:Key="BasariBrush" Color="{StaticResource BasariColor}"/>
+    <SolidColorBrush x:Key="UyariBrush" Color="{StaticResource UyariColor}"/>
+    <SolidColorBrush x:Key="HataBrush" Color="{StaticResource HataColor}"/>
+
+    <!-- ── Boşluk skalası (4 tabanlı) ── -->
+    <Thickness x:Key="Bosluk1">4</Thickness>
+    <Thickness x:Key="Bosluk2">8</Thickness>
+    <Thickness x:Key="Bosluk3">12</Thickness>
+    <Thickness x:Key="Bosluk4">16</Thickness>
+    <Thickness x:Key="Bosluk6">24</Thickness>
+    <Thickness x:Key="Bosluk8">32</Thickness>
+    <Thickness x:Key="SayfaKenari">40 36</Thickness>
+
+    <!-- ── Köşe yarıçapı ── -->
+    <CornerRadius x:Key="KoseKucuk">6</CornerRadius>
+    <CornerRadius x:Key="KoseBuyuk">12</CornerRadius>
+
+    <!-- ── Tipografi (Inter; ölçek 12/14/20/30) ── -->
+    <x:Double x:Key="YaziKucuk">12</x:Double>
+    <x:Double x:Key="YaziGovde">14</x:Double>
+    <x:Double x:Key="YaziBaslik">20</x:Double>
+    <x:Double x:Key="YaziDisplay">30</x:Double>
+
+    <!-- ── Hareket (alpnex-arayuz-hareket becerisindeki bütçe) ── -->
+    <x:Double x:Key="SureVurgu">120</x:Double>
+    <x:Double x:Key="SureGecis">180</x:Double>
+    <x:Double x:Key="SureAcilis">700</x:Double>
+
+</ResourceDictionary>

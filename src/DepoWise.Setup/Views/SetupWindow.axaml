@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DepoWise.Setup.Views.SetupWindow"
+        Title="Alpnex Kurulum"
+        Width="640" Height="480"
+        CanResize="False" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource ZeminBrush}"
+        FontFamily="Inter, Segoe UI, sans-serif">
+
+    <!-- Zemin KÖK BORDER'da boyanır. Window.Background üzerindeki kaynak başvurusu bu senaryoda
+         güvenilir çözülmüyor (ölçüldü: pencere saydam kalıyordu); içerik düzeyindeki kaynaklar ise
+         sorunsuz çözülüyor. Bu yüzden gerçek zemin burada, pencerede yalnız aynı değerin sabit
+         karşılığı duruyor (çerçeve boyaması için). -->
+    <Border Background="{DynamicResource ZeminBrush}">
+
+    <!-- Tek pencere, sihirbaz YOK. Ekranlar üst üste durur; yalnız biri görünür.
+         Geçiş: 180 ms solma (kaydırma/zıplama yok). -->
+    <Panel>
+
+        <!-- ═══ 1) AÇILIŞ ═══ Marka anı; ≤700 ms, sonra kendiliğinden geçer. -->
+        <Border x:Name="EkranAcilis" Classes="sayfa" Opacity="0">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
+                <TextBlock x:Name="AcilisLogo" Classes="display" Text="ALPNEX"
+                           HorizontalAlignment="Center" RenderTransformOrigin="50%,50%">
+                    <TextBlock.Transitions>
+                        <Transitions>
+                            <TransformOperationsTransition Property="RenderTransform"
+                                                           Duration="0:0:0.42" Easing="CubicEaseOut"/>
+                        </Transitions>
+                    </TextBlock.Transitions>
+                </TextBlock>
+                <Border Height="2" Width="56" Background="{DynamicResource MarkaBrush}"
+                        HorizontalAlignment="Center" CornerRadius="1"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ 2) HAZIRLIK ═══ Sistem kontrolü + tek birincil eylem. -->
+        <Border x:Name="EkranHazirlik" Classes="sayfa" Opacity="0" IsVisible="False"
+                Padding="{DynamicResource SayfaKenari}">
+            <Grid RowDefinitions="Auto,*,Auto">
+
+                <StackPanel Grid.Row="0" Spacing="6">
+                    <TextBlock Classes="display" Text="ALPNEX"/>
+                    <TextBlock x:Name="HazirlikAltBaslik" Classes="govde"
+                               Text="Kurulum için sisteminiz kontrol ediliyor…"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" x:Name="OnKosulListe" Spacing="10" Margin="0 26 0 0"/>
+
+                <StackPanel Grid.Row="2" Spacing="14">
+                    <!-- Kurulum klasörü: ana ekranı kalabalıklaştırmaz, "Gelişmiş" altındadır. -->
+                    <Expander x:Name="GelismisPanel" Header="Gelişmiş" Background="Transparent"
+                              BorderBrush="{DynamicResource CizgiBrush}">
+                        <StackPanel Spacing="8" Margin="0 8 0 0">
+                            <TextBlock Classes="kucuk" Text="Kurulum klasörü"/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox x:Name="KlasorKutusu" Grid.Column="0" FontSize="13"/>
+                                <Button x:Name="GozatBtn" Grid.Column="1" Classes="sessiz" Content="Gözat…"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="SurumEtiketi" Grid.Column="0" Classes="kucuk"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="KurBtn" Grid.Column="1" Classes="birincil" Content="Kur"
+                                IsEnabled="False" IsDefault="True"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 3) İLERLEME ═══ Gerçek yüzde + adım listesi. Belirsiz "marquee" YOK. -->
+        <Border x:Name="EkranIlerleme" Classes="sayfa" Opacity="0" IsVisible="False"
+                Padding="{DynamicResource SayfaKenari}">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+                <TextBlock Grid.Row="0" Classes="baslik" Text="Alpnex kuruluyor"/>
+
+                <StackPanel Grid.Row="1" Spacing="8" Margin="0 22 0 0">
+                    <ProgressBar x:Name="Ilerleme" Classes="alpnex" Minimum="0" Maximum="100"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="IlerlemeDurum" Grid.Column="0" Classes="govde" Text="Hazırlanıyor…"/>
+                        <TextBlock x:Name="IlerlemeYuzde" Grid.Column="1" Classes="govde" Text="%0"/>
+                    </Grid>
+                    <TextBlock x:Name="IlerlemeDetay" Classes="kucuk" Text=""/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" x:Name="AdimListe" Spacing="11" Margin="0 28 0 0"/>
+
+                <Button x:Name="IptalBtn" Grid.Row="3" Classes="sessiz" Content="İptal"
+                        HorizontalAlignment="Right"/>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 4) HATA ═══ Sade dil, TEK ana kurtarma eylemi, ayrıntı katlanır.
+             Bilinçli olarak animasyonsuzdur: hata anında hareket rahatsız eder. -->
+        <Border x:Name="EkranHata" IsVisible="False" Padding="{DynamicResource SayfaKenari}">
+            <Grid RowDefinitions="Auto,*,Auto">
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+                    <Path Classes="simge hata" Data="{DynamicResource SimgeUyari}"
+                          Width="26" Height="26" VerticalAlignment="Center"/>
+                    <TextBlock Classes="baslik" Text="Kurulum tamamlanamadı" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Spacing="16" Margin="0 20 0 0">
+                    <TextBlock x:Name="HataMesaji" Classes="govde" FontSize="15"/>
+                    <TextBlock x:Name="HataGuvence" Classes="kucuk"
+                               Text="Bilgisayarınızda kalıcı bir değişiklik yapılmadı."/>
+
+                    <Expander Header="Ayrıntılar" Background="Transparent"
+                              BorderBrush="{DynamicResource CizgiBrush}">
+                        <StackPanel Spacing="6" Margin="0 8 0 0">
+                            <SelectableTextBlock x:Name="HataKodu" Classes="kucuk"
+                                                 FontFamily="Consolas, monospace"/>
+                            <SelectableTextBlock x:Name="HataLogYolu" Classes="kucuk"
+                                                 FontFamily="Consolas, monospace"/>
+                            <TextBlock Classes="kucuk" Text="Bu bilgiyi seçip kopyalayabilirsiniz."/>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10"
+                            HorizontalAlignment="Right">
+                    <Button x:Name="HataKapatBtn" Classes="sessiz" Content="Kapat"/>
+                    <Button x:Name="TekrarDeneBtn" Classes="birincil" Content="Tekrar Dene" IsDefault="True"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 5) TAMAMLANDI ═══ Tek eylem. Anket/bülten/ek teklif YOK. -->
+        <Border x:Name="EkranBitti" Classes="sayfa" Opacity="0" IsVisible="False"
+                Padding="{DynamicResource SayfaKenari}">
+            <Grid RowDefinitions="*,Auto">
+                <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
+                    <Path Classes="simge tamam" Data="{DynamicResource SimgeKalkan}"
+                          Width="44" Height="44" HorizontalAlignment="Left"/>
+                    <TextBlock Classes="display" Text="ALPNEX HAZIR"/>
+                    <TextBlock x:Name="BittiAciklama" Classes="govde"/>
+                </StackPanel>
+                <Button x:Name="BaslatBtn" Grid.Row="1" Classes="birincil"
+                        Content="Alpnex'i Başlat" HorizontalAlignment="Right" IsDefault="True"/>
+            </Grid>
+        </Border>
+
+    </Panel>
+    </Border>
+</Window>

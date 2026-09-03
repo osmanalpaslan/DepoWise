@@ -2,20 +2,27 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- ADR-200: WinForms → Avalonia. Karar ÖLÇÜMLE verildi (aynı ekran, aynı yayın koşulları):
+         WinForms tek dosya 69 MB / 937 ms · Avalonia tek dosya 45 MB / 2410 ms ·
+         Avalonia klasör 201 MB / 968 ms  → Avalonia'nın KENDİSİ yavaş değil (968 ms), fark
+         tek-dosya kendi kendini açma maliyeti. Avalonia 24 MB DAHA KÜÇÜK, çünkü WinForms tüm
+         Microsoft.WindowsDesktop.App çatısını taşıyor. ReadyToRun denendi ve REDDEDİLDİ
+         (59 MB / 5851 ms — hem daha büyük hem daha yavaş).
+         Ayrıca: uygulamayla aynı yığın → ortak tasarım dili, gerçek animasyon, tek teknoloji bakımı. -->
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AlpnexSetup</AssemblyName>
-    <!-- Kurulum aracı exe simgesi (Alpnex logosu) -->
+    <RootNamespace>DepoWise.Setup</RootNamespace>
     <ApplicationIcon>Assets\app-logo.ico</ApplicationIcon>
-    <!-- Tek dosya self-contained yayınlandığında paketi sıkıştır (boyutu ~%40 küçültür). -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+
+    <!-- Tek dosya self-contained: hedef makinede .NET kurulumu GEREKMEZ. -->
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <!-- Native kütüphaneleri de exe'ye GÖM (yanına DLL çıkmasın): kurulum aracı TEK dosya olarak indirilir/servis
-         edilir; yoksa çalışırken eksik native DLL hatası verir (2026-07-26). -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
-    <!-- Sunucu adresi (kurulum bu adresten uygulamayı indirir). Yayınlarken -p:ServerUrl=... ile değiştirilebilir. -->
+
+    <!-- Sunucu adresi derleme zamanında gömülür (-p:ServerUrl=... ile değiştirilebilir). -->
     <ServerUrl Condition="'$(ServerUrl)'==''">https://depowise-erp.fly.dev</ServerUrl>
   </PropertyGroup>
 
@@ -26,17 +33,29 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
   <!-- Kurulum aracının ORTAK mantığı (checksum kapısı, adres kapısı, sürüm durumu, manifest,
-       ön-koşullar) DepoWise.Application içinde yaşar: aynı dosyaları test projesi de derler
-       (ProjectReference üzerinden) → mantık TEST EDİLEBİLİR.
-       Proje REFERANSI yerine dosya bağlama (Link) kullanılır — bu, web projesinde de kullanılan
-       mevcut desendir; kurulum aracı tek dosya yayınlandığı için gereksiz bağımlılık çekilmez. -->
+       ön-koşullar, indirme yöneticisi) DepoWise.Application içinde yaşar: aynı dosyaları test
+       projesi de derler → mantık TEST EDİLEBİLİR.
+       Proje REFERANSI yerine dosya bağlama (Link) kullanılır — web projesinde de kullanılan mevcut
+       desendir; tek dosya yayında gereksiz bağımlılık çekilmez. -->
   <ItemGroup>
     <Compile Include="..\DepoWise.Application\Setup\SetupPackageVerifier.cs" Link="Core\SetupPackageVerifier.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupUrlPolicy.cs" Link="Core\SetupUrlPolicy.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupInstallState.cs" Link="Core\SetupInstallState.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupManifest.cs" Link="Core\SetupManifest.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupPrerequisites.cs" Link="Core\SetupPrerequisites.cs" />
+    <Compile Include="..\DepoWise.Application\Setup\SetupDownloader.cs" Link="Core\SetupDownloader.cs" />
   </ItemGroup>
 
 </Project>

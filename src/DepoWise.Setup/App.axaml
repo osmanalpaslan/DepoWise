@@ -1,0 +1,125 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DepoWise.Setup.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://AlpnexSetup/Themes/Tokens.axaml"/>
+                <ResourceInclude Source="avares://AlpnexSetup/Themes/Icons.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme/>
+
+        <!-- ═══ KURULUM ARACI STİLLERİ ═══
+             Hareket bütçesi bilinçli olarak küçüktür (alpnex-arayuz-hareket):
+             girişler ease-out ve ≤180 ms; hata ekranında animasyon YOKTUR. -->
+
+        <Style Selector="TextBlock.display">
+            <Setter Property="FontSize" Value="{DynamicResource YaziDisplay}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetinBrush}"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+        </Style>
+
+        <Style Selector="TextBlock.baslik">
+            <Setter Property="FontSize" Value="{DynamicResource YaziBaslik}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetinBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.govde">
+            <Setter Property="FontSize" Value="{DynamicResource YaziGovde}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetinIkincilBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.kucuk">
+            <Setter Property="FontSize" Value="{DynamicResource YaziKucuk}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetinSonukBrush}"/>
+        </Style>
+
+        <!-- Birincil eylem -->
+        <Style Selector="Button.birincil">
+            <Setter Property="Background" Value="{DynamicResource MarkaBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="{DynamicResource YaziGovde}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="24 11"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource KoseKucuk}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.birincil:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MarkaAcikBrush}"/>
+            <Setter Property="TextBlock.Foreground" Value="White"/>
+        </Style>
+
+        <!-- İkincil / sessiz eylem -->
+        <Style Selector="Button.sessiz">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource MetinIkincilBrush}"/>
+            <Setter Property="FontSize" Value="{DynamicResource YaziGovde}"/>
+            <Setter Property="Padding" Value="16 10"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource KoseKucuk}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CizgiBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sessiz:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource YuzeyYuksekBrush}"/>
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource MetinBrush}"/>
+        </Style>
+
+        <!-- İlerleme çubuğu: değere YUMUŞAK gider, zıplamaz -->
+        <Style Selector="ProgressBar.alpnex">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Foreground" Value="{DynamicResource MarkaBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource YuzeyYuksekBrush}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Value" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- Adım satırı simgesi -->
+        <Style Selector="Path.simge">
+            <Setter Property="Stroke" Value="{DynamicResource MetinSonukBrush}"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+        </Style>
+        <Style Selector="Path.simge.tamam">
+            <Setter Property="Stroke" Value="{DynamicResource BasariBrush}"/>
+        </Style>
+        <Style Selector="Path.simge.hata">
+            <Setter Property="Stroke" Value="{DynamicResource HataBrush}"/>
+        </Style>
+        <Style Selector="Path.simge.aktif">
+            <Setter Property="Stroke" Value="{DynamicResource MarkaBrush}"/>
+        </Style>
+
+        <!-- Ekran geçişi: yalnız solma (180 ms). Kaydırma/zıplama YOK. -->
+        <Style Selector="Border.sayfa">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+    </Application.Styles>
+</Application>
