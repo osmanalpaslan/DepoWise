@@ -4025,3 +4025,77 @@ kablolama ister).
 **Testler:** GunlukFaaliyetTipYetkisiTests TY1-TY5 (atamasızsa tümü görünür · yalnız izinli tip ·
 hareket/transfer ayrımı · menüye sızmama + katalog otomasyonu · SearchGrid tutarlılığı); RY5
 genişletildi (ağaç = All + rapor kalemleri + tip kalemleri, sıra daily_activity'nin altı).
+
+## ADR-200 — Kurulum aracı: bütünlük kapısı, çift indirme düzeltmesi, manifest iskeleti (2026-09-04)
+
+**Bağlam.** `SETUP_00_ANALIZ.md` denetiminde kurulum aracında (`AlpnexSetup.exe`) iki gerçek kusur
+koddan doğrulandı; ayrıca kullanıcı modern bir kurulum deneyimi istedi.
+
+### S1 — Paket doğrulanmıyordu (KRİTİK, kapatıldı)
+
+Sunucu SHA-256'yı `/api/releases/latest` ile veriyor ve yayında **64 hane hex zorunlu**
+(`ReleaseService.Publish`), ama kurulum aracı bu alanı **hiç okumuyordu** → "indirilen ne ise onu aç
+ve çalıştır". Bu, uygulama içi güncelleyicide **2026-08-26'da bilinçli kapatılan** açığın (UPD-01)
+kurulum tarafındaki eşiydi: aynı üründe bir kapı kilitli, diğeri açıktı.
+
+`SetupPackageVerifier.RequireVerifiedPackage` eklendi — **fail-closed**: checksum yoksa/biçimi
+bozuksa/uyuşmuyorsa **kurulum yok** ve bozuk dosya silinir. Doğrulama **akış (stream)** ile yapılır,
+86 MB belleğe alınmaz. Sunucu 64 hane hex'i zaten zorunlu kıldığı için **mevcut hiçbir sürüm bozulmaz**.
+
+Ek katman: `SetupUrlPolicy` — indirme adresi **yalnız HTTPS** ve **yalnız gömülü sunucunun host'u**.
+Eskiden sunucudan gelen mutlak adres olduğu gibi kullanılıyordu.
+
+### S2 — Taze kurulumdan sonra aynı paket tekrar iniyordu (kapatıldı)
+
+Kurulum aracı `current.txt` yazmıyordu → `UpdateService` onu `0.0.0` olarak oluşturuyor, `Check()`
+"daha yeni sürüm var" diyor ve **az önce kurulan ~86 MB ilk açılışta yeniden iniyordu**.
+
+`SetupInstallState.WriteInstalledVersion` eklendi. **Yeni mekanizma kurulmadı**: yol
+(`%LOCALAPPDATA%\Alpnex\update\current.txt`) ve biçim (satır sonu YOK, UTF-8) `UpdateInstaller`'ın
+PowerShell yardımcısındaki `Set-Content -NoNewline -Encoding utf8` ile **birebir aynı**.
+
+### Manifest + ön-koşullar (iskelet)
+
+`SetupManifest` / `SetupManifestReader`: önce yeni `/api/setup/manifest` denenir, **yoksa mevcut
+`/api/releases/latest` yanıtından üretilir**. Bu geri düşüş zorunludur — kurulum aracı, manifest ucu
+canlıya çıkmadan da çalışır (sunucu değişikliği bu ADR kapsamında YAPILMADI).
+
+**⭐ Ampirik bulgu:** Alpnex'in ayrıca kurulması gereken **hiçbir dış bağımlılığı yok** — 253 dosyanın
+import tabloları tarandı: VC++ Redistributable importu yok, WebView2 kullanılmıyor, .NET paket içinde,
+`api-ms-win-crt-*` Windows 10+ ile birlikte geliyor. Bu yüzden "Dependency Manager" bugün var olmayan
+bir sorunu çözerdi. Onun yerine `SetupPrerequisites` **sistem ön-koşullarını** kontrol eder
+(Windows sürümü · mimari · disk · yazma izni · ağ). `dependencies[]` listesi **bilinçli olarak boştur**;
+ileride bir bileşen gerekirse **kod değil, yalnız manifest** değişir.
+
+### Mimari not — mantık neden Application'da?
+
+Kurulum aracı `WinExe`/net8.0-windows olduğu için test projesinden referanslanamaz. Saf mantık
+`DepoWise.Application/Setup/` içine kondu; kurulum aracı bunu **proje referansı yerine `Compile
+Include`/`Link`** ile derler (web projesinde zaten kullanılan desen) → tek dosya yayında gereksiz
+bağımlılık çekilmez, mantık ise **test edilebilir**.
+
+### Ölçüm: WinForms mi Avalonia mı? → **Avalonia**
+
+Varsayım yapılmadı, ölçüldü (aynı ekran, aynı yayın koşulları):
+
+| Yapılandırma | Boyut | Pencere açılışı | RAM |
+|---|---|---|---|
+| WinForms tek dosya (mevcut) | **69 MB** | 937 ms | 98 MB |
+| **Avalonia tek dosya** | **45 MB** | 2410 ms | 190 MB |
+| Avalonia klasör | 201 MB | **968 ms** | 156 MB |
+| Avalonia + ReadyToRun | 59 MB | 5851 ms | 226 MB |
+
+Sonuçlar: **Avalonia 24 MB daha küçük** (WinForms tüm `Microsoft.WindowsDesktop.App` çatısını taşıyor).
+Avalonia'nın **kendisi yavaş değil** — klasör hâlinde 968 ms, yani WinForms'la aynı; 2410 ms tamamen
+**tek-dosya kendi kendini açma** maliyeti. **ReadyToRun reddedildi**: hem daha büyük hem daha yavaş.
+
+Toplam kullanıcı süresi Avalonia lehine (5 MB/sn'de ~11,4 sn vs ~14,9 sn), üstelik uygulamayla aynı
+yığın → ortak tasarım dili, gerçek animasyon, tek teknoloji bakımı. **Karar: Avalonia'ya taşınacak**
+(UI fazları ayrı iş birimi).
+
+**Testler:** `KurulumAraciTests` KUR1-KUR21 — checksum kapısı (doğru/yanlış/eksik/bozuk biçim/yarım
+indirme/8 MB akış), adres kapısı (göreli/HTTP/yabancı host/boş), **çift indirme kanıtı**, manifest
+geriye uyumluluk, ön-koşullar (eski Windows/32-bit/disk/ağ/yazma izni/ölçülemeyen disk).
+
+**Yayın notu:** Bu ADR **migration İÇERMEZ** ve **sunucu değişikliği İÇERMEZ**. Kurulum aracının
+yeniden yayınlanması gerekir; bu, açık `YAYINLA` yetkisi olmadan yapılmayacaktır.
