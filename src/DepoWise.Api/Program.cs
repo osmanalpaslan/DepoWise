@@ -3370,6 +3370,39 @@ app.MapGet("/api/export/{entity}", (HttpContext c, string entity) =>
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", src.FileName);
 }).RequireAuthorization();
 
+// ⭐ 2026-09-03 (kullanıcı isteği): ŞUBE SEÇİMLİ dışa aktarım. GET ucu OLDUĞU GİBİ kaldı (eski davranış).
+// Şube parametreli istek POST'tur — şube ŞİFRESİ URL'ye asla yazılmaz (form gövdesinde taşınır).
+// "__all__" = firma geneli. Farklı gerçek şube = İÇE AKTARIMLA AYNI kural: kapsam kontrolü + şifre.
+app.MapPost("/api/export/{entity}", async (HttpContext c, string entity) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "export", PermissionAction.View);
+    var src = DepoWise.Infrastructure.Reporting.ExcelCenterService.Find(entity);   // bilinmeyen tür → 400
+
+    var form = c.Request.HasFormContentType ? await c.Request.ReadFormAsync() : null;
+    var rawBranch = form?["branchId"].ToString();
+    var run = s;
+    if (!string.IsNullOrWhiteSpace(rawBranch))
+    {
+        var hedef = rawBranch == "__all__" ? null : rawBranch;
+        svc.Scopes.EnsureBranchAllowed(s, hedef);   // kapsam dışı şube → 403
+        if (hedef is not null && hedef != s.OperatingBranchId
+            && !svc.Branches.VerifyBranchPassword(s.CompanyId, hedef, form?["branchPassword"].ToString()))
+            return Results.Json(new { error = "Şube şifresi hatalı. Farklı bir şubeden dışa aktarım için o şubenin şifresi gerekir." }, statusCode: 403);
+        run = new SessionContext(s.UserId, s.CompanyId, s.RoleKeys, s.Permissions, s.CanViewAllBranches)
+        {
+            OperatingBranchId = hedef,
+            BlockedModules = s.BlockedModules,
+            // Kapsam alanları AYNEN taşınır (yeni yetki VERMEZ) — içe aktarım kopyasıyla aynı desen (ŞB-04).
+            ScopeBranchIds = s.ScopeBranchIds,
+            HomeBranchId = s.HomeBranchId,
+            BranchDescendants = s.BranchDescendants,
+        };
+    }
+    var bytes = svc.Excel.Export(svc.ExcelCenter.Build(run, src.Key));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", src.FileName);
+}).RequireAuthorization();
+
 // ═══ BAR-01 (ADR-177) — QR ETİKETİ (web): kaydın MEVCUT kodunu PNG QR olarak indirir ═══
 // SALT-OKUNUR: hiçbir kayıt/senkron/audit satırı üretmez. Ham SQL YOK — kod, kaynak modülün KENDİ
 // servisiyle çözülür (Require(View) + tenant SERVİSTE; yetkisiz/başka firma → mevcut hata davranışı).
@@ -3423,6 +3456,14 @@ async Task<(SessionContext? Session, IReadOnlyList<DepoWise.Application.Reports.
         return (null, null, Results.Json(new { error = "Lütfen önce içe aktarılacak ŞUBEYİ seçin (zorunlu). Tüm şubelerde görünmesi için 'Tüm Şubeler' seçin." }, statusCode: 400));
     var branchId = rawBranch == "__all__" ? null : rawBranch;
     services.Scopes.EnsureBranchAllowed(s, branchId);   // kapsam dışı şube → 403
+
+    // ⭐ 2026-09-03 (kullanıcı isteği): oturumun çalışma şubesinden FARKLI gerçek bir şubeye aktarım,
+    // o şubenin ŞİFRESİYLE doğrulanır (login L1/L2 kuralının aynısı). Şifresi olmayan şube serbesttir
+    // (VerifyBranchPassword şifresizde true döner) — mevcut davranış korunur. Kapı SUNUCUDADIR:
+    // arayüzdeki alan gizlense de şifresiz istek geçemez. İstek zaten oturum ister (anonim brute-force yok).
+    if (branchId is not null && branchId != s.OperatingBranchId
+        && !services.Branches.VerifyBranchPassword(s.CompanyId, branchId, form["branchPassword"].ToString()))
+        return (null, null, Results.Json(new { error = "Şube şifresi hatalı. Farklı bir şubeye aktarım için o şubenin şifresi gerekir." }, statusCode: 403));
 
     using var ms = new MemoryStream();
     await file.OpenReadStream().CopyToAsync(ms, ctx.RequestAborted);

@@ -38,6 +38,22 @@
                     @foreach (var e in _exports) { <MudSelectItem T="string" Value="@e.Key">@e.Label</MudSelectItem> }
                 </MudSelect>
             </MudItem>
+            @* 2026-09-03 (kullanıcı isteği): dışa aktarımda da ŞUBE seçilir. Varsayılan = giriş yapılan
+               şube (davranış değişmez). Farklı şube seçilirse o şubenin ŞİFRESİ istenir; asıl kapı
+               SUNUCUDADIR (/api/export şifreyi doğrular). *@
+            <MudItem xs="12" md="5">
+                <MudSelect T="string" @bind-Value="_exportBranchId" Label="Şube" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            @if (ExportSifreGerekli)
+            {
+                <MudItem xs="12" md="7">
+                    <MudTextField @bind-Value="_exportBranchPassword" Label="Şube şifresi" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined"
+                                  HelperText="Giriş yaptığınız şubeden farklı bir şube seçtiniz; o şubenin şifresi gerekir (şifresi olmayan şube serbesttir)." />
+                </MudItem>
+            }
             <MudItem xs="12" md="5" Class="d-flex align-center">
                 <MudTooltip Text="Seçilen kaynağın tamamını (filtre olmadan) Excel'e aktarır.">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
@@ -70,6 +86,16 @@
                     @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
                 </MudSelect>
             </MudItem>
+
+            @* 2026-09-03: farklı şubeye aktarımda o şubenin şifresi istenir; asıl kapı SUNUCUDADIR. *@
+            @if (ImportSifreGerekli)
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_branchPassword" Label="Şube şifresi" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined"
+                                  HelperText="Giriş yaptığınız şubeden farklı bir şube seçtiniz; o şubenin şifresi gerekir (şifresi olmayan şube serbesttir)." />
+                </MudItem>
+            }
 
             <MudItem xs="12">
                 <MudDivider Class="my-2" />
@@ -228,6 +254,17 @@
     }
 
     /// <summary>Seçilen kaynağın tamamını indirir. Yetkisiz kaynakta sunucu 403 döner — veri sızmaz.</summary>
+    // ═══ 2026-09-03 (kullanıcı isteği): şube + şube şifresi ═════════════════════════════════════
+    /// <summary>Dışa aktarım şubesi. Varsayılan = giriş yapılan şube → davranış birebir eskisi gibi.</summary>
+    private string? _exportBranchId;
+    private string _exportBranchPassword = "";
+    /// <summary>İçe aktarımda farklı şube şifresi.</summary>
+    private string _branchPassword = "";
+    /// <summary>Şifre alanı yalnız GİRİŞ ŞUBESİNDEN farklı gerçek bir şube seçilince görünür
+    /// ("Tüm Şubeler" şube değildir; kendi şubesinde alan görünmez — kullanıcı kuralı).</summary>
+    private bool ImportSifreGerekli => !string.IsNullOrEmpty(_branchId) && _branchId != AllBranches && _branchId != Auth.BranchId;
+    private bool ExportSifreGerekli => !string.IsNullOrEmpty(_exportBranchId) && _exportBranchId != AllBranches && _exportBranchId != Auth.BranchId;
+
     private async Task ExportRun()
     {
         if (_exportBusy) return;
@@ -235,7 +272,15 @@
         try
         {
             var label = _exports.FirstOrDefault(e => e.Key == _exportKey)?.Label ?? _exportKey;
-            var (bytes, fileName) = await Api.GetFileAsync($"/api/export/{_exportKey}", label + ".xlsx");
+            // Şube SEÇİLMEDİYSE eski GET yolu (davranış birebir aynı). Seçildiyse POST — şube şifresi
+            // URL'ye ASLA yazılmaz, form gövdesinde gider; asıl doğrulama sunucudadır.
+            var (bytes, fileName) = string.IsNullOrEmpty(_exportBranchId)
+                ? await Api.GetFileAsync($"/api/export/{_exportKey}", label + ".xlsx")
+                : await Api.PostFormForFileAsync($"/api/export/{_exportKey}", new()
+                  {
+                      ["branchId"] = _exportBranchId,
+                      ["branchPassword"] = ExportSifreGerekli ? _exportBranchPassword : "",
+                  }, label + ".xlsx");
             if (bytes is null) { _exportMsg = "Dışa aktarılamadı (bu kaynak için yetkiniz olmayabilir)."; return; }
             await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -288,7 +333,7 @@
         _busy = true; ResetResult();
         try
         {
-            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!);
+            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
             if (err is not null) { _ok = false; _msg = err; return; }
             _result = Parse(data!.Value); _resultIsPreview = true;
             _ok = _result.Failed == 0;
@@ -309,7 +354,7 @@
         ImportView pre;
         try
         {
-            var (preErr, preData) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!);
+            var (preErr, preData) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
             if (preErr is not null) { _ok = false; _msg = preErr; return; }
             pre = Parse(preData!.Value);
         }
@@ -330,7 +375,7 @@
         _busy = true;
         try
         {
-            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/commit", _file!.Name, _fileBytes!, _branchId!);
+            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/commit", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
             if (err is not null) { _ok = false; _msg = err; return; }
             _result = Parse(data!.Value); _resultIsPreview = false;
             _ok = true;

@@ -118,9 +118,12 @@ VALUES(@id,@c,@no,@d,@b,@st,@d,@d,1,0);";
         Assert.Equal(2, evrak.Count);
         var dolmus = evrak.Single(a => a.Title.StartsWith("Dolmuş"));
         Assert.True(dolmus.IsCritical);
-        Assert.Equal("Geçerlilik süresi doldu", dolmus.Detail);
+        // 2026-09-03 (kullanıcı isteği): detay artık asıl veriyi de taşır — geçerlilik TARİHİ + geçen gün.
+        Assert.StartsWith("Geçerlilik: ", dolmus.Detail);
+        Assert.Contains("süresi doldu", dolmus.Detail);
         var yaklasan = evrak.Single(a => a.Title.StartsWith("Yaklaşan"));
         Assert.False(yaklasan.IsCritical);
+        Assert.Contains("gün kaldı", yaklasan.Detail);   // 2026-09-03: kalan gün görünür
         Assert.Equal("documents", yaklasan.NavigateKey);
     }
 
@@ -333,5 +336,58 @@ VALUES(@id,@c,@no,@d,@b,@st,@d,@d,1,0);";
         var sum = _svc.GetSummary(_admin);
         Assert.DoesNotContain(sum.Alerts, a => a.Kind is AlertKind.Document or AlertKind.WorkOrder or AlertKind.Request);
         Assert.Equal(0, _svc.UnreadAlertCount(_admin));
+    }
+
+    // ══════════ 2026-09-03 (kullanıcı isteği): her uyarı KENDİ varlığının asıl verisini taşır ══════════
+
+    /// <summary>⭐ Bakım uyarısında ARAÇ KODU + PLAKA görünür ve seviye TÜRKÇEDİR — kullanıcı ekran
+    /// görüntüsüyle "%2486 (Overdue)" bildirmişti: araçsız ve İngilizce satır artık ÜRETİLEMEZ.</summary>
+    [Fact]
+    public void BLD13_Bakim_Uyarisi_Arac_Kodu_Ve_Plaka_Tasir()
+    {
+        var vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(_f);
+        var arac = vehicles.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("KMY-01", Plate: "06 GE 2812"));
+        var defs = new MaintenanceDefinitionService(_f);
+        var tanim = defs.Create(_admin, new NewMaintenanceDefinition("MOTOR BAKIMI", 30m, "day", null, null));
+        defs.SetVehicles(_admin, tanim, new[] { arac });   // hiç yapılmamış → kesin uyarı üretir
+
+        var bakim = Alerts().Single(a => a.Kind == AlertKind.Maintenance);
+        Assert.Contains("KMY-01", bakim.Detail);
+        Assert.Contains("06 GE 2812", bakim.Detail);
+        Assert.DoesNotContain("Overdue", bakim.Detail);   // İngilizce enum adı basılamaz
+    }
+
+    /// <summary>⭐ Düşük stok uyarısında malzeme KODU + mevcut/kritik stok görünür.</summary>
+    [Fact]
+    public void BLD14_Dusuk_Stok_Uyarisi_Kod_Ve_Stok_Tasir()
+    {
+        using (var conn = _f.Create())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "UPDATE materials SET min_stock='5' WHERE id=@id;";   // stok 0 ≤ kritik 5 → uyarı
+            cmd.AddWithValue("@id", _mat);
+            cmd.ExecuteNonQuery();
+        }
+
+        var stok = Alerts().Single(a => a.Kind == AlertKind.LowStock);
+        Assert.Equal("Çimento", stok.Title);
+        Assert.Contains("M-1", stok.Detail);
+        Assert.Contains("kritik 5", stok.Detail);
+    }
+
+    /// <summary>⭐ Bekleyen talep uyarısı tarihi taşır; iş emri uyarısı plan bitiş tarihini + gecikmeyi taşır.</summary>
+    [Fact]
+    public void BLD15_Talep_Ve_IsEmri_Uyarilari_Asil_Veriyi_Tasir()
+    {
+        Talep("TAL-9");
+        _wo.Create(_admin, new NewWorkOrder("IE-9", "Geciken İş", BranchId: _sube1, PlannedEnd: NowMs - 3 * GunMs));
+
+        var talep = Alerts().Single(a => a.Kind == AlertKind.Request);
+        Assert.Contains("Onay bekliyor", talep.Detail);
+        Assert.Contains(DateTimeOffset.FromUnixTimeMilliseconds(NowMs).LocalDateTime.ToString("dd.MM.yyyy"), talep.Detail);
+
+        var emir = Alerts().Single(a => a.Kind == AlertKind.WorkOrder);
+        Assert.Contains("Plan bitişi: ", emir.Detail);
+        Assert.Contains("gün gecikti", emir.Detail);
     }
 }

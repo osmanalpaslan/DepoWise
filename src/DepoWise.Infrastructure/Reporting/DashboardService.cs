@@ -98,10 +98,13 @@ public sealed class DashboardService
                     "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
-        // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı
+        // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı.
+        // 2026-09-03 (kullanıcı isteği): her uyarı KENDİ varlığının asıl verisini gösterir —
+        // malzemede KOD + mevcut/kritik stok (yalnız "Düşük stok" yazısı yetersizdi).
         if (AccessControl.Can(s, "materials", PermissionAction.View))
-            foreach (var (id, name) in LowStockList(conn, s.CompanyId))
-                alerts.Add(new DashboardAlert(AlertKind.LowStock, name, "Düşük stok", "materials", true, id));
+            foreach (var m in LowStockList(conn, s.CompanyId))
+                alerts.Add(new DashboardAlert(AlertKind.LowStock, m.Name,
+                    $"{m.Code} · stok {m.Quantity:0.##} / kritik {m.MinStock:0.##}", "materials", true, m.Id));
 
         // Yakıt — depo kalanı toplam alınanın %20'si ve altına düşünce (Özet'te kalanı gör)
         if (AccessControl.Can(s, "fuel", PermissionAction.View))
@@ -130,8 +133,13 @@ public sealed class DashboardService
                 var kalanGun = (vu - nowMs) / 86_400_000.0;
                 if (kalanGun > DocumentApproachingDays) continue;
                 var etiket = d.EntityLabel == "—" ? "" : $" ({d.EntityLabel})";
+                // 2026-09-03: evrak uyarısında asıl veri — geçerlilik TARİHİ + kalan/geçen gün.
+                var vuText = DateTimeOffset.FromUnixTimeMilliseconds(vu).LocalDateTime.ToString("dd.MM.yyyy");
+                var durumText = vu < nowMs
+                    ? $"Geçerlilik: {vuText} · süresi doldu ({-kalanGun:0} gün geçti)"
+                    : $"Geçerlilik: {vuText} · {kalanGun:0} gün kaldı";
                 alerts.Add(new DashboardAlert(AlertKind.Document, d.Title + etiket,
-                    vu < nowMs ? "Geçerlilik süresi doldu" : "Geçerlilik yaklaşıyor", "documents", vu < nowMs, d.Id));
+                    durumText, "documents", vu < nowMs, d.Id));
             }
         }
 
@@ -148,8 +156,11 @@ public sealed class DashboardService
                 openWo++;
                 if (w.PlannedEnd is not { } pe || pe >= nowMs) continue;
                 overdueWo++;
+                // 2026-09-03: iş emri uyarısında asıl veri — plan bitiş TARİHİ + gecikme günü.
+                var gecikmeGun = (nowMs - pe) / 86_400_000.0;
                 alerts.Add(new DashboardAlert(AlertKind.WorkOrder, $"{w.WoNo} · {w.Title}",
-                    "Plan bitişi geçti", "work_orders", true, w.Id));
+                    $"Plan bitişi: {DateTimeOffset.FromUnixTimeMilliseconds(pe).LocalDateTime:dd.MM.yyyy} ({gecikmeGun:0} gün gecikti)",
+                    "work_orders", true, w.Id));
             }
         }
 
@@ -159,11 +170,16 @@ public sealed class DashboardService
         {
             var izinli = BranchAccess.Allowed(s);
             var set = izinli?.ToHashSet(StringComparer.Ordinal);
-            foreach (var (id, docNo, branchId) in PendingRequestList(conn, s.CompanyId))
+            foreach (var t in PendingRequestList(conn, s.CompanyId))
             {
-                if (set is not null && branchId is not null && !set.Contains(branchId)) continue;
-                alerts.Add(new DashboardAlert(AlertKind.Request, $"Talep {docNo}",
-                    "Onay bekliyor", "requests:approve", false, id));
+                if (set is not null && t.BranchId is not null && !set.Contains(t.BranchId)) continue;
+                // 2026-09-03: talep uyarısında asıl veri — talep eden + tarih.
+                var kim = string.IsNullOrEmpty(t.Requester) ? "" : t.Requester + " · ";
+                var tarih = t.RequestDate is { } rd
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(rd).LocalDateTime.ToString("dd.MM.yyyy") + " · "
+                    : "";
+                alerts.Add(new DashboardAlert(AlertKind.Request, $"Talep {t.DocNo}",
+                    kim + tarih + "Onay bekliyor", "requests:approve", false, t.Id));
             }
         }
 
@@ -297,23 +313,27 @@ ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=@sig, created_at=@now;";
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    private static IReadOnlyList<(string Id, string Name)> LowStockList(DbConnection conn, string companyId, string? branch = null)
+    /// <summary>Düşük stok satırı — 2026-09-03: uyarıda asıl veri gösterilsin diye KOD + mevcut/kritik eklendi.</summary>
+    internal sealed record LowStockRow(string Id, string Code, string Name, double Quantity, double MinStock);
+
+    private static IReadOnlyList<LowStockRow> LowStockList(DbConnection conn, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
         // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN malzemeyi depo sayısı kadar TEKRARLARDI
         // (aynı malzeme düşük-stok listesinde birden çok kez çıkardı). Düşük stok uyarısı FİRMA GENELİ
         // toplama bakar (kullanıcı bir depoda azalmayı değil, elindeki toplamı görmek ister) → toplayan alt sorgu.
         cmd.CommandText = @"
-SELECT m.id, m.name FROM materials m
+SELECT m.id, m.code, m.name, CAST(COALESCE(b.quantity,'0') AS REAL), CAST(m.min_stock AS REAL) FROM materials m
 LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
   AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
 ORDER BY m.name LIMIT 20;";
         cmd.AddWithValue("@c", companyId);
         BindBranch(cmd, branch);
-        var list = new List<(string, string)>();
+        var list = new List<LowStockRow>();
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
+        while (r.Read()) list.Add(new LowStockRow(r.GetString(0), r.GetString(1), r.GetString(2),
+            Convert.ToDouble(r.GetValue(3)), Convert.ToDouble(r.GetValue(4))));
         return list;
     }
 
@@ -360,15 +380,21 @@ AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST
 
     // ═══ BLD-01 (ADR-172) yardımcıları ═══
 
-    private static IReadOnlyList<(string Id, string DocNo, string? BranchId)> PendingRequestList(DbConnection conn, string companyId)
+    /// <summary>Bekleyen talep satırı — 2026-09-03: uyarıda asıl veri için talep eden + tarih eklendi.</summary>
+    internal sealed record PendingRequestRow(string Id, string DocNo, string? BranchId, string? Requester, long? RequestDate);
+
+    private static IReadOnlyList<PendingRequestRow> PendingRequestList(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, doc_no, branch_id FROM material_requests " +
-                          "WHERE company_id=@c AND status='pending' AND is_deleted=0 ORDER BY created_at DESC LIMIT 50;";
+        cmd.CommandText = "SELECT mr.id, mr.doc_no, mr.branch_id, p.full_name, mr.request_date FROM material_requests mr " +
+                          "LEFT JOIN personnel p ON p.id = mr.requester_id AND p.company_id = mr.company_id " +
+                          "WHERE mr.company_id=@c AND mr.status='pending' AND mr.is_deleted=0 ORDER BY mr.created_at DESC LIMIT 50;";
         cmd.AddWithValue("@c", companyId);
-        var list = new List<(string, string, string?)>();
+        var list = new List<PendingRequestRow>();
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add((r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2)));
+        while (r.Read()) list.Add(new PendingRequestRow(r.GetString(0), r.GetString(1),
+            r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3),
+            r.IsDBNull(4) ? null : r.GetInt64(4)));
         return list;
     }
 

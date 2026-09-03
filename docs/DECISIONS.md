@@ -3850,3 +3850,49 @@ Menüden açılan ekranlar **alt şeritte sekme** olur: tıkla → ekrana dön, 
   (`AppScreens.ByWebRoute`) doğrulanarak sekmeye çevrilir; katalogda olmayan rota sekme olmaz.
 
 **Kapsam dışı:** migration YOK · yeni AppScreen/yetki modülü YOK · mevcut ekran davranışları değişmedi.
+
+---
+
+## ADR-196 — Uyarılarda varlık kimliği (tüm kategoriler) · fotoğraf otomatik taşıma · Excel şube+şifre · sekme tasarımı (2026-09-03)
+
+**Bağlam.** Kullanıcının yeni istek paketi (2026-09-03). Her maddede iki platform analiz edildi.
+
+### 1) Ana ekran uyarılarında HER kategori kendi varlığının ASIL verisini taşır
+
+ADR-195'te bakım/muayeneye eklenen "KOD · PLAKA" deseni tüm kategorilere genellendi (ortak
+`DashboardService` → iki platform birden):
+- **Malzeme (düşük stok):** `KOD · stok X / kritik Y`
+- **Evrak:** `Geçerlilik: TARİH · N gün kaldı / süresi doldu (N gün geçti)`
+- **İş emri:** `Plan bitişi: TARİH (N gün gecikti)`
+- **Talep:** `talep eden · TARİH · Onay bekliyor`
+- Yakıt (kalan litre/%) ve Duyuru zaten asıl veriyi taşıyordu — değişmedi.
+Araç etiketi TEK sorguyla hazırlanır (satır başına sorgu yok). Testler: BLD13-15 + BLD1 bilinçli güncellendi.
+
+### 2) Fotoğraf yapısı ONARILDI: açılışta otomatik sessiz taşıma
+
+Babanın makinesindeki fotoğrafların sunucuya gitmeme kök nedeni ADR-195'te kanıtlanmıştı (ADR-182
+öncesi fotoğraflar yerel diskte; taşıma yalnız kayıt O MAKİNEDE açılınca çalışıyordu; düğme de yayınlanmadı).
+Artık taşıma **uygulama açılışında arka planda otomatik** çalışır (`DesktopPhotos.AcilistaSessizTasiAsync`):
+kullanıcı hiçbir şey yapmaz. Başarılı taşımadan sonra yerel küme İMZALANIR → sonraki açılışlar ağa hiç
+çıkmaz; çevrimdışı/yarım kalan taşıma imza yazmaz, sonraki açılışta kaldığı yerden devam eder. YALNIZ
+EKLEME (silme yok, sha256 ile mükerrer yok). Elle düğme (Yedekleme ekranı) da durur.
+
+### 3) Excel Merkezi: içe VE dışa aktarımda şube + ŞUBE ŞİFRESİ
+
+- Dışa aktarıma ŞUBE seçimi eklendi (varsayılan = giriş şubesi → davranış birebir korunur).
+- İki yönde de: oturumun çalışma şubesinden FARKLI gerçek bir şube seçilirse o şubenin ŞİFRESİ istenir
+  (girişteki L1/L2 kuralının aynısı; şifresiz şube serbest; "Tüm Şubeler" şube değildir). Şifre alanı
+  yalnız o durumda görünür.
+- ⚠️ **Kapı SUNUCUDADIR:** `/api/import/*/preview|commit` şifreyi form gövdesinde doğrular; şube seçimli
+  dışa aktarım YENİ `POST /api/export/{entity}` ucundan gider (şifre URL'ye ASLA yazılmaz — GET ucu
+  parametresiz, eski davranışıyla aynen durur). Masaüstü yereldе `VerifyBranchPassword` ile doğrular
+  (çevrimdışı çalışır). Testler: ExcelSubeSifreTests ES1-ES4 (403 + hiç kayıt oluşmaz · doğru şifre
+  çalışır · şifresiz şube/Tüm Şubeler eskisi gibi · export POST aynı kapı).
+
+### 4) Açık ekran sekmeleri — tasarım yenilendi (kullanıcı beğenmedi)
+
+Alt şerit, kenar çubuğundaki kullanıcı şeridiyle AYNI yükseklikte (56) ve AYNI zeminde
+(`SurfaceElevatedBrush`); sekmeler hap (pill) biçiminde, aktif sekme `AccentSoft` zemin + `Accent`
+kenarla vurgulu. Renk paleti DEĞİŞMEDİ (kullanıcı şartı); yalnız biçim modernleşti.
+
+**Kapsam dışı:** migration YOK · yeni ekran YOK · rapor/bakım/yetki davranışı değişmedi.

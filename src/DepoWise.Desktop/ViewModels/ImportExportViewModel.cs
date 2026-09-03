@@ -34,7 +34,28 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     /// SelectedImportBranch == null → henüz seçilmedi (import engellenir).</summary>
     public sealed record BranchOption(string? Id, string Name);
     public ObservableCollection<BranchOption> ImportBranches { get; } = new();
-    [ObservableProperty] private BranchOption? _selectedImportBranch;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowImportBranchPassword))]
+    private BranchOption? _selectedImportBranch;
+
+    // ═══ ŞUBE ŞİFRESİ (kullanıcı isteği 2026-09-03) ══════════════════════════════════════════════
+    // Oturumun çalışma şubesinden FARKLI gerçek bir şube seçilirse o şubenin ŞİFRESİ istenir
+    // (girişteki L1/L2 kuralının aynısı). Kendi şubesinde ve "Tüm Şubeler"de alan GÖRÜNMEZ.
+    // Şifresi tanımlı olmayan şube serbesttir (VerifyBranchPassword şifresizde true döner).
+
+    [ObservableProperty] private string _importBranchPassword = "";
+    public bool ShowImportBranchPassword =>
+        SelectedImportBranch is { Id: not null } b && b.Id != _session.OperatingBranchId;
+
+    /// <summary>Dışa aktarım şubesi (kullanıcı isteği 2026-09-03). Varsayılan = oturumun çalışma şubesi
+    /// → seçime dokunulmazsa davranış BİREBİR eskisi gibidir.</summary>
+    public ObservableCollection<BranchOption> ExportBranches { get; } = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowExportBranchPassword))]
+    private BranchOption? _selectedExportBranch;
+    [ObservableProperty] private string _exportBranchPassword = "";
+    public bool ShowExportBranchPassword =>
+        SelectedExportBranch is { Id: not null } b && b.Id != _session.OperatingBranchId;
 
     public ImportExportViewModel(SessionContext session)
     {
@@ -42,6 +63,18 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         // Zorunlu şube seçimi: "Tüm Şubeler" (firma geneli) + firmanın şubeleri. Varsayılan SEÇİLMEZ → kullanıcı bilinçli seçer.
         ImportBranches.Add(new BranchOption(null, "Tüm Şubeler"));
         try { foreach (var b in DesktopServices.Branches.List(_session)) ImportBranches.Add(new BranchOption(b.Id, b.Name)); } catch { }
+        // Dışa aktarım şubeleri aynı listedir; varsayılan OTURUMUN şubesi (davranış değişmesin diye).
+        foreach (var b in ImportBranches) ExportBranches.Add(b);
+        SelectedExportBranch = ExportBranches.FirstOrDefault(x => x.Id == _session.OperatingBranchId) ?? ExportBranches[0];
+    }
+
+    /// <summary>Farklı şube seçildiyse ŞİFRE doğrulaması (yerel, çevrimdışı çalışır). Sorun yoksa null döner.</summary>
+    private string? SubeSifreKontrol(BranchOption? secim, string sifre)
+    {
+        if (secim is not { Id: not null } b || b.Id == _session.OperatingBranchId) return null;   // kendi şubesi/Tüm Şubeler
+        return DesktopServices.Branches.VerifyBranchPassword(_session.CompanyId, b.Id!, sifre)
+            ? null
+            : $"«{b.Name}» şube şifresi hatalı. Farklı bir şubeyle çalışmak için o şubenin şifresi gerekir.";
     }
 
     /// <summary>Oturumun ÇALIŞMA şubesi adı (uyarı metni için).</summary>
@@ -73,8 +106,13 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         {
             // Kaynak listesi/kolonlar ORTAK servisten (EXL-01) — kaynak modül yetkisi/tenant/BranchAccess
             // servis içinde uygulanır; yetkisiz kaynakta buradaki catch kullanıcıya nedeni gösterir.
+            // 2026-09-03 (kullanıcı isteği): dışa aktarımda da şube seçilir; farklı şubede ŞİFRE doğrulanır.
+            if (SubeSifreKontrol(SelectedExportBranch, ExportBranchPassword) is { } sifreHatasi)
+            { Status = sifreHatasi; return; }
+            var exportSession = SelectedExportBranch is null ? _session : ImportSession(SelectedExportBranch.Id);
+
             var src = ExcelCenterService.Sources.First(x => x.Label == SelectedExport);
-            var table = DesktopServices.ExcelCenter.Build(_session, src.Key);
+            var table = DesktopServices.ExcelCenter.Build(exportSession, src.Key);
             var bytes = DesktopServices.Excel.Export(table);
             var path = await FilePickerService.SaveExcelAsync(src.FileName);
             if (string.IsNullOrEmpty(path)) return;
@@ -117,6 +155,10 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 return;
             }
             var chosenBranchId = SelectedImportBranch.Id;   // null = Tüm Şubeler (firma geneli)
+
+            // 2026-09-03 (kullanıcı isteği): farklı şubeye aktarım o şubenin ŞİFRESİYLE doğrulanır.
+            if (SubeSifreKontrol(SelectedImportBranch, ImportBranchPassword) is { } sifreHatasi)
+            { ImportResult = sifreHatasi; return; }
 
             // Farklı şube uyarısı: seçilen hedef, oturumun çalışma şubesinden farklıysa kullanıcı bilinçli onaylasın.
             if (chosenBranchId != _session.OperatingBranchId)

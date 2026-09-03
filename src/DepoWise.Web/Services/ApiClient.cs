@@ -362,13 +362,15 @@ public sealed class ApiClient
     /// Hata gövdesindeki <c>error</c> alanı çıkarılır → kullanıcıya ham JSON gösterilmez.
     /// </summary>
     public async Task<(string? Error, System.Text.Json.JsonElement? Data)> UploadImportAsync(
-        string path, string fileName, byte[] bytes, string branchId)
+        string path, string fileName, byte[] bytes, string branchId, string? branchPassword = null)
     {
         using var form = new MultipartFormDataContent();
         var content = new ByteArrayContent(bytes);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         form.Add(content, "file", fileName);
         form.Add(new StringContent(branchId), "branchId");
+        // 2026-09-03: farklı şubeye aktarımda şube şifresi — URL'ye değil form gövdesine yazılır.
+        if (!string.IsNullOrEmpty(branchPassword)) form.Add(new StringContent(branchPassword), "branchPassword");
 
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
@@ -384,6 +386,22 @@ public sealed class ApiClient
     public async Task<(byte[]? Bytes, string FileName)> GetFileAsync(string path, string fallbackName)
     {
         var r = await Gonder(Req(HttpMethod.Get, path));
+        if (!r.IsSuccessStatusCode) return (null, fallbackName);
+        var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
+        name = name?.Trim('"') ?? fallbackName;
+        return (await r.Content.ReadAsByteArrayAsync(), name);
+    }
+
+    /// <summary>2026-09-03 — FORM alanları POST edip dönen dosyayı verir. Excel Merkezi'nin şube seçimli
+    /// dışa aktarımı için: şube ŞİFRESİ URL'ye asla yazılmaz, form gövdesinde taşınır.</summary>
+    public async Task<(byte[]? Bytes, string FileName)> PostFormForFileAsync(
+        string path, Dictionary<string, string> fields, string fallbackName)
+    {
+        using var form = new MultipartFormDataContent();
+        foreach (var (k, v) in fields) form.Add(new StringContent(v), k);
+        var req = Req(HttpMethod.Post, path);
+        req.Content = form;
+        var r = await Gonder(req);
         if (!r.IsSuccessStatusCode) return (null, fallbackName);
         var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
         name = name?.Trim('"') ?? fallbackName;

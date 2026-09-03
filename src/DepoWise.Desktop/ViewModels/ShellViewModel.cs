@@ -515,6 +515,10 @@ public sealed partial class ShellViewModel : ViewModelBase
     private void StartConnectionMonitor()
     {
         _ = PingAsync();
+        // 2026-09-03 (kullanıcı isteği): eski yerel fotoğraflar açılışta ARKA PLANDA sunucuya taşınır —
+        // kullanıcı hiçbir şey yapmak zorunda değildir. Başarılı taşımadan sonra imza yazılır ve
+        // sonraki açılışlar ağa hiç çıkmaz; hata/çevrimdışı girişi ASLA bozmaz (içeride sessiz).
+        _ = DesktopPhotos.AcilistaSessizTasiAsync(_session);
         // 15 sn: eşitleme artık her tick'te ÜCUZ sürüm kontrolü yapıp yalnız değişince aktarıyor (duyarlı).
         _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(FastTickSeconds) };
         _connTimer.Tick += async (_, _) =>

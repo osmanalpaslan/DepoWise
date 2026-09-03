@@ -28,7 +28,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-03** (**ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-03** (**ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 

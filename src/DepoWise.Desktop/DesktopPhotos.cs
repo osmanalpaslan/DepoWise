@@ -181,6 +181,49 @@ public static class DesktopPhotos
         return new TopluSonuc(yereller.Count, yuklenen, atlanan, basarisiz, false, null);
     }
 
+    /// <summary>
+    /// ⭐ AÇILIŞTA OTOMATİK TAŞIMA (kullanıcı isteği 2026-09-03 — "sunucuya neden gitmediğinin kaynağını
+    /// tespit et ve yapıyı ONAR").
+    ///
+    /// <b>Kök neden:</b> ADR-182 öncesi fotoğraflar yükleyen makinenin yerel diskinde kalır; taşıma yalnız
+    /// o kayıt O MAKİNEDE AÇILINCA çalışır. Baba kullanıcı kayıtları tek tek açmadığı için fotoğraflar
+    /// hiç taşınmadı (canlı ölçüm: sunucuda 8 araç fotoğrafı vs makinede "neredeyse tüm araçlar").
+    ///
+    /// <b>Onarım:</b> uygulama açılışında (girişten sonra) taşıma ARKA PLANDA ve SESSİZCE bir kez çalışır —
+    /// kullanıcı hiçbir şey yapmak zorunda değildir. Kurallar:
+    ///  • Başarıyla biten taşımadan sonra yerel küme İMZALANIR (dosya kimliklerinin özeti); küme
+    ///    değişmedikçe sonraki açılışlar HİÇ ağa çıkmaz (sıfır maliyet).
+    ///  • Çevrimdışı/yarım kalırsa imza YAZILMAZ → sonraki açılışta kaldığı yerden dener.
+    ///  • YALNIZ EKLEME: hiçbir yerel dosya silinmez; sunucuda olan atlanır (sha256).
+    ///  • Açılışı YAVAŞLATMAZ: çağıran ateşle-unut kullanır; hata sessizdir (girişi asla bozmaz).
+    /// </summary>
+    public static async Task AcilistaSessizTasiAsync(SessionContext s)
+    {
+        try
+        {
+            var yereller = DesktopServices.Files.GetAllLocalPhotos(s);
+            if (yereller.Count == 0) return;
+
+            var imza = KumeImzasi(yereller.Select(f => f.Id));
+            var imzaDosyasi = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Alpnex", $"foto_tasima_{s.CompanyId}.txt");
+            if (File.Exists(imzaDosyasi) && File.ReadAllText(imzaDosyasi).Trim() == imza) return;   // taşınmış
+
+            var sonuc = await TumunuSunucuyaTasiAsync(s);
+            if (!sonuc.Cevrimdisi && sonuc.Hata is null && sonuc.Basarisiz == 0)
+                File.WriteAllText(imzaDosyasi, imza);
+        }
+        catch { /* açılış akışı asla bozulmaz; taşıma sonraki açılışta yeniden dener */ }
+    }
+
+    private static string KumeImzasi(IEnumerable<string> ids)
+    {
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal)));
+        return Convert.ToHexString(sha.ComputeHash(bytes));
+    }
+
     /// <summary>Çevrimdışı görüntüleme: bu makinede kalmış fotoğraflar.</summary>
     private static List<Yuklenen> YerelOku(SessionContext s, string entityType, string entityId)
     {
