@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -1340,6 +1341,58 @@ public sealed partial class ShellViewModel : ViewModelBase
                 break;
         }
         UpdateActiveStates(key);
+        TabKaydet(key);   // kullanıcı isteği 2026-09-03: açılan ekran alt sekme şeridine eklenir
+    }
+
+    // ═══ AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03) ══════════════════════════════════════
+    //
+    // Kullanıcı, iş yerindeki ERP'deki gibi alt kenarda bir SEKME ŞERİDİ istedi: açtığı ekranlar
+    // sekme olur, tek tıkla geri dönülür, X ile kaldırılır, uygulama her açılışta sıfır başlar.
+    //
+    // Tasarım kararları (bilinçli):
+    //  • Sekme yalnız GEZİNME KISAYOLUDUR — ekranın canlı hâli SAKLANMAZ. Mevcut mimari her
+    //    gezinmede önceki sayfayı Dispose eder (OnCurrentPageChanging); sekmeler bu sözleşmeyi
+    //    BOZMAZ, tıklanınca ekran Navigate ile yeniden açılır (veri her zaman taze).
+    //  • Liste yalnız BELLEKTE tutulur → her uygulama açılışında kendiliğinden sıfırlanır.
+    //  • Ana ekran (dashboard) sekme OLMAZ: açılışta otomatik açılır ("benim açtığım ekran" değil)
+    //    ve sol menüden/ana ekran düğmesinden zaten tek tıkla erişilir.
+    //  • Tıklama Navigate'ten geçer → G5 platform kapısı ve yetki kapıları sekmede de AYNEN geçerli
+    //    (kapatılmış ekrana sekmeden de girilemez).
+
+    public ObservableCollection<OpenScreenTab> OpenTabs { get; } = new();
+    public bool HasOpenTabs => OpenTabs.Count > 0;
+
+    /// <summary>Gezinme sonrası sekmeyi ekler/etkinleştirir. Yalnız GERÇEKTEN AÇILAN ekran eklenir
+    /// (platform kapısı ekranı reddettiyse CurrentPage null'dır → sekme oluşmaz).</summary>
+    private void TabKaydet(string key)
+    {
+        if (key == "dashboard" || CurrentPage is null) return;
+        var tab = OpenTabs.FirstOrDefault(t => t.Key == key);
+        if (tab is null)
+        {
+            tab = new OpenScreenTab(key, string.IsNullOrWhiteSpace(CurrentTitle) ? FindLabel(key) : CurrentTitle);
+            OpenTabs.Add(tab);
+            OnPropertyChanged(nameof(HasOpenTabs));
+        }
+        foreach (var t in OpenTabs) t.IsActive = ReferenceEquals(t, tab);
+    }
+
+    [RelayCommand]
+    private void ActivateTab(OpenScreenTab? tab)
+    {
+        if (tab is null || tab.Key == ActiveKey) return;
+        Navigate(tab.Key);
+    }
+
+    [RelayCommand]
+    private void CloseTab(OpenScreenTab? tab)
+    {
+        if (tab is null) return;
+        var aktifti = tab.IsActive;
+        OpenTabs.Remove(tab);
+        OnPropertyChanged(nameof(HasOpenTabs));
+        // Aktif sekme kapatıldıysa kullanıcı boşlukta kalmaz: son sekmeye, o da yoksa ana ekrana dönülür.
+        if (aktifti) Navigate(OpenTabs.LastOrDefault()?.Key ?? "dashboard");
     }
 
     /// <summary>Köprü: ilgili ekrana git + (varsa) kaydın detayını/işlemini otomatik aç.</summary>
@@ -1559,3 +1612,13 @@ public sealed partial class PlaceholderViewModel : ViewModelBase
 }
 
 public sealed record MenuSearchItem(string Display, string Key);
+
+/// <summary>Alt şerit "açık ekran" sekmesi (kullanıcı isteği 2026-09-03): ekran anahtarı + etiket +
+/// aktiflik. ÜST SEVİYEDEDİR ki AXAML <c>x:DataType</c> çözebilsin (iç içe tip çözülmüyor).</summary>
+public sealed partial class OpenScreenTab : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public string Key { get; }
+    public string Label { get; }
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _isActive;
+    public OpenScreenTab(string key, string label) { Key = key; Label = label; }
+}

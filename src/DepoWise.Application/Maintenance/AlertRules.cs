@@ -32,6 +32,21 @@ public static class AlertRules
     public static double Progress(decimal consumed, decimal interval)
         => interval <= 0 ? 0 : (double)(consumed / interval);
 
+    /// <summary>
+    /// Uyarı seviyesinin TÜRKÇE etiketi — TEK KAYNAK.
+    ///
+    /// ⚠️ 2026-09-02: ana ekran "Kritik Uyarılar" panelinde seviye <c>a.Level</c> ile doğrudan
+    /// yazdırılıyordu; enum adı İngilizce olduğu için kullanıcıya "(Overdue)" görünüyordu
+    /// (kullanıcı ekran görüntüsüyle bildirdi). Etiket artık buradan gelir; ikinci bir eşleme kurulmaz.
+    /// </summary>
+    public static string LevelText(AlertLevel level) => level switch
+    {
+        AlertLevel.Overdue => "Gecikti",
+        AlertLevel.Critical => "Kritik",
+        AlertLevel.Approaching => "Yaklaşıyor",
+        _ => "Normal",
+    };
+
     public static IntervalUnit ParseUnit(string unit) => unit switch
     {
         "hour" => IntervalUnit.Hour,

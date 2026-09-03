@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Files;
 
 namespace DepoWise.Desktop;
 
@@ -116,6 +117,68 @@ public static class DesktopPhotos
         }
         catch { /* yerel okuma/yetki sorunu → taşıma atlanır, görüntüleme etkilenmez */ }
         return tasinan;
+    }
+
+    /// <summary>Toplu taşıma sonucu — ekranda tek cümlede özetlenir.</summary>
+    public sealed record TopluSonuc(int Toplam, int Yuklenen, int Atlanan, int Basarisiz, bool Cevrimdisi, string? Hata);
+
+    /// <summary>
+    /// ⭐ TOPLU TAŞIMA (kullanıcı isteği 2026-09-02) — BU MAKİNEDEKİ tüm yerel fotoğrafları sunucuya taşır.
+    ///
+    /// <b>Neden:</b> <see cref="TasiEskileriAsync"/> yalnız AÇILAN kayıt için çalışır. Bir makinede
+    /// onlarca aracın fotoğrafı varsa hepsini tek tek açmak gerekiyordu; kullanıcı diğer makinesinde
+    /// hiçbirini göremiyordu (canlıda sunucuda yalnız 8 araç fotoğrafı vardı).
+    ///
+    /// <b>Güvenlik/veri:</b> YALNIZ EKLEME yapar. Hiçbir yerel dosya veya kayıt silinmez/değiştirilmez.
+    /// İçerik özeti (sha256) sunucuda zaten varsa o dosya ATLANIR → mükerrer yükleme olmaz, tekrar
+    /// çalıştırmak zararsızdır (kesintide kaldığı yerden devam eder).
+    /// Çevrimdışıysa hiçbir şey yapılmaz ve kullanıcıya bu söylenir.
+    /// </summary>
+    /// <param name="ilerleme">(işlenen, toplam) — arayüz yüzdeyi buradan günceller.</param>
+    public static async Task<TopluSonuc> TumunuSunucuyaTasiAsync(
+        SessionContext s, Action<int, int>? ilerleme = null)
+    {
+        List<FileRecordDto> yereller;
+        try { yereller = DesktopServices.Files.GetAllLocalPhotos(s).ToList(); }
+        catch (Exception ex) { return new TopluSonuc(0, 0, 0, 0, false, ex.Message); }
+
+        if (yereller.Count == 0) return new TopluSonuc(0, 0, 0, 0, false, null);
+
+        // Sunucudaki içerik özetleri, KAYIT BAŞINA TEK listeleme ile toplanır (dosya başına sorgu yok).
+        var uzakOzet = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        int yuklenen = 0, atlanan = 0, basarisiz = 0, islenen = 0;
+
+        foreach (var f in yereller)
+        {
+            islenen++;
+            ilerleme?.Invoke(islenen, yereller.Count);
+
+            var api = ApiEntity(f.EntityType);
+            var anahtar = f.EntityType + "/" + f.EntityId;
+            if (!uzakOzet.TryGetValue(anahtar, out var ozetler))
+            {
+                var uzak = await OrgServerClient.ListPhotosAsync(api, f.EntityId);
+                if (uzak is null) return new TopluSonuc(yereller.Count, yuklenen, atlanan, basarisiz, true, null);
+                ozetler = uzak.Where(x => !string.IsNullOrEmpty(x.Sha256))
+                              .Select(x => x.Sha256!)
+                              .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                uzakOzet[anahtar] = ozetler;
+            }
+
+            if (!string.IsNullOrEmpty(f.Sha256) && ozetler.Contains(f.Sha256!)) { atlanan++; continue; }
+
+            byte[] bytes;
+            try { bytes = DesktopServices.Storage.Read(f.StorageKey); }
+            catch { basarisiz++; continue; }   // yerel dosya kayıp → sayılır, akış durmaz
+
+            var r = await OrgServerClient.UploadPhotoAsync(api, f.EntityId,
+                Path.GetFileName(f.StorageKey), f.Mime, bytes);
+            if (r.Offline) return new TopluSonuc(yereller.Count, yuklenen, atlanan, basarisiz, true, null);
+            if (r.Ok) { yuklenen++; if (!string.IsNullOrEmpty(f.Sha256)) ozetler.Add(f.Sha256!); }
+            else basarisiz++;
+        }
+
+        return new TopluSonuc(yereller.Count, yuklenen, atlanan, basarisiz, false, null);
     }
 
     /// <summary>Çevrimdışı görüntüleme: bu makinede kalmış fotoğraflar.</summary>

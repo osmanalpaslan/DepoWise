@@ -543,12 +543,13 @@ public class CustomRaporTests : IDisposable
         Assert.Equal("M-100", satir[1]);
     }
 
-    /// <summary>⭐ CR28 — MEVCUT 25 SABİT RAPOR BOZULMADI: katalog sayısı ve anahtarları aynı,
+    /// <summary>⭐ CR28 — MEVCUT SABİT RAPORLAR BOZULMADI (25 → 26: 2026-09-03 daily-activity-summary,
+    /// bilinçli ekleme): katalog sayısı ve anahtarları aynı,
     /// custom anahtar öneki sabit raporlarla ÇAKIŞMIYOR.</summary>
     [Fact]
     public void CR28_Mevcut_Sabit_Raporlar_Bozulmadi()
     {
-        Assert.Equal(25, ReportCatalog.All.Count);
+        Assert.Equal(26, ReportCatalog.All.Count);
         Assert.DoesNotContain(ReportCatalog.All, d => d.Key.StartsWith(CustomReportDefinition.KeyPrefix, StringComparison.Ordinal));
         foreach (var d in ReportCatalog.All)
             Assert.Null(CustomReportDefinition.IdFromKey(d.Key));

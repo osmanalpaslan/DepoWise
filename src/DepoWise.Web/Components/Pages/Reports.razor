@@ -222,6 +222,19 @@ else
                 </MudSelect>
             </MudItem>
         }
+        @* 2026-09-02 (kullanıcı isteği) — SIRALAMA. Seçenekler SABİT listedir (ReportSortOptions,
+           masaüstüyle AYNI dosya); kullanıcı metni SQL'e girmez, servis anahtarı beyaz listeden çözer. *@
+        @if (_sel?.UsesSort == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-Value="_sortSel" Label="Sıralama" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    @foreach (var so in SortSecenekleri(_selKey))
+                    {
+                        <MudSelectItem T="string" Value="@so.Key">@so.Label</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
         @* STK-10b-3 — MALZEME filtresi (Stok Hareketleri Raporu). Seçenekler ÖNCEDEN YÜKLENMEZ:
            mevcut hızlı-arama deseni kullanılır (/api/materials?search=… + MudAutocomplete) → rapor
            açılışında binlerce malzeme indirilmez ve /api/reports/scope BÜYÜMEZ. Kullanıcıya malzeme
@@ -404,7 +417,7 @@ else
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
         bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
-        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool UsesParty, bool UsesActivityType, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool UsesParty, bool UsesActivityType, bool UsesSort, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -427,6 +440,8 @@ else
     {
         _selKey = key;
         _headers = null; _rows = new(); _totalRow = null; _numeric = null; _error = null; ClearSummary();
+        // 2026-09-02: SIRALAMA rapora göre sıfırlanır; varsayılan İLK seçenektir (masaüstüyle aynı kural).
+        _sortSel = _sel?.UsesSort == true ? SortSecenekleri(key).FirstOrDefault().Key : null;
         // ⭐ RPR-13 (gerçek arayüz turunda bulundu, 2026-08-26) — TARİH ALANI ÖNCEKİ RAPORDAN TAŞINIYORDU.
         //
         // Tarih ZORUNLU olan bir rapordan (ör. Araç Raporu → varsayılan "Bu Ay") tarih zorunlu OLMAYAN bir
@@ -469,6 +484,15 @@ else
     private IReadOnlyCollection<string> _movTypeSel = new HashSet<string>();
     /// <summary>ADR-182 — seçili günlük faaliyet KAYIT TİPLERİ (sabit liste anahtarı). Boş = TÜM tipler.</summary>
     private IReadOnlyCollection<string> _activityTypeSel = new HashSet<string>();
+    /// <summary>2026-09-02 — seçili SIRALAMA anahtarı (sabit liste, ReportSortOptions). Boş = raporun varsayılanı.</summary>
+    private string? _sortSel;
+
+    /// <summary>Rapor anahtarı → sıralama seçenekleri (TEK kaynak; masaüstü ile AYNI liste).</summary>
+    private static IReadOnlyList<(string Key, string Label)> SortSecenekleri(string reportKey) => reportKey switch
+    {
+        "daily-activity-summary" => DepoWise.Application.Ui.ReportSortOptions.DailyActivitySummary,
+        _ => DepoWise.Application.Ui.ReportSortOptions.DailyActivityDetail,
+    };
     /// <summary>STK-10b-2 — serbest metin arama (skaler). Boş = filtre yok.</summary>
     private string? _searchText;
     /// <summary>STK-10b-3 — seçili malzeme (autocomplete ile ARAMA sonucundan seçilir; liste indirilmez).
@@ -675,6 +699,7 @@ else
                 Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"), Bool(e, "usesSupplier"),
                 Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"), Bool(e, "usesMovementType"), Bool(e, "usesSearch"), Bool(e, "usesMaterial"), Bool(e, "usesParty"),
                 Bool(e, "usesActivityType"),   // ADR-182: günlük faaliyet kayıt tipi
+                Bool(e, "usesSort"),           // 2026-09-02: sıralama (sabit liste)
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (!_manager) _catalog = _catalog.Where(x => !x.Manager).ToList();   // RPR-07: operasyon ekranı
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
@@ -774,6 +799,8 @@ else
                     ? new List<string> { _partySel.Id } : new List<string>(),
                 // ADR-182: kayıt tipi — boş liste "TÜM tipler" demektir (sunucu da böyle yorumlar).
                 activityTypes = _sel?.UsesActivityType == true ? _activityTypeSel.ToList() : new List<string>(),
+                // 2026-09-02: sıralama anahtarı (sabit liste). Boş → raporun varsayılan sıralaması.
+                sortKey = _sel?.UsesSort == true && !string.IsNullOrWhiteSpace(_sortSel) ? _sortSel : null,
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
@@ -830,6 +857,8 @@ else
                     ? new List<string> { _partySel.Id } : new List<string>(),
                 // ADR-182: kayıt tipi — boş liste "TÜM tipler" demektir (sunucu da böyle yorumlar).
                 activityTypes = _sel?.UsesActivityType == true ? _activityTypeSel.ToList() : new List<string>(),
+                // 2026-09-02: sıralama anahtarı (sabit liste). Boş → raporun varsayılan sıralaması.
+                sortKey = _sel?.UsesSort == true && !string.IsNullOrWhiteSpace(_sortSel) ? _sortSel : null,
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");

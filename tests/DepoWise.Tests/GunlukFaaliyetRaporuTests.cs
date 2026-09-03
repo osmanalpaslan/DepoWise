@@ -102,7 +102,9 @@ public class GunlukFaaliyetRaporuTests : IDisposable
     {
         var t = Rapor();
         Assert.Equal("Günlük Faaliyet — Detay", t.Title);
-        Assert.Equal(new[] { "Tarih", "Kayıt Tipi", "Şube", "Araç", "Nereden → Nereye", "Operatör", "Süre (gün)", "Açıklama" }, t.Headers);
+        // 2026-09-02 (kullanıcı isteği): araç KODU ve PLAKA ayrı sütun; bakım kaydına tanım/teknisyen/
+        // yapılma/malzeme kalemi/PARÇA MALİYETİ eklendi. Bu satır bilinçli güncellendi (gevşetme değil).
+        Assert.Equal(new[] { "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)", "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Parça Maliyeti", "Açıklama" }, t.Headers);
     }
 
     // ══════════════ Kayıt tipi filtresi ══════════════
@@ -144,7 +146,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         var hareket = Rapor(new[] { DailyActivityTypeOptions.Movement });
         Assert.Single(hareket.Rows);
         Assert.Equal("Hareket", (string)hareket.Rows[0][1]!);
-        Assert.Equal("Sahaya gitti", (string)hareket.Rows[0][7]!);
+        Assert.Equal("Sahaya gitti", (string)hareket.Rows[0][13]!);
 
         var transfer = Rapor(new[] { DailyActivityTypeOptions.Transfer });
         Assert.Single(transfer.Rows);
@@ -162,11 +164,11 @@ public class GunlukFaaliyetRaporuTests : IDisposable
 
     [Fact]
     public void GFR10_Silinmis_Kayit_Gorunmez()
-        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[7]! == "İPTAL");
+        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[13]! == "İPTAL");
 
     [Fact]
     public void GFR11_Tarih_Araligi_Disi_Gorunmez()
-        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[7]! == "Sonraki hafta");
+        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[13]! == "Sonraki hafta");
 
     [Fact]
     public void GFR12_Gun_Sinirlari_ve_Siralama_Yeni_Gun_Ustte()
@@ -183,7 +185,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
 
     [Fact]
     public void GFR13_Tenant_Baska_Firma_Gorunmez()
-        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[7]! == "Baska firma");
+        => Assert.DoesNotContain(Rapor().Rows, r => (string)r[13]! == "Baska firma");
 
     [Fact]
     public void GFR14_BranchAccess_Kapsam_Disi_Sube_Gelmez()
@@ -197,7 +199,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         var kapsamli = new SessionContext("u-b1", "A", new[] { RoleKeys.Staff }, izin) { ScopeBranchIds = new[] { "B1" } };
         var t = _reports.Run(kapsamli, "daily-activity", new ReportRequest(true, G1, G2 + Gun - 1));
         Assert.All(t.Rows, r => Assert.Equal("Merkez", (string)r[2]!));
-        Assert.DoesNotContain(t.Rows, r => (string)r[7]! == "Filtre");   // B2 kaydı kapsam dışı
+        Assert.DoesNotContain(t.Rows, r => (string)r[13]! == "Filtre");   // B2 kaydı kapsam dışı
     }
 
     [Fact]
@@ -205,7 +207,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
     {
         var t = _reports.Run(_admin, "daily-activity",
             new ReportRequest(true, G1, G2 + Gun - 1, VehicleIds: new[] { "va" }));
-        Assert.All(t.Rows, r => Assert.Equal("VA - 34ABC01", (string)r[3]!));
+        Assert.All(t.Rows, r => { Assert.Equal("VA", (string)r[3]!); Assert.Equal("34ABC01", (string)r[4]!); });   // kod + plaka AYRI sütun (2026-09-02)
     }
 
     /// <summary>⭐ ÇİFT KAPI: `reports` üst kapısı + yeni `report_daily_activity` kategori kapısı.
@@ -235,7 +237,108 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         Assert.NotNull(t.TotalRow);
         Assert.Equal("TOPLAM", (string)t.TotalRow![0]!);
         Assert.Equal("6 kayıt", (string)t.TotalRow[1]!);
-        Assert.Equal(6.0, D(t.TotalRow[6]), 3);   // 2 + 1 + 3 gün
+        Assert.Equal(6.0, D(t.TotalRow[7]), 3);   // 2 + 1 + 3 gün (2026-09-02: sütun 6 → 7, plaka araya girdi)
+    }
+
+    // ══════════════ 2026-09-02 (kullanıcı isteği): bakım maliyeti + sıralama + dönem raporu ══════════════
+
+    /// <summary>Bakım kaydına bağlı günlük faaliyet satırı: tanım, teknisyen, yapılma, malzeme kalemi ve
+    /// PARÇA MALİYETİ raporda görünür. Maliyet = miktar × birim fiyat (Araç Raporu ile AYNI formül).</summary>
+    [Fact]
+    public void GFR20_Bakim_Kaydinda_Parca_Maliyeti_Gelir()
+    {
+        BakimBagla();   // a1 → bakım kaydı m1 (2 × 150 + 1 × 200 = 500)
+
+        var satir = Rapor().Rows.Single(r => (string)r[13]! == "Bakım yapıldı");
+        Assert.Equal("MOTOR BAKIMI", (string)satir[8]!);     // bakım tanımı
+        Assert.Equal("Ali Usta", (string)satir[9]!);         // teknisyen
+        Assert.Equal("12500 km", (string)satir[10]!);        // yapılma (km öncelikli; 0.## biçimi binlik ayracı KOYMAZ)
+        Assert.Equal(2.0, D(satir[11]), 3);                  // malzeme KALEMİ = satır sayısı (2 satır; adet değil)
+        Assert.Equal(500.0, D(satir[12]), 3);                // parça maliyeti
+
+        // Bakım OLMAYAN satırda maliyet sütunları BOŞTUR (0 yazılmaz — tablo kirlenmez).
+        var hareket = Rapor().Rows.Single(r => (string)r[13]! == "Sahaya gitti");
+        Assert.Equal("", (string)hareket[12]!);
+    }
+
+    /// <summary>Sıralama anahtarları: tarih artan · maliyet azalan; BİLİNMEYEN anahtar varsayılana düşer
+    /// (kullanıcı metni SQL'e girmez — beyaz liste dışı değer sorguyu DEĞİŞTİRMEZ).</summary>
+    [Fact]
+    public void GFR21_Siralama_Anahtarlari_ve_Bilinmeyen_Anahtar()
+    {
+        BakimBagla();
+
+        var artan = Rapor(sort: ReportSortOptions.DateAsc);
+        Assert.Equal("01.08.2026", (string)artan.Rows[0][0]!);           // en eski gün üstte
+
+        var maliyet = Rapor(sort: ReportSortOptions.CostDesc);
+        Assert.Equal("Bakım yapıldı", (string)maliyet.Rows[0][13]!);     // maliyetli satır üstte
+
+        var bilinmeyen = Rapor(sort: "zararli'; DROP TABLE x;--");
+        Assert.Equal("02.08.2026", (string)bilinmeyen.Rows[0][0]!);      // varsayılan (yeni → eski), hata YOK
+        Assert.Equal(6, bilinmeyen.Rows.Count);
+    }
+
+    /// <summary>⭐ YENİ RAPOR — "Günlük Faaliyet — Dönem (Toplam)": her satır BİR ARAÇTIR; tip sayıları,
+    /// süre ve parça maliyeti tarih aralığında TOPLANIR (gün kırılımı yok).</summary>
+    [Fact]
+    public void GFR22_Donem_Raporu_Arac_Bazinda_Toplar()
+    {
+        BakimBagla();
+
+        var t = _reports.Run(_admin, "daily-activity-summary", Istek());
+        Assert.Equal("Günlük Faaliyet — Dönem (Toplam)", t.Title);
+        Assert.Equal(new[] { "Araç Kodu", "Plaka", "Kayıt", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir",
+            "Hareket", "Transfer", "Süre (gün)", "Malzeme Kalemi", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt" }, t.Headers);
+
+        var satir = Assert.Single(t.Rows);                    // tek araç (va) → tek satır; gün kırılımı YOK
+        Assert.Equal("VA", (string)satir[0]!);
+        Assert.Equal("34ABC01", (string)satir[1]!);
+        Assert.Equal(6.0, D(satir[2]), 3);                    // a1..a6 (silinmiş/aralık dışı/başka firma hariç)
+        Assert.Equal(1.0, D(satir[3]), 3);                    // bakım
+        Assert.Equal(1.0, D(satir[7]), 3);                    // hareket (transfer AYRIŞIR)
+        Assert.Equal(1.0, D(satir[8]), 3);                    // transfer
+        Assert.Equal(6.0, D(satir[9]), 3);                    // toplam süre
+        Assert.Equal(500.0, D(satir[11]), 3);                 // parça maliyeti bakımdan toplanır
+        Assert.Equal("01.08.2026", (string)satir[12]!);       // ilk kayıt
+        Assert.Equal("02.08.2026", (string)satir[13]!);       // son kayıt
+
+        // Toplam satırı araç sayısını ve genel toplamları taşır.
+        Assert.Equal("1 araç", (string)t.TotalRow![1]!);
+        Assert.Equal(500.0, D(t.TotalRow[11]), 3);
+    }
+
+    /// <summary>Dönem raporunda tip filtresi ÇALIŞIR ve sıralama anahtarları uygulanır — detayla tutarlı.</summary>
+    [Fact]
+    public void GFR23_Donem_Raporu_Tip_Filtresi_ve_Siralama()
+    {
+        var yalnizBakim = _reports.Run(_admin, "daily-activity-summary",
+            new ReportRequest(true, G1, G2 + Gun - 1, ActivityTypes: new[] { DailyActivityTypeOptions.Maintenance }));
+        var satir = Assert.Single(yalnizBakim.Rows);
+        Assert.Equal(1.0, D(satir[2]), 3);                    // yalnız bakım kaydı sayıldı
+
+        // Bilinmeyen sıralama anahtarı dönem raporunda da varsayılana düşer (hata yok).
+        var t = _reports.Run(_admin, "daily-activity-summary",
+            new ReportRequest(true, G1, G2 + Gun - 1, SortKey: "bilinmeyen"));
+        Assert.Single(t.Rows);
+    }
+
+    /// <summary>a1 faaliyetini gerçek bir bakım kaydına bağlar: MOTOR BAKIMI · Ali Usta · 12.500 km ·
+    /// 2 malzeme satırı (2×150 + 1×200 = 500).</summary>
+    private void BakimBagla()
+    {
+        Exec("INSERT INTO maintenance_definitions(id,company_id,name,interval_value,interval_unit,created_at,updated_at,version,is_deleted) " +
+             "VALUES('md1','A','MOTOR BAKIMI','250','hour',@n,@n,1,0);", ("@n", G1));
+        Exec(@"INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id,technician_id,
+                   performed_km,op_branch_id,is_cancelled,operation_id,created_at,updated_at,version,is_deleted)
+               VALUES('m1','A','va','md1','p1','12500','B1',0,'op-m1',@n,@n,1,0);", ("@n", G1));
+        Exec("INSERT INTO materials(id,company_id,code,name,created_at,updated_at,version,is_deleted) " +
+             "VALUES('mat1','A','FLT-1','Filtre',@n,@n,1,0);", ("@n", G1));
+        Exec("INSERT INTO maintenance_materials(id,company_id,maintenance_id,material_id,quantity,unit_price) " +
+             "VALUES('mm1','A','m1','mat1','2','150');");
+        Exec("INSERT INTO maintenance_materials(id,company_id,maintenance_id,material_id,quantity,unit_price) " +
+             "VALUES('mm2','A','m1','mat1','1','200');");
+        Exec("UPDATE daily_activities SET maintenance_id='m1' WHERE id='a1';");
     }
 
     [Fact]
@@ -249,8 +352,8 @@ public class GunlukFaaliyetRaporuTests : IDisposable
 
     // ══════════════ Yardımcılar ══════════════
 
-    private TableModel Rapor(string[]? tipler = null)
-        => _reports.Run(_admin, "daily-activity", new ReportRequest(true, G1, G2 + Gun - 1, ActivityTypes: tipler));
+    private TableModel Rapor(string[]? tipler = null, string? sort = null)
+        => _reports.Run(_admin, "daily-activity", new ReportRequest(true, G1, G2 + Gun - 1, ActivityTypes: tipler, SortKey: sort));
 
     private static ReportRequest Istek() => new(true, G1, G2 + Gun - 1);
 

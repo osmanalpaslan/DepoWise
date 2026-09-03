@@ -42,6 +42,11 @@ public enum ReportFilters
     // (MovementType/Status ile AYNI desen — web bu dosyayı derler, /api/reports/scope'a alan EKLENMEDİ).
     // HİÇBİRİ seçilmezse TÜM tipler listelenir (kullanıcı kuralı) — boş liste "filtre yok" demektir.
     ActivityType = 16384,
+    // ⭐ 2026-09-02 (kullanıcı isteği): SIRALAMA seçimi. Seçenekler SABİT listedir ve TEK doğru
+    // kaynaktan gelir: DepoWise.Application.Ui.ReportSortOptions (ActivityType ile AYNI desen —
+    // iki platform da o dosyayı derler, /api/reports/scope'a alan EKLENMEDİ).
+    // Seçim yapılmazsa rapor kendi VARSAYILAN sıralamasını kullanır (mevcut davranış korunur).
+    Sort = 32768,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -131,6 +136,7 @@ public sealed record ReportDescriptor(
     public bool UsesMaterial => Filters.HasFlag(ReportFilters.Material);   // STK-10b-3: malzeme (arama ile seçilir)
     public bool UsesParty => Filters.HasFlag(ReportFilters.Party);   // G4-4b: cari (arama ile seçilir)
     public bool UsesActivityType => Filters.HasFlag(ReportFilters.ActivityType);   // ADR-182: kayıt tipi (sabit liste)
+    public bool UsesSort => Filters.HasFlag(ReportFilters.Sort);                  // 2026-09-02: siralama (sabit liste)
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -351,9 +357,22 @@ public static class ReportCatalog
         new ReportDescriptor("daily-activity", "Günlük Faaliyet — Detay",
             "Günlük faaliyet kayıtlarının gün gün dökümü (kayıt tipi seçilebilir)",
             ReportCategory.DailyActivity, ReportGroup.Standard,
-            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.ActivityType,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.ActivityType | ReportFilters.Sort,
             true, ExportStandard,
-            InfoNote: "Her satır bir günlük faaliyet kaydıdır; en yeni gün üsttedir. «Kayıt Tipi» filtresinde hiçbir seçim yapılmazsa TÜM tipler listelenir. İptal edilen (silinen) kayıtlar raporda görünmez. Şube, kaydın İŞLENDİĞİ şubedir. Tarih aralığı zorunludur.",
+            InfoNote: "Her satır bir günlük faaliyet kaydıdır. Araç KODU ve PLAKA ayrı sütunlardadır; kayıt bir bakımsa bakım tanımı, teknisyen, yapılma değeri, malzeme kalemi ve PARÇA MALİYETİ de gelir. «Kayıt Tipi» filtresinde hiçbir seçim yapılmazsa TÜM tipler listelenir. «Sıralama» ile satır sırası değiştirilebilir (varsayılan: tarih, yeniden eskiye). İptal edilen (silinen) kayıtlar raporda görünmez. Şube, kaydın İŞLENDİĞİ şubedir. Tarih aralığı zorunludur.",
+            DataModule: "daily_activity"),
+
+        // ⭐ 2026-09-02 (kullanıcı isteği): GÜNLÜK FAALİYET — DÖNEM (TOPLAM).
+        // Kullanıcı: "aracın ve bakım türleri vb. diğer kayıtların tek tek gün bazında değil tarih
+        // aralığında ... listelenmesini sağlamalı ... total olan günlük olmayan rapor eklenecek."
+        // Detay raporu GÜN GÜN döküm verir; bu rapor AYNI veriyi ARAÇ BAZINDA toplar (gün kırılımı YOK).
+        // Aynı kategori, aynı yetki anahtarı; yeni ekran/menü/migration YOK.
+        new ReportDescriptor("daily-activity-summary", "Günlük Faaliyet — Dönem (Toplam)",
+            "Tarih aralığında ARAÇ bazında toplam: kayıt sayıları, süre ve parça maliyeti (gün kırılımı yok)",
+            ReportCategory.DailyActivity, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.ActivityType | ReportFilters.Sort,
+            true, ExportStandard,
+            InfoNote: "Her satır BİR ARAÇTIR (gün gün döküm için «Günlük Faaliyet — Detay» raporunu kullanın). Kayıt tipleri ayrı sütunlarda sayılır; bakım kayıtlarının PARÇA MALİYETİ toplanır. Aracı olmayan kayıtlar «(araçsız)» satırında toplanır. «Sıralama» ile satır sırası değiştirilebilir (varsayılan: araç kodu). İptal edilen (silinen) kayıtlar raporda görünmez. Tarih aralığı zorunludur.",
             DataModule: "daily_activity"),
     };
 

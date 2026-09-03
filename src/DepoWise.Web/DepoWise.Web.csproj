@@ -70,6 +70,9 @@
          gelmeli (etiket bugün zaten iki yerde tekrarlanıyordu; üçüncü kopya ıraksama üretirdi).
          Dosya SAF katalogdur (yalnız const + static liste, bağımlılık yok). -->
     <Compile Include="..\DepoWise.Application\Ui\DailyActivityTypeOptions.cs" Link="Services\DailyActivityTypeOptions.cs" />
+    <!-- 2026-09-02: rapor SIRALAMA seçenekleri — iki platform aynı sabit listeyi derler
+         (DailyActivityTypeOptions ile aynı desen; dosya saf katalogdur, bağımlılık yok). -->
+    <Compile Include="..\DepoWise.Application\Ui\ReportSortOptions.cs" Link="Services\ReportSortOptions.cs" />
   </ItemGroup>
 
 </Project>

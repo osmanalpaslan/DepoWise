@@ -119,6 +119,10 @@ public class ReportFilterParityTests
         // seçenekler SABİT listeden (DailyActivityTypeOptions) gelir, web bu dosyayı derler →
         // /api/reports/scope'a alan EKLENMEDİ. Boş seçim = TÜM tipler (kullanıcı kuralı).
         new Wiring(ReportFilters.ActivityType,   "ShowActivityType",   new[] { "ActivityTypes" },      "Kayıt Tipi"),
+        // 2026-09-02 (kullanıcı isteği) — RAPOR SIRALAMASI. ActivityType ile AYNI desen: seçenekler
+        // SABİT listeden (ReportSortOptions) gelir, iki platform da aynı dosyayı derler. Kullanıcı
+        // metni ASLA ORDER BY icine yazılmaz; servis anahtarı beyaz listeden çözer.
+        new Wiring(ReportFilters.Sort,           "ShowSort",           new[] { "SortKey" },            "Sıralama"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);

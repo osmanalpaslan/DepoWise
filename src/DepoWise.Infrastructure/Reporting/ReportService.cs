@@ -1472,27 +1472,46 @@ ORDER BY gun, sm.movement_type, m.code LIMIT @lim;";
         cmd.CommandText = @"
 SELECT da.activity_date, da.activity_type, COALESCE(da.movement_kind,'') AS kind,
        COALESCE(ob.name,'') AS branch_text,
-       CASE WHEN v.internal_code IS NULL THEN ''
-            WHEN v.plate IS NULL OR v.plate='' THEN v.internal_code
-            ELSE v.internal_code || ' - ' || v.plate END AS vehicle_text,
+       COALESCE(v.internal_code,'') AS vehicle_code,
+       COALESCE(v.plate,'') AS vehicle_plate,
        CASE WHEN fb.name IS NULL AND tb.name IS NULL THEN ''
             WHEN tb.name IS NULL THEN fb.name
             WHEN fb.name IS NULL THEN '→ ' || tb.name
             ELSE fb.name || ' → ' || tb.name END AS route_text,
        COALESCE(p.full_name,'') AS operator_text,
-       da.duration_days, COALESCE(da.description,'') AS description
+       da.duration_days, COALESCE(da.description,'') AS description,
+       COALESCE(md.name,'') AS def_name,
+       COALESCE(msd.name,'') AS subdef_name,
+       COALESCE(tech.full_name,'') AS technician_text,
+       vm.performed_km, vm.performed_hour, vm.performed_date,
+       COALESCE(mm.kalem,0) AS material_count,
+       COALESCE(mm.tutar,0) AS material_cost
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id AND tb.company_id = da.company_id
 LEFT JOIN branches ob ON ob.id = da.op_branch_id AND ob.company_id = da.company_id
 LEFT JOIN personnel p ON p.id = da.operator_id AND p.company_id = da.company_id
+-- 2026-09-02 (kullanici istegi): bakim girilmisse parca maliyetleri de raporda yer alir.
+-- Gunluk faaliyet kaydi bakimsa maintenance_id ile ortak bakim kaydina baglidir; malzeme tutari
+-- Arac Raporundaki ILE AYNI formulle hesaplanir (miktar x birim fiyat snapshot) - ikinci bir
+-- maliyet tanimi uretilmez.
+LEFT JOIN vehicle_maintenances vm ON vm.id = da.maintenance_id AND vm.company_id = da.company_id
+LEFT JOIN maintenance_definitions md ON md.id = vm.maintenance_def_id AND md.company_id = da.company_id
+LEFT JOIN maintenance_definitions msd ON msd.id = vm.sub_definition_id AND msd.company_id = da.company_id
+LEFT JOIN personnel tech ON tech.id = vm.technician_id AND tech.company_id = da.company_id
+LEFT JOIN (
+    SELECT maintenance_id,
+           COUNT(*) AS kalem,
+           SUM(CAST(quantity AS REAL) * CAST(COALESCE(unit_price,'0') AS REAL)) AS tutar
+    FROM maintenance_materials GROUP BY maintenance_id
+) mm ON mm.maintenance_id = da.maintenance_id
 WHERE da.company_id = @c AND da.is_deleted = 0"
             + ReportScope.BranchSql(s, req, "da.op_branch_id")
             + DateFilter(req, "da.activity_date")
             + InList("da.vehicle_id", "@rv", req.VehicleIds)
             + ActivityTypeSql(req.ActivityTypes)
-            + $" ORDER BY da.activity_date DESC, {SqlDialect.RowTieBreaker(conn, "da")} DESC LIMIT @lim;";
+            + $" ORDER BY {DetaySiralama(req.SortKey)}{SqlDialect.RowTieBreaker(conn, "da")} DESC LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
         ReportScope.BindBranch(cmd, s, req);
@@ -1502,7 +1521,8 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();
-        double tGun = 0;
+        double tGun = 0, tTutar = 0;
+        int tKalem = 0;
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
@@ -1512,30 +1532,197 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
                 var tipAnahtar = tip == "movement"
                     ? (kind == DailyActivityTypeOptions.Transfer ? DailyActivityTypeOptions.Transfer : DailyActivityTypeOptions.Movement)
                     : tip;
-                double gun = r.IsDBNull(7) ? 0 : Convert.ToDouble(r.GetValue(7));
-                tGun += gun;
+                double gun = r.IsDBNull(8) ? 0 : Convert.ToDouble(r.GetValue(8));
+                int kalem = r.IsDBNull(16) ? 0 : Convert.ToInt32(r.GetValue(16));
+                double tutar = r.IsDBNull(17) ? 0 : Convert.ToDouble(r.GetValue(17));
+                tGun += gun; tKalem += kalem; tTutar += tutar;
+
+                // Bakım "yapılma" değeri: km / saat / tarih — hangisi doluysa o (araç raporlarıyla aynı biçim).
+                var yapilma =
+                    !r.IsDBNull(13) ? $"{Money.Parse(r.GetString(13)):0.##} km"
+                    : !r.IsDBNull(14) ? $"{Money.Parse(r.GetString(14)):0.##} saat"
+                    : !r.IsDBNull(15) ? DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(15)).UtcDateTime.ToString("dd.MM.yyyy", Tr)
+                    : "";
+
+                var plaka = r.GetString(5);
+                var altTanim = r.GetString(11);
+                var tanim = r.GetString(10);
+                if (altTanim.Length > 0) tanim = tanim.Length > 0 ? $"{tanim} / {altTanim}" : altTanim;
 
                 rows.Add(new object?[]
                 {
                     DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).UtcDateTime.ToString("dd.MM.yyyy", Tr),
                     DailyActivityTypeOptions.Label(tipAnahtar),
-                    r.GetString(3), r.GetString(4), r.GetString(5), r.GetString(6),
+                    r.GetString(3),
+                    r.GetString(4),                                   // ARAÇ KODU (ayrı sütun)
+                    plaka.Length == 0 ? "—" : plaka,                  // PLAKA (ayrı sütun)
+                    r.GetString(6), r.GetString(7),
                     Num(gun, x => x.ToString("0.##", Tr)),
-                    r.GetString(8),
+                    tanim, r.GetString(12), yapilma,
+                    kalem == 0 ? "" : Num(kalem, x => x.ToString("0", Tr)),
+                    tutar == 0 ? "" : Num(tutar, x => x.ToString("#,##0.##", Tr)),
+                    r.GetString(9),
                 });
             }
 
-        var numeric = new[] { false, false, false, false, false, false, true, false };
+        var numeric = new[] { false, false, false, false, false, false, false, true, false, false, false, true, true, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
-            "TOPLAM", $"{rows.Count} kayıt", "", "", "", "", Num(tGun, x => x.ToString("0.##", Tr)), "",
+            "TOPLAM", $"{rows.Count} kayıt", "", "", "", "", "",
+            Num(tGun, x => x.ToString("0.##", Tr)), "", "", "",
+            Num(tKalem, x => x.ToString("0", Tr)),
+            Num(tTutar, x => x.ToString("#,##0.##", Tr)), "",
         };
 
         return new TableModel("Günlük Faaliyet — Detay", new[]
         {
-            "Tarih", "Kayıt Tipi", "Şube", "Araç", "Nereden → Nereye", "Operatör", "Süre (gün)", "Açıklama",
+            "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)",
+            "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Parça Maliyeti", "Açıklama",
         }, rows, numeric, totalRow);
     }
+
+    /// <summary>
+    /// ⭐ GÜNLÜK FAALİYET — DÖNEM (TOPLAM) — kullanıcı isteği 2026-09-02.
+    ///
+    /// Detay raporu GÜN GÜN döküm verir; bu rapor AYNI veriyi <b>araç bazında</b> toplar (gün kırılımı
+    /// yoktur). Kullanıcı: "tek tek gün bazında değil tarih aralığında araç ve ilgili günlük faaliyet
+    /// kayıtlarının listelenmesi".
+    ///
+    /// Kapsam/filtre/yetki kuralları Detay raporuyla BİREBİR aynıdır (aynı modül, aynı şube kapsamı,
+    /// aynı kayıt tipi filtresi, iptal edilenler hariç, tarih zorunlu) — iki rapor birbiriyle tutarlıdır.
+    /// Parça maliyeti Araç Raporu ile AYNI formülden gelir (miktar × birim fiyat snapshot).
+    /// Aracı olmayan kayıtlar tek bir "(araçsız)" satırında toplanır — sessizce kaybolmaz.
+    /// </summary>
+    public TableModel DailyActivitySummary(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT COALESCE(v.internal_code,'') AS vehicle_code,
+       COALESCE(v.plate,'') AS vehicle_plate,
+       COUNT(*) AS kayit,
+       SUM(CASE WHEN da.activity_type='maintenance' THEN 1 ELSE 0 END) AS bakim,
+       SUM(CASE WHEN da.activity_type='extra_oil' THEN 1 ELSE 0 END) AS yag,
+       SUM(CASE WHEN da.activity_type='extra_filter' THEN 1 ELSE 0 END) AS filtre,
+       SUM(CASE WHEN da.activity_type='repair' THEN 1 ELSE 0 END) AS tamir,
+       SUM(CASE WHEN da.activity_type='movement' AND COALESCE(da.movement_kind,'')<>'transfer' THEN 1 ELSE 0 END) AS hareket,
+       SUM(CASE WHEN da.activity_type='movement' AND da.movement_kind='transfer' THEN 1 ELSE 0 END) AS transfer,
+       SUM(COALESCE(da.duration_days,0)) AS gun,
+       SUM(COALESCE(mm.kalem,0)) AS kalem,
+       SUM(COALESCE(mm.tutar,0)) AS tutar,
+       MIN(da.activity_date) AS ilk,
+       MAX(da.activity_date) AS son
+FROM daily_activities da
+LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
+LEFT JOIN (
+    SELECT maintenance_id,
+           COUNT(*) AS kalem,
+           SUM(CAST(quantity AS REAL) * CAST(COALESCE(unit_price,'0') AS REAL)) AS tutar
+    FROM maintenance_materials GROUP BY maintenance_id
+) mm ON mm.maintenance_id = da.maintenance_id
+WHERE da.company_id = @c AND da.is_deleted = 0"
+            + ReportScope.BranchSql(s, req, "da.op_branch_id")
+            + DateFilter(req, "da.activity_date")
+            + InList("da.vehicle_id", "@rv", req.VehicleIds)
+            + ActivityTypeSql(req.ActivityTypes)
+            + @"
+GROUP BY COALESCE(v.internal_code,''), COALESCE(v.plate,'')
+ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
+
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindActivityTypes(cmd, req.ActivityTypes);
+        cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        long tKayit = 0, tBakim = 0, tYag = 0, tFiltre = 0, tTamir = 0, tHareket = 0, tTransfer = 0, tKalem = 0;
+        double tGun = 0, tTutar = 0;
+
+        string Tarih(object? v) => v is null || v == DBNull.Value
+            ? "" : DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(v)).UtcDateTime.ToString("dd.MM.yyyy", Tr);
+
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var kod = r.GetString(0);
+                var plaka = r.GetString(1);
+                long kayit = Convert.ToInt64(r.GetValue(2)), bakim = Convert.ToInt64(r.GetValue(3));
+                long yag = Convert.ToInt64(r.GetValue(4)), filtre = Convert.ToInt64(r.GetValue(5));
+                long tamir = Convert.ToInt64(r.GetValue(6)), hareket = Convert.ToInt64(r.GetValue(7));
+                long transfer = Convert.ToInt64(r.GetValue(8));
+                double gun = r.IsDBNull(9) ? 0 : Convert.ToDouble(r.GetValue(9));
+                long kalem = r.IsDBNull(10) ? 0 : Convert.ToInt64(r.GetValue(10));
+                double tutar = r.IsDBNull(11) ? 0 : Convert.ToDouble(r.GetValue(11));
+
+                tKayit += kayit; tBakim += bakim; tYag += yag; tFiltre += filtre; tTamir += tamir;
+                tHareket += hareket; tTransfer += transfer; tGun += gun; tKalem += kalem; tTutar += tutar;
+
+                rows.Add(new object?[]
+                {
+                    kod.Length == 0 ? "(araçsız)" : kod,
+                    plaka.Length == 0 ? "—" : plaka,
+                    Num(kayit, x => x.ToString("0", Tr)),
+                    Num(bakim, x => x.ToString("0", Tr)),
+                    Num(yag, x => x.ToString("0", Tr)),
+                    Num(filtre, x => x.ToString("0", Tr)),
+                    Num(tamir, x => x.ToString("0", Tr)),
+                    Num(hareket, x => x.ToString("0", Tr)),
+                    Num(transfer, x => x.ToString("0", Tr)),
+                    Num(gun, x => x.ToString("0.##", Tr)),
+                    Num(kalem, x => x.ToString("0", Tr)),
+                    Num(tutar, x => x.ToString("#,##0.##", Tr)),
+                    Tarih(r.IsDBNull(12) ? null : r.GetValue(12)),
+                    Tarih(r.IsDBNull(13) ? null : r.GetValue(13)),
+                });
+            }
+
+        var numeric = new[] { false, false, true, true, true, true, true, true, true, true, true, true, false, false };
+        var totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", $"{rows.Count} araç",
+            Num(tKayit, x => x.ToString("0", Tr)), Num(tBakim, x => x.ToString("0", Tr)),
+            Num(tYag, x => x.ToString("0", Tr)), Num(tFiltre, x => x.ToString("0", Tr)),
+            Num(tTamir, x => x.ToString("0", Tr)), Num(tHareket, x => x.ToString("0", Tr)),
+            Num(tTransfer, x => x.ToString("0", Tr)), Num(tGun, x => x.ToString("0.##", Tr)),
+            Num(tKalem, x => x.ToString("0", Tr)), Num(tTutar, x => x.ToString("#,##0.##", Tr)), "", "",
+        };
+
+        return new TableModel("Günlük Faaliyet — Dönem (Toplam)", new[]
+        {
+            "Araç Kodu", "Plaka", "Kayıt", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Hareket", "Transfer",
+            "Süre (gün)", "Malzeme Kalemi", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt",
+        }, rows, numeric, totalRow);
+    }
+
+    /// <summary>Dönem (toplam) raporu sıralaması — beyaz liste (bkz. <see cref="DetaySiralama"/>).</summary>
+    private static string DonemSiralama(string? key) => key switch
+    {
+        ReportSortOptions.CountDesc => "kayit DESC, ",
+        ReportSortOptions.CostDesc => "tutar DESC, ",
+        ReportSortOptions.DaysDesc => "gun DESC, ",
+        _ => "",
+    };
+
+    /// <summary>
+    /// Günlük Faaliyet — Detay sıralaması (kullanıcı isteği 2026-09-02).
+    /// ⚠️ GÜVENLİK: kullanıcıdan gelen anahtar SQL'e YAZILMAZ; yalnız bu BEYAZ LİSTEDEN sabit bir
+    /// parça seçilir. Bilinmeyen/boş anahtar VARSAYILANA (tarih, yeniden eskiye) düşer.
+    /// Dönen metin daima "…, " ile biter; çağıran sonuna kararlı eşitlik bozucuyu (tie-breaker) ekler.
+    /// </summary>
+    private static string DetaySiralama(string? key) => key switch
+    {
+        ReportSortOptions.DateAsc => "da.activity_date ASC, ",
+        ReportSortOptions.Vehicle => "vehicle_code ASC, da.activity_date DESC, ",
+        ReportSortOptions.Type => "da.activity_type ASC, da.activity_date DESC, ",
+        ReportSortOptions.CostDesc => "material_cost DESC, da.activity_date DESC, ",
+        _ => "da.activity_date DESC, ",
+    };
 
     /// <summary>ADR-182 — kayıt tipi filtresinin SQL'i. Boş seçim → filtre YOK (tüm tipler).
     /// "Hareket"/"Transfer" aynı <c>activity_type='movement'</c> satırlarının <c>movement_kind</c> ile
@@ -2087,6 +2274,7 @@ ORDER BY br.name, p.full_name;";
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock-movements-daily" => StockMovementsDaily(s, req, maxRows),   // ADR-182 (PK-G2=A): gün×tür özeti
         "daily-activity" => DailyActivityDetail(s, req, maxRows),   // ADR-182 (PK-D1=A): faaliyet detayı
+        "daily-activity-summary" => DailyActivitySummary(s, req, maxRows),   // 2026-09-02: donem (toplam)
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),
         "vehicle-daily" => VehicleDailyReport(s, req, maxRows),   // RPT-GUNLUK (PK-R1=A): gün×araç kırılımı

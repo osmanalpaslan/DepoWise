@@ -149,7 +149,7 @@ public class PostgresGunlukRaporlarTests
         Faaliyet("d3", "movement", "transfer", Day(3), "Transfer", 1);
 
         var hepsi = reports.Run(s, "daily-activity", istek);                       // tip seçilmedi → TÜM tipler
-        Assert.Equal(8, hepsi.Headers.Count);
+        Assert.Equal(14, hepsi.Headers.Count);   // 2026-09-02: kod/plaka ayrı + bakım maliyet sütunları
         Assert.Equal(3, hepsi.Rows.Count);
         Assert.Equal("Transfer", (string)hepsi.Rows[0][1]!);                       // en yeni gün üstte
 

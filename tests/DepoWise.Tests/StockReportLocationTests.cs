@@ -346,11 +346,17 @@ public class StockReportLocationTests : IDisposable
         var carililer = ReportCatalog.All.Where(d => d.UsesParty).Select(d => d.Key).OrderBy(x => x).ToList();
         Assert.Equal(new[] { "acc-balances", "acc-invoices", "acc-open-invoices", "acc-payments", "acc-statement" }, carililer);
 
-        // ADR-182 (PK-D1=A): KAYIT TİPİ filtresi (16384) yalnız Günlük Faaliyet raporunda açıldı.
-        var tipliler = ReportCatalog.All.Where(d => d.UsesActivityType).Select(d => d.Key).ToList();
-        Assert.Equal(new[] { "daily-activity" }, tipliler);
-        // Nöbetçi KALDIRILMADI, bir sıra İLERİ alındı: sıradaki boş bayrak (32768) hâlâ kullanılmamalı.
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)32768)));
+        // ADR-182 (PK-D1=A): KAYIT TİPİ filtresi (16384) yalnız Günlük Faaliyet raporlarında açık.
+        // 2026-09-02: dönem (toplam) raporu BİLİNÇLİ eklendi — detayla aynı filtre kümesini kullanır.
+        var tipliler = ReportCatalog.All.Where(d => d.UsesActivityType).Select(d => d.Key).OrderBy(x => x).ToList();
+        Assert.Equal(new[] { "daily-activity", "daily-activity-summary" }, tipliler);
+
+        // 2026-09-02: SIRALAMA filtresi (32768) BİLİNÇLİ açıldı — yalnız Günlük Faaliyet raporlarında.
+        // Nöbetçi KALDIRILMADI: hangi raporlarda açıldığı kilitlenir (başka rapora sızarsa bu düşer).
+        var siralamalilar = ReportCatalog.All.Where(d => d.UsesSort).Select(d => d.Key).OrderBy(x => x).ToList();
+        Assert.Equal(new[] { "daily-activity", "daily-activity-summary" }, siralamalilar);
+        // Nöbetçi bir sıra İLERİ alındı: sıradaki boş bayrak (65536) hâlâ kullanılmamalı.
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)65536)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

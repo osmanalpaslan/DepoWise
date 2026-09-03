@@ -15,11 +15,22 @@
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Button Classes="Secondary" Content="Sunucuya Yükle" Command="{Binding UploadToServerCommand}"
                             IsVisible="{Binding ServerConfigured}"/>
+                    <!-- Kullanıcı isteği (2026-09-02): bir makinede eklenen fotoğraf her makinede görünsün.
+                         Bu düğme, BU bilgisayardaki yerel fotoğrafları sunucuya taşır (yalnız ekleme). -->
+                    <Button Classes="Secondary" Content="Fotoğrafları Sunucuya Yükle"
+                            Command="{Binding UploadPhotosToServerCommand}" IsEnabled="{Binding !PhotoBusy}"
+                            ToolTip.Tip="Bu bilgisayardaki araç/malzeme fotoğraflarını sunucuya yükler; hiçbir fotoğraf silinmez, zaten yüklü olanlar atlanır. Fotoğrafların BULUNDUĞU bilgisayarda çalıştırın."/>
                     <Button Classes="Secondary" Content="Klasörü Aç" Command="{Binding OpenFolderCommand}"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
+
+        <!-- Fotoğraf taşıma durumu/ilerlemesi (kullanıcı isteği 2026-09-02) -->
+        <Border Grid.Row="0" Classes="Panel" Margin="0,64,0,0" VerticalAlignment="Top"
+                IsVisible="{Binding HasPhotoStatus}">
+            <SelectableTextBlock Text="{Binding PhotoStatus}" Classes="Body" TextWrapping="Wrap"/>
+        </Border>
 
         <Panel Grid.Row="1" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">

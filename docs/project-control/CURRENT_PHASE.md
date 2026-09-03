@@ -28,7 +28,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-03** (**ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -165,7 +165,7 @@ gerçek son durumu (kararlar TEKRAR SORULMAZ):
 | Son commit | **ADR-192 — 5 alan düzeltmesi** (masaüstü + web + API + 2 yeni test dosyası) · önceki `db49f29` (7b, push edildi, bu yayında çıkıyor) · `d589d3f` (ARA İŞ 5, yayında) |
 | Son başarılı test | Tam süit **3.212 geçti / 0 başarısız / 48 atlanan** (2026-09-02, ADR-194 sonrası) · **BakimUyariKopruTests 3/3** BK5 yanlış-kayıt regresyonunu kilitler · **ReleaseRepublishTests 4/4** · **FuelUpdateTests 9/9** · Release derleme API + Web + Masaüstü **0 hata** |
 | Bekleyen ana karar | **YOK** — FIN-B1/Migration082 ✅ kapandı, ARA İŞ 5 kararları (ADR-187/188) ✅ kesinleşti |
-| Sonraki TEK iş | **YOK** — yayın tamamlandı. Sıradaki iş kullanıcının yeni talebiyle belirlenir. N/Mobil ⏭️ ATLANDI |
+| Sonraki TEK iş | **ADR-195 yayını** (kullanıcı onayı bekleniyor) — API + Web dağıtım + masaüstü 1.0.170 self-contained. Migration YOK (şema 86 kalır) |
 | ARA İŞ 3 kararları (ADR-184) | **PK-TAR-01=A** 20 noktanın tamamı · **02=A** yalnız ileriye dönük (geçmiş veri AYRI iş) · **03=A** tek kaynaklı dönüşüm + parite/kaynak kilitleri · **04=A** zaman damgalarına dokunulmaz · **05=A** eski istemciler kabul + yayın notu · **06=B** production ölçümü YOK · **07=A** tek başına migration'sız yayın (şema 81 kalır) |
 | Ara iş bitince dönülecek nokta | **AŞAMA 3 — FINAL KARAR PAKETİ → FIN-B1 / Migration082 ayrı onay süreci** |
 

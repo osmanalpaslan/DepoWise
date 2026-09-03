@@ -60,15 +60,23 @@ public sealed class DashboardService
 
         var alerts = new List<DashboardAlert>();
 
+        // ⭐ 2026-09-02 (kullanıcı isteği + ekran görüntüsü): ARAÇLA İLGİLİ uyarılarda araç KODU ve
+        // PLAKA görünür. Panelde yalnız "MOTOR BAKIMI · %2486 (Overdue)" yazıyordu; hangi araç
+        // olduğu anlaşılmıyordu. Araç metni TEK sorguyla hazırlanır (satır başına sorgu YOK).
+        var aracMetni = VehicleLabels(conn, s.CompanyId);
+
         // Bakım uyarıları (yalnız Normal olmayanlar)
         if (AccessControl.Can(s, "maintenance", PermissionAction.View))
         {
             foreach (var a in _maintenance.GetAlerts(s))
             {
                 if (a.Level == AlertLevel.Normal) continue;
-                var detail = a.NeverPerformed ? "İlk bakım yapılmadı" : $"%{a.Progress * 100:0} ({a.Level})";
+                // Seviye etiketi TÜRKÇE ve TEK KAYNAKTAN (eskiden enum adı basılıyordu → "(Overdue)").
+                var durum = a.NeverPerformed ? "İlk bakım yapılmadı"
+                    : $"%{a.Progress * 100:0} ({AlertRules.LevelText(a.Level)})";
                 alerts.Add(new DashboardAlert(AlertKind.Maintenance, a.DefinitionName,
-                    detail, "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
+                    Birlestir(aracMetni, a.VehicleId, durum),
+                    "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
             }
         }
         // Muayene/sigorta
@@ -84,8 +92,10 @@ public sealed class DashboardService
                 };
                 var levelText = a.Level == DateAlertLevel.Expired ? "Süresi Doldu" : "Yaklaşıyor";
                 // Sigorta/muayene uyarısı ilgili BELGE kaydına köprülenir (araç değil).
+                // Araç kodu + plaka detaya eklenir (bakım uyarısıyla aynı biçim).
                 alerts.Add(new DashboardAlert(AlertKind.Inspection, docText,
-                    levelText, "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
+                    Birlestir(aracMetni, a.VehicleId, levelText),
+                    "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
         // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı
@@ -246,6 +256,37 @@ ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=@sig, created_at=@now;";
         => branch is null ? "" : $" AND ({col} = @opb OR {col} IS NULL)";
     private static void BindBranch(DbCommand cmd, string? branch)
     { if (branch is not null) cmd.AddWithValue("@opb", branch); }
+
+    /// <summary>
+    /// Araç kimliği → "İÇ KOD · PLAKA" etiketi (kullanıcı isteği 2026-09-02).
+    /// TEK sorgu; uyarı satırı başına sorgu açılmaz (panel yüzlerce uyarı taşıyabilir — N+1 yasak).
+    /// Plakası olmayan araçta yalnız iç kod döner.
+    /// </summary>
+    private static Dictionary<string, string> VehicleLabels(DbConnection conn, string companyId)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var kod = r.GetString(1);
+                var plaka = r.GetString(2);
+                map[r.GetString(0)] = string.IsNullOrWhiteSpace(plaka) ? kod : $"{kod} · {plaka}";
+            }
+        }
+        catch { /* araç etiketi okunamazsa uyarılar etiketsiz gösterilir — panel çalışmaya devam eder */ }
+        return map;
+    }
+
+    /// <summary>"KOD · PLAKA · durum" — araç bilinmiyorsa yalnız durum döner (boş ayraç bırakmaz).</summary>
+    private static string Birlestir(Dictionary<string, string> etiketler, string? vehicleId, string durum)
+        => vehicleId is not null && etiketler.TryGetValue(vehicleId, out var etiket)
+            ? $"{etiket} · {durum}"
+            : durum;
 
     private static int Count(DbConnection conn, string table, string companyId, string? branch = null)
     {

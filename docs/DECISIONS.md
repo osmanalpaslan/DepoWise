@@ -3792,3 +3792,61 @@ değişmiyor ve hiçbir veri dönüşümü yapılmıyor).
 çalışıyor). Web `/maintenance/records?view=…` adresi 200 dönüyor.
 **Veri kaybı yok:** araç 166 ve yakıt 647 aynı; malzeme 2492→**2497**, stok hareketi 683→**693**,
 bakım 51→**52** — bu artışlar kullanıcının **canlı veri girişine devam etmesinden** kaynaklanıyor.
+
+---
+
+## ADR-195 — Dört kullanıcı isteği: panel uyarısında araç kimliği, toplu fotoğraf taşıma, Günlük Faaliyet rapor seti, açık ekran sekmeleri (2026-09-03)
+
+**Bağlam.** Kullanıcı masaüstü testinde 4 istek iletti ve her maddede HEM masaüstü HEM web analizi şart
+koştu ("çalışan hiç bir yapı bozulmayacak").
+
+### 1) "Kritik Uyarılar" panelinde araç kodu + plaka (ekran görüntüsüyle bildirildi)
+
+Bu panel Bakım ekranındaki Uyarılar sekmesi DEĞİL; ana ekran/çan panelidir ve **ortak
+`DashboardService`ten** beslenir → tek düzeltme iki platformu birden kapsar. Bakım ve muayene/sigorta
+uyarılarının detay satırına **"KOD · PLAKA · durum"** eklendi (araç etiketi TEK sorguyla hazırlanır,
+satır başına sorgu yok). Ayrıca ekranda İngilizce enum adı basılıyordu ("%2486 (Overdue)") —
+seviye etiketi artık TEK kaynaktan Türkçe gelir (`AlertRules.LevelText`: Gecikti/Kritik/Yaklaşıyor).
+
+### 2) Fotoğraflar: "bir makinede yüklenen her makinede görünsün" — TOPLU TAŞIMA aracı
+
+**Canlı ölçüm:** sunucuda yalnız **8 araç + 9 malzeme** fotoğrafı var; kullanıcı ise bir makinede
+"çok fazla araçta" fotoğraf olduğunu bildiriyor → o fotoğraflar **hâlâ o makinenin yerel diskinde**
+(ADR-182 ÖNCESİ eklenmişler). Mevcut taşıma (`TasiEskileriAsync`) yalnız kayıt O MAKİNEDE AÇILINCA
+çalışır — onlarca kaydı tek tek açmak pratik değil.
+
+**Çözüm:** Yedek Yönetimi ekranına **"Fotoğrafları Sunucuya Yükle"** düğmesi
+(`DesktopPhotos.TumunuSunucuyaTasiAsync` + `FileService.GetAllLocalPhotos`). YALNIZ EKLEME yapar:
+hiçbir yerel dosya/kayıt silinmez; içerik özeti (sha256) sunucuda varsa atlanır → tekrar çalıştırmak
+zararsızdır, kesintide kaldığı yerden devam eder. İlerleme ve sonuç ekranda gösterilir.
+⚠️ **Düğme, fotoğrafların BULUNDUĞU makinede (MUSTAFAALPASLAN) çalıştırılmalıdır.**
+
+### 3) Günlük Faaliyet rapor seti
+
+- **Detay raporu zenginleşti** (8 → 14 sütun): araç **KODU ve PLAKA ayrı**; kayıt bakımsa **bakım
+  tanımı (+alt tanım) · teknisyen · yapılma (km/saat/tarih) · malzeme kalemi · PARÇA MALİYETİ** gelir.
+  Maliyet, Araç Raporu ile **AYNI formül** (miktar × birim fiyat snapshot) — ikinci tanım üretilmedi.
+- **YENİ RAPOR: "Günlük Faaliyet — Dönem (Toplam)"** (`daily-activity-summary`): her satır BİR ARAÇ;
+  tarih aralığında tip sayıları (Bakım/Yağ/Filtre/Tamir/Hareket/Transfer) + süre + malzeme kalemi +
+  parça maliyeti + ilk/son kayıt tarihi toplanır. Kapsam/filtre kuralları detayla birebir aynı;
+  araçsız kayıtlar "(araçsız)" satırında toplanır (sessizce kaybolmaz). Katalog 25 → 26.
+- **SIRALAMA seçimi** (kullanıcı: "günlük rapor sıralamasını değiştirebileceğim bir alan"):
+  yeni `ReportFilters.Sort` bayrağı + `ReportRequest.SortKey` + **ortak sabit liste**
+  `ReportSortOptions` (iki platform aynı dosyayı derler). Kullanıcı metni **ASLA ORDER BY'a yazılmaz**;
+  servis anahtarı BEYAZ LİSTEDEN sabit SQL parçasına çevirir, bilinmeyen anahtar varsayılana düşer
+  (testle kilitli: SQL enjeksiyon denemesi sorguyu değiştirmez). RPR-01 parite tablosuna satır eklendi →
+  filtrenin iki platformda da var olduğu TESTLE doğrulanır.
+
+### 4) Açık ekran SEKMELERİ (kullanıcının iş yeri ERP'sindeki desen)
+
+Menüden açılan ekranlar **alt şeritte sekme** olur: tıkla → ekrana dön, ✕ → kaldır.
+
+- **Sekme yalnız GEZİNME KISAYOLUDUR — ekranın canlı hâli saklanmaz.** Masaüstü mimarisi her gezinmede
+  önceki sayfayı Dispose eder; sekmeler bu sözleşmeyi bozmaz, tıklanınca ekran yeniden açılır (veri taze).
+  Gezinme normal `Navigate`/rota yolundan geçer → **platform ve yetki kapıları sekmede de aynen geçerli.**
+- **Masaüstü:** yalnız bellekte → her uygulama açılışında sıfır. Ana ekran sekme olmaz.
+- **Web:** `sessionStorage` → sayfa yenilemede (bu uygulamada bazı formlar `forceLoad` kullanır)
+  KAYBOLMAZ, tarayıcı sekmesi/penceresi kapanınca kendiliğinden sıfırlanır. Rota, ekran kataloğuna
+  (`AppScreens.ByWebRoute`) doğrulanarak sekmeye çevrilir; katalogda olmayan rota sekme olmaz.
+
+**Kapsam dışı:** migration YOK · yeni AppScreen/yetki modülü YOK · mevcut ekran davranışları değişmedi.

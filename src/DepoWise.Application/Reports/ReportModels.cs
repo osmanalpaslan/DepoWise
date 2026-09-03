@@ -73,7 +73,15 @@ public sealed record ReportRequest(
     // (kullanıcı kuralı: hiçbir tip seçilmezse hepsi listelenir).
     // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek mevcut
     // çağrıların argümanlarını sessizce kaydırırdı).
-    IReadOnlyList<string>? ActivityTypes = null);
+    IReadOnlyList<string>? ActivityTypes = null,
+
+    // ⭐ 2026-09-02 (kullanıcı isteği): RAPOR SIRALAMASI. Değer SABİT listeden gelir
+    // (DepoWise.Application.Ui.ReportSortOptions) — kullanıcı metni ASLA ORDER BY'a yazılmaz;
+    // rapor servisi anahtarı kendi beyaz listesinden sabit SQL parçasına çevirir, bilinmeyen
+    // anahtar VARSAYILANA düşer (fail-safe).
+    // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek mevcut
+    // çağrıların argümanlarını sessizce kaydırırdı).
+    string? SortKey = null);
 
 public static class ReportGate
 {

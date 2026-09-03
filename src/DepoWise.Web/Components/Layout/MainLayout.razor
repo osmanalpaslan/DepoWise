@@ -163,6 +163,31 @@
                 </div>
             }
         </MudContainer>
+
+        @* ═══ AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03) ═══
+           Kullanıcının açtığı ekranlar alt şeritte sekme olur: tıkla → ekrana dön, ✕ → sekmeyi kaldır.
+           Liste tarayıcı SEKME OTURUMUNDA tutulur (sessionStorage): sayfa yenilemede kaybolmaz,
+           tarayıcı sekmesi/penceresi kapanınca kendiliğinden sıfırlanır ("her açılışta sıfır" kuralı).
+           Ana ekran sekme olmaz; gezinme normal menü yolundan geçer (yetki/platform kapıları aynen geçerli). *@
+        @if (Auth.Loaded && Auth.IsAuthenticated && _ekranSekmeleri.Count > 0)
+        {
+            <div style="position:fixed;left:0;right:0;bottom:0;z-index:1100;display:flex;gap:6px;align-items:center;
+                        overflow-x:auto;padding:6px 12px;border-top:1px solid var(--mud-palette-lines-default);
+                        background:var(--mud-palette-surface);">
+                @foreach (var sekme in _ekranSekmeleri)
+                {
+                    var aktif = SekmeAktifMi(sekme);
+                    <MudPaper Elevation="0" Class="d-flex align-center"
+                              Style="@($"border-radius:6px;white-space:nowrap;background:{(aktif ? "var(--mud-palette-primary-hover)" : "var(--mud-palette-background)")}")">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Style="text-transform:none;min-width:0;"
+                                   OnClick="@(() => SekmeyeGit(sekme))">@sekme.Label</MudButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Style="padding:2px;"
+                                       title="Sekmeyi kaldır (ekran verisi silinmez)"
+                                       OnClick="@(() => SekmeKapat(sekme))" />
+                    </MudPaper>
+                }
+            </div>
+        }
     </MudMainContent>
 </MudLayout>
 
@@ -395,6 +420,7 @@
 
         Guard();
         await LoadAlertCountAsync();   // BLD-01: oturum hazır → çan sayacı bir kez yüklenir
+        await SekmeleriYukleAsync();   // 2026-09-03: açık ekran sekmeleri (sessionStorage'dan) geri gelir
         StateHasChanged();
     }
 
@@ -482,9 +508,76 @@
         Nav.NavigateTo("/login", forceLoad: true);
     }
 
+    // ═══ AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03) ══════════════════════════════════════
+
+    private sealed record EkranSekmesi(string Route, string Label);
+    private List<EkranSekmesi> _ekranSekmeleri = new();
+    private bool _sekmelerYuklendi;
+
+    /// <summary>Gezinilen rota → sekme. Rota tam eşleşmezse İLK PARÇASIYLA ekran aranır (ör.
+    /// "maintenance/records" → "maintenance"); katalogda olmayan rota (login, ana ekran) sekme OLMAZ.</summary>
+    private void SekmeEkle(string route)
+    {
+        if (!Auth.Loaded || !Auth.IsAuthenticated) return;
+        route = route.Trim('/');
+        if (route.Length == 0 || route.StartsWith("login", StringComparison.OrdinalIgnoreCase)) return;
+        var ekran = DepoWise.Application.Security.AppScreens.ByWebRoute(route)
+                 ?? DepoWise.Application.Security.AppScreens.ByWebRoute(route.Split('/')[0]);
+        if (ekran is null || !ekran.OnWeb || string.IsNullOrEmpty(ekran.WebRoute)) return;
+        if (_ekranSekmeleri.Any(t => t.Route == ekran.WebRoute)) return;
+        _ekranSekmeleri.Add(new EkranSekmesi(ekran.WebRoute!, ekran.Label));
+        _ = SekmeleriSaklaAsync();
+    }
+
+    private bool SekmeAktifMi(EkranSekmesi sekme)
+    {
+        var r = CurrentRoute().Trim('/');
+        return r == sekme.Route || r.StartsWith(sekme.Route + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SekmeyeGit(EkranSekmesi sekme) => Nav.NavigateTo("/" + sekme.Route);
+
+    private void SekmeKapat(EkranSekmesi sekme)
+    {
+        _ekranSekmeleri.Remove(sekme);
+        _ = SekmeleriSaklaAsync();
+        // Aktif sekme kapatıldıysa kullanıcı boşlukta kalmaz: son sekmeye, o da yoksa ana ekrana.
+        if (SekmeAktifMi(sekme))
+            Nav.NavigateTo(_ekranSekmeleri.Count > 0 ? "/" + _ekranSekmeleri[^1].Route : "/");
+    }
+
+    /// <summary>Sekmeler sessionStorage'da durur: sayfa yenilemede (forceLoad dahil) KAYBOLMAZ,
+    /// tarayıcı sekmesi kapanınca kendiliğinden SIFIRLANIR. Hata sessizdir — şerit süs, veri değil.</summary>
+    private async Task SekmeleriSaklaAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "dwEkranSekmeleri",
+                System.Text.Json.JsonSerializer.Serialize(_ekranSekmeleri.Select(t => t.Route).ToList()));
+        }
+        catch { }
+    }
+
+    private async Task SekmeleriYukleAsync()
+    {
+        if (_sekmelerYuklendi) return;
+        _sekmelerYuklendi = true;
+        try
+        {
+            var ham = await JS.InvokeAsync<string?>("sessionStorage.getItem", "dwEkranSekmeleri");
+            if (string.IsNullOrEmpty(ham)) { SekmeEkle(CurrentRoute()); return; }
+            foreach (var rota in System.Text.Json.JsonSerializer.Deserialize<List<string>>(ham!) ?? new())
+                SekmeEkle(rota);   // katalogda doğrulanarak eklenir (bozuk/eski değer sessizce elenir)
+            SekmeEkle(CurrentRoute());
+            StateHasChanged();
+        }
+        catch { }
+    }
+
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         Guard();
+        SekmeEkle(CurrentRoute());   // kullanıcı isteği 2026-09-03: açılan ekran alt şeride eklenir
         _searchOpen = false;   // ARA-01: sayfa değişince sonuç paneli kapanır
         // BLD-01: Uyarılar ekranından AYRILINCA sayaç tazelenir (okundu işaretleri yansısın);
         // diğer sayfa geçişlerinde API ÇAĞRILMAZ (performans kuralı).

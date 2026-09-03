@@ -79,6 +79,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
     [NotifyPropertyChangedFor(nameof(ShowActivityType))]
+    [NotifyPropertyChangedFor(nameof(ShowSort))]
     [NotifyPropertyChangedFor(nameof(ShowSearch))]
     [NotifyPropertyChangedFor(nameof(ShowMaterial))]
     [NotifyPropertyChangedFor(nameof(ShowParty))]
@@ -124,6 +125,22 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// seçenekler TEK kaynaktan (<see cref="DailyActivityTypeOptions"/>) gelir, sorgu/ağ GEREKMEZ
     /// (çevrimdışı çalışır) ve web ile birebir aynı etiketleri gösterir.</summary>
     public bool ShowActivityType => SelectedReport?.UsesActivityType == true;
+
+    /// <summary>2026-09-02 (kullanici istegi) - RAPOR SIRALAMASI. Secenekler TEK kaynaktan
+    /// (<see cref="ReportSortOptions"/>) gelir; sorgu/ag GEREKMEZ ve web ile ayni etiketleri gosterir.
+    /// Kullanici metni ASLA SQL siralamasina yazilmaz; servis anahtari beyaz listeden cozer.</summary>
+    public bool ShowSort => SelectedReport?.UsesSort == true;
+
+    /// <summary>Secili raporun siralama secenekleri (rapor degisince yeniden kurulur).</summary>
+    public ObservableCollection<BranchPick> SortOptions { get; } = new();
+    [ObservableProperty] private BranchPick? _selectedSort;
+
+    /// <summary>Rapor anahtarı → sıralama seçenekleri (TEK kaynak). Web ile AYNI listeyi kullanır.</summary>
+    private static IReadOnlyList<(string Key, string Label)> SortSecenekleri(string reportKey) => reportKey switch
+    {
+        "daily-activity-summary" => ReportSortOptions.DailyActivitySummary,
+        _ => ReportSortOptions.DailyActivityDetail,
+    };
 
     /// <summary>STK-10b-2 (ADR-104) — serbest metin arama. SKALER alan (liste değil); semantiği
     /// mevcut Stok Hareketleri ekranından aynen taşındı ve SUNUCU/SQL tarafında uygulanır.</summary>
@@ -485,6 +502,15 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Grid.Clear();          // ortak tablodaki eski sonucu temizle (yeni rapor için)
         ShowBar = ShowPie = false;
         Status = null;
+        // 2026-09-02: SIRALAMA seçenekleri rapora göre yeniden kurulur; varsayılan İLK seçenektir
+        // (mevcut rapor davranışı korunur — kullanıcı değiştirmezse sıralama eskisi gibidir).
+        SortOptions.Clear();
+        SelectedSort = null;
+        if (value is { UsesSort: true })
+        {
+            foreach (var (key, label) in SortSecenekleri(value.Key)) SortOptions.Add(new BranchPick(key, label));
+            SelectedSort = SortOptions.Count > 0 ? SortOptions[0] : null;
+        }
         // RPR-13 (parite): web ile AYNI kural — gerekçe Reports.razor OnSelect içindedir.
         if (value is { RequiresDate: false }) { FromDate = null; ToDate = null; }
         ApplyDateDefault();
@@ -575,6 +601,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
             ? MovementTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
         // ADR-182: seçili kayıt tipleri. Hiçbiri seçili değilse null → TÜM tipler (kullanıcı kuralı).
+        var sortKey = ShowSort ? SelectedSort?.Id : null;   // 2026-09-02: siralama anahtari (sabit liste)
         var activityTypes = ShowActivityType
             ? ActivityTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
@@ -608,7 +635,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
             // G4-4b: seçili cari → TEK elemanlı liste. Seçim yoksa null → TÜM cariler.
             PartyIds: ShowParty && PickedParty is not null ? new List<string> { PickedParty.Id } : null,
             // ADR-182: seçili kayıt tipleri. Boş → null → TÜM tipler.
-            ActivityTypes: activityTypes is { Count: > 0 } ? activityTypes : null);
+            ActivityTypes: activityTypes is { Count: > 0 } ? activityTypes : null,
+            // 2026-09-02: SIRALAMA. Bos ise raporun VARSAYILAN siralamasi kullanilir.
+            SortKey: string.IsNullOrWhiteSpace(sortKey) ? null : sortKey);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

@@ -184,6 +184,20 @@
                 <!-- ADR-182: GÜNLÜK FAALİYET KAYIT TİPİ filtresi. Hareket Türü ile AYNI desen; sabit
                      liste, TEK kaynak: DailyActivityTypeOptions → web ile AYNI seçenekler ve AYNI
                      Türkçe etiketler. Boş = TÜM tipler. Sorgu/ağ yok → çevrimdışı çalışır. -->
+                <!-- Sıralama (kullanıcı isteği 2026-09-02): rapor satır sırasını kullanıcı seçer.
+                     Seçenekler SABİT listedir (ReportSortOptions); kullanıcı metni SQL'e girmez. -->
+                <ctrl:FormField Label="Sıralama" Width="200" IsVisible="{Binding ShowSort}">
+                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"
+                              ToolTip.Tip="Rapor satırlarının hangi sıraya göre listeleneceğini seçer.">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BranchPick">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrl:FormField>
+
                 <ctrl:FormField Label="Kayıt Tipi (çoklu; boş=tümü)" Width="200" IsVisible="{Binding ShowActivityType}">
                     <Border Classes="Field" MaxHeight="110" Padding="8,4">
                         <ScrollViewer>

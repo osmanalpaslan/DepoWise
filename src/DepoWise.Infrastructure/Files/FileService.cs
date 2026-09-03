@@ -101,6 +101,44 @@ VALUES(@id,@c,@et,@eid,'photo',@prov,@key,@mime,@size,@sha,@now,@now,1,0);";
         return list;
     }
 
+    /// <summary>
+    /// ⭐ 2026-09-02 — BU MAKİNEDEKİ TÜM yerel fotoğraflar (araç + malzeme), toplu sunucuya taşıma için.
+    ///
+    /// <b>Neden gerekli:</b> ADR-182 öncesinde masaüstü fotoğrafı YALNIZ kendi diskine yazıyordu.
+    /// ADR-182 sonrası taşıma <c>DesktopPhotos.TasiEskileriAsync</c> ile yapılıyor ama YALNIZ o kayıt,
+    /// o makinede AÇILDIĞINDA çalışıyor. Kullanıcı bildirimi (2026-09-02): bir makinede onlarca aracın
+    /// fotoğrafı var, diğer makine hiçbirini görmüyor; canlı ölçüm de bunu doğruladı (sunucuda yalnız
+    /// 8 araç fotoğrafı vardı). Kayıtları tek tek açmak pratik değil → toplu taşıma gerekir.
+    ///
+    /// Salt okumadır: hiçbir kayıt silinmez/değiştirilmez. Yetki, tür başına ilgili modülden aranır;
+    /// yetkisi olmayan tür sessizce ATLANIR (fail-closed, çağıran akış kırılmaz).
+    /// </summary>
+    public IReadOnlyList<FileRecordDto> GetAllLocalPhotos(SessionContext s)
+    {
+        var turler = new[] { "vehicle", "material" }
+            .Where(t => AccessControl.Can(s, ResolveModule(t), PermissionAction.View))
+            .ToArray();
+        if (turler.Length == 0) return Array.Empty<FileRecordDto>();
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var yerTutucular = string.Join(",", turler.Select((_, i) => "@t" + i));
+        cmd.CommandText =
+            "SELECT id, entity_type, entity_id, storage_key, mime, size_bytes, sha256 FROM file_records " +
+            $"WHERE company_id=@c AND kind='photo' AND is_deleted=0 AND entity_type IN ({yerTutucular}) " +
+            "ORDER BY entity_type, entity_id, created_at;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        for (int i = 0; i < turler.Length; i++) cmd.AddWithValue("@t" + i, turler[i]);
+
+        var list = new List<FileRecordDto>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new FileRecordDto(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetInt64(5),
+                r.IsDBNull(6) ? null : r.GetString(6)));
+        return list;
+    }
+
     public void DeletePhoto(SessionContext s, string fileId)
     {
         using var conn = _factory.Create();

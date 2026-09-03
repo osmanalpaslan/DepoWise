@@ -376,6 +376,48 @@
             </Border>
 
 
+            <!-- AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03): menüden açılan ekranlar alt şeritte
+                 sekme olur; tıkla → ekrana dön, X → sekmeyi kaldır. Yalnız bellekte tutulur → her
+                 uygulama açılışında kendiliğinden sıfırlanır. Ana ekran sekme olmaz. -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0"
+                    IsVisible="{Binding HasOpenTabs}" Padding="8,3">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding OpenTabs}">
+                        <ItemsControl.Styles>
+                            <!-- Aktif sekme vurgusu: seçili satır rengiyle aynı dil. -->
+                            <Style Selector="Border.aktifSekme">
+                                <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                            </Style>
+                        </ItemsControl.Styles>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:OpenScreenTab">
+                                <Border CornerRadius="6" Padding="2"
+                                        Background="{DynamicResource AppBackgroundBrush}"
+                                        Classes.aktifSekme="{Binding IsActive}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Classes="Ghost" Padding="8,3"
+                                                Content="{Binding Label}"
+                                                Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).ActivateTabCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Bu ekrana dön"/>
+                                        <Button Classes="Ghost" Padding="4,3" Content="✕" FontSize="10"
+                                                Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).CloseTabCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Sekmeyi kaldır (ekran verisi silinmez)"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->
             <ContentControl Content="{Binding CurrentPage}"/>
         </DockPanel>
