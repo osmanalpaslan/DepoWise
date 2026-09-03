@@ -29,6 +29,27 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     public ObservableCollection<UserRow> Users { get; } = new();
     public ObservableCollection<ModulePermNode> Modules { get; } = new();
+
+    /// <summary>⭐ 2026-09-03 — ağacın KATEGORİZE görünümü (menü grupları gibi). Düğümler
+    /// <see cref="Modules"/> ile AYNI örneklerdir; kaydetme yolu değişmedi.</summary>
+    public ObservableCollection<PermGroupNode> Groups { get; } = new();
+
+    /// <summary>"Tümünü Seç" (kullanıcı isteği 2026-09-03): gruptaki TÜM kutuları işaretler; kullanıcı
+    /// uygun olmayanları elle kaldırıp kaydeder. Yalnız görünen (verilebilir) kalemleri işaretler.</summary>
+    [RelayCommand]
+    private void SelectAllInGroup(PermGroupNode? grup)
+    {
+        if (grup is null) return;
+        foreach (var m in grup.Items) m.Set(true, true, true, true);
+    }
+
+    /// <summary>Grubun tüm kutularını temizler (Tümünü Seç'in geri alma karşılığı).</summary>
+    [RelayCommand]
+    private void ClearAllInGroup(PermGroupNode? grup)
+    {
+        if (grup is null) return;
+        foreach (var m in grup.Items) m.Set(false, false, false, false);
+    }
     public ObservableCollection<ButtonPermNode> Buttons { get; } = new();
 
     [ObservableProperty]
@@ -113,19 +134,32 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     private void BuildTree(IReadOnlySet<string>? blocked, IReadOnlyList<string>? targetRoles = null)
     {
         Modules.Clear();
+        Groups.Clear();
         Buttons.Clear();
         bool hasTarget = targetRoles is not null;
         bool targetCanReceiveSuperOnly = targetRoles is not null &&
             (targetRoles.Contains(RoleKeys.RestrictedSuperAdmin) || targetRoles.Contains(RoleKeys.SuperAdmin));
-        foreach (var (key, label) in AppModules.All)
+
+        // ⭐ 2026-09-03 (kullanıcı isteği): ağaç artık MENÜ GİBİ KATEGORİZE kurulur (AppModules.Grouped —
+        // rapor kalemleri "Raporlar" grubunda). Süzme kuralları BİREBİR korunur. `Modules` düz listesi
+        // AYNI düğüm örnekleriyle dolmaya devam eder → kaydetme/yükleme yolları HİÇ DEĞİŞMEZ;
+        // grup yalnız görünümdür ve "Tümünü Seç" aynı düğümleri işaretler.
+        foreach (var grup in AppModules.Grouped())
         {
-            if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
-            if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
-            if (blocked is not null && blocked.Contains(key)) continue;   // Rol Yetki Kontrol: bu role kapalı
-            // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — bu ekranları istediği role
-            // verebildiği için ağaçta da görmelidir. Alt roller için kural aynen sürer.
-            if (hasTarget && !_session.IsSuperAdmin && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue;
-            Modules.Add(new ModulePermNode(key, label));
+            var grupNode = new PermGroupNode(grup.Title);
+            foreach (var (key, label) in grup.Items)
+            {
+                if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
+                if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
+                if (blocked is not null && blocked.Contains(key)) continue;   // Rol Yetki Kontrol: bu role kapalı
+                // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — bu ekranları istediği role
+                // verebildiği için ağaçta da görmelidir. Alt roller için kural aynen sürer.
+                if (hasTarget && !_session.IsSuperAdmin && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue;
+                var node = new ModulePermNode(key, label);
+                Modules.Add(node);
+                grupNode.Items.Add(node);
+            }
+            if (grupNode.Items.Count > 0) Groups.Add(grupNode);
         }
         foreach (var (key, label) in SpecialButtons.All)
         {
@@ -555,6 +589,14 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         }
         catch (Exception ex) { Status = ex.Message; }
     }
+}
+
+/// <summary>Yetki ağacı GRUBU (2026-09-03) — menü kategorisi gibi başlık + o gruptaki modül düğümleri.</summary>
+public sealed class PermGroupNode
+{
+    public string Title { get; }
+    public ObservableCollection<ModulePermNode> Items { get; } = new();
+    public PermGroupNode(string title) { Title = title; }
 }
 
 public sealed partial class ModulePermNode : ObservableObject

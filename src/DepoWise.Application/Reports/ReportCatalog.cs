@@ -167,6 +167,23 @@ public static class ReportCatalog
             "Bu rapor kategorisi için yetki modülü tanımlanmadı — AppModules + CategoryModule birlikte güncellenmeli."),
     };
 
+    /// <summary>
+    /// ⭐ 2026-09-03 (kullanıcı isteği) — RAPOR GÖRÜNÜRLÜĞÜ, TEK MERKEZ.
+    ///
+    /// Kullanıcı raporu görebilir/çalıştırabilir ⇔ KATEGORİ anahtarı VEYA o rapora özel kalem
+    /// (<c>rpt_&lt;anahtar&gt;</c>) verilmiş. "VEYA" bilinçlidir: mevcut kategori atamaları AYNEN çalışır
+    /// (yayında kimsenin gördüğü rapor değişmez), ince kontrol isteyen yönetici kategori anahtarını
+    /// kaldırıp rapor kalemlerini tek tek verir. "reports" ÜST KAPISI ve diğer kapılar (tenant ·
+    /// BranchAccess · manager · RequiredModule · DataModule · export butonu) bu yardımcıya TAŞINMADI —
+    /// çağıran yerlerde aynen durur; burası yalnız kategori kapısının yerine geçer.
+    /// Katalog süzmeleri (API + masaüstü) ve <c>ReportService.Run</c> AYNI yardımcıyı kullanır.
+    /// </summary>
+    public static bool CanSee(DepoWise.Application.Security.SessionContext s, ReportDescriptor d)
+        => DepoWise.Application.Security.AccessControl.Can(s, CategoryModule(d.Category),
+               DepoWise.Application.Security.PermissionAction.View)
+        || DepoWise.Application.Security.AccessControl.Can(s, DepoWise.Application.Security.AppModules.ReportItemKey(d.Key),
+               DepoWise.Application.Security.PermissionAction.View);
+
     public static readonly IReadOnlyList<ReportDescriptor> All = new[]
     {
         // Araç Raporu — "Genel Rapor"un YERİNE geçti (kullanıcı isteği 2026-08-07): araç başına yakıt + bakım

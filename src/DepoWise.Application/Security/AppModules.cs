@@ -139,6 +139,77 @@ public static class AppModules
         ("trash", "Çöp Kutusu"),
     };
 
+    // ═══ ⭐ 2026-09-03 (kullanıcı isteği) — RAPOR BAZLI YETKİ KALEMLERİ ═══════════════════════════
+    //
+    // Kullanıcı: "raporlar ekranında listelenen BÜTÜN raporların ayrı yetkilere bağlanmasını istiyorum."
+    //
+    // • Anahtar biçimi: "rpt_" + rapor anahtarı (ör. rpt_stock, rpt_vehicle-daily). user_permissions
+    //   serbest metin olduğu için MIGRATION GEREKMEZ.
+    // • Liste ReportCatalog'dan ÜRETİLİR → yeni rapor eklenince yetki kalemi OTOMATİK gelir
+    //   (kalıcı kural: yeni ekran/rapor yetki ağacına kendiliğinden eklenir).
+    // • ⚠️ BİLİNÇLİ OLARAK All'a EKLENMEDİ: MenuBuilder All'ı menüye çevirir; rapor kalemleri menü
+    //   maddesi DEĞİLDİR. Yalnız yetki ekranları ve rapor görünürlük kontrolü kullanır.
+    // • GEÇİŞ GÜVENLİĞİ: rapor görünürlüğü = kategori anahtarı VEYA rapor anahtarı
+    //   (ReportCatalog.CanSee). Mevcut kategori atamaları AYNEN çalışmaya devam eder — yayında hiçbir
+    //   kullanıcının gördüğü rapor DEĞİŞMEZ; ince kontrol isteyen yönetici kategori anahtarını kaldırıp
+    //   rapor kalemlerini tek tek verir.
+    public const string ReportItemPrefix = "rpt_";
+
+    /// <summary>Rapor anahtarı → yetki kalemi anahtarı.</summary>
+    public static string ReportItemKey(string reportKey) => ReportItemPrefix + reportKey;
+
+    public static bool IsReportItem(string moduleKey)
+        => moduleKey.StartsWith(ReportItemPrefix, StringComparison.Ordinal);
+
+    /// <summary>Her sabit raporun yetki kalemi (Raporlar ekranındaki adıyla). ReportCatalog'dan üretilir.</summary>
+    public static IReadOnlyList<(string Key, string Label)> ReportItems { get; } =
+        DepoWise.Application.Reports.ReportCatalog.All
+            .Select(d => (ReportItemKey(d.Key), "Rapor › " + d.Name)).ToList();
+
+    // ═══ ⭐ 2026-09-03 (kullanıcı isteği) — YETKİ AĞACI KATEGORİLERİ ═════════════════════════════
+    //
+    // Kullanıcı: "yetki ağacında da menü gibi kategorize edip yetkileri ayır — yeni ekran eklenince
+    // hızlı bulmak için." Gruplar aşağıdaki eşlemeden gelir; EŞLENMEMİŞ yeni anahtar "Diğer" grubuna
+    // düşer (sessizce kaybolmaz — test "Diğer boş kalmalı" diye kilitler, unutulan eşleme yakalanır).
+    public sealed record ModuleGroup(string Title, IReadOnlyList<(string Key, string Label)> Items);
+
+    private static readonly IReadOnlyList<(string Title, string[] Keys)> GroupMap = new (string, string[])[]
+    {
+        ("Genel", new[] { Dashboard, "definitions", "settings", "calendar", "announcements", "trash" }),
+        ("Malzeme & Stok", new[] { "materials", "material_templates", "stock", "stock_change_log", "import_export", "export", "files" }),
+        ("Araç & Saha", new[] { "vehicles", "vehicle_templates", "equipment", "assignments", "maintenance", "inspection", "fuel", "daily_activity", "work_orders" }),
+        ("Talep & Satın Alma", new[] { "requests", "request_approval", "request_ops", "request_ops_warehouse", "request_ops_purchase", "purchasing" }),
+        ("Ön Muhasebe", new[] { "parties", "invoices", "finance", "cost_centers" }),
+        ("Raporlar", new[] { "reports", "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
+            "report_requests", "report_management", "report_material", "report_accounting", "report_daily_activity" }),
+        ("Organizasyon", new[] { "branches", "users", "personnel", "permissions", "permission_templates", "role_permissions" }),
+        ("Sistem & Yönetim", new[] { "companies", "releases", "quota_monitor", "backup", "server_backups", "machines",
+            "machine_backups", "server_status", "purge_company", "local_reset", "screen_visibility", "audit" }),
+    };
+
+    /// <summary>Yetki ağacının KATEGORİZE hâli: ekran modülleri + (Raporlar grubunda) rapor kalemleri.
+    /// Sıra, gruplar içinde <see cref="All"/> sırasını korur. Eşlenmemiş anahtarlar "Diğer"e düşer.</summary>
+    public static IReadOnlyList<ModuleGroup> Grouped()
+    {
+        var yeri = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (title, keys) in GroupMap)
+            foreach (var k in keys) yeri[k] = title;
+
+        var gruplar = GroupMap.ToDictionary(g => g.Title, _ => new List<(string, string)>());
+        var diger = new List<(string, string)>();
+        foreach (var (key, label) in All)
+        {
+            if (yeri.TryGetValue(key, out var g)) gruplar[g].Add((key, label));
+            else diger.Add((key, label));
+        }
+        // Rapor kalemleri "Raporlar" grubunun sonuna eklenir (kategori anahtarlarından sonra).
+        gruplar["Raporlar"].AddRange(ReportItems);
+
+        var sonuc = GroupMap.Select(g => new ModuleGroup(g.Title, gruplar[g.Title])).ToList();
+        if (diger.Count > 0) sonuc.Add(new ModuleGroup("Diğer", diger));
+        return sonuc;
+    }
+
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
     public static bool IsPublic(string moduleKey)
         => moduleKey is Dashboard or About or Theme or "alerts";
@@ -160,6 +231,8 @@ public static class AppModules
     public static string Label(string moduleKey)
     {
         foreach (var (k, l) in All) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
+        // 2026-09-03: rapor kalemleri de etiketlenir (hata mesajında ham "rpt_stock" görünmesin).
+        foreach (var (k, l) in ReportItems) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
         return moduleKey;
     }
 

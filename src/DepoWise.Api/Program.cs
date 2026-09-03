@@ -2760,7 +2760,12 @@ app.MapGet("/api/modules", (HttpContext c, string? userId) =>
     bool targetCanReceiveSuperOnly = targetRoles.Contains(RoleKeys.RestrictedSuperAdmin) || targetRoles.Contains(RoleKeys.SuperAdmin);
     bool hasTarget = !string.IsNullOrWhiteSpace(userId);
 
-    var mods = AppModules.All
+    // ⭐ 2026-09-03 (kullanıcı isteği): ağaç KATEGORİZE gelir (AppModules.Grouped — menü grupları gibi)
+    // ve "Raporlar" grubunda RAPOR BAZLI yetki kalemleri (rpt_*) de listelenir. Süzme kuralları
+    // BİREBİR korunur; yalnız sıralama gruplu ve her satıra `group` alanı eklendi (eski istemci
+    // alanı yok sayar — sözleşme kırılmaz).
+    var mods = AppModules.Grouped()
+        .SelectMany(g => g.Items.Select(m => (Group: g.Title, m.Key, m.Label)))
         .Where(m => AccessControl.CanGrantModule(s, m.Key)          // aktörün delegasyon tavanı
                     && !roleBlocked.Contains(m.Key)                  // hedefin rolüne kapalı → gizli
                     // Süper-admin-only ekran: hedef seçiliyse yalnız (Kısıtlı) Süper Admin'e görünür; hedef yoksa
@@ -2768,7 +2773,7 @@ app.MapGet("/api/modules", (HttpContext c, string? userId) =>
                     // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — artık bu ekranları istediği
                     // role verebildiği için (PermissionService) ağaçta da görebilmelidir.
                     && !(hasTarget && !s.IsSuperAdmin && AppModules.IsSuperAdminOnly(m.Key) && !targetCanReceiveSuperOnly))
-        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key) });
+        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key), group = m.Group });
     return Results.Ok(mods);
 }).RequireAuthorization();
 
@@ -3004,8 +3009,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
     // ⭐ RPT-YETKI (2026-08-29, PK-R2=A): rapor KATEGORİ yetkisi olmayan kullanıcı o türü listede de
     // görmez (deny-by-default ile tutarlı). Servis kapısı (ReportService.Run) yerinde durur; eşleme
     // TEK merkezden (ReportCatalog.CategoryModule) — masaüstü süzmesiyle birebir aynı kural.
-    .Where(d => AccessControl.Can(sc, DepoWise.Application.Reports.ReportCatalog.CategoryModule(d.Category),
-                DepoWise.Application.Security.PermissionAction.View))
+    .Where(d => DepoWise.Application.Reports.ReportCatalog.CanSee(sc, d))   // 2026-09-03: kategori VEYA rapor kalemi (tek merkez)
     // ⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A): kullanıcının custom raporları AYNI katalogda görünür —
     // ikinci bir liste/uç YOKTUR. Görünürlük süzmeleri (reports · kapatılmış modül · kategori ·
     // rapora özel dinamik anahtar) CustomReportService.Catalog içinde, sabit raporlarla AYNI

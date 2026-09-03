@@ -90,7 +90,7 @@
             <MudItem xs="6" md="4">
                 <MudSelect T="string" @bind-Value="_meterUnit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("km")">km</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("hour")">hour</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("hour")">saat</MudSelectItem>
                 </MudSelect>
             </MudItem>
             @* Durum açıklaması Bakımda VE Arızalı durumunda anlamlıdır (ortak kural: VehicleStatus.NeedsNote). *@
@@ -463,7 +463,7 @@
     /// (statusLabel) gösterir — ekran kullanıcıya hiçbir zaman ham kodu göstermez.</summary>
     private static string CellText(JsonElement row, string key) => key switch
     {
-        "meter" => $"{Str(row, "meter")} {Str(row, "meterUnit")}".Trim(),
+        "meter" => $"{Str(row, "meter")} {DepoWise.Application.Ui.MeterUnitOptions.Label(Str(row, "meterUnit"))}".Trim(),   // 2026-09-03: "hour" -> "saat"
         "status" => Str(row, "statusLabel"),
         _ => Str(row, key),
     };

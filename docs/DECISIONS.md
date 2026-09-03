@@ -3896,3 +3896,42 @@ Alt şerit, kenar çubuğundaki kullanıcı şeridiyle AYNI yükseklikte (56) ve
 kenarla vurgulu. Renk paleti DEĞİŞMEDİ (kullanıcı şartı); yalnız biçim modernleşti.
 
 **Kapsam dışı:** migration YOK · yeni ekran YOK · rapor/bakım/yetki davranışı değişmedi.
+
+---
+
+## ADR-197 — Rapor bazlı yetki (26 kalem) · kategorize yetki ağacı + Tümünü Seç · "hour" → "saat" (2026-09-03)
+
+**Bağlam.** Kullanıcının 3 cevabı (2026-09-03): (1) TÜM raporlar ayrı yetkiye bağlansın,
+(3) yetki ağacı kategorize edilsin + grup başına Tümünü Seç, (ek) uygulamada İngilizce terim olmasın.
+
+### 1) Rapor bazlı yetki — kalem başına anahtar, GEÇİŞ GÜVENLİ
+
+- Anahtar: `rpt_<raporAnahtarı>` (ör. `rpt_stock`). Liste **ReportCatalog'dan üretilir**
+  (`AppModules.ReportItems`) → yeni rapor eklenince yetki kalemi OTOMATİK doğar (kalıcı kural).
+  Migration YOK (`user_permissions.module_key` serbest metin).
+- **Kural (TEK MERKEZ — `ReportCatalog.CanSee`):** rapor görünür/çalışır ⇔ KATEGORİ anahtarı VEYA
+  rapor kalemi. "VEYA" bilinçli: **mevcut kategori atamaları aynen çalışır** (yayında kimsenin gördüğü
+  rapor değişmez); ince kontrol isteyen yönetici kategori anahtarını kaldırıp kalemleri tek tek verir.
+- Üç uygulama noktası da tek merkeze bağlandı: `ReportService.Run` + API katalog süzmesi + masaüstü
+  katalog süzmesi. Custom raporlar kategori kapısında KALDI (sabit rapor değiller; ADR-186 davranışı).
+- ⚠️ Kalemler `AppModules.All`'a **bilinçli eklenmedi**: `MenuBuilder` All'ı menüye çevirir; rapor
+  kalemi menü maddesi değildir. Yalnız yetki ekranları + görünürlük kontrolü kullanır.
+
+### 2) Yetki ağacı KATEGORİZE + "Tümünü Seç"
+
+`AppModules.Grouped()`: menü benzeri 8 grup (Genel · Malzeme & Stok · Araç & Saha · Talep & Satın Alma ·
+Ön Muhasebe · Raporlar · Organizasyon · Sistem & Yönetim). Eşlenmemiş anahtar "Diğer"e düşer ve test
+"Diğer boş olmalı" diye kilitler → unutulan eşleme sessizce kaybolmaz. Rapor kalemleri "Raporlar"
+grubundadır. Masaüstü Yetkiler ekranı ve web `/api/modules` + `PermMatrix` gruplu render eder; her grup
+başlığında **"Tümünü Seç" / "Temizle"** (kullanıcı işaretleyip uygun olmayanı elle kaldırır; kaydedene
+kadar hiçbir şey yazılmaz). Süzme/kaydetme yolları DEĞİŞMEDİ — düğümler aynı örneklerdir.
+
+### 3) "hour" → "saat" (ortak `MeterUnitOptions`)
+
+DB değeri "hour" olarak KALIR (canlı veri + senkron + raporlar); yalnız EKRAN etiketi çevrilir.
+Düzeltilen noktalar: sunucu `VehicleListRow.MeterDisplay` + Excel dışa aktarım satırı · masaüstü araç
+listesi/formu (kutuda "saat" görünür, kayda kod gider) ve çift-tık penceresi · web araç listesi hücresi,
+form açılır kutusu ve bilgi penceresi.
+
+**Kapsam dışı:** alan zorunluluğu ekranı (sıradaki iş — küçük eklemeli migration ile) · kayıt tipi
+yetkisi · buton gizleme genişletmesi · Tanımlar eksikleri. Migration YOK.

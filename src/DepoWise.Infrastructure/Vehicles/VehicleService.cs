@@ -50,7 +50,7 @@ public sealed record VehicleDetail(
     long Version = 0,
     string? TemplateId = null)   // bağlı olduğu araç şablonu (düzenlemede korunur/değiştirilebilir)
 {
-    public string MeterDisplay => $"{CurrentMeter:0.##} {MeterUnit}";
+    public string MeterDisplay => $"{CurrentMeter:0.##} {DepoWise.Application.Ui.MeterUnitOptions.Label(MeterUnit)}";   // 2026-09-03: "hour" ekranda "saat"
 }
 
 public sealed record UpdateVehicle(string? Plate, int? ProductionYear, string Status, string? StatusNote,
@@ -391,7 +391,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
         var headers = VL.All.Select(c => c.Label).ToList();
         var body = rows.Select(r => (System.Collections.Generic.IReadOnlyList<object?>)new object?[]
         {
-            r.InternalCode, r.Plate, r.ProductionYear, $"{r.Meter} {r.MeterUnit}".Trim(), r.StatusLabel, r.StatusNote,
+            r.InternalCode, r.Plate, r.ProductionYear, $"{r.Meter} {DepoWise.Application.Ui.MeterUnitOptions.Label(r.MeterUnit)}".Trim(), r.StatusLabel, r.StatusNote,
             r.VehicleType, r.Category, r.Brand, r.Model, r.Branch, r.Driver, r.ChassisNo, r.EngineNo,
         }).ToList();
         return new Application.Reports.TableModel("Araçlar", headers, body);

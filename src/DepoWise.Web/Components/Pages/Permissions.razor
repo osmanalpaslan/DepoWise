@@ -60,7 +60,7 @@
                 <b>Rol değişikliği bekliyor.</b> Kaydet dediğinizde önce rol yazılır, sonra yetki ağacı yeni role göre yenilenir.
             </MudAlert>
         }
-        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons"
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" Groups="_moduleGroups"
                     ReadOnlyAllAccess="_targetIsAdmin" Locked="@(!_edit)" />
         @* G1a (2026-08-12): Kaydet'in yanına ÖZET ve SIFIRLA. Sıfırlama yıkıcıdır → ayrı renk + onay. *@
         <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
@@ -183,6 +183,8 @@
 
 @code {
     private List<ApiClient.Opt> _users = new(), _modules = new(), _buttons = new();
+    /// <summary>2026-09-03 — modül anahtarı → yetki ağacı kategorisi (menü grupları gibi).</summary>
+    private Dictionary<string, string> _moduleGroups = new();
     private HashSet<string> _adminOnly = new();
     private readonly HashSet<string> _restricted = new();   // #3: alt role verilemeyen modüller
     private readonly HashSet<string> _adminUserIds = new();  // hedef Admin/Süper mi
@@ -322,12 +324,14 @@
 
     private async Task LoadModules(string? userId = null)
     {
-        _modules = new(); _adminOnly = new();
+        _modules = new(); _adminOnly = new(); _moduleGroups = new();
         var url = string.IsNullOrEmpty(userId) ? "/api/modules" : $"/api/modules?userId={Uri.EscapeDataString(userId)}";
         foreach (var e in await Api.GetArrayAsync(url))
         {
             var key = S(e, "key"); if (key == "") continue;
             _modules.Add(new ApiClient.Opt(key, S(e, "label")));
+            // 2026-09-03: kategori bilgisi (menü gibi gruplu ağaç + grup başına Tümünü Seç).
+            _moduleGroups[key] = S(e, "group");
             if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
             if (e.TryGetProperty("restricted", out var r) && r.ValueKind == JsonValueKind.True) _restricted.Add(key);
         }

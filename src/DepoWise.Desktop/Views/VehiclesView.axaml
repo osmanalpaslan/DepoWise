@@ -86,8 +86,13 @@
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="4"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Birim" Width="120">
+                        <!-- 2026-09-03: kutuda Türkçe etiket ("saat"), kayda DB kodu ("hour") gider. -->
                         <ComboBox Classes="Field" ItemsSource="{Binding MeterUnits}"
-                                  SelectedItem="{Binding NewMeterUnit}" TabIndex="5" HorizontalAlignment="Stretch"/>
+                                  SelectedItem="{Binding NewMeterUnitPick}" TabIndex="5" HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:StatusPick"><SelectableTextBlock Text="{Binding Label}"/></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </ctrl:FormField>
                 </StackPanel>
 

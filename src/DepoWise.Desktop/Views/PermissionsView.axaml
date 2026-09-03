@@ -165,16 +165,40 @@
                                 <SelectableTextBlock Grid.Column="4" Text="Sil" TextAlignment="Center"/>
                             </Grid>
                         </Border>
-                        <ItemsControl ItemsSource="{Binding Modules}" IsEnabled="{Binding TreeEnabled}">
+                        <!-- ⭐ 2026-09-03 (kullanıcı isteği): ağaç MENÜ GİBİ KATEGORİZE + grup başına
+                             "Tümünü Seç"/"Temizle". Düğümler eski düz listeyle AYNI örneklerdir;
+                             kaydetme yolu değişmedi. Rapor kalemleri "Raporlar" grubundadır. -->
+                        <ItemsControl ItemsSource="{Binding Groups}" IsEnabled="{Binding TreeEnabled}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ModulePermNode">
-                                    <Grid ColumnDefinitions="*,90,90,90,90" Height="38">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="200" VerticalAlignment="Center"/>
-                                        <CheckBox Grid.Column="1" IsChecked="{Binding CanView}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <CheckBox Grid.Column="3" IsChecked="{Binding CanEdit}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Grid>
+                                <DataTemplate x:DataType="vm:PermGroupNode">
+                                    <StackPanel>
+                                        <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" Margin="0,8,0,0">
+                                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}" Classes="SectionTitle" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1" Classes="Ghost" Content="Tümünü Seç" FontSize="12" Padding="8,3"
+                                                        Command="{Binding $parent[ItemsControl].((vm:PermissionsViewModel)DataContext).SelectAllInGroupCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Bu gruptaki tüm yetkileri işaretler; uygun olmayanları elle kaldırıp kaydedin."/>
+                                                <Button Grid.Column="2" Classes="Ghost" Content="Temizle" FontSize="12" Padding="8,3"
+                                                        Command="{Binding $parent[ItemsControl].((vm:PermissionsViewModel)DataContext).ClearAllInGroupCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Bu gruptaki tüm işaretleri kaldırır (kaydedene kadar yazılmaz)."/>
+                                            </Grid>
+                                        </Border>
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ModulePermNode">
+                                                    <Grid ColumnDefinitions="*,90,90,90,90" Height="38">
+                                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="200" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="1" IsChecked="{Binding CanView}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="3" IsChecked="{Binding CanEdit}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

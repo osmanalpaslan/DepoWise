@@ -5,8 +5,32 @@
         <tr><th>Modül / İşlem</th><th>Oku</th><th>Yaz</th><th>Düzelt</th><th>Sil</th></tr>
     </thead>
     <tbody>
+        @{ string? _sonGrup = null; }
         @foreach (var m in Modules)
         {
+            @* ⭐ 2026-09-03 (kullanıcı isteği): ağaç MENÜ GİBİ KATEGORİZE — grup başlığı + grup başına
+               "Tümünü Seç"/"Temizle". Liste sunucudan zaten gruplu sırayla gelir. *@
+            var grup = Groups is not null && Groups.TryGetValue(m.Id, out var g) ? g : null;
+            @if (!string.IsNullOrEmpty(grup) && grup != _sonGrup)
+            {
+                _sonGrup = grup;
+                var grupAdi = grup;
+                <tr>
+                    <td colspan="5" style="background:var(--mud-palette-background);">
+                        <div class="d-flex align-center justify-space-between">
+                            <b>@grupAdi</b>
+                            @if (!(ReadOnlyAllAccess || Locked))
+                            {
+                                <span>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => GrupSec(grupAdi, true))"
+                                               title="Bu gruptaki tüm yetkileri işaretler; uygun olmayanları elle kaldırıp kaydedin.">Tümünü Seç</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" OnClick="@(() => GrupSec(grupAdi, false))">Temizle</MudButton>
+                                </span>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
             <tr>
                 @* Yetki ağacında kilit/kısıt gösterilmez: verilemeyecek kalemler zaten hiç listelenmez (hedef bazlı filtre). *@
                 <td>@m.Name</td>
@@ -64,6 +88,21 @@
 
     private bool GetBtn(string key) => ReadOnlyAllAccess || _btn.Contains(key);
     private void SetBtn(string key, bool v) { if (v) _btn.Add(key); else _btn.Remove(key); }
+
+    /// <summary>2026-09-03 — modül anahtarı → kategori adı (menü grupları gibi). Boş/verilmemişse
+    /// başlıksız düz liste (eski görünüm) sürer — geriye uyumlu.</summary>
+    [Parameter] public Dictionary<string, string>? Groups { get; set; }
+
+    /// <summary>"Tümünü Seç"/"Temizle" (kullanıcı isteği 2026-09-03): gruptaki TÜM kutuları işaretler/
+    /// temizler; kullanıcı uygun olmayanları elle düzeltip kaydeder. Kaydedene kadar hiçbir şey yazılmaz.</summary>
+    private void GrupSec(string grup, bool ver)
+    {
+        if (Groups is null) return;
+        foreach (var m in Modules)
+            if (Groups.TryGetValue(m.Id, out var g) && g == grup)
+                _state[m.Id] = new[] { ver, ver, ver, ver };
+        StateHasChanged();
+    }
 
     /// <summary>Kayıtlı yetkileri yükle: (moduleKey, view, create, edit, delete).</summary>
     public void LoadFrom(IEnumerable<(string Key, bool V, bool C, bool E, bool D)> data)

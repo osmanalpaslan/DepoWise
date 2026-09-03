@@ -60,7 +60,17 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     /// burada ham kodlar ("active"/"passive") elle yazılıydı ve kutuda Türkçe değil KOD görünüyordu.</summary>
     public ObservableCollection<StatusPick> StatusOptions { get; } =
         new(DepoWise.Application.Ui.VehicleStatus.All.Select(x => new StatusPick(x.Code, x.Label)));
-    public ObservableCollection<string> MeterUnits { get; } = new() { "km", "hour" };
+    /// <summary>2026-09-03 (kullanıcı isteği): kutuda İngilizce "hour" görünüyordu — seçenekler artık
+    /// ORTAK etiket kaynağından gelir (kutuda "saat" görünür, kayda "hour" KODU yazılır; DB değişmez).</summary>
+    public ObservableCollection<StatusPick> MeterUnits { get; } =
+        new(DepoWise.Application.Ui.MeterUnitOptions.All.Select(x => new StatusPick(x.Key, x.Label)));
+
+    /// <summary>Birim kutusunun seçimi — <see cref="VehicleRow.MeterUnit"/> kod alanıyla iki yönlü eşitlenir.</summary>
+    [ObservableProperty] private StatusPick? _newMeterUnitPick;
+    partial void OnNewMeterUnitPickChanged(StatusPick? value)
+    { if (value is not null && NewMeterUnit != value.Code) NewMeterUnit = value.Code; }
+    partial void OnNewMeterUnitChanged(string value)
+    { if (NewMeterUnitPick?.Code != value) NewMeterUnitPick = MeterUnits.FirstOrDefault(x => x.Code == value); }
 
     [ObservableProperty] private string? _status;
 
@@ -354,6 +364,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public VehiclesViewModel(SessionContext session)
     {
         _session = session;
+        // 2026-09-03: birim kutusu açılışta boş kalmasın (alan başlangıcı "km" bildirim üretmez).
+        NewMeterUnitPick = MeterUnits.FirstOrDefault(x => x.Code == NewMeterUnit);
         var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
         VisibleColumns = VehicleListColumns.Sanitize(saved).ToList();
@@ -875,7 +887,7 @@ public sealed record VehicleRow(string Id, string Code, string? Plate, string St
     string Branch = "", string Driver = "", string ChassisNo = "", string EngineNo = "")
 {
     public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;
-    public string MeterDisplay => $"{Meter:0.##} {MeterUnit}";
+    public string MeterDisplay => $"{Meter:0.##} {DepoWise.Application.Ui.MeterUnitOptions.Label(MeterUnit)}";   // 2026-09-03: "hour" ekranda "saat"
     public string YearDisplay => Year is > 0 ? Year!.Value.ToString() : "—";
 
     /// <summary>Durum metni ORTAK listeden (VehicleStatus) — yeni durum eklenince burası kendiliğinden doğrudur.</summary>

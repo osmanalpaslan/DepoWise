@@ -259,7 +259,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
             // ⭐ RPT-YETKI (2026-08-29, PK-R2=A, parite): kategori yetkisi olmayan tür listede görünmez —
             // web kataloğuyla AYNI kural, eşleme TEK merkezden (ReportCatalog.CategoryModule). Servis
             // kapısı (ReportService.Run) iki platformda da yerinde durur; bu yalnız görünürlüktür.
-            .Where(d => AccessControl.Can(session, ReportCatalog.CategoryModule(d.Category), PermissionAction.View))
+            .Where(d => ReportCatalog.CanSee(session, d))   // 2026-09-03: kategori VEYA rapor kalemi (tek merkez)
             // ⭐ ARA İŞ 4 (ADR-186 / PK-CR-03=A, parite): kullanıcının CUSTOM raporları AYNI listede
             // görünür — ikinci bir katalog YOKTUR. Süzme kuralları web ile birebir aynı ve
             // CustomReportService.Catalog içinde TEK yerden uygulanır (reports · kapatılmış modül ·

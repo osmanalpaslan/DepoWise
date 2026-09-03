@@ -73,6 +73,8 @@
     <!-- 2026-09-02: rapor SIRALAMA seçenekleri — iki platform aynı sabit listeyi derler
          (DailyActivityTypeOptions ile aynı desen; dosya saf katalogdur, bağımlılık yok). -->
     <Compile Include="..\DepoWise.Application\Ui\ReportSortOptions.cs" Link="Services\ReportSortOptions.cs" />
+    <!-- 2026-09-03: sayaç birimi etiketi ("hour" → "saat") — iki platform aynı sabit listeyi derler. -->
+    <Compile Include="..\DepoWise.Application\Ui\MeterUnitOptions.cs" Link="Services\MeterUnitOptions.cs" />
   </ItemGroup>
 
 </Project>

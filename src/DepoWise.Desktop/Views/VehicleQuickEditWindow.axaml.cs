@@ -93,7 +93,7 @@ public partial class VehicleQuickEditWindow : Window
         typeBox.SelectedItem = types.FirstOrDefault(o => o.Id == d.VehicleTypeId);
         catBox.SelectedItem = cats.FirstOrDefault(o => o.Id == d.CategoryId);
         chassisBox.Text = d.ChassisNo ?? ""; engineBox.Text = d.EngineNo ?? "";
-        meterText.Text = $"Sayaç: {d.CurrentMeter:0.##} {d.MeterUnit}";
+        meterText.Text = $"Sayaç: {d.CurrentMeter:0.##} {DepoWise.Application.Ui.MeterUnitOptions.Label(d.MeterUnit)}";   // 2026-09-03
 
         // Marka + Model (kademeli): önce markanın modellerini yükle, modeli seç, SONRA marka değişimini dinle.
         void LoadModels(string? brandId)

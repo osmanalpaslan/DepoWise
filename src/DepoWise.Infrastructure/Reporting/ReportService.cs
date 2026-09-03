@@ -2212,7 +2212,12 @@ ORDER BY br.name, p.full_name;";
         // deny-by-default gereği yeni anahtarlar atanana dek normal kullanıcıda kapalıdır (PK-R3=A).
         // Mevcut kapılar (tenant · BranchAccess · manager · RequiredModule · DataModule · export butonu)
         // AYNEN korunur — bu kapı hiçbirini gevşetmez, yalnız EKLENİR.
-        AccessControl.Require(s, ReportCatalog.CategoryModule(desc.Category), PermissionAction.View);
+        // ⭐ 2026-09-03 (kullanıcı isteği): kapı artık TEK MERKEZDEN "kategori VEYA rapor kalemi"dir
+        // (ReportCatalog.CanSee) — mevcut kategori atamaları aynen çalışır, rapor tek tek de verilebilir.
+        if (!ReportCatalog.CanSee(s, desc))
+            throw new ForbiddenException(
+                $"«{desc.Name}» raporu için yetkiniz yok. Yöneticiniz «{AppModules.Label(ReportCatalog.CategoryModule(desc.Category))}» " +
+                $"kategorisini veya «{AppModules.Label(AppModules.ReportItemKey(desc.Key))}» kalemini verebilir.");
 
         if (customDef is not null)
         {

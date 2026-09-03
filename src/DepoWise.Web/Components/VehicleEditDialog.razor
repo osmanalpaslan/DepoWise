@@ -117,7 +117,7 @@
                     @if (_edit) { <MudTextField @bind-Value="_engine" Label="Motor No" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
                     else { <MudField Label="Motor No" Variant="Variant.Text">@Dash(_engine)</MudField> }
                 </MudItem>
-                <MudItem xs="6"><MudField Label="Sayaç" Variant="Variant.Text">@_meter @_meterUnit</MudField></MudItem>
+                <MudItem xs="6"><MudField Label="Sayaç" Variant="Variant.Text">@_meter @(DepoWise.Application.Ui.MeterUnitOptions.Label(_meterUnit))</MudField></MudItem>
             </MudGrid>
             @* Kullanıcı isteği (2026-09-02): "başka makinede eklenen fotoğrafı çift tıkta göremiyorum."
                Fotoğraflar SUNUCUDAN gelir → hangi bilgisayardan eklendiği fark etmez. Burada yalnız
