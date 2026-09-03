@@ -101,6 +101,41 @@
                     </StackPanel>
                 </Expander>
 
+                <!-- Araç Modelleri (kullanıcı isteği 2026-09-03): marka seç → modellerini ekle/düzelt/sil.
+                     Alt Kategori bölümüyle AYNI desen; eksik listelenen "model" tanımı böylece yönetilebilir. -->
+                <Expander Header="Araç — Modeller" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                          DataContext="{Binding VehicleModelSection}">
+                    <StackPanel Spacing="8" Margin="0,8,0,0">
+                        <ctrl:LookupBox ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                  PlaceholderText="Önce marka seçin..." HorizontalAlignment="Left" MinWidth="260"/>
+                        <SelectableTextBlock Text="Modelleri görmek/eklemek için bir marka seçin." Classes="Helper"
+                                   IsVisible="{Binding SelectedBrand, Converter={x:Static ObjectConverters.IsNull}}"/>
+                        <ItemsControl ItemsSource="{Binding Items}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LookupRowViewModel">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding Name}" MaxLength="50"
+                                                 IsEnabled="{Binding $parent[ItemsControl].((vm:VehicleModelSectionViewModel)DataContext).CanEdit}"/>
+                                        <Button Grid.Column="1" Classes="Secondary" Content="Kaydet"
+                                                IsVisible="{Binding $parent[ItemsControl].((vm:VehicleModelSectionViewModel)DataContext).CanEdit}"
+                                                Command="{Binding $parent[ItemsControl].((vm:VehicleModelSectionViewModel)DataContext).RenameCommand}" CommandParameter="{Binding}"/>
+                                        <Button Grid.Column="2" Classes="Danger" Content="Sil"
+                                                IsVisible="{Binding $parent[ItemsControl].((vm:VehicleModelSectionViewModel)DataContext).CanDelete}"
+                                                Command="{Binding $parent[ItemsControl].((vm:VehicleModelSectionViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                              IsVisible="{Binding SelectedBrand, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewName}" Watermark="Yeni model adı" MaxLength="50"/>
+                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Command="{Binding AddCommand}" IsVisible="{Binding CanWrite}"/>
+                        </Grid>
+                        <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                                   IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Expander>
+
             </StackPanel>
         </ScrollViewer>
 

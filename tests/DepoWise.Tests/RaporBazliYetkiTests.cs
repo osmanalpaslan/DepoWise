@@ -106,14 +106,23 @@ public class RaporBazliYetkiTests : IDisposable
         // "Diğer" boş kalmalı: yeni anahtar eklenip GRUBA eşlenmezse bu test düşer (sessiz kaybolma yok).
         Assert.DoesNotContain(gruplar, g => g.Title == "Diğer");
 
-        // Gruplar, All + rapor kalemlerinin TAMAMINI kapsar (hiçbir anahtar kaybolmaz/ikizlenmez).
+        // Gruplar, All + rapor kalemleri + günlük faaliyet kayıt tipi kalemlerinin TAMAMINI kapsar
+        // (hiçbir anahtar kaybolmaz/ikizlenmez). ADR-199: datype_* kalemleri de ağaca girdi.
         var duz = gruplar.SelectMany(g => g.Items.Select(i => i.Key)).ToList();
-        Assert.Equal(AppModules.All.Count + AppModules.ReportItems.Count, duz.Count);
+        Assert.Equal(AppModules.All.Count + AppModules.ReportItems.Count + DailyActivityTypeGate.Items.Count, duz.Count);
         Assert.Equal(duz.Count, duz.Distinct(StringComparer.Ordinal).Count());
 
         var raporlar = gruplar.Single(g => g.Title == "Raporlar");
         Assert.Contains(raporlar.Items, i => i.Key == "report_stock");                      // kategori anahtarı
         Assert.Contains(raporlar.Items, i => i.Key == AppModules.ReportItemKey("stock"));   // rapor kalemi
+
+        // Kayıt tipi kalemleri "Araç & Saha" grubunda, daily_activity'nin HEMEN ardından gelir.
+        var arac = gruplar.Single(g => g.Title == "Araç & Saha");
+        var anahtarlar = arac.Items.Select(i => i.Key).ToList();
+        var daIndex = anahtarlar.IndexOf("daily_activity");
+        Assert.True(daIndex >= 0, "daily_activity 'Araç & Saha' grubunda olmalı");
+        foreach (var (tip, idx) in DailyActivityTypeGate.Items.Select((t, i) => (t, i)))
+            Assert.Equal(tip.Key, anahtarlar[daIndex + 1 + idx]);
     }
 
     public void Dispose()

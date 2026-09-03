@@ -22,10 +22,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Malzeme ALT KATEGORİ yönetimi (madde 10): kategori seç → alt kategorilerini yönet.</summary>
     public SubCategorySectionViewModel SubCategorySection { get; }
 
+    /// <summary>2026-09-03 (kullanıcı isteği): ARAÇ MODELLERİ yönetimi — marka seç → modellerini yönet.
+    /// Eksikti: formda "+" ile model eklenebiliyordu ama Tanımlar'dan yönetilemiyordu.</summary>
+    public VehicleModelSectionViewModel VehicleModelSection { get; }
+
     public SettingsViewModel(SessionContext session)
     {
         _session = session;
         SubCategorySection = new SubCategorySectionViewModel(session);
+        VehicleModelSection = new VehicleModelSectionViewModel(session);
         BuildLookupSections();
     }
 

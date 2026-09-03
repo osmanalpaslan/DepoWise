@@ -1,0 +1,92 @@
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* ARAÇ MODELİ yönetimi (kullanıcı isteği 2026-09-03): marka seç → o markanın modellerini ekle/düzenle/sil.
+   Alt Kategori düzenleyicisiyle AYNI desen; masaüstü Tanımlar'daki "Araç — Modeller" bölümünün web karşılığı. *@
+
+<MudPaper Class="pa-3 mb-2" Elevation="1" Style="max-width:520px;">
+    <MudText Typo="Typo.subtitle2">Model</MudText>
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ekran: Araçlar · Önce marka seçin, sonra modellerini yönetin.</MudText>
+
+    <MudSelect T="string" Value="_brand" ValueChanged="OnBrandChanged" Label="Marka" Margin="Margin.Dense"
+               Variant="Variant.Outlined" Dense="true" Clearable="true" Class="mt-1" Style="max-width:280px">
+        @foreach (var b in _brands) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+    </MudSelect>
+
+    @if (string.IsNullOrEmpty(_brand)) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Modelleri görmek/eklemek için bir marka seçin.</MudText> }
+    else if (_items is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-1" /> }
+    else
+    {
+        @if (_items.Count == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Bu markada model yok.</MudText> }
+        @foreach (var it in _items)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
+                <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+            </MudStack>
+        }
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">
+            <MudTextField @bind-Value="_new" Placeholder="Yeni model" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="Add">Ekle</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudText Typo="Typo.caption" Color="@(_ok ? Color.Success : Color.Error)">@_msg</MudText> }
+    }
+</MudPaper>
+
+@code {
+    private sealed class Item { public string Id = ""; public string Name = ""; }
+    private List<ApiClient.Opt> _brands = new();
+    private List<Item>? _items;
+    private string? _brand;
+    private string _new = "";
+    private string? _msg; private bool _ok;
+
+    protected override async Task OnInitializedAsync()
+        => _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
+
+    private async Task OnBrandChanged(string? v)
+    {
+        _brand = v; _msg = null; _new = "";
+        _items = null;
+        if (!string.IsNullOrEmpty(v)) await Load();
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync($"/api/vehicles/models/{_brand}");
+            _items = arr.Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => new Item
+                {
+                    Id = e.GetProperty("id").GetString() ?? "",
+                    Name = e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                }).ToList();
+        }
+        catch { _items = new(); }
+    }
+
+    private async Task Add()
+    {
+        if (string.IsNullOrWhiteSpace(_new) || string.IsNullOrEmpty(_brand)) return;
+        var err = await Api.PostAsync("/api/vehicles/models", new { name = _new.Trim(), brandId = _brand });
+        _ok = err is null; _msg = err ?? "Eklendi."; if (_ok) { _new = ""; await Load(); }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (!await Dialog.Confirm("Bu model silinsin mi? Bu modele bağlı araç kayıtları değişmez; model yalnız yeni seçimlerde görünmez.", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/lookups/vehicle_models/{id}");
+        _ok = err is null; _msg = err ?? "Silindi."; if (_ok) await Load();
+    }
+
+    private async Task Rename(Item it)
+    {
+        if (string.IsNullOrWhiteSpace(it.Name)) { _msg = "Ad boş olamaz."; _ok = false; return; }
+        var err = await Api.PutAsync($"/api/lookups/vehicle_models/{it.Id}", new { name = it.Name.Trim() });
+        _ok = err is null; _msg = err ?? "Ad güncellendi (ID korundu)."; if (_ok) await Load();
+    }
+}

@@ -22,14 +22,14 @@
         <div class="dw-formsection" style="border-top:none; margin-top:0; padding-top:0;">YENİ KAYIT</div>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3">
+                @* 2026-09-03 (kullanıcı isteği): seçenekler YETKİYE göre süzülür (/api/daily/allowed-types;
+                   asıl liste süzmesi serviste — yan kapı yok). Hiç tip anahtarı verilmemiş kullanıcı
+                   hepsini görür (geçiş güvenli). "Depo Çıkışı" tip değildir → daima listelenir. *@
                 <MudSelect T="string" @bind-Value="_kind" Label="Kayıt Tipi" Margin="Margin.Dense" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("Hareket")">Hareket</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Transfer")">Transfer</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Bakım")">Bakım</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("İlave Yağ")">İlave Yağ</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("İlave Filtre")">İlave Filtre</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Tamir")">Tamir</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Depo Çıkışı")">Depo Çıkışı</MudSelectItem>
+                    @foreach (var secenek in _kindOptions)
+                    {
+                        <MudSelectItem T="string" Value="@secenek">@secenek</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="6">
@@ -287,6 +287,27 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private string _kind = "Hareket";
+
+    /// <summary>2026-09-03 — Kayıt Tipi seçenekleri (yetkiye göre). Sunucudan gelen izinli anahtarlar
+    /// Türkçe etikete çevrilir; okunamzsa TÜM seçenekler gösterilir (görünürlük süsü — asıl kapı serviste).</summary>
+    private List<string> _kindOptions = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Depo Çıkışı" };
+
+    private async Task LoadKindOptions()
+    {
+        try
+        {
+            var izinli = (await Api.GetArrayAsync("/api/daily/allowed-types"))
+                .Select(e => e.GetString() ?? "").Where(x => x.Length > 0)
+                .ToHashSet(StringComparer.Ordinal);
+            var secenekler = new List<string>();
+            foreach (var (key, label) in DepoWise.Application.Ui.DailyActivityTypeOptions.All)
+                if (izinli.Contains(key)) secenekler.Add(label);
+            secenekler.Add("Depo Çıkışı");   // tip değil (stok işlemi) → daima listede
+            _kindOptions = secenekler;
+            if (!_kindOptions.Contains(_kind)) _kind = _kindOptions[0];
+        }
+        catch { /* liste okunamadı → tüm seçenekler; asıl süzme serviste */ }
+    }
     private ApiClient.Opt? _vehicle;
     private DateTime? _date;
     private string _desc = "";
@@ -428,6 +449,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadKindOptions();   // 2026-09-03: kayıt tipi seçenekleri yetkiye göre
         if (Auth.CanCreate("daily_activity"))
         {
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");

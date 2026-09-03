@@ -1084,6 +1084,11 @@ app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
+// 2026-09-03 (kullanıcı isteği): kullanıcının görebildiği GÜNLÜK FAALİYET kayıt tipleri (anahtar listesi).
+// Web "Kayıt Tipi" kutusunu bununla süzer; asıl liste süzmesi SERVİSTEDİR (TipYetkisiSql — yan kapı yok).
+app.MapGet("/api/daily/allowed-types", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(DepoWise.Application.Security.DailyActivityTypeGate.AllowedTypes(s)) : Results.Unauthorized())
+    .RequireAuthorization();
 // Günlük Faaliyet LİSTE ekranı: kolon bazlı filtre + sayfalama + sıralama (kullanıcı isteği 2026-07-19 —
 // Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI, bkz. ADR-087/088/089). Eski "/api/daily" (yukarıda)
 // dokunulmadı. "Tarih" filtre almaz — yalnız sıralanır.

@@ -56,7 +56,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public ObservableCollection<DailyActivityGridRow> Items { get; } = new();
     // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19): Bakım ile AYNI alanlar, Bakım Tanımı/Alt
     // Bakım YOK (bkz. IsRealMaintenance/IsMaintenanceLike aşağıda).
-    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Depo Çıkışı" };
+    // 2026-09-03 (kullanıcı isteği): seçenekler YETKİYE göre kurulur (ctor) — hiç tip anahtarı
+    // verilmemiş kullanıcı HEPSİNİ görür (mevcut davranış); kısıtlı kullanıcı yalnız izinlileri.
+    // "Depo Çıkışı" günlük faaliyet TİPİ değildir (stok işlemi) → daima listelenir, stok yetkisiyle yönetilir.
+    public ObservableCollection<string> KindOptions { get; } = new();
     // Depo Çıkışı (kullanıcı isteği 2026-08-07): Giriş-Çıkış'takiyle AYNI ortak servis (StockService.IssueOut/
     // Transfer). Şube İçi = çıkış, Şube Dışı = transfer. Araç faaliyet "Transfer"inden (mevcut) BAĞIMSIZ.
     public ObservableCollection<string> ExitScopeOptions { get; } = new() { "Şube İçi", "Şube Dışı" };
@@ -319,6 +322,21 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public DailyActivityViewModel(SessionContext session)
     {
         _session = session;
+        // 2026-09-03 (kullanıcı isteği): KAYIT TİPİ seçenekleri YETKİYE göre kurulur (DailyActivityTypeGate,
+        // geçiş güvenli: hiç tip anahtarı verilmemiş kullanıcı hepsini görür). "Depo Çıkışı" günlük
+        // faaliyet TİPİ değildir (stok işlemi) → daima listelenir, stok yetkisiyle yönetilir.
+        var izinliTipler = DepoWise.Application.Security.DailyActivityTypeGate.AllowedTypes(session)
+            .ToHashSet(StringComparer.Ordinal);
+        void TipEkle(string etiket, string anahtar) { if (izinliTipler.Contains(anahtar)) KindOptions.Add(etiket); }
+        TipEkle("Hareket", DepoWise.Application.Ui.DailyActivityTypeOptions.Movement);
+        TipEkle("Transfer", DepoWise.Application.Ui.DailyActivityTypeOptions.Transfer);
+        TipEkle("Bakım", DepoWise.Application.Ui.DailyActivityTypeOptions.Maintenance);
+        TipEkle("İlave Yağ", DepoWise.Application.Ui.DailyActivityTypeOptions.ExtraOil);
+        TipEkle("İlave Filtre", DepoWise.Application.Ui.DailyActivityTypeOptions.ExtraFilter);
+        TipEkle("Tamir", DepoWise.Application.Ui.DailyActivityTypeOptions.Repair);
+        KindOptions.Add("Depo Çıkışı");
+        if (!KindOptions.Contains(FormKind)) FormKind = KindOptions[0];   // varsayılan tip kısıtlıysa ilk izinliye düş
+
         var saved = DesktopServices.ListPrefs.GetColumns(session, "daily_activity");
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür. Sürüm yükseltmesinde kaldırılan/yeniden
         // adlandırılan bir kolon kullanıcının kaydında kalmışsa hayalet kolon çizilirdi (başlık = ham anahtar,

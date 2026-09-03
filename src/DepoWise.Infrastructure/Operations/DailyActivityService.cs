@@ -280,6 +280,28 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
     }
 
     /// <summary>Tüm günlük faaliyetler (salt okuma) — araç/şube/operatör adlarıyla. Tür filtresi opsiyonel.</summary>
+    /// <summary>
+    /// ⭐ 2026-09-03 (kullanıcı isteği) — KAYIT TİPİ YETKİSİ SQL SÜZGECİ.
+    /// Kullanıcıya hiç tip anahtarı verilmemişse "" döner (kısıt yok — maliyetsiz, davranış eskisi
+    /// gibi). Verilmişse yalnız izinli tipler listelenir; hiçbiri izinli değilse hiçbir satır dönmez
+    /// (fail-closed). Parçalar SABİT katalogdan üretilir — kullanıcı metni SQL'e girmez.
+    /// </summary>
+    private static string TipYetkisiSql(SessionContext s)
+    {
+        var izinli = DailyActivityTypeGate.AllowedTypes(s);
+        if (izinli.Count == DepoWise.Application.Ui.DailyActivityTypeOptions.All.Count) return "";
+        if (izinli.Count == 0) return " AND 1=0";
+        var parcalar = izinli.Select(t => t switch
+        {
+            DepoWise.Application.Ui.DailyActivityTypeOptions.Movement =>
+                "(da.activity_type='movement' AND COALESCE(da.movement_kind,'')<>'transfer')",
+            DepoWise.Application.Ui.DailyActivityTypeOptions.Transfer =>
+                "(da.activity_type='movement' AND da.movement_kind='transfer')",
+            _ => $"da.activity_type='{t}'",
+        });
+        return " AND (" + string.Join(" OR ", parcalar) + ")";
+    }
+
     public IReadOnlyList<DailyActivityListRow> List(SessionContext s, string? activityType = null, int limit = 200)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -293,7 +315,7 @@ LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id AND tb.company_id = da.company_id
 LEFT JOIN personnel p ON p.id = da.operator_id AND p.company_id = da.company_id
-WHERE da.company_id = @c AND da.is_deleted = 0" + BranchScope.Sql(s, "da.op_branch_id") + @"
+WHERE da.company_id = @c AND da.is_deleted = 0" + BranchScope.Sql(s, "da.op_branch_id") + TipYetkisiSql(s) + @"
   AND (CAST(@t AS TEXT) IS NULL OR da.activity_type = @t)
 ORDER BY da.activity_date DESC, da.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
@@ -381,6 +403,7 @@ WHERE da.company_id = @c";
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
         // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubede işlenen (+ şubesiz eski) faaliyetler; Tüm Şubeler → hepsi.
         var inner = GridInnerSql + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id")
+            + TipYetkisiSql(s)   // 2026-09-03: kayıt tipi yetkisi — kısıtlı kullanıcı yalnız izinli tipleri görür
             // ⭐ ARA İŞ 4 / PK-CR-10=A: iş günü aralığı SQL'de süzülür (bellekte kesme YOK).
             + (fromDateMs is not null ? " AND da.activity_date >= @crFrom" : "")
             + (toDateMs is not null ? " AND da.activity_date <= @crTo" : "");

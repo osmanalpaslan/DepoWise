@@ -206,6 +206,11 @@ public static class AppModules
         }
         // Rapor kalemleri "Raporlar" grubunun sonuna eklenir (kategori anahtarlarından sonra).
         gruplar["Raporlar"].AddRange(ReportItems);
+        // 2026-09-03 (kullanıcı isteği): Günlük Faaliyet KAYIT TİPİ kalemleri — daily_activity'nin
+        // hemen ardına eklenir (Araç & Saha grubunda; ağaçta bitişik ve anlaşılır dursun).
+        var arac = gruplar["Araç & Saha"];
+        var daSira = arac.FindIndex(x => x.Item1 == "daily_activity");
+        arac.InsertRange(daSira < 0 ? arac.Count : daSira + 1, DailyActivityTypeGate.Items);
 
         var sonuc = GroupMap.Select(g => new ModuleGroup(g.Title, gruplar[g.Title])).ToList();
         if (diger.Count > 0) sonuc.Add(new ModuleGroup("Diğer", diger));
@@ -235,6 +240,7 @@ public static class AppModules
         foreach (var (k, l) in All) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
         // 2026-09-03: rapor kalemleri de etiketlenir (hata mesajında ham "rpt_stock" görünmesin).
         foreach (var (k, l) in ReportItems) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
+        foreach (var (k, l) in DailyActivityTypeGate.Items) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
         return moduleKey;
     }
 

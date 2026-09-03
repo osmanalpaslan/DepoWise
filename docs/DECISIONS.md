@@ -3984,3 +3984,44 @@ sistem kilidi + bilinmeyen alan fail-closed · FİRMA İZOLASYONU · yetki kapı
 
 **Yayın notu:** Bu iş MIGRATION İÇERİR (şema 86 → 87). Kurallar gereği yayın öncesi pg_dump yedeği
 alınacak ve yayın kullanıcının açık onayıyla yapılacaktır.
+
+## ADR-199 — Günlük Faaliyet kayıt tipi yetkisi + Tanımlar'a Araç Modelleri (2026-09-03)
+
+**Bağlam.** Kullanıcı isteği: "kayıt tipine yetki verilmemiş ise kayıt tipi görünmemeli; yetki
+ağacında anlaşılır şekilde kategorize ederek yetkiye bağla" + "Tanımlar ekranında eksik alan var —
+araç model alanı listelenmiyor."
+
+### Kayıt tipi yetkisi (DailyActivityTypeGate)
+
+- **Anahtarlar katalogdan otomatik:** `datype_<tip>` kalemleri `DailyActivityTypeOptions`'tan
+  üretilir (Bakım · İlave Yağ · İlave Filtre · Tamir · Hareket · Transfer). Yeni tip eklenince
+  yetki kalemi kendiliğinden doğar (kalıcı kural). **Migration GEREKMEZ** — mevcut permissions
+  tablosu modül anahtarı olarak taşır.
+- **GEÇİŞ GÜVENLİ kural (rapor kalemleriyle aynı felsefe):** kullanıcıya HİÇ datype_* anahtarı
+  verilmemişse TÜM tipler görünür → yayın günü kimse bir şey kaybetmez. En az bir anahtar verildiği
+  anda kullanıcı YALNIZ verilen tipleri görür/seçer. Admin mevcut bypass ile her tipi görür.
+- **Uygulama üç katmanda:** (1) SEÇİM — masaüstü form combobox'ı + web `/api/daily/allowed-types`
+  ile süzülür ("Depo Çıkışı" stok işlemidir, tip değildir → her zaman görünür); (2) LİSTE — SQL
+  süzgeci `TipYetkisiSql` (sabit katalogdan üretilir, kullanıcı metni SQL'e girmez; hareket/transfer
+  ayrımı movement_kind ile) hem `List` hem `SearchGrid`/`SearchGridAll`'da; (3) AĞAÇ — kalemler
+  "Araç & Saha" grubunda daily_activity'nin hemen altında, menü kaynağına (All) SIZMAZ.
+- `DailyActivityTypeGate` BİLEREK `DailyActivityTypeOptions`'ın dışında ayrı dosyadır: options
+  dosyası web'e link edilip derlenir ve AccessControl bağımlılığı alamaz.
+
+### Tanımlar — Araç Modelleri
+
+Model MARKAYA bağlıdır → Alt Kategori bölümüyle AYNI desen: marka seç → modelleri listele/ekle/
+yeniden adlandır/sil. Masaüstü `VehicleModelSectionViewModel` + "Araç — Modeller" expander'ı; web
+`VehicleModelEditor.razor` (Tanım Düzenle → Araçlar bölümü). Mevcut uçlar kullanıldı
+(`/api/vehicles/models`, `/api/lookups/vehicle_models`) — yeni uç/migration YOK.
+
+### Buton gizleme
+
+Mevcut mekanizma yeterli bulundu: özel buton yetkileri (SpecialButtons) yetki ağacında zaten
+deny-by-default çalışıyor. Yeni ayrı "buton gizleme ekranı" AÇILMADI; kullanıcı hangi butonların
+ayrıca kapatılabilir olmasını istediğini adlandırdıkça tek tek bağlanacak (her buton bilinçli
+kablolama ister).
+
+**Testler:** GunlukFaaliyetTipYetkisiTests TY1-TY5 (atamasızsa tümü görünür · yalnız izinli tip ·
+hareket/transfer ayrımı · menüye sızmama + katalog otomasyonu · SearchGrid tutarlılığı); RY5
+genişletildi (ağaç = All + rapor kalemleri + tip kalemleri, sıra daily_activity'nin altı).
