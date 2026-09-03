@@ -55,6 +55,8 @@ public static class AppModules
         ("users", "Kullanıcılar"),
         ("permissions", "Yetkiler"),
         ("definitions", "Tanımlar"),
+        // 2026-09-03 (kullanıcı isteği): form alanlarının zorunluluğunu FİRMA bazında yöneten ekran.
+        ("field_settings", "Alan Ayarları"),
         ("settings", "Ayarlar"),
         ("materials", "Malzemeler"),
         ("material_templates", "Malzeme Şablonları"),
@@ -183,7 +185,7 @@ public static class AppModules
         ("Raporlar", new[] { "reports", "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
             "report_requests", "report_management", "report_material", "report_accounting", "report_daily_activity" }),
         ("Organizasyon", new[] { "branches", "users", "personnel", "permissions", "permission_templates", "role_permissions" }),
-        ("Sistem & Yönetim", new[] { "companies", "releases", "quota_monitor", "backup", "server_backups", "machines",
+        ("Sistem & Yönetim", new[] { "companies", "releases", "quota_monitor", "backup", "server_backups", "machines", "field_settings",
             "machine_backups", "server_status", "purge_company", "local_reset", "screen_visibility", "audit" }),
     };
 
@@ -273,6 +275,8 @@ public static class AppModules
     /// </summary>
     public static bool IsAdminRestricted(string moduleKey)
         => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup" or "stock_change_log"
+            // 2026-09-03: Alan Ayarları firma genelinde form davranışını değiştirir → yönetim düzeyi.
+            or "field_settings"
             // G2-B1: Çöp Kutusu silinmiş kayıtları geri getirir → yönetim düzeyi. Bugünkü fiilî davranış
             // (yalnız admin görebiliyordu) böylece KORUNUR; alt role verilmek istenirse önce Admin'e yükseltilir.
             or "trash";

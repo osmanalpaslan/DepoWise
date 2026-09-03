@@ -128,6 +128,12 @@ public static class LookupSyncService
             new[] { "screen_key", "platform", "enabled" },
             new[] { "screen_key", "platform", "enabled" });
 
+        // 2026-09-03 (kullanıcı isteği): alan zorunluluğu — screenVisibility ile AYNI kurallar
+        // (sunucu otoriteli, replace; alan yanıtta yoksa/tablo yerelde yoksa DOKUNULMAZ).
+        Replace("fieldRequirements", "field_requirements",
+            new[] { "screen_key", "field_key", "required" },
+            new[] { "screen_key", "field_key", "required" });
+
         Replace("menuLayoutScreens", "screen_menu_layout",
             new[] { "screen_key", "label_override", "group_key_override", "sort_order" },
             new[] { "screen_key", "label_override", "group_key_override", "sort_order" });
@@ -142,6 +148,7 @@ public static class LookupSyncService
         // Masaüstü süreç içi önbellekleri düşür → menü bir sonraki çiziminde yeni ayarı görür.
         DepoWise.Infrastructure.Organization.ScreenVisibilityService.Invalidate(companyId);
         DepoWise.Infrastructure.Organization.MenuLayoutService.Invalidate(companyId);
+        DepoWise.Infrastructure.Organization.FieldRequirementService.Invalidate(companyId);   // 2026-09-03
 
         void Replace(string jsonKey, string table, string[] allCols, string[] allJsonCols)
         {

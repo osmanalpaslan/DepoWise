@@ -802,6 +802,16 @@ static void RequireVehicleFields(string? branchId, int? productionYear)
         throw new ArgumentException($"Üretim yılı {DepoWise.Application.Ui.FieldChecks.MinVehicleYear}–{DepoWise.Application.Ui.FieldChecks.MaxVehicleYear} aralığında olmalı.");
 }
 
+// ⭐ 2026-09-03 (kullanıcı isteği) — FİRMA ALAN ZORUNLULUKLARI SUNUCU KAPISI. "Alan Ayarları"nda
+// zorunlu yapılan alan boşsa kayıt REDDEDİLİR (arayüz doğrulaması aşılamaz). Firma hiç ayar
+// yapmadıysa liste boştur → davranış birebir eskisi gibidir. Ortak hata katmanı 400 döndürür.
+void FirmaAlanKontrol(SessionContext s, string screenKey, Dictionary<string, bool> alanDolu)
+{
+    var eksik = svc.FieldRequirements.EksikAlanlar(s.CompanyId, screenKey, alanDolu);
+    if (eksik.Count > 0)
+        throw new ArgumentException("Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksik) + ".");
+}
+
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c, string? companyId) => S(c) is { } s ? Results.Ok(svc.Branches.List(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
 // Firma seçicileri için tenant-kapsamlı liste: süper admin tümü, diğerleri YALNIZ kendi firması.
@@ -1506,6 +1516,17 @@ app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
 app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    // 2026-09-03: FIRMA alan zorunluluklari (Alan Ayarlari).
+    FirmaAlanKontrol(s, "materials", new Dictionary<string, bool>
+    {
+        ["category"] = !string.IsNullOrWhiteSpace(d.CategoryId),
+        ["unit"] = !string.IsNullOrWhiteSpace(d.UnitId),
+        ["brand"] = !string.IsNullOrWhiteSpace(d.BrandId),
+        ["supplier"] = !string.IsNullOrWhiteSpace(d.SupplierId),
+        ["min_stock"] = d.MinStock > 0,
+        ["unit_price"] = d.UnitPrice > 0,
+        ["description"] = !string.IsNullOrWhiteSpace(d.Description),
+    });
     var id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
         d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description),
         TemplateId: d.TemplateId));
@@ -1624,6 +1645,9 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         // senkron protokolü kurulmadı. Çevrimdışıysa PullAsync zaten sessizce atlar → en son inen
         // ayar yerelde geçerli kalır, hiç inmediyse katalog varsayılanı geçerlidir.
         screenVisibility = Rows("SELECT screen_key,platform,enabled FROM screen_platform_visibility WHERE company_id=@c;"),
+        // 2026-09-03 (kullanıcı isteği): alan zorunluluğu — screenVisibility ile AYNI desen (sunucu
+        // otoriteli yapılandırma; masaüstü asla yazmaz, tanım senkronu aynasıyla iner).
+        fieldRequirements = Rows("SELECT screen_key,field_key,required FROM field_requirements WHERE company_id=@c;"),
         menuLayoutScreens = Rows("SELECT screen_key,label_override,group_key_override,sort_order FROM screen_menu_layout WHERE company_id=@c;"),
         menuLayoutGroups = Rows("SELECT group_key,title_override,sort_order,is_custom,parent_group_key FROM menu_group_layout WHERE company_id=@c;"),
     });
@@ -2686,6 +2710,37 @@ app.MapPost("/api/screens/visibility", (HttpContext c, ScreenVisibilityDto d) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ═══ ⭐ ALAN ZORUNLULUĞU (kullanıcı isteği 2026-09-03) ══════════════════════════════════════
+// Firma bazlı "bu form alanı zorunlu mu" yönetimi. Yetki: field_settings (yönetim düzeyi).
+// Sistem zorunluları serviste kilitlidir (gevşetilemez); kayıt yoksa katalog varsayılanı geçerlidir.
+
+// Yönetim listesi (Alan Ayarları ekranı) — ekran bazlı gruplanacak düz satırlar.
+app.MapGet("/api/field-requirements/manage", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.FieldRequirements.List(s).Select(r => new
+    {
+        screenKey = r.ScreenKey, screenLabel = r.ScreenLabel, fieldKey = r.FieldKey, label = r.Label,
+        systemRequired = r.SystemRequired, required = r.Required, statusText = r.StatusText,
+    }));
+}).RequireAuthorization();
+
+// Ayar yazma (zorunlu yap / opsiyonele döndür). Bilinmeyen alan ve sistem zorunlusu REDDEDİLİR.
+app.MapPost("/api/field-requirements", (HttpContext c, FieldRequirementDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.ScreenKey) || string.IsNullOrWhiteSpace(d.FieldKey))
+        throw new ArgumentException("Ekran ve alan seçin.");
+    svc.FieldRequirements.Set(s, d.ScreenKey, d.FieldKey, d.Required);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Form doğrulaması için: bu ekranda FİRMANIN zorunlu yaptığı alan anahtarları (yetki gerektirmez —
+// her kayıt formu çağırır; bilgi yetki taşımaz). Web formları buradan okur; masaüstü yerelden okur.
+app.MapGet("/api/field-requirements/{screenKey}", (HttpContext c, string screenKey) =>
+    S(c) is { } s ? Results.Ok(svc.FieldRequirements.RequiredFieldsFor(s.CompanyId, screenKey)) : Results.Unauthorized())
+    .RequireAuthorization();
+
 // ═══ MNU — MENÜ DÜZENİ (2026-08-18) ═════════════════════════════════════════════════════════
 // Ekranın menüdeki ADI · ÜST MENÜSÜ · SIRASI. Route, ekran anahtarı, yetki anahtarı ve servisler
 // BURADAN ETKİLENMEZ. Yetki: platform yönetimiyle AYNI modül (screen_visibility, süper admin) —
@@ -3708,6 +3763,8 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur."); // madde 8
+    // 2026-09-03: FIRMA alan zorunluluklari (Alan Ayarlari).
+    FirmaAlanKontrol(s, "fuel", new Dictionary<string, bool> { ["recipient"] = !string.IsNullOrWhiteSpace(d.RecipientPersonnelId) });
     var distId = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
         RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N"));
@@ -3802,6 +3859,19 @@ app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     RequireVehicleFields(d.BranchId, d.ProductionYear); // madde 8+1: şube zorunlu + makul yıl
+    // 2026-09-03: FIRMA alan zorunluluklari (Alan Ayarlari) - kayit yoksa liste bos, davranis eskisi gibi.
+    FirmaAlanKontrol(s, "vehicles", new Dictionary<string, bool>
+    {
+        ["plate"] = !string.IsNullOrWhiteSpace(d.Plate),
+        ["production_year"] = d.ProductionYear is > 0,
+        ["vehicle_type"] = !string.IsNullOrWhiteSpace(d.VehicleTypeId),
+        ["category"] = !string.IsNullOrWhiteSpace(d.CategoryId),
+        ["brand"] = !string.IsNullOrWhiteSpace(d.BrandId),
+        ["model"] = !string.IsNullOrWhiteSpace(d.VehicleModelId),
+        ["driver"] = !string.IsNullOrWhiteSpace(d.DriverPersonnelId),
+        ["chassis_no"] = !string.IsNullOrWhiteSpace(d.ChassisNo),
+        ["engine_no"] = !string.IsNullOrWhiteSpace(d.EngineNo),
+    });
     return Results.Ok(new { id = svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(
         d.InternalCode, Doc(d.Plate), d.ProductionYear, d.CurrentMeter, string.IsNullOrWhiteSpace(d.MeterUnit) ? "km" : d.MeterUnit,
         d.BranchId, d.DriverPersonnelId, Doc(d.ChassisNo), Doc(d.EngineNo), string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
@@ -4685,6 +4755,7 @@ record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdi
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons, long Version = 0);
 record PermResetDto(long Version = 0);   // G1a — yetki sıfırlama; düzenleme kilidi jetonu (0 = kontrol yok)
 // G5 — ekran platform ayarı. null = kaydı sil (katalog varsayılanına dön).
+record FieldRequirementDto(string ScreenKey, string FieldKey, bool Required);   // 2026-09-03: alan zorunlulugu
 record ScreenVisibilityDto(string ScreenKey, bool? Desktop, bool? Web);
 
 // MNU — menü düzeni kaydetme gövdesi. Tam durum gönderilir (bkz. MenuLayoutService.Save).

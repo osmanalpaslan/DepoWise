@@ -473,6 +473,23 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             Status = "Kod ve ad zorunlu."; return;
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
+
+        // ⭐ 2026-09-03 (kullanıcı isteği) — FİRMA ALAN ZORUNLULUKLARI (Alan Ayarları ekranından).
+        // Kayıt yoksa liste boştur → davranış birebir eskisi gibidir. Anahtarlar FieldCatalog ile aynı.
+        var eksikAlanlar = DesktopServices.FieldRequirements.EksikAlanlar(_session.CompanyId, "materials",
+            new Dictionary<string, bool>
+            {
+                ["category"] = SelectedCategory is not null,
+                ["sub_category"] = SelectedSubCategory is not null,
+                ["unit"] = SelectedUnit is not null,
+                ["brand"] = SelectedBrand is not null,
+                ["supplier"] = SelectedSupplier is not null,
+                ["min_stock"] = NewMinStock > 0,
+                ["unit_price"] = NewUnitPrice > 0,
+                ["description"] = !string.IsNullOrWhiteSpace(NewDescription),
+            });
+        if (eksikAlanlar.Count > 0)
+        { Status = "Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksikAlanlar) + "."; return; }
         // Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05) — şablon dışı uyarısı yok; yeni kayıtta düz onay.
         if (!editing && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
 

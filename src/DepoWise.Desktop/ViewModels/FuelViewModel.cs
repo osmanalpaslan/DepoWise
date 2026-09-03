@@ -336,6 +336,11 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (DistVehicle is null) { Status = "Araç seçin."; return; }
         if (DistLiters <= 0) { Status = "Litre pozitif olmalı."; return; }
         if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; } // madde 8
+        // ⭐ 2026-09-03 — FİRMA ALAN ZORUNLULUKLARI (Alan Ayarları): kayıt yoksa davranış aynen eskisi.
+        var eksikAlanlar = DesktopServices.FieldRequirements.EksikAlanlar(_session.CompanyId, "fuel",
+            new Dictionary<string, bool> { ["recipient"] = DistRecipient is not null });
+        if (eksikAlanlar.Count > 0)
+        { Status = "Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksikAlanlar) + "."; return; }
         if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(DistLiters)
             && !await ConfirmService.AskAsync($"Litre değeri çok büyük görünüyor ({DistLiters:0.##}). Emin misiniz?", "Litre Uyarısı", "Evet, Doğru")) return; // madde 7
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.

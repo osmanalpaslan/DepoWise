@@ -469,6 +469,25 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         if (SelBranch is null) { Status = "Araç için şantiye/şube seçimi zorunludur."; return; }
         if (!DepoWise.Application.Ui.FieldChecks.YearInRange(NewYear > 0 ? NewYear : (int?)null))
         { Status = $"Üretim yılı {DepoWise.Application.Ui.FieldChecks.MinVehicleYear}–{DepoWise.Application.Ui.FieldChecks.MaxVehicleYear} aralığında olmalı."; return; }
+
+        // ⭐ 2026-09-03 (kullanıcı isteği) — FİRMA ALAN ZORUNLULUKLARI (Alan Ayarları ekranından).
+        // Yalnız firmanın zorunlu YAPTIĞI opsiyonel alanlar denetlenir; hiçbir kayıt yoksa liste boştur
+        // ve davranış birebir eskisi gibidir. Anahtarlar FieldCatalog ile aynıdır.
+        var eksikAlanlar = DesktopServices.FieldRequirements.EksikAlanlar(_session.CompanyId, "vehicles",
+            new Dictionary<string, bool>
+            {
+                ["plate"] = !string.IsNullOrWhiteSpace(NewPlate),
+                ["production_year"] = NewYear > 0,
+                ["vehicle_type"] = SelVehicleType is not null,
+                ["category"] = SelCategory is not null,
+                ["brand"] = SelBrand is not null,
+                ["model"] = SelModel is not null,
+                ["driver"] = SelDriver is not null,
+                ["chassis_no"] = !string.IsNullOrWhiteSpace(NewChassisNo),
+                ["engine_no"] = !string.IsNullOrWhiteSpace(NewEngineNo),
+            });
+        if (eksikAlanlar.Count > 0)
+        { Status = "Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksikAlanlar) + "."; return; }
         // Yumuşak uyarılar (kullanıcı yine de geçebilir): plaka biçimi (madde 2) + çok büyük sayaç (madde 7).
         if (!DepoWise.Application.Ui.FieldChecks.PlateLooksTurkish(NewPlate)
             && !await ConfirmService.AskAsync("Plaka standart Türk plaka biçimine (34 ABC 123) uymuyor. İş makinesi/plakasız araç ise geçebilirsiniz.\n\nYine de kaydedilsin mi?", "Plaka Uyarısı", "Evet, Kaydet")) return;

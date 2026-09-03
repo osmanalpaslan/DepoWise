@@ -325,7 +325,8 @@ public class AppScreensParityTests
             ("Web Yönetimi", new[] { "companies", "releases", "machines", "server_backups" }),
             // "Yedekleme" grubu masaüstünde GÖRÜNMEZ: tek ekranı (Yedek Yönetimi) yalnız web'dedir.
             ("Çöp Kutusu", new[] { "trash" }),
-            ("Ayarlar", new[] { "definitions", "import_export", "settings:developer", "theme", "about" }),
+            // 2026-09-03: Alan Ayarları (field_settings) bilinçli eklendi (ADR-198).
+            ("Ayarlar", new[] { "definitions", "field_settings", "import_export", "settings:developer", "theme", "about" }),
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Desktop)
@@ -339,7 +340,7 @@ public class AppScreensParityTests
         // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57,
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler = 58, + ALT FAZ 3 Onaylamalarım = 59 (ADR-187/189).
         // Ekran kaybı yok; yeni ekran BİLİNÇLİ olarak eklendi (ADR-186).
-        Assert.Equal(59, gercek.Sum(x => x.Item2.Length));
+        Assert.Equal(60, gercek.Sum(x => x.Item2.Length));   // 59 → 60: Alan Ayarları (2026-09-03, ADR-198)
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -384,7 +385,8 @@ public class AppScreensParityTests
             // SEC-03 (2026-08-25): "Geliştirici Modu" yetki anahtarı BİLİNÇLİ olarak "settings" → "@super"
             // yapıldı. Ekran süper admin yetkilerini taklit ettiği için devredilemez; paylaşılan "settings"
             // modülü onu firma personeline de açıyordu. Bağlantı SAYISI değişmedi (ekran kaybı yok).
-            ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about") }),
+            // 2026-09-03: Alan Ayarları (field_settings) bilinçli eklendi (ADR-198).
+            ("Ayarlar", new[] { ("definitions", "definitions"), ("field_settings", "field-settings"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about") }),
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Web)
@@ -400,7 +402,7 @@ public class AppScreensParityTests
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
         // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186),
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler → 65, + ALT FAZ 3 Onaylamalarım → 66 (ADR-187/189).
-        Assert.Equal(66, gercek.Sum(x => x.Item2.Length));
+        Assert.Equal(67, gercek.Sum(x => x.Item2.Length));   // 66 → 67: Alan Ayarları (2026-09-03, ADR-198)
     }
 
     /// <summary>

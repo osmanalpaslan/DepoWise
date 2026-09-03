@@ -1332,6 +1332,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Excel Merkezi";
                 CurrentContext = "Excel ile içe/dışa aktarım";
                 break;
+            case "field_settings":
+                CurrentPage = new FieldSettingsViewModel(_session);
+                CurrentTitle = "Alan Ayarları";
+                CurrentContext = "Form alanlarının zorunluluğu (firma bazlı)";
+                break;
             case "definitions":
                 CurrentPage = new SettingsViewModel(_session);
                 CurrentTitle = "Tanımlar / Ayarlar";

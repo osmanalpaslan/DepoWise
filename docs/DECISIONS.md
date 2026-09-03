@@ -3944,3 +3944,43 @@ biçiminde · `/api/modules` 8 kategori + 26 rapor kalemi (`rpt_*`) döndürüyo
 (yeni Dönem/Toplam dahil) · web /reports /permissions /import 200. Veri kaybı yok — sayılardaki artış
 canlı veri girişinden (malzeme 2503 · araç 167 · stok hareketi 700 · yakıt 691); sunucudaki fotoğraf
 18 (otomatik taşıma, babanın makinesi 1.0.170'i açınca kalan tümünü yükleyecek).
+
+---
+
+## ADR-198 — Alan Zorunluluğu ekranı (Migration087, firma-özel) (2026-09-03)
+
+**Bağlam.** Kullanıcı isteği: "ekranlardaki alanların zorunlu olup olmayacağını belirleyeceğim,
+kategorize bir yapı; yeni alan/ekran eklendiğinde güncellenmeli; firma özelinde olmalı." Migration
+onayı alındı ("yeni migration riskli mi? en sorunsuz şekilde hallet").
+
+### Neden bu tasarım en az riskli
+
+- **Migration087_FieldRequirements** Migration065 (screen_platform_visibility) deseninin birebir
+  kopyasıdır: TEK yeni tablo, hiçbir mevcut tabloya/veriye dokunmaz, idempotent, iki lehçede aynı SQL.
+  **Satır yoksa katalog varsayılanı geçerli** → yayın günü hiçbir formun davranışı değişmez.
+- **Yalnız SIKILAŞTIRIR:** sistem zorunluları (iç kod, litre, Yakıtı Veren…) katalogda kilitlidir ve
+  servis gevşetmeyi REDDEDER — iş kuralları/veri bütünlüğü riske girmez. Firma yalnız opsiyonel
+  alanları zorunlu yapabilir/geri alabilir.
+- **Firma-özel:** ayarlar `company_id` ile; A'nın ayarı B'yi etkilemez (AZ4 testiyle kilitli).
+- **Masaüstü/çevrimdışı:** ayar sunucu otoritelidir, tanım senkronu aynasıyla iner
+  (screenVisibility ile aynı Replace yolu); masaüstü asla yazmaz → LWW sorusu yok.
+
+### Parçalar
+
+- **FieldCatalog** (ortak dosya, TEK kaynak): V1 kapsamı Araçlar (11 alan) · Malzemeler (10) ·
+  Yakıt Dağıtımı (4). KALICI KURAL: forma yeni alan eklenince buraya satır eklenir → Alan Ayarları
+  kendiliğinden güncel.
+- **FieldRequirementService**: önbellekli okuma (`RequiredFieldsFor`), yönetim listesi, fail-closed
+  `Set`, form yardımcısı `EksikAlanlar` (etiketle bildirir).
+- **Uygulama (çift kapı):** masaüstünde 3 formun kayıt komutunda; web/API'de SUNUCUDA
+  (`FirmaAlanKontrol` → araç/malzeme/yakıt oluşturma uçları) — arayüz doğrulaması aşılamaz.
+- **Yeni ekran "Alan Ayarları"** (`field_settings`, Ayarlar grubu, iki platform, yönetim düzeyi):
+  ekran bazlı kategorize liste, kutu değişince anında kayıt, hata olursa kutu geri alınır.
+  Kalıcı kural gereği yetki ağacına otomatik girdi; S13/S14 parite sayaçları 59→60 / 66→67 bilinçli
+  güncellendi; RY5 "Diğer boş" nöbeti grup eşlemesini doğruluyor.
+
+**Testler:** AlanZorunluluguTests AZ1-AZ5 (varsayılan davranış değişmez · zorunlu-yap/geri-al ·
+sistem kilidi + bilinmeyen alan fail-closed · FİRMA İZOLASYONU · yetki kapıları + ağaç kaydı).
+
+**Yayın notu:** Bu iş MIGRATION İÇERİR (şema 86 → 87). Kurallar gereği yayın öncesi pg_dump yedeği
+alınacak ve yayın kullanıcının açık onayıyla yapılacaktır.

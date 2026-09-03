@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             x:Class="DepoWise.Desktop.Views.FieldSettingsView"
+             x:DataType="vm:FieldSettingsViewModel">
+
+    <!-- ALAN AYARLARI (kullanıcı isteği 2026-09-03): formlardaki opsiyonel alanlar firma bazında
+         zorunlu yapılır. Sistem zorunluları kilitli gösterilir; ayar diğer firmaları etkilemez. -->
+    <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+        <ctrl:Toolbar Grid.Row="0" Title="Alan Ayarları">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <SelectableTextBlock Grid.Row="1" Classes="Helper" Margin="0,10,0,0" TextWrapping="Wrap"
+            Text="{Binding Status}"/>
+
+        <ScrollViewer Grid.Row="2" Margin="0,12,0,0">
+            <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FieldSettingGroup">
+                        <StackPanel Margin="0,0,0,14" MaxWidth="640" HorizontalAlignment="Left">
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" CornerRadius="6">
+                                <SelectableTextBlock Text="{Binding Title}" Classes="SectionTitle"/>
+                            </Border>
+                            <Border Classes="Table" Margin="0,4,0,0">
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FieldSettingRow">
+                                            <Grid ColumnDefinitions="220,140,*" Height="36" Margin="12,0">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                                <CheckBox Grid.Column="1" Content="Zorunlu" VerticalAlignment="Center"
+                                                          IsChecked="{Binding Required}"
+                                                          IsEnabled="{Binding !SystemRequired}"
+                                                          ToolTip.Tip="İşaretlenirse bu firmadaki tüm kullanıcılar için alan doldurulmadan kayıt yapılamaz."/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="Helper" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

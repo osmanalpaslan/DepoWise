@@ -1,0 +1,77 @@
+@page "/field-settings"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+@* ═══ ALAN AYARLARI (kullanıcı isteği 2026-09-03) — masaüstü FieldSettingsView'in web karşılığı ═══
+   Formlardaki OPSİYONEL alanlar firma bazında ZORUNLU yapılır; sistem zorunluları kilitli görünür.
+   Ayar diğer firmaları ETKİLEMEZ. Doğrulama/kilit servistedir (FieldRequirementService) — arayüz
+   yalnız gösterim + tek tık kaydetmedir. *@
+
+<MudText Typo="Typo.h5" GutterBottom="true" Class="dw-pagetitle">Alan Ayarları</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    <b>@Auth.CompanyDisplay</b> — zorunlu yaptığınız alanlar bu firmadaki TÜM kullanıcılar için geçerli olur; diğer firmalar etkilenmez.
+</MudText>
+
+@if (!Auth.CanView("field_settings"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için «Alan Ayarları» yetkisi gerekir.</MudAlert>
+}
+else if (_rows is null)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else
+{
+    @foreach (var ekran in _rows.GroupBy(r => Str(r, "screenLabel")))
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
+            <MudText Typo="Typo.h6" Class="mb-2">@ekran.Key</MudText>
+            <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
+                <thead><tr><th style="width:220px">Alan</th><th style="width:120px">Zorunlu</th><th>Durum</th></tr></thead>
+                <tbody>
+                    @foreach (var r in ekran)
+                    {
+                        var sKey = Str(r, "screenKey"); var fKey = Str(r, "fieldKey");
+                        var sistem = Bool(r, "systemRequired");
+                        <tr>
+                            <td>@Str(r, "label")</td>
+                            <td>
+                                <MudCheckBox T="bool" Dense="true" Value="@Bool(r, "required")"
+                                             ReadOnly="@(sistem || !Auth.CanEdit("field_settings"))"
+                                             ValueChanged="@(v => Kaydet(sKey, fKey, v))" />
+                            </td>
+                            <td class="mud-text-secondary">@Str(r, "statusText")</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Style="max-width:680px">@_msg</MudAlert> }
+}
+
+@code {
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try { _rows = await Api.GetArrayAsync("/api/field-requirements/manage"); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task Kaydet(string screenKey, string fieldKey, bool required)
+    {
+        _msg = null;
+        var err = await Api.PostAsync("/api/field-requirements", new { screenKey, fieldKey, required });
+        _ok = err is null;
+        _msg = err ?? (required ? "Alan ZORUNLU yapıldı." : "Alan opsiyonele döndürüldü.");
+        await Load();   // sunucudaki etkin durumu geri oku (hatalı istekte kutu eski hâline döner)
+    }
+
+    private static string Str(JsonElement e, string p) => e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool Bool(JsonElement e, string p) => e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.True;
+}

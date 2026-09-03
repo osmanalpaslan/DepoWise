@@ -91,5 +91,6 @@ public static class MigrationCatalog
         new Migration084_Teams(),
         new Migration085_ApprovalChain(),
         new Migration086_EquipmentMaintenance(),
+        new Migration087_FieldRequirements(),   // 2026-09-03 (kullanıcı onayı): alan zorunluluğu — yalnız ekleme
     };
 }

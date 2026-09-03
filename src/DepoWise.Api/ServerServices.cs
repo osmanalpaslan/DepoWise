@@ -35,6 +35,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Organization.RoleGrantService RoleGrants { get; }
     /// <summary>G5 — ekran platform görünürlüğü (firma bazlı; katalog varsayılanını yalnız DARALTIR).</summary>
     public DepoWise.Infrastructure.Organization.ScreenVisibilityService ScreenVisibility { get; }
+    public DepoWise.Infrastructure.Organization.FieldRequirementService FieldRequirements { get; }   // 2026-09-03: alan zorunluluğu
     /// <summary>MNU — menü düzeni: ekran adı / üst menüsü / sırası (firma bazlı; kimliği DEĞİŞTİRMEZ).</summary>
     public DepoWise.Infrastructure.Organization.MenuLayoutService MenuLayout { get; }
     /// <summary>G4-1 — ön muhasebe cari kartı ve hesap hareketi.</summary>
@@ -159,6 +160,7 @@ public sealed class ServerServices
         SpecialCode = new SpecialCodeService(Factory, clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
         ScreenVisibility = new DepoWise.Infrastructure.Organization.ScreenVisibilityService(Factory, clock);
+        FieldRequirements = new DepoWise.Infrastructure.Organization.FieldRequirementService(Factory, clock);   // 2026-09-03
         MenuLayout = new DepoWise.Infrastructure.Organization.MenuLayoutService(Factory, clock);
         Parties = new DepoWise.Infrastructure.Accounting.PartyService(Factory, clock);
         PartyLedger = new DepoWise.Infrastructure.Accounting.PartyLedgerService(Factory, clock);
