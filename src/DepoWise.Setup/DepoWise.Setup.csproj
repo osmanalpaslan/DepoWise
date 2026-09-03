@@ -26,4 +26,17 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- Kurulum aracının ORTAK mantığı (checksum kapısı, adres kapısı, sürüm durumu, manifest,
+       ön-koşullar) DepoWise.Application içinde yaşar: aynı dosyaları test projesi de derler
+       (ProjectReference üzerinden) → mantık TEST EDİLEBİLİR.
+       Proje REFERANSI yerine dosya bağlama (Link) kullanılır — bu, web projesinde de kullanılan
+       mevcut desendir; kurulum aracı tek dosya yayınlandığı için gereksiz bağımlılık çekilmez. -->
+  <ItemGroup>
+    <Compile Include="..\DepoWise.Application\Setup\SetupPackageVerifier.cs" Link="Core\SetupPackageVerifier.cs" />
+    <Compile Include="..\DepoWise.Application\Setup\SetupUrlPolicy.cs" Link="Core\SetupUrlPolicy.cs" />
+    <Compile Include="..\DepoWise.Application\Setup\SetupInstallState.cs" Link="Core\SetupInstallState.cs" />
+    <Compile Include="..\DepoWise.Application\Setup\SetupManifest.cs" Link="Core\SetupManifest.cs" />
+    <Compile Include="..\DepoWise.Application\Setup\SetupPrerequisites.cs" Link="Core\SetupPrerequisites.cs" />
+  </ItemGroup>
+
 </Project>

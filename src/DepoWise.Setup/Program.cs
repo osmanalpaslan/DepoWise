@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text.Json;
 using System.Windows.Forms;
+using DepoWise.Application.Setup;
 
 // ── DepoWise Kurulum Aracı (arayüzlü) ──
 // Sunucuya bağlanır, en güncel paketi indirir (yüzdeli), seçilen klasöre kurar, sunucu adresini
@@ -86,37 +87,58 @@ sealed class SetupForm : Form
         var installDir = string.IsNullOrWhiteSpace(_dir.Text)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "app")
             : _dir.Text.Trim();
+        string? tmpZip = null;
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
 
+            // ── 1) Kurulum tanımı: önce yeni manifest ucu, yoksa MEVCUT sürüm ucu (geri düşüş) ──
             SetStatus("Sunucuya bağlanılıyor, sürüm bilgisi alınıyor…");
-            var metaJson = await http.GetStringAsync($"{_server}/api/releases/latest");
-            if (string.IsNullOrWhiteSpace(metaJson) || metaJson == "null")
-                throw new Exception("Sunucuda kurulum paketi bulunamadı (yönetici henüz sürüm yayınlamamış).");
+            var manifest = await ManifestAlAsync(http);
+            var pkg = manifest.Application;
 
-            using var doc = JsonDocument.Parse(metaJson);
-            var root = doc.RootElement;
-            var version = root.GetProperty("version").GetString() ?? "?";
-            var downloadUrl = root.TryGetProperty("downloadUrl", out var d) ? d.GetString() : null;
-            if (string.IsNullOrWhiteSpace(downloadUrl)) throw new Exception("Paket indirme adresi yok.");
-            if (downloadUrl.StartsWith("/")) downloadUrl = _server + downloadUrl;
+            // ── 2) Sistem ön-koşulları (kurulabilir bağımlılık YOK — bkz. SetupPrerequisites) ──
+            SetStatus("Sisteminiz kontrol ediliyor…");
+            // networkKnownGood: true — manifest bu satıra gelmeden ZATEN sunucudan indirildi.
+            var onKosul = SetupPrerequisites.Check(new WindowsSystemProbe(true), installDir, manifest.Requirements);
+            if (SetupPrerequisites.FirstBlocker(onKosul) is { } engel)
+                throw new SetupVerificationException("ON_KOSUL:" + engel.Id, engel.Detail ?? engel.Label);
 
-            var tmpZip = Path.Combine(Path.GetTempPath(), $"alpnex-{version}.zip");
-            SetStatus($"Sürüm {version} indiriliyor…");
-            await DownloadAsync(http, downloadUrl!, tmpZip);
+            // ── 3) İndirme adresi kapısı: yalnız HTTPS + yalnız kendi sunucumuzun host'u ──
+            var indirmeUri = SetupUrlPolicy.ResolveDownloadUrl(_server, pkg.DownloadUrl);
+
+            tmpZip = Path.Combine(Path.GetTempPath(), $"alpnex-{pkg.Version}.zip");
+            SetStatus($"Sürüm {pkg.Version} indiriliyor…");
+            await DownloadAsync(http, indirmeUri.ToString(), tmpZip);
+
+            // ── 4) ⭐ BÜTÜNLÜK KAPISI — FAIL-CLOSED. Doğrulanmayan paket KURULMAZ. ──
+            SetStatus("Paket doğrulanıyor…");
+            SetupPackageVerifier.RequireVerifiedPackage(tmpZip, pkg.Sha256, pkg.SizeBytes);
 
             SetStatus("Kuruluyor…");
             Directory.CreateDirectory(installDir);
             ExtractWithProgress(tmpZip, installDir);
             try { File.Delete(tmpZip); } catch { }
+            tmpZip = null;
+
+            // Paket bütünlüğü: ana exe yoksa kurulum geçersiz (UpdateInstaller ile aynı guard).
+            var exe = Path.Combine(installDir, "DepoWise.Desktop.exe");
+            if (!File.Exists(exe))
+                throw new SetupVerificationException("PAKET_EKSIK",
+                    "Kurulum paketi geçersiz: uygulama dosyası bulunamadı. Kurulum iptal edildi.");
 
             File.WriteAllText(Path.Combine(installDir, "serverurl.txt"), _server);
 
-            var exe = Path.Combine(installDir, "DepoWise.Desktop.exe");
-            if (File.Exists(exe)) TryCreateShortcut(exe, installDir);
+            // ── 5) ⭐ ÇİFT İNDİRME DÜZELTMESİ: sürüm durumunu YAZ. ──
+            // Yazılmazsa uygulama kendini 0.0.0 sanıp az önce kurulan ~86 MB'ı ilk açılışta
+            // TEKRAR indirir. Yol/biçim UpdateInstaller ile birebir aynıdır (yeni mekanizma YOK).
+            SetStatus("Son kontroller…");
+            SetupInstallState.WriteInstalledVersion(SetupInstallState.DefaultUpdateRoot(), pkg.Version);
+
+            TryCreateShortcut(exe, installDir);
 
             SetProgress(100);
+            var version = pkg.Version;
             SetStatus($"Kurulum tamamlandı (sürüm {version}). Masaüstündeki 'Alpnex' kısayolundan açabilirsiniz.");
             MessageBox.Show(this, $"Kurulum tamamlandı (sürüm {version}).\nMasaüstündeki 'Alpnex' kısayolundan açabilirsiniz.",
                 "Alpnex Kurulum", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -127,10 +149,35 @@ sealed class SetupForm : Form
         }
         catch (Exception ex)
         {
-            SetStatus("HATA: " + ex.Message);
-            MessageBox.Show(this, ex.Message, "Kurulum Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            // Yarım inen paket diskte bırakılmaz (iptal/hata sonrası temizlik).
+            try { if (tmpZip is not null && File.Exists(tmpZip)) File.Delete(tmpZip); } catch { }
+
+            // Kullanıcıya SADE mesaj; teknik ayrıntı (hata kodu) ayrı satırda.
+            var kullaniciMesaji = ex is SetupVerificationException sv ? sv.Message : ex.Message;
+            var kod = ex is SetupVerificationException s2 ? s2.Code : ex.GetType().Name;
+
+            SetStatus("HATA: " + kullaniciMesaji);
+            MessageBox.Show(this, kullaniciMesaji + "\n\nHata kodu: " + kod,
+                "Kurulum Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
             _install.Enabled = true; _browse.Enabled = true; _dir.Enabled = true; _busy = false;
         }
+    }
+
+    /// <summary>Önce yeni manifest ucunu dener; yoksa MEVCUT sürüm ucundan üretir (geri düşüş).
+    /// Bu sayede kurulum aracı, sunucuya manifest ucu eklenmeden önce de çalışır.</summary>
+    private async Task<SetupManifest> ManifestAlAsync(HttpClient http)
+    {
+        try
+        {
+            var r = await http.GetAsync($"{_server}/api/setup/manifest");
+            if (r.IsSuccessStatusCode)
+                return SetupManifestReader.Parse(await r.Content.ReadAsStringAsync());
+        }
+        catch (HttpRequestException) { /* uç yok/erişilemedi → geri düşüş */ }
+        catch (TaskCanceledException) { /* zaman aşımı → geri düşüş */ }
+
+        return SetupManifestReader.FromReleasesLatest(
+            await http.GetStringAsync($"{_server}/api/releases/latest"));
     }
 
     private async Task DownloadAsync(HttpClient http, string url, string dest)
@@ -189,6 +236,48 @@ sealed class SetupForm : Form
                 SetStatus($"Kuruluyor… %{pct}");
             }
         }
+    }
+
+    /// <summary>Gerçek makineden ön-koşul verisi okur. Saf mantık <see cref="SetupPrerequisites"/>'tedir;
+    /// bu sınıf yalnız işletim sistemine dokunur → mantık testlerde sahte sorgulayıcıyla çalışabilir.</summary>
+    private sealed class WindowsSystemProbe : ISystemProbe
+    {
+        private readonly bool _networkKnownGood;
+
+        /// <param name="networkKnownGood">Kurulum tanımı sunucudan ZATEN indirildiyse true.
+        /// Ayrıca bir "ağ var mı" isteği atılmaz: hem gereksiz, hem de sunucu HEAD'e 405 döndürdüğü
+        /// için yanlış negatif üretme riski var (doğrulandı, 2026-09-04).</param>
+        public WindowsSystemProbe(bool networkKnownGood) => _networkKnownGood = networkKnownGood;
+
+        public int OsBuild => Environment.OSVersion.Version.Build;
+
+        public string Architecture => System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString();
+
+        public long AvailableFreeBytes(string path)
+        {
+            try
+            {
+                var kok = Path.GetPathRoot(Path.GetFullPath(path));
+                if (string.IsNullOrEmpty(kok)) return -1;
+                return new DriveInfo(kok).AvailableFreeSpace;
+            }
+            catch { return -1; }   // ölçülemiyorsa engelleme
+        }
+
+        public bool CanWrite(string path)
+        {
+            try
+            {
+                Directory.CreateDirectory(path);
+                var deneme = Path.Combine(path, ".alpnex_yazma_denemesi");
+                File.WriteAllText(deneme, "x");
+                File.Delete(deneme);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public bool NetworkAvailable => _networkKnownGood;
     }
 
     private static void TryCreateShortcut(string exePath, string workingDir)
