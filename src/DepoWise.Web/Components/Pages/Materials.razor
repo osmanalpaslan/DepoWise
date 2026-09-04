@@ -371,7 +371,8 @@
                     </tr>
                     </thead>
                     <tbody>
-                        @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
+                        @* UIX-01: buradaki eski yorum "tek tık = sağdaki detay paneli" diyordu ama o panel
+                           kaldırılmıştı (tablo tam genişlik) — kod ile çelişen yorum silindi. *@
                         @foreach (var row in _rows)
                         {
                             @* Çift tık = ayrı Düzelt/Kaydet/Sil penceresi (yan detay paneli kaldırıldı — tablo tam genişlik). *@

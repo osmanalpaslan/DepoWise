@@ -53,7 +53,7 @@ tarih semantiği (iş günü `doc_date` vb. ↔ kayıt anı `created_at`, ADR-16
 | **FAZ 5 — Verimlilik/Mobil** | 13 | M — Excel Merkezi | Import/Export genişletmesi | ✅ **TAMAMLANDI** (2026-08-28, ADR-176 · MIGRATION YOK · ✅ **YAYINLANDI 2026-08-29**) — [M_EXCEL_01.md](M_EXCEL_01.md) |
 | | 14 | O — Barkod / QR | Ortak özellik + alanlar | ✅ **TAMAMLANDI** (2026-08-29, ADR-177 · MIGRATION YOK · ✅ **YAYINLANDI 2026-08-29**) — [O_BARKOD_QR_01.md](O_BARKOD_QR_01.md) |
 | | 15 | ~~N — Mobil (ayrı uygulama)~~ | — | ❌ **TAMAMEN KALDIRILDI** (kullanıcı kararı **2026-09-04**). Ayrı bir mobil uygulama **yapılmayacak** — bakım/yayın/mağaza yükü isteniyor değil. Yerine **`MOB-W`** geldi: kullanıcı telefonun tarayıcısından web'e girip işi oradan yönetecek. Bu satır yeniden açılmaz; mobil ihtiyacı `MOB-W` ile karşılanır. |
-| | **15b** | **`MOB-W` — Mobil tarayıcı uyumluluğu (responsive web)** | Mevcut web'in dar ekran davranışı | 🔵 **AKTİF** (2026-09-04) — yeni ekran/özellik YOK, **mevcut ekranların telefonda kullanılabilir hâle getirilmesi**. Masaüstü uygulaması bu işten etkilenmez. Ayrıntı: [MOB_W_01_MOBIL_WEB.md](MOB_W_01_MOBIL_WEB.md) |
+| | **15b** | **`MOB-W` — Mobil tarayıcı uyumluluğu (responsive web)** | Mevcut web'in dar ekran davranışı | ✅ **TAMAMLANDI + YAYINLANDI** (2026-09-04, ADR-204 · Web v212 · migration YOK) — yeni ekran/özellik YOK, **mevcut ekranların telefonda kullanılabilir hâle getirilmesi**; 62 sayfaya dokunulmadı, masaüstü etkilenmedi. Ayrıntı: [MOB_W_01_MOBIL_WEB.md](MOB_W_01_MOBIL_WEB.md) |
 | **FİNAL** | — | Kullanıcı Simülasyonu ve Stabilizasyon | Ayrı faz | ✅ **TAMAMLANDI** (2026-08-29, ADR-178 · production'a BAĞLANILMADI) — [FINAL_STABILIZASYON_01.md](FINAL_STABILIZASYON_01.md) · **KARAR PAKETİ de UYGULANDI** (ADR-179): FIN-B1 → **⚠️ ADR-180 (2026-08-29, PK-R4=B) ile MASTER'DAN GERİ ÇEKİLDİ — Migration082 AYRI ONAY BEKLİYOR (tasarım `35d7bce`; canlı şema 81; katalog azamisi yine 81; tamamlanmış SAYILMAZ)** · 🟢 **2026-08-29: FAZ 1 ANALİZ + FAZ 2 KARARLAR TAMAM (ADR-185)** — [FIN_B1_00_ANALIZ.md](FIN_B1_00_ANALIZ.md); **PK-FIN-01=A · 02=B · 03=C · 04=A · 05=A**; ⭐ yeni bulgu üzerine **`sync_inbox` FIN-B1 kapsamına ALINDI** (7. hedef; `company_id` sütunu zaten var → yeni sütun/backfill YOK); normal UNIQUE index (CONCURRENTLY yok); FIN5 yeni sözleşmeye çevrilecek; **tek yayın**: Migration082 + kod + masaüstü **1.0.164**. ✅ **TAMAMLANDI ve YAYINLANDI (2026-08-29)** — kod `d9fc350`; Migration082 (**7 hedef**: 6 operasyon tablosu + `sync_inbox`), 9 idempotency sorgusu + `SyncServer.InboxHas` firma kapsamına alındı, FIN5 yeni sözleşmeye çevrildi + 10 yeni kilit. **CANLI ŞEMA 81 → 82** (`operation_id_company_scope`, 2026-08-29 19:42 UTC); 7 indeks `UNIQUE (company_id, operation_id)`, adlar korundu; **hiçbir kayıt değişmedi** (683/220/3 birebir aynı); masaüstü **1.0.164** (checksum `DA127644…947A789B`), API + Web yeniden dağıtıldı. Yayın öncesi pg_dump yedeği alındı ve doğrulandı. Doğrulama: tam süit **3.036/0**, izole PG **53/53**, 3 Release 0 hata · YET-01 kaldırıldı · ARC-01(a)/RPR-02 zaten çözülmüş çıktı · STK-B2 hayır · SNK-05(a) sözleşme kilitlendi · MAK-01/b korundu — [FINAL_KARAR_PAKETI.md](FINAL_KARAR_PAKETI.md) |
 
 | **ARA İŞ** | — | Rapor Günlük Kırılım + Rapor Türü Yetkileri | Kullanıcı talebi (2026-08-29) | ✅ **TAMAMLANDI ve YAYINLANDI 2026-08-29** (ADR-181 · PK-R1..R4=A·A·A·B · MIGRATION YOK) — [RAPOR_ARA_IS_01.md](RAPOR_ARA_IS_01.md). Ön koşul ADR-180: FIN-B1/Migration082 master'dan geri çekildi (katalog max 81 = canlı şema). Yayın sonrası SONRAKİ ANA İŞ: **AŞAMA 3 — FINAL karar paketi** (FIN-B1/082 AYRI onay; diğer 6 madde ADR-179'da kapandı ve korunuyor). |
@@ -168,9 +168,9 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 
 | Faz | Ad | Neden bu sırada | Durum |
 |---|---|---|---|
-| **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | 🔵 **AKTİF** — `STK-00…07` ✅ |
-| **FAZ A** | Kullanıcı bug'ları + yetki tamamlama (`YTK-05`, `UIX-01`, `YTK-06`, `YTK-08`) | Küçük, bağımsız, düşük riskli. **Silinmedi** — stok altyapısı mimari öncelik olduğu için sonraya alındı; FAZ C içinde uygun boşlukta veya FAZ C sonrası yapılır | BEKLEMEDE |
-| **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; yeni stok ekranları doğduğunda hazır olması iyi olur | BEKLEMEDE |
+| **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`, `STK-12`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | ✅ **TAMAM** (2026-09-04) — kalan `STK-B2`/`RPR-02` karar bekliyor |
+| **FAZ A** | Kullanıcı bug'ları + yetki tamamlama (`YTK-05`, `UIX-01`, `YTK-06`, `YTK-08`) | Küçük, bağımsız, düşük riskli. **Silinmedi** — stok altyapısı mimari öncelik olduğu için sonraya alındı; FAZ C sonrasında yapıldı | ✅ TAMAM (2026-09-04, ADR-209) |
+| **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; yeni stok ekranları doğduğunda hazır olması iyi olur | ✅ **TAMAM** — G5/MNU-B2 turlarında yapılmış, yol haritası güncellenmemişti (2026-09-04'te ölçülüp doğrulandı) |
 | **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
 | **FAZ E** | Senkron ölçeklenme (`SNK-06…10`) | FAZ C şemayı büyütür; senkron optimizasyonu ondan sonra anlamlı | FAZ C'ye bağlı |
 | **FAZ F** | Güncelleme + sürüm uyumu (`GNC-01…03`) | Çok makineli kullanım öncesi | BEKLEMEDE |
@@ -209,18 +209,20 @@ FAZ B (GRN-01) ── yetki sistemine dokunur ───────────�
 
 ## FAZ A — Kullanıcı bug'ları + yetki tamamlama *(A sınıfı, maliyetsiz)*
 
-| ID | İş | Ortam | Bağımlılık |
+✅ **FAZ A TAMAM** (2026-09-04, ADR-209) — ayrıntı: [FAZ_A_KULLANICI_BUGLARI_YETKI.md](FAZ_A_KULLANICI_BUGLARI_YETKI.md)
+
+| ID | İş | Ortam | Durum |
 |---|---|---|---|
-| `YTK-05` | Yetkiler ekranına **"Tümünü Temizle / Sıfırla"** + seçili kullanıcının yetkisini toptan güncelleme | Web + Masaüstü | — |
-| `UIX-01` | **Tablo satır seçimi** — yazıya tıklayınca seçilmeme sorunu; ortak bileşen düzeyinde çöz | Web + Masaüstü | — |
-| `YTK-06` | Yeni ekranın **yetki kataloğuna otomatik dâhil olması** — kaçırmayı imkânsız kılan mekanizma (rota/menü ↔ `AppModules.All` eşleşmesini doğrulayan test) | Ortak | — |
-| `YTK-08` | Delegasyon tavanı **regresyon testi** (kendinde olmayan yetkiyi verememe — zaten çalışıyor, kilitlenecek) | API testi | — |
+| `YTK-05` | Yetkiler ekranına **"Tümünü Temizle / Sıfırla"** + seçili kullanıcının yetkisini toptan güncelleme | Web + Masaüstü | ✅ **TAMAM** — toptan yazma ZATEN vardı (tek çağrıda full-replace); eksik olan **tüm ağacı** kapsayan "Tümünü Temizle" eklendi (sunucuya yazmaz, Sıfırla'dan ayrı) |
+| `UIX-01` | **Tablo satır seçimi** — yazıya tıklayınca seçilmeme sorunu; ortak bileşen düzeyinde çöz | Web + Masaüstü | ✅ **TAMAM** — kök neden G3'te çözülmüştü ama ortak stili kullanmayan **3 ekran** dışarıda kalmıştı (Onaylar · Ekipler · Ekipman Bakım) → düzeltildi + **kapsam kilidi testi**. Web ölçüldü: kusur YOK |
+| `YTK-06` | Yeni ekranın **yetki kataloğuna otomatik dâhil olması** — kaçırmayı imkânsız kılan mekanizma | Ortak | ✅ **TAMAM** — mekanizma vardı ama kilit **tek yönlüydü**: masaüstü kapalı, web AÇIK. `S9b_Webde_Yetim_Ekran_Yok` eklendi |
+| `YTK-08` | Delegasyon tavanı **regresyon testi** (kendinde olmayan yetkiyi verememe) | API testi | ✅ **TAMAM** — ölçüldü: 7 regresyon testi (`G1b_*`) zaten mevcut ve servis katmanında zorunlu. **Kod değişikliği gerekmedi**, yalnız kayıt güncellendi |
 
 ## FAZ B — Ekran görünürlük yönetimi
 
 | ID | İş |
 |---|---|
-| `GRN-01` | Ekranın **web/masaüstü görünürlüğünü** yönetim ekranından açıp kapatma. Yetki sisteminden **ayrı** eksen: yetki "kim görebilir", görünürlük "nerede görünür". `AppModules` yanına `screen_platforms` tablosu; menü kurucu ikisini birden uygular |
+| `GRN-01` | Ekranın **web/masaüstü görünürlüğünü** yönetim ekranından açıp kapatma. Yetki sisteminden **ayrı** eksen: yetki "kim görebilir", görünürlük "nerede görünür" | ✅ **TAMAM** — G5/MNU-B2 turlarında yapılmış; 2026-09-04'te ölçülerek doğrulandı: `Migration065_ScreenPlatformVisibility` (`screen_platform_visibility` tablosu) · `ScreenVisibility` çözümleyicisi (**yalnız daraltır, genişletmez**) · yönetim ekranı `ScreenVisibility.razor` · menü kurucu iki platformda da uygular (`MenuLayoutService.cs:175`, `ShellViewModel.cs:869/897`) · masaüstünde gezinme kapısı da var (`ShellViewModel.cs:990`) · kilitlenmeye karşı `AppScreens.Protected` (bu ekran + `users` + `permissions` her platformda birden kapatılamaz) · `ScreenPlatformVisibilityTests` |
 
 ## FAZ C — Depo bazlı stok 🔵 **AKTİF** *(KARAR-7 = A)*
 
@@ -243,7 +245,7 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `SNK-12` | Masaüstünde depo listesi senkron turunda tazeleniyor | ✅ **TAMAM** (8 senaryo) |
 | `STK-B1` | `movement_type` gösterim kataloğu — 8 tür tek kaynağa bağlandı, ham İngilizce kaçağı ve Web↔masaüstü ıraksaması kapatıldı | ✅ **TAMAM** (24 senaryo · STK-10 adım 0) |
 | `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | ✅ **TAMAM** (2026-09-04, ADR-205) — servis olgun çıktı; **maliyet merkezi transferde sessizce yutuluyordu** (iki platformda, düzeltildi) · hedef listesinden kaynak dışlandı · onayda hedefin adı · `TransferPariteTests` — [TRF_01_TRANSFER_PARITE.md](TRF_01_TRANSFER_PARITE.md) |
-| `STK-12` | **Masaüstünde "Tüm Şubeler" modunda stok işlemi** — web'de STK-04 ile açık (depo açıkça seçilirse), masaüstünde `BranchGuard` tümünü engelliyor. TRF-01 analizinde bulundu ama **transfer'e özel değil, Stok ekranının TAMAMINI** ilgilendiriyor (her işlem türü oturum şubesine yazıyor) → kendi analiz + test turunu hak ediyor, TRF-01'e sıkıştırılmadı | 🟡 **SIRADA** (FAZ C sonrası ilk iş) |
+| `STK-12` | **Masaüstünde "Tüm Şubeler" modunda stok işlemi** — web'de STK-04 ile açık (depo açıkça seçilirse), masaüstünde `BranchGuard` tümünü engelliyor. TRF-01 analizinde bulundu ama **transfer'e özel değil, Stok ekranının TAMAMINI** ilgilendiriyor (her işlem türü oturum şubesine yazıyor) → kendi analiz + test turunu hak ediyor, TRF-01'e sıkıştırılmadı | ✅ **TAMAM** (2026-09-04, ADR-208 — koruma kaldırılmadı, **yeri değişti**: depo açıkça seçilir; şubesiz kayıt hâlâ imkânsız) |
 | `STK-10a` | **"Stok Hareketleri" raporu** — katalog + Kaynak/Hedef + `Date`+`Location` + **gerçek XLSX doğrulaması** | ✅ **TAMAM** (41 senaryo · izole PG sorgu planı · Web/masaüstünde kod değişmedi) |
 | `STK-10b-1` | **Hareket Türü filtresi** — 6/6 katman · seçenekler MovementTypeOptions'tan · fail-closed | ✅ **TAMAM** (28 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-2` | **Serbest metin arama** — 6/6 katman · semantik mevcut ekrandan birebir | ✅ **TAMAM** (41 senaryo · RPR-01 yeşil · izole PG) |

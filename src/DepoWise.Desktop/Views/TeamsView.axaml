@@ -37,7 +37,10 @@
             <Border Grid.Column="0" Classes="Panel">
                 <DockPanel>
                     <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Ekip Listesi"/>
-                    <ListBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam}">
+                    <!-- ⭐ UIX-01: ekip adına tıklayınca satır seçilmiyordu (metin olayı yutuyor) →
+                         sağdaki üyeler paneli açılmıyordu. Davranış bağlandı, görünüm değişmedi. -->
+                    <ListBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam}"
+                             ctrl:TableRowSelect.Enabled="True">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="team:Team">
                                 <StackPanel Spacing="2">

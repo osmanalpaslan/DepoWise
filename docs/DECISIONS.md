@@ -4461,3 +4461,111 @@ veri girdiği** ekranlarda tek seferde geniş bir değişiklik olurdu. Desen art
 risk sırasıyla yol haritasına yazıldı.
 
 Ayrıntı: [ARA_IS_6_00_YAKIT_LISTE.md](project-control/ARA_IS_6_00_YAKIT_LISTE.md)
+
+---
+
+## ADR-208 — STK-12: masaüstünde "Tüm Şubeler" ile stok işlemi (2026-09-04)
+
+**Bağlam.** Aynı iş iki platformda farklı davranıyordu. Web (STK-04) "Tüm Şubeler" ile giren
+kullanıcının stok işlemi yapmasına — **deponun açıkça seçilmesi şartıyla** — izin veriyordu.
+Masaüstünde `BranchGuard.RequireBranchAsync` Kaydet'in **tamamını** kapatıyordu: çok depolu firmada
+yönetici masaüstünde hiç stok işlemi yapamıyor, uygulamadan çıkıp tek bir şube seçerek yeniden
+girmek zorunda kalıyordu. Kullanıcı ağırlıklı olarak masaüstünü kullandığı için bu, günlük işi
+doğrudan aksatan bir farktı.
+
+**Karar.** Koruma **kaldırılmadı, yeri değiştirildi**:
+
+> ~~"Şube seçmeden hiçbir şey yapamazsın"~~ → **"İşlemin yazılacağı depoyu açıkça seç"**
+
+Sonuç aynı: belirsiz (şubesiz) stok hareketi **oluşamaz**. Fark: kullanıcı çıkıp yeniden giriş
+yapmak zorunda kalmaz. Kapsam Giriş-Çıkış ve Stok Sayım ekranlarıdır.
+
+**Neden servis katmanına dokunulmadı.** Ölçüldü: `StockService` lokasyonu her metotta zaten
+**parametre** olarak alıyor ve `EnforceOwnBranch` `BranchScope.Active(s)` null olduğunda
+engellemiyor. Sunucu bu senaryoyu zaten destekliyordu; kapı yalnızca masaüstü arayüzündeydi.
+
+**Neden diğer ekranlar kapsam dışı.** Yakıt · Bakım · Muayene · Malzemeler · Araçlar "Tüm Şubeler"
+modunda hâlâ işlem yapmaz — **ama bu bir parite farkı değil**: web de bu ekranlarda aynı bandı
+gösterip işlemi kapatıyor. STK-12 yalnız gerçek farkı kapatır.
+
+### En kritik ayrıntı — "Atanmamış" tuzağı
+Sayım ekranı şubesizken lokasyon olarak `StockBalanceWriter.Unassigned` ("Atanmamış") yazıyordu.
+Kapıyı kaldırıp bu davranışı bıraksaydık **belirsiz stok hareketleri sessizce üretilirdi** —
+düzeltmeye çalıştığımız sorunun daha kötü bir hâli. Bu yüzden lokasyon tipi `string?` yapıldı:
+derleyici artık boş metin yolunu kapalı tutuyor, kayıt kapısı `null` kontrolüne dayanıyor.
+
+### Uygulama sırasında bulunup düzeltilenler
+- **Depo değişince sayım sepeti temizlenir.** Sepetteki "sistem stoğu" değerleri eklendiği deponun
+  bakiyesiydi; depo değişince o sayılar yanlış olur ve kullanıcı farkı yanlış hesaplardı — STK-05'te
+  düzeltilen kusurun yeni bir biçimde geri dönmesi. Liste temizlenir, kullanıcı bilgilendirilir.
+- **Depo seçilmeden bakiye okunmaz.** Firma geneli toplamı göstermek kullanıcıyı yanıltır
+  (10'luk depoyu sayarken ekranda 15 görür). Web bunu zaten yapmıyordu.
+- **Transfer onayı ve hedef listesi de etkin lokasyondan beslenir.** Aksi hâlde "Tüm Şubeler"
+  modunda onay metni `— → Hedef` yazardı; transfer **geri alınamaz** olduğu için bu ciddi bir eksikti.
+
+### Doğrulama
+Masaüstü derleme 0 hata. `TumSubelerStokPariteTests` (TSB1–TSB6) kapıyı, yönlendirmeyi ve
+"eski tümden-engel geri gelmesin" gerilemesini kilitler. `TransferPariteTests` TRP2/TRP3 etkin
+lokasyona göre güncellendi. Migration **gerekmedi**.
+
+Ayrıntı: [STK_12_MASAUSTU_TUM_SUBELER.md](project-control/STK_12_MASAUSTU_TUM_SUBELER.md)
+
+---
+
+## ADR-209 — FAZ A: yetki tamamlama + tablo satır seçimi (2026-09-04)
+
+**Bağlam.** FAZ A'nın dört kalemi (`YTK-05` · `UIX-01` · `YTK-06` · `YTK-08`) yol haritasına
+2026-08 öncesinde yazılmıştı. Aradan geçen G1/G2/G3 turları bazılarını farkında olmadan büyük
+ölçüde tamamlamıştı.
+
+**Karar (yöntem).** İlk iş kod yazmak değil, **bugünkü gerçeği yeniden ölçmek** oldu. Eskimiş bir
+"yapılacak" varsayımıyla çalışmak iki hatadan birini üretirdi: aynı işi ikinci kez yapmak, ya da
+gerçek boşluğu kaçırmak. Ölçüm dördünde de **kalanı daralttı ve yerini değiştirdi**.
+
+### `YTK-05` — kalan yalnız bir düğmeydi
+Toptan yazma altyapısı **zaten vardı**: `PermissionService.SaveForUser` bir kullanıcının tüm
+yetkisini tek transaction'da siler ve yeniden yazar (tavan kırpması + sürüm kilidiyle birlikte).
+Grup başına "Tümünü Seç / Temizle" de vardı. Eksik olan **tüm ağacı** kapsayan "Tümünü Temizle"ydi —
+sıfırdan yetki kuran kullanıcı 8 grubu tek tek temizlemek zorundaydı. İki platforma eklendi.
+
+**"Yetkileri Sıfırla" ile bilinçli olarak AYRI tutuldu:** Temizle yalnız ekrandaki kutuları boşaltır
+ve **sunucuya hiçbir şey yazmaz** (Vazgeç geri alır); Sıfırla doğrudan sunucuda siler ve geri
+alınamaz. İkisini tek düğmede birleştirmek, geri alınabilir bir işlemle yıkıcı bir işlemi aynı yere
+koymak olurdu.
+
+### `UIX-01` — kök neden çözülmüştü, KAPSAM eksikti
+G3 (2026-08-12) doğru çözümü bulmuştu: satır metni `SelectableTextBlock` tıklamayı tüketiyor, bu
+yüzden olay **tünelleme** aşamasında yakalanıyor (`TableRowSelect`). Davranış ortak `ListBox.Table`
+stiline bağlanmıştı — **ama ortak stili kullanmayan 3 çıplak liste düzeltmenin dışında kalmıştı** ve
+hata orada hâlâ canlıydı: Bekleyen Onaylar · Ekip Listesi · Ekipman Bakım Kayıtları. Üçünde de seçim
+işlevseldir (`SelectedItem`'a bağlı) → satır seçilemeyince **Onayla/Düzenle/Sil hiçbir şey yapmıyordu**.
+
+Davranış üç listeye doğrudan bağlandı. `Classes="Table"` eklenmedi: o, görünümü de değiştirirdi;
+burada amaç yalnızca **davranışı** düzeltmekti.
+
+**Asıl değerli kısım kapsam kilidi:** `TabloSatirSecimiKapsamTests` bütün masaüstü ekranlarını tarar
+— satır şablonunda `SelectableTextBlock` olan ve `SelectedItem`'a bağlı her liste ya ortak stili
+kullanmalı ya da davranışı açıkça bağlamalıdır. Bu sınıf hata bir daha **sessizce** geri gelemez.
+
+**Web ölçüldü, kusur ÇIKMADI.** "Aynı hata web'de de vardır" varsayılmadı: `MudTable`'da hücre düz
+metindir, tıklama satıra ulaşır; `dw-grid` tablolarında etkileşim çift tıkla açılan pencere ve
+çalışıyor; ortak `DwDataGrid` yalnız Raporlar'da (salt-okunur çıktı) kullanılıyor → oraya satır
+seçimi eklemek gereksiz kapsam büyütmesi olurdu, yapılmadı. Tek bulgu: iki sayfada **kodla çelişen
+eski bir yorum** ("tek tık = sağdaki detay paneli" — o panel kaldırılmıştı) silindi.
+
+### `YTK-06` — kilit tek yönlüydü
+Mekanizma güçlüydü (yeni ekran = `AppScreens`'e tek satır, menüler oradan üretiliyor, 20'den fazla
+parite testi). Ama **`S9` yalnız masaüstü yönünü** kilitliyordu. Kataloğa yazılmamış yeni bir
+`.razor` sayfası hiçbir testi kırmadan geçerdi: menüde çıkmaz, **yetki ağacından yönetilemez**,
+platform yönetiminin dışında kalır — hepsi sessizce. `S9b_Webde_Yetim_Ekran_Yok` eklendi; istisnalar
+(giriş, ana ekran, herkese açık tema, "yakında" yer tutucusu) listelenmiştir ve liste büyürse test
+kırılır.
+
+### `YTK-08` — iş zaten bitmişti
+Kural UI'da değil **servis katmanında** zorunlu (API atlanıp doğrudan servis çağrılsa bile aynı
+kapıdan geçiyor) ve 7 regresyon testiyle (`PermissionGrantCeilingTests.G1b_*`) kilitli.
+**Kod değişikliği gerekmedi**, yalnız yol haritası kaydı güncellendi.
+
+**Migration GEREKMEDİ** — dördü de arayüz/test katmanı.
+
+Ayrıntı: [FAZ_A_KULLANICI_BUGLARI_YETKI.md](project-control/FAZ_A_KULLANICI_BUGLARI_YETKI.md)

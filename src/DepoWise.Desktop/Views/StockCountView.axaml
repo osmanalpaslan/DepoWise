@@ -19,6 +19,16 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
                 <SelectableTextBlock Text="SAYIM GİRİŞİ" Classes="SectionTitle"/>
+                <!-- ⭐ STK-12: "Tüm Şubeler" modunda ENGELLEME DEĞİL, YÖNLENDİRME. Eskiden bu modda
+                     Kaydet tümden kapalıydı; artık depo açıkça seçilirse sayım yapılabilir.
+                     Web'deki aynı bant: Stock.razor:22-28. -->
+                <Border IsVisible="{Binding IsAllBranches}"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12,10">
+                    <SelectableTextBlock Text="{Binding TumSubelerUyarisi}" TextWrapping="Wrap"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Border>
                 <ctrl:FormField Label="Malzeme" IsRequired="True">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
@@ -43,8 +53,18 @@
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <!-- STK-05: SAYILAN DEPO her zaman görünür. Sayım fiziksel bir depoya aittir;
                          sistem stoğu da firma toplamı değil BU DEPONUN miktarıdır. -->
-                    <ctrl:FormField Label="Sayılan Depo" Width="200">
+                    <!-- Şubeye bağlı kullanıcı: depo oturumdan gelir, DEĞİŞTİRİLEMEZ (salt-okunur). -->
+                    <ctrl:FormField Label="Sayılan Depo" Width="200" IsVisible="{Binding !IsAllBranches}">
                         <TextBox Classes="Field" Text="{Binding CountLocationName}" IsReadOnly="True"/>
+                    </ctrl:FormField>
+                    <!-- ⭐ STK-12: "Tüm Şubeler" modunda sayımın YAZILACAĞI depo. Web'deki
+                         `_workLocation` alanının birebir karşılığı; seçilmeden kayıt YAPILMAZ. -->
+                    <ctrl:FormField Label="Sayılan Depo" IsRequired="True" Width="220"
+                                    IsVisible="{Binding IsAllBranches}"
+                                    HelpText="Sistem stoğu ve sayım bu depoya aittir. Seçilmeden kayıt yapılamaz.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}"
+                                        SelectedItem="{Binding CalismaDeposu}"
+                                        PlaceholderText="Depo seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Sistem Stoğu (bu depo)" Width="160">
                         <NumericUpDown Classes="Field" Value="{Binding SystemBalance}" IsEnabled="False" FormatString="0.##" ShowButtonSpinner="False"/>

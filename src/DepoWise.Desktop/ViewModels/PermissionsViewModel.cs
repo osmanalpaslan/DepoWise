@@ -50,6 +50,25 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         if (grup is null) return;
         foreach (var m in grup.Items) m.Set(false, false, false, false);
     }
+
+    /// <summary>
+    /// ⭐ YTK-05 — TÜM AĞACI TEMİZLE. Grup başına "Temizle" vardı; sıfırdan yetki kurarken
+    /// kullanıcı 8 grubu tek tek temizlemek zorunda kalıyordu.
+    ///
+    /// ⚠️ "Yetkileri Sıfırla"dan FARKI: bu işlem <b>sunucuya hiçbir şey yazmaz</b> — yalnız ekrandaki
+    /// kutuları boşaltır. Kaydet'e basılmazsa hiçbir şey değişmez, Vazgeç eski hâli geri getirir.
+    /// Sıfırla ise doğrudan sunucuda siler. İkisi bilinçli olarak ayrı butondur.
+    /// </summary>
+    [RelayCommand]
+    private async Task ClearAllPerms()
+    {
+        if (!IsEditing) return;   // salt-okunur ekranda tetiklenmez (buton da görünmez)
+        if (!await ConfirmService.AskAsync(
+                "Ekrandaki TÜM yetki işaretleri kaldırılsın mı?\n\n"
+                + "Bu işlem sunucuya hiçbir şey yazmaz — Kaydet'e basmazsanız değişiklik olmaz.",
+                "Tümünü Temizle")) return;
+        ResetTree();
+    }
     public ObservableCollection<ButtonPermNode> Buttons { get; } = new();
 
     [ObservableProperty]

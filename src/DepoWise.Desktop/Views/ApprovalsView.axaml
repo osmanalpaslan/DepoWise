@@ -35,7 +35,12 @@
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0">
             <DockPanel>
                 <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Bekleyen Onaylar"/>
-                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                <!-- ⭐ UIX-01: bu liste tablo GİBİ davranır ama ortak `Classes="Table"` stilini
+                     kullanmadığı için satır seçme davranışını almıyordu → hücredeki YAZIYA tıklayınca
+                     satır seçilmiyor, "Onayla/Reddet" hiçbir şey yapmıyordu. Davranış doğrudan bağlandı
+                     (görünüm DEĞİŞMEZ; G3 ile aynı mekanizma). -->
+                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                         ctrl:TableRowSelect.Enabled="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:OnayIsiSatiri">
                             <Grid ColumnDefinitions="160,*,120,110">

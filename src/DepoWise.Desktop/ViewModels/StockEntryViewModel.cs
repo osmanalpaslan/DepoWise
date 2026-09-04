@@ -62,8 +62,12 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 
     private void HedefSubeleriTazele()
     {
+        // STK-12: kaynak artık her zaman oturum şubesi DEĞİL — "Tüm Şubeler" modunda kullanıcının
+        // seçtiği çalışma deposudur. Dışlanacak olan da odur (aksi hâlde kullanıcı kendi seçtiği
+        // depoyu hedef olarak seçebilir ve hatayı ancak Kaydet'te görürdü).
         HedefSubeler.Clear();
-        foreach (var b in Branches.Where(b => b.Id != _session.OperatingBranchId)) HedefSubeler.Add(b);
+        var kaynak = EtkinLokasyon;
+        foreach (var b in Branches.Where(b => b.Id != kaynak)) HedefSubeler.Add(b);
     }
     public ObservableCollection<LookupItem> Personnel { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
@@ -151,11 +155,58 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public bool ShowPersonnel => IsNew || IsInBranchExit;
     public string QuantityLabel => IsExit ? "Çıkacak Miktar" : IsNew ? "Eklenecek Stok" : "Miktar";
 
-    // İşlem şubesi = LOGIN (çalışma) şube (kullanıcı isteği 2026-08-06). Giriş/çıkışta İŞLEM şubesi, transferde
-    // KAYNAK şube budur; salt-okunur gösterilir, kullanıcı seçmez. Yalnız transfer HEDEFİ seçilir. Ekranda işlem
-    // yapmak zaten "Tüm Şubeler" modunda engelli (BranchGuard) → burada login şube daima vardır.
+    // İşlem şubesi = LOGIN (çalışma) şube (kullanıcı isteği 2026-08-06). Giriş/çıkışta İŞLEM şubesi,
+    // transferde KAYNAK şube budur; şubeye bağlı kullanıcıda salt-okunur gösterilir, kullanıcı seçmez.
     public BranchRow? LoginBranch => Branches.FirstOrDefault(b => b.Id == _session.OperatingBranchId);
     public string LoginBranchName => LoginBranch?.Name ?? "—";
+
+    // ── ⭐ STK-12 (2026-09-04) — "TÜM ŞUBELER" MODUNDA İŞLEM ──────────────────────────────────────
+    //
+    // ÇÖZÜLEN FARK: Web'de STK-04 ile bu mod AÇIK (depo açıkça seçilirse işlem yapılabilir), masaüstünde
+    // ise `BranchGuard.RequireBranchAsync` Kaydet'in TAMAMINI kapatıyordu. Çok depolu firmada yönetici
+    // masaüstünde hiç stok işlemi yapamıyor, çıkıp tek şube seçerek yeniden girmek zorunda kalıyordu.
+    //
+    // ⚠ KORUMA KALDIRILMADI, YERİ DEĞİŞTİ. BranchGuard bir yetki sınırı değil VERİ DOĞRULUĞU
+    // korumasıdır: çalışma şubesi yokken kayıt açılırsa hareket ŞUBESİZ düşer ve hangi şantiyeye ait
+    // olduğu kaybolur. Bu kaygı geçerlidir ve korunur — yalnız "hiç işlem yapamazsın" yerine
+    // "işlemin yazılacağı depoyu AÇIKÇA seç" denir. Belirsiz stok hareketi yine oluşamaz.
+    //
+    // Masaüstünde bu desenin emsali zaten vardı: Atanmamış Stok Dağıtımı ekranı guard KULLANMAZ,
+    // hedefi kullanıcıya açıkça seçtirir.
+
+    /// <summary>Oturum "Tüm Şubeler" modunda mı? (çalışma şubesi seçilmemiş)</summary>
+    public bool IsAllBranches => BranchGuard.IsAllBranches(_session);
+
+    /// <summary>"Tüm Şubeler" modunda kullanıcının seçtiği ÇALIŞMA DEPOSU. Şubeye bağlı kullanıcıda
+    /// kullanılmaz (orada lokasyon oturumdan gelir ve değiştirilemez).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EtkinLokasyonAdi))]
+    private BranchRow? _calismaDeposu;
+
+    partial void OnCalismaDeposuChanged(BranchRow? value)
+    {
+        HedefSubeleriTazele();               // kaynak değişti → hedef listesi yeniden süzülmeli
+        OnPropertyChanged(nameof(EtkinLokasyon));
+        PickMaterial(SelectedMaterial);      // gösterilen bakiye SEÇİLEN DEPONUN bakiyesi olmalı
+    }
+
+    /// <summary>
+    /// İşlemin yazılacağı LOKASYON — web'deki <c>EffectiveLocation</c>'ın birebir karşılığı.
+    /// Şubeye bağlı kullanıcıda oturum şubesi (değiştirilemez); "Tüm Şubeler" ile girende kullanıcının
+    /// seçtiği depo. <b>Boşsa kayıt yapılmaz</b> (bkz. Save) — "Atanmamış" kovasına ASLA düşürülmez.
+    /// </summary>
+    public string? EtkinLokasyon => IsAllBranches ? CalismaDeposu?.Id : _session.OperatingBranchId;
+
+    /// <summary>Ekranda gösterilecek etkin depo adı (onay metni ve salt-okunur alan için).</summary>
+    public string EtkinLokasyonAdi
+        => IsAllBranches
+            ? (CalismaDeposu?.Name ?? "— (depo seçilmedi)")
+            : LoginBranchName;
+
+    /// <summary>"Tüm Şubeler" modunda kullanıcıya gösterilen yönlendirme (engelleme DEĞİL).</summary>
+    public string TumSubelerUyarisi =>
+        "\"Tüm Şubeler\" modundasınız. Stok bir depoya ait olmalıdır — işlem yapmadan önce " +
+        "aşağıdan Depo / Şantiye seçin.";
 
     // ── Mevcut malzeme seçici (Transfer / Depo Çıkışı) ──
     [ObservableProperty] private string _materialSearch = "";
@@ -328,8 +379,12 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         // (o depoda 10 varken). Firma geneli toplam artık malzeme kartındaki kırılımda görünüyor.
         try
         {
-            var loc = _session.OperatingBranchId ?? StockBalanceWriter.Unassigned;
-            BalanceText = $"{LoginBranchName} stoğu: {DesktopServices.Stock.GetBalanceAt(_session, m.Id, loc):0.##}";
+            // STK-12: bakiye ETKİN lokasyonun bakiyesidir. "Tüm Şubeler" modunda depo henüz
+            // seçilmediyse bakiye gösterilmez — web de aynını yapar ("Bakiye için önce depo seçin").
+            var loc = EtkinLokasyon;
+            BalanceText = loc is null
+                ? "Bakiye için önce depo seçin."
+                : $"{EtkinLokasyonAdi} stoğu: {DesktopServices.Stock.GetBalanceAt(_session, m.Id, loc):0.##}";
         }
         catch { BalanceText = ""; }
 
@@ -404,7 +459,15 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
-        if (!await BranchGuard.RequireBranchAsync(_session, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
+        // ⭐ STK-12: "Tüm Şubeler" modunda artık İŞLEM YAPILABİLİR — ama depo AÇIKÇA seçilirse.
+        // Eskiden burada `BranchGuard.RequireBranchAsync` vardı ve kaydın tamamını kapatıyordu.
+        // Koruma kaldırılmadı, YERİ DEĞİŞTİ: belirsiz (şubesiz) stok hareketi yine oluşamaz —
+        // yalnız kullanıcı çıkıp yeniden giriş yapmak zorunda kalmıyor. Web'in STK-04 kuralının aynısı.
+        if (EtkinLokasyon is null)
+        {
+            FormError = "Önce işlemin yapılacağı depoyu/şantiyeyi seçin. Stok bir depoya ait olmalıdır.";
+            return;
+        }
         // madde 8: personel "işlemi yapan/teslim alan" — Yeni Kayıt + Şube İçi'nde zorunlu. Şube Dışı (transfer)
         // alanı gizli olduğundan zorunlu değildir (kullanıcı isteği 2026-08-07).
         if (ShowPersonnel && PersonnelSel is null) { FormError = "Personel (işlemi yapan) zorunludur."; return; }
@@ -455,7 +518,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 if (Quantity > 0)
                     DesktopServices.Stock.ReceiveIn(_session,
                         new[] { new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
-                        branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        branchId: EtkinLokasyon, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         docDate: IsGunuTarihi.Ms(DocDate),   // STK-11: işlem tarihi (created_at DEĞİL)
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // giriş şubesi = login şube
 
@@ -490,19 +553,20 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 {
                     if (!await ConfirmService.AskAsync($"Şube içi çıkış kaydedilsin mi?{lineText} (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
                     var issueRes = DesktopServices.Stock.IssueOut(_session, exitLines, op,
-                        branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        branchId: EtkinLokasyon, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         docDate: IsGunuTarihi.Ms(DocDate),   // STK-11
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
                     BaglaMaliyetMerkezi("stock_document", issueRes.DocumentId, FormCostCenter);   // MLY-01
                     Status = exitLines.Count == 1 ? "Şube içi çıkış kaydedildi." : $"Şube içi çıkış kaydedildi ({exitLines.Count} malzeme).";
                 }
-                else // Şube Dışı Çıkış = Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer
+                else // Şube Dışı Çıkış = Transfer — kaynak = ETKİN LOKASYON (şubeli kullanıcıda login şube,
+                     // "Tüm Şubeler" modunda kullanıcının seçtiği depo); kullanıcı yalnız HEDEFİ seçer
                 {
-                    var from = _session.OperatingBranchId;
+                    var from = EtkinLokasyon;
                     if (string.IsNullOrEmpty(from)) { FormError = "Şubeniz belirlenemedi."; return; }
                     if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
-                    if (ToBranch.Id == from) { FormError = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; return; }
-                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
+                    if (ToBranch.Id == from) { FormError = "Hedef şube, kaynak depodan farklı olmalı."; return; }
+                    if (!await ConfirmService.AskAsync($"{EtkinLokasyonAdi} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
                     DesktopServices.Stock.Transfer(_session, exitLines, from, ToBranch.Id, op, note,
                         docDate: IsGunuTarihi.Ms(DocDate),   // STK-11
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,

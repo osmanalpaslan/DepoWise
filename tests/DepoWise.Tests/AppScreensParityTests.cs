@@ -204,6 +204,55 @@ public class AppScreensParityTests
             "Navigate() içinde olup KATALOGDA OLMAYAN masaüstü ekranları: " + string.Join(", ", yetim));
     }
 
+    /// <summary>9b — ⭐ YTK-06: WEB'DE DE YETİM EKRAN YOK. S9 aynı kilidi masaüstü için kuruyordu;
+    /// web yönü <b>açıktı</b>. Yeni bir <c>.razor</c> sayfası eklenip kataloğa yazılmazsa ekran
+    /// menüde çıkmaz, <b>yetki ağacından yönetilemez</b> ve platform yönetiminin dışında kalır —
+    /// üstelik hiçbir test kırılmadığı için bu sessizce olur. Bu test o sessizliği bitirir.
+    ///
+    /// ⚠️ İstisna listesi bilinçlidir: bunlar menü öğesi DEĞİL — giriş/hata sayfaları ve başka
+    /// ekranların içinden açılan hedeflerdir. Liste büyürse bilinçli karar gerekir (test kırılır).</summary>
+    [Fact]
+    public void S9b_Webde_Yetim_Ekran_Yok()
+    {
+        const string Isaret = "0001P0001";
+        // ⚠️ Route parametrelidir (`materials/{Section}`), katalog ise SOMUTTUR (`materials/new`).
+        // Bu yüzden düz metin karşılaştırması YANLIŞ sonuç verir; route'u kalıba çevirip kataloğun
+        // o kalıba uyan bir kaydı var mı diye bakılır (S7'nin ters yönü).
+        static Regex Kalip(string route)
+            => new("^" + Regex.Escape(Regex.Replace(route.Trim('/'), @"\{[^}]*\}", Isaret)).Replace(Isaret, "[^/]+") + "$",
+                   RegexOptions.IgnoreCase);
+
+        var katalog = AppScreens.For(ScreenPlatform.Web).Select(s => s.WebRoute!.Trim('/')).ToList();
+
+        // ⚠️ Her istisnanın gerekçesi katalogda ya da burada YAZILIDIR. Liste büyürse test kırılır
+        //    ve yeni satır bilinçli bir karar gerektirir — sessizce büyüyemez.
+        var menuDisiRotalar = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "",                     // ana ekran (dashboard) — menü öğesi değil, açılış hedefi
+            "login",                // giriş sayfası — yetki ÖNCESİ çalışır
+            "Error",                // ASP.NET Core hata sayfası — çerçevenin kendi sayfası, ekran değil
+            // TAKMA ADLAR: grup adresine gidilince birincil alt ekran açılır. Katalog alt ekranları
+            // tutar (fuel/dist, maintenance/defs); grubun kendisi ayrı bir ekran DEĞİLDİR.
+            // Masaüstündeki S9 istisnalarının birebir karşılığı.
+            "fuel",
+            "maintenance",
+            // MENÜDE OLMAYAN, ama web'de erişilebilen ekranlar — ikisi de katalogda BİLİNÇLİ olarak
+            // masaüstü (D) işaretli ve gerekçesi katalog satırının üstünde yazılı:
+            "material-templates",   // "web'de ekran var ama menüde listelenmiyor"
+            "stock/distribute",     // STK-08 — "web'de Stok İşlemleri ekranından açılır"
+        };
+
+        var yetim = WebRoutes()
+            .Where(r => !menuDisiRotalar.Contains(r.Trim('/')))
+            .Where(r => { var k = Kalip(r); return !katalog.Any(c => k.IsMatch(c)); })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        Assert.True(yetim.Count == 0,
+            "@page route'u olup KATALOGDA (AppScreens) OLMAYAN web ekranları — yetki ağacından "
+            + "yönetilemezler: /" + string.Join(", /", yetim));
+    }
+
     // ═════════════════════════════════════════════════════════════════════════════════════════
     // 10–12 · MENÜLERİN GERÇEKTEN KATALOGDAN ÜRETİLDİĞİ
     // ═════════════════════════════════════════════════════════════════════════════════════════

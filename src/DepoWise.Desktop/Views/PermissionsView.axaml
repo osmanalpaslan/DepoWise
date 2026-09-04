@@ -57,6 +57,12 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding CanSavePerms}"/>
+                <!-- ⭐ YTK-05: tüm ağacı tek hamlede temizler. Yalnız DÜZENLEME modunda görünür ve
+                     sunucuya HİÇBİR ŞEY YAZMAZ — bu yüzden Danger değil Secondary. Yıkıcı olan,
+                     yandaki "Yetkileri Sıfırla"dır. -->
+                <Button Classes="Secondary" Content="Tümünü Temizle" Command="{Binding ClearAllPermsCommand}"
+                        IsVisible="{Binding IsEditing}"
+                        ToolTip.Tip="Ekrandaki tüm işaretleri kaldırır. Kaydet'e basmazsanız sunucuda hiçbir şey değişmez."/>
                 <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelEditCommand}"
                         IsVisible="{Binding IsEditing}"/>
                 <!-- G1a (2026-08-12): yetki özeti + sıfırlama. Sıfırlama YIKICI → Danger + ayrıca onay penceresi. -->

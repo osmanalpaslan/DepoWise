@@ -11,10 +11,15 @@ namespace DepoWise.Tests;
 /// <summary>
 /// "Tüm Şubeler" modu + süper adminin aktif firma değiştirmesi (2026-07-16 kullanıcı kuralı).
 ///
-/// Kural: "Tüm Şubeler" modunda (OperatingBranchId = null) şube bazlı ekranlarda İŞLEM YAPILAMAZ —
-/// aksi halde stok hareketi şubesiz (branch_id NULL) düşer ve hangi şantiyeye ait olduğu kaybolur.
+/// Kural: "Tüm Şubeler" modunda (OperatingBranchId = null) şube bazlı ekranlarda ŞUBESİZ KAYIT
+/// OLUŞAMAZ — aksi halde stok hareketi branch_id NULL düşer ve hangi şantiyeye ait olduğu kaybolur.
 /// Koruma sınır katmanındadır (web sayfaları + masaüstü VM'leri); bu testler korumanın dayandığı
 /// oturum/veri gerçeklerini sabitler.
+///
+/// ⭐ STK-12 (2026-09-04): STOK ekranlarında (Giriş-Çıkış · Sayım) koruma <b>kaldırılmadı, yeri
+/// değişti</b> — "hiçbir şey yapamazsın" yerine "yazılacak depoyu açıkça seç". Belirsiz kayıt hâlâ
+/// imkânsızdır; kullanıcı yalnız çıkıp yeniden giriş yapmak zorunda kalmaz. Diğer ekranlar
+/// (Yakıt · Bakım · Muayene · Malzemeler · Araçlar) iki platformda da eskisi gibi işlem yapmaz.
 /// </summary>
 public class AllBranchesGuardTests : IDisposable
 {

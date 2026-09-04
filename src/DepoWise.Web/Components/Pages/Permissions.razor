@@ -83,6 +83,12 @@
                     </MudSelect>
                 }
                 <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+                @* ⭐ YTK-05: tüm ağacı tek hamlede temizler. Grup başına "Temizle" vardı; sıfırdan
+                   yetki kurarken 8 grubu tek tek temizlemek gerekiyordu. Sunucuya HİÇBİR ŞEY YAZMAZ
+                   (yıkıcı olan "Yetkileri Sıfırla"dır) → bu yüzden Error değil nötr renk. *@
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ClearAll"
+                           OnClick="ClearAllPerms" Disabled="_busy"
+                           Title="Ekrandaki tüm işaretleri kaldırır. Kaydet'e basmazsanız sunucuda hiçbir şey değişmez.">Tümünü Temizle</MudButton>
                 <MudButton Variant="Variant.Text" OnClick="CancelEdit" Disabled="_busy">Vazgeç</MudButton>
             }
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FactCheck"
@@ -461,6 +467,22 @@
         }
         catch (Exception ex) { _ok = false; _msg = "Özet alınamadı: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    /// <summary>
+    /// ⭐ YTK-05 — TÜM AĞACI TEMİZLE (masaüstündeki <c>ClearAllPerms</c> ile aynı davranış).
+    ///
+    /// ⚠️ <see cref="ResetPerms"/>'ten FARKI: bu işlem sunucuya <b>hiçbir şey yazmaz</b> — yalnız
+    /// ekrandaki kutuları boşaltır. Kaydet'e basılmazsa değişiklik olmaz, Vazgeç eski hâli getirir.
+    /// </summary>
+    private async Task ClearAllPerms()
+    {
+        if (_matrix is null || !_edit) return;
+        if (!await Dialog.Confirm(
+            "Ekrandaki TÜM yetki işaretleri kaldırılsın mı?\n\n" +
+            "Bu işlem sunucuya hiçbir şey yazmaz — Kaydet'e basmazsanız hiçbir değişiklik olmaz.",
+            "Evet, Temizle")) return;
+        _matrix.Clear();
     }
 
     /// <summary>Yıkıcı işlem → açık onay + ne olacağının düz anlatımı (teknik terim yok).</summary>

@@ -470,7 +470,10 @@
                     <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0">
                         <DockPanel>
                             <SelectableTextBlock DockPanel.Dock="Top" Classes="SectionTitle" Text="Ekipman Bakım Kayıtları"/>
-                            <ListBox ItemsSource="{Binding EqmRows}" SelectedItem="{Binding EqmSelectedRow}">
+                            <!-- ⭐ UIX-01: ekipman bakım satırındaki yazıya tıklayınca satır seçilmiyordu →
+                                 düzenleme/silme seçili satıra bağlı olduğu için işlem yapılamıyordu. -->
+                            <ListBox ItemsSource="{Binding EqmRows}" SelectedItem="{Binding EqmSelectedRow}"
+                                     ctrl:TableRowSelect.Enabled="True">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="inf:EquipmentMaintenanceRow">
                                         <Grid ColumnDefinitions="180,*,150,120">

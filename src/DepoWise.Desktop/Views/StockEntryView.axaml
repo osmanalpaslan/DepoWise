@@ -34,6 +34,17 @@
                       MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
         <Border Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
+                <!-- ⭐ STK-12: "Tüm Şubeler" modunda ENGELLEME DEĞİL, YÖNLENDİRME. Eskiden bu modda
+                     Kaydet tümden kapalıydı; artık depo açıkça seçilirse işlem yapılabilir.
+                     Web'deki aynı bant: Stock.razor:22-28. -->
+                <Border IsVisible="{Binding IsAllBranches}"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12,10">
+                    <SelectableTextBlock Text="{Binding TumSubelerUyarisi}" TextWrapping="Wrap"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Border>
+
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"/>
@@ -61,12 +72,28 @@
                     <ctrl:FormField Label="Birim Fiyat" Width="140" IsVisible="{Binding ShowPrice}">
                         <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
-                    <!-- İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06) -->
-                    <ctrl:FormField Label="Şube (Şubeniz)" Width="200" IsVisible="{Binding ShowSingleBranch}">
-                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
+                    <!-- İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06).
+                         ⭐ STK-12: bu YALNIZ şubeye bağlı kullanıcıda geçerlidir. "Tüm Şubeler" ile
+                         girende lokasyon oturumdan gelmez → aşağıdaki SEÇİCİ görünür. -->
+                    <ctrl:FormField Label="Şube (Şubeniz)" Width="200"
+                                    IsVisible="{Binding ShowSingleBranch}" IsEnabled="{Binding !IsAllBranches}">
+                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"
+                                             IsVisible="{Binding !IsAllBranches}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180" IsVisible="{Binding ShowSourceBranch}">
-                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
+                    <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180"
+                                    IsVisible="{Binding ShowSourceBranch}" IsEnabled="{Binding !IsAllBranches}">
+                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"
+                                             IsVisible="{Binding !IsAllBranches}"/>
+                    </ctrl:FormField>
+
+                    <!-- ⭐ STK-12: "Tüm Şubeler" modunda işlemin YAZILACAĞI depo. Web'deki
+                         `_workLocation` alanının birebir karşılığı; seçilmeden kayıt YAPILMAZ. -->
+                    <ctrl:FormField Label="Depo / Şantiye" IsRequired="True" Width="220"
+                                    IsVisible="{Binding IsAllBranches}"
+                                    HelpText="İşlem bu depoya yazılır. Seçilmeden kayıt yapılamaz.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}"
+                                        SelectedItem="{Binding CalismaDeposu}"
+                                        PlaceholderText="Depo seç / ara..."/>
                     </ctrl:FormField>
                     <!-- Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): AsyncPopulator — tıklanınca
                          (arama yapmadan) en fazla 25 kayıt, arama başlayınca sınırsız + Türkçe-doğru (SearchPopulator). -->

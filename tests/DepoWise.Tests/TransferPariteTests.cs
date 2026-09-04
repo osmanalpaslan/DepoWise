@@ -65,7 +65,10 @@ public class TransferPariteTests
 
         // Masaüstü artık ayrı bir HEDEF listesi kullanır (tüm şubeler DEĞİL)
         Assert.Contains("ItemsSource=\"{Binding HedefSubeler}\"", MasaView());
-        Assert.Contains("b.Id != _session.OperatingBranchId", MasaVm());
+        // STK-12: dışlanan depo artık oturumdan değil ETKİN LOKASYON'dan gelir — "Tüm Şubeler"
+        // modunda kaynak kullanıcının seçtiği depodur, oturumda hiç şube yoktur.
+        Assert.Contains("var kaynak = EtkinLokasyon;", MasaVm());
+        Assert.Contains("b.Id != kaynak", MasaVm());
         Assert.DoesNotContain("ItemsSource=\"{Binding Branches}\" SelectedItem=\"{Binding ToBranch}\"", MasaView());
     }
 
@@ -76,7 +79,9 @@ public class TransferPariteTests
         // depoya gittiğinin yazmaması bu yüzden ciddi bir eksikti. Masaüstü doğru yapıyordu →
         // parite masaüstü lehine kapatıldı.
         Assert.Contains("{KaynakDepoAdi} → {HedefDepoAdi}", Web());
-        Assert.Contains("{LoginBranchName} → {ToBranch.Name}", MasaVm());
+        // STK-12: kaynak adı da ETKİN LOKASYON'dan gelir. "Tüm Şubeler" modunda LoginBranchName
+        // "—" olurdu → onay metni hangi depodan çıkıldığını söylemezdi (transfer geri alınamaz).
+        Assert.Contains("{EtkinLokasyonAdi} → {ToBranch.Name}", MasaVm());
     }
 
     [Fact]
