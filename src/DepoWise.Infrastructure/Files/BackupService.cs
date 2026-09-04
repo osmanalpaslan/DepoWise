@@ -62,18 +62,49 @@ public sealed class BackupService
 
         if (File.Exists(path)) File.Delete(path);
 
-        using (var conn = _factory.Create())
-        using (var cmd = conn.CreateCommand())
+        try
         {
+            using var conn = _factory.Create();
+            using var cmd = conn.CreateCommand();
             cmd.CommandText = "VACUUM INTO @p;";
             cmd.AddWithValue("@p", path);
             cmd.ExecuteNonQuery();
         }
+        catch (Exception ex)
+        {
+            // Yarım/boş dosya BIRAKILMAZ: aksi halde "yedeğim var" sanılır (aşağıdaki nota bakın).
+            TryDelete(path);
+            throw new InvalidOperationException(
+                "Yedek alınamadı. Veritabanı hasarlı olabilir; Ayarlar → Veritabanı Sağlığı'ndan kontrol edin. " +
+                "Ayrıntı: " + ex.Message, ex);
+        }
+
+        // ⭐ 🔴 YEDEK DOĞRULAMA (kullanıcı bildirimi 2026-09-04) ────────────────────────────────
+        //
+        // BULUNAN GERÇEK OLAY: 04.09.2026 07:41'de üretilen yedek dosyası 0 BAYTTI, ama işlem
+        // "başarılı" raporlanmıştı. Nedeni zincirdi:
+        //   (1) Kaynak veritabanı bozulmuştu → VACUUM INTO çıktı üretemedi,
+        //   (2) Backup() sonucu HİÇ doğrulamıyordu,
+        //   (3) IntegrityCheck() metodu vardı ama HİÇBİR YERDEN ÇAĞRILMIYORDU (ölü kod),
+        //   (4) integrity_check BOŞ bir veritabanı için de "ok" döner → tek başına yetersiz.
+        // Sonuç: kullanıcı elinde geçerli bir yedek olduğunu sanıyordu. Yedeğin sessizce boş olması,
+        // yedek olmamasından DAHA TEHLİKELİDİR.
+        //
+        // Artık yedek, döndürülmeden önce GERÇEKTEN doğrulanır; geçemezse dosya silinir ve hata atılır.
+        if (!YedekGecerliMi(path, out var hata))
+        {
+            TryDelete(path);
+            throw new InvalidOperationException("Yedek doğrulanamadı, bu yüzden GEÇERSİZ sayıldı ve silindi: " + hata);
+        }
+
         PurgeOld();
         return path;
     }
 
-    /// <summary>Yedek dosyasının bütünlüğünü doğrular (integrity_check = ok).</summary>
+    /// <summary>
+    /// Yedek dosyasının bütünlüğünü doğrular (integrity_check = ok).
+    /// <b>Not:</b> tek başına YETMEZ — boş bir veritabanı da "ok" döner. Bkz. <see cref="YedekGecerliMi"/>.
+    /// </summary>
     public bool IntegrityCheck(string backupPath)
     {
         if (!File.Exists(backupPath)) return false;
@@ -83,6 +114,42 @@ public sealed class BackupService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "PRAGMA integrity_check;";
         return string.Equals(cmd.ExecuteScalar() as string, "ok", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Yedeğin KULLANILABİLİR olduğunu doğrular. Üç kapı, sırayla en ucuzdan:
+    /// (1) dosya var ve boş değil · (2) <c>integrity_check = ok</c> · (3) şema GERÇEKTEN dolu
+    /// (<c>schema_migrations</c> tablosu var ve en az bir satırı var).
+    /// Üçüncü kapı kritiktir: 0 baytlık/boş bir veritabanı ilk ikisini geçebilir.
+    /// </summary>
+    public bool YedekGecerliMi(string backupPath, out string hata)
+    {
+        hata = "";
+        if (!File.Exists(backupPath)) { hata = "yedek dosyası oluşmadı."; return false; }
+        if (new FileInfo(backupPath).Length == 0) { hata = "yedek dosyası boş (0 bayt)."; return false; }
+        if (!IntegrityCheck(backupPath)) { hata = "yedek dosyası bütünlük kontrolünü geçemedi."; return false; }
+
+        try
+        {
+            var cs = new SqliteConnectionStringBuilder { DataSource = backupPath, Mode = SqliteOpenMode.ReadOnly }.ToString();
+            using var conn = new SqliteConnection(cs);
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations';";
+            if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) { hata = "yedekte veri yok (şema tabloları bulunamadı)."; return false; }
+
+            using var cmd2 = conn.CreateCommand();
+            cmd2.CommandText = "SELECT COUNT(*) FROM schema_migrations;";
+            if (Convert.ToInt64(cmd2.ExecuteScalar()) == 0) { hata = "yedekte şema sürümü yok (boş veritabanı)."; return false; }
+        }
+        catch (Exception ex) { hata = "yedek okunamadı: " + ex.Message; return false; }
+
+        return true;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* silinemezse de hata atılıyor */ }
     }
 
     /// <summary>Yedeği canlı DB üzerine geri yükler (-wal/-shm temizlenir). Admin + reauth zorunlu.</summary>

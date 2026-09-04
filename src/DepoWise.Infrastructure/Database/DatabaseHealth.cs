@@ -41,8 +41,31 @@ public sealed class DatabaseHealth : IDatabaseHealth
             long readBack = ScalarLong(conn, "SELECT MAX(ts) FROM _health_check;");
             bool writeRead = readBack == ts;
 
+            // ⭐ 🔴 BOZULMA TESPİTİ (kullanıcı bildirimi 2026-09-04) ────────────────────────────
+            //
+            // YAŞANAN: kullanıcı ekranlarda ham hata gördü — "SQLite Error 11: 'database disk image
+            // is malformed'". Veritabanı gerçekten bozulmuştu, ama sağlık kontrolü bunu FARK ETMİYORDU:
+            // yalnız journal_mode/foreign_keys/yaz-oku bakıyordu ve bunlar bozuk bir dosyada da geçebilir.
+            // Yani kullanıcı "sağlık: iyi" görüp ekranlarda anlamsız hatalar alabiliyordu.
+            //
+            // Artık gerçek bütünlük kontrolü yapılır ve sonuç ANLAŞILIR bir mesajla döner. Kontrol
+            // yalnız SQLite'ta anlamlıdır (PostgreSQL bütünlüğü motor düzeyinde korur).
+            //
+            // quick_check tercih edildi: integrity_check tam tarama yapar ve büyük veritabanında
+            // ekranı bekletir; quick_check aynı sınıf bozulmayı (sayfa/btree) yakalar, çok daha hızlıdır.
+            string? bozulma = null;
+            if (sqlite)
+            {
+                var sonuc = ScalarText(conn, "PRAGMA quick_check(1);");
+                if (!string.Equals(sonuc, "ok", StringComparison.OrdinalIgnoreCase))
+                    bozulma = "Veritabanı dosyası hasarlı görünüyor. Verileriniz sunucuda güvendedir; " +
+                              "Ayarlar → Yedekler'den son geçerli yedeği geri yükleyin ya da yöneticinize başvurun. " +
+                              "Teknik ayrıntı: " + sonuc;
+            }
+
             return Task.FromResult(new HealthResult(
-                Ok: writeRead && fk,
+                Ok: writeRead && fk && bozulma is null,
+                Error: bozulma,
                 Host: host,
                 DatabasePath: _factory.DatabasePath,
                 JournalMode: journal,
