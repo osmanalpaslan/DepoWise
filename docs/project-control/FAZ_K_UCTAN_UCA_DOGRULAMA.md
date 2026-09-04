@@ -377,3 +377,169 @@ izin verilirse dokunulur. **Testler local/test/staging ortamında yapılır.**
 
 > Bu faz bitince tek yayın yapılır (yayın `K`'nın parçası değildir, `K`'dan **sonra** gelir),
 > ardından bilgisayar uykuya alınır.
+
+---
+
+# ✅ FAZ K SONUÇ RAPORU (2026-09-05)
+
+> Protokol §32'ye göre. **Buradaki her sayı gerçek bir koşudan ya da ölçümden gelir.**
+> Ölçülmeyen hiçbir şey "test edildi" diye yazılmadı; yapılamayanlar aşağıda açıkça listelendi.
+
+## 1–2. Kapsanan ekran ve özellikler
+
+Denetim, **bu turda dokunulan yüzeylerle** sınırlı tutuldu (protokol §2 + geliştirme protokolü §1):
+stok hareketleri listesi · stok sayımı (STK-12 "Tüm Şubeler") · araç bakımı · ekipman bakımı ·
+yakıt dağıtımı ve depo girişi · personel · muayene/sigorta · senkron çekme (pull) · yeni ızgara ve
+dışa aktarım uçları · güvenlik başlıkları.
+
+Dokunulmayan ekranlar **bilinçli olarak** denetlenmedi — projenin daha önce geçtiği denetimler
+geçerliliğini koruyor ve kapsamı büyütmek gerçek bulguyu seyreltir.
+
+## 3–6. Alan · buton · CRUD · API
+
+| Ne | Sayı | Nasıl doğrulandı |
+|---|---|---|
+| Sınır denetimi eklenen alan | 7 (yakıt dağıtımı + depo girişi, araç + ekipman bakımı fatura no, stok belgesinin 3 alanı) | `BelgeNoSinirTests` BN1–BN6 |
+| Gerçek HTTP ile denetlenen yeni uç | 5 | `FazKUctanUcaApiTests` UUA1–UUA7 |
+| Bozuk parametre senaryosu | 6 | UUA4 — hiçbiri 500 üretmiyor |
+| Kimlik doğrulamasız erişim denemesi | 4 uç | UUA3 — hepsi 401/403 |
+| Bu turda eklenen test | **37** | dökümü aşağıda |
+
+## 7. Veritabanı doğrulaması
+
+Reddedilen isteklerin **yarım kayıt bırakmadığı** doğrudan veritabanı sayımıyla kanıtlandı
+(BN4/BN5/BN6 ve UUA5: `COUNT(*) = 0`). İdempotency kapısı da ölçüldü: aynı `operation_id` ile iki
+kez çağrılan bakım kaydı **ikinci satırı yaratmıyor** (UUA6).
+
+## 8–9. Tenant ve yetki
+
+Yeni ızgara ve dışa aktarım uçları, B firmasının **gizli metni yanıt gövdesinde geçmeyecek** biçimde
+sınandı — durum kodu tek başına kanıt sayılmadı (UUA1/UUA2). Arama kutusuna B'nin gizli notu
+doğrudan yazılarak **zorlama** da denendi: sonuç boş.
+
+## 10. 10.000+ kayıt ölçümü (§7)
+
+| Satır | İlk sayfa | Son sayfa | Arama | 200'lük sayfa |
+|---|---|---|---|---|
+| 10 | 9 ms | 0 ms | 14 ms | 0 ms |
+| 100 | 1 ms | 1 ms | 3 ms | 75 ms |
+| 1.000 | 13 ms | 3 ms | 38 ms | 4 ms |
+| 5.000 | 10 ms | 19 ms | 239 ms | 33 ms |
+| 10.000 | 23 ms | 30 ms | 498 ms | 36 ms |
+| 25.000 | **58 ms** | 78 ms | **942 ms** | 40 ms |
+
+*(SQLite, sayfa boyutu 50, geliştirme bilgisayarı, tek koşu. Üreten: `BuyukVeriOlcumTests` BV1 →
+`artifacts/faz_k_olcum.md`.)*
+
+**Yorum:** 2.500 kat veri, ilk sayfayı yalnız ~6 kat yavaşlatıyor — sayfalama ve Migration091
+indeksleri çalışıyor. **Arama ise doğrusal büyüyor** (25.000 satırda ~0,9 sn): "içerir" araması
+(`%metin%`) hiçbir indeksi kullanamaz. Bugünkü hacimde sorun değil; büyürse çözüm indeks değil,
+tam metin arama (FTS) ya da "ile başlar" aramasıdır. **Ölçüldü, kayda geçti, değiştirilmedi** —
+ölçülmemiş optimizasyon eklenmez.
+
+## 11–13. Masaüstü · web · senkron
+
+- **Masaüstü** bu turda derlendi ve ilgili testleri geçti; STK-12 ve belge alanı değişiklikleri
+  servis katmanında olduğu için çevrimdışı yol da kapsanıyor.
+- **Web** çalışır hâlde ayağa kaldırıldı (izole QA çifti: API :5225 + web :5284, veritabanı
+  `artifacts/qa-data` — git'te yok, canlı veriden ayrı). Giriş ekranı masaüstü ve mobil (375×812)
+  genişlikte doğrulandı: **yatay taşma yok** (`scrollWidth == innerWidth == 375`), metin kesilmesi
+  yok, konsol hatası yok.
+- **Senkron:** SNK-09 (aynı milisaniyedeki satırların çekmede atlanması) düzeltmesi
+  `SenkronDeltaTests` ile kilitli.
+
+## 14. Ağ/hata testleri (§13) — gerçek koşu
+
+**API kapatılıp** web'in davranışı ölçüldü: web ayakta kaldı, **2 ms**'de 200 döndü, kilitlenme yok.
+Bu turda kapatılan asıl kusur da buradaydı — bkz. §18 madde 3.
+
+Çalışır sunucuda doğrulanan güvenlik başlıkları (kaynak kodda değil, **gerçek yanıtta**):
+
+| Başlık | Web (5284) | API (5225) |
+|---|---|---|
+| `X-Content-Type-Options` | nosniff | nosniff |
+| `X-Frame-Options` | DENY | DENY |
+| `Referrer-Policy` | same-origin | no-referrer |
+| `X-Permitted-Cross-Domain-Policies` | none | — |
+
+⭐ **401 yanıtı da başlıkları taşıyor** (ölçüldü) — yani başlıklar kimlik doğrulamadan gerçekten
+önce ekleniyor. gzip sıkıştırma aktif (`Content-Encoding: gzip`).
+
+## 15. Eşzamanlılık / çift gönderim (§12)
+
+Aynı bakım iki AYRI HTTP isteğiyle gönderildiğinde **iki kayıt** oluşuyor; web ucu her istekte yeni
+bir `operation_id` üretiyor. Bu bilinçli bir sınırdır ve üç katmanla dengeleniyor: kaydet düğmesi
+kayıt sürerken pasif · öncesinde onay penceresi · masaüstü kendi `operation_id`'sini üretiyor
+(çevrimdışı kuyruk tekrarı ikinci kaydı YARATMAZ — ölçüldü). Davranış artık **teste yazılı**
+(UUA6): değişirse görülür.
+
+## 16–17. UI/UX ve erişilebilirlik denetimi
+
+Giriş ekranında ölçülenler: `lang="tr"` var · isimsiz düğme yok · yatay taşma yok · mobilde dokunma
+hedefleri yeterli.
+
+**Kapsam dışı iki küçük bulgu (düzeltilmedi, protokol §9):**
+1. "Beni hatırla" onay kutusunun görünür metniyle **programatik bağı yok** — ekran okuyucu kutunun
+   ne olduğunu söylemez.
+2. Başlık sırası: sayfada `h2`, `h1`'den **önce** geliyor (anlamsal sıra bozuk).
+
+İkisi de bu turda değiştirilen bir ekranda değil ve veri/güvenlik riski taşımıyor; kapsamı
+büyütmemek için düzeltilmedi. Ayrı ve küçük bir iş olarak alınmalıdır.
+
+## 18. Bulunan hatalar, önem dereceleri ve yapılan düzeltmeler
+
+| # | Bulgu | Önem | Neden bu önem | Durum |
+|---|---|---|---|---|
+| 1 | Belge/fatura numarası alanlarında **uzunluk sınırı yok** | Orta | Sessiz kabul; satır şişer, her senkron turunda taşınır, Excel hücresi okunamaz | ✅ Düzeltildi (`BelgeNo`, 100 karakter, servis katmanında) |
+| 2 | Personel dışa aktarımı **200 satırda kesiliyor** | **Yüksek** | "TÜM sonucu indirir" diyen bir düğme sessizce eksik dosya veriyordu — kullanıcı fark edemez | ✅ Düzeltildi (`ListAllForExport`) |
+| 3 | Web listeleri **"yüklenemedi" ile "kayıt yok"u karıştırıyor** | **Yüksek** | Sunucuya ulaşılamayınca "Hareket yok." yazıyordu; kullanıcı kaydı silinmiş sanıp yeniden girebilir ya da muayene tarihini kaçırabilir | ✅ Düzeltildi (4 ekran: hata mesajı + "Tekrar dene") |
+| 4 | İki farklı sayfa tavanı (200 / 500) karıştırılabiliyor | Düşük | 2. maddedeki kusur tam olarak bundan doğmuştu | ✅ Teste yazıldı (davranış değiştirilmedi) |
+| 5 | Aramanın maliyeti satır sayısıyla doğrusal | Düşük (bugün) | 25.000 satırda ~0,9 sn; bugünkü hacimde sorun değil | 📋 Ölçüldü, kayda geçti |
+| 6 | Giriş ekranında iki küçük erişilebilirlik eksiği | Düşük | Kapsam dışı ekran | 📋 Kayda geçti |
+
+**Dördünün ortak yanı: hepsi SESSİZDİ.** Hiçbiri hata vermiyordu; hepsi kullanıcıya yanlış ama
+inandırıcı bir sonuç gösteriyordu. Bu tur özellikle bu sınıfı aradı — "butona bastım, hata gelmedi"
+ölçütü bu kusurların hiçbirini yakalamazdı (protokol §33).
+
+> **2. madde bu turda BENİM eklediğim kusurdu.** Denetim onu kendi işimde buldu. Kayda geçmesinin
+> sebebi budur: düzeltmenin kendisi de denetlenmelidir.
+
+## 19. Düzeltmelerin tekrar testi
+
+Her düzeltme için önce **kusuru gösteren** test yazıldı, sonra düzeltme yapıldı.
+`DisaAktarimTamSonucTests` PRT6, eski yolun 200'de kesildiğini **hâlâ ölçerek** kanıtlıyor — yani
+düzeltmenin gerçekten bir şeyi değiştirdiği görülüyor, yalnızca "yeşil" olmuyor.
+
+## 20. Bu turda eklenen testler (37)
+
+| Dosya | Adet | Neyi kilitliyor |
+|---|---|---|
+| `BelgeNoSinirTests` | 6 | Belge no sınırı — kural, servis katmanı, eski alanlar dâhil |
+| `DisaAktarimTamSonucTests` | 1 | Dışa aktarım 200'de kesilmiyor (eski kusur hâlâ ölçülüyor) |
+| `BuyukVeriOlcumTests` | 2 | 25.000 kayıt ölçümü + sayfa tavanı |
+| `FazKUctanUcaApiTests` | 7 | Gerçek HTTP: tenant, doğrulama, çift gönderim, `hasMore` |
+| `ListeHataDurumuTests` | 13 | "Yüklenemedi" ≠ "kayıt yok" (4 web ekranı + masaüstü paritesi) |
+| `IndeksVeNPlusBirTests` | 4 | İndeksler + N+1 koruması (FAZ I) |
+| `GuvenlikBasliklariTests` | 4 | Güvenlik başlıkları + CSP kararı (FAZ J) |
+
+## 21. Bilinçli olarak YAPILMAYANLAR (§27)
+
+1. **Tarayıcıda oturum açılarak yapılan tam kullanıcı yürüyüşü (§31) YAPILMADI.**
+   Sebep: giriş formuna parola yazmıyorum. Bunun yerine kimlik doğrulamalı ekranlar **gerçek HTTP
+   hattı** üzerinden (`ApiTestHost` — JWT, model bağlama ve hata çevirisi dâhil) sınandı; tarayıcı
+   yalnız oturum gerektirmeyen yüzeyde kullanıldı. **Bu bir eksiktir ve gizlenmiyor:** ekranların
+   gerçek bir insanla elle gezilmesi, kullanıcının kendisinin yapabileceği en değerli tamamlayıcı
+   adımdır.
+2. **Üretim veritabanına hiç dokunulmadı** (protokol şartı): `SELECT` dâhil hiçbir sorgu, migration,
+   deploy, seed ya da üretim sırrı kullanılmadı. Bütün koşular yerel/bellek-içi.
+3. **Yük testi canlıda çalıştırılmadı**: babanın gerçek verisi ve tek makine üzerindeki iş akışı
+   yapay yükle yavaşlatılmaz (FAZ J kararı). Araç hazır: `scripts/loadtest.mjs`.
+4. **PostgreSQL test kümesi bu turda koşulmadı**: bu turun değişiklikleri lehçeden bağımsız (servis
+   katmanı kuralı + arayüz), Migration091 ise izole bir Neon dalında ayrıca doğrulanmıştı.
+
+## 22. Önerilen sonraki işler
+
+1. Kullanıcının kendisinin yapacağı **elle uçtan uca gezinti** (yukarıdaki 1. madde).
+2. Giriş ekranındaki iki erişilebilirlik eksiği (küçük, bağımsız iş).
+3. Arama hacmi büyürse FTS / "ile başlar" araması — **ölçüm eşiği: 25.000 satırda 0,9 sn.**
+4. LST-01'in kalan ekranları (Audit, StockChangeLog, Satın Alma) — sayfalama deseni yayılmalı.

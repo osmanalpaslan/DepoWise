@@ -58,14 +58,28 @@ public class ParitePRT02Tests
         Assert.Contains("Require(s, \"export\"", muayeneBlok[..600]);
     }
 
-    /// <summary>⭐ Kuralın ÖZÜ: "o anki sayfa" değil TÜM sonuç. Sayfa sınırı uygulanırsa kullanıcı
-    /// eksik dosya indirir ve bunu fark etmez — sessiz veri eksikliği.</summary>
+    /// <summary>
+    /// ⭐ Kuralın ÖZÜ: "o anki sayfa" değil TÜM sonuç. Sayfa sınırı uygulanırsa kullanıcı eksik
+    /// dosya indirir ve bunu fark etmez — sessiz veri eksikliği.
+    ///
+    /// <b>Bu test 2026-09-05'te DÜZELTİLDİ (FAZ K).</b> Önceki hâli kaynakta <c>Limit = 100_000</c>
+    /// metnini arıyordu ve GEÇİYORDU — ama davranış YANLIŞTI: <c>PageRequest.NormalizedLimit</c> her
+    /// isteği <c>MaxLimit = 200</c>'de kırptığı için dosya sessizce 200 satırda kesiliyordu.
+    /// <b>Test bir metni doğruluyordu, bir davranışı değil</b> — bu yüzden kusuru göremedi.
+    ///
+    /// Artık uç, sayfa tavanını bilerek AŞAN <c>ListAllForExport</c> yolunu kullanıyor. Davranışın
+    /// kendisi ayrıca ölçülüyor: <see cref="DisaAktarimTamSonucTests"/> PRT6 (200'ün ötesi gerçekten
+    /// geliyor) ve <c>FazKUctanUcaApiTests</c> UUA7 (HTTP üzerinden).
+    /// </summary>
     [Fact]
     public void PRT2_Uclar_Sayfa_Degil_Tum_Sonucu_Dondurur()
     {
         var api = KodSadece(Api());
-        var blok = api[api.IndexOf("\"/api/personnel/export\"", StringComparison.Ordinal)..];
-        Assert.Contains("Limit = 100_000", blok[..800]);   // ekran sayfa boyutu DEĞİL
+        var blok = api[api.IndexOf("\"/api/personnel/export\"", StringComparison.Ordinal)..][..800];
+
+        Assert.Contains("ListAllForExport", blok);          // sayfa tavanını AŞAN yol
+        // Eski, kırpılan yol geri gelirse burada kırılsın: dışa aktarım sayfalı List() çağırmamalı.
+        Assert.DoesNotContain("Limit = 100_000", blok);
     }
 
     [Fact]

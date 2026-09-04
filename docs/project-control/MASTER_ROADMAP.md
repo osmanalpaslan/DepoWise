@@ -178,7 +178,7 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 | **FAZ H** | Ön muhasebe **modülü** (`MUH-02…05`) | Alan hazırlığı + depo stoku bitmeden başlanmaz | ✅ **TAMAM** (2026-09-04, ADR-217) — MUH-02/03/05 zaten kuruluydu (6 rapor); gerçek eksik MUH-04'tü: maliyet merkezi özeti ekranda vardı ama RAPOR değildi |
 | **FAZ I** | Test/veri bütünlüğü + performans (`TST-01`, index, N+1) | Özellikler bitince | ✅ **TAMAM** (2026-09-05, ADR-218) — atlanan testler ölü değil **PG lehçe kapsamıymış**; bu gecenin 3 migration'ı izole PG'de doğrulandı · **liste sorgularının indeksi yoktu** (Migration091) · yeni grid yollarına N+1 sayacı |
 | **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | Özellik fazlarının sonuncusu | ✅ **TAMAM** (2026-09-05, ADR-218) — sertleştirmenin çoğu zaten vardı; boşluk **tarayıcı güvenlik başlıklarıydı**. CSP ve canlı yük testi bilinçli olarak YAPILMADI (gerekçeler kayıtlı) · API sürümleme: **sürüm öneki yok** kararı teyit edildi |
-| **FAZ K** | **UÇTAN UCA DOĞRULAMA VE ONARIM** (`UUD-01`) — 33 bölümlük protokol: gerçek kullanıcı simülasyonu · her alan/buton · CRUD · API · DB · tenant izolasyonu · yetki · 10.000+ kayıt · concurrency · network failure · masaüstü+web · sync · audit · performans · erişilebilirlik · regresyon. **Bulunan hatalar kök nedeniyle DÜZELTİLİR**, yalnız raporlanmaz | **En son.** Kullanıcı yazılımcı değil; "çalışıyordur" denip geçilen katmanlar burada kanıtlanır. Protokol boyunca **production'a dokunulmaz** | ⏳ **BEKLEMEDE** — [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md) |
+| **FAZ K** | **UÇTAN UCA DOĞRULAMA VE ONARIM** (`UUD-01`) — 33 bölümlük protokol: gerçek kullanıcı simülasyonu · her alan/buton · CRUD · API · DB · tenant izolasyonu · yetki · 10.000+ kayıt · concurrency · network failure · masaüstü+web · sync · audit · performans · erişilebilirlik · regresyon. **Bulunan hatalar kök nedeniyle DÜZELTİLİR**, yalnız raporlanmaz | **En son.** Kullanıcı yazılımcı değil; "çalışıyordur" denip geçilen katmanlar burada kanıtlanır. Protokol boyunca **production'a dokunulmaz** | ✅ **TAMAM** (2026-09-05, ADR-219) — **dört sessiz kusur** bulundu ve düzeltildi (belge no sınırı yok · dışa aktarım 200'de kesiliyor · "yüklenemedi" ≠ "kayıt yok" · iki farklı sayfa tavanı) · 25.000 kayıt ölçüldü · **37 yeni test** · üretime dokunulmadı — [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md) |
 | **LST-01** | **Tavanlı listelerin sayfalanması** — `Stock` · `Maintenance` · `StockMovements` · `Personnel` · `Audit` · `StockChangeLog` (+ tavansız `Inspection`/`Purchasing`). Hepsinde ARA İŞ 6'daki kusurun aynısı var: kayıt var ama tavan yüzünden **sessizce görünmüyor**. Desen kurulu (`SearchDistributions` + `/api/fuel/grid` + iki arayüz), risk sırasıyla uygulanacak | 🟡 **SIRADA** (ARA İŞ 6'dan devir) |
 | **MOB-W** | **Mobil tarayıcı uyumluluğu** (responsive web) | Kullanıcı telefondan yönetmek istiyor; ayrı mobil uygulama **iptal edildi** (2026-09-04). Yeni özellik doğurmaz, mevcut ekranları dar ekranda kullanılabilir kılar → bağımlılığı yok, hemen yapılabilir | ✅ **TAMAM + YAYINLANDI** (2026-09-04, ADR-204 · Web v212) |
 | FAZ 9+ | Backlog: BI, e-Fatura, lastik ömrü, puantaj | Gelir sonrası | ERTELENDİ |
@@ -322,7 +322,26 @@ build ve tam test · MCP politikası · kabul kriterleri · tam kullanıcı sena
 
 **Protokol boyunca production'a dokunulmaz** (SELECT dâhil). Testler local/test ortamında yapılır.
 
-Tam metin: [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md)
+### ✅ Sonuç (2026-09-05, ADR-219)
+
+**Dört sessiz kusur bulundu ve düzeltildi** — hiçbiri hata vermiyordu, hepsi kullanıcıya yanlış ama
+inandırıcı bir sonuç gösteriyordu:
+
+1. Belge/fatura numarası alanlarında **uzunluk sınırı yoktu** → ortak `BelgeNo` (100 karakter).
+2. Personel dışa aktarımı **200 satırda kesiliyordu** (bu turda eklenen kusur) → `ListAllForExport`.
+3. Web listeleri **"yüklenemedi" ile "kayıt yok"u karıştırıyordu** → hata + "Tekrar dene" (4 ekran).
+   Masaüstünde bu kusur yoktu (ölçüldü), dokunulmadı.
+4. İki farklı sayfa tavanı (imleçli 200 / ızgara 500) → teste yazıldı.
+
+**Ölçüm:** 25.000 kayıtta ilk sayfa 58 ms, son sayfa 78 ms — sayfalama ve indeks çalışıyor.
+Arama doğrusal büyüyor (942 ms): "içerir" araması indeks kullanamaz; ölçüldü, kayda geçti,
+ölçülmemiş optimizasyon eklenmedi.
+
+**37 yeni test.** Üretim veritabanına hiç dokunulmadı.
+**Yapılmayan:** tarayıcıda oturum açılarak tam kullanıcı yürüyüşü — giriş formuna parola
+yazılmadığı için; kimlik doğrulamalı ekranlar gerçek HTTP hattı (`ApiTestHost`) ile sınandı.
+
+Tam metin ve rapor: [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md)
 
 > **Bitiş sırası:** `FAZ K` biter → **tek yayın** → bilgisayar uykuya alınır.
 
