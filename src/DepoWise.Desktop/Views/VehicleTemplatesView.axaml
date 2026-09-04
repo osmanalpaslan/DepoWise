@@ -12,7 +12,7 @@
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
-        <ctrl:Toolbar Grid.Row="0" Title="Araç Genel Tanım (Şablonlar)"
+        <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Araç Genel Tanım (Şablonlar)"
                       SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Şablon ara..."
                       PrimaryActionText="{Binding AddButtonText}" PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>

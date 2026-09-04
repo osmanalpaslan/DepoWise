@@ -96,8 +96,26 @@ public class Toolbar : TemplatedControl
         AvaloniaProperty.Register<Toolbar, string?>(nameof(SearchText), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
     public static readonly StyledProperty<string?> SearchWatermarkProperty =
         AvaloniaProperty.Register<Toolbar, string?>(nameof(SearchWatermark), "Ara...");
+    /// <summary>
+    /// Araç çubuğunda arama kutusu gösterilsin mi?
+    ///
+    /// ⭐ ARA İŞ 6 (2026-09-04) — VARSAYILAN <b>true → false</b> DEĞİŞTİRİLDİ.
+    ///
+    /// <b>Bulunan durum:</b> varsayılan <c>true</c> olduğu için şablon HER ekranda bir arama kutusu
+    /// çiziyordu. Oysa Toolbar kullanan <b>50 ekranın yalnız 4'ü</b> <c>SearchText</c>'i bir şeye
+    /// bağlamıştı. Kalan <b>46 ekranda kutu görünüyor, kullanıcı yazıyor ve HİÇBİR ŞEY OLMUYORDU.</b>
+    /// Kullanıcının "bu ekrandaki arama butonu çalışmıyor" şikayeti (Yakıt Dağıtımları) bunun tekil
+    /// bir örneğiydi — sorun ekranda değil, şablonun varsayılanındaydı.
+    ///
+    /// <b>Neden varsayılanı kapatmak doğru çözüm:</b> 46 ekrana arama YAZMAK haftalar sürerdi ve
+    /// çoğunun aramaya ihtiyacı da yok. Çalışmayan bir kutuyu göstermek, kutuyu hiç göstermemekten
+    /// daha kötüdür: kullanıcı özelliğin var olduğunu sanıp deniyor ve uygulamaya güveni sarsılıyor.
+    /// Artık arama kutusu <b>yalnız açıkça isteyen</b> ekranda çıkar (<c>ShowSearch="True"</c>).
+    ///
+    /// Aramayı gerçekten kullanan 4 ekran bunu açıkça bildirir; davranışları DEĞİŞMEZ.
+    /// </summary>
     public static readonly StyledProperty<bool> ShowSearchProperty =
-        AvaloniaProperty.Register<Toolbar, bool>(nameof(ShowSearch), true);
+        AvaloniaProperty.Register<Toolbar, bool>(nameof(ShowSearch), false);
     public static readonly StyledProperty<object?> FilterContentProperty =
         AvaloniaProperty.Register<Toolbar, object?>(nameof(FilterContent));
     public static readonly StyledProperty<string?> PrimaryActionTextProperty =

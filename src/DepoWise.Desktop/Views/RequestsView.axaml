@@ -17,7 +17,7 @@
             <!-- ═══════════ TALEP FORMU ═══════════ -->
             <TabItem Header="Talep Formu">
                 <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,12,0,0">
-                    <ctrl:Toolbar Grid.Row="0" Title="Talep Formu"
+                    <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Talep Formu"
                                   PrimaryActionText="Yeni Talep" PrimaryActionCommand="{Binding NewRequestCommand}"
                                   SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Belge no / açıklama ara...">
                         <ctrl:Toolbar.FilterContent>

@@ -58,7 +58,7 @@
 
             <!-- Toolbar -->
             <SelectableTextBlock Text="ARAÇ ÇUBUĞU" Classes="SectionTitle"/>
-            <ctrl:Toolbar Title="Malzemeler"
+            <ctrl:Toolbar ShowSearch="True" Title="Malzemeler"
                           SearchText="{Binding SearchText}"
                           SearchWatermark="Malzeme ara..."
                           PrimaryActionText="Yeni Ekle"

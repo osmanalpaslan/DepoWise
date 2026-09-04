@@ -13,7 +13,7 @@
          Yapı, Araç Genel Tanım (VehicleTemplatesView) ekranıyla aynı desendedir. -->
     <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
-        <ctrl:Toolbar Grid.Row="0" Title="Malzeme Şablonları"
+        <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Malzeme Şablonları"
                       SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Şablon ara (ad/kod)..."
                       PrimaryActionText="{Binding AddButtonText}" PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
