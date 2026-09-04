@@ -1170,9 +1170,12 @@ VALUES(@id,@c,@type,@no,@date,@from,@to,@pers,@veh,@note,'active',@grp,@inv,@ord
         cmd.AddWithValue("@veh", (object?)vehicleId ?? DBNull.Value);
         cmd.AddWithValue("@note", (object?)note ?? DBNull.Value);
         cmd.AddWithValue("@grp", (object?)groupId ?? DBNull.Value);
-        cmd.AddWithValue("@inv", (object?)invoiceNo ?? DBNull.Value);
-        cmd.AddWithValue("@ord", (object?)orderSlipNo ?? DBNull.Value);
-        cmd.AddWithValue("@crd", (object?)creditSlipNo ?? DBNull.Value);
+        // ⭐ FAZ K (2026-09-05): üç belge alanı da ORTAK kapıdan geçer — kırpma + 100 karakter sınırı.
+        // Önceden hiçbirinde sınır yoktu: yanlışlıkla yapıştırılan bir paragraf sessizce kabul edilir,
+        // satır şişer, senkron paketine her turda girer ve Excel hücresi okunamaz hâle gelirdi.
+        cmd.AddWithValue("@inv", (object?)BelgeNo.Normalize(invoiceNo, "Fatura numarası") ?? DBNull.Value);
+        cmd.AddWithValue("@ord", (object?)BelgeNo.Normalize(orderSlipNo, "Sipariş fişi numarası") ?? DBNull.Value);
+        cmd.AddWithValue("@crd", (object?)BelgeNo.Normalize(creditSlipNo, "İrsaliye / alacak fişi numarası") ?? DBNull.Value);
         cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }

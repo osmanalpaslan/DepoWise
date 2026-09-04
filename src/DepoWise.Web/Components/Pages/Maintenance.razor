@@ -386,6 +386,14 @@
                         </MudStack>
                     }
                     @if (_maint is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                    @* ⭐ FAZ K §13: yüklenemeyen listeye "kayıt girilmedi" demek YANLIŞ bilgidir. *@
+                    else if (_bkmError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">
+                            Bakım listesi yüklenemedi (@_bkmError). Bu, kayıtların olmadığı anlamına GELMEZ.
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadMaint" Class="ml-2">Tekrar dene</MudButton>
+                        </MudAlert>
+                    }
                     else if (_maint.Length == 0) { <MudText Class="mud-text-secondary">Henüz bakım kaydı girilmedi.</MudText> }
                     else
                     {
@@ -736,6 +744,8 @@
     // SESSİZCE düşüyordu ve kesildiğine dair uyarı yoktu.
     private int _bkmPage = 1, _bkmPageSize = 50, _bkmTotal, _bkmTotalPages = 1;
     private static readonly int[] BkmPageSizes = { 25, 50, 100, 200 };
+    /// <summary>FAZ K §13: liste yüklenemediğinde sebebi. null = hata yok (boş liste GERÇEKTEN boş).</summary>
+    private string? _bkmError;
     /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
     private string BkmDurum => _bkmTotal == 0 ? "Bakım kaydı yok" : $"{_bkmTotal} bakım — sayfa {_bkmPage} / {_bkmTotalPages}";
     private async Task BkmSayfa(int p) { if (p < 1 || p > _bkmTotalPages) return; _bkmPage = p; await LoadMaint(); }
@@ -744,6 +754,7 @@
     private async Task LoadMaint()
     {
         _maint = null;
+        _bkmError = null;
         try
         {
             var res = await Api.GetObjectAsync($"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}");
@@ -753,7 +764,12 @@
             _bkmTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
             _bkmPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _bkmPage;
         }
-        catch { _maint = Array.Empty<JsonElement>(); _bkmTotal = 0; _bkmTotalPages = 1; }
+        // ⭐ FAZ K §13: hata YUTULMAZ — sebep saklanır ve kullanıcıya gösterilir.
+        catch (Exception ex)
+        {
+            _maint = Array.Empty<JsonElement>(); _bkmTotal = 0; _bkmTotalPages = 1;
+            _bkmError = ex is HttpRequestException ? "sunucuya ulaşılamadı" : "beklenmeyen hata";
+        }
     }
 
     private string? _lastMDef;

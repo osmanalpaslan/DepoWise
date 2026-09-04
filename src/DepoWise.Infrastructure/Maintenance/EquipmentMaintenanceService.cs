@@ -369,7 +369,8 @@ VALUES(@id,@c,@e,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@party,@op
         cmd.AddWithValue("@nh", nextHour is null ? DBNull.Value : Money.Serialize(nextHour.Value));
         cmd.AddWithValue("@nd", (object?)nextDate ?? DBNull.Value);
         // ⭐ MUH-01b: belge no — boş metin DBNull olur ki "" ile NULL iki ayrı "boş" olmasın.
-        cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
+        // ⭐ FAZ K: ortak kapı — kırpma + uzunluk sınırı (BelgeNo).
+        cmd.AddWithValue("@inv", (object?)BelgeNo.Normalize(dto.InvoiceNo, "Fatura / servis fişi numarası") ?? DBNull.Value);
         // ⭐ MUH-01c: cari (dış servis). Sahiplik Save içinde doğrulanır — FK yok, kapı serviste.
         cmd.AddWithValue("@party", string.IsNullOrWhiteSpace(dto.PartyId) ? DBNull.Value : dto.PartyId!.Trim());
         cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);

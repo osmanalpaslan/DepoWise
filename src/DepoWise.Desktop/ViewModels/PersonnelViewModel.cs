@@ -303,9 +303,10 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         try
         {
             // Ekrandaki filtre AYNEN uygulanır; sayfa sınırı UYGULANMAZ (tüm sonuç indirilir).
-            var tumu = DesktopServices.Personnel.List(_session,
-                new PageRequest { Limit = 100_000 },
-                search: string.IsNullOrWhiteSpace(Search) ? null : Search).Items;
+            // ⭐ FAZ K düzeltmesi: `Limit = 100_000` YETMİYORDU (NormalizedLimit 200'de kırpar) →
+            // dosya sessizce 200 satırda kesilirdi. Dışa aktarım için AÇIK yol kullanılır.
+            var tumu = DesktopServices.Personnel.ListAllForExport(_session,
+                string.IsNullOrWhiteSpace(Search) ? null : Search);
             var hedef = await FilePickerService.SaveExcelAsync("Personel.xlsx");
             if (hedef is null) return;
             await System.IO.File.WriteAllBytesAsync(hedef,

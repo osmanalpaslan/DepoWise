@@ -72,6 +72,15 @@
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @* ⭐ FAZ K §13: yüklenemeyen listeye "kayıt yok" demek YANLIŞ bilgidir — muayene/sigorta
+       tarihleri kaçırılırsa yasal sonucu vardır; boş ekran sessizce yanlış güven verir. *@
+    else if (_listeHatasi is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">
+            Muayene/sigorta listesi yüklenemedi (@_listeHatasi). Bu, kayıtların olmadığı anlamına GELMEZ.
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadList" Class="ml-2">Tekrar dene</MudButton>
+        </MudAlert>
+    }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz muayene/sigorta kaydı yok.</MudText> }
     else
     {
@@ -118,7 +127,20 @@
         await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
-    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/inspection"); } catch { _rows = Array.Empty<JsonElement>(); } }
+    /// <summary>FAZ K §13: liste yüklenemediğinde sebebi. null = hata yok (boş liste GERÇEKTEN boş).</summary>
+    private string? _listeHatasi;
+
+    private async Task LoadList()
+    {
+        _rows = null; _listeHatasi = null;
+        try { _rows = await Api.GetArrayAsync("/api/inspection"); }
+        // ⭐ FAZ K §13: hata YUTULMAZ — sebep saklanır ve kullanıcıya gösterilir.
+        catch (Exception ex)
+        {
+            _rows = Array.Empty<JsonElement>();
+            _listeHatasi = ex is HttpRequestException ? "sunucuya ulaşılamadı" : "beklenmeyen hata";
+        }
+    }
 
     /// <summary>
     /// B-5: belge iptali. Kayıt SİLİNMEZ — sunucuda <c>is_deleted=1</c> olur, gerekçe denetim kaydına yazılır,

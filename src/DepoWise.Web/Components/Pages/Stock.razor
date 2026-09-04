@@ -229,6 +229,16 @@
         </MudStack>
     }
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @* ⭐ FAZ K §13: liste YÜKLENEMEDİĞİNDE "Hareket yok." yazmak YANLIŞ bir cevaptır — kullanıcı
+       kayıtların silindiğini/olmadığını sanır. Hata ile boş liste AYRI gösterilir; tekrar deneme sunulur. *@
+    else if (_hrkError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">
+            Hareket listesi yüklenemedi (@_hrkError). Bu, kayıtların olmadığı anlamına GELMEZ —
+            bağlantı ya da sunucu kaynaklı olabilir.
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadMovements" Class="ml-2">Tekrar dene</MudButton>
+        </MudAlert>
+    }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Hareket yok.</MudText> }
     else
     {
@@ -380,6 +390,7 @@
     private async Task LoadMovements()
     {
         _rows = null;
+        _hrkError = null;
         try
         {
             // ⭐ LST-01 (2026-09-04): eski /api/stock ucu sabit 200 satır döndürüyordu ve sorgu en
@@ -392,11 +403,20 @@
             _hrkTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
             _hrkPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _hrkPage;
         }
-        catch { _rows = Array.Empty<JsonElement>(); _hrkTotal = 0; _hrkTotalPages = 1; }
+        // ⭐ FAZ K §13: hata YUTULMAZ. Eskiden istek başarısız olunca ekran boş listeye düşüyor ve
+        // "Hareket yok." yazıyordu — kullanıcıya SESSİZCE yanlış bilgi. Artık sebep saklanır ve
+        // kullanıcıya "yüklenemedi + tekrar dene" olarak gösterilir.
+        catch (Exception ex)
+        {
+            _rows = Array.Empty<JsonElement>(); _hrkTotal = 0; _hrkTotalPages = 1;
+            _hrkError = ex is HttpRequestException ? "sunucuya ulaşılamadı" : "beklenmeyen hata";
+        }
     }
 
     // ── LST-01: hareket listesi sayfalama durumu ──
     private int _hrkPage = 1, _hrkPageSize = 50, _hrkTotal, _hrkTotalPages = 1;
+    /// <summary>FAZ K §13: liste yüklenemediğinde sebebi. null = hata yok (boş liste GERÇEKTEN boştur).</summary>
+    private string? _hrkError;
     private static readonly int[] HrkPageSizes = { 25, 50, 100, 200 };
     /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
     private string HrkDurum => _hrkTotal == 0 ? "Hareket yok" : $"{_hrkTotal} hareket — sayfa {_hrkPage} / {_hrkTotalPages}";

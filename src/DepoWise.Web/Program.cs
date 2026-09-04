@@ -39,6 +39,34 @@ builder.Services.AddScoped<DepoWise.Web.Services.LocationOptions>();
 
 var app = builder.Build();
 
+// ⭐ FAZ J (2026-09-05) — GÜVENLİK BAŞLIKLARI.
+//
+// Bulgu: web tarayıcıya HİÇBİR güvenlik başlığı göndermiyordu. HSTS zaten vardı (yukarıda), ama
+// tıklama-hırsızlığı (clickjacking), MIME tipi tahmini ve referrer sızıntısı açık kalıyordu.
+//
+// Eklenenler ve NEDEN bunlar:
+//  • X-Content-Type-Options: nosniff — tarayıcı içerik tipini TAHMİN ETMESİN. Yüklenen bir dosya
+//    yanlış tiple servis edilirse tarayıcı onu betik sanıp çalıştırabilir.
+//  • X-Frame-Options: DENY — uygulama başka bir sitenin çerçevesine konulamaz. Alpnex hiçbir yerde
+//    iframe içinde kullanılmıyor; kullanıcının farkında olmadan tıklaması engellenir.
+//  • Referrer-Policy: same-origin — dış bağlantılara giderken tam adres (içinde kayıt kimlikleri
+//    olabilir) karşı tarafa SIZMASIN.
+//  • X-Permitted-Cross-Domain-Policies: none — eski eklenti tabanlı çapraz alan erişimini kapatır.
+//
+// ⚠️ CSP (Content-Security-Policy) BİLİNÇLİ OLARAK EKLENMEDİ: Blazor Server + MudBlazor satır içi
+// betik/stil kullanır ve yanlış bir politika arayüzü SESSİZCE bozar (ekran açılır, düğmeler
+// çalışmaz). Kullanıcı başka bir şehirde ve tek başına; ölçmeden eklenen bir CSP, koruduğundan
+// fazlasını kırardı. Ayrı bir iş olarak, gerçek tarayıcıda doğrulanarak yapılmalıdır.
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["X-Frame-Options"] = "DENY";
+    h["Referrer-Policy"] = "same-origin";
+    h["X-Permitted-Cross-Domain-Policies"] = "none";
+    await next();
+});
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

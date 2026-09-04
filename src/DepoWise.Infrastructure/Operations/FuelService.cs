@@ -88,7 +88,8 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
             cmd.AddWithValue("@pr", Money.Serialize(dto.UnitPrice));
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
-            cmd.AddWithValue("@inv", (object?)dto.InvoiceNo ?? DBNull.Value);
+            // ⭐ FAZ K: depo girişindeki belge no da AYNI ortak kapıdan geçer (tutarlılık).
+            cmd.AddWithValue("@inv", (object?)BelgeNo.Normalize(dto.InvoiceNo, "Fatura / irsaliye numarası") ?? DBNull.Value);
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
             // ⭐ TRH-01: farklı bir iş gününe kayıt YETKİYE bağlı; yetkisizde "şimdi"ye çekilir.
             cmd.AddWithValue("@dt", DateEntryPolicy.Uygula(s, dto.EntryDate) ?? now);
@@ -164,7 +165,8 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
             cmd.AddWithValue("@dt", DateEntryPolicy.Uygula(s, dto.DistributionDate) ?? now);
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
             // ⭐ MUH-01b: belge no — boş metin DBNull'a çevrilir ki "" ile NULL iki ayrı "boş" olmasın.
-            cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
+            // ⭐ FAZ K: ortak kapı — kırpma + uzunluk sınırı (BelgeNo). Sessiz kabul yerine açık hata.
+            cmd.AddWithValue("@inv", (object?)BelgeNo.Normalize(dto.InvoiceNo, "İrsaliye / fiş numarası") ?? DBNull.Value);
             cmd.AddWithValue("@op", operationId);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();

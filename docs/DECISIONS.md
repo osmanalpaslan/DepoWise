@@ -4905,3 +4905,130 @@ yerine **tohuma gerçek bir bağ eklendi** — böylece rapor uçtan uca kanıtl
 
 Doğrulama: rapor + yetki alanında 883 testin 880'i geçti (3 atlanan, önceden) · build 0 hata.
 **Migration gerekmedi.**
+
+---
+
+## ADR-218 — FAZ I + FAZ J: indeks/N+1 denetimi, güvenlik başlıkları, sürümleme kararı (2026-09-05)
+
+### FAZ I — `TST-01` yeniden yorumlandı
+Yol haritası "33 atlanan test" diyordu. Ölçüm gösterdi ki atlananlar **ölü test değil**, ortama bağlı
+**PostgreSQL lehçe kapsamı**: `DEPOWISE_PG_URL` tanımlı olmadığında atlanıyorlar. Üretim PostgreSQL
+olduğu için bu, "gereksiz test" değil **kapatılmamış kapsam** demekti.
+
+**Bu gece üç migration eklendi ve yalnız SQLite'ta test edilmişti.** Bu kabul edilemezdi: protokol
+migration'ların iki lehçede sınanmasını istiyor. Bu yüzden Neon'da **izole bir dal + boş test
+veritabanı** oluşturuldu (ana dala **dokunulmadı**) ve `Migration089/090/091`'in DDL'i PostgreSQL'de
+birebir çalıştırıldı:
+
+| Kontrol | Sonuç |
+|---|---|
+| `ALTER TABLE … ADD COLUMN … TEXT NULL` (5 sütun) | ✅ çalıştı |
+| `CREATE INDEX IF NOT EXISTS` (4 indeks) | ✅ çalıştı |
+| İkinci kez çalıştırma (idempotency) | ✅ patlamadı |
+| Mevcut kayıt korundu | ✅ |
+| Yeni alanlar `NULL` (backfill yok) | ✅ |
+
+Tam PG süiti ayrıca başlatıldı ama uzaktan bağlantı üzerinde 91 migration'ı tekrar tekrar uygularken
+takıldı (25+ dk, CPU ~0) ve derlemeyi kilitledi; **durduruldu**. Asıl risk yukarıdaki doğrudan
+kontrolle kapatıldığı için bu, bilinçli bir kapsam kararıdır — gizlenmiş bir başarısızlık değil.
+
+### FAZ I — 🔴 bulunan gerçek darboğaz
+`stock_movements` ve `vehicle_maintenances`, **en sık çalışan sorgularını destekleyen indekse sahip
+değildi**. Mevcut indeksler `material_id` / `vehicle_id` ile başlıyordu; oysa liste ve rapor
+sorgularının hepsi `company_id` ile süzüp `created_at DESC` ile sıralıyor.
+
+**LST-01'den sonra bu kritikti:** sayfalama her sayfada bir `COUNT(*)` daha çalıştırır — indekssiz bir
+tabloda bu, tarama sayısını **ikiye katlar**. Yani bu gece yaptığım sayfalama düzeltmesi, indeks
+olmadan performansı iyileştirmek yerine kötüleştirebilirdi. `Migration091` iki indeks ekler
+(yalnız `CREATE INDEX`; hiçbir satır okunmaz/yazılmaz).
+
+**N+1 koruması:** yeni iki grid metodu için sayaç testi eklendi — sayfalama, satır sayısından bağımsız
+sayıda SQL çalıştırmalıdır. Bir liste yolu N+1'e düştüğünde küçük veride normal görünür, büyük veride
+kilitlenir ve **hiçbir test kırılmaz**; bu sayaç o sessizliği bitirir.
+
+### FAZ J — güvenlik sertleştirme
+Sertleştirmenin büyük kısmı zaten yerindeydi (JWT · deny-by-default yetki · tenant izolasyonu · hız
+sınırı · SHA-256 fail-closed · log redaksiyonu · HSTS). **Boşluk tarayıcı güvenlik başlıklarıydı:**
+web ve API hiçbirini göndermiyordu. `nosniff` · `X-Frame-Options: DENY` · `Referrer-Policy` ·
+`X-Permitted-Cross-Domain-Policies` eklendi — **kimlik doğrulamadan önce**, ki 401/403 yanıtları da
+kapsansın (SNK-08'de sıkıştırma için verilen kararla aynı).
+
+**CSP bilinçli olarak EKLENMEDİ.** Blazor Server + MudBlazor satır içi betik/stil kullanır; yanlış bir
+politika arayüzü **sessizce bozar** (ekran açılır, düğmeler çalışmaz). Kullanıcının babası başka bir
+şehirde ve tek başına; ölçmeden eklenen bir CSP koruduğundan fazlasını kırardı. `GVN4` testi bu
+kararı ve gerekçesini kayda geçirir — sonraki okuyan "eksik kalmış" sanıp eklemesin.
+
+### FAZ J — API sürümleme
+**Karar: sürüm öneki YOK** (mevcut durum, `CLAUDE.md` §4'te zaten kayıtlı). Gerekçe yeniden ölçüldü:
+istemci ve sunucu birlikte yayınlanıyor, masaüstü kendi kataloğunu açılışta uyguluyor, uyumsuzluk
+riski `GNC-02` ile görünür kılındı. 200'den fazla ucu ölçülmüş fayda olmadan değiştirmek protokolün
+"en küçük doğru değişiklik" ilkesine aykırı. Bu satır artık "yapılacak" değil **verilmiş karar**dır.
+
+### FAZ J — yük testi
+`scripts/loadtest.mjs` zaten mevcut. **Canlıya uygulanmadı — bilinçli:** üretimde babanın gerçek
+verisi var ve tek makine çalışıyor; yapay yük gerçek kullanıcının işini keserdi. Bunun yerine
+**gerçek darboğaz ölçülüp giderildi** (yukarıdaki indeks bulgusu) — uydurma bir yük senaryosundan
+somut bir kazanç.
+
+Testler: `IndeksVeNPlusBirTests` IDX1/IDX2/NP1/NP2 · `GuvenlikBasliklariTests` GVN1–GVN4.
+
+Ayrıntı: [FAZ_J_CANLIYA_GECIS.md](project-control/FAZ_J_CANLIYA_GECIS.md)
+
+## ADR-219 — FAZ K: uçtan uca doğrulama — sessiz kusurların kapatılması (2026-09-05)
+
+**Bağlam.** FAZ K, "testler yeşil" ile yetinmeyip *gerçek kullanıcı sorun yaşamasın* hedefiyle
+yürütülen uçtan uca denetimdir. Kapsam bu turda dokunulan yüzeylerdir (STK-12, belge alanları,
+cari bağı, liste sayfalama, dışa aktarım, senkron imleci, ızgara uçları). Üretim veritabanına
+**hiç dokunulmadı**; tüm ölçüm ve testler yerel/bellek-içi ortamda yapıldı.
+
+**Bulunan dört kusurun ortak yanı: hepsi SESSİZDİ.** Hiçbiri hata vermiyordu; hepsi kullanıcıya
+yanlış ama inandırıcı bir sonuç gösteriyordu. Bu tur özellikle bu sınıfı aradı.
+
+### 1. Belge numarası alanlarında uzunluk sınırı yoktu
+Yakıt, bakım ve stok belgelerindeki numara alanlarına sınırsız metin yazılabiliyordu. Yanlışlıkla
+yapıştırılan bir paragraf sessizce kabul edilir, satır şişer, her senkron turunda taşınır, listede
+ve Excel'de hücre okunamaz hâle gelirdi. Ortak `BelgeNo` (100 karakter) eklendi ve **servis
+katmanına** kondu — masaüstünün çevrimdışı yolu da kapsansın. Sessizce kırpılmaz, **reddedilir**:
+kullanıcı yanlışını öğrenmelidir. Test: `BelgeNoSinirTests` BN1–BN6, `FazKUctanUcaApiTests` UUA5.
+
+### 2. Personel dışa aktarımı 200 satırda kesiliyordu (bu turda BENİM eklediğim kusur)
+Dışa aktarım "filtrelenmiş TÜM sonucu indirir" diyordu ama `PageRequest.NormalizedLimit` her isteği
+`MaxLimit = 200`'de kırpıyordu. Dosya sessizce eksik inerdi. `ListAllForExport` (imleç döngüsü)
+eklendi; hem API hem masaüstü bu yolu kullanıyor. Test: `DisaAktarimTamSonucTests` PRT6,
+`FazKUctanUcaApiTests` UUA7.
+
+> Bu kusuru denetim buldu, test değil. Kayıt altına alınmasının sebebi budur: **kendi eklediğim
+> düzeltme de denetlenmelidir.**
+
+### 3. Web listeleri "yüklenemedi" ile "kayıt yok"u karıştırıyordu
+Stok hareketleri, bakım, personel ve muayene ekranları isteği `catch { boş liste }` ile yutuyor,
+sunucuya ulaşılamadığında **"Hareket yok." / "Henüz personel yok."** yazıyordu. Kullanıcı kaydın
+silindiğini sanıp aynı kaydı yeniden girebilir ya da muayene tarihini kaçırabilirdi. Hata artık
+sebebiyle gösteriliyor ve "Tekrar dene" sunuluyor. **Masaüstünde bu kusur yoktu** (ölçüldü: hata
+`Status`/`LoadError` ile zaten bildiriliyordu) — bu yüzden düzeltme web'e özgüdür.
+Test: `ListeHataDurumuTests` LHD1–LHD4.
+
+### 4. İki farklı sayfa tavanı vardı ve karıştırılabiliyordu
+İmleçli listelerde `PageRequest.MaxLimit = 200`, ızgara (grid) yollarında ise **500** geçerli.
+İkisi farklı sayılardır; 2. maddedeki kusur tam olarak bu karışıklıktan doğmuştu. Tavan değerleri
+değiştirilmedi (ikisi de bilinçli ve tutarlı uygulanmış), fark **teste yazıldı**.
+Test: `BuyukVeriOlcumTests` BV2.
+
+### Ölçüm: 25.000 kayıtta liste davranışı (protokol §7)
+
+| Satır | İlk sayfa | Son sayfa | Arama | 200'lük sayfa |
+|---|---|---|---|---|
+| 10 | 9 ms | 0 ms | 14 ms | 0 ms |
+| 100 | 1 ms | 1 ms | 3 ms | 75 ms |
+| 1.000 | 13 ms | 3 ms | 38 ms | 4 ms |
+| 5.000 | 10 ms | 19 ms | 239 ms | 33 ms |
+| 10.000 | 23 ms | 30 ms | 498 ms | 36 ms |
+| 25.000 | **58 ms** | 78 ms | **942 ms** | 40 ms |
+
+Sayfalama ve indeks çalışıyor: 2.500 kat veri, ilk sayfayı yalnız ~6 kat yavaşlatıyor (doğrusal
+olsaydı saniyelerce sürerdi). **Ancak arama doğrusal büyüyor** — 25.000 satırda ~0,9 sn. Sebep
+yapısaldır: "içerir" araması (`%metin%`) indeks kullanamaz. Bugünkü hacimde sorun değil; hacim
+büyürse çözüm indeks değil **tam metin arama (FTS)** ya da "ile başlar" aramasıdır. Ölçüldü,
+kayda geçti, bu turda değiştirilmedi (ölçülmemiş bir optimizasyon eklenmedi).
+
+Ayrıntı: [FAZ_K_UCTAN_UCA_DOGRULAMA.md](project-control/FAZ_K_UCTAN_UCA_DOGRULAMA.md)

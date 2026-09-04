@@ -95,5 +95,6 @@ public static class MigrationCatalog
         new Migration088_EquipmentTypeLocked(),  // 2026-09-04 HATA DÜZELTMESİ: equipment_types.is_locked eksikti
         new Migration089_DocumentFields(),       // 2026-09-04 MUH-01b: yakıt dağıtımı + iki bakım tablosuna belge no — yalnız ekleme
         new Migration090_MaintenancePartyLink(),  // 2026-09-04 MUH-01c: bakımlara cari (dış servis sağlayıcısı) — yalnız ekleme
+        new Migration091_ListIndexes(),           // 2026-09-04 FAZ I: liste sorgularının indeksleri — yalnız CREATE INDEX
     };
 }

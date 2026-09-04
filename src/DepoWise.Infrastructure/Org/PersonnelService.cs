@@ -159,6 +159,38 @@ public sealed class PersonnelService
     /// seçicileri aramasız yüklediğinde, sınırın ötesindeki personel HİÇ SEÇİLEMİYORDU. Arama
     /// <see cref="Materials.MaterialService.List"/> ile AYNI desende, aynı yerde (servis katmanı) yapılır —
     /// firma ve şube kapsamı filtreleri aynen korunur, aramaya devredilmez.</param>
+
+    /// <summary>
+    /// ⭐ FAZ K (2026-09-05) — DIŞA AKTARIM İÇİN TÜM SONUÇ.
+    ///
+    /// <b>🔴 Kendi eklediğim kusur, uçtan uca denetimde yakalandı:</b> Excel dışa aktarımı
+    /// <c>List(..., new PageRequest { Limit = 100_000 })</c> çağırıyordu ve "filtrelenmiş TÜM sonucu
+    /// indirir" diyordu. Oysa <see cref="PageRequest.NormalizedLimit"/> her isteği
+    /// <see cref="PageRequest.MaxLimit"/> = <b>200</b>'de kırpar → dosya sessizce 200 satırda
+    /// kesilirdi ve kullanıcı bunu ASLA fark etmezdi. Tam olarak bu gece kapattığım
+    /// "sessiz eksiklik" sınıfının aynısı — bu kez kendi elimden.
+    ///
+    /// Sayfalama tavanını gevşetmek YANLIŞ olurdu: o tavan seçici/liste uçlarını korur.
+    /// Bunun yerine dışa aktarım için AÇIK ve ayrı bir yol var; niyeti isminden okunuyor.
+    ///
+    /// Şube kapsamı, yetki ve arama davranışı <see cref="List"/> ile BİREBİR aynıdır — ikinci bir
+    /// kapsam mantığı kurulmadı; yalnız sayfalama uygulanmaz.
+    /// </summary>
+    public IReadOnlyList<PersonnelRecord> ListAllForExport(SessionContext session, string? search = null)
+    {
+        var hepsi = new List<PersonnelRecord>();
+        string? imlec = null;
+        // Sayfa sayfa okuyup birleştirir → tavan korunur, sonuç eksiksiz olur.
+        // Üst sınır: kaçak bir döngüde sonsuza gitmesin (200 × 500 = 100.000 kayıt).
+        for (int tur = 0; tur < 500; tur++)
+        {
+            var sayfa = List(session, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = imlec }, search: search);
+            hepsi.AddRange(sayfa.Items);
+            if (!sayfa.HasMore) break;
+            imlec = sayfa.NextCursor;
+        }
+        return hepsi;
+    }
     public PagedResult<PersonnelRecord> List(SessionContext session, PageRequest page, bool includeDeleted = false,
         string? search = null)
     {

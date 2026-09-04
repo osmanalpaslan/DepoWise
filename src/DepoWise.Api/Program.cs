@@ -67,6 +67,19 @@ Console.WriteLine($"[START] {DateTimeOffset.UtcNow:O} DepoWise.Api env={app.Envi
                   $"dataDir={dataDir} jwtKey={(string.IsNullOrEmpty(jwtKey) ? "YOK" : "var")}");
 
 // ⭐ SNK-08: sıkıştırma kimlik doğrulamadan ÖNCE — böylece 401/403 dâhil tüm yanıtlar kapsanır
+
+// ⭐ FAZ J (2026-09-05) — API GÜVENLİK BAŞLIKLARI.
+// API tarayıcıdan da çağrılıyor (web uygulaması) → yanıtların tipi TAHMİN EDİLMEMELİ ve hata
+// sayfaları çerçeveye alınmamalı. Web tarafındaki kararla aynı; CSP yine bilinçli olarak YOK
+// (JSON yanıtlarında anlamı yok, HTML üretmiyoruz).
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["X-Frame-Options"] = "DENY";
+    h["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 // ve yetkisiz istek de gereksiz bant genişliği harcamaz.
 app.UseResponseCompression();
 app.UseCors();
@@ -1596,8 +1609,9 @@ app.MapGet("/api/personnel/export", (HttpContext c, string? search) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
-    // Sayfa sınırı UYGULANMAZ: kullanıcı filtrelenmiş TÜM sonucu bekler (kuralın özü budur).
-    var rows = svc.Personnel.List(s, new DepoWise.Application.Common.PageRequest { Limit = 100_000 }, search: Doc(search)).Items;
+    // ⭐ FAZ K düzeltmesi: `Limit = 100_000` YETMİYORDU — PageRequest.NormalizedLimit her isteği
+    // MaxLimit=200'de kırpar, yani dosya sessizce 200 satırda kesilirdi. Dışa aktarım için AÇIK yol.
+    var rows = svc.Personnel.ListAllForExport(s, Doc(search));
     var bytes = svc.Excel.Export(DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(rows));
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Personel.xlsx");
 }).RequireAuthorization();
