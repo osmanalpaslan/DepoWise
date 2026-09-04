@@ -134,8 +134,14 @@
                 }
                 else
                 {
+                    @* 🔴 2026-09-04 (kullanıcı bildirimi): kapalı kutuda ŞUBE ADI yerine ID'ler
+                       ("1c6dc32bd8104936…") görünüyordu. MudBlazor çoklu seçimde varsayılan olarak
+                       seçili DEĞERLERİ yazar; etiket göstermek için MultiSelectionTextFunc gerekir.
+                       Aynı düzeltme Reports.razor ve BranchPicker'da zaten vardı — burada eksikti.
+                       Kullanıcı sayı değil AD istedi: "bütün alanlarda tanım ismi ne ise o görünmeli". *@
                     <MudSelect T="string" MultiSelection="true" SelectedValues="_scopeSelected"
                                SelectedValuesChanged="@(v => _scopeSelected = v?.ToHashSet(StringComparer.Ordinal) ?? new())"
+                               MultiSelectionTextFunc="@(v => SubeAdlari(v))"
                                Label="Çalışabileceği şubeler" Margin="Margin.Dense" Variant="Variant.Outlined"
                                Dense="true" Style="max-width:520px"
                                HelperText="Boş bırakılırsa açık kapsam kaldırılır; kullanıcı kendi şubesi/varsayılan davranışına döner.">
@@ -186,6 +192,27 @@
 
     /// <summary>Ekran açıldığında kullanıcının SAHİP OLDUĞU ekranlar — "Kaydet" özeti bununla karşılaştırır.</summary>
     private HashSet<string> _yuklenenEkranlar = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Seçili şube ID'lerini ADLARA çevirir (kullanıcı bildirimi 2026-09-04: kutuda ham ID görünüyordu).
+    /// Ad bulunamazsa ID yazmak yerine "(bilinmeyen şube)" denir — kullanıcıya asla ham değer gösterilmez.
+    /// Çok sayıda seçimde metin taşmasın diye ilk 4 ad + kalan sayısı gösterilir.
+    /// </summary>
+    private string SubeAdlari(IEnumerable<string>? secili)
+    {
+        var liste = secili?.ToList() ?? new List<string>();
+        if (liste.Count == 0) return "Kendi şubesi (varsayılan)";
+
+        var adlar = liste
+            .Select(id => _assignable.FirstOrDefault(a => a.Id == id)?.Name)
+            .Select(ad => string.IsNullOrWhiteSpace(ad) ? "(bilinmeyen şube)" : ad!)
+            .OrderBy(x => x, StringComparer.CurrentCulture)
+            .ToList();
+
+        return adlar.Count <= 4
+            ? string.Join(", ", adlar)
+            : string.Join(", ", adlar.Take(4)) + $" +{adlar.Count - 4} şube";
+    }
 
     /// <summary>
     /// ⭐ KAYDETME ÖZETİ (kullanıcı isteği 2026-09-04).
