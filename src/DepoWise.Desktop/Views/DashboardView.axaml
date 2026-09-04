@@ -322,8 +322,20 @@
                             <SelectableTextBlock Text="Yeni güncelleme mevcut" FontWeight="Bold"
                                                  Foreground="{DynamicResource AccentBrush}"/>
                         </Border>
+                        <!-- ⭐ GNC-02: sürüm artık desteklenmiyorsa mesaj VURGULU gösterilir.
+                             Engellemiyoruz (kullanıcı uzakta, kilitlenmemeli) ama görünmez de bırakmıyoruz:
+                             eskiden BelowMinSupported hesaplanıyor ama hiçbir yerde kullanılmıyordu. -->
+                        <Border IsVisible="{Binding DesteklenmeyenSurum}" Margin="0,0,0,6"
+                                Background="{DynamicResource WarningSoftBrush}"
+                                BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="12,8">
+                            <SelectableTextBlock Text="{Binding UpdateMessage}" TextWrapping="Wrap"
+                                                 FontWeight="SemiBold"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </Border>
+                        <!-- Normal mesaj: yalnız sürüm desteklenirken. Desteklenmiyorsa üstteki vurgulu bant gösterilir. -->
                         <SelectableTextBlock Text="{Binding UpdateMessage}" Classes="Body" TextWrapping="Wrap"
-                                   IsVisible="{Binding UpdateMessage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                   IsVisible="{Binding !DesteklenmeyenSurum}"/>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsUpdating}">
                             <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="8"/>
                             <SelectableTextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Helper" VerticalAlignment="Center"/>

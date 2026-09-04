@@ -4806,3 +4806,32 @@ sorun olmadan** yapılmamalı: doğru sayfa boyutu ancak gerçek paket büyükl�
 Testler: `SenkronDeltaTests` SNK9a (kusurun kanıtı) · SNK9b (düzeltmenin kanıtı) · SNK9c (delta hâlâ
 delta) · SNK10 (silinen kayıt taşınır) · SNK10b (delta yolunda firma kapsamı).
 Doğrulama: senkron+API 642 testin 641'i geçti (1 atlanan, önceden) · üç proje build 0 hata.
+
+---
+
+## ADR-215 — FAZ F: güncelleme ve sürüm uyumu (2026-09-04)
+
+**Ölçüm önce.** Üç maddede de **mekanizma vardı ama kullanıcıya ulaşmıyordu**:
+
+- **`GNC-01`** otomatik güncelleme: paket bütünlük kapısı (SHA-256 fail-closed, ADR-200), rollback ve
+  ilerleme göstergesi zaten yerinde. Kod gerekmedi.
+- **`GNC-02`** sürüm uyumu: `UpdateCheckResult.BelowMinSupported` **hesaplanıyordu ama hiçbir yerde
+  kullanılmıyordu**. Sürümü artık desteklenmeyen bir masaüstü, sunucuyla uyumsuz davransa bile
+  kullanıcı sebebini hiç öğrenemiyordu — istekler tuhaf biçimde başarısız olur, ekran boş kalırdı.
+- **`GNC-03`** disk politikası: saklama tavanı (`KeepCount=3`) ve `/health` doluluk raporu vardı ama
+  **eşik yoktu**; sayıya bakmayan kimse tehlikeyi fark etmiyordu.
+
+### `GNC-02` — engelleme değil, görünürlük
+Bayrak artık ana ekranda **vurgulu bir bantla** gösteriliyor. **Eski istemciyi bloke etmedim:**
+kullanıcının babası başka bir şehirde ve tek başına çalışıyor; onu uygulamadan kilitlemek,
+uyumsuzluğun kendisinden daha büyük zarar verirdi. Güncelleme yolu zaten açık ve tek tıkla.
+
+### `GNC-03` — eşik + günlük
+`/health` artık `diskLevel` döndürüyor (**%75 dikkat · %90 kritik**) ve kritik eşikte sunucu
+günlüğüne yazıyor (Fly logs'ta görünür). Bu, yaşanmış bir olayın tekrarına karşıdır: `/data`
+dolduğunda SQLite yazamıyor ve **tüm API 500 veriyor** — kullanıcı için tam kesinti, sebebi görünmez.
+Saklama tavanı ilk savunmadır; bu uyarı onun yetmediği durumları (yedek/log birikmesi) yakalar.
+
+Testler: `GuncellemeSurumUyumuTests` GNC1–GNC6 (güncel · yeni sürüm var ama destekleniyor ·
+**asgarinin altı işaretlenir** · imzasız paket ayrı uyarı · bozuk sürüm metni yanlış güvence vermez ·
+saklama tavanı makul aralıkta). 6/6 · üç proje build 0 hata. Migration gerekmedi.

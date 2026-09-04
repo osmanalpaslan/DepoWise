@@ -223,12 +223,26 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
     var disk = svc.ReleasePackages.GetDiskInfo();
     double diskPercent = disk.TotalBytes > 0 ? Math.Round((double)disk.UsedBytes / disk.TotalBytes * 100.0, 1) : 0;
 
+    // ⭐ GNC-03 (FAZ F, 2026-09-04) — DİSK DOLULUK UYARISI.
+    // Yaşanmış olay: /data dolduğunda SQLite yazamıyor ve TÜM API 500 veriyor (ADR-070) — kullanıcı
+    // için tam kesinti, sebebi görünmez. Doluluk /health içinde ZATEN raporlanıyordu ama bir EŞİK
+    // yoktu: sayıya bakmayan kimse tehlikeyi fark etmiyordu. Artık seviye açıkça dönüyor ve kritik
+    // eşikte sunucu günlüğüne de yazılıyor (Fly logs'ta görünür).
+    // Eşikler: %75 dikkat · %90 kritik. Paket saklama tavanı (ReleaseStore.KeepCount=3) zaten var;
+    // bu uyarı onun yetmediği durumları (yedek/log birikmesi) yakalar.
+    var diskLevel = diskPercent >= 90 ? "critical" : diskPercent >= 75 ? "warning" : "ok";
+    if (diskLevel != "ok")
+        Console.WriteLine($"[DISK-{diskLevel.ToUpperInvariant()}] {DateTimeOffset.UtcNow:O} /data %{diskPercent} dolu"
+                          + $" - bos {Math.Round(disk.FreeBytes / MB, 1)} MB, paketler"
+                          + $" {Math.Round(disk.PackagesBytes / MB, 1)} MB ({disk.PackageCount} adet).");
+
     return Results.Ok(new
     {
         diskTotalMb = Math.Round(disk.TotalBytes / MB, 1),
         diskFreeMb = Math.Round(disk.FreeBytes / MB, 1),
         diskUsedMb = Math.Round(disk.UsedBytes / MB, 1),
         diskPercent,
+        diskLevel,          // ⭐ GNC-03: "ok" · "warning" (%75+) · "critical" (%90+)
         packagesMb = Math.Round(disk.PackagesBytes / MB, 1),
         packageCount = disk.PackageCount,
         uptimeSeconds = (long)(DateTimeOffset.UtcNow - ServerMetrics.Start).TotalSeconds,

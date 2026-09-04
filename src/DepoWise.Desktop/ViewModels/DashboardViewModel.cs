@@ -80,6 +80,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     // ── Güncelleme (Ana Ekran "Güncelle" + % ilerleme) ──
     [ObservableProperty] private string _currentVersion = "—";
     [ObservableProperty] private string? _updateMessage;
+    /// <summary>⭐ GNC-02: istemci sürümü sunucunun desteklediği asgarinin ALTINDA mı.
+    /// Engellemez — yalnız görünür kılar; kullanıcı uzakta ve kilitlenmemeli.</summary>
+    [ObservableProperty] private bool _desteklenmeyenSurum;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanApplyUpdate))]
     private bool _updateAvailable;
