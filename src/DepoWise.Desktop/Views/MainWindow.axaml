@@ -434,6 +434,10 @@
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="Cursor" Value="Hand"/>
                         <Setter Property="VerticalAlignment" Value="Stretch"/>
+                        <!-- ⚠ Şart: düğme dikeyde GERİLİR, ama içeriği kendiliğinden ortalanmaz →
+                             ✕ sekmenin üst kenarına yapışıyordu (önizlemede görüldü, 2026-09-04). -->
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
                     </Style>
                     <Style Selector="Button.sekmeDugme /template/ ContentPresenter">
                         <Setter Property="Background" Value="Transparent"/>
