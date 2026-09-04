@@ -183,6 +183,48 @@
 
 @code {
     private List<ApiClient.Opt> _users = new(), _modules = new(), _buttons = new();
+
+    /// <summary>Ekran açıldığında kullanıcının SAHİP OLDUĞU ekranlar — "Kaydet" özeti bununla karşılaştırır.</summary>
+    private HashSet<string> _yuklenenEkranlar = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// ⭐ KAYDETME ÖZETİ (kullanıcı isteği 2026-09-04).
+    ///
+    /// Eskiden onay kutusu yalnız "Yetkiler kaydedilsin mi?" diyordu — kullanıcı NE kaydettiğini
+    /// göremiyordu. Gerçek bir olayda bu acıttı: bazı yetkiler kaldırıldı sanıldı, veritabanına
+    /// 60 modülün 60'ı da TAM yetkiyle yazılmıştı ve fark kaydetme anında görülemedi.
+    /// Artık onay ekranı ne EKLENDİĞİNİ ve ne KALDIRILDIĞINI açıkça söyler.
+    /// </summary>
+    private string DegisiklikOzeti()
+    {
+        var secili = _matrix!.SelectedKeys().ToHashSet(StringComparer.Ordinal);
+        string Ad(string k) => _modules.FirstOrDefault(m => m.Id == k)?.Name ?? k;
+
+        var eklenen = secili.Except(_yuklenenEkranlar).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
+        var kaldirilan = _yuklenenEkranlar.Except(secili).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
+
+        if (eklenen.Count == 0 && kaldirilan.Count == 0)
+            return "Ekran yetkilerinde değişiklik yok.\n\n" +
+                   "(İşlem hakları — oluştur/düzenle/sil — değişmiş olabilir.)\n\nYine de kaydedilsin mi?";
+
+        var sb = new System.Text.StringBuilder();
+        if (kaldirilan.Count > 0)
+        {
+            sb.Append($"KALDIRILACAK ({kaldirilan.Count} ekran):\n• ");
+            sb.Append(string.Join("\n• ", kaldirilan.Take(12)));
+            if (kaldirilan.Count > 12) sb.Append($"\n• … ve {kaldirilan.Count - 12} ekran daha");
+            sb.Append("\n\n");
+        }
+        if (eklenen.Count > 0)
+        {
+            sb.Append($"EKLENECEK ({eklenen.Count} ekran):\n• ");
+            sb.Append(string.Join("\n• ", eklenen.Take(12)));
+            if (eklenen.Count > 12) sb.Append($"\n• … ve {eklenen.Count - 12} ekran daha");
+            sb.Append("\n\n");
+        }
+        sb.Append("Kaydedilsin mi?");
+        return sb.ToString();
+    }
     /// <summary>2026-09-03 — modül anahtarı → yetki ağacı kategorisi (menü grupları gibi).</summary>
     private Dictionary<string, string> _moduleGroups = new();
     private HashSet<string> _adminOnly = new();
@@ -349,6 +391,9 @@
                 foreach (var m in mods.EnumerateArray())
                     list.Add((S(m, "moduleKey"), B(m, "canView"), B(m, "canCreate"), B(m, "canEdit"), B(m, "canDelete")));
             _matrix.LoadFrom(list);
+            // Kaydetmeden önceki ÖZET için başlangıç durumu saklanır (kullanıcı isteği 2026-09-04).
+            _yuklenenEkranlar = list.Where(x => x.Item2 || x.Item3 || x.Item4 || x.Item5)
+                .Select(x => x.Item1).ToHashSet(StringComparer.Ordinal);
             var btnKeys = new List<string>();
             if (doc.TryGetProperty("buttons", out var btns) && btns.ValueKind == JsonValueKind.Array)
                 foreach (var b in btns.EnumerateArray())
@@ -462,7 +507,7 @@
                 "\n\nOnaylarsanız bu kullanıcının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?";
             if (!await Dialog.Confirm(reason, "Evet, Admin Yap", danger: true)) return;
         }
-        else if (!await Dialog.Confirm("Yetkiler kaydedilsin mi?")) return;
+        else if (!await Dialog.Confirm(DegisiklikOzeti())) return;
 
         _busy = true; _msg = null;
         try

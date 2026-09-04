@@ -301,9 +301,56 @@ public sealed partial class PermissionsViewModel : ViewModelBase
                 m.Set(p?.CanView ?? false, p?.CanCreate ?? false, p?.CanEdit ?? false, p?.CanDelete ?? false);
             }
             foreach (var b in Buttons) b.Granted = btns.Contains(b.Key);
+            // Kaydetme ÖZETİ için başlangıç durumu (kullanıcı isteği 2026-09-04) — web ile aynı davranış.
+            _yuklenenEkranlar = Modules.Where(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+                .Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
             Status = $"{value.Username} yetkileri yüklendi.";
         }
         catch (Exception ex) { Status = "Yetkiler yüklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>Ekran açıldığında kullanıcının SAHİP OLDUĞU ekranlar — "Kaydet" özeti bununla karşılaştırır.</summary>
+    private HashSet<string> _yuklenenEkranlar = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// ⭐ KAYDETME ÖZETİ (kullanıcı isteği 2026-09-04) — web'deki ile AYNI metin/davranış.
+    ///
+    /// Eskiden onay yalnız "yetkiler kaydedilsin mi?" diyordu; kullanıcı NE kaydettiğini göremiyordu.
+    /// Gerçek bir olayda bu acıttı: bazı yetkiler kaldırıldı sanıldı, veritabanına 60 modülün 60'ı da
+    /// TAM yetkiyle yazılmıştı ve fark kaydetme anında fark edilemedi.
+    /// </summary>
+    private string DegisiklikOzeti()
+    {
+        var secili = Modules.Where(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+            .Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
+        string Ad(string k) => Modules.FirstOrDefault(m => m.Key == k)?.Label ?? k;
+
+        var eklenen = secili.Except(_yuklenenEkranlar).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
+        var kaldirilan = _yuklenenEkranlar.Except(secili).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
+
+        var kullanici = SelectedUser?.Username ?? "";
+        if (eklenen.Count == 0 && kaldirilan.Count == 0)
+            return $"'{kullanici}' için ekran yetkilerinde değişiklik yok.\n\n" +
+                   "(İşlem hakları — ekle/düzenle/sil — değişmiş olabilir.)\n\nYine de kaydedilsin mi?";
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"'{kullanici}' kullanıcısı için:\n\n");
+        if (kaldirilan.Count > 0)
+        {
+            sb.Append($"KALDIRILACAK ({kaldirilan.Count} ekran):\n• ");
+            sb.Append(string.Join("\n• ", kaldirilan.Take(12)));
+            if (kaldirilan.Count > 12) sb.Append($"\n• … ve {kaldirilan.Count - 12} ekran daha");
+            sb.Append("\n\n");
+        }
+        if (eklenen.Count > 0)
+        {
+            sb.Append($"EKLENECEK ({eklenen.Count} ekran):\n• ");
+            sb.Append(string.Join("\n• ", eklenen.Take(12)));
+            if (eklenen.Count > 12) sb.Append($"\n• … ve {eklenen.Count - 12} ekran daha");
+            sb.Append("\n\n");
+        }
+        sb.Append("Kaydedilsin mi?");
+        return sb.ToString();
     }
 
     // Yerel best-effort (server-only kullanıcı yerel DB'de yoksa → boş/null; sunucu zaten otorite).
@@ -426,7 +473,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
                     $"'{SelectedUser.Username}' kullanıcısının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?",
                     "Evet, Admin Yap")) return;
         }
-        else if (!await ConfirmService.AskAsync($"'{SelectedUser.Username}' kullanıcısının yetkileri kaydedilsin mi?", "Yetkileri Kaydet")) return;
+        else if (!await ConfirmService.AskAsync(DegisiklikOzeti(), "Yetkileri Kaydet")) return;
 
         try
         {

@@ -229,6 +229,14 @@ public sealed class PermissionService
             }
         }
 
+        // ⭐ YETKİ DEĞİŞİKLİĞİ İZLENEBİLİRLİĞİ (kullanıcı isteği 2026-09-04) ────────────────────────
+        // Denetim kaydı zaten yazılıyordu (kim, ne zaman) ama before/after BOŞTU → "neyi değiştirdim,
+        // kaydoldu mu?" sorusu veriden CEVAPLANAMIYORDU. Gerçek bir olayda bu eksik acıttı: kullanıcı
+        // bazı yetkileri kaldırdığını söyledi, veritabanında ise 60 modülün 60'ı da tam yetkiliydi ve
+        // ne gönderildiği kanıtlanamadı. Artık ÖNCEKİ ve SONRAKİ durum kayda geçer.
+        // Silmeden ÖNCE okunur; aynı transaction içinde olduğu için tutarlıdır.
+        var oncesi = PermSnapshot(conn, tx, userId);
+
         Exec(conn, tx, "DELETE FROM user_permissions WHERE user_id=@u;", c => c.AddWithValue("@u", userId));
         Exec(conn, tx, "DELETE FROM user_button_permissions WHERE user_id=@u;", c => c.AddWithValue("@u", userId));
 
@@ -267,7 +275,11 @@ public sealed class PermissionService
                     c.AddWithValue("@now", now);
                 });
         }
-        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        // Yazma bittikten SONRA oku: kırpma (ClampModule) ve boş-satır atlama sonrası GERÇEKTE ne
+        // kaydedildiğini gösterir — arayüzün ne gönderdiğini değil.
+        var sonrasi = PermSnapshot(conn, tx, userId);
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId,
+            BeforeJson: oncesi, AfterJson: sonrasi), _clock);
         tx.Commit();
         // F0 (YET-01): commit'ten SONRA düşür — yeni yetki bir sonraki istekte GEÇERLİ olur, TTL beklenmez.
         // (Commit'ten önce düşürmek, geri alınan bir transaction'da eski değeri yeniden yükletirdi.)
@@ -493,6 +505,41 @@ public sealed class PermissionService
         var cid = cmd.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         if (!actor.IsSuperAdmin && cid != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
         return cid;
+    }
+
+    /// <summary>
+    /// Kullanıcının O ANKİ yetkilerinin denetim kaydına yazılacak özeti (kullanıcı isteği 2026-09-04).
+    ///
+    /// Biçim bilinçli olarak KOMPAKT: <c>{"m":["daily_activity:1111","materials:1000"],"b":["btn-x"]}</c>
+    /// — 60 modül için ~1 KB. Bayrak sırası: görüntüle/oluştur/düzenle/sil. Modül anahtarları sıralıdır
+    /// ki iki kayıt gözle karşılaştırılabilsin.
+    /// </summary>
+    private static string PermSnapshot(DbConnection conn, DbTransaction tx, string userId)
+    {
+        var mods = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT module_key, can_view, can_create, can_edit, can_delete " +
+                              "FROM user_permissions WHERE user_id=@u ORDER BY module_key;";
+            cmd.AddWithValue("@u", userId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                mods.Add($"{r.GetString(0)}:{Convert.ToInt32(r.GetValue(1))}{Convert.ToInt32(r.GetValue(2))}" +
+                         $"{Convert.ToInt32(r.GetValue(3))}{Convert.ToInt32(r.GetValue(4))}");
+        }
+
+        var btns = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=@u ORDER BY button_key;";
+            cmd.AddWithValue("@u", userId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) btns.Add(r.GetString(0));
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(new { m = mods, b = btns });
     }
 
     private static void Exec(DbConnection conn, DbTransaction tx, string sql, Action<DbCommand> bind)
