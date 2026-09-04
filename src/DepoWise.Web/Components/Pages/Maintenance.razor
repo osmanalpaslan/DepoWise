@@ -163,6 +163,12 @@
                             </MudSelect>
                         </MudItem>
                     }
+                    @* ⭐ MUH-01b: ekipman bakımının belge numarası (araç sekmesinden AYRI). *@
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_eqmInvoiceNo" Label="Fatura/Servis Fişi No"
+                                      HelperText="Opsiyonel — dış serviste alınan belge numarası."
+                                      Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
+                    </MudItem>
                 </MudGrid>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
                     Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir.
@@ -244,6 +250,10 @@
                     <MudSelect T="string" @bind-Value="_mCostCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                         @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
                     </MudSelect>
+                    @* ⭐ MUH-01b: dış servis faturası / servis fişi no (opsiyonel). *@
+                    <MudTextField @bind-Value="_mInvoiceNo" Label="Fatura/Servis Fişi No" Class="mt-2"
+                                  HelperText="Opsiyonel — dış serviste alınan belge numarası."
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
                 }
             </MudItem>
 
@@ -507,9 +517,10 @@
                 description = string.IsNullOrWhiteSpace(_eqmDescription) ? null : _eqmDescription.Trim(),
                 performedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 costCenterId = Empty(_eqmCostCenterId),   // ⭐ MUH-01a
+                invoiceNo = Empty(_eqmInvoiceNo),         // ⭐ MUH-01b
             });
             _eqmHata = hata;
-            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; }
+            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; _eqmInvoiceNo = ""; }
         }
         finally { _eqmBusy = false; }
         await EqmYukle();
@@ -560,6 +571,10 @@
     private bool _busy;
 
     private string? _mCostCenterId;
+    /// <summary>⭐ MUH-01b (2026-09-04): ARAÇ bakımının dış servis faturası / servis fişi numarası.</summary>
+    private string _mInvoiceNo = "";
+    /// <summary>⭐ MUH-01b: EKİPMAN bakımının belge numarası — maliyet merkezindeki gibi AYRI alan.</summary>
+    private string _eqmInvoiceNo = "";
     // MLY-01
     private List<ApiClient.Opt> _costCenters = new();
     private async Task LoadCostCenters()
@@ -828,7 +843,8 @@
                 // BKM-04: KULLANICININ SEÇTİĞİ depo. Auth.BranchId yalnız VARSAYILANI belirledi;
                 // burada tekrar okunmaz — kullanıcının değişikliği sessizce ezilemez (KARAR-9).
                 branchId = _mLocationId,
-                costCenterId = Empty(_mCostCenterId)   // MLY-01
+                costCenterId = Empty(_mCostCenterId),   // MLY-01
+                invoiceNo = Empty(_mInvoiceNo)          // ⭐ MUH-01b
             });
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
@@ -909,7 +925,7 @@
     }
 
     // BKM-04: YENİ kayıt varsayılan depoyla açılır (bir önceki kaydın seçimi taşınmaz).
-    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; }
+    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; _mInvoiceNo = ""; _mCostCenterId = null; }
 
     // ── Uyarılar ──
     private async Task LoadAlerts() { _alerts = null; try { _alerts = await Api.GetArrayAsync("/api/maintenance/alerts"); } catch { _alerts = Array.Empty<JsonElement>(); } }

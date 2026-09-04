@@ -220,6 +220,12 @@
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding MntCostCenter}"
                                                     PlaceholderText="Merkez seç... (boş olabilir)"/>
                                 </ctrl:FormField>
+                                <!-- ⭐ MUH-01b: dış servis faturası / servis fişi no. Ön muhasebe (FAZ H)
+                                     gideri kaynak belgesine bağlayabilsin diye eklendi. -->
+                                <ctrl:FormField Label="Fatura/Servis Fişi No" Width="180"
+                                                HelpText="Opsiyonel — dış serviste alınan belge numarası.">
+                                    <TextBox Classes="Field" Text="{Binding MntInvoice}"/>
+                                </ctrl:FormField>
                             </StackPanel>
                             <ctrl:FormField Label="Açıklama">
                                 <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>
@@ -464,6 +470,11 @@
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}"
                                                     SelectedItem="{Binding EqmCostCenter}"
                                                     PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                </ctrl:FormField>
+                                <!-- ⭐ MUH-01b: ekipman bakımının belge numarası (araç sekmesinden AYRI). -->
+                                <ctrl:FormField Label="Fatura/Servis Fişi No" Width="180"
+                                                HelpText="Opsiyonel — dış serviste alınan belge numarası.">
+                                    <TextBox Classes="Field" Text="{Binding EqmInvoice}"/>
                                 </ctrl:FormField>
                             </StackPanel>
                             <SelectableTextBlock Classes="Helper"

@@ -41,6 +41,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     /// Ortak alan kullanmak, araç için seçilen merkezin ekipman kaydına sessizce yapışması demekti;
     /// depo seçiminde (MntLocation) bu paylaşım bilinçli ve ekranda YAZILI, merkez için değil.</summary>
     [ObservableProperty] private ProjectPick? _eqmCostCenter;
+
+    /// <summary>⭐ MUH-01b (2026-09-04): ARAÇ bakımının dış servis faturası / servis fişi numarası.</summary>
+    [ObservableProperty] private string _mntInvoice = "";
+    /// <summary>⭐ MUH-01b: EKİPMAN bakımının belge numarası — maliyet merkezinde olduğu gibi AYRI alan.</summary>
+    [ObservableProperty] private string _eqmInvoice = "";
     private void LoadCostCenterOptions()
     {
         try
@@ -614,6 +619,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     {
         MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
         MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
+        MntInvoice = "";   // ⭐ MUH-01b: belge no sonraki kayda taşınmasın
         MntVehStatus = null; MntVehStatusNote = "";
         IsAddingMntSub = false; NewMntSubName = "";
         MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
@@ -701,7 +707,9 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 Materials: materials,
                 // BKM-04: KULLANICININ SEÇTİĞİ depo — olduğu gibi gider. Depo yoksa null → ATANMAMIŞ
                 // (bakım stok yüzünden engellenmez, KARAR-9 md. 8).
-                StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));
+                StockLocationId: MntLocation?.Id,
+                // ⭐ MUH-01b: dış servis faturası / servis fişi no (opsiyonel)
+                InvoiceNo: MntInvoice), Guid.NewGuid().ToString("N"));
             BaglaMaliyetMerkezi("vehicle_maintenance", mntId, MntCostCenter);   // MLY-01
 
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI oldu; durum güncellenemezse
@@ -858,7 +866,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                     EquipmentId: EqmSelected.Id, DefinitionId: EqmDef.Id,
                     Description: string.IsNullOrWhiteSpace(EqmDescription) ? null : EqmDescription.Trim(),
                     PerformedDate: EqmPerformedDate, Materials: mats,
-                    StockLocationId: MntLocation?.Id),          // araç sekmesiyle AYNI depo seçimi kullanılır
+                    StockLocationId: MntLocation?.Id,          // araç sekmesiyle AYNI depo seçimi kullanılır
+                    InvoiceNo: EqmInvoice),                    // ⭐ MUH-01b: belge no (araç sekmesinden AYRI)
                 Guid.NewGuid().ToString("N"));
             // ⭐ MUH-01a: ekipman bakımı da maliyet merkezine bağlanır — araç bakımıyla AYNI alan,
             // AYNI yardımcı (kayıt SONRASI bağ; bağ yazılamazsa kayıt "merkezsiz" kalır).
@@ -867,6 +876,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             BaglaMaliyetMerkezi("equipment_maintenance", eqmId, EqmCostCenter);
             EqmLines.Clear();
             EqmDescription = "";
+            EqmInvoice = "";   // ⭐ MUH-01b: belge no sonraki kayda taşınmasın
             RefreshEquipmentRows();
             Status = "Ekipman bakımı kaydedildi.";
         }

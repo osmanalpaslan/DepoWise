@@ -93,5 +93,6 @@ public static class MigrationCatalog
         new Migration086_EquipmentMaintenance(),
         new Migration087_FieldRequirements(),   // 2026-09-03 (kullanıcı onayı): alan zorunluluğu — yalnız ekleme
         new Migration088_EquipmentTypeLocked(),  // 2026-09-04 HATA DÜZELTMESİ: equipment_types.is_locked eksikti
+        new Migration089_DocumentFields(),       // 2026-09-04 MUH-01b: yakıt dağıtımı + iki bakım tablosuna belge no — yalnız ekleme
     };
 }

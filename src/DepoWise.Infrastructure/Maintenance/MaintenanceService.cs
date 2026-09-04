@@ -31,7 +31,10 @@ public sealed record NewMaintenance(
     /// Verilmişse serviste <see cref="MaintenanceService"/> içinde firma sahipliği doğrulanır (403).
     /// Kullanıcının seçimi hiçbir yerde sessizce BAŞKA bir lokasyona çevrilmez.
     /// </summary>
-    string? StockLocationId = null);
+    string? StockLocationId = null,
+    /// <summary>⭐ MUH-01b (2026-09-04): dış servis faturası / servis fişi numarası (opsiyonel).
+    /// Ön muhasebe gideri kaynak belgesine bağlayabilsin diye eklendi.</summary>
+    string? InvoiceNo = null);
 
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
@@ -47,8 +50,13 @@ public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
     decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string VehicleId = "",
-    long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null)
+    long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null,
+    /// <summary>⭐ MUH-01b: dış servis faturası / servis fişi numarası (opsiyonel).</summary>
+    string? InvoiceNo = null)
 {
+    /// <summary>Listede gösterim — boşsa tire (yakıt depo girişindeki desenle aynı).</summary>
+    public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
+
     private static string Fmt(decimal? km, decimal? hour, long? date) =>
         km is not null ? $"{km:0.##} km"
         : hour is not null ? $"{hour:0.##} saat"
@@ -400,7 +408,7 @@ WHERE NOT EXISTS (
 SELECT vm.id, v.internal_code, d.name, sd.name,
        vm.performed_km, vm.performed_hour, vm.performed_date,
        vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id,
-       vm.version, vm.description, vm.sub_definition_note, vm.technician_id
+       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no
 FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
@@ -424,7 +432,8 @@ ORDER BY vm.created_at DESC LIMIT @lim;";
                 Convert.ToInt64(rr.GetValue(12)),
                 rr.IsDBNull(13) ? null : rr.GetString(13),
                 rr.IsDBNull(14) ? null : rr.GetString(14),
-                rr.IsDBNull(15) ? null : rr.GetString(15)));
+                rr.IsDBNull(15) ? null : rr.GetString(15),
+                rr.IsDBNull(16) ? null : rr.GetString(16)));
         return list;
     }
 
@@ -471,8 +480,8 @@ WHERE mm.maintenance_id=@mt AND mm.company_id=@c ORDER BY m.code;";   // M-S1a: 
         cmd.CommandText = @"
 INSERT INTO vehicle_maintenances(id, company_id, vehicle_id, maintenance_def_id, sub_definition_id, technician_id,
     description, sub_definition_note, performed_km, performed_hour, performed_date,
-    next_due_km, next_due_hour, next_due_date, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now,@now,1,0);";
+    next_due_km, next_due_hour, next_due_date, invoice_no, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
+VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@op,@opb,0,@now,@now,1,0);";
         cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);
         cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
@@ -488,6 +497,8 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
         cmd.AddWithValue("@nk", nextKm is null ? DBNull.Value : Money.Serialize(nextKm.Value));
         cmd.AddWithValue("@nh", nextHour is null ? DBNull.Value : Money.Serialize(nextHour.Value));
         cmd.AddWithValue("@nd", (object?)nextDate ?? DBNull.Value);
+        // ⭐ MUH-01b: belge no — boş metin DBNull olur ki "" ile NULL iki ayrı "boş" olmasın.
+        cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
         cmd.AddWithValue("@op", operationId);
         cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();

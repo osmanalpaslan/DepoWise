@@ -16,16 +16,23 @@ public sealed record NewDistribution(string VehicleId, decimal Liters, decimal C
     // BAŞLANGIÇ SAYACI yeni kayda taşınır; yoksa yeni kayıt aracın GÜNCEL sayacını başlangıç sanar ve
     // ortadaki bir kayıt düzeltildiğinde rapor km'si bozulur. Boş bırakılırsa eski davranış (araçtan okunur).
     // ⚠️ Aracın current_meter'ını ilerletme kararı DAİMA aracın GERÇEK sayacına bakar; bu alan onu etkilemez.
-    decimal? PrevMeter = null);
+    decimal? PrevMeter = null,
+    /// <summary>⭐ MUH-01b (2026-09-04): irsaliye / fiş numarası. Opsiyoneldir; ön muhasebe gideri
+    /// kaynak belgesine bağlayabilsin diye eklendi. Yakıt depo girişindeki `invoice_no` ile aynı anlam.</summary>
+    string? InvoiceNo = null);
 
 public sealed record FuelDistributionRow(string Id, string VehicleId, string? VehicleCode,
     decimal PrevMeter, decimal CurrentMeter, decimal Liters, decimal UnitPrice, string Currency, long DistributionDate,
     bool IsCancelled = false,
     // Düzeltme formunu ÖN-DOLDURMAK için (kullanıcı isteği 2026-09-02). Sona EKLENDİ ve varsayılanlıdır →
     // mevcut çağıranların sözleşmesi değişmez.
-    string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null)
+    string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null,
+    /// <summary>⭐ MUH-01b: irsaliye / fiş numarası (opsiyonel).</summary>
+    string? InvoiceNo = null)
 {
     public string StatusText => IsCancelled ? "İptal edildi" : "";
+    /// <summary>Listede gösterim — boşsa tire (depo girişindeki `InvoiceDisplay` ile aynı desen).</summary>
+    public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
 }
 
 public sealed record FuelDepotRow(string Id, decimal Liters, decimal UnitPrice, string Currency, long EntryDate,
@@ -139,8 +146,8 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO fuel_distributions(id, company_id, vehicle_id, prev_meter, current_meter, liters, unit_price,
-    currency_code, fx_rate, personnel_id, recipient_personnel_id, distribution_date, note, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now,@now,1,0);";
+    currency_code, fx_rate, personnel_id, recipient_personnel_id, distribution_date, note, invoice_no, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
+VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb,@now,@now,1,0);";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@opb", (object?)s.OperatingBranchId ?? DBNull.Value);
@@ -156,6 +163,8 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now
             // ⭐ TRH-01: farklı bir iş gününe kayıt YETKİYE bağlı; yetkisizde "şimdi"ye çekilir.
             cmd.AddWithValue("@dt", DateEntryPolicy.Uygula(s, dto.DistributionDate) ?? now);
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
+            // ⭐ MUH-01b: belge no — boş metin DBNull'a çevrilir ki "" ile NULL iki ayrı "boş" olmasın.
+            cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
             cmd.AddWithValue("@op", operationId);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
@@ -401,7 +410,7 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@op,@opb,@now
         cmd.CommandText = @"
 SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
        fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
-       fd.personnel_id, fd.recipient_personnel_id, fd.note
+       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no
 FROM fuel_distributions fd
 LEFT JOIN vehicles v ON v.id = fd.vehicle_id
 WHERE fd.company_id=@c" + (includeCancelled ? "" : " AND fd.is_deleted=0") + BranchScope.Sql(s, "fd.op_branch_id") + @"
@@ -418,7 +427,8 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
                 Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
                 r.IsDBNull(10) ? null : r.GetString(10),
                 r.IsDBNull(11) ? null : r.GetString(11),
-                r.IsDBNull(12) ? null : r.GetString(12)));
+                r.IsDBNull(12) ? null : r.GetString(12),
+                r.IsDBNull(13) ? null : r.GetString(13)));
         return list;
     }
 
@@ -477,7 +487,10 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
         if (qTerm is not null)
             where.Append(" AND (" + SqlDialect.LikeTr(sqlite, "v.internal_code", "@q")
                        + " OR " + SqlDialect.LikeTr(sqlite, "v.plate", "@q")
-                       + " OR " + SqlDialect.LikeTr(sqlite, "fd.note", "@q") + ")");
+                       + " OR " + SqlDialect.LikeTr(sqlite, "fd.note", "@q")
+                       // ⭐ MUH-01b: belge no da aranır — kullanıcı elindeki irsaliyeyle kaydı bulabilsin.
+                       // (Alanı eklemek yetmez; aranamayan alan pratikte yok gibidir.)
+                       + " OR " + SqlDialect.LikeTr(sqlite, "fd.invoice_no", "@q") + ")");
 
         const string fromSql = "FROM fuel_distributions fd LEFT JOIN vehicles v ON v.id = fd.vehicle_id ";
 
@@ -505,7 +518,7 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
             cmd.CommandText = @"
 SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
        fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
-       fd.personnel_id, fd.recipient_personnel_id, fd.note
+       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no
 " + fromSql + where + @"
 ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
             Baglan(cmd);
@@ -519,7 +532,8 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
                     Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
                     r.IsDBNull(10) ? null : r.GetString(10),
                     r.IsDBNull(11) ? null : r.GetString(11),
-                    r.IsDBNull(12) ? null : r.GetString(12)));
+                    r.IsDBNull(12) ? null : r.GetString(12),
+                    r.IsDBNull(13) ? null : r.GetString(13)));
         }
         return new GridResult<FuelDistributionRow>(list, total, page, pageSize);
     }

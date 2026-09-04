@@ -276,6 +276,7 @@ public sealed partial class FuelViewModel : ViewModelBase
         DistRecipient = Personnel.FirstOrDefault(p => p.Id == row.RecipientPersonnelId);
         DistDate = DateTimeOffset.FromUnixTimeMilliseconds(row.DistributionDate).LocalDateTime;
         _distNote = row.Note;   // formda alanı yok → düzeltmede KORUNUR, silinmez
+        DistInvoice = row.InvoiceNo ?? "";   // ⭐ MUH-01b: düzeltmede belge no ön-doldurulur
         SelectedTab = 0;
         ShowDist = true;
         Status = "Düzeltme modu: kaydı değiştirip “Düzeltmeyi Kaydet”e basın.";
@@ -283,6 +284,11 @@ public sealed partial class FuelViewModel : ViewModelBase
 
     /// <summary>Formda alanı olmayan ama kayıtta bulunan açıklama — düzeltmede aynen taşınır.</summary>
     private string? _distNote;
+
+    /// <summary>⭐ MUH-01b (2026-09-04): yakıt dağıtımının irsaliye / fiş numarası (opsiyonel).
+    /// Depo girişindeki "Fatura/İrsaliye No" alanının dağıtım karşılığı — ön muhasebe (FAZ H)
+    /// gideri kaynak belgesine bağlayabilsin diye eklendi.</summary>
+    [ObservableProperty] private string _distInvoice = "";
 
     [RelayCommand]
     private async System.Threading.Tasks.Task CancelDistribution()
@@ -353,7 +359,7 @@ public sealed partial class FuelViewModel : ViewModelBase
             foreach (var d in grid.Items)
                 Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
                     d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled,
-                    d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note));
+                    d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note, d.InvoiceNo));
 
             TotalCount = grid.TotalCount;
             TotalPages = grid.TotalPages;
@@ -434,7 +440,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     private void ClearDist()
     {
         DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
-        DistEditId = null; _distNote = null;   // düzeltme modundan çık (kalıntı bırakma)
+        DistEditId = null; _distNote = null; DistInvoice = "";   // düzeltme modundan çık (kalıntı bırakma)
         ShowDist = false;
     }
 
@@ -496,6 +502,7 @@ public sealed partial class FuelViewModel : ViewModelBase
                 PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
                 DistributionDate: IsGunuMs(DistDate),   // TRH-01: iş günü — UTC gün başı (ADR-182)
                 Note: _distNote,                        // formda alanı yok → düzeltmede korunur
+                InvoiceNo: DistInvoice,                 // ⭐ MUH-01b: irsaliye / fiş no (opsiyonel)
                 PrevMeter: DistEditId is null ? null : DistPrevMeter);
             var distId = DistEditId is { } duzeltilen
                 ? DesktopServices.Fuel.UpdateDistribution(_session, duzeltilen, dto, Guid.NewGuid().ToString("N"), duzeltmeGerekcesi!)
@@ -584,10 +591,14 @@ public sealed record FuelRow(string Id, string VehicleCode, decimal PrevMeter, d
     decimal UnitPrice, string Currency, long DistributionDate, bool IsCancelled = false,
     // Düzeltme formunu ön-doldurmak için (kullanıcı isteği 2026-09-02). VehicleId de gerekir: liste araç
     // KODUNU gösterir, düzeltme ise araç KAYDINI seçmek zorundadır.
-    string VehicleId = "", string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null)
+    string VehicleId = "", string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null,
+    /// <summary>⭐ MUH-01b: irsaliye / fiş numarası (opsiyonel).</summary>
+    string? InvoiceNo = null)
 {
     /// <summary>İptal edilen satır listede ayırt edilir (kullanıcı kararı Y3).</summary>
     public string StatusText => IsCancelled ? "İptal edildi" : "";
+    /// <summary>⭐ MUH-01b: listede gösterim — boşsa tire (depo girişindeki desenle aynı).</summary>
+    public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
     public string LitersText => $"{Liters:0.##}";
     public string PriceText => $"{UnitPrice:0.##} {Currency}";
     public string TotalText => $"{Liters * UnitPrice:0.##} {Currency}";

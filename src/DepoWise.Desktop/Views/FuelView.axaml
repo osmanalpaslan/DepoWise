@@ -68,6 +68,12 @@
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DistCostCenter}"
                                                     PlaceholderText="Merkez seç... (boş olabilir)"/>
                                 </ctrl:FormField>
+                                <!-- ⭐ MUH-01b: irsaliye / fiş no. Depo girişindeki "Fatura/İrsaliye No"
+                                     alanının dağıtım karşılığı; ön muhasebe gideri kaynak belgesine bağlar. -->
+                                <ctrl:FormField Label="Fatura/İrsaliye No" Width="180"
+                                                HelpText="Opsiyonel — elinizdeki belge numarası.">
+                                    <TextBox Classes="Field" Text="{Binding DistInvoice}"/>
+                                </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
                                     <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
                                                    FormatString="0.##" ShowButtonSpinner="False"/>
@@ -178,6 +184,8 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                            <!-- ⭐ MUH-01b: BELGE NO kolonu -->
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
@@ -186,7 +194,8 @@
                                         <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="6" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
+                                        <SelectableTextBlock Grid.Column="6" Text="BELGE NO" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="7" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
@@ -200,6 +209,7 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
@@ -208,7 +218,8 @@
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="6" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
+                                                <SelectableTextBlock Grid.Column="6" Text="{Binding InvoiceDisplay}" MinWidth="110" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="7" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>

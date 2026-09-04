@@ -61,11 +61,29 @@ bilinçli olarak **kullanılmıyor**. Yalnız gerekçe düzeltildi.
 
 ---
 
-## 3. `MUH-01b` — belge alanları · ⏳ SIRADA
+## 3. `MUH-01b` — belge alanları ✅ TAMAM (2026-09-04, ADR-211)
 
-Eksik olanlar: `fuel_distributions` (belge/irsaliye no) · `vehicle_maintenances` ve
-`equipment_maintenances` (fatura / servis fişi no). Yalnız **eklemeli** migration (nullable metin
-kolonları), backfill yok.
+`Migration089_DocumentFields` — üç tabloya opsiyonel `invoice_no TEXT NULL`:
+`fuel_distributions` (irsaliye/fiş no) · `vehicle_maintenances` ve `equipment_maintenances`
+(fatura / servis fişi no). **Yalnız ekleme**; `NOT NULL` yok, backfill yok.
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | Migration089 (3 sütun, idempotent, iki lehçe) | ✅ |
+| 2 | Servis katmanı: DTO + INSERT + okuma yolları (yakıt için İKİ okuma yolu) | ✅ |
+| 3 | API DTO ve uçları (4 bakım çağrı noktası + 2 yakıt ucu) | ✅ |
+| 4 | Masaüstü: 3 form alanı + yakıt listesine **BELGE NO** kolonu | ✅ |
+| 5 | Web: 3 form alanı | ✅ |
+| 6 | **Aranabilirlik** — belge no yakıt serbest metin aramasına dâhil | ✅ |
+| 7 | `BelgeAlanlariTests` BLG1–BLG8 | ✅ |
+
+**Senkron için ek iş gerekmedi:** `BusinessSyncService` `SELECT *` ile taşır ve uygularken gelen
+kolonları tablonun gerçek kolonlarıyla kesişime sokar → yeni sütun kendiliğinden akar, eski istemci
+sessizce yok sayar.
+
+**Eskimiş iki test doğrultuldu (susturulmadı):** EM01/EM03 şema 85 kurup bugünkü servisi çağırıyordu;
+bu bileşim gerçekte oluşamaz (istemci kendi kataloğunu açılışta uygular). Kayıt artık dönemin
+şemasıyla SQL ile atılıyor. Sonuç daha güçlü — ayrıntı ADR-211.
 
 ## 4. `MUH-01c` — cari bağı · ⏳ SIRADA
 

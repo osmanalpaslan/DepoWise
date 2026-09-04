@@ -3657,7 +3657,7 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "vehicle_maintenance", id, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id });
 }).RequireAuthorization();
@@ -3701,7 +3701,7 @@ app.MapPost("/api/equipment-maintenance", (HttpContext c, EquipmentMaintenanceDt
     var id = svc.EquipmentMaintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
         d.EquipmentId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "equipment_maintenance", id, d.CostCenterId);
     return Results.Ok(new { id });
 }).RequireAuthorization();
@@ -3803,7 +3803,8 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     FirmaAlanKontrol(s, "fuel", new Dictionary<string, bool> { ["recipient"] = !string.IsNullOrWhiteSpace(d.RecipientPersonnelId) });
     var distId = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
-        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N"));
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter,
+        InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id = distId });
 }).RequireAuthorization();
@@ -3816,7 +3817,8 @@ app.MapPut("/api/fuel/{id}", (HttpContext c, string id, FuelUpdateDto d) =>
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur.");
     var yeniId = svc.Fuel.UpdateDistribution(s, id, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
-        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter),
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter,
+        InvoiceNo: Doc(d.InvoiceNo)),
         Guid.NewGuid().ToString("N"), d.Reason ?? "");
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", yeniId, d.CostCenterId);
     return Results.Ok(new { id = yeniId });
@@ -3862,7 +3864,7 @@ app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19, ADR-091) — Bakım ile AYNI mekanizma, Bakım
@@ -3876,7 +3878,7 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
     var id = svc.DailyActivity.SaveExtraActivity(s, d.Type, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, "", null, d.TechnicianId, Doc(d.Description), null,
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // İptal ONAYI için etki özeti (bağlı bakım + malzeme satırı) — salt-okuma.
@@ -4747,7 +4749,8 @@ record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = fa
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
     string? BranchId = null,
-    string? CostCenterId = null);
+    string? CostCenterId = null,
+    string? InvoiceNo = null);   // MUH-01b: dış servis faturası / servis fişi no
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
@@ -4755,21 +4758,25 @@ record InspectionDto(string VehicleId, string DocType, long? LastDate, long? Nex
 // company_id alanı BİLİNÇLİ olarak YOKTUR: firma daima oturumdan gelir.
 record EquipmentMaintenanceDto(string EquipmentId, string DefinitionId, string? SubDefinitionId, string? TechnicianId,
     string? Description, string? SubDefinitionNote, decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
-    List<MaintLineDto>? Materials, string? BranchId = null, string? CostCenterId = null);
+    List<MaintLineDto>? Materials, string? BranchId = null, string? CostCenterId = null,
+    string? InvoiceNo = null);   // MUH-01b
 record EquipmentInspectionDto(string EquipmentId, string DocType, long? LastDate, long? NextDate,
     string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate, string? CostCenterId = null);
-record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null, string? CostCenterId = null);
+record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null, string? CostCenterId = null,
+    string? InvoiceNo = null);   // MUH-01b: irsaliye / fiş no
 // Yakıt dağıtımı düzeltme (2026-09-02): DistributionDto ile aynı alanlar + zorunlu gerekçe.
 // DistributionDto'ya alan EKLENMEDİ — o DTO'nun başka çağıranları var, sözleşmesi korunur.
 record FuelUpdateDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId,
     long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null,
-    string? CostCenterId = null, string? Reason = null);
+    string? CostCenterId = null, string? Reason = null,
+    string? InvoiceNo = null);   // MUH-01b
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
-    string? BranchId = null);   // BKM-04: malzemenin çekildiği depo (opsiyonel, sona)
+    string? BranchId = null,
+    string? InvoiceNo = null);   // BKM-04: malzemenin çekildiği depo (opsiyonel, sona) · MUH-01b: belge no
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)

@@ -31,10 +31,22 @@ public class EkipmanMigrationVeIsEmriTests
             Assert.Equal(85L, Sema(f));
 
             // Şema-85 üzerinde GERÇEK araç bakım verisi oluştur.
+            //
+            // ⚠️ 2026-09-04 (MUH-01b) — KAYIT ARTIK SERVİSLE DEĞİL, DOĞRUDAN SQL İLE atılıyor.
+            // Neden: bu test "şema 85" kuruyor ama BUGÜNKÜ servis kodunu çağırıyordu. Migration089
+            // `vehicle_maintenances.invoice_no` ekleyince o bileşim derlenmez oldu ("no such column").
+            // Bileşim ZATEN GERÇEKTE OLUŞAMAZ: istemci kendi migration kataloğunu açılışta uygular,
+            // yani "89'u bilen kod + şema 85" diye bir istemci yoktur. Testin İDDİASI ise hâlâ
+            // geçerli ve değerli: *migration mevcut araç bakım verisini korur*. O iddia, kaydı
+            // dönemin şemasıyla (SQL) atıp migration'ı çalıştırarak DAHA DOĞRU ölçülür.
+            // Assertion'lar zayıflatılmadı; aksine altta "yükseltmeden sonra servis okuyabiliyor mu"
+            // kontrolü de eklendi.
             var (s, arac, def) = AracBakimKur(f, "UP");
-            var svc = new MaintenanceService(f);
-            var bakimId = svc.Save(s, new NewMaintenance(arac, def), "op-85");
-            Assert.Single(svc.ListMaintenances(s));
+            var bakimId = Guid.NewGuid().ToString("N");
+            Calistir(f, "INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id," +
+                        "operation_id,is_cancelled,created_at,updated_at,version,is_deleted) " +
+                        $"VALUES('{bakimId}','UP','{arac}','{def}','op-85',0,1,1,1,0);");
+            Assert.Equal(1L, Say(f, $"SELECT COUNT(*) FROM vehicle_maintenances WHERE id='{bakimId}';"));
 
             var uygulanan = new MigrationRunner(f).Run();
 
@@ -43,9 +55,13 @@ public class EkipmanMigrationVeIsEmriTests
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN " +
                 "('equipment_maintenances','equipment_maintenance_materials','equipment_inspections','maintenance_definition_equipment');"));
 
-            // ⭐ Mevcut araç kaydı BİREBİR duruyor ve okunabiliyor.
+            // ⭐ Mevcut araç kaydı BİREBİR duruyor ve YÜKSELTMEDEN SONRA servisle okunabiliyor
+            // (asıl kullanıcı vaadi bu: babanın eski veritabanı yükseltilince kayıtları kaybolmaz).
             Assert.Equal(1L, Say(f, $"SELECT COUNT(*) FROM vehicle_maintenances WHERE id='{bakimId}';"));
+            var svc = new MaintenanceService(f);
             Assert.Single(svc.ListMaintenances(s));
+            // Migration089 sonrası yeni alan NULL'dur — eski kayıtlara backfill YAPILMADI.
+            Assert.Equal(1L, Say(f, $"SELECT COUNT(*) FROM vehicle_maintenances WHERE id='{bakimId}' AND invoice_no IS NULL;"));
             // Yeni tablolar BOŞ (backfill yok).
             Assert.Equal(0L, Say(f, "SELECT COUNT(*) FROM equipment_maintenances;"));
         }
@@ -74,10 +90,16 @@ public class EkipmanMigrationVeIsEmriTests
         finally { Temizle(yol); }
     }
 
-    /// <summary>EM03 — <b>ESKİ İSTEMCİ (şema 85):</b> ekipman tabloları yoktur; araç bakımı
-    /// ESKİSİ GİBİ çalışır. (ARA İŞ 5'teki OM03 yaklaşımının aynısı.)</summary>
+    /// <summary>EM03 — <b>ESKİ VERİTABANI YÜKSELTİLİNCE ARAÇ BAKIMI SÜRER.</b>
+    ///
+    /// ⚠️ 2026-09-04 (MUH-01b) — testin KURULUŞU değişti, İDDİASI değişmedi. Eskiden şema 85'te
+    /// KALIP bugünkü servisi çağırıyordu; Migration089 sonrası bu bileşim imkânsız hâle geldi
+    /// (istemci kendi kataloğunu açılışta uygular → "89'u bilen kod + şema 85" diye bir istemci yok).
+    /// Ölçülen gerçek vaat şudur: <b>ekipman hattı eklenmeden önce kurulmuş bir veritabanı
+    /// yükseltildiğinde araç bakımı eskisi gibi çalışır</b> — kaydetme ve iptal dâhil.
+    /// (ARA İŞ 5'teki OM03 yaklaşımının aynısı.)</summary>
     [Fact]
-    public void EM03_Eski_Istemci_Arac_Bakimini_Surdurur()
+    public void EM03_Eski_Veritabani_Yukseltilince_Arac_Bakimi_Surer()
     {
         var yol = Yol("dw_eqold_");
         try
@@ -85,6 +107,7 @@ public class EkipmanMigrationVeIsEmriTests
             var f = new SqliteConnectionFactory(yol);
             new MigrationRunner(f, MigrationCatalog.All().Where(m => m.Version <= 85)).Run();
 
+            // ESKİ HÂL: ekipman tabloları henüz yok.
             using (var conn = f.Create())
             {
                 Assert.False(DbIntrospect.TableExists(conn, null, "equipment_maintenances"));
@@ -93,9 +116,22 @@ public class EkipmanMigrationVeIsEmriTests
             }
 
             var (s, arac, def) = AracBakimKur(f, "OLD");
+
+            // Eski şemayla GERÇEK bir araç bakım kaydı (dönemin kolonlarıyla).
+            var eskiKayit = Guid.NewGuid().ToString("N");
+            Calistir(f, "INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id," +
+                        "operation_id,is_cancelled,created_at,updated_at,version,is_deleted) " +
+                        $"VALUES('{eskiKayit}','OLD','{arac}','{def}','op-eski',0,1,1,1,0);");
+
+            // YÜKSELTME — babanın veritabanının güncelleme sonrası yaşadığı şey.
+            new MigrationRunner(f).Run();
+
             var svc = new MaintenanceService(f);
+            Assert.Single(svc.ListMaintenances(s));   // eski kayıt duruyor ve okunabiliyor
+
+            // Araç bakımı yükseltmeden SONRA da eskisi gibi çalışır: kaydet + iptal.
             var id = svc.Save(s, new NewMaintenance(arac, def), "op-old");
-            Assert.Single(svc.ListMaintenances(s));
+            Assert.Equal(2, svc.ListMaintenances(s).Count);
             svc.Cancel(s, id, "iptal");
             Assert.Equal(1L, Say(f, $"SELECT is_cancelled FROM vehicle_maintenances WHERE id='{id}';"));
         }

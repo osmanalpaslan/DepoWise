@@ -4612,3 +4612,56 @@ Yalnız gerekçe düzeltildi.
 **Migration GEREKMEDİ.** Doğrulama: ilgili 97 test 97/97 · masaüstü + web build 0 hata.
 
 Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)
+
+---
+
+## ADR-211 — MUH-01b: para doğuran kayıtlarda belge numarası (2026-09-04)
+
+**Bağlam.** Ön muhasebe (FAZ H) bir gideri kaynak belgesine bağlayamazsa, kullanıcı faturayı elinde
+tutup sistemde karşılığını bulamaz. Ölçüm: belge alanı **stok belgesinde** (`invoice_no` ·
+`order_slip_no` · `credit_slip_no`, M017) ve **yakıt depo girişinde** (`invoice_no`, M009) zaten
+vardı; **yakıt dağıtımı**, **araç bakımı** ve **ekipman bakımında** yoktu.
+
+**Karar.** `Migration089_DocumentFields` — üç tabloya opsiyonel `invoice_no TEXT NULL`.
+
+### Neden ayrı bir "belge" tablosu değil
+Mevcut desen bu: stok belgesi ve yakıt depo girişi belge numarasını **kendi satırında** tutuyor.
+Yeni bir belge tablosu aynı bilgi için ikinci bir gerçeklik üretir ve mevcut ekranların hiçbiriyle
+uyuşmazdı. Maliyet merkezinde bilinçli olarak **tersi** seçilmişti (dış bağ tablosu, ADR-168) — iki
+karar çelişmez: maliyet merkezi çok tabloya bağlanan **ortak bir boyut**, belge no ise kaydın
+**kendi alanı**.
+
+### Canlı veri ve senkron
+Yalnız `ADD COLUMN`; `NOT NULL` yok, backfill yok → mevcut kayıtların tamamı `NULL` belge no ile
+geçerli olmayı sürdürür. **Senkron için ek iş gerekmedi:** `BusinessSyncService` tabloları
+`SELECT *` ile taşır ve uygularken gelen kolonları tablonun gerçek kolonlarıyla **kesişime** sokar
+(`UpsertRow`) → yeni sütun kendiliğinden akar, eski istemci onu sessizce yok sayar. İki yönde de
+uyumlu.
+
+### Alanı eklemek yetmez — arandı da
+Kullanıcının amacı "elimdeki faturayı sistemde bulmak". Bu yüzden belge no yakıt ekranının serbest
+metin aramasına dâhil edildi (ARA İŞ 6'da kurulan arama yolunun aynısı). Aranamayan bir alan
+pratikte yok gibidir.
+
+### Arayüz
+Masaüstü + web, üç formda da: yakıt dağıtımı (**Fatura/İrsaliye No**), araç bakımı ve ekipman bakımı
+(**Fatura/Servis Fişi No**). Ekipman alanı araç alanından **ayrıdır** — MUH-01a'daki maliyet merkezi
+kararıyla aynı gerekçe: ortak alan, biri için seçilen değerin diğerine sessizce yapışması olurdu.
+Masaüstü yakıt listesine **BELGE NO** kolonu eklendi (depo girişleri sekmesindeki desenle aynı).
+
+### İki test düzeltildi — susturularak değil, doğrultularak
+`EkipmanMigrationVeIsEmriTests` EM01/EM03 kırıldı: ikisi de **şema 85 kurup bugünkü servis kodunu**
+çağırıyordu, yeni sütun orada yok. Bu bileşim **gerçekte oluşamaz** — istemci kendi migration
+kataloğunu açılışta uygular, yani "89'u bilen kod + şema 85" diye bir istemci yoktur.
+
+Testlerin İDDİALARI geçerliydi, KURULUŞLARI eskimişti. Kayıt artık dönemin şemasıyla (doğrudan SQL)
+atılıyor, sonra migration çalıştırılıyor. Sonuç **daha güçlü**: EM01 artık yükseltme sonrası servisin
+kaydı okuyabildiğini ve yeni alanın `NULL` kaldığını (backfill yok) da kanıtlıyor; EM03 ise eski bir
+veritabanının yükseltilip araç bakımının kaydet+iptal ile sürdüğünü uçtan uca gösteriyor.
+**Hiçbir assertion zayıflatılmadı, hiçbir test atlanmadı.**
+
+Testler: `BelgeAlanlariTests` BLG1–BLG8 (şema · üç tabloda yaz/oku · **opsiyonellik regresyonu** ·
+boş metin → NULL + kırpma · aranabilirlik · migration yalnız-ekleme kanıtı).
+Doğrulama: ilgili 447 testin 428'i geçti (19 atlanan, hepsi önceden atlanıyordu) · üç proje build 0 hata.
+
+Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)

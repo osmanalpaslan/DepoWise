@@ -15,14 +15,19 @@ public sealed record NewEquipmentMaintenance(
     decimal? PerformedKm = null, decimal? PerformedHour = null, long? PerformedDate = null,
     IReadOnlyList<MaintenanceMaterialLine>? Materials = null,
     /// <summary>Malzemenin ÇEKİLDİĞİ depo (BKM-04/KARAR-9) — araç tarafıyla aynı anlam ve aynı doğrulama.</summary>
-    string? StockLocationId = null);
+    string? StockLocationId = null,
+    /// <summary>⭐ MUH-01b (2026-09-04): dış servis faturası / servis fişi numarası (opsiyonel) —
+    /// araç bakımındaki karşılığıyla aynı anlam.</summary>
+    string? InvoiceNo = null);
 
 /// <summary>Ekipman bakım listesi satırı — araç tarafındaki <see cref="MaintenanceRow"/> karşılığı.</summary>
 public sealed record EquipmentMaintenanceRow(
     string Id, string EquipmentCode, string DefinitionName, string? SubDefinitionName,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
     decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string EquipmentId = "",
-    long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null)
+    long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null,
+    /// <summary>⭐ MUH-01b: dış servis faturası / servis fişi numarası (opsiyonel).</summary>
+    string? InvoiceNo = null)
 {
     private static string Fmt(decimal? km, decimal? hour, long? date) =>
         km is not null ? $"{km:0.##} km"
@@ -263,7 +268,7 @@ public sealed class EquipmentMaintenanceService
         cmd.CommandText = @"
 SELECT m.id, e.code, d.name, sd.name, m.performed_km, m.performed_hour, m.performed_date,
        m.next_due_km, m.next_due_hour, m.next_due_date, m.is_cancelled, m.equipment_id, m.version,
-       m.description, m.sub_definition_note, m.technician_id
+       m.description, m.sub_definition_note, m.technician_id, m.invoice_no
 FROM equipment_maintenances m
 JOIN equipment e ON e.id = m.equipment_id
 JOIN maintenance_definitions d ON d.id = m.maintenance_def_id
@@ -288,7 +293,8 @@ LIMIT @lim;";
                 Convert.ToInt64(r.GetValue(10)) == 1, r.GetString(11), Convert.ToInt64(r.GetValue(12)),
                 r.IsDBNull(13) ? null : r.GetString(13),
                 r.IsDBNull(14) ? null : r.GetString(14),
-                r.IsDBNull(15) ? null : r.GetString(15)));
+                r.IsDBNull(15) ? null : r.GetString(15),
+                r.IsDBNull(16) ? null : r.GetString(16)));
         return list;
     }
 
@@ -338,9 +344,9 @@ WHERE mm.maintenance_id=@m AND mm.company_id=@c;";
         cmd.CommandText = @"
 INSERT INTO equipment_maintenances(id, company_id, equipment_id, maintenance_def_id, sub_definition_id,
     technician_id, description, sub_definition_note, performed_km, performed_hour, performed_date,
-    next_due_km, next_due_hour, next_due_date, op_branch_id, operation_id, is_cancelled,
+    next_due_km, next_due_hour, next_due_date, invoice_no, op_branch_id, operation_id, is_cancelled,
     created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@e,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@opb,@op,0,@now,@now,1,0);";
+VALUES(@id,@c,@e,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@opb,@op,0,@now,@now,1,0);";
         cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@e", dto.EquipmentId);
@@ -355,6 +361,8 @@ VALUES(@id,@c,@e,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@opb,@op,0,@now
         cmd.AddWithValue("@nk", nextKm is null ? DBNull.Value : Money.Serialize(nextKm.Value));
         cmd.AddWithValue("@nh", nextHour is null ? DBNull.Value : Money.Serialize(nextHour.Value));
         cmd.AddWithValue("@nd", (object?)nextDate ?? DBNull.Value);
+        // ⭐ MUH-01b: belge no — boş metin DBNull olur ki "" ile NULL iki ayrı "boş" olmasın.
+        cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
         cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);
         cmd.AddWithValue("@op", operationId);
         cmd.AddWithValue("@now", now);
