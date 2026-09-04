@@ -122,6 +122,15 @@
                       AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width:320px" Clearable="true" />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
+    @* ⭐ LST-01: liste sunucuda 500 kayıtta kesiliyor. Eskiden bu SESSİZDİ — 500. kaydın ötesindeki
+       personel "yokmuş" gibi görünüyordu. Artık kullanıcı uyarılır ve aramaya yönlendirilir. *@
+    @if (_dahaVar)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2" Icon="@Icons.Material.Filled.Info">
+            Bu listede gösterilenden <b>daha fazla personel var</b>. Hepsini görmek yerine aramayı
+            kullanın — aradığınız kişi listede görünmüyorsa yok demek değildir.
+        </MudAlert>
+    }
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz personel yok.</MudText> }
     else
@@ -208,7 +217,21 @@
         await LoadList();
     }
 
-    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
+    // ⭐ LST-01 (2026-09-04): uç artık { items, hasMore } döner. Liste 500 kayıtta kesiliyor ve
+    // kesildiğini SÖYLEMİYORDU → 500. kaydın ötesindeki personel "yokmuş" gibi görünüyordu.
+    private bool _dahaVar;
+    private async Task LoadList()
+    {
+        _rows = null;
+        try
+        {
+            var res = await Api.GetObjectAsync("/api/personnel");
+            _rows = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+            _dahaVar = res.TryGetProperty("hasMore", out var hm) && hm.ValueKind == JsonValueKind.True;
+        }
+        catch { _rows = Array.Empty<JsonElement>(); _dahaVar = false; }
+    }
 
     // Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcılar — "mevcut kullanıcıyı bağla" listesi.
     private async Task LoadLinkableUsers()

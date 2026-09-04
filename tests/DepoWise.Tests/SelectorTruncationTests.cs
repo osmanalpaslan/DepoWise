@@ -127,12 +127,31 @@ public class SelectorTruncationTests : IAsyncLifetime
 
     // ── PERSONEL: arama İş A'da EKLENDİ (uçta hiç yoktu) ──────────────────────────────────
 
+    /// <summary>
+    /// ⚠️ 2026-09-04 (LST-01): <c>/api/personnel</c> artık <c>{ items, hasMore }</c> döner.
+    /// Şekil BİLİNÇLİ olarak değişti: liste 200 kayıtta kesiliyordu ve kesildiğini SÖYLEMİYORDU;
+    /// <c>hasMore</c> tam olarak bu sessizliği bitirmek için eklendi (bu test dosyasının anlattığı
+    /// kusurun aynısı). Testlerin İDDİALARI değişmedi — yalnız yanıt okuma biçimi uyarlandı.
+    /// </summary>
     private async Task<List<string>> PersonnelNamesAsync(string path)
     {
         var r = await _client.GetAsync(path);
         r.EnsureSuccessStatusCode();
-        return (await ApiTestHost.JsonAsync(r)).EnumerateArray()
+        var govde = await ApiTestHost.JsonAsync(r);
+        var dizi = govde.ValueKind == System.Text.Json.JsonValueKind.Object ? govde.GetProperty("items") : govde;
+        return dizi.EnumerateArray()
             .Select(e => e.GetProperty("fullName").GetString() ?? "").ToList();
+    }
+
+    /// <summary>⭐ LST-01: kesilme artık GÖRÜNÜR. Bu dosyanın anlattığı "sessiz işlev kaybı" tam olarak
+    /// buydu; sunucu artık kesildiğini söylüyor ve arayüz kullanıcıyı aramaya yönlendirebiliyor.</summary>
+    private async Task<bool> PersonnelHasMoreAsync(string path)
+    {
+        var r = await _client.GetAsync(path);
+        r.EnsureSuccessStatusCode();
+        var govde = await ApiTestHost.JsonAsync(r);
+        return govde.ValueKind == System.Text.Json.JsonValueKind.Object
+               && govde.TryGetProperty("hasMore", out var hm) && hm.GetBoolean();
     }
 
     private void SeedPersonnel(int count)
@@ -150,6 +169,14 @@ public class SelectorTruncationTests : IAsyncLifetime
         var hepsi = await PersonnelNamesAsync("/api/personnel");
         Assert.Equal(MaxLimit, hepsi.Count);
         Assert.DoesNotContain("Personel 0001", hepsi);
+
+        // ⭐ LST-01 (2026-09-04): kesilme artık SESSİZ DEĞİL. Bu dosyanın anlattığı kusurun özü
+        // "kullanıcı kesildiğini bilmiyor" idi; sunucu artık söylüyor, arayüz de uyarı gösteriyor.
+        Assert.True(await PersonnelHasMoreAsync("/api/personnel"),
+            "Liste kesildi ama hasMore=false — sessiz kesilme geri döndü.");
+
+        // Sınırın altındaki sonuçta uyarı ÇIKMAZ (yanlış alarm kullanıcıyı köreltir).
+        Assert.False(await PersonnelHasMoreAsync($"/api/personnel?search={Uri.EscapeDataString("Personel 0001")}"));
 
         // Arama ona ULAŞIR (İş A'dan önce bu uçta arama parametresi HİÇ YOKTU).
         var bulunan = await PersonnelNamesAsync($"/api/personnel?search={Uri.EscapeDataString("Personel 0001")}");

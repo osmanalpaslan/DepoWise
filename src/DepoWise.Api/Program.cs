@@ -823,7 +823,12 @@ app.MapGet("/api/personnel", (HttpContext c, string? search) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var acc = svc.Users.AccountsByPersonnel(s.CompanyId); // #6: personel → bağlı kullanıcı rozeti (döngü ÖNCESİ tek sorgu)
-    var rows = svc.Personnel.List(s, Page(), search: Doc(search)).Items.Select(p =>
+    // ⭐ LST-01 (2026-09-04): liste 500 kayıtta KESİLİYOR ve kesildiğini SÖYLEMİYORDU → 500. kaydın
+    // ötesindeki personel "yokmuş" gibi görünüyordu (ARA İŞ 6'daki kusurun aynısı, düşük hacimli
+    // sürümü). Servis bunu ZATEN biliyor (`PagedResult.HasMore`); API bilgiyi atıyordu.
+    // Uç artık `{ items, hasMore }` döner → arayüz kullanıcıyı uyarabilir ve daraltmaya yönlendirir.
+    var sayfa = svc.Personnel.List(s, Page(), search: Doc(search));
+    var rows = sayfa.Items.Select(p =>
     {
         acc.TryGetValue(p.Id, out var a);
         return new
@@ -835,7 +840,7 @@ app.MapGet("/api/personnel", (HttpContext c, string? search) =>
             accountActive = a?.IsActive ?? false, accountAdmin = a?.IsAdmin ?? false,
         };
     });
-    return Results.Ok(rows);
+    return Results.Ok(new { items = rows, hasMore = sayfa.HasMore });
 }).RequireAuthorization();
 
 // Fikir B — Unvan SABİT TANIM listesi (personel formunda seçilir, "+" ile yeni eklenir).

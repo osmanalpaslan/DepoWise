@@ -74,6 +74,15 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsEmpty));
     }
 
+    /// <summary>⭐ LST-01: liste sunucuda kesildi mi. Kesilmenin SESSİZ olması, kullanıcının kaydı
+    /// "yok" sanmasına yol açıyordu — babanın yakıt kaydını kaybettiği kusurun aynı sınıfı.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KesilmeUyarisi))]
+    private bool _dahaFazlaVar;
+    public string KesilmeUyarisi =>
+        "Bu listede gösterilenden DAHA FAZLA personel var. Hepsini görmek yerine aramayı kullanın — "
+        + "aradığınız kişi listede görünmüyorsa yok demek değildir.";
+
     [ObservableProperty] private string? _status;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]

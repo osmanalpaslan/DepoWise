@@ -18,6 +18,17 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
+        <!-- ⭐ LST-01: liste sunucuda 500 kayıtta kesiliyor. Eskiden bu SESSİZDİ — 500. kaydın
+             ötesindeki personel "yokmuş" gibi görünüyordu. -->
+        <Border Grid.Row="0" VerticalAlignment="Bottom" Margin="0,0,0,-8"
+                IsVisible="{Binding DahaFazlaVar}"
+                Background="{DynamicResource AccentSoftBrush}"
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12,8">
+            <SelectableTextBlock Text="{Binding KesilmeUyarisi}" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+        </Border>
+
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
