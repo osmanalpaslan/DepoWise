@@ -4394,3 +4394,70 @@ nedeni **ilk koşuda** ortaya çıktı — önceki iki koşuda görünmüyordu.
 aracı yoksa yanlış hipotez ucuz göründüğü için tekrar tekrar seçilir.
 
 **Doğrulama:** tam süit **3320 geçti / 0 başarısız / 48 atlanan** (öncesi 3314/1).
+
+## ADR-207 — ARA İŞ 6: Yakıt Dağıtımları — görünmeyen kayıtlar, sayfalama, arama (2026-09-04)
+
+**Kullanıcı (babanın sahadan bildirdiği) talebi.** Raporda 02.08.2026 tarihli bir yakıt dağıtımı var
+ama Yakıt Dağıtımları ekranında bulunamıyor; liste sayfalanmıyor, sayfa uzayıp gidiyor; ekranda tarih
+ve araç bazlı arama yok ve mevcut arama düğmesi çalışmıyor.
+
+### 🔴 Kök neden — her iki ortamda da AYNI
+
+`FuelService.ListDistributions` **sabit `limit = 200`** ile çağrılıyordu ve sorgu
+`ORDER BY distribution_date DESC` ile en yeniden başlıyordu → ekran yalnız **en yeni 200 dağıtımı**
+gösteriyor, daha eskiler **sessizce düşüyordu**. Rapor limitsiz okuduğu için aynı kayıt orada
+görünüyordu; kullanıcının gördüğü tutarsızlık tam olarak budur. Kesilme **hiç bildirilmiyordu** —
+kayıt "kaybolmuş" gibi duruyordu. Kullanıcının *"daha önceki tarihli kayıtları göremiyor olabilirim"*
+sezgisi doğruydu: tekil kayıt değil, 200'ün ötesindeki **her** kaydı etkileyen bir sınıf sorunu.
+
+**İki ortam ayrı ayrı ölçüldü** (kullanıcının bağlayıcı kuralı: "masaüstünde gördüğüm hata webde de
+var demek değil"). İlk iki şikayet ikisinde de aynıydı; **üçüncüsü gerçekten farklı çıktı**:
+masaüstünde arama kutusu **ölüydü**, webde **hiç yoktu**. Sonuç aynı: filtrelenemiyordu.
+
+### Çözüm
+
+`FuelService.SearchDistributions` — sunucu tarafı sayfalama + tarih aralığı + araç (iç kod **ve
+plaka**) + serbest metin; `/api/fuel/grid` ucu toplam sayıyı da döner. Desen aynı projedeki Günlük
+Faaliyet/Araçlar ekranlarıyla birebir (`GridQuery` + `GridResult`) — yeni bir yol icat edilmedi.
+Filtreler **SQL'de** süzülür; bellekte süzülseydi toplam sayı yanlış çıkar ve sayfalama sessizce
+bozulurdu. **Migration gerekmedi** (mevcut indeksler yeterli).
+
+**Arama yalnız Sorgula düğmesi ve Enter ile çalışır** — kullanıcının açık isteği; yazarken sorgu
+tetiklenmez. **Depo Girişleri sekmesi** de sayfalandı: aynı ekranda aynı 200 tavanı vardı, yarım
+bırakmak tutarsız olurdu.
+
+### 🔴 Yan bulgu (sınıf düzeltmesi) — 46 ekranda ölü arama kutusu
+
+`Toolbar.ShowSearch` varsayılanı **`true`** olduğu için şablon **her ekranda** arama kutusu çiziyordu;
+oysa Toolbar kullanan **50 ekranın yalnız 4'ü** `SearchText`'i bağlamıştı → **46 ekranda kutu
+görünüyor, kullanıcı yazıyor, hiçbir şey olmuyordu.** Kullanıcının şikayeti bunun tekil örneğiydi;
+sorun ekranda değil şablonun varsayılanındaydı. Varsayılan **`false`** yapıldı; aramayı gerçekten
+kullanan 4 ekran `ShowSearch="True"` ile açıkça bildirir. 46 ekrana arama YAZMAK haftalar sürerdi ve
+çoğunun ihtiyacı da yok — çalışmayan bir kutuyu göstermek, hiç göstermemekten kötüdür.
+
+### Uygulama sırasında bulunup düzeltilenler
+- **Durum satırı yalan söylüyordu:** arama yalnız düğmeyle çalıştığı için kullanıcı yazdığında liste
+  değişmiyor, ama durum yazısı kutulara bakıp hemen "· filtreli" diyordu. Artık **son sorguda
+  uygulanan** filtreyi anlatır; kutuda bekleyen değişiklik varsa **"Sorgula'ya basın"** uyarısı çıkar.
+- **Filtre değişince sayfa 1'e dönülür** — 7. sayfadayken filtre daraltılsa boş ekran gelir ve
+  kullanıcı "kayıtlar silinmiş" sanardı; yani çözdüğümüz şikayetin yeni biçimde geri gelmesi.
+- **Nöbetçi test doğru olanı yaptırdı:** `TSR1` filtre satırı sayısını 7 buldu (4 beklerken). Doğru
+  düzeltme sayıyı 7'ye çıkarmak değil, eklediğim **iki sayfalama satırını** `TableFilterRow`
+  sınıfından ÇIKARMAKTI — o sınıf başlık altındaki FİLTRE bandına aittir ve projedeki mevcut
+  sayfalama satırları düz `StackPanel`. Sayı 5'te bilinçli olarak sabitlendi.
+
+### Doğrulama
+İzole QA sunucusunda kullanıcının senaryosu birebir kuruldu (02.08.2026 kaydı + 240 yeni kayıt = 241):
+**eski yol** 200 satır döndü ve kayıt **YOKTU** (kusurun kanıtı); **yeni yol** kaydı buldu; tarih
+aralığı 01–03 Ağustos verilince **1 sonuç**. Web arayüzünde: yazarken liste değişmedi (241→241,
+yalnız "Sorgula'ya basın"), Sorgula'ya basınca "1 dağıtım — sayfa 1 / 1 · filtreli".
+Testler: `YakitListeSayfalamaTests` (YKT1–YKT7) + `YakitEkranAramaTests` (YKE1–YKE7).
+
+### Devredilen: `LST-01`
+Aynı sınıf kusur **6 web ekranında daha** var (`Stock` 200 · `Maintenance` 200 · `StockMovements` 1000
+· `Personnel` 500 · `Audit`/`StockChangeLog` 300). Bu ara işe dahil edilmedi: her biri kendi servis
+metodu + API ucu + iki arayüz demektir; hepsini birden yapmak ara işi günlere yayar ve **babanın canlı
+veri girdiği** ekranlarda tek seferde geniş bir değişiklik olurdu. Desen artık kurulu; `LST-01` olarak
+risk sırasıyla yol haritasına yazıldı.
+
+Ayrıntı: [ARA_IS_6_00_YAKIT_LISTE.md](project-control/ARA_IS_6_00_YAKIT_LISTE.md)

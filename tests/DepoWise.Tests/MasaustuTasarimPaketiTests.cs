@@ -65,6 +65,9 @@ public class MasaustuTasarimPaketiTests
             Path.Combine("Views", "MaterialsView.axaml"),
             Path.Combine("Views", "DailyActivityView.axaml"),
             Path.Combine("Controls", "DataGridView.axaml"),
+            // 2026-09-04 (ARA İŞ 6): Yakıt Dağıtımları'na tarih/araç/metin arama çubuğu eklendi.
+            // Bu GERÇEK bir filtre satırıdır → aynı sınıfı kullanır ve sayıya dahildir.
+            Path.Combine("Views", "FuelView.axaml"),
         };
 
         foreach (var göreli in beklenen)
@@ -73,6 +76,12 @@ public class MasaustuTasarimPaketiTests
             Assert.Contains($"<Border Classes={T}TableFilterRow{T} DockPanel.Dock={T}Top{T}>", x);
         }
 
+        // Sayı BİLİNÇLİ olarak 4 → 5 güncellendi. İlk denemede 7 çıkmıştı: aynı ekrana eklenen İKİ
+        // SAYFALAMA satırı da bu sınıfı kullanıyordu. Nöbetçi test bunu yakaladı ve doğru olan
+        // yapıldı — sayıyı 7'ye çıkarmak değil, sayfalama satırlarını bu sınıftan ÇIKARMAK:
+        // `TableFilterRow` başlık altındaki FİLTRE bandının sınıfıdır; projedeki mevcut sayfalama
+        // satırları (DailyActivityView, VehiclesView) düz StackPanel'dir. Sınıfı anlamı dışında
+        // kullanmak, ileride "filtre satırı" araması yapan herkesi yanıltırdı.
         Assert.Equal(beklenen.Length, Say($"Classes={T}TableFilterRow{T}"));
     }
 
