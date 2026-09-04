@@ -241,7 +241,8 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `SNK-11` | Türetilmiş bakiye senkron paketinden çıkarıldı (~86 KB/tur) | ✅ **TAMAM** |
 | `SNK-12` | Masaüstünde depo listesi senkron turunda tazeleniyor | ✅ **TAMAM** (8 senaryo) |
 | `STK-B1` | `movement_type` gösterim kataloğu — 8 tür tek kaynağa bağlandı, ham İngilizce kaçağı ve Web↔masaüstü ıraksaması kapatıldı | ✅ **TAMAM** (24 senaryo · STK-10 adım 0) |
-| `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
+| `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | ✅ **TAMAM** (2026-09-04, ADR-205) — servis olgun çıktı; **maliyet merkezi transferde sessizce yutuluyordu** (iki platformda, düzeltildi) · hedef listesinden kaynak dışlandı · onayda hedefin adı · `TransferPariteTests` — [TRF_01_TRANSFER_PARITE.md](TRF_01_TRANSFER_PARITE.md) |
+| `STK-12` | **Masaüstünde "Tüm Şubeler" modunda stok işlemi** — web'de STK-04 ile açık (depo açıkça seçilirse), masaüstünde `BranchGuard` tümünü engelliyor. TRF-01 analizinde bulundu ama **transfer'e özel değil, Stok ekranının TAMAMINI** ilgilendiriyor (her işlem türü oturum şubesine yazıyor) → kendi analiz + test turunu hak ediyor, TRF-01'e sıkıştırılmadı | 🟡 **SIRADA** (FAZ C sonrası ilk iş) |
 | `STK-10a` | **"Stok Hareketleri" raporu** — katalog + Kaynak/Hedef + `Date`+`Location` + **gerçek XLSX doğrulaması** | ✅ **TAMAM** (41 senaryo · izole PG sorgu planı · Web/masaüstünde kod değişmedi) |
 | `STK-10b-1` | **Hareket Türü filtresi** — 6/6 katman · seçenekler MovementTypeOptions'tan · fail-closed | ✅ **TAMAM** (28 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-2` | **Serbest metin arama** — 6/6 katman · semantik mevcut ekrandan birebir | ✅ **TAMAM** (41 senaryo · RPR-01 yeşil · izole PG) |

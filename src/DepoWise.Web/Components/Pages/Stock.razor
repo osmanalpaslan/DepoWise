@@ -55,8 +55,16 @@
                                HelperText="Hareketin ait olduğu gün. Kayıt zamanı ayrıca saklanır." />
             </MudItem>
             <MudItem xs="6" md="3">
-                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
-                @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır.
+                   ⭐ TRF-01 (2026-09-04): TRANSFERDE GİZLİ. Alan eskiden işlem türünden bağımsız
+                   görünüyordu; kullanıcı transfer yaparken de doldurabiliyordu ama değer HİÇBİR YERE
+                   yazılmıyordu (transfer gövdesinde `costCenterId` yok, API DTO'sunda alan yok) ve
+                   uyarı da verilmiyordu — sessizce yutuluyordu.
+                   Neden "gönder" değil de "gizle": depo→depo transfer bir MALİYET OLAYI DEĞİLDİR;
+                   malzeme tüketilmez, yalnız yer değiştirir. Maliyet, malzeme kullanıldığında
+                   (Şube İçi çıkış) doğar ve orada zaten çalışıyor. Transferlerin maliyetlendirilmesi
+                   gerekirse doğru yer yol haritasındaki MUH-04'tür. *@
+                @if (!IsOutBranch && Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
                 {
                     <MudSelect T="string" @bind-Value="_costCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                         @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
@@ -275,6 +283,18 @@
     {
         get { var b = _branches.FirstOrDefault(x => x.Id == Auth.BranchId); return string.IsNullOrEmpty(b.Name) ? "—" : b.Name; }
     }
+
+    /// <summary>TRF-01 — onay metninde kullanılan depo ADLARI. Kaynak, "Tüm Şubeler" modunda
+    /// kullanıcının seçtiği depodur; oturum şubesi değildir (bu yüzden <see cref="LoginBranchName"/>
+    /// yetmiyordu). Ad çözülemezse ham kimlik yazmak yerine "—" gösterilir.</summary>
+    private string DepoAdi(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return "—";
+        var b = _branches.FirstOrDefault(x => x.Id == id);
+        return string.IsNullOrEmpty(b.Name) ? "—" : b.Name;
+    }
+    private string KaynakDepoAdi => DepoAdi(EffectiveLocation);
+    private string HedefDepoAdi => DepoAdi(_toBranch);
 
     // Yeni Kayıt alanları
     private string _code = "", _name = "", _type = "Yedek Parça", _unit = "", _cat = "", _brand = "", _sup = "";
@@ -532,7 +552,11 @@
             // Kaynak = login şube (otomatik); kullanıcı yalnız HEDEFİ seçer.
             if (string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Hedef şube seçin."; _ok = false; return; }
             if (EffectiveLocation == _toBranch) { _msg = "Hedef depo, kaynak depodan farklı olmalı."; _ok = false; return; }
-            if (!await Dialog.Confirm($"{LoginBranchName} → hedef şubeye şube dışı çıkış (transfer) kaydedilsin mi?{LineText(_saveLines)}", "Evet, Kaydet")) return;
+            // ⭐ TRF-01: onayda HEDEFİN ADI yazılır. Eskiden yalnız "hedef şubeye" deniyordu →
+            // kullanıcı, malzemenin hangi depoya gideceğini onay ekranında GÖREMİYORDU. Bu, geri
+            // alınamayan bir işlemde (transfer `CanReverse` dışında) ciddi bir eksikti.
+            // Masaüstü bunu zaten doğru yapıyordu; parite web lehine değil masaüstü lehine kapatıldı.
+            if (!await Dialog.Confirm($"{KaynakDepoAdi} → {HedefDepoAdi} transferi kaydedilsin mi?{LineText(_saveLines)}", "Evet, Kaydet")) return;
         }
 
         _busy = true;

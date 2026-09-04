@@ -46,6 +46,25 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public ObservableCollection<string> TypeOptions { get; } = new() { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
+
+    /// <summary>
+    /// TRF-01 (2026-09-04) — transferde HEDEF listesi. Kaynak (oturum) şubesi listeden ÇIKARILIR.
+    ///
+    /// Eskiden hedef kutusu tüm şubeleri listeliyordu; kullanıcı kendi şubesini seçebiliyor ve hatayı
+    /// ancak <b>Kaydet'e bastıktan sonra</b> görüyordu ("Hedef şube, kendi şubenizden farklı olmalı").
+    /// Web bunu zaten listeden dışlayarak çözüyordu — parite bu yönde kapatıldı: hata mesajı
+    /// göstermek yerine <b>hatayı mümkün kılmamak</b> doğrusudur.
+    ///
+    /// Kaydet'teki kontrol KALDIRILMADI: liste bir kolaylıktır, kural sunucuda ve VM'de durur
+    /// (<c>StockService</c> kaynak==hedef transferini zaten reddeder).
+    /// </summary>
+    public ObservableCollection<BranchRow> HedefSubeler { get; } = new();
+
+    private void HedefSubeleriTazele()
+    {
+        HedefSubeler.Clear();
+        foreach (var b in Branches.Where(b => b.Id != _session.OperatingBranchId)) HedefSubeler.Add(b);
+    }
     public ObservableCollection<LookupItem> Personnel { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<StockMovementRow> Movements { get; } = new();
@@ -98,6 +117,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(ShowSourceBranch))]
     [NotifyPropertyChangedFor(nameof(ShowTargetBranch))]
     [NotifyPropertyChangedFor(nameof(ShowPersonnel))]
+    [NotifyPropertyChangedFor(nameof(CanPickCostCenter))]   // TRF-01: transferde gizlenir
     private string _exitScope = "Şube İçi";
 
     public bool IsNew => SelectedKind == "Yeni Kayıt";
@@ -202,8 +222,22 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     }
 
     // ── MLY-01 (ADR-168): opsiyonel maliyet merkezi seçimi ───────────────────────────────────────
-    /// <summary>Alan yalnız cost_centers Edit yetkisi olana görünür (bağ yazmak veri değiştirir).</summary>
-    public bool CanPickCostCenter => AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
+    /// <summary>
+    /// Alan yalnız cost_centers Edit yetkisi olana görünür (bağ yazmak veri değiştirir).
+    ///
+    /// ⭐ TRF-01 (2026-09-04) — <b>TRANSFERDE GİZLİ.</b> Alan eskiden işlem türünden bağımsız
+    /// görünüyordu; kullanıcı transfer yaparken de doldurabiliyordu ama değer <b>hiçbir yere
+    /// yazılmıyordu</b> (<c>BaglaMaliyetMerkezi</c> yalnız IssueOut dalında çağrılır) ve uyarı da
+    /// verilmiyordu — sessizce yutuluyordu. Aynı kusur web'de de vardı.
+    ///
+    /// Neden "kaydet" değil de "gizle": depo→depo transfer bir <b>maliyet olayı değildir</b>;
+    /// malzeme tüketilmez, yalnız yer değiştirir. Maliyet, malzeme kullanıldığında (Şube İçi çıkış)
+    /// doğar ve orada zaten çalışıyor. Transferlerin maliyetlendirilmesi gerekirse doğru yer yol
+    /// haritasındaki <c>MUH-04</c>'tür. Alan bugün hiçbir şey yapmadığı için gizlemek işlev kaldırmaz,
+    /// yalnızca kullanıcının "kaydedildi" sanmasını önler.
+    /// </summary>
+    public bool CanPickCostCenter =>
+        !IsOutBranchExit && AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
     public System.Collections.ObjectModel.ObservableCollection<ProjectPick> CostCenterOptions { get; } = new();
     [ObservableProperty] private ProjectPick? _formCostCenter;
     private void LoadCostCenterOptions()
@@ -234,7 +268,10 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             Movements.Clear();
             foreach (var m in DesktopServices.Stock.RecentMovements(_session)) Movements.Add(m);
             if (Branches.Count == 0)
+            {
                 try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+                HedefSubeleriTazele();   // TRF-01: hedef listesinden kaynak şube çıkarılır
+            }
             OnPropertyChanged(nameof(LoginBranchName));   // Branches yüklendi → login şube etiketini tazele
             if (Personnel.Count == 0)
                 try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }

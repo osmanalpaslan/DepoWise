@@ -70,11 +70,35 @@ Transfer servis düzeyinde **iyi test edilmiş**: 21 dosyada 68 `Transfer(` ça�
 **Eksik olan:** transfere özel **UI parite testi yok**. TRF-01'in asıl katkısı bu olacak —
 `RPR-01`'in rapor filtreleri için yaptığının aynısı, transfer ekranı için.
 
-## 5. Yapılacaklar
+## 5. Yapılanlar
 
-1. Maliyet merkezi alanı transferde gizlenir (web + masaüstü) — §2
-2. Masaüstünde "Tüm Şubeler" modunda işlem, **depo açıkça seçilmek şartıyla** açılır (web'in STK-04
-   kuralı birebir) — kaynak depo seçilebilir listeye döner
-3. Masaüstünde hedef listesinden kaynak depo dışlanır
-4. Web onay metnine hedef deponun **adı** yazılır
-5. **UI parite testi** eklenir: iki platformun transfer ekranı aynı alan/kural kümesini taşır
+| # | İş | Durum |
+|---|---|---|
+| 1 | Maliyet merkezi alanı transferde **gizlendi** (web + masaüstü) — §2 | ✅ |
+| 2 | Masaüstünde hedef listesinden **kaynak depo dışlandı** (`HedefSubeler`) | ✅ |
+| 3 | Web onay metnine **hedef deponun adı** yazıldı (`KaynakDepoAdi → HedefDepoAdi`) | ✅ |
+| 4 | **UI parite testi** eklendi (`TransferPariteTests`, TRP1–TRP4) | ✅ |
+| 5 | "Tüm Şubeler" farkı → **`STK-12` olarak ayrıldı** (aşağıya bakın) | ⏭️ |
+
+### Neden "Tüm Şubeler" farkı bu işe SIKIŞTIRILMADI
+
+Analizdeki en büyük parite farkı buydu, ama uygulamaya geçerken kapsamı ölçüldü ve **transfer'e özel
+olmadığı** görüldü: masaüstünde `BranchGuard.RequireBranchAsync` **Kaydet'in tamamını** kapatıyor ve
+ekranın **her işlem türü** (Yeni Kayıt · Şube İçi Çıkış · Transfer · Sayım) yazacağı lokasyonu
+`_session.OperatingBranchId`'den alıyor — bu alan "Tüm Şubeler" modunda boştur. Yani web'e hizalamak,
+web'in `EffectiveLocation` desenini **Stok ekranının tamamına** taşımak demektir; STK-04/STK-05
+ölçeğinde bir iştir.
+
+Bunu TRF-01'in içine sıkıştırmak iki kötü sonuç doğururdu: (a) yarım hizalama — transfer çalışır ama
+giriş/çıkış/sayım çalışmaz, ki bu bugünkü durumdan daha kafa karıştırıcıdır; (b) babanın **canlı veri
+girdiği** ekranda, kendi test turu olmayan geniş bir değişiklik. Bu yüzden `STK-12` olarak yol
+haritasına **açıkça** yazıldı ve FAZ C sonrasının ilk işi yapıldı.
+
+## 6. Doğrulama
+
+- `TransferPariteTests` (TRP1–TRP4): maliyet merkezi transferde gizli · hedef listesi kaynağı dışlar ·
+  onay metni hedefin adını yazar · **kaynak==hedef kuralı kaldırılmadı** (liste bir kolaylıktır;
+  kural sunucuda ve VM'de durmalı).
+- Transfer servis davranışı zaten 21 dosyada 68 senaryoyla kapsanıyor → burada tekrarlanmadı.
+- Bakiyeye yansıma **kod okumasıyla doğrulandı**: kaynak `-1`, hedef `+1`, ikisi de ortak
+  `StockBalanceWriter.ApplyDelta` üzerinden → firma toplamı sabit, lokasyon kırılımı doğru.

@@ -71,7 +71,9 @@
                     <!-- Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): AsyncPopulator — tıklanınca
                          (arama yapmadan) en fazla 25 kayıt, arama başlayınca sınırsız + Türkçe-doğru (SearchPopulator). -->
                     <ctrl:FormField Label="Hedef Şube / Şantiye" IsRequired="True" Width="180" IsVisible="{Binding ShowTargetBranch}">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}"
+                        <!-- TRF-01: kaynak (oturum) şubesi listede YOK — kullanıcı kendi şubesini
+                             seçip Kaydet'te hata almasın (web bunu zaten dışlıyordu). -->
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding HedefSubeler}" SelectedItem="{Binding ToBranch}"
                                         PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
                 </StackPanel>
