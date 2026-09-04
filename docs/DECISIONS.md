@@ -4867,3 +4867,41 @@ dışarı alamıyor, aynı bilgi için elle kopyalamak zorunda kalıyordu.
 Testler: `ParitePRT02Tests` PRT1–PRT5 (uçlar + yetki · **sayfa değil tüm sonuç** · masaüstü düğme ve
 yetki görünürlüğü · web düğme ve çağrı · tablo modelleri). Doğrulama: ilgili 248 testin 247'si geçti
 (1 atlanan, önceden) · üç proje build 0 hata. Migration gerekmedi.
+
+---
+
+## ADR-217 — FAZ H: ön muhasebe modülü — ölçüm ve MUH-04'ün kapatılması (2026-09-04)
+
+**Ölçüm önce.** FAZ H dört madde sayıyordu (`MUH-02…05`); üçü **zaten kuruluydu**:
+
+| Madde | Durum |
+|---|---|
+| `MUH-02` cari hesap | ✅ `PartyService` + `PartyLedgerService` + Cari ekranı (iki platform) |
+| `MUH-03` kasa/banka + tahsilat/ödeme | ✅ `FinanceService` + Kasa/Banka ve Tahsilat/Ödeme ekranları |
+| `MUH-05` ön muhasebe raporları | ✅ **6 rapor** katalogta (cari ekstre · bakiye özeti · fatura özeti · açık faturalar/vade · tahsilat/ödeme · kasa/banka) |
+| `MUH-04` gider dağıtımı (şantiye maliyeti) | ⚠️ **gerçek eksik** — aşağıda |
+
+### `MUH-04` — ekranda vardı, RAPOR DEĞİLDİ
+Maliyet merkezi özeti Maliyet Merkezleri sayfasında görünüyordu ama **rapor kataloğunda yoktu**.
+Sonuçları: tarih aralığıyla süzülemiyor, Excel/PDF olarak dışa aktarılamıyor, **rapor yetkisiyle
+yönetilemiyor** ve Raporlar ekranından ulaşılamıyordu. Şantiye maliyetini görmek isteyen kullanıcı
+ekrandaki tabloyu elle kopyalamak zorundaydı.
+
+`acc-costcenters` (**Maliyet Merkezi Özeti**) diğer 6 ön muhasebe raporuyla **aynı sözleşmeye**
+bağlandı. Hesaplama **tek kaynaktan** (`CostCenterService.Summary`) gelir — rapor ikinci bir maliyet
+gerçekliği üretmez. Yetki kalemi (`rpt_acc-costcenters`) `ReportCatalog`'dan **otomatik** doğar
+(ADR-197 mekanizması); elle ekleme gerekmedi.
+
+Kapsamı bu gece genişletilen ekipman bakımı (MUH-01a) da bu rapora **kendiliğinden** girer.
+
+### Dört nöbetçi test bilinçli olarak güncellendi
+Rapor sayısı 26 → 27 (üç ayrı sayaç) ve `UsesDate && !RequiresDate` listesi. Bunlar "sessizce rapor
+eklendi/silindi" nöbetçileridir; **gevşetilmediler**, gerekçesiyle güncellendiler.
+
+Dördüncüsü daha önemliydi: `RaporKapsamliTaramaTests` her raporun **gerçekten veri gösterdiğini**
+sınar ("kullanıcı için boş rapor, girdiğim kayıt raporda yok demektir"). Yeni rapor boş dönüyordu
+çünkü tohum verisinde hiçbir işlem maliyet merkezine **bağlı değildi**. Muafiyet listesine eklemek
+yerine **tohuma gerçek bir bağ eklendi** — böylece rapor uçtan uca kanıtlanıyor.
+
+Doğrulama: rapor + yetki alanında 883 testin 880'i geçti (3 atlanan, önceden) · build 0 hata.
+**Migration gerekmedi.**

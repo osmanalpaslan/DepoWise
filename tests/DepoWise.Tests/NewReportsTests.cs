@@ -432,7 +432,9 @@ public class NewReportsTests : IDisposable
     public void RPR13_Etkilenen_Raporlar_Beklendigi_Gibi()
     {
         var etkilenen = ReportCatalog.All.Where(d => d.UsesDate && !d.RequiresDate).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "acc-balances", "acc-cash", "inspection" }, etkilenen);
+        // MUH-04 (2026-09-04): acc-costcenters listeye katıldı — tarih SÜZER ama ZORUNLU değildir
+        // (tarih verilmezse tüm zamanların maliyet dağılımı gösterilir; diğer üçüyle aynı sözleşme).
+        Assert.Equal(new[] { "acc-balances", "acc-cash", "acc-costcenters", "inspection" }, etkilenen);
     }
 
     private static string RepoKok()

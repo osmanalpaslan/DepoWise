@@ -54,7 +54,9 @@ public class ReportArchitectureTests : IDisposable
         // (fuel-daily PK-G1=A · stock-movements-daily PK-G2=A).
         // 24 → 25: ADR-182 / ARA İŞ 2-S4 (daily-activity, PK-D1=A — Günlük Faaliyet detay raporu).
         // 25 → 26: 2026-09-02 kullanıcı isteği (daily-activity-summary — Günlük Faaliyet dönem/toplam).
-        Assert.Equal(26, ReportCatalog.All.Count);
+        // 26 → 27: MUH-04 / FAZ H (2026-09-04) — acc-costcenters (Maliyet Merkezi Özeti). Özet EKRANDA
+        // vardı ama katalogta yoktu: süzülüp dışa aktarılamıyor, rapor yetkisiyle yönetilemiyordu.
+        Assert.Equal(27, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

@@ -2293,6 +2293,10 @@ ORDER BY br.name, p.full_name;";
         "acc-open-invoices" => AccountingReports.OpenInvoices(_factory, s, req, _clock),
         "acc-payments" => AccountingReports.Payments(_factory, s, req),
         "acc-cash" => AccountingReports.Cash(_factory, s, req),
+        // ⭐ MUH-04 (2026-09-04): maliyet merkezi özeti artık RAPOR. Hesaplama tek kaynaktan
+        // (CostCenterService.Summary) gelir — rapor ikinci bir maliyet gerçekliği üretmez.
+        "acc-costcenters" => DepoWise.Infrastructure.Accounting.CostCenterService.SummaryTable(
+            new DepoWise.Infrastructure.Accounting.CostCenterService(_factory).Summary(s, req.FromDate ?? 0, req.ToDate ?? long.MaxValue)),
 
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock-movements-daily" => StockMovementsDaily(s, req, maxRows),   // ADR-182 (PK-G2=A): gün×tür özeti

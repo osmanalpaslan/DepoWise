@@ -111,7 +111,15 @@ public class RaporKapsamliTaramaTests : IDisposable
         var stock = new StockService(_f, _clock);
         stock.ReceiveIn(_admin, new[] { new StockLine(mat, 50m, 10m) }, Op(), branchId: depo);
         _clock.Advance(60_000);
-        stock.IssueOut(_admin, new[] { new StockLine(mat, 5m) }, Op(), branchId: depo);
+        var cikisBelgesi = stock.IssueOut(_admin, new[] { new StockLine(mat, 5m) }, Op(), branchId: depo);
+
+        // ⭐ MUH-04 (2026-09-04): maliyet merkezi ve ona BAĞLI bir çıkış — "acc-costcenters" raporunun
+        // gerçekten veri gösterdiğini kanıtlamak için. Merkeze bağlanmamış işlem rapora GİRMEZ; bu
+        // yüzden tohum verisinde açık bir bağ olmadan rapor haklı olarak boş dönerdi.
+        var maliyetMerkezi = new DepoWise.Infrastructure.Accounting.CostCenterService(_f, _clock)
+            .Create(_admin, new DepoWise.Infrastructure.Accounting.NewCostCenter("Şantiye A", "SNT-A"));
+        new DepoWise.Infrastructure.Accounting.CostCenterService(_f, _clock)
+            .Link(_admin, "stock_document", cikisBelgesi.DocumentId, maliyetMerkezi);
         _clock.Advance(60_000);
         stock.Count(_admin, new[] { new CountLine(mat, 44m) }, "sayım", Op(), branchId: depo);
         _clock.Advance(60_000);

@@ -367,6 +367,19 @@ public static class ReportCatalog
             InfoNote: "Bakiye = Σ giriş − Σ çıkış; SAKLANMAZ. Tarih aralığı verilirse giriş/çıkış o aralıktan, bakiye ise TÜM hareketlerden hesaplanır (dönem hareketi ile güncel bakiye ayrı okunur). İptal edilen hareketler hiçbirine girmez.",
             RequiredModule: "finance"),
 
+        // ⭐ MUH-04 (FAZ H, 2026-09-04) — GİDER DAĞITIMI / ŞANTİYE MALİYETİ.
+        // Maliyet merkezi özeti EKRANDA vardı (Maliyet Merkezleri sayfası) ama RAPOR KATALOĞUNDA
+        // yoktu: yani tarih aralığıyla süzülüp Excel/PDF olarak dışa aktarılamıyor, rapor yetkisiyle
+        // yönetilemiyor ve Rapor ekranından ulaşılamıyordu. Diğer 6 ön muhasebe raporuyla aynı
+        // sözleşmeye bağlandı; hesaplama TEK KAYNAKTAN (CostCenterService.Summary) gelir —
+        // ikinci bir maliyet gerçekliği üretilmedi.
+        new ReportDescriptor("acc-costcenters", "Maliyet Merkezi Özeti",
+            "Maliyet merkezi başına gider dökümü (malzeme çıkışı · yakıt · bakım)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date, false, ExportStandard,
+            InfoNote: "Tutarlar kaynak kayıtlardan HESAPLANIR, saklanmaz: malzeme çıkışı (miktar × birim fiyat), yakıt depo girişi ve dağıtımı, araç ve ekipman bakım malzemesi. Yalnız maliyet merkezine BAĞLANMIŞ kayıtlar girer — merkez seçilmeden yapılan işlemler burada görünmez. İptal edilen kayıtlar dâhil edilmez.",
+            RequiredModule: "cost_centers"),
+
         // ADR-182 (ARA İŞ 2 / S4, PK-D1=A): GÜNLÜK FAALİYET — DETAY. Günlük Faaliyet ekranındaki
         // kayıtların gün gün dökümü; kayıt tipi ÇOKLU seçilebilir (hiçbiri seçilmezse TÜM tipler).
         // Yeni EKRAN/menü açılmadı: mevcut Raporlar ekranının katalog listesine tek satırla girer.
