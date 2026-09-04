@@ -1,5 +1,40 @@
 # AKTİF DURUM
 
+## ⭐ YAYIN — 2026-09-04 (2) (ADR-203 — SEKME ŞERİDİ) — ✅ BAŞARILI · **MIGRATION YOK, şema 88**
+
+**Yayınlanan commit:** `5a4a998` → **Web v211** · **Masaüstü 1.0.173**
+(253 dosya, **self-contained**, 90.567.566 bayt, checksum `A702DB83…C9473513`, 2 eski paket temizlendi ~0,48 GB).
+**API YAYINLANMADI** — bu turda sunucu kodu değişmedi (yalnız arayüz); gereksiz dağıtım yapılmadı, API v186'da kaldı.
+
+**Yayın öncesi yedek:** `artifacts/backups/depowise_prod_pre_adr203.dump` — 811.803 bayt, **584 nesne**.
+
+**Canlı veri birebir korundu:** şema **88 → 88** · malzeme **2503** · araç **167** · stok hareketi **722** · kullanıcı **9**.
+
+**Ne çıktı.** Kullanıcının çizdiği sekme şeridi tasarımı iki platformda da uygulandı: her sekmede
+**grup ikonu + etiket + ✕**, aktif sekmede kehribar ikon/yazı ve içeriğe bakan kenarda 2 px vurgu
+çizgisi, sağ uçta "Yeni Sekme". **Web şeridi sayfanın ALTINDAN üst başlığın hemen altına taşındı** —
+kullanıcının bildirdiği "alt bar tabloların sayfa numaralarını kapatıyor" sorunu böylece giderildi
+(eski şerit `position:fixed; bottom:0` idi ve içerikle çakışıyordu).
+
+**Yayın öncesi görsel onay.** Kullanıcı "canlıya almadan göster" dedi; iki şerit de GERÇEK hâliyle
+gösterildi — masaüstü için `MainWindow.axaml`'deki asıl markup, projenin kendi tema dosyalarıyla
+çalıştırılıp ekran görüntüsü alındı; web için çalışan uygulamadan alınan gerçek HTML+CSS.
+**Bu önizleme bir hata yakaladı:** ✕ düğmesi sekmenin üst kenarına yapışıyordu (düğme dikeyde gerilir
+ama içeriği kendiliğinden ortalanmaz) → `VerticalContentAlignment=Center` ile düzeltildi (`5a4a998`).
+
+**Yayın sonrası kontroller:** `/health` ✅ · `/api/releases/latest` ✅ 1.0.173 · web `/`, `/materials`,
+`/vehicles`, `/daily`, `/permissions`, `/requests` ✅ 6/6 HTTP 200 · canlı `app.css` içinde yeni şerit
+kuralları ✅ (3 eşleşme).
+
+**Doğrulama:** tam süit **3308 geçti / 1 başarısız / 48 atlanan**. Tek başarısız
+`ImportFullFieldsTests.Hacim_3000Arac_...` (3 dakikalık SÜRE bütçesi) idi ve **regresyon değildi**:
+o koşu sırasında aynı makinede `pg_dump` + `flyctl` çalışıyordu. Kanıt — test tek başına ve
+50 testlik sınıfın tamamıyla birlikte **29 saniyede** geçti; ADR-203'te değişen 9 dosyanın hiçbiri
+içe aktarım yolunda değil (yalnız XAML/Razor/CSS + ikon çözücü).
+
+---
+
+
 ## ⭐ YAYIN — 2026-09-04 (ADR-200 + ADR-201 + ADR-202) — ✅ BAŞARILI · **MIGRATION VAR: canlı şema 87 → 88**
 
 **Yayınlanan commit:** `ea08c88` → **API v186** · **Web v210** · **Masaüstü 1.0.172**
@@ -89,7 +124,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-04 (3) YAYIN** (**ADR-203 SEKME ŞERİDİ YAYINLANDI: Web v211 · masaüstü 1.0.173 · migration YOK, şema 88.** Kullanıcının çizdiği tasarım iki platformda; web şeridi ALTTAN ÜSTE taşındı → alt barın tablo sayfa numaralarını kapatma sorunu giderildi. Yayın öncesi görsel onay alındı.) · Önceki: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
