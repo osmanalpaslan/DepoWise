@@ -4319,3 +4319,78 @@ ki ağ gerçek taşmaları gizlemesin. 1440 px'te arayüz **birebir eskisi gibi*
 doğrular → "telefonu düzeltirken bilgisayarı bozma" riski kalıcı kapandı.
 
 Ayrıntı: [MOB_W_01_MOBIL_WEB.md](project-control/MOB_W_01_MOBIL_WEB.md)
+
+## ADR-205 — TRF-01: transfer paritesi ve sessizce yutulan maliyet merkezi (2026-09-04)
+
+**FAZ C'nin (depo bazlı stok) kalan son işi.** Yol haritasının tanımı: *"Transfer kodu zaten var —
+UI paritesi + bakiyeye yansıma doğrulaması"*. Analiz bunu doğruladı: **servis katmanı olgun**
+(tek transaction · idempotent · çift katmanlı negatif stok koruması · kaynak `-1` / hedef `+1`
+ikisi de ortak `StockBalanceWriter` üzerinden), eksik olan arayüz tarafıydı.
+
+### 🔴 Bulunan gerçek kusur — maliyet merkezi transferde sessizce yutuluyordu
+
+"Maliyet Merkezi" alanı **işlem türünden bağımsız** görünüyordu; görünürlüğü yalnız yetkiye bağlıydı.
+Yani kullanıcı **transfer yaparken de doldurabiliyordu**, ama değer hiçbir yere yazılmıyordu:
+web transfer gövdesinde `costCenterId` yok, masaüstünde `BaglaMaliyetMerkezi` yalnız çıkış dalında
+çağrılıyor, API `StockTransferDto`'sunda alan hiç yok. Uyarı da verilmiyordu.
+
+**Karar: alan transferde gizlenir.** Depo→depo transfer bir **maliyet olayı değildir** — malzeme
+tüketilmez, yalnız yer değiştirir; maliyet, malzeme kullanıldığında (şube içi çıkış) doğar ve orada
+zaten çalışıyor. Alanı "çalışır hâle getirmek" muhasebe açısından yanıltıcı olurdu ve şantiye maliyet
+dağıtımının kuralları henüz kararlaştırılmadı (`MUH-04`). Alan bugün hiçbir şey yapmadığı için
+gizlemek **hiçbir işlevi kaldırmaz**, yalnızca "kaydedildi" yanılgısını önler. Sessizce yutulan bir
+giriş, hiç olmayan bir alandan daha kötüdür.
+
+### Kapatılan diğer parite farkları
+
+- **Hedef listesinden kaynak depo dışlandı** (masaüstü). Eskiden tüm şubeler listeleniyordu; kullanıcı
+  kendi şubesini seçip hatayı ancak Kaydet'te görüyordu. Web bunu zaten dışlıyordu. Hatayı mesajla
+  bildirmek yerine **mümkün kılmamak** doğrusudur. Kaydet'teki kural KALDIRILMADI: liste bir
+  kolaylıktır, kural sunucuda ve VM'de durur.
+- **Onay metnine hedefin adı yazıldı** (web). Transfer **geri alınamaz** (`CanReverse` dışlıyor);
+  nereye gittiğini görmeden onaylamak ciddi bir eksikti. Masaüstü bunu doğru yapıyordu → parite
+  masaüstü lehine kapatıldı.
+
+### Bilinçli olarak KAPSAM DIŞI bırakılan: "Tüm Şubeler" farkı → `STK-12`
+
+Analizdeki en büyük fark buydu (web'de STK-04 ile açık, masaüstünde `BranchGuard` tümünü engelliyor),
+ama uygulamaya geçerken kapsamı ölçüldü: **transfer'e özel değil.** Masaüstünde guard **Kaydet'in
+tamamını** kapatıyor ve ekranın her işlem türü (Yeni Kayıt · Şube İçi Çıkış · Transfer · Sayım)
+yazacağı lokasyonu `_session.OperatingBranchId`'den alıyor — o alan bu modda boştur. Hizalamak,
+web'in `EffectiveLocation` desenini **Stok ekranının tamamına** taşımak demektir (STK-04/05 ölçeği).
+
+TRF-01'e sıkıştırmak iki kötü sonuç doğururdu: yarım hizalama (transfer çalışır, giriş/çıkış/sayım
+çalışmaz — bugünkünden daha kafa karıştırıcı) ve **babanın canlı veri girdiği ekranda** kendi test
+turu olmayan geniş bir değişiklik. `STK-12` olarak yol haritasına yazıldı, FAZ C sonrasının ilk işi.
+
+### Doğrulama
+`TransferPariteTests` (TRP1–TRP4). Servis davranışı zaten 21 dosyada 68 senaryoyla kapsanıyor →
+tekrarlanmadı. Bakiyeye yansıma kod okumasıyla doğrulandı.
+Ayrıntı: [TRF_01_TRANSFER_PARITE.md](project-control/TRF_01_TRANSFER_PARITE.md)
+
+---
+
+## ADR-206 — Test altyapısı: paralel testleri sabote eden temizlik + görünmez hata mesajı (2026-09-04)
+
+İki kusur birlikte, **tam süiti rastgele kıran** bir duruma yol açtı ve bir kök neden **iki kez
+yanlış teşhis edildi** ("makine yükü").
+
+**1) Temizlik testi paralel testlerin canlı dosyalarını siliyordu.** ADR (bugün) eklenen `%TEMP%`
+süpürgesinin testi (`TMP3`), `Supur`'u `TimeSpan.Zero` yaş eşiğiyle **doğrudan gerçek `%TEMP%`
+üzerinde** çağırıyordu. xUnit test **sınıflarını paralel** koşturur → o anda çalışan onlarca başka
+sınıfın **canlı** geçici dosya ve klasörleri siliniyordu. `PKT3` bu yüzden paket yazarken kendi
+klasörü altından silinip `DirectoryNotFoundException` alıyordu. Testin kendi yorumu "başka bir
+**koşunun** dosyalarına dokunmamak için" diyordu: cross-koşu düşünülmüş, aynı koşudaki **cross-sınıf**
+paralelliği kaçırılmıştı. 30 dakikalık yaş eşiği başka bir koşuyu korur, paralel sınıfları korumaz.
+→ `Supur` artık hedef klasörü parametre alır; test **kendi izole klasöründe** çalışır. `TMP4`
+regresyon kilidi gerçek `%TEMP%`'e dönüşü yasaklar.
+
+**2) Hata mesajı görünmüyordu.** `-v q` yalnız `[FAIL] TestAdı` yazıyor, iddia mesajını gizliyordu;
+tam koşu 24 dakika sürdüğü için "hata neydi" diye tekrarlamak pahalıydı. Betik artık **her koşuda TRX
+kaydı** tutar ve başarısızlıkta iddia mesajını otomatik yazar. Bu eklenir eklenmez PKT3'ün gerçek
+nedeni **ilk koşuda** ortaya çıktı — önceki iki koşuda görünmüyordu.
+
+**Ders:** "tek başına geçiyor, süitte düşüyor" **yük değil, test etkileşimi** işaretidir; ve teşhis
+aracı yoksa yanlış hipotez ucuz göründüğü için tekrar tekrar seçilir.
+
+**Doğrulama:** tam süit **3320 geçti / 0 başarısız / 48 atlanan** (öncesi 3314/1).
