@@ -17,7 +17,12 @@
             <!-- ═══════════ YAKIT DAĞITIMLARI ═══════════ -->
             <TabItem Header="Yakıt Dağıtımları">
                 <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
-                    <ctrl:Toolbar Grid.Row="0" Title="Yakıt Dağıtımları"
+                    <!-- ⭐ ARA İŞ 6: ShowSearch="False". Toolbar şablonu VARSAYILAN olarak bir arama
+                         kutusu çizer; bu ekran onu hiçbir şeye bağlamamıştı → kutu görünüyor, yazı
+                         yazılıyor, HİÇBİR ŞEY OLMUYORDU (kullanıcının "arama butonu çalışmıyor"
+                         şikayeti tam olarak buydu). Gerçek arama artık aşağıdaki kendi filtre
+                         çubuğundadır; şablonun ölü kutusu kapatıldı. -->
+                    <ctrl:Toolbar Grid.Row="0" Title="Yakıt Dağıtımları" ShowSearch="False"
                                   PrimaryActionText="Yeni Dağıtım" PrimaryActionCommand="{Binding ToggleDistCommand}">
                         <ctrl:Toolbar.FilterContent>
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -96,6 +101,74 @@
                     <Panel Grid.Row="2" Margin="0,16,0,0">
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDist}">
                             <DockPanel>
+                                <!-- ⭐ ARA İŞ 6 — ARAMA ÇUBUĞU (kullanıcı isteği 2026-09-04).
+                                     Kullanıcı bu ekranda tarih ve araç bazlı arama yapamıyordu; bunu
+                                     yalnız raporda yapabiliyordu ama RAPORDA DÜZENLEME YOK — kaydı
+                                     bulup düzeltmesi gerekiyordu.
+                                     ⚠ Sorgu YAZARKEN ÇALIŞMAZ: kullanıcının açık isteği "sadece bu
+                                     buton ve enter tuşu ile" idi. Kutulardaki Enter ve Sorgula düğmesi
+                                     AYNI komuta bağlıdır; kutular değişince hiçbir şey tetiklenmez. -->
+                                <Border Classes="TableFilterRow" DockPanel.Dock="Top">
+                                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,8">
+                                        <ctrl:FormField Label="Araç (kod / plaka)" Width="170">
+                                            <TextBox Classes="Field" Text="{Binding AramaArac}" Watermark="ör. EKS-001">
+                                                <TextBox.KeyBindings>
+                                                    <KeyBinding Gesture="Enter" Command="{Binding SorgulaCommand}"/>
+                                                </TextBox.KeyBindings>
+                                            </TextBox>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Başlangıç Tarihi" Width="150">
+                                            <DatePicker Classes="Field" SelectedDate="{Binding AramaBaslangic}"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Bitiş Tarihi" Width="150">
+                                            <DatePicker Classes="Field" SelectedDate="{Binding AramaBitis}"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Ara (kod / plaka / açıklama)" Width="220">
+                                            <TextBox Classes="Field" Text="{Binding AramaMetni}" Watermark="Enter ile ara">
+                                                <TextBox.KeyBindings>
+                                                    <KeyBinding Gesture="Enter" Command="{Binding SorgulaCommand}"/>
+                                                </TextBox.KeyBindings>
+                                            </TextBox>
+                                        </ctrl:FormField>
+                                        <Button Classes="Primary" Content="Sorgula" VerticalAlignment="Bottom"
+                                                Command="{Binding SorgulaCommand}"
+                                                ToolTip.Tip="Yukarıdaki alanlara göre arar. Arama yalnız bu düğme ve Enter tuşu ile çalışır."/>
+                                        <Button Classes="Secondary" Content="Temizle" VerticalAlignment="Bottom"
+                                                Command="{Binding AramayiTemizleCommand}"
+                                                ToolTip.Tip="Filtreleri temizler ve tüm kayıtlara döner."/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Sayfalama: liste artık TÜM kayıtları basmaz; seçilen sayfa boyutu kadar
+                                     gösterir ve sayfalar arasında geçilir.
+                                     ⚠ `TableFilterRow` sınıfı KULLANILMAZ: o sınıf başlık altındaki FİLTRE
+                                     bandı içindir. Projedeki mevcut sayfalama satırları (DailyActivityView,
+                                     VehiclesView) düz StackPanel'dir — aynı desen izlenir. -->
+                                <StackPanel DockPanel.Dock="Bottom" Margin="10,8"
+                                            Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                        <SelectableTextBlock Text="Sayfa boyutu" VerticalAlignment="Center"/>
+                                        <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize}"
+                                                  MinWidth="80" VerticalAlignment="Center"/>
+                                        <Button Classes="Secondary" Content="‹" Command="{Binding PrevPageCommand}"
+                                                IsEnabled="{Binding CanGoPrev}" ToolTip.Tip="Önceki sayfa"/>
+                                        <ItemsControl ItemsSource="{Binding PageNumbers}" VerticalAlignment="Center">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:Int32">
+                                                    <Button Classes="Secondary" Content="{Binding}" MinWidth="34"
+                                                            Command="{Binding $parent[ItemsControl].((vm:FuelViewModel)DataContext).GoToPageCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <Button Classes="Secondary" Content="›" Command="{Binding NextPageCommand}"
+                                                IsEnabled="{Binding CanGoNext}" ToolTip.Tip="Sonraki sayfa"/>
+                                        <SelectableTextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </StackPanel>
+
                                 <Border Classes="TableHeader" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
@@ -221,6 +294,21 @@
                     <Panel Grid.Row="2" Margin="0,16,0,0">
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDepot}">
                             <DockPanel>
+                                <!-- ARA İŞ 6: depo girişlerinde de aynı 200 tavanı vardı → sayfalanır.
+                                     Filtre çubuğu dağıtımlar sekmesindedir; tarih ve serbest metin
+                                     (fatura no) filtreleri bu sekmeye de uygulanır. -->
+                                <StackPanel DockPanel.Dock="Bottom" Margin="10,8"
+                                            Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <Button Classes="Secondary" Content="‹" Command="{Binding DepoPrevPageCommand}"
+                                            IsEnabled="{Binding DepoCanGoPrev}" ToolTip.Tip="Önceki sayfa"/>
+                                    <SelectableTextBlock VerticalAlignment="Center"
+                                                        Text="{Binding DepoPage, StringFormat='Sayfa {0}'}"/>
+                                    <Button Classes="Secondary" Content="›" Command="{Binding DepoNextPageCommand}"
+                                            IsEnabled="{Binding DepoCanGoNext}" ToolTip.Tip="Sonraki sayfa"/>
+                                    <SelectableTextBlock VerticalAlignment="Center" Margin="12,0,0,0"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Text="{Binding DepoTotalCount, StringFormat='{}{0} depo girişi'}"/>
+                                </StackPanel>
                                 <Border Classes="TableHeader" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>

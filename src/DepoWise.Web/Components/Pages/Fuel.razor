@@ -61,9 +61,51 @@
                 @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             </MudPaper>
         }
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        @* ⭐ ARA İŞ 6 (kullanıcı bildirimi 2026-09-04) — ARAMA + SAYFALAMA.
+           Bu ekran sabit 200 satır çekiyordu ve sorgu en yeniden başlıyordu → daha eski kayıtlar
+           SESSİZCE düşüyordu (kullanıcı 02.08.2026 kaydını raporda görüp burada bulamadı).
+           Webde ayrıca hiç arama alanı YOKTU (masaüstünde ölü bir kutu vardı — farklı belirti,
+           aynı sonuç: filtrelenemiyordu).
+           ⚠ Sorgu YAZARKEN ÇALIŞMAZ: kullanıcının açık isteği "sadece bu buton ve enter tuşu ile".
+           Bu yüzden alanlar `@bind-Value` ile yalnız yerel değişkeni tutar; sorguyu Sorgula düğmesi
+           ve alanlardaki Enter tetikler. *@
+        <MudPaper Class="pa-3 mt-2" Elevation="0" Style="background:var(--dw-surface-1)">
+            <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2" Wrap="Wrap.Wrap">
+                <MudTextField T="string" @bind-Value="_qVehicle" Label="Araç (kod / plaka)" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" Style="min-width:170px;"
+                              OnKeyUp="@(async e => { if (e.Key == "Enter") await Sorgula(); })" />
+                <MudDatePicker @bind-Date="_qFrom" Label="Başlangıç Tarihi" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" Style="min-width:160px;" Clearable="true" />
+                <MudDatePicker @bind-Date="_qTo" Label="Bitiş Tarihi" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" Style="min-width:160px;" Clearable="true" />
+                <MudTextField T="string" @bind-Value="_qText" Label="Ara (kod / plaka / açıklama)" Margin="Margin.Dense"
+                              Variant="Variant.Outlined" Style="min-width:200px;"
+                              OnKeyUp="@(async e => { if (e.Key == "Enter") await Sorgula(); })" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Sorgula"
+                           Title="Yukarıdaki alanlara göre arar. Arama yalnız bu düğme ve Enter tuşu ile çalışır.">Sorgula</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="AramayiTemizle"
+                           Title="Filtreleri temizler ve tüm kayıtlara döner.">Temizle</MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDist">Yenile</MudButton>
             <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
+            <MudSpacer />
+            @* Kesilmenin SESSİZ olmaması asıl şikayetin özüydü: kaç kayıt var, kaçıncı sayfadayız — yazılır. *@
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(_distTotal == 0 ? "Kayıt bulunamadı" : $"{_distTotal} dağıtım — sayfa {_distPage} / {_distTotalPages}")@(Filtreli ? " · filtreli" : "")
+            </MudText>
+            @if (BekleyenFiltre)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Warning">· Sorgula'ya basın</MudText>
+            }
+            <MudSelect T="int" Value="_distPageSize" ValueChanged="SayfaBoyutuDegisti" Dense="true" Margin="Margin.Dense"
+                       Variant="Variant.Outlined" Style="min-width:90px;" Label="Sayfa boyutu">
+                @foreach (var n in new[] { 25, 50, 100, 200 }) { <MudSelectItem T="int" Value="@n">@n</MudSelectItem> }
+            </MudSelect>
+            <MudPagination Count="@Math.Max(1, _distTotalPages)" Selected="_distPage" SelectedChanged="SayfayaGit"
+                           Rectangular="true" Size="Size.Small" ShowFirstButton="true" ShowLastButton="true" />
         </MudStack>
         @if (_dist is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
         else if (_dist.Length == 0) { <MudText Class="mud-text-secondary mt-2">Henüz yakıt dağıtımı kaydı yok.</MudText> }
@@ -145,6 +187,13 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDepot">Yenile</MudButton>
             <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
+            <MudSpacer />
+            @* Depo girişlerinde de aynı 200 tavanı vardı — burada da sayfalanır ve toplam yazılır. *@
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(_depotTotal == 0 ? "Kayıt bulunamadı" : $"{_depotTotal} depo girişi — sayfa {_depotPage} / {_depotTotalPages}")
+            </MudText>
+            <MudPagination Count="@Math.Max(1, _depotTotalPages)" Selected="_depotPage" SelectedChanged="DepoSayfayaGit"
+                           Rectangular="true" Size="Size.Small" ShowFirstButton="true" ShowLastButton="true" />
         </MudStack>
         @if (_depot is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
         else if (_depot.Length == 0) { <MudText Class="mud-text-secondary mt-2">Henüz depo girişi kaydı yok.</MudText> }
@@ -238,8 +287,93 @@
     }
 
     private async Task ReloadSuppliers(string _) => _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
-    private async Task LoadDist() { _dist = null; try { _dist = await Api.GetArrayAsync("/api/fuel?includeCancelled=" + (_showCancelled ? "true" : "false")); } catch { _dist = Array.Empty<JsonElement>(); } }
-    private async Task LoadDepot() { _depot = null; try { _depot = await Api.GetArrayAsync("/api/fuel/depot?includeCancelled=" + (_showCancelled ? "true" : "false")); } catch { _depot = Array.Empty<JsonElement>(); } }
+    // ── ARA İŞ 6 — arama/sayfalama durumu ────────────────────────────────────────────────────────
+    private string _qVehicle = "", _qText = "";
+    private DateTime? _qFrom, _qTo;
+    private int _distPage = 1, _distPageSize = 25, _distTotal, _distTotalPages = 1;
+
+    // ⚠ UYGULANAN filtre, KUTUDAKİ metinden AYRI tutulur. Sebep: arama yalnız Sorgula/Enter ile
+    // çalıştığı için kullanıcı bir şey yazdığında liste HENÜZ DEĞİŞMEZ. Durum yazısı kutulara
+    // bakarsa "· filtreli" der ama ekranda hâlâ filtresiz 241 kayıt durur — yani yalan söyler.
+    // (Denemede tam olarak bu görüldü.) Bu yüzden durum, SON SORGUDA kullanılan değerleri anlatır.
+    private string _aVehicle = "", _aText = "";
+    private DateTime? _aFrom, _aTo;
+
+    /// <summary>Ekrandaki liste filtreli mi? Boş liste görünce kullanıcı "kayıt kayboldu"
+    /// sanmasın, bir filtresi olduğunu bilsin diye durum yazısında gösterilir.</summary>
+    private bool Filtreli => !string.IsNullOrWhiteSpace(_aVehicle) || !string.IsNullOrWhiteSpace(_aText)
+                             || _aFrom is not null || _aTo is not null;
+
+    /// <summary>Kutularda, henüz sorgulanmamış bir değişiklik var mı? Kullanıcı yazıp Sorgula'ya
+    /// basmayı unutursa "neden değişmedi" diye düşünmesin.</summary>
+    private bool BekleyenFiltre => (_qVehicle ?? "").Trim() != _aVehicle || (_qText ?? "").Trim() != _aText
+                                   || _qFrom != _aFrom || _qTo != _aTo;
+
+    /// <summary>Filtreleri uygular. Sayfa 1'e dönmek ŞART: 7. sayfadayken filtre daraltılırsa
+    /// boş ekran gelirdi ve kullanıcı kaydın silindiğini sanardı.</summary>
+    private async Task Sorgula() { _distPage = 1; _depotPage = 1; await LoadDist(); await LoadDepot(); }
+
+    private async Task AramayiTemizle()
+    {
+        _qVehicle = ""; _qText = ""; _qFrom = null; _qTo = null;
+        _distPage = 1; _depotPage = 1; await LoadDist(); await LoadDepot();
+    }
+
+    private async Task SayfayaGit(int p) { _distPage = p; await LoadDist(); }
+    private async Task SayfaBoyutuDegisti(int n) { _distPageSize = n; _distPage = 1; await LoadDist(); }
+
+    /// <summary>İŞ GÜNÜ (yerel tarih) → Unix ms. Sunucu `distribution_date` üzerinde süzer.</summary>
+    private static long? GunMs(DateTime? d)
+        => d is null ? null : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
+    private async Task LoadDist()
+    {
+        _dist = null;
+        try
+        {
+            var qs = $"/api/fuel/grid?page={_distPage}&pageSize={_distPageSize}&includeCancelled={(_showCancelled ? "true" : "false")}";
+            if (!string.IsNullOrWhiteSpace(_qVehicle)) qs += "&vehicle=" + Uri.EscapeDataString(_qVehicle.Trim());
+            if (!string.IsNullOrWhiteSpace(_qText)) qs += "&q=" + Uri.EscapeDataString(_qText.Trim());
+            if (GunMs(_qFrom) is { } f) qs += "&fromDate=" + f;
+            if (GunMs(_qTo) is { } t) qs += "&toDate=" + t;
+
+            // Sorgu gönderilirken UYGULANAN filtre kaydedilir → durum yazısı ekranda GERÇEKTEN
+            // ne olduğunu anlatır (yukarıdaki nota bakın).
+            _aVehicle = (_qVehicle ?? "").Trim(); _aText = (_qText ?? "").Trim();
+            _aFrom = _qFrom; _aTo = _qTo;
+
+            var res = await Api.GetObjectAsync(qs);
+            _dist = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+            _distTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _dist.Length;
+            _distTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
+            _distPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _distPage;
+        }
+        catch { _dist = Array.Empty<JsonElement>(); _distTotal = 0; _distTotalPages = 1; }
+    }
+    // Depo girişleri de sayfalanır: aynı ekranın yan sekmesi, aynı 200 tavanı kusuru vardı.
+    private int _depotPage = 1, _depotTotal, _depotTotalPages = 1;
+    private async Task DepoSayfayaGit(int p) { _depotPage = p; await LoadDepot(); }
+
+    private async Task LoadDepot()
+    {
+        _depot = null;
+        try
+        {
+            var qs = $"/api/fuel/depot/grid?page={_depotPage}&pageSize={_distPageSize}&includeCancelled={(_showCancelled ? "true" : "false")}";
+            if (!string.IsNullOrWhiteSpace(_qText)) qs += "&q=" + Uri.EscapeDataString(_qText.Trim());
+            if (GunMs(_qFrom) is { } f) qs += "&fromDate=" + f;
+            if (GunMs(_qTo) is { } t) qs += "&toDate=" + t;
+
+            var res = await Api.GetObjectAsync(qs);
+            _depot = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+            _depotTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _depot.Length;
+            _depotTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
+            _depotPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _depotPage;
+        }
+        catch { _depot = Array.Empty<JsonElement>(); _depotTotal = 0; _depotTotalPages = 1; }
+    }
     private async Task LoadSummary()
     {
         try

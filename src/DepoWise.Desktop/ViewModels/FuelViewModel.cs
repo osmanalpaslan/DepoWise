@@ -121,6 +121,106 @@ public sealed partial class FuelViewModel : ViewModelBase
     // Not: formdaki "Vazgeç" butonları FORMU temizler; buradaki iptal GERÇEK kayıt iptalidir.
 
     /// <summary>Y3: iptal edilen kayıtlar varsayılan GİZLİ; bu kutu işaretlenince görünür.</summary>
+    // ── ⭐ ARA İŞ 6 (kullanıcı bildirimi 2026-09-04) — SAYFALAMA + ARAMA ───────────────────────────
+    //
+    // ÇÖZÜLEN KUSUR: liste `ListDistributions(_session, 200, …)` ile SABİT 200 satır çekiyordu ve
+    // sorgu en yeniden başlıyordu → yalnız en yeni 200 dağıtım görünüyor, daha eskiler SESSİZCE
+    // düşüyordu. Kullanıcı 02.08.2026 tarihli kaydı RAPORDA görüp bu ekranda bulamadı; kesildiğine
+    // dair bir uyarı da yoktu. Artık sunucu tarafı sayfalama var: toplam sayı da geliyor, hepsine
+    // erişilebiliyor. Desen Günlük Faaliyet/Araçlar ekranlarıyla AYNI (yeni bir yol icat edilmedi).
+    public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
+    public ObservableCollection<int> PageNumbers { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPrev))]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _page = 1;
+    [ObservableProperty] private int _pageSize = 25;
+    [ObservableProperty] private int _totalCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _totalPages = 1;
+
+    public bool CanGoPrev => Page > 1;
+    public bool CanGoNext => Page < TotalPages;
+
+    /// <summary>
+    /// Arama/filtre alanları. ⚠ Bunlar DEĞİŞİNCE SORGU ÇALIŞMAZ — kullanıcının açık isteği:
+    /// "sadece bu buton ve enter tuşu ile sorgu alanı aktif olup arama yapsın". Bu yüzden burada
+    /// bilinçli olarak <c>partial void On…Changed</c> YOKTUR; sorguyu yalnız <see cref="SorgulaCommand"/>
+    /// tetikler (XAML'de Sorgula düğmesi ve kutulardaki Enter tuşu ona bağlıdır).
+    /// </summary>
+    [ObservableProperty] private string _aramaMetni = "";
+    [ObservableProperty] private string _aramaArac = "";
+    [ObservableProperty] private DateTimeOffset? _aramaBaslangic;
+    [ObservableProperty] private DateTimeOffset? _aramaBitis;
+
+    /// <summary>Kutulardaki değerleri sorguya UYGULAR ve ilk sayfadan yükler.
+    /// Filtre değişince sayfa 1'e dönmek şart: 7. sayfadayken filtre daraltılırsa boş ekran gelirdi.</summary>
+    [RelayCommand]
+    private void Sorgula() { Page = 1; DepoPage = 1; Load(); }
+
+    // ⚠ UYGULANAN filtre, KUTUDAKİ metinden AYRI tutulur. Sebep: arama yalnız Sorgula/Enter ile
+    // çalıştığı için kullanıcı bir şey yazdığında liste HENÜZ DEĞİŞMEZ. Durum satırı kutulara
+    // bakarsa "filtreli" der ama ekranda hâlâ filtresiz liste durur — yani yalan söyler.
+    // (Web'de denenirken tam olarak bu görüldü.) Durum, SON SORGUDA kullanılan değerleri anlatır.
+    private string _uygulananMetin = "", _uygulananArac = "";
+    private DateTimeOffset? _uygulananBaslangic, _uygulananBitis;
+
+    /// <summary>Ekrandaki liste filtreli mi? Kullanıcı boş liste görünce "kayıt kayboldu"
+    /// sanmasın, bir filtresi olduğunu bilsin.</summary>
+    public bool Filtreli => !string.IsNullOrWhiteSpace(_uygulananMetin) || !string.IsNullOrWhiteSpace(_uygulananArac)
+                            || _uygulananBaslangic is not null || _uygulananBitis is not null;
+
+    /// <summary>Kutularda henüz sorgulanmamış değişiklik var mı? Kullanıcı yazıp Sorgula'ya
+    /// basmayı unutursa "neden değişmedi" diye düşünmesin.</summary>
+    public bool BekleyenFiltre => (AramaMetni ?? "").Trim() != _uygulananMetin
+                                  || (AramaArac ?? "").Trim() != _uygulananArac
+                                  || AramaBaslangic != _uygulananBaslangic || AramaBitis != _uygulananBitis;
+
+    /// <summary>Filtreleri temizler ve tam listeye döner.</summary>
+    [RelayCommand]
+    private void AramayiTemizle()
+    {
+        AramaMetni = ""; AramaArac = ""; AramaBaslangic = null; AramaBitis = null;
+        Page = 1; Load();
+    }
+
+    // Depo girişleri sekmesinin kendi sayfası (dağıtımlarla aynı sayfa boyutunu paylaşır).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DepoCanGoPrev))]
+    [NotifyPropertyChangedFor(nameof(DepoCanGoNext))]
+    private int _depoPage = 1;
+    [ObservableProperty] private int _depoTotalCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DepoCanGoNext))]
+    private int _depoTotalPages = 1;
+    public bool DepoCanGoPrev => DepoPage > 1;
+    public bool DepoCanGoNext => DepoPage < DepoTotalPages;
+
+    [RelayCommand]
+    private void DepoPrevPage() { if (DepoCanGoPrev) { DepoPage--; Load(); } }
+    [RelayCommand]
+    private void DepoNextPage() { if (DepoCanGoNext) { DepoPage++; Load(); } }
+
+    [RelayCommand]
+    private void GoToPage(int page) { Page = page; Load(); }
+    [RelayCommand]
+    private void PrevPage() { if (CanGoPrev) { Page--; Load(); } }
+    [RelayCommand]
+    private void NextPage() { if (CanGoNext) { Page++; Load(); } }
+
+    partial void OnPageSizeChanged(int value) { Page = 1; DepoPage = 1; Load(); }
+
+    /// <summary>Sayfa numarası düğmeleri (aktif sayfanın çevresinde bir pencere).</summary>
+    private void SayfaNumaralariniTazele()
+    {
+        PageNumbers.Clear();
+        var bas = Math.Max(1, Page - 3);
+        var son = Math.Min(TotalPages, Page + 3);
+        for (var i = bas; i <= son; i++) PageNumbers.Add(i);
+    }
+
     [ObservableProperty] private bool _showCancelled;
 
     partial void OnShowCancelledChanged(bool value) => Load();
@@ -235,17 +335,50 @@ public sealed partial class FuelViewModel : ViewModelBase
             CurrentPrice = DesktopServices.Fuel.GetCurrentFuelPrice(_session);
 
             foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v);
-            foreach (var d in DesktopServices.Fuel.ListDistributions(_session, 200, ShowCancelled))
+            // ARA İŞ 6: sayfalanmış + filtrelenmiş sorgu. Filtreler SQL'de süzülür (bellekte değil),
+            // yoksa toplam sayı yanlış çıkar ve sayfalama sessizce bozulurdu.
+            // Sorgu gönderilirken UYGULANAN filtre kaydedilir → durum satırı ekranda GERÇEKTEN
+            // ne olduğunu anlatır (yukarıdaki nota bakın).
+            _uygulananMetin = (AramaMetni ?? "").Trim(); _uygulananArac = (AramaArac ?? "").Trim();
+            _uygulananBaslangic = AramaBaslangic; _uygulananBitis = AramaBitis;
+            OnPropertyChanged(nameof(Filtreli)); OnPropertyChanged(nameof(BekleyenFiltre));
+
+            var grid = DesktopServices.Fuel.SearchDistributions(_session, Page, PageSize,
+                vehicleQuery: string.IsNullOrWhiteSpace(AramaArac) ? null : AramaArac,
+                freeText: string.IsNullOrWhiteSpace(AramaMetni) ? null : AramaMetni,
+                fromDateMs: AramaBaslangic is { } b ? IsGunuTarihi.Ms(b) : null,
+                toDateMs: AramaBitis is { } s ? IsGunuTarihi.Ms(s) : null,
+                includeCancelled: ShowCancelled);
+
+            foreach (var d in grid.Items)
                 Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
                     d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled,
                     d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note));
-            foreach (var e in DesktopServices.Fuel.ListDepotEntries(_session, 200, ShowCancelled))
-                DepotEntries.Add(e);
+
+            TotalCount = grid.TotalCount;
+            TotalPages = grid.TotalPages;
+            SayfaNumaralariniTazele();
+
+            // Depo girişleri de sayfalanır: aynı ekranın yan sekmesi, aynı 200 tavanı kusuru vardı.
+            var depoGrid = DesktopServices.Fuel.SearchDepotEntries(_session, DepoPage, PageSize,
+                freeText: string.IsNullOrWhiteSpace(AramaMetni) ? null : AramaMetni,
+                fromDateMs: AramaBaslangic is { } db ? IsGunuTarihi.Ms(db) : null,
+                toDateMs: AramaBitis is { } ds ? IsGunuTarihi.Ms(ds) : null,
+                includeCancelled: ShowCancelled);
+            foreach (var e in depoGrid.Items) DepotEntries.Add(e);
+            DepoTotalCount = depoGrid.TotalCount;
+            DepoTotalPages = depoGrid.TotalPages;
 
             // İptal edilenler toplamlara GİRMEZ (bakiye zaten servis tarafında filtreli).
+            // ⚠ Bu toplam artık GÖRÜNEN SAYFANIN toplamıdır — eskiden de öyleydi (200 satırın toplamı),
+            // ama şimdi kullanıcı sayfa boyutunu seçebildiği için bunu ETİKETTE açıkça yazıyoruz.
             TotalDistributed = Distributions.Where(x => !x.IsCancelled).Sum(x => x.Liters);
             TotalReceived = DepotEntries.Where(x => !x.IsCancelled).Sum(x => x.Liters);
-            Status = $"{Distributions.Count} dağıtım · {DepotEntries.Count} depo girişi";
+            // Kesilmenin SESSİZ olmaması asıl şikayetin özüydü: kaç kayıt var, kaçıncı sayfadayız — yazılır.
+            Status = TotalCount == 0
+                ? "Kayıt bulunamadı" + (Filtreli ? " (filtreler etkin)" : "")
+                : $"{TotalCount} dağıtım — sayfa {Page} / {TotalPages}" + (Filtreli ? " · filtreli" : "")
+                  + $" · {DepotEntries.Count} depo girişi";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         NotifyState();
