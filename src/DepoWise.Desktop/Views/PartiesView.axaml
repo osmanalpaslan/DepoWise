@@ -162,6 +162,16 @@
                         <ctrl:FormField Label="Not">
                             <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
                         </ctrl:FormField>
+                        <!-- ⭐ MUH-01c — TEDARİKÇİ EŞLEMESİ. Şemada Migration066'dan beri vardı ama
+                             arayüzden kurulamıyordu; kurulmadan yakıt ve satın alma alımları cari
+                             defterine bağlanamıyor. Yakıt/satın alma tablolarına ikinci bir cari
+                             kolonu EKLENMEDİ — aynı satırda iki gerçeklik olurdu. -->
+                        <ctrl:FormField Label="Tedarikçi Eşlemesi"
+                                        HelpText="Opsiyonel — bu cari hangi tedarikçiyse seçin; yakıt ve satın alma alımları cari hesabına bağlanır.">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}"
+                                            SelectedItem="{Binding FSupplier}"
+                                            PlaceholderText="Tedarikçi seç... (boş olabilir)"/>
+                        </ctrl:FormField>
                         <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">

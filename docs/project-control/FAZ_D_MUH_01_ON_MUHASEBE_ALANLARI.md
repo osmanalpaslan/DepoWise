@@ -1,6 +1,6 @@
 # FAZ D — `MUH-01`: ön muhasebe alan hazırlığı
 
-> **Durum:** 🔵 SÜRÜYOR · başlangıç **2026-09-04**
+> **Durum:** ✅ TAMAMLANDI · **2026-09-04** · ADR-210 + ADR-211 + ADR-212
 > **İş tanımı (yol haritası):** para hareketi doğuran her kayda **cari + maliyet merkezi + belge**
 > alanları (malzeme alışı, yakıt, bakım, şantiye gideri).
 
@@ -85,7 +85,39 @@ sessizce yok sayar.
 bu bileşim gerçekte oluşamaz (istemci kendi kataloğunu açılışta uygular). Kayıt artık dönemin
 şemasıyla SQL ile atılıyor. Sonuç daha güçlü — ayrıntı ADR-211.
 
-## 4. `MUH-01c` — cari bağı · ⏳ SIRADA
+## 4. `MUH-01c` — cari bağı ✅ TAMAM (2026-09-04, ADR-212)
 
-Para doğuran kayıtların `parties`'e bağlanması. `suppliers` **değiştirilmeyecek** (M066 kuralı);
-opsiyonel `party_id` yanına gelecek. En geniş adım — kendi tasarım turunu hak ediyor.
+İstek "her kayda cari alanı" diyordu; ölçüm bunu **olduğu gibi uygulamanın yanlış** olacağını
+gösterdi. Yeni kolon YALNIZ gerçek boşluğa eklendi:
+
+| Kayıt türü | Karar | Gerekçe |
+|---|---|---|
+| **Bakımlar** (araç + ekipman) | ✅ `party_id` (Migration090) | Dış servis sağlayıcısı hiçbir yerde tutulmuyordu; servis noktası malzeme "tedarikçisi" de değil |
+| **Yakıt depo girişi · satın alma** | ❌ kolon yok | `supplier_id` zaten var; yanına ikincisi aynı satırda **iki karşı-taraf gerçekliği** olurdu → Migration066 köprüsü kullanıldı |
+| **Stok belgesi** | ❌ kolon yok | Karşı taraf `invoices.stock_document_id` + `invoices.party_id` ile zaten bağlı; ayrıca ADR-168 bu tabloya kolon eklemeyi zaten reddetmişti |
+
+**Köprü kullanılabilir hâle getirildi.** `parties.supplier_id` şemada vardı, `Create` yazıyordu —
+ama `Update` YAZMIYORDU ve hiçbir arayüzde alan YOKTU. Üçü de kapatıldı: `UpdateParty.SupplierId` ·
+iki platformda "Tedarikçi Eşlemesi" alanı · `PartyService.PartyIdBySupplier` çözücüsü.
+Eşleme yoksa `null` döner — uydurma yapılmaz.
+
+**FK yok, kapı serviste.** Migration090 bilinçli olarak FK kurmadı (canlı tabloda SQLite rebuild
+riski, ADR-191 ile aynı gerekçe) → sahiplik kapısı servis katmanındadır; masaüstünün çevrimdışı yolu
+da korunur. `CAR5` başka firmanın carisinin bağlanamadığını ve reddedilen işlemin yarım kayıt
+bırakmadığını kanıtlar.
+
+**Uygulama sırasında bulunan hata:** cari alanını `UPDATE parties`.a eklerken parametre bağlaması
+yanlışlıkla `Create` bloğuna düştü → `Update` patlıyordu. Testler yakaladı (10/10 kırmızı), düzeltildi.
+
+Testler: `CariBagiTests` CAR1–CAR10. İlgili 522 testin 504'ü geçti (18 atlanan, hepsi önceden).
+
+---
+
+## 5. FAZ D özeti
+
+Üç adım da bitti. **Migration:** 089 (belge no, 3 tablo) + 090 (cari, 2 tablo) — ikisi de yalnız
+ekleme, backfill yok, `NOT NULL` yok. **Canlı şema 88 → 90** olacak (yayında).
+
+En önemli çıkarım: yol haritasının tek cümlesi ("cari + maliyet merkezi + belge alanları") üç ayrı
+gerçeklik saklıyordu. Maliyet merkezinde eksik olan **kapsam**tı, belgede **üç tablo**, caride ise
+yalnız **bakımlar** — diğerlerinde alan eklemek mevcut doğru yapıyı bozacaktı.

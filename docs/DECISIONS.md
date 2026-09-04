@@ -4665,3 +4665,48 @@ boş metin → NULL + kırpma · aranabilirlik · migration yalnız-ekleme kanı
 Doğrulama: ilgili 447 testin 428'i geçti (19 atlanan, hepsi önceden atlanıyordu) · üç proje build 0 hata.
 
 Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)
+
+---
+
+## ADR-212 — MUH-01c: para doğuran kayıtlarda cari; FAZ D tamamlandı (2026-09-04)
+
+**Bağlam.** `MUH-01`'in son ekseni: "para hareketi doğuran her kayda **cari**". Ölçüm, isteği
+olduğu gibi uygulamanın **yanlış** olacağını gösterdi — karşı taraf çoğu yerde zaten ulaşılabilir.
+
+**Karar — yeni kolon YALNIZ gerçek boşluğa.**
+
+| Kayıt türü | Karar | Gerekçe |
+|---|---|---|
+| **Bakımlar** (araç + ekipman) | ✅ `party_id` eklendi (Migration090) | Dış servis sağlayıcısı **hiçbir yerde** tutulmuyordu. Servis noktası malzeme "tedarikçisi" de değildir (oto servis, lastikçi, kaynakçı) — gerçek boşluk buradaydı |
+| **Yakıt depo girişi · satın alma** | ❌ kolon eklenmedi | `supplier_id` ZATEN var. Yanına `party_id` koymak aynı satırda **iki ayrı karşı-taraf gerçekliği** üretirdi. Doğru yol Migration066'nın bu iş için bıraktığı köprü: `parties.supplier_id` |
+| **Stok belgesi** (malzeme alışı) | ❌ kolon eklenmedi | Karşı taraf `invoices.stock_document_id` + `invoices.party_id` ile zaten bağlı. Kolon, faturanın söylediğiyle çelişebilecek ikinci gerçeklik olurdu. Ayrıca stok belge zinciri 5 katmanlıdır ve **ADR-168 tam bu nedenle** oraya kolon eklemeyi reddetmişti |
+
+### Köprü şemada vardı ama kullanılamıyordu
+`parties.supplier_id` Migration066'dan beri mevcut ve `Create` onu yazıyordu — ama **`Update`
+yazmıyordu** ve **hiçbir arayüzde alan yoktu**. Yani eşleme pratikte kurulamıyor, kurulsa
+düzeltilemiyordu. Üçü de kapatıldı: `UpdateParty.SupplierId`, iki platformda "Tedarikçi Eşlemesi"
+alanı, ve `PartyService.PartyIdBySupplier` çözücüsü (FAZ H bir yakıt alımını cariye bunun üzerinden
+bağlar). **Eşleme yoksa `null` döner** — uydurma yapılmaz, sessizce yanlış cariye yazılmaz.
+
+### FK yok, kapı serviste — ve gerçekten kapalı
+Migration090 bilinçli olarak **FK kurmadı**: `vehicle_maintenances` canlı ve büyük bir tablodur,
+SQLite'ta var olan tabloya FK eklemek rebuild ister ve transaction içinde FK kapatılamaz (ADR-191'de
+SEÇENEK B aynı gerekçeyle seçilmişti). Bu yüzden sahiplik kapısı **servis katmanındadır** — API'de
+olsaydı masaüstünün **çevrimdışı** yolu korumasız kalırdı (STK-03'teki aynı karar).
+`CAR5` bunu kanıtlıyor: başka firmanın cari kimliği tahmin edilip bağlanamaz ve reddedilen işlem
+**yarım kayıt bırakmaz**.
+
+### Uygulama sırasında bulunan hata
+Cari alanını `UPDATE parties` sorgusuna eklerken parametre bağlaması yanlışlıkla `Create` bloğuna
+düştü → `Update` bağlanmamış parametreyle patlıyordu. **Testler yakaladı** (10/10 kırmızıydı);
+düzeltildi. Bu, `CAR9`'un neden var olduğunun canlı örneği.
+
+**Canlı veri:** yalnız `ADD COLUMN` + iki indeks; `NOT NULL` yok, backfill yok → mevcut bakım
+kayıtlarının tamamı `NULL` cari ile geçerli. Senkron ek iş istemedi (kolon kesişimi deseni).
+
+Testler: `CariBagiTests` CAR1–CAR10. Doğrulama: ilgili 522 testin 504'ü geçti (18 atlanan, hepsi
+önceden atlanıyordu) · üç proje build 0 hata.
+
+**FAZ D TAMAMLANDI** (MUH-01a + MUH-01b + MUH-01c).
+
+Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)

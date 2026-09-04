@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Accounting;
+using DepoWise.Infrastructure.Materials;   // MUH-01c: LookupItem (tedarikçi eşlemesi)
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -197,6 +198,23 @@ public sealed partial class PartiesViewModel : ViewModelBase
 
     public string FormTitle => _editId is null ? "Yeni Cari" : "Cari Düzenle";
 
+    // ── MUH-01c (2026-09-04): TEDARİKÇİ ↔ CARİ KÖPRÜSÜ ───────────────────────────────────────────
+    // Şemada Migration066'dan beri vardı ama arayüzden kurulamıyordu. Eşleme kurulmadan yakıt depo
+    // girişi ve satın alma alımları (karşı tarafı `supplier_id` ile tutar) cari defterine bağlanamaz.
+    // O tablolara ikinci bir `party_id` kolonu EKLENMEDİ — aynı satırda iki gerçeklik olurdu.
+    public ObservableCollection<LookupItem> Suppliers { get; } = new();
+    [ObservableProperty] private LookupItem? _fSupplier;
+    private void LoadSuppliers()
+    {
+        try
+        {
+            Suppliers.Clear();
+            foreach (var x in DesktopServices.Lookups.List(_session, "suppliers"))
+                Suppliers.Add(new LookupItem(x.Id, x.Name));
+        }
+        catch { }
+    }
+
     [ObservableProperty] private string _fCode = "";
     [ObservableProperty] private string _fTitle = "";
     [ObservableProperty] private string _fType = PartyTypes.Customer;
@@ -226,6 +244,7 @@ public sealed partial class PartiesViewModel : ViewModelBase
         _editId = null; _editVersion = 0;
         FCode = ""; FTitle = ""; FType = PartyTypes.Customer; FIsPerson = false;
         FTaxOffice = FTaxNo = FNationalId = FPhone = FEmail = FAddress = FCity = FDistrict = FNote = "";
+        FSupplier = null;   // ⭐ MUH-01c
         FIsActive = true;
         FormError = null; Status = null;
         FormOpen = true;
@@ -242,6 +261,7 @@ public sealed partial class PartiesViewModel : ViewModelBase
         FTaxOffice = p.TaxOffice ?? ""; FTaxNo = p.TaxNo ?? ""; FNationalId = p.NationalId ?? "";
         FPhone = p.Phone ?? ""; FEmail = p.Email ?? ""; FAddress = p.Address ?? "";
         FCity = p.City ?? ""; FDistrict = p.District ?? ""; FNote = p.Note ?? "";
+        FSupplier = Suppliers.FirstOrDefault(x => x.Id == p.SupplierId);   // ⭐ MUH-01c: eşleme ön-doldurulur
         FIsActive = p.IsActive;
         FormError = null; Status = null;
         FormOpen = true;
@@ -279,14 +299,15 @@ public sealed partial class PartiesViewModel : ViewModelBase
                 {
                     kaydedilenId = DesktopServices.Parties.Create(_session, new NewParty(
                         FCode, FTitle, FType, FIsPerson, N(FTaxOffice), N(FTaxNo), N(FNationalId),
-                        N(FPhone), N(FEmail), N(FAddress), N(FCity), N(FDistrict), "TRY", N(FNote)));
+                        N(FPhone), N(FEmail), N(FAddress), N(FCity), N(FDistrict), "TRY", N(FNote),
+                        FSupplier?.Id));   // ⭐ MUH-01c köprü
                 }
                 else
                 {
                     DesktopServices.Parties.Update(_session, _editId, new UpdateParty(
                         FCode, FTitle, FType, FIsPerson, N(FTaxOffice), N(FTaxNo), N(FNationalId),
                         N(FPhone), N(FEmail), N(FAddress), N(FCity), N(FDistrict), "TRY", N(FNote),
-                        FIsActive, _editVersion));
+                        FIsActive, _editVersion, FSupplier?.Id));   // ⭐ MUH-01c köprü
                 }
             });
 

@@ -171,7 +171,7 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 | **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`, `STK-12`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | ✅ **TAMAM** (2026-09-04) — kalan `STK-B2`/`RPR-02` karar bekliyor |
 | **FAZ A** | Kullanıcı bug'ları + yetki tamamlama (`YTK-05`, `UIX-01`, `YTK-06`, `YTK-08`) | Küçük, bağımsız, düşük riskli. **Silinmedi** — stok altyapısı mimari öncelik olduğu için sonraya alındı; FAZ C sonrasında yapıldı | ✅ TAMAM (2026-09-04, ADR-209) |
 | **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; yeni stok ekranları doğduğunda hazır olması iyi olur | ✅ **TAMAM** — G5/MNU-B2 turlarında yapılmış, yol haritası güncellenmemişti (2026-09-04'te ölçülüp doğrulandı) |
-| **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
+| **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile aynı migration ailesinde yapılmalı; sonra eklenirse geçmiş veri boş kalır | ✅ **TAMAM** (2026-09-04, ADR-210/211/212) — Migration089+090, ikisi de yalnız ekleme |
 | **FAZ E** | Senkron ölçeklenme (`SNK-06…10`) | FAZ C şemayı büyütür; senkron optimizasyonu ondan sonra anlamlı | FAZ C'ye bağlı |
 | **FAZ F** | Güncelleme + sürüm uyumu (`GNC-01…03`) | Çok makineli kullanım öncesi | BEKLEMEDE |
 | **FAZ G** | Kalan parite + rapor envanteri (`PRT-02`, `P-1`) — **`RPR-01` ✅ erken tamamlandı** | Çekirdek oturduktan sonra | BEKLEMEDE |
@@ -267,7 +267,7 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 
 | ID | İş |
 |---|---|
-| `MUH-01` | Para hareketi doğuran her kayda **cari + maliyet merkezi (şantiye) + belge** alanları (malzeme alışı, yakıt, bakım, şantiye gideri). FAZ C migration'ları ile **birlikte** |
+| `MUH-01` | Para hareketi doğuran her kayda **cari + maliyet merkezi + belge** alanları | ✅ **TAMAM** (2026-09-04) — üç eksen ayrı ayrı ölçüldü: maliyet merkezinde eksik olan **kapsam**tı (ekipman bakımı), belgede **üç tablo** (`Migration089`), caride yalnız **bakımlar** (`Migration090`). Yakıt/satın almaya ve stok belgesine kolon **eklenmedi** — karşı taraf oralarda zaten ulaşılabilir; eklemek ikinci gerçeklik üretirdi. Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md) |
 
 ## FAZ E — Senkron ölçeklenme
 

@@ -46,6 +46,26 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [ObservableProperty] private string _mntInvoice = "";
     /// <summary>⭐ MUH-01b: EKİPMAN bakımının belge numarası — maliyet merkezinde olduğu gibi AYRI alan.</summary>
     [ObservableProperty] private string _eqmInvoice = "";
+
+    // ── MUH-01c (2026-09-04): DIŞ SERVİS SAĞLAYICISI (cari) ────────────────────────────────────
+    // Bakım dışarıda yapıldıysa kime borçlanıldığı buraya yazılır. Kendi atölyesinde yapılan
+    // bakımda boş kalır — alan OPSİYONELDİR ve mevcut akışı zorunlu hâle GETİRMEZ.
+    /// <summary>Cari listesi yalnız parties View yetkisi olana yüklenir.</summary>
+    public bool CanPickParty => AccessControl.Can(_session, "parties", PermissionAction.View);
+    public ObservableCollection<ProjectPick> PartyOptions { get; } = new();
+    [ObservableProperty] private ProjectPick? _mntParty;
+    [ObservableProperty] private ProjectPick? _eqmParty;
+    private void LoadPartyOptions()
+    {
+        if (!CanPickParty) return;
+        try
+        {
+            PartyOptions.Clear();
+            foreach (var p in DesktopServices.Parties.List(_session, pageSize: 500).Items)
+                PartyOptions.Add(new ProjectPick(p.Party.Id, p.Party.Title));
+        }
+        catch { }
+    }
     private void LoadCostCenterOptions()
     {
         try
@@ -69,6 +89,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         _session = session;
         SelectedTab = initialTab;
         LoadCostCenterOptions();   // MLY-01
+        LoadPartyOptions();        // MUH-01c
         LoadDefs();
         LoadMaint();
         LoadAlerts();
@@ -619,7 +640,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     {
         MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
         MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
-        MntInvoice = "";   // ⭐ MUH-01b: belge no sonraki kayda taşınmasın
+        MntInvoice = ""; MntParty = null;   // ⭐ MUH-01b/c: belge no ve cari sonraki kayda taşınmasın
         MntVehStatus = null; MntVehStatusNote = "";
         IsAddingMntSub = false; NewMntSubName = "";
         MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
@@ -709,7 +730,9 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 // (bakım stok yüzünden engellenmez, KARAR-9 md. 8).
                 StockLocationId: MntLocation?.Id,
                 // ⭐ MUH-01b: dış servis faturası / servis fişi no (opsiyonel)
-                InvoiceNo: MntInvoice), Guid.NewGuid().ToString("N"));
+                InvoiceNo: MntInvoice,
+                // ⭐ MUH-01c: dış servis sağlayıcısı (cari) — opsiyonel
+                PartyId: MntParty?.Id), Guid.NewGuid().ToString("N"));
             BaglaMaliyetMerkezi("vehicle_maintenance", mntId, MntCostCenter);   // MLY-01
 
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI oldu; durum güncellenemezse
@@ -867,7 +890,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                     Description: string.IsNullOrWhiteSpace(EqmDescription) ? null : EqmDescription.Trim(),
                     PerformedDate: EqmPerformedDate, Materials: mats,
                     StockLocationId: MntLocation?.Id,          // araç sekmesiyle AYNI depo seçimi kullanılır
-                    InvoiceNo: EqmInvoice),                    // ⭐ MUH-01b: belge no (araç sekmesinden AYRI)
+                    InvoiceNo: EqmInvoice,                     // ⭐ MUH-01b: belge no (araç sekmesinden AYRI)
+                    PartyId: EqmParty?.Id),                    // ⭐ MUH-01c: dış servis sağlayıcısı
                 Guid.NewGuid().ToString("N"));
             // ⭐ MUH-01a: ekipman bakımı da maliyet merkezine bağlanır — araç bakımıyla AYNI alan,
             // AYNI yardımcı (kayıt SONRASI bağ; bağ yazılamazsa kayıt "merkezsiz" kalır).
@@ -876,7 +900,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             BaglaMaliyetMerkezi("equipment_maintenance", eqmId, EqmCostCenter);
             EqmLines.Clear();
             EqmDescription = "";
-            EqmInvoice = "";   // ⭐ MUH-01b: belge no sonraki kayda taşınmasın
+            EqmInvoice = ""; EqmParty = null;   // ⭐ MUH-01b/c
             RefreshEquipmentRows();
             Status = "Ekipman bakımı kaydedildi.";
         }

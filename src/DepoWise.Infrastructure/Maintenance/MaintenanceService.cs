@@ -34,7 +34,10 @@ public sealed record NewMaintenance(
     string? StockLocationId = null,
     /// <summary>⭐ MUH-01b (2026-09-04): dış servis faturası / servis fişi numarası (opsiyonel).
     /// Ön muhasebe gideri kaynak belgesine bağlayabilsin diye eklendi.</summary>
-    string? InvoiceNo = null);
+    string? InvoiceNo = null,
+    /// <summary>⭐ MUH-01c (2026-09-04): DIŞ SERVİS SAĞLAYICISI (cari). Bakım dışarıda yapıldıysa
+    /// kime borçlanıldığı buradan bilinir. Opsiyoneldir — kendi atölyesinde yapılan bakımda boştur.</summary>
+    string? PartyId = null);
 
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
@@ -52,7 +55,9 @@ public sealed record MaintenanceRow(
     decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string VehicleId = "",
     long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null,
     /// <summary>⭐ MUH-01b: dış servis faturası / servis fişi numarası (opsiyonel).</summary>
-    string? InvoiceNo = null)
+    string? InvoiceNo = null,
+    /// <summary>⭐ MUH-01c: dış servis sağlayıcısı (cari) kimliği (opsiyonel).</summary>
+    string? PartyId = null)
 {
     /// <summary>Listede gösterim — boşsa tire (yakıt depo girişindeki desenle aynı).</summary>
     public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
@@ -144,6 +149,7 @@ public sealed class MaintenanceService
         // o yol korumasız kalırdı (STK-03'te alınan aynı karar).
         var stockLocation = string.IsNullOrWhiteSpace(dto.StockLocationId) ? null : dto.StockLocationId!.Trim();
         EnsureLocationOwned(conn, tx, s.CompanyId, stockLocation);
+        EnsurePartyOwned(conn, tx, s.CompanyId, string.IsNullOrWhiteSpace(dto.PartyId) ? null : dto.PartyId!.Trim());   // ⭐ MUH-01c
         var locationKey = stockLocation ?? StockBalanceWriter.Unassigned;
 
         var teamStockUsed = new List<string>();
@@ -408,7 +414,7 @@ WHERE NOT EXISTS (
 SELECT vm.id, v.internal_code, d.name, sd.name,
        vm.performed_km, vm.performed_hour, vm.performed_date,
        vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id,
-       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no
+       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no, vm.party_id
 FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
@@ -433,7 +439,8 @@ ORDER BY vm.created_at DESC LIMIT @lim;";
                 rr.IsDBNull(13) ? null : rr.GetString(13),
                 rr.IsDBNull(14) ? null : rr.GetString(14),
                 rr.IsDBNull(15) ? null : rr.GetString(15),
-                rr.IsDBNull(16) ? null : rr.GetString(16)));
+                rr.IsDBNull(16) ? null : rr.GetString(16),
+                rr.IsDBNull(17) ? null : rr.GetString(17)));
         return list;
     }
 
@@ -480,8 +487,8 @@ WHERE mm.maintenance_id=@mt AND mm.company_id=@c ORDER BY m.code;";   // M-S1a: 
         cmd.CommandText = @"
 INSERT INTO vehicle_maintenances(id, company_id, vehicle_id, maintenance_def_id, sub_definition_id, technician_id,
     description, sub_definition_note, performed_km, performed_hour, performed_date,
-    next_due_km, next_due_hour, next_due_date, invoice_no, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@op,@opb,0,@now,@now,1,0);";
+    next_due_km, next_due_hour, next_due_date, invoice_no, party_id, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
+VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@party,@op,@opb,0,@now,@now,1,0);";
         cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);
         cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
@@ -499,6 +506,8 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@inv,@op,@opb,0
         cmd.AddWithValue("@nd", (object?)nextDate ?? DBNull.Value);
         // ⭐ MUH-01b: belge no — boş metin DBNull olur ki "" ile NULL iki ayrı "boş" olmasın.
         cmd.AddWithValue("@inv", string.IsNullOrWhiteSpace(dto.InvoiceNo) ? DBNull.Value : dto.InvoiceNo!.Trim());
+        // ⭐ MUH-01c: cari (dış servis). Sahiplik ALTTA doğrulanır — FK yok, kapı serviste.
+        cmd.AddWithValue("@party", string.IsNullOrWhiteSpace(dto.PartyId) ? DBNull.Value : dto.PartyId!);
         cmd.AddWithValue("@op", operationId);
         cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
@@ -670,6 +679,22 @@ VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev,
     /// <see cref="Materials.StockService"/> ve <see cref="Materials.OpeningStockService"/>'teki eşleriyle
     /// BİREBİR aynı desen (yeni yetki mimarisi kurulmadı; <c>is_deleted=1</c> = pasif/silinmiş depo).
     /// İstemciden gelen kimliğe körü körüne güvenilmez — UI doğrulaması tek başına yeterli değildir.</summary>
+    /// <summary>⭐ MUH-01c — CARİ SAHİPLİĞİ. Migration090 bilinçli olarak FK kurmadı (canlı tabloda
+    /// SQLite rebuild riski, ADR-191 ile aynı gerekçe) → kapı BURADA. Doğrulama servis katmanındadır
+    /// çünkü masaüstü bu servisi ÇEVRİMDIŞI çağırır; yalnız API'de olsaydı o yol korumasız kalırdı.
+    /// Başka firmanın carisi verilirse 403 — ID tahminiyle çapraz-firma bağ kurulamaz.</summary>
+    private static void EnsurePartyOwned(DbConnection conn, DbTransaction tx, string companyId, string? partyId)
+    {
+        if (string.IsNullOrEmpty(partyId)) return;   // opsiyonel alan — kontrol edilecek kimlik yok
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM parties WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", partyId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Cari bulunamadı veya başka firmaya ait.");
+    }
+
     private static void EnsureLocationOwned(DbConnection conn, DbTransaction tx, string companyId, string? locationId)
     {
         if (string.IsNullOrEmpty(locationId)) return;   // ATANMAMIŞ — uydurma yok, kontrol edilecek kimlik yok

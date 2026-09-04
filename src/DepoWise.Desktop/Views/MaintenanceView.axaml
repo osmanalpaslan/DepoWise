@@ -226,6 +226,14 @@
                                                 HelpText="Opsiyonel — dış serviste alınan belge numarası.">
                                     <TextBox Classes="Field" Text="{Binding MntInvoice}"/>
                                 </ctrl:FormField>
+                                <!-- ⭐ MUH-01c: dış servis sağlayıcısı (cari). Bakım dışarıda yapıldıysa
+                                     kime borçlanıldığı buradan bilinir; kendi atölyesinde boş kalır. -->
+                                <ctrl:FormField Label="Dış Servis (Cari)" Width="200" IsVisible="{Binding CanPickParty}"
+                                                HelpText="Opsiyonel — bakım dışarıda yapıldıysa seçin.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PartyOptions}"
+                                                    SelectedItem="{Binding MntParty}"
+                                                    PlaceholderText="Cari seç... (boş olabilir)"/>
+                                </ctrl:FormField>
                             </StackPanel>
                             <ctrl:FormField Label="Açıklama">
                                 <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>
@@ -475,6 +483,13 @@
                                 <ctrl:FormField Label="Fatura/Servis Fişi No" Width="180"
                                                 HelpText="Opsiyonel — dış serviste alınan belge numarası.">
                                     <TextBox Classes="Field" Text="{Binding EqmInvoice}"/>
+                                </ctrl:FormField>
+                                <!-- ⭐ MUH-01c: ekipman bakımının dış servis sağlayıcısı (araç sekmesinden AYRI). -->
+                                <ctrl:FormField Label="Dış Servis (Cari)" Width="200" IsVisible="{Binding CanPickParty}"
+                                                HelpText="Opsiyonel — bakım dışarıda yapıldıysa seçin.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PartyOptions}"
+                                                    SelectedItem="{Binding EqmParty}"
+                                                    PlaceholderText="Cari seç... (boş olabilir)"/>
                                 </ctrl:FormField>
                             </StackPanel>
                             <SelectableTextBlock Classes="Helper"

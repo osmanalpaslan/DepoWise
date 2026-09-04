@@ -169,6 +169,17 @@
                                       HelperText="Opsiyonel — dış serviste alınan belge numarası."
                                       Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
                     </MudItem>
+                    @* ⭐ MUH-01c: ekipman bakımının dış servis sağlayıcısı (araç sekmesinden AYRI). *@
+                    @if (Auth.CanView("parties") && _parties.Count > 0)
+                    {
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" @bind-Value="_eqmPartyId" Label="Dış Servis (Cari)" Clearable="true"
+                                       HelperText="Opsiyonel — bakım dışarıda yapıldıysa seçin."
+                                       Margin="Margin.Dense" Variant="Variant.Outlined">
+                                @foreach (var p in _parties) { <MudSelectItem T="string" Value="@p.Id">@p.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                    }
                 </MudGrid>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
                     Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir.
@@ -254,6 +265,16 @@
                     <MudTextField @bind-Value="_mInvoiceNo" Label="Fatura/Servis Fişi No" Class="mt-2"
                                   HelperText="Opsiyonel — dış serviste alınan belge numarası."
                                   Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
+                    @* ⭐ MUH-01c: dış servis sağlayıcısı (cari). Bakım dışarıda yapıldıysa kime
+                       borçlanıldığı buradan bilinir; kendi atölyesinde boş kalır. *@
+                    @if (Auth.CanView("parties") && _parties.Count > 0)
+                    {
+                        <MudSelect T="string" @bind-Value="_mPartyId" Label="Dış Servis (Cari)" Class="mt-2" Clearable="true"
+                                   HelperText="Opsiyonel — bakım dışarıda yapıldıysa seçin."
+                                   Margin="Margin.Dense" Variant="Variant.Outlined">
+                            @foreach (var p in _parties) { <MudSelectItem T="string" Value="@p.Id">@p.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
                 }
             </MudItem>
 
@@ -518,9 +539,10 @@
                 performedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 costCenterId = Empty(_eqmCostCenterId),   // ⭐ MUH-01a
                 invoiceNo = Empty(_eqmInvoiceNo),         // ⭐ MUH-01b
+                partyId = Empty(_eqmPartyId),             // ⭐ MUH-01c
             });
             _eqmHata = hata;
-            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; _eqmInvoiceNo = ""; }
+            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; _eqmInvoiceNo = ""; _eqmPartyId = null; }
         }
         finally { _eqmBusy = false; }
         await EqmYukle();
@@ -575,6 +597,11 @@
     private string _mInvoiceNo = "";
     /// <summary>⭐ MUH-01b: EKİPMAN bakımının belge numarası — maliyet merkezindeki gibi AYRI alan.</summary>
     private string _eqmInvoiceNo = "";
+    /// <summary>⭐ MUH-01c (2026-09-04): dış servis sağlayıcısı (cari). Araç ve ekipman AYRI alan.</summary>
+    private string? _mPartyId, _eqmPartyId;
+    private List<ApiClient.Opt> _parties = new();
+    private async Task LoadParties()
+    { try { _parties = await Api.OptionsAsync("/api/parties", "id", "title"); } catch { } }
     // MLY-01
     private List<ApiClient.Opt> _costCenters = new();
     private async Task LoadCostCenters()
@@ -583,6 +610,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadCostCenters();
+        await LoadParties();   // MUH-01c
         _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
         await LoadLocations();
@@ -844,7 +872,8 @@
                 // burada tekrar okunmaz — kullanıcının değişikliği sessizce ezilemez (KARAR-9).
                 branchId = _mLocationId,
                 costCenterId = Empty(_mCostCenterId),   // MLY-01
-                invoiceNo = Empty(_mInvoiceNo)          // ⭐ MUH-01b
+                invoiceNo = Empty(_mInvoiceNo),         // ⭐ MUH-01b
+                partyId = Empty(_mPartyId)              // ⭐ MUH-01c
             });
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
@@ -925,7 +954,7 @@
     }
 
     // BKM-04: YENİ kayıt varsayılan depoyla açılır (bir önceki kaydın seçimi taşınmaz).
-    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; _mInvoiceNo = ""; _mCostCenterId = null; }
+    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; _mInvoiceNo = ""; _mCostCenterId = null; _mPartyId = null; }
 
     // ── Uyarılar ──
     private async Task LoadAlerts() { _alerts = null; try { _alerts = await Api.GetArrayAsync("/api/maintenance/alerts"); } catch { _alerts = Array.Empty<JsonElement>(); } }

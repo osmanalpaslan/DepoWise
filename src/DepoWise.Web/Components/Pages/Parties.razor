@@ -109,6 +109,18 @@ else
                 <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.District" Label="İlçe" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="12" md="8"><MudTextField @bind-Value="_f.Address" Label="Adres" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="12"><MudTextField @bind-Value="_f.Note" Label="Not" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                @* ⭐ MUH-01c — TEDARİKÇİ EŞLEMESİ. Şemada Migration066'dan beri vardı ama arayüzden
+                   kurulamıyordu; kurulmadan yakıt/satın alma alımları cari defterine bağlanamıyor. *@
+                @if (_suppliers.Count > 0)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="string" @bind-Value="_f.SupplierId" Label="Tedarikçi Eşlemesi" Clearable="true"
+                                   HelperText="Opsiyonel — bu cari hangi tedarikçiyse seçin; yakıt ve satın alma alımları cari hesabına bağlanır."
+                                   Margin="Margin.Dense" Variant="Variant.Outlined">
+                            @foreach (var sp in _suppliers) { <MudSelectItem T="string" Value="@sp.Id">@sp.Name</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+                }
             </MudGrid>
             <MudStack Row="true" Spacing="2" Class="mt-3">
                 @* _saving sürerken düğme kapalı → çift tıklamada iki kayıt oluşmaz. *@
@@ -278,6 +290,8 @@ else
     {
         public string Id = "", Code = "", Title = "", TypeText = "", TaxIdText = "", StatusText = "", BalanceText = "", LastEntryText = "";
         public string? TaxOffice, Phone, Email, City, District, TaxNo, NationalId, Address, Note;
+        /// <summary>⭐ MUH-01c: eşlenmiş tedarikçi (varsa) — düzenleme formunu doldurmak için.</summary>
+        public string? SupplierId;
         public string PartyType = "";
         public bool IsPerson;
         public long Version;
@@ -425,6 +439,9 @@ else
     {
         public string Code = "", Title = "", PartyType = "customer";
         public string? TaxOffice, TaxNo, NationalId, Phone, Email, Address, City, District, Note;
+        /// <summary>⭐ MUH-01c: TEDARİKÇİ ↔ CARİ KÖPRÜSÜ. Yakıt depo girişi ve satın alma karşı tarafı
+        /// eski `suppliers` tablosuyla tutar; bu eşleme kurulunca o alımlar cari defterine bağlanabilir.</summary>
+        public string? SupplierId;
         public bool IsPerson, IsActive = true;
         public long Version;
     }
@@ -437,6 +454,9 @@ else
         public DateTime? DueDate;
         public string? DocNo, Description;
     }
+
+    /// <summary>⭐ MUH-01c: tedarikçi listesi — eşleme seçici için (tek seferde yüklenir).</summary>
+    private List<ApiClient.Opt> _suppliers = new();
 
     private Form _f = new();
     private Entry _e = new();

@@ -36,7 +36,13 @@ public sealed record UpdateParty(
     bool IsPerson = false, string? TaxOffice = null, string? TaxNo = null, string? NationalId = null,
     string? Phone = null, string? Email = null, string? Address = null, string? City = null,
     string? District = null, string Currency = "TRY", string? Note = null, bool IsActive = true,
-    long Version = 0);
+    long Version = 0,
+    /// <summary>⭐ MUH-01c (2026-09-04): TEDARİKÇİ ↔ CARİ KÖPRÜSÜ. Migration066 bu alanı "ileride
+    /// bu tedarikçi = bu cari" için bırakmıştı; Create yazıyordu ama Update YAZMIYORDU → eşleme
+    /// kurulduktan sonra düzeltilemiyordu. Yakıt depo girişi ve satın alma `supplier_id` taşıdığı
+    /// için cari defterine bu köprüyle bağlanır (o tablolara ikinci bir karşı-taraf kolonu
+    /// eklenmedi — aynı satırda iki gerçeklik olurdu).</summary>
+    string? SupplierId = null);
 
 /// <summary>Cari kartı (detay + liste ortak gövdesi).</summary>
 public sealed record PartyRecord(
@@ -182,7 +188,7 @@ VALUES(@id,@c,@code,@title,@type,@person,@tofc,@tno,@nid,@phone,@mail,@addr,@cit
             cmd.CommandText = @"
 UPDATE parties SET code=@code, title=@title, party_type=@type, is_person=@person, tax_office=@tofc,
        tax_no=@tno, national_id=@nid, phone=@phone, email=@mail, address=@addr, city=@city,
-       district=@dist, currency_code=@cur, note=@note, is_active=@active,
+       district=@dist, currency_code=@cur, note=@note, is_active=@active, supplier_id=@sup,
        version=version+1, updated_at=@now
 WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Version > 0 ? dto.Version : null) + ";";
             cmd.AddWithValue("@code", dto.Code.Trim());
@@ -200,6 +206,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@note", (object?)Trim(dto.Note) ?? DBNull.Value);
             cmd.AddWithValue("@active", dto.IsActive ? 1 : 0);
+            cmd.AddWithValue("@sup", (object?)Trim(dto.SupplierId) ?? DBNull.Value);   // ⭐ MUH-01c köprü
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
@@ -271,6 +278,31 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
     }
 
     // ── Okuma ───────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// ⭐ MUH-01c — TEDARİKÇİ → CARİ ÇÖZÜCÜSÜ.
+    ///
+    /// Yakıt depo girişi ve satın alma siparişi karşı tarafı <c>supplier_id</c> ile tutar (eski
+    /// <c>suppliers</c> tablosu). O satırlara ikinci bir <c>party_id</c> kolonu EKLENMEDİ — aynı
+    /// satırda iki ayrı "karşı taraf" gerçekliği olurdu. Bunun yerine Migration066'nın bu iş için
+    /// bıraktığı köprü kullanılır: <c>parties.supplier_id</c>.
+    ///
+    /// FAZ H (cari hesap) bir yakıt alımını cariye bağlarken bu çözücüyü kullanır.
+    /// Eşleme kurulmamışsa <c>null</c> döner — uydurma yapılmaz, sessizce yanlış cariye yazılmaz.
+    /// </summary>
+    public string? PartyIdBySupplier(SessionContext s, string? supplierId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        if (string.IsNullOrWhiteSpace(supplierId)) return null;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        // Firma kapsamı ZORUNLU: başka firmanın carisi bu firmanın tedarikçisine bağlanamaz.
+        cmd.CommandText = "SELECT id FROM parties WHERE company_id=@c AND supplier_id=@s AND is_deleted=0 LIMIT 1;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@s", supplierId!.Trim());
+        var v = cmd.ExecuteScalar();
+        return v is null or DBNull ? null : (string)v;
+    }
 
     public PartyRecord Get(SessionContext s, string id)
     {

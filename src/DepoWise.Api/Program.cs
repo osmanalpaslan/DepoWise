@@ -2306,6 +2306,7 @@ app.MapGet("/api/parties/{id}", (HttpContext c, string id, string? branchIds) =>
         taxOffice = p.TaxOffice, taxNo = p.TaxNo, nationalId = p.NationalId,
         phone = p.Phone, email = p.Email, address = p.Address, city = p.City, district = p.District,
         currency = p.Currency, note = p.Note, isActive = p.IsActive, version = p.Version,
+        supplierId = p.SupplierId,   // ⭐ MUH-01c: köprü düzenlenebilsin diye geri döner
         balance = new { debit = b.Debit, credit = b.Credit, balance = b.Balance, balanceText = b.BalanceText,
                         entryCount = b.EntryCount, lastEntryText = b.LastEntryText },
     });
@@ -2315,7 +2316,8 @@ app.MapPost("/api/parties", (HttpContext c, PartyDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var id = svc.Parties.Create(s, new NewParty(d.Code, d.Title, d.PartyType, d.IsPerson, d.TaxOffice,
-        d.TaxNo, d.NationalId, d.Phone, d.Email, d.Address, d.City, d.District, d.Currency ?? "TRY", d.Note));
+        d.TaxNo, d.NationalId, d.Phone, d.Email, d.Address, d.City, d.District, d.Currency ?? "TRY", d.Note,
+        Doc(d.SupplierId)));   // ⭐ MUH-01c
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
@@ -2324,7 +2326,7 @@ app.MapPut("/api/parties/{id}", (HttpContext c, string id, PartyDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.Parties.Update(s, id, new UpdateParty(d.Code, d.Title, d.PartyType, d.IsPerson, d.TaxOffice,
         d.TaxNo, d.NationalId, d.Phone, d.Email, d.Address, d.City, d.District, d.Currency ?? "TRY",
-        d.Note, d.IsActive ?? true, d.Version));
+        d.Note, d.IsActive ?? true, d.Version, Doc(d.SupplierId)));   // ⭐ MUH-01c
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -3657,7 +3659,7 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "vehicle_maintenance", id, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id });
 }).RequireAuthorization();
@@ -3701,7 +3703,7 @@ app.MapPost("/api/equipment-maintenance", (HttpContext c, EquipmentMaintenanceDt
     var id = svc.EquipmentMaintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
         d.EquipmentId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "equipment_maintenance", id, d.CostCenterId);
     return Results.Ok(new { id });
 }).RequireAuthorization();
@@ -3864,7 +3866,7 @@ app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19, ADR-091) — Bakım ile AYNI mekanizma, Bakım
@@ -3878,7 +3880,7 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
     var id = svc.DailyActivity.SaveExtraActivity(s, d.Type, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, "", null, d.TechnicianId, Doc(d.Description), null,
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo)), Guid.NewGuid().ToString("N"));   // BKM-04
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // İptal ONAYI için etki özeti (bağlı bakım + malzeme satırı) — salt-okuma.
@@ -4750,7 +4752,8 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
     string? BranchId = null,
     string? CostCenterId = null,
-    string? InvoiceNo = null);   // MUH-01b: dış servis faturası / servis fişi no
+    string? InvoiceNo = null,
+    string? PartyId = null);   // MUH-01b belge no · MUH-01c dış servis sağlayıcısı (cari)
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
@@ -4759,7 +4762,7 @@ record InspectionDto(string VehicleId, string DocType, long? LastDate, long? Nex
 record EquipmentMaintenanceDto(string EquipmentId, string DefinitionId, string? SubDefinitionId, string? TechnicianId,
     string? Description, string? SubDefinitionNote, decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
     List<MaintLineDto>? Materials, string? BranchId = null, string? CostCenterId = null,
-    string? InvoiceNo = null);   // MUH-01b
+    string? InvoiceNo = null, string? PartyId = null);   // MUH-01b belge no · MUH-01c cari
 record EquipmentInspectionDto(string EquipmentId, string DocType, long? LastDate, long? NextDate,
     string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate, string? CostCenterId = null);
@@ -4776,7 +4779,8 @@ record MovementDto(string MovementKind, string? VehicleId, string? FromLocationI
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
     string? BranchId = null,
-    string? InvoiceNo = null);   // BKM-04: malzemenin çekildiği depo (opsiyonel, sona) · MUH-01b: belge no
+    string? InvoiceNo = null,
+    string? PartyId = null);   // BKM-04 depo · MUH-01b belge no · MUH-01c cari (dış servis)
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
@@ -4809,7 +4813,8 @@ record MenuLayoutSaveDto(MenuLayoutScreenDto[]? Screens, MenuLayoutGroupDto[]? G
 record PartyDto(string Code, string Title, string PartyType, bool IsPerson = false, string? TaxOffice = null,
     string? TaxNo = null, string? NationalId = null, string? Phone = null, string? Email = null,
     string? Address = null, string? City = null, string? District = null, string? Currency = null,
-    string? Note = null, bool? IsActive = null, long Version = 0);
+    string? Note = null, bool? IsActive = null, long Version = 0,
+    string? SupplierId = null);   // ⭐ MUH-01c: tedarikçi ↔ cari köprüsü
 record PartyActiveDto(bool Active);
 record LedgerEntryDto(string DocType, decimal Amount, bool IsDebit, long? EntryDate = null, string? DocNo = null,
     string? Description = null, long? DueDate = null, string? Currency = null, string? BranchId = null,
