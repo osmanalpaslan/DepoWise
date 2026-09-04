@@ -422,6 +422,108 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
         return list;
     }
 
+    /// <summary>
+    /// ⭐ ARA İŞ 6 (kullanıcı bildirimi 2026-09-04) — YAKIT DAĞITIMLARI: SUNUCU TARAFI SAYFALAMA + ARAMA.
+    ///
+    /// <b>Çözülen kusur.</b> Ekranlar <see cref="ListDistributions"/>'ı sabit <c>limit=200</c> ile
+    /// çağırıyordu ve sorgu <c>ORDER BY distribution_date DESC</c> ile en yeniden başlıyordu. Yani
+    /// ekran yalnız <b>en yeni 200 dağıtımı</b> gösteriyor, daha eskiler <b>sessizce düşüyordu</b>:
+    /// kullanıcı 02.08.2026 tarihli kaydı RAPORDA görüyor (rapor limitsiz okur) ama Yakıt Dağıtımları
+    /// ekranında bulamıyordu. Kesilme kullanıcıya bildirilmiyordu da — "kayıt kayboldu" gibi görünüyordu.
+    ///
+    /// <b>Neden sayfalama, "limiti büyüt" değil:</b> limiti yükseltmek sorunu yalnız erteler ve listeyi
+    /// ağırlaştırır. Sayfalamada <b>toplam sayı</b> da döner → kullanıcı kaç kaydı olduğunu görür ve
+    /// hepsine erişebilir. Desen, aynı projede çalışan Günlük Faaliyet/Araçlar ekranlarıyla AYNIDIR
+    /// (<see cref="GridQuery"/> + <c>GridResult</c>), yeni bir yol icat edilmedi.
+    ///
+    /// <b>Filtreler SQL'de süzülür, bellekte DEĞİL</b> — aksi hâlde sayfalama yanlış toplam üretirdi.
+    /// Mevcut indeksler yeterlidir: <c>ix_fuel_dist_company(company_id, distribution_date)</c> ve
+    /// <c>ix_fuel_dist_vehicle(vehicle_id, distribution_date)</c> → migration GEREKMEDİ.
+    ///
+    /// Şube kapsamı, iptal görünürlüğü ve satır biçimi <see cref="ListDistributions"/> ile birebir
+    /// aynıdır; o metot geriye uyumluluk için DURUYOR (başka çağıranlar bozulmasın).
+    /// </summary>
+    /// <param name="vehicleQuery">Araç: iç kod veya plaka içinde arar. Boşsa tüm araçlar.</param>
+    /// <param name="freeText">Serbest arama: araç iç kodu, plaka veya açıklama içinde arar.</param>
+    /// <param name="fromDateMs">İş günü aralığı başlangıcı (dahil). <c>distribution_date</c> üzerinde.</param>
+    /// <param name="toDateMs">İş günü aralığı bitişi (dahil).</param>
+    public GridResult<FuelDistributionRow> SearchDistributions(SessionContext s, int page, int pageSize,
+        string? vehicleQuery = null, string? freeText = null,
+        long? fromDateMs = null, long? toDateMs = null, bool includeCancelled = false)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        using var conn = _factory.Create();
+        bool sqlite = SqlDialect.IsSqlite(conn);
+
+        // Ortak WHERE — sayım ve sayfa sorgusu AYNI koşulları kullanmalı, yoksa toplam yanlış çıkar.
+        var where = new System.Text.StringBuilder(
+            "WHERE fd.company_id=@c" + (includeCancelled ? "" : " AND fd.is_deleted=0")
+            + BranchScope.Sql(s, "fd.op_branch_id"));
+
+        if (fromDateMs is not null) where.Append(" AND fd.distribution_date >= @from");
+        if (toDateMs is not null) where.Append(" AND fd.distribution_date <= @to");
+
+        // Türkçe-doğru "içerir" araması: SqlDialect.LikeTr iki lehçeyi de doğru ele alır
+        // (SQLite'ta düz LIKE, PostgreSQL'de Türkçe harmanlama) — elle lower() YAZILMAZ.
+        var vehTerm = string.IsNullOrWhiteSpace(vehicleQuery) ? null : vehicleQuery.Trim();
+        if (vehTerm is not null)
+            where.Append(" AND (" + SqlDialect.LikeTr(sqlite, "v.internal_code", "@veh")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "v.plate", "@veh") + ")");
+
+        var qTerm = string.IsNullOrWhiteSpace(freeText) ? null : freeText.Trim();
+        if (qTerm is not null)
+            where.Append(" AND (" + SqlDialect.LikeTr(sqlite, "v.internal_code", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "v.plate", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "fd.note", "@q") + ")");
+
+        const string fromSql = "FROM fuel_distributions fd LEFT JOIN vehicles v ON v.id = fd.vehicle_id ";
+
+        void Baglan(System.Data.Common.DbCommand c)
+        {
+            c.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b) c.AddWithValue("@opb", b);
+            if (fromDateMs is { } f) c.AddWithValue("@from", f);
+            if (toDateMs is { } t) c.AddWithValue("@to", t);
+            if (vehTerm is not null) c.AddWithValue("@veh", "%" + vehTerm + "%");
+            if (qTerm is not null) c.AddWithValue("@q", "%" + qTerm + "%");
+        }
+
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = "SELECT COUNT(*) " + fromSql + where + ";";
+            Baglan(cnt);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var list = new List<FuelDistributionRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
+       fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
+       fd.personnel_id, fd.recipient_personnel_id, fd.note
+" + fromSql + where + @"
+ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
+            Baglan(cmd);
+            cmd.AddWithValue("@lim", pageSize);
+            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new FuelDistributionRow(
+                    r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                    Money.Parse(r.GetString(3)), Money.Parse(r.GetString(4)), Money.Parse(r.GetString(5)),
+                    Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
+                    r.IsDBNull(10) ? null : r.GetString(10),
+                    r.IsDBNull(11) ? null : r.GetString(11),
+                    r.IsDBNull(12) ? null : r.GetString(12)));
+        }
+        return new GridResult<FuelDistributionRow>(list, total, page, pageSize);
+    }
+
     /// <summary>Depo girişleri (salt okuma) — en yeni önce.</summary>
     /// <param name="includeCancelled">Y3: varsayılan GİZLİ; true ise iptal edilenler de gelir.</param>
     public IReadOnlyList<FuelDepotRow> ListDepotEntries(SessionContext s, int limit = 200,
@@ -444,6 +546,72 @@ ORDER BY entry_date DESC, created_at DESC LIMIT @lim;";
                 r.GetString(0), Money.Parse(r.GetString(1)), Money.Parse(r.GetString(2)),
                 r.GetString(3), r.GetInt64(4), r.IsDBNull(5) ? null : r.GetString(5), r.GetInt64(6) == 1));
         return list;
+    }
+
+    /// <summary>
+    /// ⭐ ARA İŞ 6 — DEPO GİRİŞLERİ: sayfalanmış + filtreli liste.
+    ///
+    /// Dağıtımlarla <b>aynı ekranda</b> duran bu sekmede de aynı kusur vardı: <see cref="ListDepotEntries"/>
+    /// sabit 200 satır tavanıyla çağrılıyordu ve sorgu en yeniden başlıyordu → eski girişler sessizce
+    /// düşüyordu. Kullanıcı şikayetini dağıtımlar üzerinden bildirdi, ama aynı ekranın yan sekmesini
+    /// bozuk bırakmak tutarsız olurdu: aynı kusur, aynı çözüm.
+    ///
+    /// Depo girişinde araç yoktur; serbest arama <b>fatura numarası</b> üzerinde çalışır (kullanıcının
+    /// bir girişi bulmak için elindeki tek metin odur).
+    /// </summary>
+    public GridResult<FuelDepotRow> SearchDepotEntries(SessionContext s, int page, int pageSize,
+        string? freeText = null, long? fromDateMs = null, long? toDateMs = null, bool includeCancelled = false)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        using var conn = _factory.Create();
+        bool sqlite = SqlDialect.IsSqlite(conn);
+
+        var where = new System.Text.StringBuilder(
+            "WHERE company_id=@c" + (includeCancelled ? "" : " AND is_deleted=0")
+            + BranchScope.Sql(s, "op_branch_id"));
+        if (fromDateMs is not null) where.Append(" AND entry_date >= @from");
+        if (toDateMs is not null) where.Append(" AND entry_date <= @to");
+
+        var qTerm = string.IsNullOrWhiteSpace(freeText) ? null : freeText.Trim();
+        if (qTerm is not null) where.Append(" AND " + SqlDialect.LikeTr(sqlite, "invoice_no", "@q"));
+
+        void Baglan(System.Data.Common.DbCommand c)
+        {
+            c.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b) c.AddWithValue("@opb", b);
+            if (fromDateMs is { } f) c.AddWithValue("@from", f);
+            if (toDateMs is { } t) c.AddWithValue("@to", t);
+            if (qTerm is not null) c.AddWithValue("@q", "%" + qTerm + "%");
+        }
+
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = "SELECT COUNT(*) FROM fuel_depot_entries " + where + ";";
+            Baglan(cnt);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var list = new List<FuelDepotRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT id, liters, unit_price, currency_code, entry_date, invoice_no, is_deleted
+FROM fuel_depot_entries " + where + @"
+ORDER BY entry_date DESC, created_at DESC LIMIT @lim OFFSET @off;";
+            Baglan(cmd);
+            cmd.AddWithValue("@lim", pageSize);
+            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new FuelDepotRow(
+                    r.GetString(0), Money.Parse(r.GetString(1)), Money.Parse(r.GetString(2)),
+                    r.GetString(3), r.GetInt64(4), r.IsDBNull(5) ? null : r.GetString(5), r.GetInt64(6) == 1));
+        }
+        return new GridResult<FuelDepotRow>(list, total, page, pageSize);
     }
 
     // ---- yardımcılar ----

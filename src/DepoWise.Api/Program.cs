@@ -1083,6 +1083,35 @@ app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string?
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ ARA İŞ 6 (2026-09-04) — YAKIT DAĞITIMLARI: SAYFALANMIŞ + FİLTRELİ liste.
+// Eski /api/fuel ucu sabit 200 satır döndürüyordu; ekran en yeni 200 kaydı gösterip daha eskileri
+// SESSİZCE düşürüyordu (kullanıcı 02.08.2026 kaydını raporda görüp ekranda bulamadı). Bu uç toplam
+// sayıyı da döndürür → arayüz "kaç kayıt var" bilgisini gösterebilir ve hepsine erişilebilir.
+// Eski uç geriye uyumluluk için DURUYOR (eski masaüstü sürümleri bozulmasın).
+app.MapGet("/api/fuel/grid", (HttpContext c,
+    string? vehicle, string? q, long? fromDate, long? toDate,
+    int page, int pageSize, bool? includeCancelled) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.Fuel.SearchDistributions(s, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
+        vehicle, q, fromDate, toDate, includeCancelled == true);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
+// Depo girişleri — aynı ekranın yan sekmesi, aynı kusur, aynı çözüm (bkz. /api/fuel/grid).
+app.MapGet("/api/fuel/depot/grid", (HttpContext c,
+    string? q, long? fromDate, long? toDate, int page, int pageSize, bool? includeCancelled) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.Fuel.SearchDepotEntries(s, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
+        q, fromDate, toDate, includeCancelled == true);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
 // 2026-09-03 (kullanıcı isteği): kullanıcının görebildiği GÜNLÜK FAALİYET kayıt tipleri (anahtar listesi).
 // Web "Kayıt Tipi" kutusunu bununla süzer; asıl liste süzmesi SERVİSTEDİR (TipYetkisiSql — yan kapı yok).
