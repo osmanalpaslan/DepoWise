@@ -10,7 +10,7 @@ paths:
 - COMODO kanıtı host, mutlak DB yolu, WAL ve yeniden açılış kalıcılığını içerir.
 
 ## Testler NASIL çalıştırılır (2026-09-04, zorunlu)
-**Tek yol:** `powershell -File scripts/run_tests.ps1` (filtre için `-Filter "KUR"`).
+**Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1` (filtre için `-Filter "KUR"`). `-ExecutionPolicy Bypass` gereklidir: bu makinede betik çalıştırma ilkesi kapalı.
 
 **Elle `dotnet build ... && dotnet test` YAZMA.** Nedeni gerçek bir olaydır: 2026-09-04'te iki koşu
 aynı anda çalıştı, birincisi ikili dosyaları kilitledi, ikincisinin **derlemesi çöktü ama koşu devam

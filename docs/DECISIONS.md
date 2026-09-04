@@ -4099,3 +4099,79 @@ geriye uyumluluk, ön-koşullar (eski Windows/32-bit/disk/ağ/yazma izni/ölçü
 
 **Yayın notu:** Bu ADR **migration İÇERMEZ** ve **sunucu değişikliği İÇERMEZ**. Kurulum aracının
 yeniden yayınlanması gerekir; bu, açık `YAYINLA` yetkisi olmadan yapılmayacaktır.
+
+## ADR-201 — Malzeme kodu+adı, malzeme miktarı sütunu, yetki izlenebilirliği (2026-09-04)
+
+**Bağlam.** Kullanıcının masaüstü alan testlerinden dört istek. Talep gereği her madde **iki ortamda
+da** (masaüstü + web) analiz edildi; ikisi beklenenden farklı çıktı.
+
+### 1) Malzeme seçiminde KOD + AD (iki ortamda da eksikti)
+
+Kullanıcı: "parçanın kodunu yazdığımda doğru parçayı getiriyor ama emin olamıyorum."
+- Masaüstü: arama sonucu yalnız `Name` gösteriyordu; kod veride vardı, kullanılmıyordu.
+- Web: `ToStringFunc` yalnız ad; üstelik `OptionsAsync(..., "id","name")` ile **kod hiç çekilmiyordu**
+  (API `code` döndürüyor — sunucu değişikliği gerekmedi).
+
+`MaterialRefRow.Display` (ortak) + `ApiClient.MaterialOptionsAsync` eklendi; iki ortam **aynı biçimi**
+kullanır: `KOD — AD`. Masaüstünde üç yer düzeltildi (arama sonucu, eklenen satır, depo çıkışı seçicisi).
+
+> Not: web'de 7 ekran aynı malzeme seçicisini kullanıyor; bu ADR'de **yalnız Günlük Faaliyet**
+> değiştirildi (istenen kapsam). Yardımcı hazır olduğu için diğerleri tek satırlık değişikliktir.
+
+### 2) Malzeme miktarı sütunu (liste + raporlar)
+
+**Kalem sayısı DEĞİL, miktar toplamı**: 2 kalemde 2+1 kullanıldıysa sütun **3** gösterir. İki bilgi
+karışırsa rapor yanlış okunur — testle kilitlendi.
+
+Eklendiği yerler: kolon kataloğu (tek dosya, iki platformda derleniyor) · grid SQL'i (derived-table,
+**sona** eklendi ki mevcut okuyucu indeksleri kaymasın) · sayısal filtre + API parametresi · masaüstü
+XAML (3 blok, indeks kaydırmasıyla) · web hücre eşlemesi · Excel çıktısı · **Detay** ve **Dönem**
+raporları (başlık + satır + toplam).
+
+Anahtar `materialQty`'dir (camelCase): `material_qty` yazılınca `KAT09_Metadata_Sql_Sizdirmaz`
+nöbetçi testi kırıldı — kolon anahtarları camelCase olmak zorunda. Test doğru davrandı, anahtar düzeltildi.
+
+### 3) Fotoğraf formatı — **istenen kontrol zaten vardı; kod değişikliği YAPILMADI**
+
+Kullanıcı format uyumsuzluğundan şüphelendi. Ölçüm bunu **doğrulamadı**:
+- Masaüstü dosya seçici yalnız `*.jpg/*.jpeg/*.png` gösteriyor + uygun olmayan seçilirse uyarıyor (2026-07-25).
+- Web'de `accept=".jpg,.jpeg,.png"` + desteklenen formatlar metni.
+- Sunucuda magic-byte doğrulaması (uzantı sahteciliği de reddedilir), fail-closed.
+- **Üretimde 128 fotoğraf var, hepsi 2026-09-04 04:18'de yüklenmiş** (ADR-196 otomatik taşıması
+  babanın makinesinde çalışmış). MIME dağılımı **127 JPEG + 1 PNG** — tek bir uyumsuz dosya yok.
+
+Yeni kontrol eklemek mevcut korumayı tekrarlardı. Açık kalan: 167 araçtan 66'sında, 2502 malzemeden
+62'sinde fotoğraf var; "neredeyse hepsinde vardı" beklentisiyle uyuşmuyorsa taşıma eksik kalmış
+olabilir — kullanıcı teyidi bekleniyor.
+
+### 4) Yetki — iki kez yanlış teşhis, sonra gerçek kök neden
+
+Süreç boyunca iki tespitim **üretim verisiyle çürütüldü** (ikisi de rapora yazıldı):
+1. "Firma admini bypass'ı" → **yanlış**: baba `role-staff`, admin değil.
+2. "Yetki değişikliği audit'e yazılmıyor" → **yanlış**: yazılıyor; sorgudaki `LIMIT 15`, aynı gün
+   yüklenen 128 fotoğraf kaydının altında kalanları kesmişti. 03.09'da **iki** kayıt var (16:11, 18:34).
+
+**Gerçek durum:** `user_permissions` içinde 60 modülün 60'ı da `1111` (tam yetki), hepsi tek
+`updated_at` ile. Kaydetme "önce hepsini sil, sonra gönderilenleri yaz" olduğundan, kaydedilen veri
+tam yetkiliydi → uygulama DOĞRU çalışıyor, veri öyle. Ne gönderildiği **kanıtlanamıyordu** çünkü
+denetim kaydında `before_json`/`after_json` boştu.
+
+Yapılanlar:
+- **`PermissionService.SaveForUser` artık ÖNCEKİ ve SONRAKİ yetki durumunu denetime yazıyor**
+  (`{"m":["daily_activity:1111",…],"b":[…]}`, ~1 KB). "Sonrası" yazmadan SONRA okunur → kırpma
+  (`ClampModule`) ve boş-satır atlama sonrası GERÇEKTE ne kaydedildiğini gösterir.
+- **Kaydet onayı ne değiştiğini söylüyor** (iki ortamda aynı metin): "KALDIRILACAK (N ekran): … /
+  EKLENECEK (M ekran): …". Eskiden yalnız "kaydedilsin mi?" diyordu.
+- Menü gizlemeyi kanıtlayan test YOKTU → `YetkiGorunurlukTests` YG1-YG6 eklendi.
+
+**Açık güvenlik konusu (kullanıcı kararı bekliyor):** baba `permissions`, `users`, `branches` gibi
+admin-kısıtlı ekranlara tam yetkili — yani yetki ekranından kendi yetkisini değiştirebilir. Süper
+admin aktör bu kısıttan muaf olduğu için (B5, 2026-08-19) kayıt kabul edilmişti. Düzeltmesi **üretim
+verisi değişikliğidir**; kullanıcının açık onayı olmadan yapılmayacaktır.
+
+**Testler:** KurulumAraci dışında — `DailyActivityGridTests` (miktar ≠ kalem, boş gösterim, sayısal
+filtre, Excel hücre/başlık sayısı) · `YetkiGorunurlukTests` YG1-YG6 · `GunlukFaaliyetRaporuTests`
+GFR3/GFR8/GFR20/GFR21/GFR22 indeks ve başlıkları **bilinçli** güncellendi (gevşetme değil).
+
+**Yayın notu:** migration YOK, sunucu şeması değişmedi. Web servis değişikliği içerdiği için yayında
+**API + Web birlikte** dağıtılmalıdır.

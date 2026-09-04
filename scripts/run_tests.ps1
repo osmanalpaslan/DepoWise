@@ -18,9 +18,9 @@
 #   • `--no-build` kullanmaz; test edilen ikili dosyanın az önce derlenmiş olduğu garantidir.
 #
 # KULLANIM:
-#   powershell -File scripts/run_tests.ps1                 # tam süit
-#   powershell -File scripts/run_tests.ps1 -Filter "KUR"   # yalnız eşleşen testler
-#   powershell -File scripts/run_tests.ps1 -Bekle          # başka koşu varsa bitmesini bekle
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1          # tam süit
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 -Filter "KUR"
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 -Bekle
 
 param(
   [string]$Filter = "",
