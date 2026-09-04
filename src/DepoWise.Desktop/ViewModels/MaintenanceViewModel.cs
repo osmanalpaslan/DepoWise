@@ -37,6 +37,10 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     public bool CanPickCostCenter => AccessControl.Can(_session, "cost_centers", PermissionAction.Edit);
     public System.Collections.ObjectModel.ObservableCollection<ProjectPick> CostCenterOptions { get; } = new();
     [ObservableProperty] private ProjectPick? _mntCostCenter;
+    /// <summary>⭐ MUH-01a: EKİPMAN bakımının maliyet merkezi — araç sekmesindekinden AYRI tutulur.
+    /// Ortak alan kullanmak, araç için seçilen merkezin ekipman kaydına sessizce yapışması demekti;
+    /// depo seçiminde (MntLocation) bu paylaşım bilinçli ve ekranda YAZILI, merkez için değil.</summary>
+    [ObservableProperty] private ProjectPick? _eqmCostCenter;
     private void LoadCostCenterOptions()
     {
         try
@@ -849,13 +853,18 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             var mats = EqmLines
                 .Select(l => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock))
                 .ToList();
-            DesktopServices.EquipmentMaintenance.Save(_session,
+            var eqmId = DesktopServices.EquipmentMaintenance.Save(_session,
                 new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
                     EquipmentId: EqmSelected.Id, DefinitionId: EqmDef.Id,
                     Description: string.IsNullOrWhiteSpace(EqmDescription) ? null : EqmDescription.Trim(),
                     PerformedDate: EqmPerformedDate, Materials: mats,
                     StockLocationId: MntLocation?.Id),          // araç sekmesiyle AYNI depo seçimi kullanılır
                 Guid.NewGuid().ToString("N"));
+            // ⭐ MUH-01a: ekipman bakımı da maliyet merkezine bağlanır — araç bakımıyla AYNI alan,
+            // AYNI yardımcı (kayıt SONRASI bağ; bağ yazılamazsa kayıt "merkezsiz" kalır).
+            // Ekipman bakım hattı (7b) açıldığında bu unutulmuştu: sunucu ucu bağı yazmaya
+            // çalışıyor ama hiçbir arayüz göndermiyordu.
+            BaglaMaliyetMerkezi("equipment_maintenance", eqmId, EqmCostCenter);
             EqmLines.Clear();
             EqmDescription = "";
             RefreshEquipmentRows();

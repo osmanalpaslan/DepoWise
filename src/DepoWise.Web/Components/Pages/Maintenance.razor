@@ -151,6 +151,18 @@
                     <MudItem xs="12" md="4">
                         <MudTextField @bind-Value="_eqmDescription" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" />
                     </MudItem>
+                    @* ⭐ MUH-01a: ekipman bakımı da maliyet merkezine yazılabilir (araç bakımıyla aynı
+                       hak). Araç sekmesindeki alandan AYRI seçimdir — biri diğerine yapışmaz.
+                       Sunucu ucu bu alanı ZATEN bekliyordu; gönderen bir arayüz yoktu. *@
+                    @if (Auth.CanEdit("cost_centers") && _costCenters.Count > 0)
+                    {
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" @bind-Value="_eqmCostCenterId" Label="Maliyet Merkezi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                       HelperText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                @foreach (var cc in _costCenters) { <MudSelectItem T="string" Value="@cc.Id">@cc.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                    }
                 </MudGrid>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
                     Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir.
@@ -457,6 +469,9 @@
     private List<ApiClient.Opt> _eqmEquipment = new();
     private List<EqmRow> _eqmRows = new();
     private string? _eqmEquipmentId, _eqmDefId, _eqmHata;
+    /// <summary>⭐ MUH-01a: EKİPMAN bakımının maliyet merkezi — araç formundaki `_mCostCenterId`den
+    /// AYRI tutulur; ortak alan, araç için seçilen merkezin ekipman kaydına sessizce yapışması olurdu.</summary>
+    private string? _eqmCostCenterId;
     private string _eqmDescription = "";
     private bool _eqmBusy;
 
@@ -491,9 +506,10 @@
                 definitionId = _eqmDefId,
                 description = string.IsNullOrWhiteSpace(_eqmDescription) ? null : _eqmDescription.Trim(),
                 performedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                costCenterId = Empty(_eqmCostCenterId),   // ⭐ MUH-01a
             });
             _eqmHata = hata;
-            if (hata is null) { _eqmDescription = ""; }
+            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; }
         }
         finally { _eqmBusy = false; }
         await EqmYukle();

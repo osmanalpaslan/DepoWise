@@ -42,12 +42,27 @@ public sealed class CostCenterService
     private static readonly IReadOnlyDictionary<string, (string Table, string BranchCol)> Entities =
         new Dictionary<string, (string, string)>(StringComparer.Ordinal)
         {
-            // Şube kolonu olmayan tablolarda (yakıt, bakım — şemada branch yok) kapsam denetimi
-            // uygulanamaz: "şubesiz kayıt gizlenmez" ilkesi geçerlidir (mevcut sistemle tutarlı).
+            // Boş ("") kapsam kolonu = bu tipte şube denetimi UYGULANMAZ; "şubesiz kayıt gizlenmez"
+            // ilkesi geçerlidir (mevcut sistemle tutarlı).
+            // ⚠️ Düzeltme (2026-09-04): eski açıklama "yakıt/bakım tablolarında şemada branch yok"
+            // diyordu — bu YANLIŞ; Migration027 bu tabloların hepsine `op_branch_id` ekledi. Kolon
+            // VAR, burada bilinçli olarak KULLANILMIYOR. Davranış değişmedi, yalnız gerekçe düzeldi.
             ["stock_document"] = ("stock_documents", "from_branch_id"),
             ["fuel_depot_entry"] = ("fuel_depot_entries", ""),
             ["fuel_distribution"] = ("fuel_distributions", ""),
             ["vehicle_maintenance"] = ("vehicle_maintenances", ""),
+            // ⭐ MUH-01a (2026-09-04): EKİPMAN BAKIMI. 7b (ADR-191) ekipman bakım hattını araç
+            // bakımının birebir karşılığı olarak açtı ve API ucu (`POST /api/equipment-maintenance`)
+            // maliyet merkezi bağını YAZMAYA ÇALIŞIYORDU — ama tip bu sözlükte yoktu.
+            // 🔴 Sonuç: merkez seçilerek kaydedilseydi bakım YAZILIR, sonra Link() ArgumentException
+            // atar ve uç HATA dönerdi → kullanıcı "kaydedilmedi" sanıp tekrar dener, MÜKERRER bakım
+            // kaydı oluşurdu. Bugüne kadar tetiklenmedi çünkü hiçbir arayüz bu alanı göndermiyordu;
+            // yani yaşayan bir hata değil, ilk kullanan arayüzde patlayacak bir TUZAKTI.
+            // Kapsam kolonu KARDEŞİYLE AYNI bırakıldı (""). `equipment_maintenances.op_branch_id`
+            // şemada VAR, ama `vehicle_maintenance` da onu kullanmıyor; burada kullanmak ekipman
+            // bakımını araç bakımından daha katı yapardı — MUH-01a'nın amacı davranış değiştirmek
+            // değil, eksik tipi kapsama almaktı. Kapsam denetimi ayrı bir karardır.
+            ["equipment_maintenance"] = ("equipment_maintenances", ""),
         };
 
     private readonly IDbConnectionFactory _factory;
@@ -320,6 +335,28 @@ JOIN vehicle_maintenances vm ON vm.id = l.entity_id AND vm.is_cancelled=0 AND vm
 JOIN maintenance_materials mm ON mm.maintenance_id = vm.id
 WHERE l.company_id=@c AND l.entity_type='vehicle_maintenance' AND l.is_deleted=0
   AND COALESCE(vm.performed_date,0)>=@f AND COALESCE(vm.performed_date,0)<=@t;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@f", fromMs);
+            cmd.AddWithValue("@t", toMs);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                Ekle(r.GetString(0), r.GetString(1), "Bakım Malzemesi", "TRY", D(r, 2) * D(r, 3));
+        }
+
+        // 3b) ⭐ MUH-01a: EKİPMAN BAKIMI — araç bakımının birebir karşılığı (7b / ADR-191).
+        // Bağı yazmak yetmez: rapora düşmezse merkez seçilir ama maliyet hiçbir yerde görünmez,
+        // yani kullanıcı "maliyet merkezine yazdım" sanır. Aynı kategori adı kullanılır ki
+        // araç ve ekipman bakım malzemesi tek satırda toplansın.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT l.cost_center_id, cc.name, mm.quantity, mm.unit_price
+FROM cost_center_links l
+JOIN cost_centers cc ON cc.id = l.cost_center_id AND cc.is_deleted=0
+JOIN equipment_maintenances em ON em.id = l.entity_id AND em.is_cancelled=0 AND em.is_deleted=0
+JOIN equipment_maintenance_materials mm ON mm.maintenance_id = em.id
+WHERE l.company_id=@c AND l.entity_type='equipment_maintenance' AND l.is_deleted=0
+  AND COALESCE(em.performed_date,0)>=@f AND COALESCE(em.performed_date,0)<=@t;";
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@f", fromMs);
             cmd.AddWithValue("@t", toMs);

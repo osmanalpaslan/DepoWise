@@ -290,6 +290,88 @@ INSERT INTO fuel_depot_entries(id,company_id,liters,unit_price,currency_code,ent
         }
     }
 
+    // ══════════════ MUH-01a — EKİPMAN BAKIMI KAPSAMA ALINDI (2026-09-04) ══════════════
+
+    /// <summary>Testte kullanılacak ekipman + bakım tanımı + malzemeli ekipman bakımı üretir.</summary>
+    private (string BakimId, decimal Tutar) EkipmanBakimiUret(decimal miktar, decimal birimFiyat)
+    {
+        var ekipmanId = Guid.NewGuid().ToString("N");
+        using (var conn = _f.Create())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "INSERT INTO equipment(id,company_id,code,name,status,created_at,updated_at,version,is_deleted) " +
+                              $"VALUES('{ekipmanId}','{Co}','EKP-1','Jeneratör','active',1,1,1,0);";
+            cmd.ExecuteNonQuery();
+        }
+        var defId = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(_f)
+            .Create(_admin, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition("Yağ Değişimi", 100m, "day", null, null));
+        var bakimId = new DepoWise.Infrastructure.Maintenance.EquipmentMaintenanceService(_f).Save(_admin,
+            new DepoWise.Infrastructure.Maintenance.NewEquipmentMaintenance(
+                ekipmanId, defId, PerformedDate: Gun,
+                Materials: new[] { new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(_mat, miktar) },
+                StockLocationId: _depo),
+            Guid.NewGuid().ToString("N"));
+        return (bakimId, miktar * birimFiyat);
+    }
+
+    /// <summary>
+    /// ⭐ MUH-01a — 🔴 KAPATILAN TUZAK: <c>POST /api/equipment-maintenance</c> maliyet merkezi bağını
+    /// yazmaya çalışıyordu ama <c>equipment_maintenance</c> tipi kapsam sözlüğünde YOKTU →
+    /// <see cref="ArgumentException"/>. Bakım YAZILIR, sonra uç HATA dönerdi; kullanıcı
+    /// "kaydedilmedi" sanıp tekrar dener ve MÜKERRER bakım kaydı oluşurdu.
+    /// Bugüne kadar tetiklenmedi çünkü hiçbir arayüz bu alanı göndermiyordu — yani yaşayan bir hata
+    /// değil, ilk kullanan arayüzde patlayacak bir tuzaktı. Bu test tuzağı kapalı tutar.
+    /// </summary>
+    [Fact]
+    public void MLY12_Ekipman_Bakimi_Maliyet_Merkezine_Baglanabilir()
+    {
+        var (bakimId, _) = EkipmanBakimiUret(3m, 10m);
+
+        _svc.Link(_admin, "equipment_maintenance", bakimId, _cc1);   // eskiden ArgumentException atardı
+
+        // Tek kayıt = tek merkez kuralı burada da geçerli: ikinci merkez bağı GÜNCELLER, eklemez.
+        _svc.Link(_admin, "equipment_maintenance", bakimId, _cc2);
+        using var conn = _f.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*), MAX(cost_center_id) FROM cost_center_links WHERE entity_id=@e AND is_deleted=0;";
+        cmd.AddWithValue("@e", bakimId);
+        using var r = cmd.ExecuteReader();
+        r.Read();
+        Assert.Equal(1L, r.GetInt64(0));         // TEK bağ satırı
+        Assert.Equal(_cc2, r.GetString(1));
+    }
+
+    /// <summary>
+    /// ⭐ MUH-01a — bağı yazabilmek YETMEZ: özet raporuna düşmezse kullanıcı merkezi seçer, hiçbir
+    /// yerde maliyeti göremez ve "yazdım" sanır. Araç bakımıyla AYNI kategoride toplanır ki
+    /// "Bakım Malzemesi" tek satır olsun (iki ayrı satır kullanıcıyı böler).
+    /// </summary>
+    [Fact]
+    public void MLY13_Ekipman_Bakimi_Ozet_Raporuna_Duser()
+    {
+        var (bakimId, tutar) = EkipmanBakimiUret(3m, 10m);   // 3 × 10 = 30
+        _svc.Link(_admin, "equipment_maintenance", bakimId, _cc1);
+
+        var satir = _svc.Summary(_admin, Gun - 1000, Gun + 1000)
+            .Single(x => x.CostCenterId == _cc1 && x.Category == "Bakım Malzemesi");
+        Assert.Equal(tutar, satir.Amount);
+
+        // Tarih aralığı dışı → görünmez (araç bakımıyla aynı davranış).
+        Assert.DoesNotContain(_svc.Summary(_admin, Gun + 10_000, Gun + 20_000),
+            x => x.CostCenterId == _cc1 && x.Category == "Bakım Malzemesi");
+    }
+
+    /// <summary>⭐ Kapsam sözlüğü GENİŞLEDİ ama AÇILMADI: hâlâ yalnız izin verilen türler bağlanabilir.
+    /// Aksi hâlde "listeye ekleyerek düzeltme" alışkanlığı kapıyı tümden açardı.</summary>
+    [Fact]
+    public void MLY14_Kapsam_Sozlugu_Hala_Kapali()
+    {
+        var (bakimId, _) = EkipmanBakimiUret(1m, 10m);
+        Assert.Throws<ArgumentException>(() => _svc.Link(_admin, "equipment_inspection", bakimId, _cc1));
+        Assert.Throws<ArgumentException>(() => _svc.Link(_admin, "personnel", bakimId, _cc1));
+        Assert.Throws<ArgumentException>(() => _svc.Link(_admin, "invoice", bakimId, _cc1));
+    }
+
     [Fact]
     public void MLY11_Migration077_Yalniz_Ekleme_Icerir()
     {

@@ -456,9 +456,18 @@
                                     <SelectableTextBlock Text="Açıklama"/>
                                     <TextBox Classes="Field" Width="260" Text="{Binding EqmDescription}"/>
                                 </StackPanel>
+                                <!-- ⭐ MUH-01a: ekipman bakımı da maliyet merkezine yazılabilir (araç
+                                     bakımıyla aynı hak). Araç sekmesindeki alandan AYRI bir seçimdir —
+                                     biri için seçilen merkez diğerine sessizce yapışmaz. -->
+                                <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                                HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}"
+                                                    SelectedItem="{Binding EqmCostCenter}"
+                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                </ctrl:FormField>
                             </StackPanel>
                             <SelectableTextBlock Classes="Helper"
-                                                 Text="Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir. Malzeme çekilen depo, Araç Bakımları sekmesinde seçilen depodur."
+                                                 Text="Ekipmanda sayaç takibi yoktur; bakım tarih bazlı kaydedilir. Malzeme çekilen depo, Araç Bakımları sekmesinde seçilen depodur. Maliyet merkezi ise bu sekmede ayrıca seçilir."
                                                  TextWrapping="Wrap"/>
                             <StackPanel Spacing="4">
                                 <SelectableTextBlock Text="İptal Gerekçesi (iptal için zorunlu)"/>

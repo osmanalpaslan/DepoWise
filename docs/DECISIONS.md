@@ -4569,3 +4569,46 @@ kapıdan geçiyor) ve 7 regresyon testiyle (`PermissionGrantCeilingTests.G1b_*`)
 **Migration GEREKMEDİ** — dördü de arayüz/test katmanı.
 
 Ayrıntı: [FAZ_A_KULLANICI_BUGLARI_YETKI.md](project-control/FAZ_A_KULLANICI_BUGLARI_YETKI.md)
+
+---
+
+## ADR-210 — MUH-01a: ekipman bakımı maliyet merkezi kapsamına alındı (2026-09-04)
+
+**Bağlam.** FAZ D / `MUH-01` "para hareketi doğuran her kayda cari + maliyet merkezi + belge alanları"
+diyor. Ölçüm, üç eksenin durumunun **birbirinden çok farklı** olduğunu gösterdi. Maliyet merkezinde
+mimari karar ADR-168'de zaten verilmişti: mevcut tablolara **kolon eklenmez**, dış bağ tablosu
+(`cost_center_links`) kullanılır. Yani bu eksende "alan eklemek" yanlış olurdu — eksik olan **kapsam**,
+yani bağlanabilir kayıt türleriydi.
+
+### 🔴 Bulunan tuzak
+`POST /api/equipment-maintenance` ucu maliyet merkezi bağını yazmaya **çalışıyordu**, ama
+`equipment_maintenance` tipi `CostCenterService.Entities` sözlüğünde **yoktu** → `Link`
+`ArgumentException` atıyor ve çağrı `try/catch` içinde değil. Sonuç: bakım **kaydedilir**, sonra uç
+**hata döner**; kullanıcı "kaydedilmedi" sanıp tekrar dener ve **mükerrer bakım kaydı** oluşur.
+
+Bugüne kadar tetiklenmedi çünkü hiçbir arayüz bu alanı göndermiyordu — yani **yaşayan bir hata değil,
+ilk kullanan arayüzde patlayacak bir tuzaktı**. Ve bu iş tam olarak o arayüzü ekliyordu.
+
+**Karar.** Tipi kapsama al, özet raporuna ekle, iki platformda alanı sun.
+
+- **Kapsam kolonu kardeşiyle aynı bırakıldı** (boş). `equipment_maintenances.op_branch_id` şemada var
+  ama `vehicle_maintenance` da onu kullanmıyor; burada kullanmak ekipman bakımını araç bakımından
+  daha katı yapardı. MUH-01a'nın amacı davranış değiştirmek değil, eksik tipi kapsama almaktı.
+- **Özet raporu şart.** Bağı yazabilmek yetmez: rapora düşmezse kullanıcı merkezi seçer ve maliyeti
+  hiçbir yerde göremez — "yazdım" sanır. Araç bakımıyla **aynı kategoride** toplanır ki
+  "Bakım Malzemesi" tek satır olsun; iki ayrı satır kullanıcıyı bölerdi.
+- **Arayüzde ayrı alan.** Ekipman sekmesinin maliyet merkezi, araç sekmesindekinden ayrıdır. Ortak
+  alan kullanmak, araç için seçilen merkezin ekipman kaydına **sessizce yapışması** demekti. (Depo
+  seçiminde bu paylaşım bilinçli ve ekranda yazılı; merkez için değil.)
+
+**Kapsam açılmadı, genişledi.** `MLY14` testi bunu kilitler: `equipment_inspection`, `personnel`,
+`invoice` hâlâ reddedilir. Aksi hâlde "listeye ekleyerek düzeltme" alışkanlığı kapıyı tümden açardı.
+
+### Yan düzeltme (davranış değişmedi)
+`CostCenterService`'teki açıklama "yakıt/bakım tablolarında şemada branch yok" diyordu; bu **yanlıştı**
+— `Migration027` o tabloların hepsine `op_branch_id` ekledi. Kolon var, bilinçli olarak kullanılmıyor.
+Yalnız gerekçe düzeltildi.
+
+**Migration GEREKMEDİ.** Doğrulama: ilgili 97 test 97/97 · masaüstü + web build 0 hata.
+
+Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)
