@@ -251,8 +251,8 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `STK-10b-2` | **Serbest metin arama** — 6/6 katman · semantik mevcut ekrandan birebir | ✅ **TAMAM** (41 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-3` | **Malzeme filtresi + autocomplete** — 6/6 katman · scope BÜYÜMEDİ · mevcut indeks yetti | ✅ **TAMAM** (32 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-4` | **2 hareket ekranı + B-1** — filtreler tek SQL kaynağına bağlandı, lokasyon süzmesi sunucuya indi (ADR-105) | ✅ **TAMAM** (36 senaryo · ekran=rapor=XLSX · izole PG) → **STK-10 BİTTİ** |
-| `STK-B2` | Arama `stock_documents.note`'u da kapsasın mı? Davranış değişikliği | ⛔ **KARAR BEKLİYOR** |
-| `RPR-02` | Web rapor isteği oturumun ŞUBESİNİ taşımıyor (JWT'de yok) — tüm raporları etkiler | ⛔ **KARAR BEKLİYOR** |
+| `STK-B2` | Arama `stock_documents.note`'u da kapsasın mı? | ✅ **KARAR VERİLDİ: HAYIR** (2026-08-29, ADR-179) — arama kapsamı değişmedi, `FinalStabilizasyonTests.FIN8` kilitledi |
+| `RPR-02` | Web rapor isteği oturumun ŞUBESİNİ taşımıyor (JWT'de yok) | ✅ **KAPANDI** (2026-08-29, ADR-179) — fiilen RPR-07 (2026-08-25) ile çözülmüştü: web operasyon kipinde `operatingBranchId` gönderiyor, sunucu `BranchAccess.Require` ile doğruluyor. Kod gerekmedi; eskimiş kayıttı |
 | `STK-09` · `STK-11` | Lokasyon bazlı dashboard · eski float artığı temizliği | BEKLEMEDE |
 
 > **Önemli:** `StockService.Transfer` çok malzemeli, tek transaction, idempotent ve negatif-guard'lı olarak
@@ -311,6 +311,6 @@ Güvenlik sertleştirme · API sürümleme kararı · yük testi
 
 `G6-10…G6-19` · `G6-21/22/24` · `H-6` (masaüstü sunucu adresi 7 dosyada tekrar) · `H-7` · `GRP3-JOIN` ·
 `brands/vehicle_models JOIN` · `500→400` · `WEB-01b` · `GUV-01b` · `TLP-B5` · `MUA-01/02` · `G2-08` ·
-`TMZ-01/03` · Personel 200 kayıt tavanı · `SNK-05` (karar bekliyor) · `WEB-02` · `YET-01` (karar bekliyor)
+`TMZ-01/03` · Personel 200 kayıt tavanı · `SNK-05` ✅ karar verildi (ADR-179: online ilk-kazanır / offline LWW, FIN9-FIN10 kilitli) · `WEB-02` · `YET-01` ✅ kapandı (YET-05, 2026-08-26: `btn-reverse` kapısı web Stok+Yakıt ekranlarında uygulanıyor)
 
 Ayrıntı: [`TASK_BACKLOG.md`](TASK_BACKLOG.md).
