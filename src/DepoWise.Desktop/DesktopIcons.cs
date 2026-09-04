@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -75,6 +76,19 @@ public static class DesktopIcons
         if (string.IsNullOrEmpty(groupTitle)) return null;
         if (!ByGroup.TryGetValue(groupTitle, out var key)) return null;
         return ByKey(key);
+    }
+
+    /// <summary>
+    /// Masaüstü gezinme anahtarı (ör. <c>materials.list</c>) → ikon. Sekme şeridi kullanır:
+    /// ekranın kendi ikonu yoktur, AİT OLDUĞU GRUBUN ikonunu alır (menüdeki görüntüyle aynı dil).
+    /// Katalogda olmayan anahtar ya da ikonu çizilmemiş grup → null; sekme ikonsuz çizilir, akış bozulmaz.
+    /// </summary>
+    public static Geometry? ForScreen(string? desktopNavKey)
+    {
+        if (string.IsNullOrEmpty(desktopNavKey)) return null;
+        var ekran = DepoWise.Application.Security.AppScreens.All
+            .FirstOrDefault(s => string.Equals(s.DesktopNavKey, desktopNavKey, StringComparison.Ordinal));
+        return ForGroup(ekran?.Group);
     }
 
     public static Geometry? ByKey(string key)

@@ -67,4 +67,20 @@ public partial class MainWindow : Window
             Close();
         }
     }
+
+    /// <summary>
+    /// Sekme şeridindeki "Yeni Sekme" düğmesi (kullanıcı tasarımı 2026-09-04).
+    ///
+    /// Sekme, ancak bir EKRAN açılınca oluşur — o yüzden bu düğme boş bir sekme yaratmaz; kullanıcıyı
+    /// ekran seçebileceği tek yere, sol menüdeki "Ekran ara…" kutusuna götürür. Arama kutusu temizlenir
+    /// ki kullanıcı önceki aramanın kalıntısıyla karşılaşmasın.
+    ///
+    /// Kod-arkasında durmasının nedeni: bu SALT ODAKLANMA işidir, iş kuralı içermez
+    /// (bkz. .claude/rules/desktop.md — code-behind iş kuralı içermez).
+    /// </summary>
+    private void YeniSekme_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is ViewModels.ShellViewModel vm) vm.MenuSearch = "";
+        MenuAramaKutusu.Focus();
+    }
 }

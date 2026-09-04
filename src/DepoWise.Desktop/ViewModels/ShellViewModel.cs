@@ -1629,5 +1629,11 @@ public sealed partial class OpenScreenTab : CommunityToolkit.Mvvm.ComponentModel
     public string Key { get; }
     public string Label { get; }
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _isActive;
+
+    /// <summary>Sekmenin ikonu — ekranın AİT OLDUĞU GRUBUN menü ikonu (kullanıcı tasarımı 2026-09-04).
+    /// Sekmede ayrı bir ikon seti tutulmaz: menüde ne görülüyorsa sekmede de o görülür.
+    /// Çözülemezse null döner ve sekme yalnız etiketle çizilir.</summary>
+    public Avalonia.Media.Geometry? Icon => DesktopIcons.ForScreen(Key);
+
     public OpenScreenTab(string key, string label) { Key = key; Label = label; }
 }
