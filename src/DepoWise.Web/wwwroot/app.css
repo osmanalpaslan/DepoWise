@@ -1410,3 +1410,194 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 }
 .dw-sekme-yeni:hover { color: var(--mud-palette-primary); opacity: 1; }
 .dw-sekme-arti { font-size: 1rem !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   18) MOB-W — MOBİL TARAYICI KATMANI (kullanıcı kararı 2026-09-04)
+
+   AYRI MOBİL UYGULAMA YAPILMAYACAK. Kullanıcı telefonun tarayıcısından girip işi
+   oradan yönetecek. Web'de 62 sayfa / katalogda 70 ekran var; her birine ayrı mobil
+   düzeni yazmak hem haftalar sürer hem de her YENİ ekranda yeniden unutulur.
+   Bu yüzden mobil davranış TEK KATMANDA toplanır: aşağıdaki kurallar uygulamanın
+   ORTAK yapılarını (üst bar · menü · tablo · filtre satırı · form · dialog · sekme)
+   hedefler, dolayısıyla bütün ekranlara aynı anda uygulanır ve sonradan eklenen
+   ekran da kendiliğinden alır.
+
+   Kırılım noktaları MudBlazor ile aynı tutuldu: 960 px (tablet) · 600 px (telefon).
+   Masaüstü uygulaması bu bölümden ETKİLENMEZ (burası yalnız web'in sunum katmanıdır).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 18.0 İKİ KOPYA ARASINDA GEÇİŞ ───────────────────────────────────────────
+   Global arama üst barda VE menüde olmak üzere iki kopya hâlinde render edilir;
+   hangisinin görüneceğine EKRAN GENİŞLİĞİ karar verir. Varsayılan (geniş ekran):
+   üst bardaki görünür, menüdeki gizli. 600 px altında tersine döner (§18.3). */
+.dw-mobil-arama { display: none; }
+
+/* ── 18.1 TABLOLAR — dar ekranda YATAY KAYDIRILIR, ezilmez ────────────────────
+   Bulgu: 40 dosyada 102 MudTable var ve hiçbirinin yatay kaydırma sarmalayıcısı
+   yoktu. Dar ekranda tarayıcı kolonları sıkıştırıp metni okunmaz hâle getiriyordu.
+   Tabloyu SAYFA kaydırmak yerine KENDİ İÇİNDE kaydırmak, sayfanın yatay kaymasını
+   da önler (gövde asla yana kaymaz — 18.6). */
+@media (max-width: 960px) {
+    /* `:has()` kullanıldı çünkü elle yazılan tabloların sarmalayıcısına SINIF VERİLMEMİŞ
+       (satır içi `style="overflow-x:auto"`). Sınıf aramak yerine "içinde .dw-grid olan kap"
+       hedeflenir → bugünkü 5 sarmalayıcı da, sonradan eklenecekler de kendiliğinden kapsanır. */
+    .mud-table-container,
+    div:has(> table.dw-grid) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;   /* iOS'ta parmakla akıcı kaydırma */
+    }
+    /* Sabit yükseklikli tablolar telefonda ekranın yarısını yemesin. */
+    .mud-table.mud-table-fixed-header .mud-table-container { max-height: 62vh; }
+    /* Tablo kaptan taşarsa SAYFA değil TABLO kaysın (18.6 ile birlikte gövdeyi korur). */
+    .mud-table, table.dw-grid { max-width: none; }
+
+    /* KAYDIRILABİLİRLİK BELLİ OLSUN. Telefonda kaydırma çubuğu normalde gizlidir; kullanıcı
+       tablonun sağa doğru devam ettiğini ANLAYAMAZ ve kolonların yarısını hiç görmez.
+       İnce kehribar bir çubuk bunu tek bakışta anlatır — düzeni etkilemez (tablonun altında,
+       kabın kendi alanında durur). */
+    .mud-table-container::-webkit-scrollbar,
+    div:has(> table.dw-grid)::-webkit-scrollbar { height: 6px; }
+    .mud-table-container::-webkit-scrollbar-thumb,
+    div:has(> table.dw-grid)::-webkit-scrollbar-thumb {
+        background: var(--mud-palette-primary); border-radius: 999px;
+    }
+    .mud-table-container::-webkit-scrollbar-track,
+    div:has(> table.dw-grid)::-webkit-scrollbar-track {
+        background: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent);
+    }
+}
+
+/* ── 18.2 FİLTRE ÇUBUKLARI — alt alta iner ───────────────────────────────────
+   Bulgu: liste ekranlarının filtre alanlarına satır içi `min-width:110…200px`
+   verilmiş (ör. WorkOrders.razor). Yan yana 4 filtre ~600 px eder; 390 px ekranda
+   taşar. Satır içi stil olduğu için ancak `!important` ile geri alınabilir.
+   Kural yalnız FİLTRE/ARAÇ ÇUBUĞU desenine (`d-flex` + `gap`) uygulanır. */
+@media (max-width: 600px) {
+    .mud-main-content .d-flex.flex-wrap > .mud-input-control,
+    .mud-main-content .d-flex.flex-wrap > .mud-select,
+    .mud-main-content .d-flex.flex-wrap > .mud-autocomplete,
+    .mud-main-content .d-flex.gap-2 > .mud-input-control,
+    .mud-main-content .d-flex.gap-3 > .mud-input-control,
+    .mud-main-content .d-flex.gap-4 > .mud-input-control {
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+    /* Yan yana duran araç çubukları sarsın (taşma yerine alt satır). */
+    .mud-main-content .d-flex.align-center:has(> .mud-input-control),
+    .mud-main-content .d-flex.align-center:has(> .mud-button-root) { flex-wrap: wrap; }
+}
+
+/* ── 18.3 ÜST BAR — dar ekranda yalnız işe yarayan öğeler kalır ───────────────
+   Bulgu: üst bar 6+ öğe taşıyor ve ikisi sabit genişlikte (firma seçici 210 px,
+   arama 180 px). Tek başına bu ikisi 390 px'i doldurup kalanını taşırıyordu.
+   Logo/başlık (süs) gizlenir, firma seçici daraltılır, "Çıkış" yazısı ikonuna iner,
+   arama menüye taşınır. İşlev KAYBI YOK — hepsi erişilebilir kalır.
+
+   ⚠ KIRILIM NOKTASI ÖLÇÜMLE SEÇİLDİ, tahminle değil. Üst bardaki öğelerin toplamı ölçüldü:
+   36+51+118+218+273+52+48+188+76 = **~1060 px**. Yani tam masaüstü barı 1060 px'in altında
+   HER HÂLDE taşar — bu, MOB-W'den ÖNCE de böyleydi (1000 px'lik pencerede doğrulandı).
+   Bu yüzden sınır 1100 px: ölçülen asgarinin güvenli üstü. Önce 600 px denenmişti ve
+   601–960 px arasında bozuk bir aralık kalıyordu (768 px tablette görüldü). */
+@media (max-width: 1100px) {
+    .mud-appbar .mud-toolbar > img,                    /* logo */
+    .mud-appbar .mud-toolbar > .mud-typography-h6 {    /* "Alpnex Yönetim" */
+        display: none;
+    }
+    .mud-appbar .mud-toolbar { gap: 0; padding-left: 2px; padding-right: 2px; }
+    /* Firma seçici: satır içi `min-width:210px` veriliyor. Telefonda sabitlenir —
+       ad kısalır ama açılır liste tam adları gösterir, işlev kaybı yok. */
+    .dw-companyswitch { min-width: 92px !important; width: 92px !important; margin-right: 0 !important; }
+    /* Üst bardaki ikon düğmeleri sıkışır — dokunma hedefi §18.5'te 40 px'te tutulur. */
+    .mud-appbar .mud-icon-button.mud-button-root { padding: 8px; }
+    .dw-userchip { margin: 0 !important; }
+    /* Bildirim sayacı rozeti, yanındaki düğmenin üstüne biniyordu: rozet düğmenin sağ üst
+       köşesinden ~12 px taşar, MudBlazor'un `mr-1` (4 px) boşluğu yetmiyor. `!important`
+       şart — `mr-1` yardımcı sınıfı aynı özgüllükte ve sonra geliyor. Genişlik maliyeti yok:
+       üst barda esneyen boşluk (spacer) bunu zaten emiyor. */
+    .mud-appbar .mud-badge-root { margin-right: 16px !important; }
+    /* Rozet düğmenin köşesinden taşıp YANINDAKİ düğmenin üstüne biniyordu. İki yönlü çözüm:
+       (1) telefonda rozet küçülür — zaten 2 haneli bir sayı gösteriyor, 28 px gereksiz,
+       (2) içeri çekilir. Böylece taşma ~6 px'e iner ve 16 px boşluk fazlasıyla yeter.
+       Üst barda esneyen boşluk (spacer) 63 px olduğu için genişlik maliyeti yok. */
+    .mud-appbar .mud-badge {
+        font-size: .62rem !important; min-width: 18px !important; height: 18px !important;
+        padding: 0 4px !important;
+    }
+    .mud-appbar .mud-badge.mud-badge-overlap { transform: scale(1) translate(18%, -40%) !important; }
+    /* Çıkış: yalnız ikon (metin gizlenir, düğme küçülür) */
+    .dw-logout .mud-button-label { font-size: 0; }
+    .dw-logout .mud-button-label .mud-icon-root { font-size: 1.25rem; }
+    .dw-logout { min-width: 40px !important; padding: 6px !important; }
+
+    /* GLOBAL ARAMA telefonda üst barda DEĞİL, MENÜNÜN içindedir. Üst bardaki kopya gizlenir,
+       menüdeki kopya görünür olur. İki kopya da DOM'dadır ve aynı alana bağlıdır; görünürlük
+       kararı BURADA (medya sorgusu) verilir, JavaScript'e bırakılmaz. */
+    .dw-appbar-search { display: none !important; }
+    .dw-mobil-arama { display: block; }
+    .dw-mobil-arama .mud-input-control { min-width: 0 !important; width: 100%; }
+}
+
+/* ── 18.4 GLOBAL ARAMA PANELİ — ekrandan taşmaz ──────────────────────────────
+   Bulgu: sonuç paneli sabit `width:380px` + `right:0`. 390 px ekranda kenardan
+   taşıp yatay kaydırma doğuruyordu. Ekran genişliğine sabitlenir. */
+@media (max-width: 600px) {
+    .mud-appbar .mud-paper[style*="width:380px"],
+    .mud-appbar .mud-paper[style*="width: 380px"] {
+        position: fixed !important;
+        left: 8px !important; right: 8px !important;
+        width: auto !important;
+        top: calc(var(--mud-appbar-height, 56px) + 4px) !important;
+    }
+}
+
+/* ── 18.5 DOKUNMA HEDEFLERİ — parmak ucu 44 px ister ─────────────────────────
+   Bulgu: 351 yerde `Size.Small` kullanılıyor; MudBlazor'un küçük ikon düğmesi
+   ~30 px, dokunmatikte ıskalanır. `pointer: coarse` KULLANILDI (ekran genişliği
+   değil): fare ile kullanılan geniş ekran etkilenmez, dokunmatik cihaz — telefon,
+   tablet, dokunmatik dizüstü — etkilenir. Görsel boyut büyümez, tıklama alanı büyür. */
+@media (pointer: coarse) {
+    .mud-icon-button.mud-button-root { min-width: 40px; min-height: 40px; }
+    .mud-table .mud-icon-button.mud-button-root { min-width: 38px; min-height: 38px; }
+    .mud-nav-link { min-height: 44px; }
+    /* Kolon genişletme tutamağı dokunmatikte hedeflenemiyor ve o bölgede parmakla
+       kaydırmayı engelliyordu (touch-action:none) → dokunmatikte devre dışı. */
+    .dw-col-grip { display: none !important; }
+}
+
+/* ── 18.6 SAYFA GÖVDESİ ASLA YANA KAYMAZ ─────────────────────────────────────
+   Son güvenlik ağı: bir ekranda gözden kaçan geniş bir öğe kalırsa sayfanın
+   TAMAMI yana kaymasın — taşma kendi kabında kalsın. Aksi hâlde üst bar ve menü
+   de kayar ve uygulama bozuk görünür. */
+@media (max-width: 960px) {
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .mud-main-content > .mud-container.pa-6 { padding: 10px !important; }
+    /* Kart içi geniş satırlar sarsın */
+    .mud-main-content .mud-paper > .d-flex.justify-space-between { flex-wrap: wrap; gap: 8px; }
+}
+
+/* ── 18.7 DIALOG — telefonda neredeyse tam ekran ─────────────────────────────
+   Bulgu: dialoglar masaüstü genişliğine göre ölçülüyor; telefonda kenarlardan
+   taşıp içerik sıkışıyordu. */
+@media (max-width: 600px) {
+    .mud-dialog { max-width: calc(100vw - 16px) !important; margin: 8px !important; width: 100%; }
+    .mud-dialog-content { max-height: 70vh; overflow-y: auto; }
+}
+
+/* ── 18.8 SEKME ŞERİDİ — telefonda daha ince ─────────────────────────────────
+   Üst bar (56) + şerit (42) = 98 px sabit tepe. Telefonda dikey alan değerlidir;
+   şerit 36 px'e iner, sekmeler yine yatay kaydırılır (ADR-203 davranışı korunur). */
+@media (max-width: 600px) {
+    .dw-sekme-serit { height: 36px; padding: 0 4px; }
+    .dw-sekme-ana { padding: 0 6px 0 10px; gap: 6px; }
+    .dw-sekme-yazi { font-size: .74rem; max-width: 140px; overflow: hidden;
+                     text-overflow: ellipsis; white-space: nowrap; }
+    .dw-sekme-kapat { padding: 0 8px 0 4px; }
+    .dw-sekme-yeni span { display: none; }   /* yalnız + kalır */
+    /* Çok sekme açıkken şerit kayar ve "+" ekran dışında kalırdı. Sağ kenara yapıştırılır:
+       kaç sekme olursa olsun yeni sekme düğmesi hep aynı yerde ve erişilebilir. */
+    .dw-sekme-yeni {
+        padding: 0 10px; position: sticky; right: 0;
+        background: var(--mud-palette-surface);
+        box-shadow: -8px 0 8px -6px rgba(0,0,0,.45);
+    }
+}

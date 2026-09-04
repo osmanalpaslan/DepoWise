@@ -41,7 +41,20 @@
             }
             @* ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
                Yeni yetki modülü YOK — sonuçlar SUNUCUDA kaynak modül yetkisi + kapsamdan süzülür. *@
-            <div style="position:relative;margin-right:8px;">
+            @* ⭐ MOB-W (2026-09-04) — TELEFONDA ÜST BARDA DEĞİL, MENÜDE.
+               Arama kutusu 180 px sabittir ve tek başına bildirim/araçlar/kullanıcı/çıkış
+               düğmelerini ekran dışına itiyordu. Daraltıp "dokununca açılan" bir kutuya çevirmek
+               denendi ve BAŞARISIZ oldu (kutu 44 px'te kalıyordu) — üstelik 44 px'lik bir kutuya
+               yazmak zaten kullanışlı değil. Bu yüzden telefonda arama, MENÜNÜN İÇİNE tam
+               genişlikte taşındı (aşağıdaki MudDrawer bloğu). İşlev kaybı YOK, aksine kullanılır.
+               Geniş ekranda hiçbir şey değişmez.
+
+               ⚠ Görünürlük CSS medya sorgusuyla yapılır, `MudHidden` ile DEĞİL: MudHidden kırılım
+               noktasını JavaScript'ten öğrenir; denemede geniş ekranda arama kutusunu TAMAMEN
+               kaybettirdi (kırılım bilgisi güncellenmeyince "gizli" varsayıyor). Medya sorgusu
+               tarayıcının kendi ölçüsüdür, şaşmaz. İki kopya da DOM'da durur, aynı anda yalnız
+               biri görünür; ikisi de aynı `_searchQ` alanına bağlıdır. *@
+            <div class="dw-appbar-search" style="position:relative;margin-right:8px;">
                 @* BAR-01: input id'si Ctrl+K odak kısayolu içindir (App.razor'daki dinleyici bu id'ye odaklanır). *@
                 <MudTextField T="string" @bind-Value="_searchQ" Placeholder="Ara… (Enter)" Margin="Margin.Dense"
                               Variant="Variant.Outlined" Class="dw-companyswitch" Style="min-width:180px;"
@@ -112,7 +125,51 @@
             <MudButton Color="Color.Inherit" Class="dw-logout ml-2" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
         }
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
+    @* ⭐ MOB-W (2026-09-04) — MENÜ DAR EKRANDA ÜSTE BİNER, İÇERİĞİ İTMEZ.
+       Eskiden `Persistent`ti: menü açıkken içeriği YANA İTİYORDU. Telefonda (~390 px) menü 240 px
+       yer kapladığı için ekranda içeriğe ~150 px kalıyordu — yani menü açıkken ekran kullanılamazdı.
+       `Responsive`: geniş ekranda bugünkü davranış AYNEN sürer (yan yana, içerik iter);
+       `Breakpoint.Md` altında menü içeriğin ÜSTÜNE açılan bir katman olur ve seçim yapınca kapanır. *@
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md" ClipMode="DrawerClipMode.Always">
+        @* MOB-W: telefonda GLOBAL ARAMA burada — üst barda yer yok (yukarıdaki nota bakın).
+           Menü zaten içeriğin üstüne açılan bir katman olduğu için tam genişlikte kullanılabilir.
+           Geniş ekranda CSS ile gizlenir (app.css §18.3) — MudHidden KULLANILMAZ, gerekçe üst bardaki notta. *@
+        <div class="dw-mobil-arama px-3 pt-3">
+                <MudTextField T="string" @bind-Value="_searchQ" Placeholder="Kayıtlarda ara… (Enter)"
+                              Margin="Margin.Dense" Variant="Variant.Outlined" FullWidth="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true"
+                              OnKeyUp="@(async e => { if (e.Key == "Enter") await RunSearch(); })" />
+                @if (_searchOpen)
+                {
+                    <MudPaper Elevation="0" Class="pa-1 mt-1"
+                              Style="max-height:46vh;overflow-y:auto;background:var(--dw-surface-2);">
+                        @if (_searchGroups is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                        else if (_searchGroups.Length == 0) { <MudText Typo="Typo.body2" Class="mud-text-secondary pa-2">Sonuç yok.</MudText> }
+                        else
+                        {
+                            @foreach (var g in _searchGroups)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary px-2 mt-1" Style="font-weight:600;">@SStr(g, "moduleDisplay")</MudText>
+                                @foreach (var h in SHits(g))
+                                {
+                                    <MudButton FullWidth="true" Class="justify-start px-2" Size="Size.Small"
+                                               OnClick="@(() => OpenSearchHit(SStr(h, "navigateKey")))">
+                                        <MudText Typo="Typo.body2">@SStr(h, "label")@(string.IsNullOrEmpty(SStr(h, "subLabel")) ? "" : $" · {SStr(h, "subLabel")}")</MudText>
+                                    </MudButton>
+                                }
+                                @if (g.TryGetProperty("hasMore", out var hm2) && hm2.ValueKind == System.Text.Json.JsonValueKind.True)
+                                {
+                                    <MudButton FullWidth="true" Class="justify-start px-2" Size="Size.Small" Color="Color.Primary"
+                                               OnClick="@(() => OpenSearchHit(SStr(g, "navigateKey")))">Daha fazlası için ekrana git…</MudButton>
+                                }
+                            }
+                        }
+                        <MudButton FullWidth="true" Size="Size.Small" Class="mt-1" OnClick="@(() => _searchOpen = false)">Kapat</MudButton>
+                    </MudPaper>
+                }
+        </div>
         <NavMenu @ref="_navMenu" />
     </MudDrawer>
     <MudMainContent>
