@@ -4243,3 +4243,41 @@ yükleyin."* Kontrol yalnız SQLite'ta anlamlıdır; PostgreSQL'de atlanır.
 
 **Yayın notu:** Migration088 içerir → canlı şema **87 → 88**. Yalnız ekleme; yayın öncesi pg_dump
 yedeği ve kullanıcı onayı kuralı geçerlidir.
+
+## ADR-203 — Sekme şeridi: kullanıcının çizdiği tasarım, iki platformda tek dil (2026-09-04)
+
+**İstek.** Kullanıcı web ve masaüstü için sekme şeridi tasarımları çizdi ve ikisinin **aynı
+görünmesini** istedi. Tek fark konumdur: **masaüstünde ALTTA, webde üst başlığın HEMEN ALTINDA.**
+
+**Ortak tasarım dili (iki platformda birebir aynı):**
+- Her sekme = **grup ikonu + etiket + ✕**. Sekmenin ayrı bir ikon seti YOKTUR: ekran, ait olduğu
+  menü grubunun ikonunu alır → menüde ne görülüyorsa sekmede de o görülür. Eşleme tek yerde durur
+  (masaüstü `DesktopIcons.ForScreen`, web `NavMenu.WebIcon`) → iki liste ayrışamaz.
+- Aktif sekme: kehribar ikon + kehribar yazı, bir ton açık zemin ve **içeriğe bakan kenarda 2 px
+  kehribar çizgi** (masaüstünde şerit altta → ÜST kenar; webde üstte → ALT kenar).
+- Vurgu çizgisi **her** sekmede vardır, yalnız rengi değişir → aktiflik değişince yükseklik oynamaz
+  (görsel zıplama olmaz).
+- Renkler yalnız tema token'larından gelir; gömülü hex YOK → açık/koyu temada da doğru görünür
+  (açık temada canlı doğrulandı).
+
+**Konum değişikliği (web).** Şerit 2026-09-03'te sayfanın ALTINA sabitlenmişti; tasarım gereği üste
+taşındı. "Hep görünür" davranışı kaybolmasın diye `position: sticky` yapıldı. `top` değeri üst barın
+yüksekliğidir (`--mud-appbar-height`): 0 verilseydi şerit SABİT üst barın altına girip kaybolurdu.
+
+**"Yeni Sekme" düğmesi.** Tasarımda var, ama sekme ancak bir EKRAN açılınca oluşur — bu yüzden düğme
+boş sekme YARATMAZ; kullanıcıyı ekran seçebileceği tek yere, sol menüdeki "Ekran ara…" kutusuna
+götürür (webde menü kapalıysa önce açılır). İşlevsiz bir süs düğmesi bırakılmadı.
+
+**Çözülen küçük çelişki.** İki çizimde "+" farklı yerdeydi (masaüstünde en sağda, webde son sekmenin
+hemen yanında). İkisi aynı görünsün diye **en sağ** seçildi: sekme açılıp kapandıkça düğme yer
+değiştirmez, kullanıcı hep aynı noktaya tıklar.
+
+**Kalıcı koruma.** `SekmeSeridiTests` (SEK1–SEK6): masaüstü şeridi altta ve dört parçayı taşıyor ·
+web şeridi üstte ve artık alta sabitlenmiyor · sticky + doğru `top` · **iki platform paritesi**
+(bir parça tek platforma eklenirse test kırılır) · her masaüstü ekranının grubu var · şeritte gömülü
+renk yok.
+
+**Doğrulama.** Web: izole yerel sunucu + gerçek oturumla ekranda görüldü — şerit üstte, ikonlar
+doğru, aktif sekme kehribar, ✕ sekmeyi kaldırıyor, "Yeni Sekme" ekran aramasına odaklanıyor, açık
+tema doğru. Masaüstü: derleme + nöbetçi testler; görsel onay için yerel kopya kullanıcının
+masaüstüne bırakıldı (Avalonia bu ortamda render edilemiyor).
