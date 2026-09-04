@@ -69,7 +69,13 @@ public class PaketSaklamaPolitikasiTests : IDisposable
     {
         for (int i = 1; i <= ReleaseStore.KeepCount + 4; i++) await Yayinla($"1.0.{i}");
 
-        Assert.Equal(ReleaseStore.KeepCount, Paketler().Length);
+        // Mesaj bilinçli olarak AYRINTILI: bu sayı tutmadığında tek başına "3 bekleniyordu, 4 geldi"
+        // demek nedeni bulmaya yetmiyor. Kalan dosyalar yazılırsa "hangi silme başarısız oldu"
+        // sorusu tek bakışta cevaplanır (PruneOld silme hatalarını sessizce yutar — bkz. ReleaseStore).
+        var kalan = Paketler();
+        Assert.True(kalan.Length == ReleaseStore.KeepCount,
+            $"Saklama sınırı tutmadı: {ReleaseStore.KeepCount} paket kalmalıydı, {kalan.Length} kaldı. " +
+            $"Kalanlar: {string.Join(", ", kalan)}");
     }
 
     /// <summary>⭐ Silinenler ESKİLER olmalı — güncelleyici daima EN SON sürümü indirir.</summary>

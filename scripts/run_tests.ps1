@@ -62,13 +62,32 @@ try {
 
   # ── 2) TESTLER — --no-build YOK; derlenen ikili test edilir ──
   Write-Output "[2/2] Testler calisiyor..."
-  if ($Filter) { & dotnet test $proje --no-build --filter $Filter -v q --nologo }
-  else         { & dotnet test $proje --no-build -v q --nologo }
+  # -v q ciktisi SADECE "[FAIL] TestAdi" yazar; iddia mesajini (beklenen/gelen) GIZLER. Bir tam kosu
+  # 24 dakika surdugu icin "hata neydi" diye tekrar kosturmak pahalidir. TRX kaydi her kosuda
+  # tutulur ve basarisizlikta ayrinti otomatik ekrana yazilir -> tek kosuda teshis.
+  $trx = Join-Path $PSScriptRoot "..\artifacts\test-sonuc.trx"
+  if ($Filter) { & dotnet test $proje --no-build --filter $Filter -v q --nologo --logger "trx;LogFileName=$trx" }
+  else         { & dotnet test $proje --no-build -v q --nologo --logger "trx;LogFileName=$trx" }
   $testKodu = $LASTEXITCODE
 
   Write-Output ""
   if ($testKodu -eq 0) { Write-Output "SONUC: TUM TESTLER GECTI" }
-  else                 { Write-Output "SONUC: TEST BASARISIZ (cikis kodu $testKodu)" }
+  else {
+    Write-Output "SONUC: TEST BASARISIZ (cikis kodu $testKodu)"
+    # Basarisiz testlerin IDDIA MESAJINI ekrana yaz — tekrar kosturmaya gerek kalmasin.
+    if (Test-Path $trx) {
+      try {
+        [xml]$x = Get-Content $trx -Encoding UTF8
+        $hatalar = $x.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }
+        foreach ($h in $hatalar) {
+          Write-Output ""
+          Write-Output "--- BASARISIZ: $($h.testName)"
+          if ($h.Output.ErrorInfo.Message)    { Write-Output $h.Output.ErrorInfo.Message }
+          if ($h.Output.ErrorInfo.StackTrace) { Write-Output ($h.Output.ErrorInfo.StackTrace -split "`n" | Select-Object -First 4) }
+        }
+      } catch { Write-Output "(TRX okunamadi: $_)" }
+    }
+  }
   exit $testKodu
 }
 finally {
