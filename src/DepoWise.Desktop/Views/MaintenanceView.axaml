@@ -344,6 +344,21 @@
                                             <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
                                         </Grid>
                                     </Border>
+                                    <!-- ⭐ LST-01: SAYFALAMA. Liste eskiden sabit 200 kayıtla kesiliyor ve
+                                         kesildiğini SÖYLEMİYORDU → kullanıcı kaydı "kaybolmuş" sanıyordu. -->
+                                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="10"
+                                                Margin="12,8" VerticalAlignment="Center">
+                                        <SelectableTextBlock Text="{Binding BakimDurumu}" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <Button Classes="Ghost" Content="◀ Önceki" Command="{Binding OncekiBakimSayfasiCommand}"
+                                                IsEnabled="{Binding BakimOncekiVar}"/>
+                                        <Button Classes="Ghost" Content="Sonraki ▶" Command="{Binding SonrakiBakimSayfasiCommand}"
+                                                IsEnabled="{Binding BakimSonrakiVar}"/>
+                                        <SelectableTextBlock Text="Sayfa boyutu:" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <ComboBox Width="90" ItemsSource="{Binding BakimSayfaBoyutlari}"
+                                                  SelectedItem="{Binding BakimSayfaBoyutu}"/>
+                                    </StackPanel>
                                     <ListBox Classes="Table" ItemsSource="{Binding Maintenances}" SelectedItem="{Binding SelectedMaint}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceRow">

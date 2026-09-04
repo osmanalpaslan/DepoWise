@@ -1080,7 +1080,38 @@ app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string?
     S(c) is { } s
         ? Results.Ok(svc.Stock.SearchMovements(s, from, to, q, location, type, material, 1000))
         : Results.Unauthorized()).RequireAuthorization();
+// ⭐ LST-01 (2026-09-04) — STOK HAREKETLERİ: SAYFALANMIŞ liste (toplam sayı da döner).
+// Eski /api/stock/movements ucu sabit 1000 satır döndürüyordu; tavanın ötesindeki hareketler
+// SESSİZCE düşüyordu. Eski uç mevcut istemciler için AYNEN duruyor (kırılma yok).
+app.MapGet("/api/stock/movements/grid", (HttpContext c, long? from, long? to, string? q,
+                                          string[]? location, string[]? type, string[]? material,
+                                          int page, int pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.Stock.SearchMovementsGrid(s, from, to, q, location, type, material,
+        page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize,
+        totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ LST-01 (2026-09-04) — ARAÇ BAKIMLARI: SAYFALANMIŞ + ARAMALI liste (toplam sayı da döner).
+// Eski /api/maintenance ucu sabit 200 satır döndürüyordu; ötesi SESSİZCE düşüyordu.
+// Eski uç mevcut istemciler için AYNEN duruyor.
+app.MapGet("/api/maintenance/grid", (HttpContext c, string? vehicleId, string? q,
+                                     long? fromDate, long? toDate, int page, int pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.Maintenance.SearchMaintenancesGrid(s, page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize,
+        Doc(vehicleId), Doc(q), fromDate, toDate);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize,
+        totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
 // ⭐ ARA İŞ 6 (2026-09-04) — YAKIT DAĞITIMLARI: SAYFALANMIŞ + FİLTRELİ liste.

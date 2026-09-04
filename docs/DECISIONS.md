@@ -4710,3 +4710,46 @@ Testler: `CariBagiTests` CAR1–CAR10. Doğrulama: ilgili 522 testin 504'ü geç
 **FAZ D TAMAMLANDI** (MUH-01a + MUH-01b + MUH-01c).
 
 Ayrıntı: [FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md](project-control/FAZ_D_MUH_01_ON_MUHASEBE_ALANLARI.md)
+
+---
+
+## ADR-213 — LST-01: tavanlı listelerin sayfalanması (2026-09-04)
+
+**Bağlam.** ARA İŞ 6, Yakıt Dağıtımları ekranında bir kusur sınıfı ortaya çıkardı: liste sabit bir
+tavanla okuyor, sorgu en yeniden başlıyor ve tavanın ötesindeki kayıtlar **sessizce** düşüyordu.
+Kesildiğine dair hiçbir uyarı yoktu; kayıt "kaybolmuş" gibi duruyordu. Kullanıcının babası
+02.08.2026 tarihli bir kaydı tam olarak böyle kaybetti — üretimde **463 kayıt görünmüyordu**.
+
+Aynı kusur 6 ekranda daha vardı. Bu iş, riskin en yüksek olduğu ikisini kapatır:
+**Stok Hareketleri** (200/1000 tavanı) ve **Araç Bakımları** (200 tavanı) — babanın her gün
+kullandığı ekranlar.
+
+**Karar.** ARA İŞ 6'da kurulan desen aynen uygulandı; yeni bir yol icat edilmedi:
+`SearchMovementsGrid` / `SearchMaintenancesGrid` + `/api/stock/movements/grid` ·
+`/api/maintenance/grid` + iki platformda sayfalama çubuğu.
+
+### Tek filtre kaynağı korundu
+Stok hareketlerinin `WHERE` parçası yine `StockMovementFilterSql`'den gelir — liste, **rapor** ve
+sayfalama tek üreteci paylaşır. İkinci bir filtre gerçekliği oluşmadı; aksi hâlde ekran ile rapor
+farklı sonuç verirdi (STK-10b-4'te kapatılan kusurun aynısı geri gelirdi).
+
+### Sayım ve sayfa AYNI WHERE'i kullanır
+Ayrışsalardı kullanıcı "8 kayıt" yazısını görüp 30 satır listelenirdi. `LST3` bunu kilitler.
+
+### Eski uçlar KALDIRILMADI
+`/api/stock/movements` ve `/api/maintenance` aynen duruyor — henüz güncellenmemiş bir istemci
+kırılmaz. Yeni uçlar yanlarına eklendi.
+
+### Kusurun kendisi de test ediliyor
+`LST1` ve `LST4`, **eski yolu da çalıştırıp** tavanda kesildiğini gösterir, sonra yeni yolun aynı
+veriye eriştiğini kanıtlar. Yalnız yeni yolun çalıştığını görmek, eski yolun bozuk olduğunu
+kanıtlamaz — düzeltmenin gerçekten bir şeyi değiştirdiği böyle gösterilir.
+
+`LST2` sayfaların tutarlılığını (tekrar/atlama yok) kilitler: `LIMIT/OFFSET` kararsız sıralamayla
+güvenilmezdir, bu yüzden ikincil sıralama anahtarı lehçeye göre seçilir (`SqlDialect.RowTieBreaker`).
+
+**Kalan (devam):** `Personnel` (500) · `Audit`/`StockChangeLog` (300) · tavansız
+`Inspection`/`Purchasing`. Risk sırası gereği sonraya bırakıldı; desen artık üç kez uygulandı.
+
+Testler: `ListeSayfalamaTests` LST1–LST7. Doğrulama: ilgili 800 testin 789'u geçti (11 atlanan,
+hepsi önceden) · üç proje build 0 hata. **Migration gerekmedi.**

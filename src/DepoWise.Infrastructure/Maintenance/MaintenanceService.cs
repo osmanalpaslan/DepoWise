@@ -405,6 +405,94 @@ WHERE NOT EXISTS (
     }
 
     /// <summary>Bakım kayıtları (salt okuma) — araç/tanım/alt-tanım adları + yapılma/sonraki; araç filtresi.</summary>
+    /// <summary>
+    /// ⭐ LST-01 (2026-09-04) — ARAÇ BAKIMLARI: SUNUCU TARAFI SAYFALAMA + ARAMA.
+    ///
+    /// <b>Çözülen kusur:</b> liste SABİT 200 satırla okunuyor ve sorgu en yeniden başlıyordu →
+    /// 200. kaydın ötesindeki bakımlar <b>sessizce</b> düşüyordu. Kesildiğine dair uyarı da yoktu.
+    /// ARA İŞ 6'da yakıt ekranında düzeltilen kusurun aynısı; desen birebir oradan alındı.
+    ///
+    /// Arama: araç iç kodu / plaka · bakım tanımı adı · açıklama · <b>belge no</b> (MUH-01b).
+    /// Türkçe-doğru LIKE için ortak <see cref="SqlDialect.LikeTr"/> kullanılır (yeni yol icat edilmedi).
+    /// </summary>
+    public GridResult<MaintenanceRow> SearchMaintenancesGrid(SessionContext s, int page = 1, int pageSize = 50,
+        string? vehicleId = null, string? freeText = null, long? fromMs = null, long? toMs = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        using var conn = _factory.Create();
+        bool sqlite = SqlDialect.IsSqlite(conn);
+
+        var where = new System.Text.StringBuilder("WHERE vm.company_id=@c AND vm.is_deleted=0"
+            + DepoWise.Application.Security.BranchScope.Sql(s, "vm.op_branch_id")
+            + " AND (CAST(@vid AS TEXT) IS NULL OR vm.vehicle_id=@vid)");
+        if (fromMs is not null) where.Append(" AND COALESCE(vm.performed_date,0) >= @from");
+        if (toMs is not null) where.Append(" AND COALESCE(vm.performed_date,0) <= @to");
+        var q = string.IsNullOrWhiteSpace(freeText) ? null : freeText.Trim();
+        if (q is not null)
+            where.Append(" AND (" + SqlDialect.LikeTr(sqlite, "v.internal_code", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "v.plate", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "d.name", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "vm.description", "@q")
+                       + " OR " + SqlDialect.LikeTr(sqlite, "vm.invoice_no", "@q") + ")");
+
+        const string FromSql = @"
+FROM vehicle_maintenances vm
+JOIN vehicles v ON v.id = vm.vehicle_id
+JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
+LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
+";
+
+        void Baglan(DbCommand c)
+        {
+            c.AddWithValue("@c", s.CompanyId);
+            if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) c.AddWithValue("@opb", b);
+            c.AddWithValue("@vid", (object?)vehicleId ?? DBNull.Value);
+            if (fromMs is not null) c.AddWithValue("@from", fromMs.Value);
+            if (toMs is not null) c.AddWithValue("@to", toMs.Value);
+            if (q is not null) c.AddWithValue("@q", "%" + q + "%");
+        }
+
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = "SELECT COUNT(*) " + FromSql + where + ";";
+            Baglan(cnt);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        decimal? D(DbDataReader r, int i) => r.IsDBNull(i) ? (decimal?)null : Money.Parse(r.GetString(i));
+        long? L(DbDataReader r, int i) => r.IsDBNull(i) ? (long?)null : r.GetInt64(i);
+        var list = new List<MaintenanceRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT vm.id, v.internal_code, d.name, sd.name,
+       vm.performed_km, vm.performed_hour, vm.performed_date,
+       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id,
+       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no, vm.party_id
+" + FromSql + where + " ORDER BY vm.created_at DESC LIMIT @lim OFFSET @off;";
+            Baglan(cmd);
+            cmd.AddWithValue("@lim", pageSize);
+            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            using var rr = cmd.ExecuteReader();
+            while (rr.Read())
+                list.Add(new MaintenanceRow(rr.GetString(0), rr.GetString(1), rr.GetString(2),
+                    rr.IsDBNull(3) ? null : rr.GetString(3),
+                    D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9),
+                    Convert.ToInt64(rr.GetValue(10)) == 1, rr.GetString(11),
+                    Convert.ToInt64(rr.GetValue(12)),
+                    rr.IsDBNull(13) ? null : rr.GetString(13),
+                    rr.IsDBNull(14) ? null : rr.GetString(14),
+                    rr.IsDBNull(15) ? null : rr.GetString(15),
+                    rr.IsDBNull(16) ? null : rr.GetString(16),
+                    rr.IsDBNull(17) ? null : rr.GetString(17)));
+        }
+        return new GridResult<MaintenanceRow>(list, total, page, pageSize);
+    }
+
     public IReadOnlyList<MaintenanceRow> ListMaintenances(SessionContext s, string? vehicleId = null, int limit = 200)
     {
         AccessControl.Require(s, Module, PermissionAction.View);

@@ -175,6 +175,25 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     // hedefi kullanıcıya açıkça seçtirir.
 
     /// <summary>Oturum "Tüm Şubeler" modunda mı? (çalışma şubesi seçilmemiş)</summary>
+    // ── LST-01 (2026-09-04): HAREKET LİSTESİ SAYFALAMA ────────────────────────────────────────────
+    // Liste sabit 200 tavanıyla okunuyordu; 200. kaydın ötesi sessizce düşüyordu. Desen ARA İŞ 6'daki
+    // yakıt ekranından alındı (yeni bir yol icat edilmedi).
+    [ObservableProperty] private int _hareketSayfa = 1;
+    [ObservableProperty] private int _hareketSayfaBoyutu = 50;
+    [ObservableProperty] private int _hareketToplam;
+    [ObservableProperty] private int _hareketToplamSayfa = 1;
+    public IReadOnlyList<int> HareketSayfaBoyutlari { get; } = new[] { 25, 50, 100, 200 };
+    public bool OncekiSayfaVar => HareketSayfa > 1;
+    public bool SonrakiSayfaVar => HareketSayfa < HareketToplamSayfa;
+    /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
+    public string HareketDurumu => HareketToplam == 0
+        ? "Hareket yok"
+        : $"{HareketToplam} hareket — sayfa {HareketSayfa} / {HareketToplamSayfa}";
+
+    [RelayCommand] private void OncekiHareketSayfasi() { if (OncekiSayfaVar) { HareketSayfa--; Load(); } }
+    [RelayCommand] private void SonrakiHareketSayfasi() { if (SonrakiSayfaVar) { HareketSayfa++; Load(); } }
+    partial void OnHareketSayfaBoyutuChanged(int value) { HareketSayfa = 1; Load(); }
+
     public bool IsAllBranches => BranchGuard.IsAllBranches(_session);
 
     /// <summary>"Tüm Şubeler" modunda kullanıcının seçtiği ÇALIŞMA DEPOSU. Şubeye bağlı kullanıcıda
@@ -317,7 +336,17 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         {
             LoadError = null;
             Movements.Clear();
-            foreach (var m in DesktopServices.Stock.RecentMovements(_session)) Movements.Add(m);
+            // ⭐ LST-01: sabit 200 tavanı KALDIRILDI. Eskiden en yeni 200 hareket geliyor, ötesi
+            // SESSİZCE düşüyordu (kullanıcı kaydı "kayboldu" sanıyordu). Artık sayfalanıyor ve
+            // toplam sayı gösteriliyor.
+            var grid = DesktopServices.Stock.SearchMovementsGrid(_session, null, null, null, null, null, null,
+                HareketSayfa, HareketSayfaBoyutu);
+            foreach (var m in grid.Items) Movements.Add(m);
+            HareketToplam = grid.TotalCount;
+            HareketToplamSayfa = grid.TotalPages;
+            OnPropertyChanged(nameof(HareketDurumu));
+            OnPropertyChanged(nameof(OncekiSayfaVar));
+            OnPropertyChanged(nameof(SonrakiSayfaVar));
             if (Branches.Count == 0)
             {
                 try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }

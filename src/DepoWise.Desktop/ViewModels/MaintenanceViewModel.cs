@@ -47,6 +47,30 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     /// <summary>⭐ MUH-01b: EKİPMAN bakımının belge numarası — maliyet merkezinde olduğu gibi AYRI alan.</summary>
     [ObservableProperty] private string _eqmInvoice = "";
 
+    // ── LST-01 (2026-09-04): BAKIM LİSTESİ SAYFALAMA ─────────────────────────────────────────────
+    // Liste sabit 200 tavanıyla okunuyordu; 200. kaydın ötesindeki bakımlar SESSİZCE düşüyordu.
+    // Desen ARA İŞ 6'daki yakıt ekranından alındı (yeni bir yol icat edilmedi).
+    [ObservableProperty] private int _bakimSayfa = 1;
+    [ObservableProperty] private int _bakimSayfaBoyutu = 50;
+    [ObservableProperty] private int _bakimToplam;
+    [ObservableProperty] private int _bakimToplamSayfa = 1;
+    public IReadOnlyList<int> BakimSayfaBoyutlari { get; } = new[] { 25, 50, 100, 200 };
+    public bool BakimOncekiVar => BakimSayfa > 1;
+    public bool BakimSonrakiVar => BakimSayfa < BakimToplamSayfa;
+    /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
+    public string BakimDurumu => BakimToplam == 0
+        ? "Bakım kaydı yok"
+        : $"{BakimToplam} bakım — sayfa {BakimSayfa} / {BakimToplamSayfa}";
+    private void BakimSayfalamaTazele()
+    {
+        OnPropertyChanged(nameof(BakimDurumu));
+        OnPropertyChanged(nameof(BakimOncekiVar));
+        OnPropertyChanged(nameof(BakimSonrakiVar));
+    }
+    [RelayCommand] private void OncekiBakimSayfasi() { if (BakimOncekiVar) { BakimSayfa--; LoadMaint(); } }
+    [RelayCommand] private void SonrakiBakimSayfasi() { if (BakimSonrakiVar) { BakimSayfa++; LoadMaint(); } }
+    partial void OnBakimSayfaBoyutuChanged(int value) { BakimSayfa = 1; LoadMaint(); }
+
     // ── MUH-01c (2026-09-04): DIŞ SERVİS SAĞLAYICISI (cari) ────────────────────────────────────
     // Bakım dışarıda yapıldıysa kime borçlanıldığı buraya yazılır. Kendi atölyesinde yapılan
     // bakımda boş kalır — alan OPSİYONELDİR ve mevcut akışı zorunlu hâle GETİRMEZ.
@@ -514,7 +538,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         {
             MaintError = null;
             Maintenances.Clear();
-            foreach (var r in DesktopServices.Maintenance.ListMaintenances(_session)) Maintenances.Add(r);
+            // ⭐ LST-01: sabit 200 tavanı KALDIRILDI (ötesi sessizce düşüyordu).
+            var grid = DesktopServices.Maintenance.SearchMaintenancesGrid(_session, BakimSayfa, BakimSayfaBoyutu);
+            foreach (var r in grid.Items) Maintenances.Add(r);
+            BakimToplam = grid.TotalCount; BakimToplamSayfa = grid.TotalPages;
+            BakimSayfalamaTazele();
         }
         catch (Exception ex) { MaintError = ex.Message; }
         SelectedMaint = null; MaintMaterials.Clear();
@@ -610,7 +638,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         try
         {
             Maintenances.Clear();
-            foreach (var r in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) Maintenances.Add(r);
+            // ⭐ LST-01: araç süzmeli liste de sayfalanır (aynı servis metodu).
+            var grid = DesktopServices.Maintenance.SearchMaintenancesGrid(_session, BakimSayfa, BakimSayfaBoyutu, vehicleId);
+            foreach (var r in grid.Items) Maintenances.Add(r);
+            BakimToplam = grid.TotalCount; BakimToplamSayfa = grid.TotalPages;
+            BakimSayfalamaTazele();
             OnPropertyChanged(nameof(MaintEmpty));
             OnPropertyChanged(nameof(HasMaint));
         }

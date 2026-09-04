@@ -369,6 +369,22 @@
                 <MudPaper Class="pa-4" Elevation="0">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2"><MudText Typo="Typo.h6">Araç Bakımları</MudText><MudSpacer />
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadMaint">Yenile</MudButton></MudStack>
+                    @* ⭐ LST-01: SAYFALAMA. Liste eskiden sabit 200 kayıtla kesiliyor ve kesildiğini
+                       SÖYLEMİYORDU → kullanıcı kaydı "kaybolmuş" sanıyordu. *@
+                    @if (_maint is not null && _bkmTotal > 0)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@BkmDurum</MudText>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@(_bkmPage <= 1)"
+                                       OnClick="@(() => BkmSayfa(_bkmPage - 1))">◀ Önceki</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@(_bkmPage >= _bkmTotalPages)"
+                                       OnClick="@(() => BkmSayfa(_bkmPage + 1))">Sonraki ▶</MudButton>
+                            <MudSelect T="int" Value="_bkmPageSize" ValueChanged="BkmBoyut" Label="Sayfa boyutu" Dense="true"
+                                       Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:130px">
+                                @foreach (var b in BkmPageSizes) { <MudSelectItem T="int" Value="@b">@b</MudSelectItem> }
+                            </MudSelect>
+                        </MudStack>
+                    }
                     @if (_maint is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
                     else if (_maint.Length == 0) { <MudText Class="mud-text-secondary">Henüz bakım kaydı girilmedi.</MudText> }
                     else
@@ -715,7 +731,30 @@
     private void ClearDef() { _defErr = false; _defEditId = null; _defName = _defDesc = ""; _defUnit = "km"; _defInterval = 0; _defVehicles = new HashSet<string>(); }
 
     // ── Araç Bakımları ──
-    private async Task LoadMaint() { _maint = null; try { _maint = await Api.GetArrayAsync("/api/maintenance"); } catch { _maint = Array.Empty<JsonElement>(); } }
+    // ── LST-01 (2026-09-04): BAKIM LİSTESİ SAYFALAMA ──
+    // Eski /api/maintenance ucu sabit 200 satır döndürüyordu; 200. kaydın ötesindeki bakımlar
+    // SESSİZCE düşüyordu ve kesildiğine dair uyarı yoktu.
+    private int _bkmPage = 1, _bkmPageSize = 50, _bkmTotal, _bkmTotalPages = 1;
+    private static readonly int[] BkmPageSizes = { 25, 50, 100, 200 };
+    /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
+    private string BkmDurum => _bkmTotal == 0 ? "Bakım kaydı yok" : $"{_bkmTotal} bakım — sayfa {_bkmPage} / {_bkmTotalPages}";
+    private async Task BkmSayfa(int p) { if (p < 1 || p > _bkmTotalPages) return; _bkmPage = p; await LoadMaint(); }
+    private async Task BkmBoyut(int b) { _bkmPageSize = b; _bkmPage = 1; await LoadMaint(); }
+
+    private async Task LoadMaint()
+    {
+        _maint = null;
+        try
+        {
+            var res = await Api.GetObjectAsync($"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}");
+            _maint = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+            _bkmTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _maint.Length;
+            _bkmTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
+            _bkmPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _bkmPage;
+        }
+        catch { _maint = Array.Empty<JsonElement>(); _bkmTotal = 0; _bkmTotalPages = 1; }
+    }
 
     private string? _lastMDef;
     protected override async Task OnAfterRenderAsync(bool first)

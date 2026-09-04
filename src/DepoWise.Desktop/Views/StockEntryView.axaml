@@ -240,6 +240,22 @@
         <Panel Grid.Row="2" Margin="0,16,0,0" MinHeight="180">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
+                    <!-- ⭐ LST-01: SAYFALAMA ÇUBUĞU. Liste eskiden sabit 200 kayıtla kesiliyor ve
+                         kesildiğini SÖYLEMİYORDU → kullanıcı 200. kaydın ötesindeki hareketi
+                         "kaybolmuş" sanıyordu. Artık toplam sayı görünür ve hepsine erişilir. -->
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="10"
+                                Margin="12,8" VerticalAlignment="Center">
+                        <SelectableTextBlock Text="{Binding HareketDurumu}" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Classes="Ghost" Content="◀ Önceki" Command="{Binding OncekiHareketSayfasiCommand}"
+                                IsEnabled="{Binding OncekiSayfaVar}"/>
+                        <Button Classes="Ghost" Content="Sonraki ▶" Command="{Binding SonrakiHareketSayfasiCommand}"
+                                IsEnabled="{Binding SonrakiSayfaVar}"/>
+                        <SelectableTextBlock Text="Sayfa boyutu:" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox Width="90" ItemsSource="{Binding HareketSayfaBoyutlari}"
+                                  SelectedItem="{Binding HareketSayfaBoyutu}"/>
+                    </StackPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>

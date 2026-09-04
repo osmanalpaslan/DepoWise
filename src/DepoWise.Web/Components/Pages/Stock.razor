@@ -212,6 +212,22 @@
         <MudText Typo="Typo.h6">Son Stok Hareketleri</MudText><MudSpacer />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadMovements">Yenile</MudButton>
     </MudStack>
+    @* ⭐ LST-01: SAYFALAMA ÇUBUĞU. Liste eskiden sabit 200 kayıtla kesiliyor ve kesildiğini
+       SÖYLEMİYORDU → kullanıcı 200. kaydın ötesindeki hareketi "kaybolmuş" sanıyordu. *@
+    @if (_rows is not null && _hrkTotal > 0)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@HrkDurum</MudText>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@(_hrkPage <= 1)"
+                       OnClick="@(() => HrkSayfa(_hrkPage - 1))">◀ Önceki</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@(_hrkPage >= _hrkTotalPages)"
+                       OnClick="@(() => HrkSayfa(_hrkPage + 1))">Sonraki ▶</MudButton>
+            <MudSelect T="int" Value="_hrkPageSize" ValueChanged="HrkBoyut" Label="Sayfa boyutu" Dense="true"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:130px">
+                @foreach (var b in HrkPageSizes) { <MudSelectItem T="int" Value="@b">@b</MudSelectItem> }
+            </MudSelect>
+        </MudStack>
+    }
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Hareket yok.</MudText> }
     else
@@ -364,9 +380,32 @@
     private async Task LoadMovements()
     {
         _rows = null;
-        try { _rows = await Api.GetArrayAsync("/api/stock"); }
-        catch { _rows = Array.Empty<JsonElement>(); }
+        try
+        {
+            // ⭐ LST-01 (2026-09-04): eski /api/stock ucu sabit 200 satır döndürüyordu ve sorgu en
+            // yeniden başlıyordu → 200. kaydın ötesindeki hareketler SESSİZCE düşüyordu. Artık
+            // sayfalanmış uç kullanılıyor; toplam sayı ekranda görünür.
+            var res = await Api.GetObjectAsync($"/api/stock/movements/grid?page={_hrkPage}&pageSize={_hrkPageSize}");
+            _rows = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+            _hrkTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _rows.Length;
+            _hrkTotalPages = res.TryGetProperty("totalPages", out var tp) ? Math.Max(1, tp.GetInt32()) : 1;
+            _hrkPage = res.TryGetProperty("page", out var pg) ? pg.GetInt32() : _hrkPage;
+        }
+        catch { _rows = Array.Empty<JsonElement>(); _hrkTotal = 0; _hrkTotalPages = 1; }
     }
+
+    // ── LST-01: hareket listesi sayfalama durumu ──
+    private int _hrkPage = 1, _hrkPageSize = 50, _hrkTotal, _hrkTotalPages = 1;
+    private static readonly int[] HrkPageSizes = { 25, 50, 100, 200 };
+    /// <summary>Kullanıcı kaç kaydın VAR olduğunu görür — sessiz kesilme bir daha olmaz.</summary>
+    private string HrkDurum => _hrkTotal == 0 ? "Hareket yok" : $"{_hrkTotal} hareket — sayfa {_hrkPage} / {_hrkTotalPages}";
+    private async Task HrkSayfa(int p)
+    {
+        if (p < 1 || p > _hrkTotalPages) return;
+        _hrkPage = p; await LoadMovements();
+    }
+    private async Task HrkBoyut(int b) { _hrkPageSize = b; _hrkPage = 1; await LoadMovements(); }
 
     private async Task<List<(string, string)>> Lk(string table) => await LoadList($"/api/lookups/{table}", "id", "name");
 

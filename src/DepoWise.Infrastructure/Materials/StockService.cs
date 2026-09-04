@@ -722,6 +722,90 @@ WHERE sm.company_id = @c");
         return list;
     }
 
+    /// <summary>
+    /// ⭐ LST-01 (2026-09-04) — STOK HAREKETLERİ: SUNUCU TARAFI SAYFALAMA.
+    ///
+    /// <b>Çözülen kusur:</b> hem Stok İşlemleri (200) hem Stok Hareketleri (1000) ekranı SABİT bir
+    /// tavanla okuyordu ve sorgu en yeniden başlıyordu → tavanın ötesindeki kayıtlar <b>sessizce</b>
+    /// düşüyordu. Kesildiğine dair hiçbir uyarı yoktu; kayıt "kaybolmuş" gibi duruyordu. ARA İŞ 6'da
+    /// yakıt ekranında düzeltilen kusurun BİREBİR aynısı (kullanıcı 02.08.2026 kaydını böyle kaybetti).
+    ///
+    /// <b>Aynı filtre üreteci:</b> WHERE parçası yine <see cref="StockMovementFilterSql"/>'den gelir —
+    /// liste, rapor ve bu sayfalama <b>tek kaynağı</b> paylaşır; ikinci bir filtre gerçekliği yoktur.
+    /// Toplam sayı da döner → arayüz "kaç kayıt var" bilgisini gösterebilir ve hepsine erişilebilir.
+    /// </summary>
+    public GridResult<StockMovementRow> SearchMovementsGrid(
+        SessionContext s, long? fromMs, long? toMs, string? search,
+        IReadOnlyList<string>? locationIds, IReadOnlyList<string>? movementTypes,
+        IReadOnlyList<string>? materialIds, int page = 1, int pageSize = 50)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        using var conn = _factory.Create();
+        var filtre = StockMovementFilterSql.Build(locationIds, movementTypes, search, materialIds);
+
+        // Ortak WHERE — sayım ve sayfa AYNI koşulu kullanır (ayrışırsa toplam yanlış olur).
+        var where = new System.Text.StringBuilder("WHERE sm.company_id = @c");
+        where.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
+        if (fromMs is not null) where.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " >= @from");
+        if (toMs is not null) where.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " <= @to");
+        where.Append(filtre.Sql);
+
+        const string FromSql = @"
+FROM stock_movements sm
+JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
+LEFT JOIN units u ON u.id = m.unit_id
+LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
+";
+
+        void Baglan(DbCommand c)
+        {
+            c.AddWithValue("@c", s.CompanyId);
+            if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) c.AddWithValue("@opb", b);
+            if (fromMs is not null) c.AddWithValue("@from", fromMs.Value);
+            if (toMs is not null) c.AddWithValue("@to", toMs.Value);
+            filtre.Bind(c);
+        }
+
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = "SELECT COUNT(*) " + FromSql + where + ";";
+            Baglan(cnt);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var list = new List<StockMovementRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            // KD-1: rowid SQLite'a özeldir → lehçeye göre kararlı ikincil anahtar (sıralama kararlı olmalı,
+            // aksi hâlde sayfalar arasında kayıt tekrar eder ya da atlanır).
+            cmd.CommandText = "SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, m.code, m.name, COALESCE(u.name,''),
+       sm.direction, sm.quantity, sm.unit_price, sm.note,
+       d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
+       sm.branch_id, bl.name, sm.branch_from_id, bf.name
+" + FromSql + where
+                + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim OFFSET @off;";
+            Baglan(cmd);
+            cmd.AddWithValue("@lim", pageSize);
+            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new StockMovementRow(
+                    r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
+                    r.GetInt32(5), Money.Parse(r.GetString(6)),
+                    r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
+                    S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
+                    S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
+        }
+        return new GridResult<StockMovementRow>(list, total, page, pageSize);
+    }
+
     /// <summary>A3 (Aurora): TEK malzemenin son N hareketi (giriş/çıkış/transfer/sayım). Malzeme kartı sağ
     /// sütunundaki "Son Hareketler" paneli için. Yetki: malzeme OKUMA + firma kapsamı (malzeme detay ucuyla aynı).
     /// Tarihe göre azalan. Miktar İŞARETLİ (giriş +, çıkış −). Boşsa panel gösterilmez.</summary>
