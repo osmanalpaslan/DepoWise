@@ -59,13 +59,24 @@ public static class TempVeritabaniTemizligi
     /// <paramref name="yas"/>'tan eski test artıklarını siler; silinen öğe sayısını döndürür.
     /// Kilitli/erişilemeyen öğeler sessizce atlanır.
     /// </summary>
-    public static int Supur(TimeSpan yas)
+    /// <param name="kok">
+    /// Süpürülecek klasör. Varsayılan <c>%TEMP%</c>'tir (gerçek kullanım).
+    ///
+    /// ⚠️ <b>Testler bu parametreyi VERMEK ZORUNDADIR.</b> Gerçek olay (2026-09-04): TMP3 testi
+    /// <c>Supur(TimeSpan.Zero)</c>'ı doğrudan <c>%TEMP%</c> üzerinde çağırıyordu. xUnit test
+    /// SINIFLARINI PARALEL koşturur; o anda çalışan onlarca başka test sınıfının CANLI geçici
+    /// dosya ve klasörleri de siliniyordu. Sonuç: tam süitte rastgele bir testin
+    /// <c>DirectoryNotFoundException</c> ile düşmesi — tek başına koşunca hep geçtiği için
+    /// "makine yüklüydü" sanılıyordu. Kök neden yaş eşiği DEĞİL, süpürülen KLASÖRDÜ:
+    /// 30 dakikalık eşik başka bir KOŞUYU korur ama aynı koşudaki paralel sınıfları korumaz.
+    /// </param>
+    public static int Supur(TimeSpan yas, string? kok = null)
     {
         // Havuzdaki bağlantılar dosyayı kilitli tutabilir → önce serbest bırak.
         try { SqliteConnection.ClearAllPools(); } catch { }
 
         var kesim = DateTime.Now - yas;
-        var temp = Path.GetTempPath();
+        var temp = kok ?? Path.GetTempPath();
         var silinen = 0;
 
         try
