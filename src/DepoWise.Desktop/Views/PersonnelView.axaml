@@ -14,7 +14,14 @@
         <ctrl:Toolbar Grid.Row="0" Title="Personel"
                       PrimaryActionText="Yeni Personel" PrimaryActionCommand="{Binding NewPersonnelCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- ⭐ PRT-02: filtrelenmiş TÜM sonucu indirir (o anki sayfayı değil) — projenin
+                         liste ekranı kuralı. Personel ekranı bu kuralın dışında kalmıştı. -->
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
+                            IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif aramayla eşleşen TÜM personeli Excel olarak indirir."/>
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

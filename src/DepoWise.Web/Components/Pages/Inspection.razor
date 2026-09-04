@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject IJSRuntime JS   // PRT-02: Excel indirme (dwDownload)
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -64,6 +65,10 @@
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudText Typo="Typo.h6">Belgeler</MudText><MudSpacer />
+        @* ⭐ PRT-02: liste ekranı kuralı — TÜM sonuç Excel'e aktarılabilir. *@
+        <MudTooltip Text="Listedeki TÜM muayene/sigorta kayıtlarını Excel dosyası olarak indirir.">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+        </MudTooltip>
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
@@ -103,6 +108,16 @@
 
     protected override async Task OnInitializedAsync() => await LoadList();
 
+
+    /// <summary>⭐ PRT-02 (2026-09-04): Excel'e aktar — listedeki TÜM muayene/sigorta kayıtları
+    /// (projenin liste ekranı kuralı). Desen /api/assignments/export ile aynı.</summary>
+    private async Task ExportExcel()
+    {
+        var (bytes, name) = await Api.GetFileAsync("/api/inspection/export", "Muayene.xlsx");
+        if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/inspection"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
     /// <summary>

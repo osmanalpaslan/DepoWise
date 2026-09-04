@@ -20,6 +20,26 @@ public sealed partial class InspectionViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
+
+    /// <summary>⭐ PRT-02 (FAZ G, 2026-09-04): Excel'e aktar — projenin liste ekranı kuralı gereği
+    /// filtrelenmiş TÜM sonucu indirir. Muayene ekranı bu kuralın dışında kalmıştı.
+    /// Yetki: mevcut "export" modülü; yeni yetki AÇILMADI.</summary>
+    public bool CanExport => AccessControl.Can(_session, "export", PermissionAction.View);
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("Muayene.xlsx");
+            if (hedef is null) return;
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(
+                DepoWise.Infrastructure.Maintenance.InspectionService.ToTableModel(System.Linq.Enumerable.ToList(Items))));
+            Status = $"Excel kaydedildi: {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
     public bool CanWrite => AccessControl.Can(_session, "inspection", PermissionAction.Create);
     /// <summary>B-5: belge iptali Edit yetkisi ister (kayıt silinmez, iptal edilir).</summary>
     public bool CanEdit => AccessControl.Can(_session, "inspection", PermissionAction.Edit);

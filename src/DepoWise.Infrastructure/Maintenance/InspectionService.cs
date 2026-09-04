@@ -30,6 +30,22 @@ public sealed record InspectionRow(string VehicleCode, string Plate, string DocT
 /// <summary>Muayene/sigorta/kasko/kalibrasyon belgeleri + tarih bazlı uyarı (yaklaşan/geçmiş).</summary>
 public sealed class InspectionService
 {
+
+    /// <summary>
+    /// ⭐ PRT-02 (FAZ G, 2026-09-04) — MUAYENE LİSTESİNİN EXCEL TABLOSU.
+    /// Projenin liste ekranı kuralı gereği (bkz. `.claude/rules/list-screens.md` Kural 2) her liste
+    /// ekranı filtrelenmiş TÜM sonucu Excel'e aktarabilmelidir; muayene ekranı bunun dışında kalmıştı.
+    /// Kolonlar ekrandakiyle aynı sırada.
+    /// </summary>
+    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<InspectionRow> rows)
+        => new("Muayene / Sigorta", new[] { "Araç", "Belge Türü", "Son İşlem", "Sonraki", "Yer", "Sonuç", "Durum" },
+            rows.Select(r => (IReadOnlyList<object?>)new object?[]
+            {
+                r.VehicleText, r.DocTypeText, r.LastText, r.NextText,
+                string.IsNullOrWhiteSpace(r.Place) ? "—" : r.Place,
+                string.IsNullOrWhiteSpace(r.Result) ? "—" : r.Result,
+                r.StatusText,
+            }).ToList());
     private const string Module = "inspection";
     public const int ApproachingDays = 30;
     private readonly IDbConnectionFactory _factory;

@@ -1587,6 +1587,28 @@ app.MapPost("/api/assignments/lost", (HttpContext c, AssignmentOpDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Lost(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/assignments/transfer", (HttpContext c, AssignmentOpDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Transfer(s, d.AssetType, d.AssetId, d.PersonnelId, d.ToPersonnelId ?? "", d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ PRT-02 (FAZ G, 2026-09-04) — PERSONEL ve MUAYENE "Excel'e Aktar" uçları.
+// Projenin kendi kuralı (.claude/rules/list-screens.md Kural 2): filtre/sıralama/sayfalama olan HER
+// liste ekranında bu düğme bulunur ve O ANKİ SAYFAYI DEĞİL, filtrelenmiş TÜM sonucu indirir.
+// Bu iki ekran kuralın dışında kalmıştı. Desen /api/assignments/export ile birebir aynı; yeni bir
+// yol icat edilmedi ve yeni yetki modülü AÇILMADI (mevcut "export" modülü).
+app.MapGet("/api/personnel/export", (HttpContext c, string? search) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    // Sayfa sınırı UYGULANMAZ: kullanıcı filtrelenmiş TÜM sonucu bekler (kuralın özü budur).
+    var rows = svc.Personnel.List(s, new DepoWise.Application.Common.PageRequest { Limit = 100_000 }, search: Doc(search)).Items;
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Personel.xlsx");
+}).RequireAuthorization();
+app.MapGet("/api/inspection/export", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = svc.Inspection.List(s);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Maintenance.InspectionService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Muayene.xlsx");
+}).RequireAuthorization();
 app.MapGet("/api/assignments/export", (HttpContext c, string? search, string? assetType, string? personnelId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();

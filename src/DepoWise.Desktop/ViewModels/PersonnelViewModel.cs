@@ -291,6 +291,29 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         ShowAdd = true; OnPropertyChanged(nameof(FormTitle));
     }
 
+
+    /// <summary>⭐ PRT-02: Excel'e aktar — O AN EKRANDAKİ SAYFA DEĞİL, filtrelenmiş TÜM sonuç
+    /// (projenin liste ekranı kuralı). Yetki: mevcut "export" modülü; yeni yetki AÇILMADI.</summary>
+    public bool CanExport => AccessControl.Can(_session, "export", PermissionAction.View);
+
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            // Ekrandaki filtre AYNEN uygulanır; sayfa sınırı UYGULANMAZ (tüm sonuç indirilir).
+            var tumu = DesktopServices.Personnel.List(_session,
+                new PageRequest { Limit = 100_000 },
+                search: string.IsNullOrWhiteSpace(Search) ? null : Search).Items;
+            var hedef = await FilePickerService.SaveExcelAsync("Personel.xlsx");
+            if (hedef is null) return;
+            await System.IO.File.WriteAllBytesAsync(hedef,
+                DesktopServices.Excel.Export(DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(tumu)));
+            Status = $"Excel kaydedildi: {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
     [RelayCommand]
     private void CancelAdd() { ShowAdd = false; EditId = null; }
 

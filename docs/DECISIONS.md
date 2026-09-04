@@ -4835,3 +4835,35 @@ Saklama tavanı ilk savunmadır; bu uyarı onun yetmediği durumları (yedek/log
 Testler: `GuncellemeSurumUyumuTests` GNC1–GNC6 (güncel · yeni sürüm var ama destekleniyor ·
 **asgarinin altı işaretlenir** · imzasız paket ayrı uyarı · bozuk sürüm metni yanlış güvence vermez ·
 saklama tavanı makul aralıkta). 6/6 · üç proje build 0 hata. Migration gerekmedi.
+
+---
+
+## ADR-216 — FAZ G: kalan parite (PRT-02) — liste ekranı dışa aktarım kuralı (2026-09-04)
+
+**Ölçüm önce.** FAZ G üç madde sayıyordu; ikisi bugün başka durumdaydı:
+
+- **`P-1`** (masaüstünde "Bağı Kaldır") — **zaten yapılmış**. `PersonnelViewModel.RemoveAccount`
+  mevcut ve düğmeye bağlı. Yol haritası satırı eskimişti; **kod yazılmadı** (yazmaya başlamıştım,
+  derleyici "bu metot zaten var" deyince fark edip geri aldım).
+- **`RPR-01`** — 2026-08-11'de erken tamamlanmıştı.
+- **Personel / Muayene filtre+export** — **gerçek eksik**, iki platformda da.
+
+### Projenin kendi kuralı çiğneniyordu
+`.claude/rules/list-screens.md` Kural 2: *"Filtre/sıralama/sayfalama olan HER liste ekranında
+'Excel'e Aktar' bulunur ve o an ekrandaki SAYFA değil, FİLTRELENMİŞ TÜM SONUÇ KÜMESİNİ indirir."*
+Personel ve Muayene/Sigorta ekranları bu kuralın dışında kalmıştı — kullanıcı listeyi görüyor ama
+dışarı alamıyor, aynı bilgi için elle kopyalamak zorunda kalıyordu.
+
+**Yapılan:** iki `TableModel` (kolonlar ekrandakiyle aynı sırada) · iki API ucu
+(`/api/personnel/export`, `/api/inspection/export`) · masaüstü ve web'de düğme.
+
+- **Yeni yetki modülü AÇILMADI** — mevcut `export` modülü kullanıldı. Yeni modül yetki ağacını
+  sessizce büyütür ve mevcut atamaları eksik bırakırdı.
+- **Sayfa sınırı UYGULANMAZ** (`Limit = 100_000`): kuralın özü budur. Sayfa sınırı uygulansaydı
+  kullanıcı eksik dosya indirir ve **bunu fark etmezdi** — bu gece kapatılan sessiz-eksiklik
+  sınıfının aynısı.
+- Desen `/api/assignments/export` ile birebir; yeni bir yol icat edilmedi.
+
+Testler: `ParitePRT02Tests` PRT1–PRT5 (uçlar + yetki · **sayfa değil tüm sonuç** · masaüstü düğme ve
+yetki görünürlüğü · web düğme ve çağrı · tablo modelleri). Doğrulama: ilgili 248 testin 247'si geçti
+(1 atlanan, önceden) · üç proje build 0 hata. Migration gerekmedi.

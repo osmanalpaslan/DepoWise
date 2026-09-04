@@ -14,7 +14,13 @@
         <ctrl:Toolbar Grid.Row="0" Title="Muayene / Sigorta"
                       PrimaryActionText="Yeni Kayıt" PrimaryActionCommand="{Binding NewRecordCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- ⭐ PRT-02: liste ekranı kuralı — filtrelenmiş TÜM sonuç Excel'e aktarılabilir. -->
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
+                            IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Listedeki TÜM muayene/sigorta kayıtlarını Excel olarak indirir."/>
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

@@ -296,4 +296,24 @@ public sealed class PersonnelService
         cmd.AddWithValue("@fs", dto.IsFieldStaff ? 1 : 0);
         cmd.AddWithValue("@now", now);
     }
+
+    /// <summary>
+    /// ⭐ PRT-02 (FAZ G, 2026-09-04) — PERSONEL LİSTESİNİN EXCEL TABLOSU.
+    ///
+    /// Projenin kendi kuralı (`.claude/rules/list-screens.md` Kural 2): filtre/sıralama/sayfalama
+    /// olan HER liste ekranında "Excel'e Aktar" bulunur ve **o an ekrandaki sayfayı değil,
+    /// FİLTRELENMİŞ TÜM SONUCU** indirir. Personel ekranı bu kuralın dışında kalmıştı.
+    ///
+    /// Kolonlar ekranda görünenlerle aynı sırada — kullanıcı indirdiği dosyada tanıdık bir tablo görür.
+    /// </summary>
+    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<PersonnelRecord> rows)
+        => new("Personel", new[] { "Ad Soyad", "Unvan", "Telefon", "Saha Personeli", "Durum" },
+            rows.Select(p => (IReadOnlyList<object?>)new object?[]
+            {
+                p.FullName,
+                string.IsNullOrWhiteSpace(p.Title) ? "—" : p.Title,
+                string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone,
+                p.IsFieldStaff ? "Evet" : "Hayır",
+                p.IsActive ? "Aktif" : "Pasif",
+            }).ToList());
 }
