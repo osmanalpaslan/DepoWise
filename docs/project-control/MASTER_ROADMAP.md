@@ -179,7 +179,7 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 | **FAZ I** | Test/veri bütünlüğü + performans (`TST-01`, index, N+1) | Özellikler bitince | BEKLEMEDE |
 | **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | En son | BEKLEMEDE |
 | **LST-01** | **Tavanlı listelerin sayfalanması** — `Stock` · `Maintenance` · `StockMovements` · `Personnel` · `Audit` · `StockChangeLog` (+ tavansız `Inspection`/`Purchasing`). Hepsinde ARA İŞ 6'daki kusurun aynısı var: kayıt var ama tavan yüzünden **sessizce görünmüyor**. Desen kurulu (`SearchDistributions` + `/api/fuel/grid` + iki arayüz), risk sırasıyla uygulanacak | 🟡 **SIRADA** (ARA İŞ 6'dan devir) |
-| **MOB-W** | **Mobil tarayıcı uyumluluğu** (responsive web) | Kullanıcı telefondan yönetmek istiyor; ayrı mobil uygulama **iptal edildi** (2026-09-04). Yeni özellik doğurmaz, mevcut ekranları dar ekranda kullanılabilir kılar → bağımlılığı yok, hemen yapılabilir | 🔵 **AKTİF** |
+| **MOB-W** | **Mobil tarayıcı uyumluluğu** (responsive web) | Kullanıcı telefondan yönetmek istiyor; ayrı mobil uygulama **iptal edildi** (2026-09-04). Yeni özellik doğurmaz, mevcut ekranları dar ekranda kullanılabilir kılar → bağımlılığı yok, hemen yapılabilir | ✅ **TAMAM + YAYINLANDI** (2026-09-04, ADR-204 · Web v212) |
 | FAZ 9+ | Backlog: BI, e-Fatura, lastik ömrü, puantaj | Gelir sonrası | ERTELENDİ |
 | ~~Mobil uygulama~~ | ~~Ayrı iOS/Android uygulaması~~ | **KAPSAM DIŞI** — kullanıcı kararı 2026-09-04. İhtiyaç `MOB-W` (mobil tarayıcı) ile karşılanıyor | ❌ KALDIRILDI |
 
