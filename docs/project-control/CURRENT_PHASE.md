@@ -1,5 +1,84 @@
 # AKTİF DURUM
 
+## ⭐ YAYIN — 2026-09-05: FAZ I + J + K — ✅ BAŞARILI · **MIGRATION VAR, şema 88 → 91**
+
+**Yayınlanan commit:** `ed9d166` → **API v188** · **Web v215** · **Masaüstü 1.0.177**
+(253 dosya, **self-contained**, 90.604.107 bayt, checksum `114DEBF9…985B490E`, 2 eski paket
+temizlendi ~0,32 GB).
+
+### Veritabanı: migration çalıştı, CANLI VERİ BİREBİR KORUNDU
+
+Bu yayın üç migration taşıyor (089 belge alanları · 090 bakım–cari bağı · 091 liste indeksleri).
+**Hepsi yalnız EKLEME yapar** — kolon ekler, indeks ekler; hiçbir satır yazmaz, silmez, değiştirmez.
+
+Sıra: **pg_dump yedeği → API dağıtımı (migration burada koştu) → web → masaüstü paketi → doğrulama.**
+
+| Kontrol | Yayın ÖNCESİ | Yayın SONRASI |
+|---|---|---|
+| Şema sürümü | 88 | **91** ✅ |
+| `stock_movements` | 747 | **747** ✅ |
+| `vehicle_maintenances` | 94 | **94** ✅ |
+| `equipment_maintenances` | 0 | **0** ✅ |
+| `fuel_distributions` | 710 | **710** ✅ |
+| `personnel` | 81 | **81** ✅ |
+| `companies` | 3 | **3** ✅ |
+
+**Yedek:** `artifacts/prod-backup/depowise_prod_20260905_0113.dump` (824.737 bayt, `pg_dump -Fc`).
+
+**Yeni kolonlar geri DOLDURULMADI** (ölçüldü): `fuel_distributions.invoice_no`,
+`vehicle_maintenances.invoice_no` ve `.party_id` dolu satır sayısı **0** — yani migration mevcut
+kayıtlara hiçbir değer yazmadı. Dört yeni indeksin hepsi oluştu:
+`ix_stock_movements_company` · `ix_vehicle_maintenances_company` ·
+`ix_vehicle_maintenances_party` · `ix_equipment_maintenances_party`.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3430 geçti / 1 başarısız / 48 atlandı** (27 dk 51 sn) — tek başarısız `PRT2`, düzeltilip yeniden koşuldu **5/5** ✅ |
+| Build: API · Web · Masaüstü | 0 hata ✅ |
+| Canlı web: `/`, `/stock`, `/stock/count`, `/materials`, `/vehicles`, `/permissions`, `/personnel`, `/inspection` | **8/8 HTTP 200** ✅ |
+| Canlı API `/health` | 200 ✅ (v188) |
+| `/api/releases/latest` | **1.0.177**, checksum yerel zip ile **birebir aynı** ✅ |
+| Canlı güvenlik başlıkları (web + API) | ✅ — **401 yanıtı da taşıyor** |
+
+### Bu yayında ne değişti
+
+**FAZ K uçtan uca denetimi dört SESSİZ kusur buldu ve kapattı.** Ortak yanları: hiçbiri hata
+vermiyordu; hepsi kullanıcıya yanlış ama inandırıcı bir sonuç gösteriyordu.
+
+1. **Belge/fatura numarası alanlarında uzunluk sınırı yoktu.** Yanlışlıkla yapıştırılan uzun bir
+   metin sessizce kabul ediliyordu. Ortak `BelgeNo` (100 karakter) **servis katmanına** kondu —
+   masaüstünün çevrimdışı yolu da kapsanıyor. Sessizce kırpmaz, **reddeder**.
+2. **Personel Excel'i 200 satırda kesiliyordu.** Düğme "filtrelenmiş TÜM sonucu indirir" diyordu
+   ama sayfa tavanı dosyayı sessizce kırpıyordu. `ListAllForExport` eklendi.
+3. **Web listeleri "yüklenemedi" ile "kayıt yok"u karıştırıyordu.** Sunucuya ulaşılamayınca ekran
+   "Hareket yok." yazıyordu — kayıt silinmiş sanılabilirdi. Artık sebep gösteriliyor ve
+   "Tekrar dene" sunuluyor (stok hareketleri · bakım · personel · muayene).
+   **Masaüstünde bu kusur yoktu** (ölçüldü) — orada değişiklik yapılmadı.
+4. **İki farklı sayfa tavanı** (imleçli 200 / ızgara 500) karıştırılabiliyordu; 2. madde tam
+   olarak bundan doğmuştu. Davranış değiştirilmedi, fark **teste yazıldı**.
+
+Ayrıca FAZ I/J: liste sorgularının indeksleri (Migration091) · tarayıcı güvenlik başlıkları ·
+API sürümleme kararı (sürüm öneki YOK) teyit edildi.
+
+**37 yeni test.** Ölçüm: 25.000 kayıtta ilk sayfa 58 ms, son sayfa 78 ms. Arama doğrusal büyüyor
+(942 ms) — "içerir" araması indeks kullanamaz; ölçüldü, kayda geçti, ölçülmemiş optimizasyon
+eklenmedi.
+
+### Açık kalanlar
+
+- **Tarayıcıda oturum açılarak yapılan elle gezinti YAPILMADI** — giriş formuna parola
+  yazılmadığı için. Kimlik doğrulamalı ekranlar gerçek HTTP hattı (`ApiTestHost`) ile sınandı.
+  **Kullanıcının kendi eliyle yapacağı gezinti en değerli tamamlayıcı adımdır.**
+- Giriş ekranında iki küçük erişilebilirlik eksiği (kapsam dışı, kayda geçti).
+- Neon'da FAZ I doğrulaması için açılan test dalı `br-noisy-rice-a27vakfp` **hâlâ duruyor** —
+  silinmedi; veritabanı silme işlemi geri alınamaz olduğu için kullanıcı kararına bırakıldı.
+- LST-01'in kalan ekranları (Audit, StockChangeLog, Satın Alma).
+
+---
+
+
 ## ⭐ YAYIN — 2026-09-04 (7): STK-12 + FAZ A — ✅ BAŞARILI · **MIGRATION YOK, şema 88**
 
 **Yayınlanan commit:** `4919bad` → **Web v214** · **Masaüstü 1.0.176**
