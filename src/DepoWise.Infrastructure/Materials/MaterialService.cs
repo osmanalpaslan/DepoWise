@@ -21,7 +21,16 @@ public sealed record MaterialRecord(
 
 public sealed record MaterialStock(string MaterialId, string Code, string Name, decimal Quantity);
 
-public sealed record MaterialRefRow(string Id, string Code, string Name);
+public sealed record MaterialRefRow(string Id, string Code, string Name)
+{
+    /// <summary>
+    /// Seçim listelerinde gösterilecek metin: <b>KOD — AD</b> (kullanıcı isteği 2026-09-04).
+    /// Eskiden yalnız AD gösteriliyordu; kullanıcı kodu yazıp arama yaptığında doğru parçanın
+    /// geldiğini <i>doğrulayamıyordu</i>. Kod zaten elde olduğu için tek yerden birleştirilir —
+    /// her ekran kendi biçimini kurmasın diye burada durur.
+    /// </summary>
+    public string Display => string.IsNullOrWhiteSpace(Code) ? Name : $"{Code} — {Name}";
+}
 
 /// <summary>Malzeme listesi ÖZET ŞERİDİ (web v4, 2026-08-27) — sayfalamadan bağımsız, aktif filtrelerle
 /// tutarlı üç sayı. Web'de listenin üstündeki kutuları besler; masaüstü bu alanı okumaz.</summary>

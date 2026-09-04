@@ -512,6 +512,37 @@ public sealed class ApiClient
         catch { return new(); }
     }
 
+    /// <summary>
+    /// MALZEME seçim listesi: gösterim <b>KOD — AD</b> (kullanıcı isteği 2026-09-04).
+    ///
+    /// <see cref="OptionsAsync"/> ile yapılamaz: o, verilen anahtarlardan İLK dolu olanı alır
+    /// (yani "code","name" verilince yalnız kodu döndürür). Kullanıcı kodu yazıp aradığında doğru
+    /// parçanın geldiğini doğrulayabilmek için ikisi birlikte gösterilmelidir.
+    ///
+    /// Masaüstündeki <c>MaterialRefRow.Display</c> ile AYNI biçim kullanılır ki iki ortam aynı görünsün.
+    /// </summary>
+    public async Task<List<Opt>> MaterialOptionsAsync(string path)
+    {
+        try
+        {
+            var arr = await GetArrayAsync(path);
+            var list = new List<Opt>();
+            foreach (var e in arr)
+            {
+                if (e.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                var id = e.TryGetProperty("id", out var i) ? i.GetString() ?? "" : "";
+                if (id == "") continue;
+                var code = e.TryGetProperty("code", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? c.GetString() ?? "" : "";
+                var name = e.TryGetProperty("name", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? n.GetString() ?? "" : "";
+                list.Add(new Opt(id, string.IsNullOrWhiteSpace(code) ? name : $"{code} — {name}"));
+            }
+            return list;
+        }
+        catch { return new(); }
+    }
+
     public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
     {
         var resp = await Gonder(Req(HttpMethod.Get, path));

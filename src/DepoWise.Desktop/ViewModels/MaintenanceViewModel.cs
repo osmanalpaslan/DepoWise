@@ -896,6 +896,10 @@ public sealed partial class MntMaterialLine : ObservableObject
     /// <summary>"Bakım Ekibi Stoğundan Kullanıldı" (kullanıcı isteği 2026-08-08): işaretliyse malzeme kayda
     /// girer ve maliyete dâhil olur, ancak merkez depo stoğundan düşülmez. Varsayılan false = eski davranış.</summary>
     [ObservableProperty] private bool _fromTeamStock;
+    /// <summary>Eklenen satırda da KOD — AD gösterilir (kullanıcı isteği 2026-09-04):
+    /// listeye eklendikten sonra da doğru parçanın seçildiği doğrulanabilsin.</summary>
+    public string Display => string.IsNullOrWhiteSpace(Code) ? Name : $"{Code} — {Name}";
+
     public MntMaterialLine(string materialId, string code, string name) { MaterialId = materialId; Code = code; Name = name; }
 }
 

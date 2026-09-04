@@ -364,6 +364,7 @@
         DailyActivityListColumns.Route => "route",
         DailyActivityListColumns.Operator => "operator",
         DailyActivityListColumns.Duration => "duration",
+        DailyActivityListColumns.MaterialQty => "materialQtyText",
         _ => "description",
     });
 
@@ -422,8 +423,15 @@
     {
         var qs = new List<string>();
         if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
+        // Kolon anahtarı ile API parametre adı her zaman aynı değildir (C# ayrılmış sözcük /
+        // adlandırma farkı) → eşleme burada TEK yerde yapılır.
+        static string ParamAdi(string key) => key switch
+        {
+            DailyActivityListColumns.Operator => "operatorText",   // "operator" C#'ta ayrılmış sözcük
+            _ => key,                                              // diğerlerinde anahtar = parametre adı
+        };
         foreach (var (k, v) in _filters)
-            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{(k == DailyActivityListColumns.Operator ? "operatorText" : k)}={Uri.EscapeDataString(v.Trim())}");
+            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{ParamAdi(k)}={Uri.EscapeDataString(v.Trim())}");
         return qs;
     }
 
@@ -486,7 +494,7 @@
     }
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
     {
-        var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+        var r = await Api.MaterialOptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"));
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
 
