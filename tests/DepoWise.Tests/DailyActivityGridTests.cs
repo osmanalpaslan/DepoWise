@@ -171,6 +171,66 @@ public class DailyActivityGridTests : IDisposable
         Assert.Equal(1, _daily.SearchGrid(b, new DailyActivityGridFilter(), 1, 50).TotalCount);
     }
 
+    /// <summary>
+    /// ⭐ MALZEME MİKTARI SÜTUNU (kullanıcı isteği 2026-09-04).
+    ///
+    /// Kullanıcı listede "kullanılan malzeme miktarı"nı görmek istedi. Bu KALEM SAYISI DEĞİLDİR:
+    /// 2 satırda 2+1 = 3 adet kullanıldıysa miktar <b>3</b>'tür (kalem 2'dir). İki bilgi karışırsa
+    /// rapor yanlış okunur — test bu ayrımı kilitler.
+    ///
+    /// Ayrıca malzemesi olmayan (hareket/transfer) kayıtta sütun BOŞ görünmelidir ("0" değil) —
+    /// tablo gereksiz sıfırlarla kirlenmesin.
+    /// </summary>
+    [Fact]
+    public void SearchGrid_MalzemeMiktari_KalemSayisindan_Farklidir()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-1", CurrentMeter: 100m));
+        var materials = new MaterialService(_factory, _clock);
+        var opening = new OpeningStockService(_factory, _clock);
+        var defs = new MaintenanceDefinitionService(_factory, _clock);
+        var dailyWithDefs = new DailyActivityService(_factory, _maint, _clock, defs);
+
+        var m1 = materials.Create(_admin, new NewMaterial("MAT-1", "Filtre"));
+        var m2 = materials.Create(_admin, new NewMaterial("MAT-2", "Yağ"));
+        opening.RecordOpening(_admin, m1, 100m, "op-a1");
+        opening.RecordOpening(_admin, m2, 100m, "op-a2");
+        var d = defs.Create(_admin, new NewMaintenanceDefinition("Periyodik", 100m, "km"));
+
+        // 2 KALEM, toplam 3 ADET
+        dailyWithDefs.SaveMaintenanceActivity(_admin, new NewMaintenance(v, d, PerformedKm: 200m,
+            Materials: new[] { new MaintenanceMaterialLine(m1, 2m), new MaintenanceMaterialLine(m2, 1m) }), "op-bakim");
+        // Malzemesiz kayıt
+        dailyWithDefs.SaveMovement(_admin, new NewMovementActivity("movement", v), "op-hareket");
+
+        var hepsi = _daily.SearchGrid(_admin, new DailyActivityGridFilter(), 1, 50);
+        var bakim = hepsi.Items.Single(r => r.Type == "Bakım");
+        var hareket = hepsi.Items.Single(r => r.Type == "Hareket");
+
+        Assert.Equal(3m, bakim.MaterialQty);        // 2 + 1 = 3 ADET (kalem sayısı 2 DEĞİL)
+        Assert.Equal("3", bakim.MaterialQtyText);
+        Assert.Equal(0m, hareket.MaterialQty);
+        Assert.Equal("—", hareket.MaterialQtyText); // malzemesiz kayıtta boş gösterim
+
+        // Sayısal filtre: "3" yazınca yalnız bakım kaydı gelir (içerir araması değil, tam eşleşme).
+        var suzulmus = _daily.SearchGrid(_admin, new DailyActivityGridFilter(MaterialQty: "3"), 1, 50);
+        Assert.Equal(1, suzulmus.TotalCount);
+        Assert.Equal("Bakım", suzulmus.Items[0].Type);
+    }
+
+    /// <summary>Excel çıktısı kolon kataloğuyla AYNI sayıda hücre üretmeli (başlıklar oradan geliyor).</summary>
+    [Fact]
+    public void ToTableModel_Basliklar_ve_Hucreler_Ayni_Sayida()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-1"));
+        _daily.SaveMovement(_admin, new NewMovementActivity("movement", v), "op-1");
+
+        var rows = _daily.SearchGridAll(_admin, new DailyActivityGridFilter());
+        var table = DailyActivityService.ToTableModel(rows);
+
+        Assert.Equal(DailyActivityListColumns.All.Count, table.Headers.Count);
+        Assert.All(table.Rows, r => Assert.Equal(table.Headers.Count, r.Count));
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
