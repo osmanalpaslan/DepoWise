@@ -127,7 +127,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     {
         [DailyActivityListColumns.Date] = 100, [DailyActivityListColumns.Type] = 100, [DailyActivityListColumns.Vehicle] = 150,
         [DailyActivityListColumns.Route] = 170, [DailyActivityListColumns.Operator] = 130, [DailyActivityListColumns.Duration] = 80,
-        [DailyActivityListColumns.Description] = 160,
+        [DailyActivityListColumns.MaterialQty] = 110, [DailyActivityListColumns.Description] = 160,
     };
 
     [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
@@ -211,7 +211,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         }
         return new DailyActivityGridFilter(
             V(DailyActivityListColumns.Type), V(DailyActivityListColumns.Vehicle), V(DailyActivityListColumns.Route),
-            V(DailyActivityListColumns.Operator), V(DailyActivityListColumns.Duration), V(DailyActivityListColumns.Description));
+            V(DailyActivityListColumns.Operator), V(DailyActivityListColumns.Duration), V(DailyActivityListColumns.Description),
+            V(DailyActivityListColumns.MaterialQty));
     }
 
     [RelayCommand]

@@ -153,6 +153,9 @@ public static class DailyActivityListColumns
     public const string Route = "route";
     public const string Operator = "operator";
     public const string Duration = "duration";
+    /// <summary>Kullanılan malzeme MİKTARI toplamı (kullanıcı isteği 2026-09-04). Kalem sayısı değil,
+    /// miktar toplamıdır; bakım/ilave kayıtlarında dolu, hareket/transferde boştur.</summary>
+    public const string MaterialQty = "materialQty";
     public const string Description = "description";
 
     public static readonly IReadOnlyList<ListColumn> All = new[]
@@ -163,13 +166,14 @@ public static class DailyActivityListColumns
         new ListColumn(Route, "Rota"),
         new ListColumn(Operator, "Personel"),
         new ListColumn(Duration, "Süre"),
+        new ListColumn(MaterialQty, "Malzeme Miktarı", IsNumeric: true),
         new ListColumn(Description, "Açıklama"),
     };
 
     /// <summary>Eski sabit listeyle AYNI (davranış değişmesin).</summary>
     public static readonly IReadOnlyList<string> DefaultVisible = new[]
     {
-        Date, Type, Vehicle, Route, Operator, Duration, Description,
+        Date, Type, Vehicle, Route, Operator, Duration, MaterialQty, Description,
     };
 
     public static IReadOnlyList<string> Sanitize(IEnumerable<string>? keys)

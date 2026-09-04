@@ -1485,7 +1485,8 @@ SELECT da.activity_date, da.activity_type, COALESCE(da.movement_kind,'') AS kind
        COALESCE(tech.full_name,'') AS technician_text,
        vm.performed_km, vm.performed_hour, vm.performed_date,
        COALESCE(mm.kalem,0) AS material_count,
-       COALESCE(mm.tutar,0) AS material_cost
+       COALESCE(mm.tutar,0) AS material_cost,
+       COALESCE(mm.miktar,0) AS material_qty
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
@@ -1503,6 +1504,9 @@ LEFT JOIN personnel tech ON tech.id = vm.technician_id AND tech.company_id = da.
 LEFT JOIN (
     SELECT maintenance_id,
            COUNT(*) AS kalem,
+           -- 2026-09-04 (kullanıcı isteği): KALEM SAYISI değil, kullanılan MİKTAR toplamı.
+           -- Kalem sayisi ile miktar toplami FARKLI bilgilerdir; kullanici ikincisini istedi.
+           SUM(CAST(quantity AS REAL)) AS miktar,
            SUM(CAST(quantity AS REAL) * CAST(COALESCE(unit_price,'0') AS REAL)) AS tutar
     FROM maintenance_materials GROUP BY maintenance_id
 ) mm ON mm.maintenance_id = da.maintenance_id
@@ -1521,7 +1525,7 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();
-        double tGun = 0, tTutar = 0;
+        double tGun = 0, tTutar = 0, tMiktar = 0;
         int tKalem = 0;
         using (var r = cmd.ExecuteReader())
             while (r.Read())
@@ -1535,7 +1539,9 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
                 double gun = r.IsDBNull(8) ? 0 : Convert.ToDouble(r.GetValue(8));
                 int kalem = r.IsDBNull(16) ? 0 : Convert.ToInt32(r.GetValue(16));
                 double tutar = r.IsDBNull(17) ? 0 : Convert.ToDouble(r.GetValue(17));
-                tGun += gun; tKalem += kalem; tTutar += tutar;
+                // 2026-09-04: kullanılan malzeme MİKTARI (kalem sayısından ayrı bilgi).
+                double miktar = r.IsDBNull(18) ? 0 : Convert.ToDouble(r.GetValue(18));
+                tGun += gun; tKalem += kalem; tTutar += tutar; tMiktar += miktar;
 
                 // Bakım "yapılma" değeri: km / saat / tarih — hangisi doluysa o (araç raporlarıyla aynı biçim).
                 var yapilma =
@@ -1560,24 +1566,26 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
                     Num(gun, x => x.ToString("0.##", Tr)),
                     tanim, r.GetString(12), yapilma,
                     kalem == 0 ? "" : Num(kalem, x => x.ToString("0", Tr)),
+                    miktar == 0 ? "" : Num(miktar, x => x.ToString("0.##", Tr)),
                     tutar == 0 ? "" : Num(tutar, x => x.ToString("#,##0.##", Tr)),
                     r.GetString(9),
                 });
             }
 
-        var numeric = new[] { false, false, false, false, false, false, false, true, false, false, false, true, true, false };
+        var numeric = new[] { false, false, false, false, false, false, false, true, false, false, false, true, true, true, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
             "TOPLAM", $"{rows.Count} kayıt", "", "", "", "", "",
             Num(tGun, x => x.ToString("0.##", Tr)), "", "", "",
             Num(tKalem, x => x.ToString("0", Tr)),
+            Num(tMiktar, x => x.ToString("0.##", Tr)),
             Num(tTutar, x => x.ToString("#,##0.##", Tr)), "",
         };
 
         return new TableModel("Günlük Faaliyet — Detay", new[]
         {
             "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)",
-            "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Parça Maliyeti", "Açıklama",
+            "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti", "Açıklama",
         }, rows, numeric, totalRow);
     }
 
@@ -1615,12 +1623,18 @@ SELECT COALESCE(v.internal_code,'') AS vehicle_code,
        SUM(COALESCE(mm.kalem,0)) AS kalem,
        SUM(COALESCE(mm.tutar,0)) AS tutar,
        MIN(da.activity_date) AS ilk,
-       MAX(da.activity_date) AS son
+       MAX(da.activity_date) AS son,
+       -- 2026-09-04 (kullanıcı isteği): kullanılan malzeme MİKTARI toplamı.
+       -- Mevcut sütun indekslerini kaydırmamak için bilinçli olarak SONA eklendi.
+       SUM(COALESCE(mm.miktar,0)) AS miktar
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN (
     SELECT maintenance_id,
            COUNT(*) AS kalem,
+           -- 2026-09-04 (kullanıcı isteği): KALEM SAYISI değil, kullanılan MİKTAR toplamı.
+           -- Kalem sayisi ile miktar toplami FARKLI bilgilerdir; kullanici ikincisini istedi.
+           SUM(CAST(quantity AS REAL)) AS miktar,
            SUM(CAST(quantity AS REAL) * CAST(COALESCE(unit_price,'0') AS REAL)) AS tutar
     FROM maintenance_materials GROUP BY maintenance_id
 ) mm ON mm.maintenance_id = da.maintenance_id
@@ -1642,7 +1656,7 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
 
         var rows = new List<IReadOnlyList<object?>>();
         long tKayit = 0, tBakim = 0, tYag = 0, tFiltre = 0, tTamir = 0, tHareket = 0, tTransfer = 0, tKalem = 0;
-        double tGun = 0, tTutar = 0;
+        double tGun = 0, tTutar = 0, tMiktar = 0;
 
         string Tarih(object? v) => v is null || v == DBNull.Value
             ? "" : DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(v)).UtcDateTime.ToString("dd.MM.yyyy", Tr);
@@ -1659,9 +1673,11 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
                 double gun = r.IsDBNull(9) ? 0 : Convert.ToDouble(r.GetValue(9));
                 long kalem = r.IsDBNull(10) ? 0 : Convert.ToInt64(r.GetValue(10));
                 double tutar = r.IsDBNull(11) ? 0 : Convert.ToDouble(r.GetValue(11));
+                double miktar = r.IsDBNull(14) ? 0 : Convert.ToDouble(r.GetValue(14));   // 2026-09-04
 
                 tKayit += kayit; tBakim += bakim; tYag += yag; tFiltre += filtre; tTamir += tamir;
                 tHareket += hareket; tTransfer += transfer; tGun += gun; tKalem += kalem; tTutar += tutar;
+                tMiktar += miktar;
 
                 rows.Add(new object?[]
                 {
@@ -1676,13 +1692,14 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
                     Num(transfer, x => x.ToString("0", Tr)),
                     Num(gun, x => x.ToString("0.##", Tr)),
                     Num(kalem, x => x.ToString("0", Tr)),
+                    Num(miktar, x => x.ToString("0.##", Tr)),
                     Num(tutar, x => x.ToString("#,##0.##", Tr)),
                     Tarih(r.IsDBNull(12) ? null : r.GetValue(12)),
                     Tarih(r.IsDBNull(13) ? null : r.GetValue(13)),
                 });
             }
 
-        var numeric = new[] { false, false, true, true, true, true, true, true, true, true, true, true, false, false };
+        var numeric = new[] { false, false, true, true, true, true, true, true, true, true, true, true, true, false, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
             "TOPLAM", $"{rows.Count} araç",
@@ -1690,13 +1707,14 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
             Num(tYag, x => x.ToString("0", Tr)), Num(tFiltre, x => x.ToString("0", Tr)),
             Num(tTamir, x => x.ToString("0", Tr)), Num(tHareket, x => x.ToString("0", Tr)),
             Num(tTransfer, x => x.ToString("0", Tr)), Num(tGun, x => x.ToString("0.##", Tr)),
-            Num(tKalem, x => x.ToString("0", Tr)), Num(tTutar, x => x.ToString("#,##0.##", Tr)), "", "",
+            Num(tKalem, x => x.ToString("0", Tr)), Num(tMiktar, x => x.ToString("0.##", Tr)),
+            Num(tTutar, x => x.ToString("#,##0.##", Tr)), "", "",
         };
 
         return new TableModel("Günlük Faaliyet — Dönem (Toplam)", new[]
         {
             "Araç Kodu", "Plaka", "Kayıt", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Hareket", "Transfer",
-            "Süre (gün)", "Malzeme Kalemi", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt",
+            "Süre (gün)", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt",
         }, rows, numeric, totalRow);
     }
 
