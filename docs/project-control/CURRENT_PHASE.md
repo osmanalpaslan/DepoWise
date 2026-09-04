@@ -1,5 +1,41 @@
 # AKTİF DURUM
 
+## ⭐ YAYIN — 2026-09-04 (ADR-200 + ADR-201 + ADR-202) — ✅ BAŞARILI · **MIGRATION VAR: canlı şema 87 → 88**
+
+**Yayınlanan commit:** `ea08c88` → **API v186** · **Web v210** · **Masaüstü 1.0.172**
+(253 dosya, **self-contained**, 90.566.503 bayt, checksum `F959C767…9AD3321F`, 1 eski paket temizlendi ~0,24 GB)
+· **AlpnexSetup.exe** 47.584.208 bayt (Avalonia, tek dosya) → `/api/setup/download` HTTP 200.
+
+**Yayın öncesi yedek:** `artifacts/backups/depowise_prod_pre_migration088.dump` — 810.863 bayt,
+**584 nesne** (`pg_restore -l` ile doğrulandı).
+
+**Migration088_EquipmentTypeLocked uygulandı:** şema **87 → 88**, yalnız EK sütun
+`equipment_types.is_locked` (varsayılan 0 — yayın günü hiçbir kayıt kilitlenmedi: kilitli sayısı 0).
+
+**Canlı veri birebir korundu** (öncesi → sonrası): malzeme **2503 → 2503** · araç **167 → 167** ·
+stok hareketi **722 → 722** · kullanıcı **9 → 9** · şube **10 → 10** · ekipman türü **0 → 0**.
+
+**Yayın sonrası kontroller:** `/health` ✅ · `/api/releases/latest` ✅ 1.0.172 ·
+`/api/setup/download` ✅ 200 · web `/`, `/definitions`, `/daily`, `/permissions`, `/materials` ✅ 5/5 HTTP 200.
+
+**Doğrulama:** tam süit **3301 geçti / 2 başarısız / 48 atlanan** → iki başarısız NÖBETÇİ testti
+(ADR-201'de eklenen "Malzeme Miktarı" filtre kutusunun sayısını bilinçli onaylatıyor); sayılar
+güncellendi, hedefli koşuda **52/52 geçti**.
+
+**Bu yayında çıkanlar**
+- **ADR-200 — Yeni kurulum aracı (AlpnexSetup.exe).** WinForms → Avalonia; SHA-256 **fail-closed**
+  doğrulama (imza yoksa/uyuşmazsa kurulum iptal, dosya silinir), HTTPS + host beyaz listesi,
+  çift indirme hatası giderildi, yeniden deneme + kaldığı yerden devam, 5 ekranlı modern arayüz.
+- **ADR-201 — Dört saha isteği.** Malzeme seçiminde **KOD + AD** · Günlük Faaliyet listesinde ve
+  iki raporda **Malzeme Miktarı** kolonu · fotoğraf biçim doğrulaması · yetki değişikliklerinde
+  denetime **öncesi/sonrası** kaydı + kaydet özeti.
+- **ADR-202 — Üç hata.** `equipment_types.is_locked` eksikliği (Tanımlar açılmıyordu) ·
+  web Yetkiler ekranında ham ID yerine **şube adı** · **sessizce boş yedek** ve bozulmayı fark
+  etmeyen sağlık kontrolü (ikisi de veri güvenliği kusuruydu, bkz. DECISIONS.md ADR-202).
+
+---
+
+
 ## ⭐ YAYIN — 2026-09-03 (ADR-198 + ADR-199) — ✅ BAŞARILI · **MIGRATION VAR: canlı şema 86 → 87**
 
 **Yayınlanan commit:** `7549737` (ADR-199; ADR-198 `ea2bbf3` aynı yayında) → **API v185** · **Web v209** ·
@@ -53,7 +89,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
