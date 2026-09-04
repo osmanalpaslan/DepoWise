@@ -4281,3 +4281,41 @@ renk yok.
 doğru, aktif sekme kehribar, ✕ sekmeyi kaldırıyor, "Yeni Sekme" ekran aramasına odaklanıyor, açık
 tema doğru. Masaüstü: derleme + nöbetçi testler; görsel onay için yerel kopya kullanıcının
 masaüstüne bırakıldı (Avalonia bu ortamda render edilemiyor).
+
+## ADR-204 — Mobil uygulama iptal, yerine mobil tarayıcı uyumluluğu (MOB-W) (2026-09-04)
+
+**Karar (kullanıcı).** Ayrı bir mobil UYGULAMA yapılmayacak; yol haritasından **tamamen** çıkarıldı.
+Kullanıcı telefonun **tarayıcısından** girip işi oradan yönetecek. Gerekçesi: mobil uygulamanın
+bakım/yayın yükünü taşımak istemiyor.
+
+Teknik olarak da doğru: ayrı uygulama **üçüncü bir istemci** demekti. Bugün iki istemci (masaüstü +
+web) `AppScreens` kataloğu, yetki kapıları ve senkron sözleşmesiyle hizada tutuluyor; üçüncüsü bu
+hizalama maliyetini 1,5 katına çıkarır, ayrıca mağaza/imzalama/sürüm uyumu yükü getirirdi. Web zaten
+Blazor Server'dır — telefonda çalışması için yeni mimari değil, **yalnız dar ekran davranışı** gerekir.
+
+**Kapsam.** Yeni ekran/özellik/yetki/API/migration **yok**. Masaüstü uygulaması **etkilenmez**
+(değişiklik yalnız web'in sunum katmanında). Çevrimdışı mobil çalışma yok — o masaüstünün işidir.
+
+**Yaklaşım — 62 sayfaya tek tek dokunulmadı.** Web'de 62 Razor sayfası / katalogda 70 ekran var; her
+birine ayrı mobil düzeni yazmak hem haftalar sürer hem her YENİ ekranda yeniden unutulurdu. Mobil
+davranış `app.css` §18'de **tek katmanda** toplandı: kurallar uygulamanın ORTAK yapılarını (üst bar ·
+menü · tablo · filtre satırı · dialog · sekme şeridi) hedefler, dolayısıyla bütün ekranlara aynı anda
+uygulanır ve sonradan eklenen ekran da kendiliğinden alır. Ortak dosyalardan yalnız `MainLayout.razor`
+değişti. **Hiçbir ekran sayfası değiştirilmedi.**
+
+**En kritik iki düzeltme:** (1) menü `Persistent` → `Responsive` — eskiden telefonda içeriği yana
+itiyordu ve 375 px ekranda içeriğe ~135 px kalıyordu; (2) 102 tablonun hiçbirinde yatay kaydırma
+yoktu → tablolar artık **kendi içinde** kayar ve sayfa gövdesi asla yana kaymaz.
+
+**Uygulama sırasında bulunan gerileme (düzeltildi).** Aramanın iki kopyası önce `MudHidden` ile
+ayrılmıştı; bu **geniş ekranda arama kutusunu tamamen kaybettirdi** — MudHidden kırılım bilgisini
+JavaScript'ten alır ve güncellenmeyince "gizli" varsayar. Görünürlük CSS medya sorgusuna alındı
+(tarayıcının kendi ölçüsü, şaşmaz) ve `MOB4` testi bu geri dönüşü yasakladı.
+
+**Doğrulama.** İzole QA sunucusunda (kendi veritabanı, üretime dokunulmadı) 375×812'de 8 ekran:
+sayfa yatay kayması ve gerçek taşma **yok** — ölçüm, §18.6 güvenlik ağı geçici kapatılarak yapıldı
+ki ağ gerçek taşmaları gizlemesin. 1440 px'te arayüz **birebir eskisi gibi**. `MobilWebTests`
+(MOB1–MOB6); MOB3 her mobil kuralın medya sorgusu içinde kaldığını süslü parantez derinliği sayarak
+doğrular → "telefonu düzeltirken bilgisayarı bozma" riski kalıcı kapandı.
+
+Ayrıntı: [MOB_W_01_MOBIL_WEB.md](project-control/MOB_W_01_MOBIL_WEB.md)

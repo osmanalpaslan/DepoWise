@@ -1,5 +1,34 @@
 # AKTİF DURUM
 
+## 🔵 AKTİF — `MOB-W` Mobil tarayıcı uyumluluğu (2026-09-04) — KODLANDI, YAYIN BEKLİYOR
+
+**Kullanıcı kararı:** ayrı mobil UYGULAMA **tamamen iptal** — yol haritasından çıkarıldı (ADR-204).
+Kullanıcı telefonun **tarayıcısından** girip işi oradan yönetecek.
+
+**Yapılan:** mobil davranış `app.css` §18'de **tek katmanda** toplandı (62 sayfaya tek tek
+dokunulmadı). Ortak dosyalardan yalnız `MainLayout.razor` değişti; **hiçbir ekran sayfası
+değiştirilmedi**, masaüstü uygulaması **etkilenmedi**, migration/API/yetki değişikliği **yok**.
+
+En kritik iki düzeltme: (1) menü `Persistent` → `Responsive` — eskiden telefonda içeriği yana itiyor
+ve 375 px ekranda içeriğe ~135 px bırakıyordu; (2) 102 tablonun hiçbirinde yatay kaydırma yoktu →
+tablolar artık kendi içinde kayıyor, sayfa gövdesi asla yana kaymıyor.
+
+**Doğrulama:** izole QA sunucusunda (`artifacts/qa-data`; üretime ve geliştiricinin kendi verisine
+dokunulmadı) **11 genişlikte** (320→1920 px) üst bar taşması ve sayfa yatay kayması **yok**;
+8 ekranda gerçek taşma **yok** (güvenlik ağı geçici kapatılarak ölçüldü). `MobilWebTests` MOB1–MOB6.
+
+**Bu turda bulunan iki gerileme/kusur (düzeltildi):**
+- `MudHidden` geniş ekranda arama kutusunu **tamamen kaybettiriyordu** → görünürlük CSS medya
+  sorgusuna alındı, `MOB4` geri dönüşü yasakladı.
+- **MOB-W'den ÖNCE de var olan kusur:** tam masaüstü üst barı ~1060 px ister, 1000 px'lik pencerede
+  zaten taşıyordu → üst bar sınırı ölçümle **1100 px** seçildi.
+
+**Sıradaki:** yayın → sonra **FAZ C'nin kalan tek işi `TRF-01`** (transfer UI paritesi + bakiyeye
+yansıma doğrulaması), ardından FAZ A → B → D → E → F → G → H → I → J.
+
+---
+
+
 ## ⭐ YAYIN — 2026-09-04 (2) (ADR-203 — SEKME ŞERİDİ) — ✅ BAŞARILI · **MIGRATION YOK, şema 88**
 
 **Yayınlanan commit:** `5a4a998` → **Web v211** · **Masaüstü 1.0.173**
@@ -124,7 +153,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-04 (3) YAYIN** (**ADR-203 SEKME ŞERİDİ YAYINLANDI: Web v211 · masaüstü 1.0.173 · migration YOK, şema 88.** Kullanıcının çizdiği tasarım iki platformda; web şeridi ALTTAN ÜSTE taşındı → alt barın tablo sayfa numaralarını kapatma sorunu giderildi. Yayın öncesi görsel onay alındı.) · Önceki: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-04 (4)** (**MOB-W kodlandı: mobil UYGULAMA iptal (ADR-204), yerine mobil TARAYICI uyumluluğu. app.css §18 tek katman; menü Responsive, tablolar kendi içinde kayıyor, arama telefonda menüde. 62 sayfaya dokunulmadı, masaüstü etkilenmedi, migration YOK. 320-1920 px arası 11 ölçüde taşma yok. YAYIN BEKLİYOR.**) · Önceki: **2026-09-04 (3) YAYIN** (**ADR-203 SEKME ŞERİDİ YAYINLANDI: Web v211 · masaüstü 1.0.173 · migration YOK, şema 88.** Kullanıcının çizdiği tasarım iki platformda; web şeridi ALTTAN ÜSTE taşındı → alt barın tablo sayfa numaralarını kapatma sorunu giderildi. Yayın öncesi görsel onay alındı.) · Önceki: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 

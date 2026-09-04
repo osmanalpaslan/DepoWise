@@ -34,6 +34,31 @@
         "--Api:BaseUrl=http://localhost:5224"
       ],
       "port": 5283
+    },
+
+    {
+      "//": "IZOLE QA SUNUCUSU (2026-09-04). Veritabani artifacts/qa-data altindadir (git'te YOK) -> gelistiricinin kendi yerel verisine ASLA dokunulmaz. Arayuz denemeleri (ornegin mobil uyumluluk) bu ciftle yapilir.",
+      "name": "api-qa",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+        "$env:DEPOWISE_SERVER_DATA = (Join-Path $PWD 'artifacts/qa-data'); dotnet run --project src/DepoWise.Api --urls http://localhost:5225"
+      ],
+      "port": 5225
+    },
+    {
+      "name": "web-qa",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5284",
+        "--",
+        "--Api:BaseUrl=http://localhost:5225"
+      ],
+      "port": 5284
     }
   ]
 }
