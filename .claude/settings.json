@@ -198,6 +198,12 @@
       "Bash(fly version:*)",
       "Bash(flyctl auth whoami:*)",
       "Bash(flyctl orgs:*)",
+      "Bash(flyctl deploy:*)",
+      "Bash(fly deploy:*)",
+      "Bash(flyctl releases:*)",
+      "Bash(fly releases:*)",
+      "Bash(flyctl auth token:*)",
+      "Bash(pg_dump:*)",
 
       "PowerShell",
       "Bash(powershell:*)",
