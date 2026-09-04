@@ -4753,3 +4753,56 @@ güvenilmezdir, bu yüzden ikincil sıralama anahtarı lehçeye göre seçilir (
 
 Testler: `ListeSayfalamaTests` LST1–LST7. Doğrulama: ilgili 800 testin 789'u geçti (11 atlanan,
 hepsi önceden) · üç proje build 0 hata. **Migration gerekmedi.**
+
+---
+
+## ADR-214 — FAZ E: senkron sıkıştırma + pull imlecindeki sessiz veri kaybı (2026-09-04)
+
+**Ölçüm önce.** FAZ E beş madde (`SNK-06…10`) sayıyordu; bugünkü gerçek farklı çıktı:
+
+| Madde | Durum |
+|---|---|
+| `SNK-06` delta pull + kalıcı imleç | ✅ **zaten yapılmış** — imleç `sync_pull_cursor` ayarında saklanıyor ve yeniden başlatmayı atlatıyor |
+| `SNK-08` yanıt sıkıştırma | ❌ yoktu → **eklendi** |
+| `SNK-09` saat kaymasına dayanıklı delta ölçütü | ⚠️ araştırırken **gerçek ve sessiz bir veri kaybı** bulundu → düzeltildi |
+| `SNK-10` silinen kaydın delta ile taşınması | ✅ çalışıyordu, **kilitlenmemişti** → test eklendi |
+| `SNK-07` snapshot sayfalama | ⏳ açık kaldı (aşağıda) |
+
+### `SNK-08` — sıkıştırma
+`AddResponseCompression` + `UseResponseCompression`. **`EnableForHttps = true` bilinçli:** Fly HTTPS'i
+zorluyor, kapalı bırakılsaydı (varsayılan) sıkıştırma canlıda **hiç çalışmazdı**. BREACH sınıfı saldırı
+sırrın yanıt gövdesinde ve saldırganın kontrolündeki verinin aynı yanıtta olmasını gerektirir; bu uçlar
+Bearer jetonuyla korunur, jeton gövdede dönmez, çerez tabanlı oturum yoktur.
+Sıkıştırma kimlik doğrulamadan **önce** yerleştirildi ki 401/403 dâhil tüm yanıtları kapsasın.
+
+Kullanıcı kazancı somut: baba **başka bir şehirden** ev internetiyle senkron oluyor; snapshot JSON'u
+çok tekrarlı olduğu için gzip tipik olarak %80–90 küçültür.
+
+### `SNK-09` — 🔴 bulunan sessiz veri kaybı ve **yanlış giden ilk denemem**
+İstemci, çekimden sonra imleci **sunucunun global sürümü** (`MAX(updated_at)`) olarak saklıyordu.
+Sunucu sürümü okunduktan sonra **aynı milisaniyede** yazılan bir satır bir daha asla gelmiyordu:
+sonraki çekim `> imleç` sorduğu için damgası eşit olan satır daima eleniyordu. Kayıt sunucuda vardı,
+makinede hiç görünmüyordu, hiçbir hata da üretmiyordu.
+
+**İlk düzeltmem yanlıştı ve testler yakaladı.** Paylaşılan filtreyi `>` yerine `>=` yaptım; iki test
+kırıldı. İnceleyince görüldü ki `BuildSnapshot` **hem push hem pull** tarafından kullanılıyor ve
+**push'ta `>` doğru**: orada `sinceVersion`, bu makinenin gerçekten gönderdiği satırların en büyük
+damgasıdır (watermark) → `>` tam olarak göndereni dışlar. `>=` yapmak Z4-C'nin kilitlediği
+"gönderilen tekrar gönderilmez" sözleşmesini bozuyordu.
+
+Kusur ortak filtrede değil, **imlecin neye göre saklandığındaydı**. Doğru düzeltme, Z4'ün push
+tarafında zaten uyguladığı çözümün pull'a taşınmasıydı: imleç artık **gerçekten alınan satırların en
+büyük damgası**. Paket boşsa imleç **ilerletilmez** — ilerletmek, henüz görülmemiş satırları atlamak
+demek olurdu.
+
+> Testlerin "yanlış" olduğunu düşünüp değiştirmek yerine ne kanıtladıklarını okumak, üstünkörü
+> benzeyen bir düzeltme yerine doğru olanı buldurdu.
+
+### `SNK-07` — bilinçli olarak açık bırakıldı
+Snapshot sayfalama, delta pull (SNK-06) ve sıkıştırma (SNK-08) birlikte çalışırken **ölçülmüş bir
+sorun olmadan** yapılmamalı: doğru sayfa boyutu ancak gerçek paket büyüklüğü görülerek seçilir.
+Ölçmeden sayfalama eklemek, çalışan bir yolu ölçüsüz karmaşıklaştırır (protokol §8).
+
+Testler: `SenkronDeltaTests` SNK9a (kusurun kanıtı) · SNK9b (düzeltmenin kanıtı) · SNK9c (delta hâlâ
+delta) · SNK10 (silinen kayıt taşınır) · SNK10b (delta yolunda firma kapsamı).
+Doğrulama: senkron+API 642 testin 641'i geçti (1 atlanan, önceden) · üç proje build 0 hata.

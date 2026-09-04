@@ -69,6 +69,55 @@ public static class BusinessSyncPullService
     /// <param name="sinceVersion">DELTA: >0 ise sunucudan yalnız updated_at&gt;sinceVersion satırlar çekilir
     /// (rutin çekme küçük/hızlı). 0 ise TAM snapshot (ilk giriş / manuel tam eşitleme).</param>
     /// <returns>true = başarıyla çekilip uygulandı (kabuk pull imlecini o zaman ilerletir); false = ulaşılamadı/hata.</returns>
+    /// <summary>
+    /// ⭐ SNK-09 — SON ÇEKİMDE GERÇEKTEN ALINAN EN BÜYÜK DAMGA (pull watermark).
+    /// <c>null</c> = paket boştu ya da damga okunamadı → çağıran imleci İLERLETMEZ.
+    /// </summary>
+    public static long? AlinanWatermark { get; private set; }
+
+    /// <summary>
+    /// 🔴 SNK-09 — KAPATILAN SESSİZ VERİ KAYBI.
+    ///
+    /// <b>Eski davranış:</b> çekimden sonra imleç, sunucunun bildirdiği GLOBAL SÜRÜM
+    /// (<c>MAX(updated_at)</c>) olarak saklanıyordu. Sunucu sürümü okunduktan sonra <b>aynı
+    /// milisaniyede</b> yazılan bir satır bir daha ASLA gelmiyordu: bir sonraki çekim
+    /// <c>&gt; imleç</c> sorduğu için damgası eşit olan satır daima eleniyordu. Kayıt sunucuda
+    /// vardı, bu makinede hiç görünmüyordu ve hiçbir hata da üretmiyordu.
+    ///
+    /// <b>Bu, Z4'ün PUSH tarafında çözdüğü hatanın PULL karşılığıdır</b> ve aynı çözümle giderildi:
+    /// imleç artık "sunucunun global max'ı" değil, <b>gerçekten alınan satırların en büyük
+    /// damgası</b>dır. Böylece <c>&gt;</c> koşulu tam olarak alınanı dışlar — ne kayıp ne tekrar.
+    /// (<c>BuildSnapshot</c> içindeki <c>&gt;</c> bilinçli olarak DEĞİŞTİRİLMEDİ: aynı metot push'ta
+    /// da kullanılıyor ve orada watermark semantiği zaten doğruydu.)
+    /// </summary>
+    private static long? AlinanEnBuyukDamga(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object
+            || !payload.TryGetProperty("tables", out var tablolar)
+            || tablolar.ValueKind != JsonValueKind.Object) return null;
+
+        long enBuyuk = 0;
+        foreach (var tablo in tablolar.EnumerateObject())
+        {
+            if (tablo.Value.ValueKind != JsonValueKind.Array) continue;
+            foreach (var satir in tablo.Value.EnumerateArray())
+            {
+                if (satir.ValueKind != JsonValueKind.Object) continue;
+                // Damga sunucudaki kuralla AYNI: updated_at, yoksa created_at (StampColumn).
+                foreach (var alan in new[] { "updated_at", "created_at" })
+                {
+                    if (!satir.TryGetProperty(alan, out var v)) continue;
+                    long? d = v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n
+                            : v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out var sn) ? sn
+                            : null;
+                    if (d is { } dd && dd > enBuyuk) enBuyuk = dd;
+                    break;   // updated_at varsa created_at'a bakma (sunucu da böyle yapar)
+                }
+            }
+        }
+        return enBuyuk > 0 ? enBuyuk : null;
+    }
+
     public static async Task<bool> PullAsync(long sinceVersion = 0)
     {
         LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın (istek denenmeden dönülebilir)

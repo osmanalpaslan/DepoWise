@@ -43,6 +43,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
+// ⭐ SNK-08 (FAZ E, 2026-09-04) — YANIT SIKIŞTIRMA.
+//
+// Neden: masaüstü senkronu tam snapshot'ta on binlerce satırlık JSON çeker ve kullanıcının babası
+// BAŞKA BİR ŞEHİRDEN, ev internetiyle bağlanıyor. JSON çok tekrarlı olduğu için gzip tipik olarak
+// %80-90 küçültür — yani ölçülebilir bir kullanıcı kazancı, sıfır davranış değişikliği.
+//
+// `EnableForHttps = true` BİLİNÇLİ: Fly HTTPS'i zorluyor, kapalı bırakılsaydı sıkıştırma canlıda
+// HİÇ çalışmazdı (varsayılan false). BREACH sınıfı saldırı, sırrın yanıt gövdesinde ve saldırganın
+// kontrolündeki verinin aynı yanıtta olmasını gerektirir; bu uçlar Bearer jetonuyla korunur, jeton
+// gövdede DÖNMEZ ve çerez tabanlı oturum yoktur — bu yüzden kabul edilebilir.
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.MimeTypes = new[] { "application/json", "text/plain", "text/csv" };
+});
+
 var app = builder.Build();
 var svc = app.Services.GetRequiredService<ServerServices>();
 
@@ -50,6 +66,9 @@ var svc = app.Services.GetRequiredService<ServerServices>();
 Console.WriteLine($"[START] {DateTimeOffset.UtcNow:O} DepoWise.Api env={app.Environment.EnvironmentName} " +
                   $"dataDir={dataDir} jwtKey={(string.IsNullOrEmpty(jwtKey) ? "YOK" : "var")}");
 
+// ⭐ SNK-08: sıkıştırma kimlik doğrulamadan ÖNCE — böylece 401/403 dâhil tüm yanıtlar kapsanır
+// ve yetkisiz istek de gereksiz bant genişliği harcamaz.
+app.UseResponseCompression();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

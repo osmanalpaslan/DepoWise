@@ -602,6 +602,20 @@ public sealed class BusinessSyncService
             // (aksi halde tüm firmaların satırları istemciye giderdi — Migration062 ile aynı sızıntı).
             var companyChildWhere = CompanyChildWhere(table, hasCompany);
             if (companyChildWhere.Length > 0) where.Add(companyChildWhere.Substring(5));   // baştaki " AND " atılır
+            // ⭐ SNK-09 (FAZ E, 2026-09-04) — BU KOŞUL BİLİNÇLİ OLARAK ">" KALIR.
+            //
+            // Denendi ve GERİ ALINDI: ">=" yapmak, aynı milisaniyede yazılan satırın pull'da
+            // atlanması sorununu çözer gibi görünüyor — ama `BuildSnapshot` HEM PUSH HEM PULL
+            // tarafından kullanılır ve PUSH'ta ">" doğrudur: `sinceVersion` orada, bu makinenin
+            // GERÇEKTEN GÖNDERDİĞİ satırların en büyük damgasıdır (watermark) → ">" tam olarak
+            // gönderileni dışlar. ">=" yapılırsa her push sınırdaki kaydı tekrar gönderir ve
+            // Z4-C'nin ("gönderilen tekrar gönderilmez") kilitlediği sözleşme bozulur.
+            //
+            // Asıl kusur burada değil, PULL İMLECİNDEYDİ: istemci imleci sunucunun GLOBAL MAX'ı
+            // olarak saklıyordu; snapshot alındıktan sonra aynı ms'de yazılan satır bir daha
+            // gelmiyordu. Bu, Z4'ün push tarafında çözdüğü hatanın pull karşılığıdır ve aynı
+            // çözümle giderildi: istemci artık imleci GERÇEKTEN ALDIĞI satırların en büyük
+            // damgası olarak saklar (bkz. ShellViewModel — pull watermark).
             if (sinceVersion > 0 && stamp is not null) where.Add($"{stamp} > @since");
             var branchWhere = BranchWhere(session, table, eff);
             if (branchWhere.Length > 0) where.Add(branchWhere);

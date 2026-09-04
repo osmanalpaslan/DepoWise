@@ -464,8 +464,19 @@ public sealed partial class ShellViewModel : ViewModelBase
                 var ok = await BusinessSyncPullService.PullAsync(sinceVersion: _lastServerVersionPulled > 0 ? _lastServerVersionPulled : 0);
                 if (ok)
                 {
-                    _lastServerVersionPulled = sv;
-                    try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", sv.ToString(), _session.UserId); } catch { }
+                    // ⭐ SNK-09 (2026-09-04) — İMLEÇ ARTIK "SUNUCU GLOBAL MAX'I" DEĞİL, GERÇEKTEN ALINAN
+                    // EN BÜYÜK DAMGA. Eskiden `sv` (sunucu sürümü) yazılıyordu; sunucu sürümü okunduktan
+                    // SONRA aynı milisaniyede yazılan satır bir daha ASLA gelmiyordu (sonraki çekim
+                    // "> imleç" sorar, damga eşit olduğu için elenir) — sessiz veri kaybı.
+                    // Bu, Z4'ün PUSH tarafında çözdüğü hatanın PULL karşılığıdır; aynı çözüm uygulandı.
+                    // Paket boşsa (watermark null) imleç İLERLETİLMEZ: ilerletmek, henüz görülmemiş
+                    // satırları atlamak demek olurdu.
+                    var imlec = BusinessSyncPullService.AlinanWatermark;
+                    if (imlec is { } w && w > _lastServerVersionPulled)
+                    {
+                        _lastServerVersionPulled = w;
+                        try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", w.ToString(), _session.UserId); } catch { }
+                    }
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
                 }
                 else if (BusinessSyncPullService.LastFailure == SyncFailureKind.Transient) transient = true;
