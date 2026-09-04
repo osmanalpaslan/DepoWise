@@ -1,6 +1,50 @@
 # AKTİF DURUM
 
-## 🔵 KODLANDI — 2026-09-04 (5): STK-12 + FAZ A + FAZ B kaydı — **MIGRATION YOK**
+## ⭐ YAYIN — 2026-09-04 (7): STK-12 + FAZ A — ✅ BAŞARILI · **MIGRATION YOK, şema 88**
+
+**Yayınlanan commit:** `4919bad` → **Web v214** · **Masaüstü 1.0.176**
+(253 dosya, **self-contained**, 90.583.654 bayt, checksum `5E06DD2C…6C31D99C`, 2 eski paket
+temizlendi ~0,32 GB).
+**API YAYINLANMADI** — sunucu kodu değişmedi, **v187'de kaldı** (son güncelleme 15:49, bu yayından önce).
+
+### Veritabanına HİÇ DOKUNULMADI
+
+Bu turda ne migration var ne de API dağıtımı. Şema yürütücüsü (`MigrationRunner`) yalnız **API
+açılışında** çalışır; web uygulaması migration çalıştırmaz. API makinesi hiç yeniden başlatılmadı
+(`flyctl status` → v187, LAST UPDATED bu yayından önce) → **canlı verinin değişmiş olması fiziksel
+olarak mümkün değil.** Bu yüzden satır sayımı yapılmadı ve üretim bağlantı bilgisi **hiç
+çağrılmadı** — daha önce bir kez çıktıya sızdığı için gereksiz yere yeniden çekilmedi.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3344 geçti / 1 başarısız / 48 atlanan** — tek başarısız yeni yazılan `S9b`, istisna listesi tamamlandı |
+| İlgili 161 test (parite · yetki · tablo · menü · görünürlük) | **161/161** ✅ |
+| Masaüstü build · Web build | 0 hata |
+| Canlı web: `/`, `/stock`, `/stock/count`, `/permissions`, `/materials`, `/vehicles` | **6/6 HTTP 200** ✅ |
+| Canlı API `/health` | 200 ✅ (v187, dokunulmadı) |
+| `/api/releases/latest` | **1.0.176**, checksum yerel zip ile **birebir aynı** ✅ |
+| Sunucu diski `/data` | %42 (534 MB boş) ✅ |
+
+### Bu yayında ne değişti
+
+**`STK-12`** (ADR-208) — masaüstünde "Tüm Şubeler" ile giren yönetici artık stok işlemi
+yapabiliyor. Koruma **kaldırılmadı, yeri değişti**: depo açıkça seçilir; şubesiz stok hareketi hâlâ
+oluşamaz. Şubeye bağlı kullanıcıda hiçbir şey değişmedi.
+
+**`FAZ A`** (ADR-209) — Yetkiler ekranına "Tümünü Temizle" (iki platform) · Bekleyen Onaylar,
+Ekip Listesi ve Ekipman Bakım tablolarında **yazıya tıklayınca satır seçilmeme** hatası düzeltildi
+(üçünde de Onayla/Düzenle/Sil bu yüzden çalışmıyordu) · iki yeni kapsam kilidi testi.
+
+**`FAZ B`** — ölçüldü, zaten tamamdı; yalnız kayıt güncellendi.
+
+**Sıradaki:** `FAZ D` (`MUH-01` — cari / maliyet merkezi / belge alanları). **Migration gerektirir.**
+
+---
+
+
+## 🔵 (yayınlandı — yukarıdaki kayda bakın) KODLANDI — 2026-09-04 (5): STK-12 + FAZ A + FAZ B kaydı — **MIGRATION YOK**
 
 **Yayın bekliyor.** Üç iş birlikte çıkacak (hepsi arayüz/test katmanı; şema değişmedi, şema **88**).
 
@@ -283,7 +327,7 @@ düzeltmek `app_releases`'e aynı sürüm için ikinci satır ekleyeceği için 
 
 ---
 
-> Son güncelleme: **2026-09-04 (7) KODLANDI** (**STK-12 + FAZ A + FAZ B kaydı — MIGRATION YOK, şema 88. YAYIN BEKLİYOR.** Masaüstünde "Tüm Şubeler" ile stok işlemi artık YAPILABİLİR (koruma kaldırılmadı, YERİ değişti: depo açıkça seçilir) · Yetkiler ekranına "Tümünü Temizle" (iki platform) · tablo satır seçimi 3 ekranda daha düzeltildi + kapsam kilidi · web yönünde yetim ekran kilidi. Süit 3344/1 → düzeltildi, ilgili 161 test yeşil. Sıradaki: yayın, sonra FAZ D.) · Önceki: **2026-09-04 (6) YAYIN** (**ARA İŞ 6 YAYINLANDI: API v187 · Web v213 · masaüstü 1.0.175 · migration YOK.** Yakıt Dağıtımları'nda 200 satır tavanı yüzünden ÜRETİMDE 463 kayıt görünmüyordu — sayfalama + tarih/araç/metin araması eklendi, arama yalnız Sorgula ve Enter ile. Ayrıca 46 ekrandaki ölü arama kutusu kaldırıldı. Süit 3334/0. Devir: LST-01. Sıradaki: STK-12.) · Önceki: **2026-09-04 (5) YAYIN** (**MOB-W + TRF-01 YAYINLANDI: Web v212 · masaüstü 1.0.174 · migration YOK, şema 88.** Mobil tarayıcı uyumluluğu (ayrı mobil uygulama iptal) + transfer paritesi (maliyet merkezi sessizce yutuluyordu). **FAZ C BİTTİ.** Ayrıca tam süiti rastgele kıran test altyapısı kusuru giderildi — süit 3320/0. Sıradaki: STK-12.) · Önceki: **2026-09-04 (4)** (**MOB-W kodlandı: mobil UYGULAMA iptal (ADR-204), yerine mobil TARAYICI uyumluluğu. app.css §18 tek katman; menü Responsive, tablolar kendi içinde kayıyor, arama telefonda menüde. 62 sayfaya dokunulmadı, masaüstü etkilenmedi, migration YOK. 320-1920 px arası 11 ölçüde taşma yok. YAYIN BEKLİYOR.**) · Önceki: **2026-09-04 (3) YAYIN** (**ADR-203 SEKME ŞERİDİ YAYINLANDI: Web v211 · masaüstü 1.0.173 · migration YOK, şema 88.** Kullanıcının çizdiği tasarım iki platformda; web şeridi ALTTAN ÜSTE taşındı → alt barın tablo sayfa numaralarını kapatma sorunu giderildi. Yayın öncesi görsel onay alındı.) · Önceki: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-09-04 (7) YAYIN** (**STK-12 + FAZ A YAYINLANDI: Web v214 · masaüstü 1.0.176 · migration YOK, şema 88; API v187te KALDI, veritabanına hiç dokunulmadı.** Masaüstünde "Tüm Şubeler" ile stok işlemi artık YAPILABİLİR — koruma kaldırılmadı, YERİ değişti: depo açıkça seçilir. Yetkiler ekranına "Tümünü Temizle" (iki platform). Bekleyen Onaylar / Ekip Listesi / Ekipman Bakım tablolarında yaziya tıklayınca satır seçilmeme hatası düzeltildi — üçünde de Onayla/Düzenle/Sil bu yüzden çalışmıyordu. FAZ B ölçüldü: zaten tamamdı. Süit 3344, ilgili 161 test yeşil. Sıradaki: FAZ D / MUH-01 — migration gerektirir.) · Önceki: **2026-09-04 (6) YAYIN** (**ARA İŞ 6 YAYINLANDI: API v187 · Web v213 · masaüstü 1.0.175 · migration YOK.** Yakıt Dağıtımları'nda 200 satır tavanı yüzünden ÜRETİMDE 463 kayıt görünmüyordu — sayfalama + tarih/araç/metin araması eklendi, arama yalnız Sorgula ve Enter ile. Ayrıca 46 ekrandaki ölü arama kutusu kaldırıldı. Süit 3334/0. Devir: LST-01. Sıradaki: STK-12.) · Önceki: **2026-09-04 (5) YAYIN** (**MOB-W + TRF-01 YAYINLANDI: Web v212 · masaüstü 1.0.174 · migration YOK, şema 88.** Mobil tarayıcı uyumluluğu (ayrı mobil uygulama iptal) + transfer paritesi (maliyet merkezi sessizce yutuluyordu). **FAZ C BİTTİ.** Ayrıca tam süiti rastgele kıran test altyapısı kusuru giderildi — süit 3320/0. Sıradaki: STK-12.) · Önceki: **2026-09-04 (4)** (**MOB-W kodlandı: mobil UYGULAMA iptal (ADR-204), yerine mobil TARAYICI uyumluluğu. app.css §18 tek katman; menü Responsive, tablolar kendi içinde kayıyor, arama telefonda menüde. 62 sayfaya dokunulmadı, masaüstü etkilenmedi, migration YOK. 320-1920 px arası 11 ölçüde taşma yok. YAYIN BEKLİYOR.**) · Önceki: **2026-09-04 (3) YAYIN** (**ADR-203 SEKME ŞERİDİ YAYINLANDI: Web v211 · masaüstü 1.0.173 · migration YOK, şema 88.** Kullanıcının çizdiği tasarım iki platformda; web şeridi ALTTAN ÜSTE taşındı → alt barın tablo sayfa numaralarını kapatma sorunu giderildi. Yayın öncesi görsel onay alındı.) · Önceki: **2026-09-04 (2) YAYIN** (**ADR-200 + ADR-201 + ADR-202 YAYINLANDI: API v186 · Web v210 · masaüstü 1.0.172 · AlpnexSetup.exe · canlı şema 87 → 88 [Migration088, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı en üstteki yayın bloğunda.) · Önceki: **2026-09-04** (**ADR-200 — KURULUM ARACI: paket bütünlük kapısı (SHA-256 fail-closed) + çift indirme düzeltmesi + manifest/ön-koşul iskeleti + WinForms→Avalonia arayüz (ölçümle karar: 69→45 MB). YAYINLANMADI — kurulum aracının yeniden yayını açık YAYINLA yetkisi ister.** Ayrıntı: docs/project-control/SETUP_00_ANALIZ.md) · Önceki: **2026-09-03 (4) YAYIN** (**ADR-198 + ADR-199 YAYINLANDI: API v185 · Web v209 · masaüstü 1.0.171 · canlı şema 86 → 87 [Migration087, yalnız ekleme, yedek alındı+doğrulandı, canlı veri birebir korundu]** — ayrıntı üstteki yayın bloğunda.) · Önceki: **2026-09-03 (3)** (**ADR-199 — Günlük Faaliyet KAYIT TİPİ YETKİSİ kodlandı: datype_* kalemleri katalogdan otomatik, geçiş güvenli [atama yoksa tüm tipler], seçim+liste+ağaç üç katman, migration YOK · Tanımlar'a ARAÇ MODELLERİ bölümü (masaüstü+web) · buton gizleme: mevcut özel-buton yetkisi yeterli, ayrı ekran açılmadı. ADR-198 ile BİRLİKTE tek yayında çıkacak.** Önceki: **2026-09-03 (2)** (**ADR-198 — Alan Zorunluluğu ekranı kodlandı: Migration087 [86→87, yalnız ekleme, firma-özel], FieldCatalog + servis + iki platform ekranı + sunucu kapısı. YAYINLANMADI — migration içerdiği için yayın açık onay + yedek ile.** Önceki: **2026-09-03 YAYIN** (**ADR-195+196+197 yayınlandı: API v184 · Web v208 · masaüstü 1.0.170 · migration YOK, şema 86.** ADR-197 — RAPOR BAZLI YETKİ (26 kalem, geçiş güvenli: kategori VEYA kalem) · yetki ağacı MENÜ GİBİ KATEGORİZE + grup başına Tümünü Seç (iki platform) · "hour" → "saat". Migration YOK.** Önceki: **ADR-196 — uyarılarda TÜM kategorilerde varlık kimliği · fotoğraf AÇILIŞTA OTOMATİK taşıma · Excel içe/dışa aktarımda şube + ŞUBE ŞİFRESİ (kapı sunucuda) · sekme şeridi tasarımı yenilendi. Migration YOK.** Önceki: **ADR-195 — 4 istek kodlandı**: panel uyarısında araç kodu+plaka · toplu fotoğraf taşıma aracı · Günlük Faaliyet rapor seti: detay zenginleşti + YENİ dönem/toplam raporu + sıralama seçimi · açık ekran SEKMELERİ [masaüstü+web]. **Migration YOK.** Yayın kullanıcı onayı bekliyor.) · Önceki: **2026-09-02** (**ADR-192 — 5 alan düzeltmesi kodlandı**: uyarı köprüsü + plaka · araç formu tazeleme · **yakıt dağıtımı düzeltme (iptal+yeniden kayıt)** · web "Tam Düzenleme" yeni sekmede · çift-tık pencerelerinde fotoğraf. **Migration YOK.** Aynı yayında **7b/Migration086** da çıkar → **canlı şema 85 → 86**.) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
