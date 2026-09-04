@@ -177,7 +177,8 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 | **FAZ G** | Kalan parite + rapor envanteri (`PRT-02`, `P-1`) — **`RPR-01` ✅ erken tamamlandı** | Çekirdek oturduktan sonra | BEKLEMEDE |
 | **FAZ H** | Ön muhasebe **modülü** (`MUH-02…05`) | Alan hazırlığı + depo stoku bitmeden başlanmaz | BEKLEMEDE |
 | **FAZ I** | Test/veri bütünlüğü + performans (`TST-01`, index, N+1) | Özellikler bitince | BEKLEMEDE |
-| **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | En son | BEKLEMEDE |
+| **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | Özellik fazlarının sonuncusu | BEKLEMEDE |
+| **FAZ K** | **UÇTAN UCA DOĞRULAMA VE ONARIM** (`UUD-01`) — 33 bölümlük protokol: gerçek kullanıcı simülasyonu · her alan/buton · CRUD · API · DB · tenant izolasyonu · yetki · 10.000+ kayıt · concurrency · network failure · masaüstü+web · sync · audit · performans · erişilebilirlik · regresyon. **Bulunan hatalar kök nedeniyle DÜZELTİLİR**, yalnız raporlanmaz | **En son.** Kullanıcı yazılımcı değil; "çalışıyordur" denip geçilen katmanlar burada kanıtlanır. Protokol boyunca **production'a dokunulmaz** | ⏳ **BEKLEMEDE** — [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md) |
 | **LST-01** | **Tavanlı listelerin sayfalanması** — `Stock` · `Maintenance` · `StockMovements` · `Personnel` · `Audit` · `StockChangeLog` (+ tavansız `Inspection`/`Purchasing`). Hepsinde ARA İŞ 6'daki kusurun aynısı var: kayıt var ama tavan yüzünden **sessizce görünmüyor**. Desen kurulu (`SearchDistributions` + `/api/fuel/grid` + iki arayüz), risk sırasıyla uygulanacak | 🟡 **SIRADA** (ARA İŞ 6'dan devir) |
 | **MOB-W** | **Mobil tarayıcı uyumluluğu** (responsive web) | Kullanıcı telefondan yönetmek istiyor; ayrı mobil uygulama **iptal edildi** (2026-09-04). Yeni özellik doğurmaz, mevcut ekranları dar ekranda kullanılabilir kılar → bağımlılığı yok, hemen yapılabilir | ✅ **TAMAM + YAYINLANDI** (2026-09-04, ADR-204 · Web v212) |
 | FAZ 9+ | Backlog: BI, e-Fatura, lastik ömrü, puantaj | Gelir sonrası | ERTELENDİ |
@@ -304,6 +305,26 @@ STK-06 aynı riski canlı olarak gösterdi. Kayıt: [`RPR_01_FILTRE_PARITESI.md`
 ## FAZ J — Canlıya geçiş
 
 Güvenlik sertleştirme · API sürümleme kararı · yük testi
+
+## FAZ K — Uçtan uca doğrulama ve onarım (`UUD-01`) — **SON AŞAMA**
+
+Tüm ekran ve özellikler bittikten sonra çalışan **33 bölümlük doğrulama ve onarım protokolü**.
+Bir "test raporu yaz" görevi değildir: uygulama gerçek bir Alpnex kullanıcısı gibi kullanılır,
+görünen ve görünmeyen tüm katmanlar doğrulanır, hatalar **kök nedeniyle düzeltilir** ve düzeltmeler
+tekrar test edilir.
+
+Kapsam başlıkları: proje/pattern analizi · test matrisi · gerçek kullanıcı simülasyonu ·
+her alan · her buton · **10.000+ kayıt (zorunlu)** · DB doğrulaması · **tenant/company güvenliği
+(zorunlu)** · yetki · API · concurrency/double submit · network failure · masaüstü · web ·
+offline/sync · UI/UX/erişilebilirlik · setup/installer · log/audit · performans ·
+hata önceliklendirme (P0–P3) · regresyon · test verisi temizliği · testlerin kendisini doğrulama ·
+build ve tam test · MCP politikası · kabul kriterleri · tam kullanıcı senaryosu · son rapor.
+
+**Protokol boyunca production'a dokunulmaz** (SELECT dâhil). Testler local/test ortamında yapılır.
+
+Tam metin: [FAZ_K_UCTAN_UCA_DOGRULAMA.md](FAZ_K_UCTAN_UCA_DOGRULAMA.md)
+
+> **Bitiş sırası:** `FAZ K` biter → **tek yayın** → bilgisayar uykuya alınır.
 
 ---
 
