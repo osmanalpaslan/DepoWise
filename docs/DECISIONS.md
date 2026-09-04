@@ -4175,3 +4175,71 @@ GFR3/GFR8/GFR20/GFR21/GFR22 indeks ve başlıkları **bilinçli** güncellendi (
 
 **Yayın notu:** migration YOK, sunucu şeması değişmedi. Web servis değişikliği içerdiği için yayında
 **API + Web birlikte** dağıtılmalıdır.
+
+## ADR-202 — Bozuk veritabanı, sessiz boş yedek, is_locked ve ham ID gösterimi (2026-09-04)
+
+**Bağlam.** Kullanıcı yayın öncesi dört hata bildirdi. Üçü kod kusuru çıktı, biri ortam kaynaklıydı —
+ama o birinin peşinden **veri güvenliğini ilgilendiren iki gizli kusur** çıktı.
+
+### 1) `SQLite Error 1: 'no such column: is_locked'` — SIRA HATASI
+
+`Migration051_LookupLocked` tanım tablolarına `is_locked` ekliyor, ama listesi **o tarihte var olan**
+8 tabloyu kapsıyordu. `equipment_types` DAHA SONRA (`Migration075_Equipment`) oluşturuldu ve sütun
+eklenmedi. Oysa `LookupService.List` HER tanım tablosunda `SELECT id, name, is_locked` yapar →
+Tanımlar → "Ekipman — Türler" açılınca sorgu patlıyordu.
+
+**Migration088_EquipmentTypeLocked** (yalnız ekleme, varsayılan 0, mevcut satır değişmez, idempotent).
+
+**Kalıcı koruma:** `TanimTablosuSemaTests` — Tanımlar ekranındaki HER tabloyu hem gerçek sorguyla
+okur hem `is_locked` varlığını doğrular. Yeni bir tanım tablosu sütunsuz eklenirse **test kırılır**,
+kullanıcı ekranda öğrenmez.
+
+### 2) Web'de tanım adı yerine ham ID
+
+"Çalışabileceği şubeler" kutusu `1c6dc32bd81049368889cd49649769cb6, 797583f3…` gösteriyordu.
+MudBlazor çoklu seçimde kapalı kutuda seçili **değerleri** yazar; etiket için `MultiSelectionTextFunc`
+gerekir. Tüm çoklu seçim alanları tarandı: `Reports.razor` (11 alan), `BranchPicker`,
+`SearchableMultiSelect` — **hepsinde vardı; eksik olan tek yer Yetkiler ekranıydı.**
+
+Kullanıcı sayı değil AD istedi ("bütün alanlarda tanım ismi ne ise o görünmeli") → şube adları
+gösterilir; ad çözülemezse ID yazmak yerine "(bilinmeyen şube)" denir. Çok seçimde ilk 4 ad + kalan sayısı.
+
+### 3) `SQLite Error 11: 'database disk image is malformed'` — ORTAM, ama iki kusuru açığa çıkardı
+
+Kullanıcının YEREL geliştirme veritabanı bozulmuştu (btree sayfa hataları). En olası neden diskin
+dolmasıdır (aynı gün `%TEMP%`'te 60,2 GB test artığı birikmişti; bkz. `TempVeritabaniTemizligi`).
+Kesin kanıt yok, zamanlama uyuyor.
+
+**Yapılan (kullanıcı onayıyla, seçenek b):** bekleyen gönderim (`sync_outbox`) ve çakışma **0**
+doğrulandıktan sonra bozuk dosya SİLİNMEDİ, yedeğe taşındı; uygulama veritabanını yeniden oluşturup
+sunucudan senkronlar. Makine kaydı veritabanı dışında (`machine_*.txt`) olduğu için yeniden kayıt
+gerekmedi. Kurtarma da denendi ve başarılıydı (araç/faaliyet/stok tam; 3 malzeme + 81 denetim satırı
+kayıp) — kullanıcı temiz senkronu tercih etti.
+
+#### 3a) 🔴 SESSİZCE BOŞ YEDEK — asıl tehlike
+
+Aynı gün 07:41'de üretilen yedek **0 BAYTTI ama işlem "başarılı" raporlandı.** Zincir:
+1. Kaynak bozuktu → `VACUUM INTO` çıktı üretemedi,
+2. `Backup()` sonucu **hiç doğrulamıyordu**,
+3. `IntegrityCheck()` metodu vardı ama **hiçbir yerden çağrılmıyordu** (ölü kod),
+4. `PRAGMA integrity_check` **boş** bir veritabanı için de "ok" döner → tek başına yetersiz.
+
+Sonuç: kullanıcı geçerli bir yedeği olduğunu sanıyordu. **Sessizce boş yedek, yedeksizlikten
+tehlikelidir** — ve bu risk babanın makinesinde de vardı.
+
+`Backup()` artık: `VACUUM INTO` hatasında yarım dosyayı siler ve anlaşılır hata atar; başarıda
+`YedekGecerliMi` ile üç kapıdan geçirir — (a) dosya var ve 0 bayt değil, (b) `integrity_check = ok`,
+(c) **şema gerçekten dolu** (`schema_migrations` tablosu var ve satırı var). Geçemezse dosya silinir
+ve hata atılır. 19 yedeğin yalnız 1'i (bugünkü) bozuktu; 03.09 yedeği sağlamdı.
+
+#### 3b) Bozulmayı fark etmeyen sağlık kontrolü
+
+`DatabaseHealth.CheckAsync` yalnız `journal_mode` / `foreign_keys` / yaz-oku bakıyordu; bunlar bozuk
+bir dosyada da geçebilir → ekran "sağlık: iyi" derken kullanıcı ham SQLite hatası alıyordu.
+Artık `PRAGMA quick_check` çalıştırılır (tam tarama olan `integrity_check` büyük veritabanında ekranı
+bekletirdi; quick_check aynı sınıf bozulmayı yakalar) ve sonuç teknik olmayan dille bildirilir:
+*"Veritabanı dosyası hasarlı görünüyor. Verileriniz sunucuda güvendedir; son geçerli yedeği geri
+yükleyin."* Kontrol yalnız SQLite'ta anlamlıdır; PostgreSQL'de atlanır.
+
+**Yayın notu:** Migration088 içerir → canlı şema **87 → 88**. Yalnız ekleme; yayın öncesi pg_dump
+yedeği ve kullanıcı onayı kuralı geçerlidir.

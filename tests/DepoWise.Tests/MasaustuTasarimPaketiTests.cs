@@ -82,7 +82,10 @@ public class MasaustuTasarimPaketiTests
     [Fact]
     public void TSR2_Filtre_Kutulari_Serbest_Aramadan_Ayri()
     {
-        Assert.Equal(36, Say($"Classes={T}CellFilter{T}"));   // 35 kolon filtresi + ortak rapor tablosu
+        // 2026-09-04 (ADR-201): 36 → 37. Günlük Faaliyet listesine kullanıcı isteğiyle
+        // "Malzeme Miktarı" kolonu eklendi; her kolon gibi kendi filtre kutusunu de getirdi.
+        // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
+        Assert.Equal(37, Say($"Classes={T}CellFilter{T}"));   // 36 kolon filtresi + ortak rapor tablosu
         Assert.Equal(19, Say($"Classes={T}Search{T}"));       // serbest arama kutuları — hap köşeli KALIR
     }
 
@@ -91,7 +94,7 @@ public class MasaustuTasarimPaketiTests
     [Theory]
     [InlineData("VehiclesView", 14)]
     [InlineData("MaterialsView", 15)]
-    [InlineData("DailyActivityView", 6)]
+    [InlineData("DailyActivityView", 7)]   // 2026-09-04 (ADR-201): +1 = "Malzeme Miktarı" kolonu
     public void TSR3_Filtre_Kutusu_Baglari_Korundu(string ekran, int adet)
     {
         var x = Kaynak("Views", ekran + ".axaml");
