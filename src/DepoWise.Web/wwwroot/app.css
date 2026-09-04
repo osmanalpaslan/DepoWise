@@ -1325,3 +1325,88 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 /* FixedHeader kehribar bant opaklığı (ZB-9) */
 .mud-table-sticky-header .mud-table-head th { background-image:
     linear-gradient(180deg,#F7B03B,#EFA020) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AÇIK EKRAN SEKMELERİ — ŞERİT (kullanıcının çizdiği tasarım, 2026-09-04)
+
+   Şerit 2026-09-03'te sayfanın ALTINDA sabitti; tasarımda üst başlığın HEMEN ALTINDA.
+   Buraya taşındı ve `sticky` yapıldı → kaydırınca da görünür kalır (eski "hep görünür"
+   davranışı korunur, yalnız yeri değişti). `top` değeri üst barın yüksekliğidir: üst bar
+   `fixed` olduğu için 0 verilirse şerit onun ALTINA girip kaybolur.
+
+   Görünüm masaüstü şeridiyle BİREBİR aynı dildedir (MainWindow.axaml): grup ikonu + etiket
+   + ✕, aktif sekmede kehribar yazı/ikon ve İÇERİĞE BAKAN kenarda 2 px çizgi. Şerit üstte
+   olduğu için burada çizgi ALT kenardadır; masaüstünde şerit altta olduğu için ÜST kenarda.
+   ══════════════════════════════════════════════════════════════════════════ */
+.dw-sekme-serit {
+    position: sticky;
+    top: var(--mud-appbar-height, 64px);
+    z-index: 1100;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    height: 42px;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--mud-palette-surface);
+    border-bottom: 1px solid var(--dw-border);
+}
+/* Şeritte yatay kaydırma çubuğu 42 px'in içinde yer kaplamasın (sekmeler ezilmesin). */
+.dw-sekme-serit::-webkit-scrollbar { height: 3px; }
+.dw-sekme-serit::-webkit-scrollbar-thumb { background: var(--dw-border-strong); border-radius: 999px; }
+
+.dw-sekme {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border-radius: var(--dw-r-xs) var(--dw-r-xs) 0 0;
+    /* Vurgu çizgisi HER sekmede vardır, yalnız rengi değişir → aktiflik değişince
+       sekme yüksekliği oynamaz (görsel zıplama olmaz). */
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    transition: background var(--dw-fast) var(--dw-ease), border-color var(--dw-fast) var(--dw-ease);
+}
+.dw-sekme:hover { background: var(--dw-surface-hover); }
+.dw-sekme-aktif { background: var(--dw-surface-2); border-bottom-color: var(--mud-palette-primary); }
+
+/* Sekme içindeki düğmeler ÇERÇEVESİZDİR: çerçeveyi sekmenin kendisi taşır → iç içe iki kutu olmaz. */
+.dw-sekme-ana, .dw-sekme-kapat, .dw-sekme-yeni {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+.dw-sekme-ana { gap: 8px; padding: 0 8px 0 14px; height: 100%; }
+.dw-sekme-ikon { font-size: 1.05rem !important; color: var(--mud-palette-text-secondary); opacity: .75; }
+.dw-sekme-yazi { font-size: .8rem; color: var(--mud-palette-text-secondary); }
+.dw-sekme-aktif .dw-sekme-ikon { color: var(--mud-palette-primary); opacity: 1; }
+.dw-sekme-aktif .dw-sekme-yazi { color: var(--mud-palette-primary); font-weight: 600; }
+
+.dw-sekme-kapat {
+    height: 100%;
+    padding: 0 12px 0 6px;
+    font-size: .72rem;
+    line-height: 1;
+    color: var(--mud-palette-text-secondary);
+    opacity: .55;
+}
+.dw-sekme-kapat:hover { color: var(--mud-palette-error); opacity: 1; }
+
+/* "Yeni Sekme" sağ uçta: sekmeler kaydırılırken de görünür kalması için sola itilir. */
+.dw-sekme-yeni {
+    gap: 6px;
+    margin-left: auto;
+    padding: 0 4px 0 12px;
+    font-size: .8rem;
+    color: var(--mud-palette-text-secondary);
+    opacity: .7;
+}
+.dw-sekme-yeni:hover { color: var(--mud-palette-primary); opacity: 1; }
+.dw-sekme-arti { font-size: 1rem !important; }

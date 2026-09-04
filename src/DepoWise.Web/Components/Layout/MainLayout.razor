@@ -113,9 +113,44 @@
         }
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
-        <NavMenu />
+        <NavMenu @ref="_navMenu" />
     </MudDrawer>
     <MudMainContent>
+        @* ═══ AÇIK EKRAN SEKMELERİ — ŞERİT ÜSTTE (kullanıcı tasarımı 2026-09-04) ═══
+           Şerit 2026-09-03'te sayfanın ALTINDA sabitti; kullanıcının çizdiği tasarımda üst başlığın
+           HEMEN ALTINDA. Buraya taşındı ve `sticky` yapıldı → sayfa kaydırılınca da görünür kalır
+           (eski "hep görünür" davranışı korunur, yalnız yeri değişti).
+           Görünüm masaüstü şeridiyle BİREBİR aynı dildedir: grup ikonu + etiket + ✕, aktif sekmede
+           kehribar yazı/ikon ve İÇERİĞE BAKAN kenarda 2 px çizgi (webde şerit üstte olduğu için ALT kenar).
+           Liste yine sessionStorage'da: sayfa yenilemede kalır, tarayıcı sekmesi kapanınca sıfırlanır. *@
+        @if (Auth.Loaded && Auth.IsAuthenticated && _ekranSekmeleri.Count > 0)
+        {
+            <div class="dw-sekme-serit">
+                @foreach (var sekme in _ekranSekmeleri)
+                {
+                    var aktif = SekmeAktifMi(sekme);
+                    var yerel = sekme;
+                    <div class="@($"dw-sekme{(aktif ? " dw-sekme-aktif" : "")}")">
+                        <button type="button" class="dw-sekme-ana" title="Bu ekrana dön"
+                                @onclick="@(() => SekmeyeGit(yerel))">
+                            <MudIcon Icon="@SekmeIkon(yerel)" Class="dw-sekme-ikon" />
+                            <span class="dw-sekme-yazi">@yerel.Label</span>
+                        </button>
+                        <button type="button" class="dw-sekme-kapat"
+                                title="Sekmeyi kaldır (ekran verisi silinmez)"
+                                @onclick="@(() => SekmeKapat(yerel))">✕</button>
+                    </div>
+                }
+                @* "Yeni Sekme": sekme ancak bir EKRAN açılınca oluşur, o yüzden boş sekme yaratmaz —
+                   kullanıcıyı ekran seçebileceği tek yere, sol menüdeki "Ekran ara…" kutusuna götürür. *@
+                <button type="button" class="dw-sekme-yeni" @onclick="YeniSekme"
+                        title="Yeni sekme: soldaki ekran aramasına geçer, ekranı seçince sekme açılır">
+                    <span>Yeni Sekme</span>
+                    <MudIcon Icon="@Icons.Material.Filled.Add" Class="dw-sekme-arti" />
+                </button>
+            </div>
+        }
+
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
             @* Oturum tarayıcı deposundan yüklenmeden sayfa render EDİLMEZ. Aksi halde F5/doğrudan URL'de
                sayfalar token'sız API çağrısı yapıp yanlış "kayıt yok" / "yetkisiz" gösteriyordu. *@
@@ -164,30 +199,6 @@
             }
         </MudContainer>
 
-        @* ═══ AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03) ═══
-           Kullanıcının açtığı ekranlar alt şeritte sekme olur: tıkla → ekrana dön, ✕ → sekmeyi kaldır.
-           Liste tarayıcı SEKME OTURUMUNDA tutulur (sessionStorage): sayfa yenilemede kaybolmaz,
-           tarayıcı sekmesi/penceresi kapanınca kendiliğinden sıfırlanır ("her açılışta sıfır" kuralı).
-           Ana ekran sekme olmaz; gezinme normal menü yolundan geçer (yetki/platform kapıları aynen geçerli). *@
-        @if (Auth.Loaded && Auth.IsAuthenticated && _ekranSekmeleri.Count > 0)
-        {
-            <div style="position:fixed;left:0;right:0;bottom:0;z-index:1100;display:flex;gap:6px;align-items:center;
-                        overflow-x:auto;padding:6px 12px;border-top:1px solid var(--mud-palette-lines-default);
-                        background:var(--mud-palette-surface);">
-                @foreach (var sekme in _ekranSekmeleri)
-                {
-                    var aktif = SekmeAktifMi(sekme);
-                    <MudPaper Elevation="0" Class="d-flex align-center"
-                              Style="@($"border-radius:6px;white-space:nowrap;background:{(aktif ? "var(--mud-palette-primary-hover)" : "var(--mud-palette-background)")}")">
-                        <MudButton Size="Size.Small" Variant="Variant.Text" Style="text-transform:none;min-width:0;"
-                                   OnClick="@(() => SekmeyeGit(sekme))">@sekme.Label</MudButton>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Style="padding:2px;"
-                                       title="Sekmeyi kaldır (ekran verisi silinmez)"
-                                       OnClick="@(() => SekmeKapat(sekme))" />
-                    </MudPaper>
-                }
-            </div>
-        }
     </MudMainContent>
 </MudLayout>
 
@@ -509,6 +520,23 @@
     }
 
     // ═══ AÇIK EKRAN SEKMELERİ (kullanıcı isteği 2026-09-03) ══════════════════════════════════════
+
+    private NavMenu? _navMenu;
+
+    /// <summary>Sekmenin ikonu — ekranın AİT OLDUĞU GRUBUN menü ikonu (kullanıcı tasarımı 2026-09-04).
+    /// Sekmede ayrı bir ikon seti tutulmaz: menüde ne görülüyorsa sekmede de o görülür. Eşleme
+    /// <see cref="NavMenu.WebIcon"/>'da tek yerde durur → iki liste ayrışamaz. Rota katalogda
+    /// yoksa nötr klasör ikonu gelir (sekme ikonsuz kalmaz).</summary>
+    private static string SekmeIkon(EkranSekmesi sekme)
+        => NavMenu.WebIcon(DepoWise.Application.Security.AppScreens.ByWebRoute(sekme.Route)?.Group ?? "");
+
+    /// <summary>"Yeni Sekme": boş sekme yaratılamaz — sekme ancak bir EKRAN açılınca oluşur — bu yüzden
+    /// kullanıcı ekran seçebileceği tek yere götürülür. Menü kapalıysa önce açılır.</summary>
+    private async Task YeniSekme()
+    {
+        if (!_drawerOpen) { _drawerOpen = true; StateHasChanged(); }
+        if (_navMenu is not null) await _navMenu.AramayaOdaklanAsync();
+    }
 
     private sealed record EkranSekmesi(string Route, string Label);
     private List<EkranSekmesi> _ekranSekmeleri = new();

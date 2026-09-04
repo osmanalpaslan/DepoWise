@@ -6,7 +6,7 @@
     @if (Auth.IsAuthenticated)
     {
         <div class="px-3 py-2">
-            <MudTextField @bind-Value="_q" Immediate="true" Placeholder="Ekran ara..." Margin="Margin.Dense"
+            <MudTextField @ref="_aramaKutusu" @bind-Value="_q" Immediate="true" Placeholder="Ekran ara..." Margin="Margin.Dense"
                           Variant="Variant.Outlined" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
         </div>
@@ -55,6 +55,20 @@
     public void Dispose() => Auth.Changed -= OnChanged;
 
     private string _q = "";
+    private MudTextField<string>? _aramaKutusu;
+
+    /// <summary>Sekme şeridindeki "Yeni Sekme" düğmesi buraya bağlanır (kullanıcı tasarımı 2026-09-04):
+    /// boş sekme yaratılamaz — sekme ancak bir EKRAN açılınca oluşur — bu yüzden kullanıcı ekran
+    /// seçebileceği tek yere getirilir. Önceki aramanın kalıntısı temizlenir.</summary>
+    public async Task AramayaOdaklanAsync()
+    {
+        _q = "";
+        StateHasChanged();
+        if (_aramaKutusu is not null)
+        {
+            try { await _aramaKutusu.FocusAsync(); } catch { /* odak alınamazsa akış bozulmaz */ }
+        }
+    }
 
     private bool Visible(string perm) => perm switch
     {
@@ -103,7 +117,9 @@
     /// BURADA durur (Application katmanı MudBlazor'a bağımlı olmasın). Eşleme grup ADINA değil
     /// değişmez grup ANAHTARINA bakar → yönetici grubu yeniden adlandırınca ikon KAYBOLMAZ.
     /// Kullanıcının oluşturduğu gruplar nötr ikon alır.</summary>
-    private static string WebIcon(string groupKey) => groupKey switch
+    /// <remarks>Sekme şeridi de (MainLayout) bunu kullanır: sekme, ekranın AİT OLDUĞU GRUBUN
+    /// ikonunu alır — menüde ne görülüyorsa sekmede de o görülür (kullanıcı tasarımı 2026-09-04).</remarks>
+    public static string WebIcon(string groupKey) => groupKey switch
     {
         "Uyarılar" => Icons.Material.Filled.NotificationsActive,
         "Malzemeler" => Icons.Material.Filled.Inventory2,
