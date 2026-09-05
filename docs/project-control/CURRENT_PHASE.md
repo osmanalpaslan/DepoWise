@@ -2407,3 +2407,60 @@ süper admin akışı **aynen korundu**. **Sunucuya dokunulmadı.**
 
 ### Sıradaki tek iş
 Açık geliştirme işi yok.
+
+---
+
+## YAYIN — 2026-09-05 (ikinci tur): TDR-01 + MNU-IKON — ✅ BAŞARILI · **MIGRATION YOK**
+
+**Yayınlanan commit:** `f789e44` → **Web v216** · **Masaüstü 1.0.178**
+(253 dosya, **self-contained**, 90.623.365 bayt, checksum `AE6E4756…F750E7CCE`, 2 eski paket
+temizlendi ~0,32 GB).
+
+### ⚠️ API BİLİNÇLİ OLARAK DAĞITILMADI
+
+Bu turda API'de **hiçbir değişiklik yok** — yalnız arayüz ve ortak simge kataloğu değişti;
+`MenuIcons` yalnız web ve masaüstü tarafından okunur. Yayın anında ölçüm babanın **çalışmakta
+olduğunu** gösterdi (`stock_movements` 747 → **755**, TR saat 12:51, mesai içi). Gereksiz bir API
+yeniden başlatması onun işini kesecekti; dağıtım kapsam dışı bırakıldı. Şema **91'de kalır**.
+
+### Veri: dokunulmadı
+
+Yedek: `artifacts/prod-backup/depowise_prod_20260905_1251.dump` (841.134 bayt).
+
+| Kontrol | Yayın öncesi | Yayın sonrası |
+|---|---|---|
+| Şema | 91 | **91** ✅ |
+| `stock_movements` | 755 | **755** ✅ |
+| `personnel` | 81 | **81** ✅ |
+| `suppliers` | 5 | **5** ✅ |
+| `material_categories` | 304 | **304** ✅ |
+
+### Ne değişti
+
+**TDR-01 — Giriş-Çıkış ekranında satır içi tanım ekleme.** Beş alan (Birim · Kategori ·
+Alt Kategori · Marka · Tedarikçi) artık **iki platformda da** "+" taşıyor. Web'de dördü zaten
+vardı, masaüstünde hiçbiri yoktu; **Alt Kategori ikisinde de eksikti** ve üst kategoriye bağlı
+olduğu için ayrı uca bağlandı (aksi hâlde sahipsiz bir ÜST kategori açılırdı).
+Ayrıca web'in "+" düğmeleri (Stok ekranı + ortak `LookupSelect` bileşeni) yetki kapısına bağlandı —
+masaüstü bunu baştan yapıyordu.
+
+**MNU-IKON — simgesiz menü kalmadı.** 70 alt menünün hiçbirinde simge yoktu; masaüstünde 7 üst
+menü simgesizdi; web'de eşlemede 5 eskimiş anahtar vardı. Kök neden eşlemenin iki ayrı yerde elle
+tutulmasıydı — artık ortak katmanda (`MenuIcons`). Masaüstü için **41 yeni geometri** çizildi
+(38 → 79).
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3444 geçti / 1 başarısız / 48 atlandı** (29 dk 32 sn) — tek başarısız `TSR10`, yeni yapıya yöneltilip ilgili grupla yeniden koşuldu **40/40** ✅ |
+| Build: API · Web · Masaüstü | 0 hata ✅ |
+| Canlı web | 7/7 sayfa **200** ✅ (v216) |
+| Masaüstü checksum | Yerel zip ile **birebir aynı** ✅ |
+
+### Açık kalan
+
+**Görsel doğrulama yapılmadı.** Menü de giriş-çıkış ekranı da oturum açmayı gerektiriyor; giriş
+formuna parola yazılmadığı için 10 "+" düğmesi ve 41 yeni simge **ekranda görülmedi**. Kanıt kaynak
+sözleşmesi + testlerdir. Kullanıcının bir kez gözle bakması gerekir — özellikle yeni simgelerin
+görsel uyumu bir tasarım kararıdır.
