@@ -18,6 +18,15 @@
     [Parameter] public string Table { get; set; } = "";
     [Parameter] public string Label { get; set; } = "Ad";
 
+    /// <summary>
+    /// ⭐ TDR-01 devamı (2026-09-05) — ÜST KAYIT. Doluysa kayıt genel <c>/api/lookups/{Table}</c>
+    /// ucuna DEĞİL, üst kayıt taşıyabilen özel uca gider. Bugün tek kullanıcısı ALT KATEGORİDİR:
+    /// alt kategori seçili kategoriye aittir; genel uç <c>parentId</c> taşıyamadığı için oradan
+    /// eklenen kayıt sahipsiz bir ÜST kategori olur ve kullanıcı "eklediğim alt kategori listede yok"
+    /// derdi. Boş bırakılırsa davranış eskisiyle BİREBİR aynıdır.
+    /// </summary>
+    [Parameter] public string? ParentId { get; set; }
+
     private string _name = "";
     private string? _err;
     private bool _busy;
@@ -29,7 +38,9 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync($"/api/lookups/{Table}", new { name = _name.Trim() });
+            var err = string.IsNullOrEmpty(ParentId)
+                ? await Api.PostAsync($"/api/lookups/{Table}", new { name = _name.Trim() })
+                : await Api.PostAsync("/api/materials/subcategories", new { name = _name.Trim(), parentId = ParentId });
             if (err is null) { Dialog.Close(DialogResult.Ok(_name.Trim())); }
             else { _err = err; }
         }

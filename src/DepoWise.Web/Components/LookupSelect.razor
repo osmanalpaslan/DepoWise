@@ -1,5 +1,6 @@
 @inject IDialogService Dialog
 @inject ApiClient Api
+@inject AuthState Auth
 
 <MudAutocomplete T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
                  SearchFunc="Search" ToStringFunc="IdToName" Clearable="true" Dense="true" Disabled="@(Disabled || _busy)"
@@ -46,7 +47,20 @@
     /// <summary>Sunucudan görülen adlar — seçili kayıt Items'ta olmasa da adı gösterilebilsin diye.</summary>
     private readonly Dictionary<string, string> _serverNames = new(StringComparer.Ordinal);
 
-    private bool CanAdd => AddTable is not null || CreatePath is not null;
+    /// <summary>
+    /// ⭐ TDR-01 devamı (2026-09-05) — "+" ARTIK YETKİYE DE BAĞLI.
+    ///
+    /// Eskiden yalnız "bu alan ekleme destekliyor mu" sorusuna bakıyordu; yetkisi olmayan kullanıcıya
+    /// da "+" görünüyor, kullanıcı adı yazıyor ve ancak kaydederken hata alıyordu. Masaüstü aynı
+    /// düğmeyi <c>CanAddLookup</c> ile baştan gizliyordu (CLAUDE.md §5: UI ≡ API).
+    ///
+    /// ⚠️ Güvenlik açığı DEĞİLDİ — gerçek kapı serviste (<c>AccessControl.Require(Create)</c>) ve ona
+    /// dokunulmadı; bu yalnız arayüzü sunucuyla hizalar. Anahtar
+    /// <c>AppModules.SpecialButtons.AddLookup</c> ile aynıdır ve süper admin/yönetici geçişi sunucudan
+    /// gelen listeye dâhildir (<c>AuthState.CanButton</c>) → yetkili kullanıcı düğmeyi KAYBETMEZ.
+    /// </summary>
+    private bool CanAdd => (AddTable is not null || CreatePath is not null)
+                           && Auth.CanButton("btn-add-lookup");
 
     private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
 

@@ -263,46 +263,65 @@ public class MasaustuTasarimPaketiTests
         Assert.True(eksik.Count == 0, "Tanımsız ikon anahtarı kullanılıyor: " + string.Join(", ", eksik));
     }
 
-    /// <summary>⭐ Menü grubu ikonu grup BAŞLIĞINA bağlanır, <c>ModuleKey</c>'e değil: "Operasyon
-    /// Raporları" ve "Yönetici Raporları" aynı modülü ("reports") paylaşır, başlıkları farklıdır.
-    /// Ayrıca eşlemedeki her başlık katalogda GERÇEKTEN var olmalı; yoksa o grup sessizce ikonsuz kalır.</summary>
+    /// <summary>
+    /// ⭐ Menü ikonu grup BAŞLIĞINA bağlanır, <c>ModuleKey</c>'e değil: "Operasyon Raporları" ve
+    /// "Yönetici Raporları" aynı modülü ("reports") paylaşır, başlıkları farklıdır. Eşlemedeki her
+    /// başlık katalogda GERÇEKTEN var olmalı ve karşılığındaki geometri GERÇEKTEN çizilmiş olmalı;
+    /// yoksa o grup sessizce ikonsuz kalır.
+    ///
+    /// <b>2026-09-05 (MNU-IKON) — korunan garanti aynı, baktığı yer değişti.</b> Eşleme eskiden
+    /// <c>DesktopIcons</c> içindeki iki sözlükteydi (<c>ByGroup</c> / <c>BySection</c>) ve web'de
+    /// AYRI bir kopyası vardı; iki tablo bağımsız eskiyebiliyordu (web'de beş anahtar tam olarak
+    /// böyle ölmüştü). Artık zincir iki adımlı:
+    /// <c>MenuIcons</c> (başlık → KAVRAM, iki platformun ortağı) → <c>DesktopIcons</c>
+    /// (kavram → geometri anahtarı) → <c>Icons.axaml</c> (anahtar → çizim).
+    /// Bu test zincirin masaüstü ucunu uçtan uca doğrular; kavram kapsamının tamamı ve web ucu
+    /// <see cref="MenuIkonTests"/> içindedir.
+    /// </summary>
     [Fact]
     public void TSR10_Ikon_Eslemesi_Katalogla_Ortusuyor()
     {
+        var kavramlar = File.ReadAllText(Path.Combine(RepoKok(), "src", "DepoWise.Application", "Security", "MenuIcons.cs"));
         var eşleme = File.ReadAllText(Path.Combine(MasaustuKok(), "DesktopIcons.cs"));
         var katalog = File.ReadAllText(Path.Combine(RepoKok(), "src", "DepoWise.Application", "Security", "AppScreens.cs"));
         var ikonlar = Kaynak("Themes", "Icons.axaml");
 
-        // İki ayrı sözlük var: alt gruplar (ByGroup) ve menünün ÜST grupları (BySection).
-        // Karıştırılmamalı — üst grup başlığı AppScreens.Sections'ta, alt grup Groups'ta tanımlıdır.
+        // İki ayrı sözlük var: üst menüler (ByGroup) ve menünün ÜST grupları (BySection).
+        // Karıştırılmamalı — üst grup başlığı AppScreens.Sections'ta, üst menü Groups'ta tanımlıdır.
         string Bolum(string ad)
         {
-            var b = eşleme.IndexOf(ad + " = new(", StringComparison.Ordinal);
+            var b = kavramlar.IndexOf(ad + " = new(", StringComparison.Ordinal);
             Assert.True(b >= 0, ad + " sözlüğü bulunamadı.");
-            var son = eşleme.IndexOf("};", b, StringComparison.Ordinal);
-            return eşleme[b..son];
+            var son = kavramlar.IndexOf("};", b, StringComparison.Ordinal);
+            return kavramlar[b..son];
         }
 
-        (string Ad, string Anahtar)[] Ciftler(string bolum)
-            => Regex.Matches(bolum, @"\[""([^""]+)""\]\s*=\s*""(Icon\w+)""")
+        (string Ad, string Kavram)[] Ciftler(string bolum)
+            => Regex.Matches(bolum, @"\[""([^""]+)""\]\s*=\s*""([a-z0-9\-]+)""")
                     .Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToArray();
 
-        var altGruplar = Ciftler(Bolum("ByGroup"));
+        var ustMenuler = Ciftler(Bolum("ByGroup"));
         var ustGruplar = Ciftler(Bolum("BySection"));
 
-        Assert.Equal(17, altGruplar.Length);
+        // Katalogdaki her üst menünün kavramı olmalı (eskiden 17'si vardı, 7'si eksikti).
+        var katalogMenuSayisi = Regex.Matches(katalog, @"new AppScreenGroup\(""([^""]+)""")
+                                     .Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).Count();
+        Assert.Equal(katalogMenuSayisi, ustMenuler.Length);
         Assert.Equal(6, ustGruplar.Length);
 
-        foreach (var (grup, anahtar) in altGruplar)
+        // Kavram → geometri anahtarı → gerçekten çizilmiş geometri.
+        void ZinciriDogrula(string ad, string kavram, bool ustGrupMu)
         {
-            Assert.Contains($"new AppScreenGroup(\"{grup}\"", katalog);     // katalogda var mı
-            Assert.Contains($"x:Key=\"{anahtar}\"", ikonlar);               // geometri çizilmiş mi
+            if (ustGrupMu) Assert.Contains($"\"{ad}\")", katalog);                  // AppScreenSection başlığı
+            else Assert.Contains($"new AppScreenGroup(\"{ad}\"", katalog);           // katalogda var mı
+
+            var m = Regex.Match(eşleme, @"\[""" + Regex.Escape(kavram) + @"""\]\s*=\s*""(Icon\w+)""");
+            Assert.True(m.Success, $"'{ad}' kavramı ({kavram}) DesktopIcons'ta karşılıksız.");
+            Assert.Contains($"x:Key=\"{m.Groups[1].Value}\"", ikonlar);              // geometri çizilmiş mi
         }
-        foreach (var (bolum, anahtar) in ustGruplar)
-        {
-            Assert.Contains($"\"{bolum}\")", katalog);                      // AppScreenSection başlığı
-            Assert.Contains($"x:Key=\"{anahtar}\"", ikonlar);
-        }
+
+        foreach (var (grup, kavram) in ustMenuler) ZinciriDogrula(grup, kavram, ustGrupMu: false);
+        foreach (var (bolum, kavram) in ustGruplar) ZinciriDogrula(bolum, kavram, ustGrupMu: true);
 
         // Katalogdaki HER üst grubun ikonu olmalı — biri eklenip eşleme unutulursa menüde tek başına ikonsuz kalır.
         var katalogUst = Regex.Matches(katalog, @"new AppScreenSection\(""[^""]+"",\s*""([^""]+)""\)")

@@ -10,6 +10,19 @@ public sealed partial class NavLinkVm : ViewModelBase
     public string Title { get; }
     public string Key { get; }
 
+    /// <summary>
+    /// ⭐ MNU-IKON (kullanıcı isteği 2026-09-05) — ALT MENÜ İKONU.
+    ///
+    /// Alt menülerin hiçbirinde ikon YOKTU; eksik kalmış değil, hiç tanımlanmamıştı — şablonda
+    /// ikon alanı bile bulunmuyordu. Kavram eşlemesi ortak katmandadır
+    /// (<c>MenuIcons.ForScreen</c>), geometriye çeviren <c>DesktopIcons</c>'tur.
+    ///
+    /// Kaynak bulunamazsa null döner ve satır ikonsuz çizilir — akış bozulmaz (grup ikonlarında
+    /// baştan beri uygulanan aynı güvenli davranış).
+    /// </summary>
+    public Avalonia.Media.Geometry? IconGeometry { get; init; }
+    public bool HasIcon => IconGeometry is not null;
+
     [ObservableProperty] private bool _isActive;
 
     public NavLinkVm(string title, string key)

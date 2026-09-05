@@ -89,4 +89,105 @@
 
     <!-- Güncelleme (ana ekran sürüm kartı) — buluttan indirme -->
     <StreamGeometry x:Key="IconUpdate">M12 2.6c-3 0-5.5 2.2-6 5.1A4.7 4.7 0 0 0 6.7 17h3v-1.9h-3a2.8 2.8 0 0 1-.3-5.6l.8-.1.1-.8A4.2 4.2 0 0 1 16 8.7l.2.9h.9a2.7 2.7 0 0 1 0 5.5h-2.8V17h2.8a4.6 4.6 0 0 0 .8-9.2c-.6-2.9-3.1-5.2-5.9-5.2Z M11.1 11.2h1.9v5.2l1.9-1.9 1.3 1.3-4.1 4.2-4.2-4.2 1.3-1.3 1.9 1.9v-5.2Z</StreamGeometry>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+         MNU-IKON (kullanıcı isteği 2026-09-05) — MENÜDE SİMGESİZ ÖĞE KALMAYACAK.
+
+         Buraya kadar olan set üst menüler ve araç çubuğu içindi. Aşağıdakiler iki boşluğu kapatır:
+           (1) ikonu hiç olmayan 7 ÜST MENÜ (Ekipman · Zimmet · Satın Alma · İş Emirleri · Takvim ·
+               Evrak · Duyurular),
+           (2) 70 ALT MENÜNÜN tamamı — bunlarda şablonda ikon alanı bile yoktu.
+
+         Kavram adları ortak katmandadır (MenuIcons); buradaki anahtarlar o kavramların masaüstü
+         karşılığıdır. Aynı işi yapan ekranlar (listeler, "yeni kayıt"lar) BİLEREK aynı geometriyi
+         paylaşır — 70 ayrı çizim menüyü okunmaz yapardı.
+
+         Biçim üsttekiyle aynı: 24x24 ızgara, dolu gövde, tek renk (Foreground miras alınır).
+         ═══════════════════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Ekipman — dişli + gövde -->
+    <StreamGeometry x:Key="IconEquipment">M4.2 14.6h6.2v5.8H4.2v-5.8Z M2.6 20.4h9.4v1.8H2.6v-1.8Z M17.2 2.4a4.6 4.6 0 0 0-4.4 6l-1.6 1.6 3.2 3.2 1.6-1.6a4.6 4.6 0 1 0 1.2-9.2Zm0 2a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2Z</StreamGeometry>
+    <!-- Zimmet — kişi + kutu (kimde ne var) -->
+    <StreamGeometry x:Key="IconAssignments">M8 3.2a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z M2.6 18c0-3 2.4-5.4 5.4-5.4s5.4 2.4 5.4 5.4v1.2H2.6V18Z M14.6 11h6.8v9.2h-6.8V11Zm1.8 1.8v2h3.2v-2h-3.2Z</StreamGeometry>
+    <!-- Satın Alma — alışveriş sepeti -->
+    <StreamGeometry x:Key="IconPurchasing">M2.4 3.2h3.2l.7 2.6h14.4a.9.9 0 0 1 .9 1.1l-1.7 6.4a1.4 1.4 0 0 1-1.4 1.1H8.6a1.4 1.4 0 0 1-1.4-1.1L4.9 5.1h-2.5V3.2Z M8.8 17.4a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8Z M17.6 17.4a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8Z</StreamGeometry>
+    <!-- İş Emirleri — panoya tutturulmuş görev listesi -->
+    <StreamGeometry x:Key="IconWorkOrders">M9.4 1.8h5.2A1.2 1.2 0 0 1 15.8 3v1.2H8.2V3a1.2 1.2 0 0 1 1.2-1.2Z M5.6 3.4h1.4v2.6h10V3.4h1.4A1.4 1.4 0 0 1 19.8 4.8v15.4a1.4 1.4 0 0 1-1.4 1.4H5.6a1.4 1.4 0 0 1-1.4-1.4V4.8a1.4 1.4 0 0 1 1.4-1.4Z M7.6 10.4l1.3-1.3 1.4 1.4 2.9-2.9 1.3 1.3-4.2 4.2-2.7-2.7Z M13.2 15.4h3.2v1.8h-3.2v-1.8Z</StreamGeometry>
+    <!-- Takvim -->
+    <StreamGeometry x:Key="IconCalendar">M7 2.2h1.9v2.2H7V2.2Zm8.1 0H17v2.2h-1.9V2.2Z M4.4 4.4h15.2A1.4 1.4 0 0 1 21 5.8v14a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 19.8v-14a1.4 1.4 0 0 1 1.4-1.4Zm.6 4.8v10.2h14V9.2H5Z M7.4 11.4h2.4v2.4H7.4v-2.4Zm4.6 0h2.4v2.4H12v-2.4Zm4.6 0H19v2.4h-2.4v-2.4ZM7.4 15.6h2.4V18H7.4v-2.4Zm4.6 0h2.4V18H12v-2.4Z</StreamGeometry>
+    <!-- Evrak — dosyalar -->
+    <StreamGeometry x:Key="IconDocuments">M3.4 5.6h6l1.6 2h9.6a1.2 1.2 0 0 1 1.2 1.2v9.6a1.2 1.2 0 0 1-1.2 1.2H3.4a1.2 1.2 0 0 1-1.2-1.2V6.8a1.2 1.2 0 0 1 1.2-1.2Z M6.4 2.6h5.2l1.2 1.6H6.4V2.6Z</StreamGeometry>
+    <!-- Duyurular — megafon -->
+    <StreamGeometry x:Key="IconAnnouncements">M18.6 3.2v17.6l-8.4-4.2H7.4a2.6 2.6 0 0 1 0-5.2h2.8l8.4-8.2Z M4.6 12a2.8 2.8 0 0 0 1.6 2.5v-5A2.8 2.8 0 0 0 4.6 12Z M20.4 9.4h2.4v2.2h-2.4V9.4Zm0 4.2h2.4v2.2h-2.4v-2.2Z</StreamGeometry>
+
+    <!-- ── ALT MENÜ KAVRAMLARI ────────────────────────────────────────────────────────────── -->
+
+    <!-- Liste -->
+    <StreamGeometry x:Key="IconList">M3.2 5.4h2.4v2.4H3.2V5.4Zm4.4 0h13.2v2.4H7.6V5.4ZM3.2 10.8h2.4v2.4H3.2v-2.4Zm4.4 0h13.2v2.4H7.6v-2.4ZM3.2 16.2h2.4v2.4H3.2v-2.4Zm4.4 0h13.2v2.4H7.6v-2.4Z</StreamGeometry>
+    <!-- Giriş-Çıkış — çift yönlü dikey ok -->
+    <StreamGeometry x:Key="IconStockEntry">M8 2.6l4 4.4H9.1v9.6H6.9V7H4L8 2.6Z M16 21.4l-4-4.4h2.9V7.4h2.2V17H20l-4 4.4Z</StreamGeometry>
+    <!-- Hareketler — geçmiş/saat -->
+    <StreamGeometry x:Key="IconMovements">M12.4 3.2a8.8 8.8 0 1 0 8.4 11.4h-2.2a6.6 6.6 0 1 1-.6-5.2h-2.8v2.2h6.2V5.4h-2.2v2.2A8.8 8.8 0 0 0 12.4 3.2Z M11.4 8.2h1.9v4.6l3.6 2.1-.9 1.6-4.6-2.7V8.2Z</StreamGeometry>
+    <!-- Sayım — işaretli liste -->
+    <StreamGeometry x:Key="IconCount">M3.4 5.6l1.3-1.3 1.5 1.5 2.6-2.6 1.3 1.3-3.9 3.9-2.8-2.8Zm0 6.4l1.3-1.3 1.5 1.5 2.6-2.6L10.1 11l-3.9 3.9L3.4 12Zm0 6.4 1.3-1.3 1.5 1.5 2.6-2.6 1.3 1.3-3.9 3.9-2.8-2.8Z M12.4 5.4h8.2v2.2h-8.2V5.4Zm0 6.4h8.2V14h-8.2v-2.2Zm0 6.4h8.2v2.2h-8.2v-2.2Z</StreamGeometry>
+    <!-- Şablon — kopya -->
+    <StreamGeometry x:Key="IconTemplate">M8 2.6h9.4A1.4 1.4 0 0 1 18.8 4v11.4a1.4 1.4 0 0 1-1.4 1.4H8a1.4 1.4 0 0 1-1.4-1.4V4A1.4 1.4 0 0 1 8 2.6Z M4.6 6.2v13a1.4 1.4 0 0 0 1.4 1.4h9.4v-1.9H6.5V6.2H4.6Z</StreamGeometry>
+    <!-- Dağıtım — dallanma -->
+    <StreamGeometry x:Key="IconDistribute">M11 2.6h2v5.1l4.5 4.5v6.4h-2v-5.6l-3.5-3.5-3.5 3.5v5.6h-2v-6.4L11 7.7V2.6Z M4.6 19.2a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Zm14.8 0a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4ZM12 .4a2.2 2.2 0 1 0 0 4.4A2.2 2.2 0 0 0 12 .4Z</StreamGeometry>
+    <!-- Muayene / Sigorta — kalkanda onay -->
+    <StreamGeometry x:Key="IconInspection">M12 2.2 4.4 5.4v5.4c0 4.8 3.2 9.2 7.6 10.6 4.4-1.4 7.6-5.8 7.6-10.6V5.4L12 2.2Zm-1 13-3-3 1.4-1.4 1.6 1.6 4.2-4.2 1.4 1.4-5.6 5.6Z</StreamGeometry>
+    <!-- Tanım — ayar sürgüleri -->
+    <StreamGeometry x:Key="IconDefinition">M4 5.4h9.2v2.2H4V5.4Zm12.6 0H20v2.2h-3.4V5.4Z M14.4 3.4h2.2v6.2h-2.2V3.4Z M4 16.4h3.4v2.2H4v-2.2Zm6.6 0H20v2.2h-9.4v-2.2Z M7.4 14.4h2.2v6.2H7.4v-6.2Z</StreamGeometry>
+    <!-- Depo girişi — depo kutusu -->
+    <StreamGeometry x:Key="IconFuelDepot">M3.4 4.6h17.2a1.2 1.2 0 0 1 1.2 1.2v3.4a1.2 1.2 0 0 1-1.2 1.2H3.4a1.2 1.2 0 0 1-1.2-1.2V5.8a1.2 1.2 0 0 1 1.2-1.2Z M4.6 11.8h14.8v7.6H4.6v-7.6Zm2.2 2v3.6h4.2v-3.6H6.8Z M2.6 20.6h18.8v1.8H2.6v-1.8Z</StreamGeometry>
+    <!-- Özet -->
+    <StreamGeometry x:Key="IconSummary">M5.6 2.4h12.8A1.4 1.4 0 0 1 19.8 3.8v16.4a1.4 1.4 0 0 1-1.4 1.4H5.6a1.4 1.4 0 0 1-1.4-1.4V3.8A1.4 1.4 0 0 1 5.6 2.4Zm2.2 4.2h8.4v2.2H7.8V6.6Zm0 4.4h8.4v2.2H7.8V11Zm0 4.4h5.2v2.2H7.8v-2.2Z</StreamGeometry>
+    <!-- Talep formu — belgeye ekleme -->
+    <StreamGeometry x:Key="IconRequestForm">M5.4 2.4h8.2L18.6 7.4v5.2h-2.2V8.6h-3.6V4.4H5.4v15.2h6.2v2H5.4A1.4 1.4 0 0 1 4 20.2V3.8a1.4 1.4 0 0 1 1.4-1.4Z M16.4 14.4h2.2v2.8h2.8v2.2h-2.8v2.8h-2.2v-2.8h-2.8v-2.2h2.8v-2.8Z</StreamGeometry>
+    <!-- Onaylama — daire içinde onay -->
+    <StreamGeometry x:Key="IconApprove">M12 2.4a9.6 9.6 0 1 0 0 19.2 9.6 9.6 0 0 0 0-19.2Zm-1.4 14-4.2-4.2 1.6-1.6 2.6 2.6 5.8-5.8 1.6 1.6-7.4 7.4Z</StreamGeometry>
+    <!-- Operasyonlar — büyüteçle liste -->
+    <StreamGeometry x:Key="IconOperations">M3 4.6h11.4v2.2H3V4.6Zm0 5.4h7.6v2.2H3V10Zm0 5.4h6.2v2.2H3v-2.2Z M16.6 9a4.6 4.6 0 1 0 2.7 8.3l2.6 2.6 1.5-1.5-2.6-2.6A4.6 4.6 0 0 0 16.6 9Zm0 2.2a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8Z</StreamGeometry>
+    <!-- Fatura -->
+    <StreamGeometry x:Key="IconInvoice">M4.6 2.2 6.4 4l1.8-1.8L10 4l1.8-1.8L13.6 4l1.8-1.8L17.2 4 19 2.2v19.6l-1.8-1.8-1.8 1.8-1.8-1.8-1.8 1.8L10 20l-1.8 1.8L6.4 20l-1.8 1.8V2.2Zm2.6 5.4h9.6v2.2H7.2V7.6Zm0 4.4h9.6v2.2H7.2V12Zm0 4.4h6.2v2.2H7.2v-2.2Z</StreamGeometry>
+    <!-- Kasa / Banka -->
+    <StreamGeometry x:Key="IconFinance">M12 2.4 22 7.4v2.2H2V7.4l10-5Z M4.6 11.4h2.4v6.4H4.6v-6.4Zm6.2 0h2.4v6.4h-2.4v-6.4Zm6.2 0h2.4v6.4h-2.4v-6.4Z M2.6 19.6h18.8v2.2H2.6v-2.2Z</StreamGeometry>
+    <!-- Tahsilat / Ödeme -->
+    <StreamGeometry x:Key="IconPayment">M2.6 6.4h18.8a1.4 1.4 0 0 1 1.4 1.4v8.4a1.4 1.4 0 0 1-1.4 1.4H2.6a1.4 1.4 0 0 1-1.4-1.4V7.8a1.4 1.4 0 0 1 1.4-1.4Zm.8 2.6v1.8h17.2V9H3.4Zm0 4v3.2h6.2V13H3.4Z</StreamGeometry>
+    <!-- Maliyet merkezi — pasta dilimi -->
+    <StreamGeometry x:Key="IconCostCenter">M11 2.6v9.4h9.4A9.4 9.4 0 0 0 11 2.6Z M9.4 4.4A9.4 9.4 0 1 0 20 15.1H9.4V4.4Z</StreamGeometry>
+    <!-- Rapor tasarımcısı — kalem + cetvel -->
+    <StreamGeometry x:Key="IconDesigner">M3.4 16.4 15 4.8l3.6 3.6L7 20H3.4v-3.6Z M16.4 3.4 18.2 1.6l3.6 3.6-1.8 1.8-3.6-3.6Z M3 21.4h18v1.8H3v-1.8Z</StreamGeometry>
+    <!-- Projeler — temel/inşaat -->
+    <StreamGeometry x:Key="IconProjects">M2.6 18.4h18.8v3H2.6v-3Z M5.4 8.6h3v8.2h-3V8.6Zm5.2-4h3v12.2h-3V4.6Zm5.2 6.4h3v5.8h-3V11Z</StreamGeometry>
+    <!-- Personel — kimlik kartı -->
+    <StreamGeometry x:Key="IconPersonnel">M3.4 4.6h17.2a1.4 1.4 0 0 1 1.4 1.4v12a1.4 1.4 0 0 1-1.4 1.4H3.4A1.4 1.4 0 0 1 2 18V6a1.4 1.4 0 0 1 1.4-1.4Zm5.2 2.8a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8ZM4.6 16.4c0-2.2 1.8-3.4 4-3.4s4 1.2 4 3.4H4.6Zm10.4-7.6h5v1.8h-5V8.8Zm0 3.6h5v1.8h-5v-1.8Z</StreamGeometry>
+    <!-- Ekipler -->
+    <StreamGeometry x:Key="IconTeams">M8 4.4a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6Zm8.4 0a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2Z M2.4 18c0-2.9 2.4-5 5.6-5s5.6 2.1 5.6 5v1.6H2.4V18Z M15.2 13.2c3 .2 6.4 1.4 6.4 4.8v1.6h-6.2V18c0-1.9-.8-3.5-2-4.6l1.8-.2Z</StreamGeometry>
+    <!-- Yetkiler — anahtar -->
+    <StreamGeometry x:Key="IconPermissions">M15.4 2.6a6 6 0 0 0-5.7 7.9L2.4 17.8v3.6H6v-2.2h2.2v-2.2h2.2l1.6-1.6a6 6 0 1 0 3.4-12.8Zm1.4 2.8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z</StreamGeometry>
+    <!-- Değişiklik kaydı — geçmiş defteri -->
+    <StreamGeometry x:Key="IconLog">M5.6 2.4h12.8A1.4 1.4 0 0 1 19.8 3.8v16.4a1.4 1.4 0 0 1-1.4 1.4H5.6a1.4 1.4 0 0 1-1.4-1.4V3.8A1.4 1.4 0 0 1 5.6 2.4Zm2.2 4h8.4v2H7.8v-2Zm0 4h8.4v2H7.8v-2Zm0 4h5.2v2H7.8v-2Z M2 5.4h1.6v13.2H2V5.4Z</StreamGeometry>
+    <!-- Firmalar — bina -->
+    <StreamGeometry x:Key="IconCompanies">M3.4 20.6V4.4a1.2 1.2 0 0 1 1.2-1.2h8a1.2 1.2 0 0 1 1.2 1.2v16.2H3.4Zm2.4-13.2v2.2H8V7.4H5.8Zm4 0v2.2H12V7.4H9.8Zm-4 4.4v2.2H8v-2.2H5.8Zm4 0v2.2H12v-2.2H9.8Zm-4 4.4v4.4H12v-4.4H5.8Z M15.2 9.4h4.2a1.2 1.2 0 0 1 1.2 1.2v10H15.2v-11.2Zm1.8 3v2h1.8v-2H17Z</StreamGeometry>
+    <!-- Makine — bilgisayar -->
+    <StreamGeometry x:Key="IconMachine">M3.4 4.4h17.2a1.2 1.2 0 0 1 1.2 1.2v9.6a1.2 1.2 0 0 1-1.2 1.2H3.4a1.2 1.2 0 0 1-1.2-1.2V5.6a1.2 1.2 0 0 1 1.2-1.2Zm.8 2v7.6h15.6V6.4H4.2Z M7.4 18.4h9.2v2.2H7.4v-2.2Z</StreamGeometry>
+    <!-- Sunucu -->
+    <StreamGeometry x:Key="IconServer">M3.6 3.4h16.8a1.2 1.2 0 0 1 1.2 1.2v4.2a1.2 1.2 0 0 1-1.2 1.2H3.6a1.2 1.2 0 0 1-1.2-1.2V4.6a1.2 1.2 0 0 1 1.2-1.2Zm1.8 2.4v1.8h2.2V5.8H5.4Z M3.6 13.6h16.8a1.2 1.2 0 0 1 1.2 1.2v4.2a1.2 1.2 0 0 1-1.2 1.2H3.6a1.2 1.2 0 0 1-1.2-1.2v-4.2a1.2 1.2 0 0 1 1.2-1.2Zm1.8 2.4v1.8h2.2V16H5.4Z</StreamGeometry>
+    <!-- Kota — doluluk halkası -->
+    <StreamGeometry x:Key="IconQuota">M11 2.6A9.4 9.4 0 0 0 12 21.4a9.4 9.4 0 0 0 9.4-9.4H12V2.6h-1Z M13.8 2.8v7.4h7.4a7.6 7.6 0 0 0-7.4-7.4Z</StreamGeometry>
+    <!-- Sıfırlama — yeniden başlat -->
+    <StreamGeometry x:Key="IconReset">M12 4.4V1.6L7.8 5.8 12 10V6.6a5.6 5.6 0 1 1-5.6 5.6H4.2A7.8 7.8 0 1 0 12 4.4Z</StreamGeometry>
+    <!-- Menü / ekran yönetimi — pano düzeni -->
+    <StreamGeometry x:Key="IconScreens">M3.4 3.4h7.2v6.2H3.4V3.4Zm10 0h7.2v9.6h-7.2V3.4ZM3.4 11.8h7.2v8.8H3.4v-8.8Zm10 3.4h7.2v5.4h-7.2v-5.4Z</StreamGeometry>
+    <!-- Alan ayarları — düzenlenen not -->
+    <StreamGeometry x:Key="IconFieldSettings">M4.6 3.4h10.6v2.2H4.6V3.4Zm0 4.6h10.6v2.2H4.6V8Zm0 4.6h6.2v2.2H4.6v-2.2Z M20.6 11.4l1.6 1.6-6.4 6.4-2.4.8.8-2.4 6.4-6.4Z M3 19.4h8.2v2.2H3v-2.2Z</StreamGeometry>
+    <!-- Geliştirici modu — kod -->
+    <StreamGeometry x:Key="IconDeveloper">M8.6 6.4 3 12l5.6 5.6 1.6-1.6L6.2 12l4-4-1.6-1.6Z M15.4 6.4 13.8 8l4 4-4 4 1.6 1.6L21 12l-5.6-5.6Z</StreamGeometry>
+    <!-- Tema — palet -->
+    <StreamGeometry x:Key="IconTheme">M12 2.6a9.4 9.4 0 0 0 0 18.8c1.6 0 2.8-1.2 2.8-2.8 0-.7-.3-1.4-.8-1.9-.4-.5-.7-1.1-.7-1.7 0-1.3 1.1-2.4 2.4-2.4h1.6a4.7 4.7 0 0 0 4.7-4.7c0-3.1-3.6-5.3-10-5.3ZM6.6 12a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 0 1 0 3.2Zm2.8-4.4a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 0 1 0 3.2Zm5.2 0a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 0 1 0 3.2Z</StreamGeometry>
+    <!-- Nötr ekran ikonu — eşleşme bulunamazsa BURASI çizilir: menü öğesi asla ikonsuz kalmaz -->
+    <StreamGeometry x:Key="IconScreen">M12 7.4a4.6 4.6 0 1 0 0 9.2 4.6 4.6 0 0 0 0-9.2Z</StreamGeometry>
+    <!-- Genel grup ikonu (kullanıcının kendi oluşturduğu gruplar) -->
+    <StreamGeometry x:Key="IconGroup">M3.4 5.6h6l1.6 2h9.6a1.2 1.2 0 0 1 1.2 1.2v9.6a1.2 1.2 0 0 1-1.2 1.2H3.4a1.2 1.2 0 0 1-1.2-1.2V6.8a1.2 1.2 0 0 1 1.2-1.2Z</StreamGeometry>
 </ResourceDictionary>

@@ -125,11 +125,26 @@
                                                       Margin="10,2,0,6">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:NavLinkVm">
-                                                    <Button Content="{Binding Title}" Classes="NavLink"
+                                                    <!-- ⭐ MNU-IKON (kullanıcı isteği 2026-09-05): alt menülerde İKON.
+                                                         Eskiden bu şablon yalnız metin taşıyordu; alt menülerin hiçbirinde
+                                                         ikon yoktu. Grup satırlarıyla AYNI ölçüler (14px ikon + 8px boşluk,
+                                                         metin sütunu "*") → hizalama bozulmaz, panel genişliği değişmez.
+                                                         Kaynak yoksa HasIcon=false → sütun boş kalır, çökme yok. -->
+                                                    <Button Classes="NavLink"
                                                             Classes.active="{Binding IsActive}"
                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NavigateCommand}"
-                                                            CommandParameter="{Binding Key}"/>
+                                                            CommandParameter="{Binding Key}">
+                                                        <Grid ColumnDefinitions="Auto,*">
+                                                            <PathIcon Grid.Column="0" Width="14" Height="14" Margin="0,0,8,0"
+                                                                      VerticalAlignment="Center"
+                                                                      Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
+                                                                      Opacity="0.75"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                                                       VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </Grid>
+                                                    </Button>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>

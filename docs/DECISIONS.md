@@ -5032,3 +5032,120 @@ büyürse çözüm indeks değil **tam metin arama (FTS)** ya da "ile başlar" a
 kayda geçti, bu turda değiştirilmedi (ölçülmemiş bir optimizasyon eklenmedi).
 
 Ayrıntı: [FAZ_K_UCTAN_UCA_DOGRULAMA.md](project-control/FAZ_K_UCTAN_UCA_DOGRULAMA.md)
+
+## ADR-220 — TDR-01 + MNU-IKON: tedarikçi "+" ve menü simgeleri (2026-09-05)
+
+**Bağlam.** Kullanıcı masaüstünde alan denetimi yaparken iki istek iletti. Şartı açıktı: *"belirttiğim
+hatalar web'te de var anlamına gelmiyor... 2 ortam da kontrol edilerek işlem yapılacak."* Bu yüzden
+her iki istek de önce **iki platformda ölçüldü**, sonra dokunuldu.
+
+### 1. TDR-01 — Giriş-Çıkış ekranında tedarikçi "+"
+
+**Ölçüm kusurun YALNIZ MASAÜSTÜNDE olduğunu gösterdi:**
+
+| | Durum |
+|---|---|
+| Web (`Stock.razor`) | "+" **zaten vardı** — Tedarikçi, Birim, Kategori, Marka |
+| Masaüstü (`StockEntryView.axaml`) | Bu ekranda **hiç "+" yoktu** |
+
+Masaüstünde kullanıcı yeni bir tedarikçiyle karşılaşınca formu bırakıp Malzemeler ekranına gitmek
+zorunda kalıyor, döndüğünde girdiği veriler kayboluyordu.
+
+**Yeni bir yapı kurulmadı:** `MaterialsView`'deki tedarikçi "+" düzeninin birebir aynısı taşındı —
+aynı komut adları, aynı ortak servis (`LookupService.AddSupplier`), aynı yetki kapısı
+(`CanAddLookup`). İki ekran zamanla ayrışamaz.
+
+**Ayrıca bulunan parite farkı:** masaüstü "+" düğmesini yetkisizden **gizliyor**, web ise
+**herkese gösteriyordu**; yetkisiz kullanıcı diyaloğu açıp adı yazıyor, ancak kaydederken hata
+alıyordu. Güvenlik açığı **değildi** — gerçek kapı serviste (`AccessControl.Require(Create)`) ve
+ona dokunulmadı — ama CLAUDE.md §5'in "UI ≡ API" kuralını çiğniyordu. Web de aynı kapıya bağlandı
+(`Auth.CanButton("btn-add-lookup")`), DEN-F1'de aynı gerekçeyle alınan kararın devamı olarak.
+
+### 2. MNU-IKON — menüde simgesiz öğe kalmayacak
+
+Kullanıcının tarifi "bazı alt menülerde simge yok"tu; ölçüm durumun daha derin olduğunu gösterdi:
+
+| Seviye | Masaüstü | Web |
+|---|---|---|
+| Üst menüler (24) | **7'si simgesizdi** (Ekipman · Zimmet · Satın Alma · İş Emirleri · Takvim · Evrak · Duyurular) | 12 grup genel "klasör" simgesine düşüyordu |
+| **Alt menüler (70)** | **Hiçbirinde simge yoktu** — şablonda simge alanı bile tanımlı değildi | **Hiçbirinde simge yoktu** — `MudNavLink`'lerde `Icon` verilmiyordu |
+| Üst gruplar (6) | Ayrı simgeleri vardı | **Hepsi aynı** `FolderOpen` simgesini alıyordu |
+
+**Kök neden:** "hangi menü hangi simgeyi alır" bilgisi **iki ayrı yerde elle** tutuluyordu
+(`DesktopIcons` ve `NavMenu.WebIcon`). Katalogda bir grup yeniden adlandırılınca iki tablo da
+sessizce eskiyordu — **eşleşmeyen anahtar hata vermiyor, yalnız simgeyi kaybediyordu.** Web'de
+beş anahtar (`"Personel"`, `"Yönetim"`, `"Raporlar"`, `"İmport / Export"`, `"Kullanıcı"`) tam olarak
+böyle ölmüştü ve kimse fark etmemişti.
+
+**Çözüm.** Kavram eşlemesi ortak katmana alındı (`MenuIcons`): hangi ekranın/grubun/bölümün hangi
+**simge kavramını** kullandığı tek yerde durur; platformlar yalnız *kavram → kendi simge sistemi*
+çevirisini yapar (masaüstü: Avalonia geometrisi · web: MudBlazor sabiti). Böylece iki menü bir daha
+ayrışamaz ve Application katmanı hiçbir arayüz kütüphanesine bağımlı olmaz (kavramlar düz string).
+
+**`AppScreen` kaydına alan EKLENMEDİ** — o kayıt çok sayıda parite testiyle kilitli ve 70 satırın
+tamamını değiştirmek gerekirdi. Ayrı tablo, çalışan yapıya dokunmadan aynı sonucu verir.
+
+**Kavramlar bilerek paylaşılır:** 70 ekrana 70 ayrı çizim menüyü okunmaz yapardı. Aynı işi yapan
+ekranlar (listeler, "yeni kayıt"lar) aynı kavramı kullanır; ayırt edici olan üst grubun simgesi ve
+ekranın adıdır. Masaüstü için 41 yeni 24×24 geometri çizildi (38 → 79).
+
+**Sekme şeridi:** korunan ilke "sekmede ayrı simge seti yoktur, menüde ne görünüyorsa o"dur.
+Menüde alt menüler artık kendi simgelerini taşıdığı için sekme de ekranın **kendi** simgesini alır.
+`SekmeSeridiTests` SEK5 bu yüzden güncellendi — ilke değişmedi, mekanizma değişti.
+
+**Sessiz eskimeye karşı kilit (`MenuIkonTests`, 7 test):** katalogdaki her ekranın/grubun/bölümün
+kavramı olmalı · her kavramın **iki platformda da** karşılığı olmalı · masaüstünde geometri
+gerçekten **çizilmiş** olmalı (yalnız eşlemeye bakmak yetmez: çizilmemiş anahtar çalışma zamanında
+null döner ve satır yine simgesiz kalırdı) · şablonlar simgeyi gerçekten çizmeli · eşleme
+tablosunda katalogda **karşılığı olmayan** anahtar bulunmamalı.
+
+### Doğrulanamayanlar
+
+Menü ve giriş-çıkış ekranı **oturum açmayı gerektirir**; giriş formuna parola yazmadığım için
+simgelerin tarayıcıda/pencerede görünümü **elle doğrulanmadı**. Kanıt kaynak sözleşmesi + testlerdir.
+Kullanıcının menüyü bir kez gözle kontrol etmesi bu işin doğal tamamlayıcısıdır.
+
+### TDR-01 devamı — desen ekrandaki DİĞER tanım alanlarına da uygulandı
+
+Tedarikçi eklendikten sonra masaüstünde tek bir kutuda "+" olup komşularında olmaması tutarsız
+görünüyordu. Kullanıcı onayıyla aynı kanıtlanmış desen beş alanın tamamına uygulandı:
+
+| Alan | Masaüstü (önce → sonra) | Web (önce → sonra) |
+|---|---|---|
+| Tedarikçi | yok → **var** | var → var |
+| Birim · Kategori · Marka | yok → **var** | var → var |
+| Alt Kategori | yok → **var** | **yok → var** |
+
+**Alt kategori ayrı ele alındı:** üst kategoriye aittir (`parent_id`). Genel
+`/api/lookups/{table}` ucu üst kayıt taşımaz; oradan eklenseydi kayıt **ÜST** kategori olarak
+açılır ve kullanıcı "eklediğim alt kategori listede yok" derdi. İki platform da üst kayıt taşıyan
+uca (`POST /api/materials/subcategories`) gider ve kategori seçilmeden ekleme yapılamaz.
+Web'de `AddLookupDialog`'a opsiyonel `ParentId` eklendi — boş bırakılırsa davranış eskisiyle
+**birebir aynı**, yani mevcut çağrı yerleri etkilenmez.
+
+**Kilit:** bu alanlar mevcut malzeme seçilince zaten kilitlidir (`NewFieldsEnabled`) ve "+"
+düğmeleri o kilidin içinde kaldığı için birlikte devre dışı kalır — var olan bir malzemenin
+sınıflandırması stok girişinden değiştirilmemelidir. Tedarikçi bilinçli olarak bu kilidin
+dışındadır (madde 1.1).
+
+**Ortak bileşen de hizalandı.** `Stock.razor`'daki "+" yetkiye bağlanınca web kendi içinde
+tutarsız kalıyordu: stok ekranında gizli, Malzemeler ekranında (ortak `LookupSelect` bileşeni)
+görünür. Bileşen de aynı kapıya bağlandı (`btn-add-lookup`). Bu **14+ ekranı** etkiler ama
+yalnız *kullanamayacağı bir düğmeyi* yetkisiz kullanıcıdan gizler; yetkili kullanıcı düğmeyi
+kaybetmez (süper admin/yönetici geçişi sunucudan gelen listeye dâhildir). Gerçek kapı yine
+serviste ve ona dokunulmadı.
+
+**Test notu (dürüstlük kaydı).** `MasaustuTasarimPaketiTests.TSR10` bu turda KIRILDI: eşlemenin
+`DesktopIcons` içindeki `ByGroup` sözlüğünde durduğunu varsayıyordu, oysa başlık→kavram eşlemesi
+ortak katmana taşındı. Test silinmedi ya da zayıflatılmadı — **koruduğu garanti aynen korunarak**
+yeni zincire yöneltildi (`MenuIcons` → `DesktopIcons` → `Icons.axaml`) ve kapsamı GENİŞLETİLDİ:
+artık sabit "17 üst menü" beklemiyor, **katalogdaki üst menü sayısını sayıp** ona eşitliyor. Eskiden
+7 grup eşlemede yokken test yeşildi; bugünkü hâli o durumu yakalar.
+
+Tam süit: **3444 geçti / 1 başarısız / 48 atlandı** (29 dk 32 sn); tek başarısız yukarıdaki TSR10'du,
+düzeltilip ilgili grupla birlikte yeniden koşuldu → **40/40**. Bu turda **migration YOK** (yalnız
+arayüz + ortak katalog); şema 91'de kalır.
+
+**Doğrulanamayan.** Hem menü hem giriş-çıkış ekranı oturum açmayı gerektiriyor; giriş formuna parola
+yazılmadığı için 10 "+" düğmesi ve 41 yeni geometri **ekranda gözle görülmedi**. Kanıt kaynak
+sözleşmesi + testlerdir; görsel onay kullanıcıya aittir.

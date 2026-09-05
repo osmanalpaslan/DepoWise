@@ -4,54 +4,115 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using DepoWise.Application.Security;
 
 namespace DepoWise.Desktop;
 
 /// <summary>
-/// Menü grubu başlığı → Themes/Icons.axaml içindeki StreamGeometry anahtarı.
+/// Menü simgesi → <c>Themes/Icons.axaml</c> içindeki StreamGeometry anahtarı.
+///
+/// <b>⭐ MNU-IKON (2026-09-05) — eşleme artık ORTAK KATMANDAN gelir.</b>
+/// Eskiden "hangi menü hangi ikonu alır" bilgisi burada VE web'de <c>NavMenu.WebIcon</c> içinde
+/// ayrı ayrı elle tutuluyordu. Katalogda bir grup yeniden adlandırılınca iki tablo da sessizce
+/// eskiyordu; web'de beş anahtar tam olarak böyle ölmüştü. Artık kavramlar
+/// <see cref="MenuIcons"/> içindedir ve burada yalnız <b>kavram → geometri anahtarı</b> çevirisi var.
 ///
 /// Neden ViewModel'de sabit geometri tutulmuyor: ikonlar bir KAYNAK sözlüğünde durur, burada
-/// yalnız "hangi grup hangi anahtarı kullanır" bilgisi vardır. Anahtar bulunamazsa (yeni grup
-/// eklenmiş, ikon henüz çizilmemiş) null döner ve o grup ikonsuz görünür — akış bozulmaz.
+/// yalnız hangi kavramın hangi anahtarı kullandığı bilgisi vardır.
 ///
-/// ⚠ Anahtarlar AppScreens.Groups içindeki BAŞLIKLARDIR (ModuleKey DEĞİL): "Operasyon Raporları"
-///   ve "Yönetici Raporları" aynı modül anahtarını ("reports") paylaşır, başlıkları farklıdır.
+/// <b>Simgesiz menü kalmaz:</b> bilinmeyen kavram nötr bir geometri alır (<c>IconScreen</c> /
+/// <c>IconGroup</c>). Kaynak hiç bulunamazsa null döner ve o satır ikonsuz çizilir — akış bozulmaz.
 /// </summary>
 public static class DesktopIcons
 {
-    private static readonly Dictionary<string, string> ByGroup = new(StringComparer.Ordinal)
+    /// <summary>Kavram → Icons.axaml anahtarı. Kavram listesinin sahibi <see cref="MenuIcons"/>'tur;
+    /// buraya eklenmemiş bir kavram <c>MenuIkonTests</c> ile yakalanır.</summary>
+    private static readonly Dictionary<string, string> ByConcept = new(StringComparer.Ordinal)
     {
-        ["Uyarılar"]            = "IconAlerts",
-        ["Malzemeler"]          = "IconMaterials",
-        ["Araçlar"]             = "IconVehicles",
-        ["Günlük Faaliyet"]     = "IconDailyActivity",
-        ["Bakım Takibi"]        = "IconMaintenance",
-        ["Yakıt"]               = "IconFuel",
-        ["Talepler"]            = "IconRequests",
-        ["Ön Muhasebe"]         = "IconAccounting",
-        ["Operasyon Raporları"] = "IconReportsOps",
-        ["Yönetici Raporları"]  = "IconReportsManager",
-        ["Şube ve Personel"]    = "IconBranches",
-        ["Kullanıcı Yönetimi"]  = "IconUsers",
-        ["Denetim"]             = "IconAudit",
-        ["Web Yönetimi"]        = "IconWebAdmin",
-        ["Yedekleme"]           = "IconBackup",
-        ["Çöp Kutusu"]          = "IconTrash",
-        ["Ayarlar"]             = "IconSettings",
+        // ── üst menüler ──
+        ["alerts"]           = "IconAlerts",
+        ["materials"]        = "IconMaterials",
+        ["vehicles"]         = "IconVehicles",
+        ["equipment"]        = "IconEquipment",
+        ["assignments"]      = "IconAssignments",
+        ["purchasing"]       = "IconPurchasing",
+        ["work-orders"]      = "IconWorkOrders",
+        ["calendar"]         = "IconCalendar",
+        ["daily-activity"]   = "IconDailyActivity",
+        ["maintenance"]      = "IconMaintenance",
+        ["fuel"]             = "IconFuel",
+        ["requests"]         = "IconRequests",
+        ["accounting"]       = "IconAccounting",
+        ["reports"]          = "IconReportsOps",
+        ["reports-manager"]  = "IconReportsManager",
+        ["branches"]         = "IconBranches",
+        ["users"]            = "IconUsers",
+        ["documents"]        = "IconDocuments",
+        ["announcements"]    = "IconAnnouncements",
+        ["audit"]            = "IconAudit",
+        ["web-admin"]        = "IconWebAdmin",
+        ["backup"]           = "IconBackup",
+        ["trash"]            = "IconTrash",
+        ["settings"]         = "IconSettings",
+
+        // ── alt menüler (ekranlar) ──
+        ["list"]             = "IconList",
+        ["new"]              = "IconAdd",
+        ["stock-entry"]      = "IconStockEntry",
+        ["movements"]        = "IconMovements",
+        ["count"]            = "IconCount",
+        ["template"]         = "IconTemplate",
+        ["distribute"]       = "IconDistribute",
+        ["inspection"]       = "IconInspection",
+        ["definition"]       = "IconDefinition",
+        ["fuel-depot"]       = "IconFuelDepot",
+        ["summary"]          = "IconSummary",
+        ["request-form"]     = "IconRequestForm",
+        ["approve"]          = "IconApprove",
+        ["operations"]       = "IconOperations",
+        ["invoice"]          = "IconInvoice",
+        ["finance"]          = "IconFinance",
+        ["payment"]          = "IconPayment",
+        ["cost-center"]      = "IconCostCenter",
+        ["designer"]         = "IconDesigner",
+        ["projects"]         = "IconProjects",
+        ["personnel"]        = "IconPersonnel",
+        ["teams"]            = "IconTeams",
+        ["permissions"]      = "IconPermissions",
+        ["log"]              = "IconLog",
+        ["companies"]        = "IconCompanies",
+        ["update"]           = "IconUpdate",
+        ["machine"]          = "IconMachine",
+        ["server"]           = "IconServer",
+        ["quota"]            = "IconQuota",
+        ["delete"]           = "IconDelete",
+        ["reset"]            = "IconReset",
+        ["screens"]          = "IconScreens",
+        ["field-settings"]   = "IconFieldSettings",
+        ["excel"]            = "IconImportExcel",
+        ["developer"]        = "IconDeveloper",
+        ["theme"]            = "IconTheme",
+        ["info"]             = "IconInfo",
+
+        // ── üst gruplar (section) ──
+        ["section-stock"]      = "IconSectionStock",
+        ["section-operations"] = "IconSectionOperations",
+        ["section-finance"]    = "IconSectionFinance",
+        ["section-reports"]    = "IconSectionReports",
+        ["section-corporate"]  = "IconSectionCorporate",
+        ["section-system"]     = "IconSectionSystem",
+
+        // ── nötrler ──
+        ["screen"]           = "IconScreen",
+        ["group"]            = "IconGroup",
     };
 
-    /// <summary>Menünün ÜST GRUPLARI (1. seviye) — AppScreens.Sections başlıkları.
-    /// Alt grup ikonlarından kasten farklı geometriler: aynı ikonu iki seviyede tekrarlamak
-    /// hiyerarşiyi okunmaz yapar ("Malzeme ve Stok" > "Malzemeler").</summary>
-    private static readonly Dictionary<string, string> BySection = new(StringComparer.Ordinal)
-    {
-        ["Malzeme ve Stok"]   = "IconSectionStock",
-        ["Operasyon"]         = "IconSectionOperations",
-        ["Finans"]            = "IconSectionFinance",
-        ["Raporlar"]          = "IconSectionReports",
-        ["Kurumsal Yönetim"]  = "IconSectionCorporate",
-        ["Sistem Yönetimi"]   = "IconSectionSystem",
-    };
+    /// <summary>Kavramın geometri anahtarı (test ve tanı için). Bilinmeyen kavram → null.</summary>
+    public static string? KeyForConcept(string concept)
+        => ByConcept.TryGetValue(concept, out var k) ? k : null;
+
+    private static Geometry? ByConceptGeometry(string concept)
+        => ByConcept.TryGetValue(concept, out var key) ? ByKey(key) : null;
 
     /// <summary>Ana ekran özet kartı → ikon. Kart etiketinden değil NavKey + etiketten türetilir;
     /// eşleşme yoksa null döner ve kart ikonsuz çizilir (çökmez).</summary>
@@ -61,34 +122,41 @@ public static class DesktopIcons
     public static Geometry? ForAlert(DepoWise.Application.Reports.AlertKind kind) => ByKey(kind switch
     {
         DepoWise.Application.Reports.AlertKind.Maintenance => "IconMaintenance",
-        DepoWise.Application.Reports.AlertKind.Inspection  => "IconWebAdmin",   // kalkan
+        DepoWise.Application.Reports.AlertKind.Inspection  => "IconInspection",
         DepoWise.Application.Reports.AlertKind.LowStock    => "IconMaterials",
         DepoWise.Application.Reports.AlertKind.Fuel        => "IconFuel",
         _ => "IconWarning",
     });
 
-    /// <summary>Üst grup başlığı → ikon. Bulunamazsa null (üst grup ikonsuz çizilir).</summary>
+    /// <summary>Üst grup başlığı → ikon.</summary>
     public static Geometry? ForSection(string? sectionTitle)
-        => string.IsNullOrEmpty(sectionTitle) ? null
-         : BySection.TryGetValue(sectionTitle, out var k) ? ByKey(k) : null;
+        => string.IsNullOrEmpty(sectionTitle) ? null : ByConceptGeometry(MenuIcons.ForSection(sectionTitle));
+
+    /// <summary>Üst menü (grup) başlığı → ikon.</summary>
     public static Geometry? ForGroup(string? groupTitle)
-    {
-        if (string.IsNullOrEmpty(groupTitle)) return null;
-        if (!ByGroup.TryGetValue(groupTitle, out var key)) return null;
-        return ByKey(key);
-    }
+        => string.IsNullOrEmpty(groupTitle) ? null : ByConceptGeometry(MenuIcons.ForGroup(groupTitle));
 
     /// <summary>
-    /// Masaüstü gezinme anahtarı (ör. <c>materials.list</c>) → ikon. Sekme şeridi kullanır:
-    /// ekranın kendi ikonu yoktur, AİT OLDUĞU GRUBUN ikonunu alır (menüdeki görüntüyle aynı dil).
-    /// Katalogda olmayan anahtar ya da ikonu çizilmemiş grup → null; sekme ikonsuz çizilir, akış bozulmaz.
+    /// ⭐ ALT MENÜ İKONU — ekranın KENDİ katalog anahtarından (<c>AppScreen.Key</c>).
+    /// Kullanıcı isteği 2026-09-05: alt menülerde hiç ikon yoktu.
+    /// </summary>
+    public static Geometry? ForScreenKey(string? screenKey)
+        => string.IsNullOrEmpty(screenKey) ? null : ByConceptGeometry(MenuIcons.ForScreen(screenKey));
+
+    /// <summary>
+    /// Masaüstü gezinme anahtarı (ör. <c>materials.list</c>) → ikon. Sekme şeridi kullanır.
+    ///
+    /// ⭐ 2026-09-05: artık ekranın KENDİ ikonunu döndürür (eskiden grubunkini döndürüyordu).
+    /// Kural değişmedi — kural "menüde ne görülüyorsa sekmede de o görülsün"dü; menüde alt menüler
+    /// artık kendi ikonlarını taşıdığı için sekme de onu göstermelidir. Aksi hâlde aynı ekran
+    /// menüde bir, sekmede başka bir ikonla görünürdü.
     /// </summary>
     public static Geometry? ForScreen(string? desktopNavKey)
     {
         if (string.IsNullOrEmpty(desktopNavKey)) return null;
-        var ekran = DepoWise.Application.Security.AppScreens.All
+        var ekran = AppScreens.All
             .FirstOrDefault(s => string.Equals(s.DesktopNavKey, desktopNavKey, StringComparison.Ordinal));
-        return ForGroup(ekran?.Group);
+        return ekran is null ? null : ForScreenKey(ekran.Key);
     }
 
     public static Geometry? ByKey(string key)

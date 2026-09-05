@@ -123,11 +123,21 @@ public class SekmeSeridiTests
         Assert.Contains("YeniSekme_Click", masaustu);           Assert.Contains("dw-sekme-yeni", web);
     }
 
+    /// <summary>
+    /// Sekmede AYRI bir ikon seti YOKTUR: sekme, o ekranın MENÜDE göründüğü ikonu alır.
+    /// Korunan ilke budur — kullanıcı menüde gördüğü simgeyi sekmede de görmelidir.
+    ///
+    /// <b>2026-09-05'te MEKANİZMA değişti, ilke değişmedi (MNU-IKON).</b> O tarihe kadar menüde
+    /// yalnız ÜST MENÜLERİN ikonu vardı; alt menülerin hiçbirinde ikon yoktu. Dolayısıyla "menüde
+    /// görünen ikon" = "grubun ikonu"ydu ve bu test onu kilitliyordu. Artık alt menüler kendi
+    /// ikonlarını taşıyor; sekme de ekranın KENDİ ikonunu almalıdır — aksi hâlde aynı ekran menüde
+    /// bir, sekmede başka bir simgeyle görünürdü (yani testin koruduğu ilke bozulurdu).
+    /// </summary>
     [Fact]
-    public void SEK5_Sekme_Ikonu_Ekranin_Grubundan_Gelir()
+    public void SEK5_Sekme_Ikonu_Menudekiyle_Ayni_Kaynaktan_Gelir()
     {
-        // Sekmede ayrı ikon seti YOKTUR: ekran, ait olduğu grubun menü ikonunu alır. Bu yüzden
-        // masaüstünde açılabilen her ekranın bir grubu olmalı — grupsuz ekran sekmede ikonsuz kalır.
+        // Masaüstünde açılabilen her ekranın bir grubu olmalı — grupsuz ekran menüde hiç görünmez.
+        // (İkon kaynağı değişse de bu katalog şartı geçerliliğini korur.)
         var grupsuz = AppScreens.All
             .Where(s => (s.Platforms & ScreenPlatform.Desktop) != 0)
             .Where(s => string.IsNullOrWhiteSpace(s.Group))
@@ -135,15 +145,26 @@ public class SekmeSeridiTests
             .ToList();
 
         Assert.True(grupsuz.Count == 0,
-            "Şu ekranların menü grubu yok, sekmede ikonsuz görünürler: " + string.Join(", ", grupsuz));
+            "Şu ekranların menü grubu yok: " + string.Join(", ", grupsuz));
 
-        // Çözücünün kendisi ÇÖKMEMELİ: bilinmeyen anahtar/gruba null döner (sekme ikonsuz çizilir).
+        // ⭐ Her masaüstü ekranının bir simge KAVRAMI olmalı; olmayan sekmede nötr ikon alır.
+        var kavramsiz = AppScreens.All
+            .Where(s => (s.Platforms & ScreenPlatform.Desktop) != 0)
+            .Where(s => MenuIcons.ForScreen(s.Key) == MenuIcons.Fallback)
+            .Select(s => s.Key)
+            .ToList();
+
+        Assert.True(kavramsiz.Count == 0,
+            "Şu ekranların simge kavramı yok: " + string.Join(", ", kavramsiz));
+
+        // Çözücünün kendisi ÇÖKMEMELİ: bilinmeyen anahtara null döner (sekme ikonsuz çizilir).
         // Test projesi Avalonia'ya bağımlı olmadığı için (masaüstü projesine referans YOK, bilinçli:
         // testlere pencere çatısı taşımak istemiyoruz) burada kaynak sözleşmesi doğrulanır.
         var cozucu = Oku("src", "DepoWise.Desktop", "DesktopIcons.cs");
         Assert.Contains("public static Geometry? ForScreen(string? desktopNavKey)", cozucu);
         Assert.Contains("if (string.IsNullOrEmpty(desktopNavKey)) return null;", cozucu);
-        Assert.Contains("return ForGroup(ekran?.Group);", cozucu);
+        // Sekme, ekranın KENDİ ikonunu alır — menüdeki alt menü satırıyla aynı kaynak.
+        Assert.Contains("return ekran is null ? null : ForScreenKey(ekran.Key);", cozucu);
     }
 
     [Fact]

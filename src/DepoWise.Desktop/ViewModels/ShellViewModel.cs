@@ -881,7 +881,10 @@ public sealed partial class ShellViewModel : ViewModelBase
                       && ScreenGateAllows(s, sc)
                       && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")))
             .Select(g => new NavGroupVm(g.DesktopIcon, g.Title, GroupModuleKey(g),
-                g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)).ToList())
+                // MNU-IKON (2026-09-05): alt menü ikonu ekranın KENDİ anahtarından çözülür
+                // (grubunkinden değil) — böylece "Malzeme Listesi" ile "Yeni Kayıt" ayırt edilir.
+                g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)
+                    { IconGeometry = DesktopIcons.ForScreenKey(e.Screen.Key) }).ToList())
                 { IconGeometry = DesktopIcons.ForGroup(g.Title) })   // M6: grup ikonu (baslik -> geometri)
             .Where(g => g.Children.Count > 0)
             .ToList();

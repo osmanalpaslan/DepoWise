@@ -52,6 +52,15 @@
       MudBlazor ikonları Application katmanına SIZDIRILMAZ; grup→ikon eşlemesi NavMenu.razor içindedir.
     -->
     <Compile Include="..\DepoWise.Application\Security\AppScreens.cs" Link="Services\AppScreens.cs" />
+    <!-- MNU-IKON (2026-09-05): MENÜ SİMGE KAVRAMLARI — AppScreens ile AYNI gerekçe ve AYNI desen.
+         Eskiden "hangi menü hangi ikonu alır" bilgisi İKİ AYRI yerde elle tutuluyordu (masaüstünde
+         DesktopIcons, web'de NavMenu.WebIcon). Katalogda bir grup yeniden adlandırılınca iki tablo
+         da sessizce eskiyordu — web'de beş anahtar tam olarak böyle ölmüş, o gruplar genel klasör
+         ikonuna düşmüştü. Artık eşleme TEK dosyada.
+         Dosya SAF katalogdur: yalnız string sözlükleri içerir, MudBlazor'a da Avalonia'ya da
+         bağımlı DEĞİLDİR (kavramlar düz string) → web'in "her şeyi API'den al" sınırını gevşetmez.
+         Kavram → MudBlazor sabiti çevirisi NavMenu.razor içinde kalır. -->
+    <Compile Include="..\DepoWise.Application\Security\MenuIcons.cs" Link="Services\MenuIcons.cs" />
     <!-- MNU (2026-08-18): menü DÜZENİ çözümleyicisi (ad · üst menü · sıra). Aynı gerekçe: sıralama
          kuralı TEK yerde kalsın, web kendi kopyasını tutmasın — masaüstü menüsü de aynı kodu çağırır.
          Saf mantıktır: veri erişimi yok, MudBlazor bağımlılığı yok, erişim kararı vermez. -->

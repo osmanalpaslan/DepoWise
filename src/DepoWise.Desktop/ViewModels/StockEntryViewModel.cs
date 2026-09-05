@@ -250,6 +250,141 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [ObservableProperty] private LookupItem? _selectedBrand;
     [ObservableProperty] private LookupItem? _selectedSupplier;
 
+    // ═══ TDR-01 (kullanıcı isteği 2026-09-05) — TEDARİKÇİ ALANINDA SATIR İÇİ "+" ═══
+    //
+    // Bulgu: web'de bu ekranın tedarikçi kutusunda "+" ZATEN vardı (Stock.razor), masaüstünde YOKTU.
+    // Kullanıcı giriş yaparken yeni bir tedarikçiyle karşılaşınca akışı bırakıp Malzemeler ekranına
+    // gitmek zorunda kalıyordu; döndüğünde forma girdiği veriler kaybolmuş oluyordu.
+    //
+    // Desen YENİ DEĞİL: MaterialsView'deki tedarikçi "+" düzeninin birebir aynısı burada tekrarlanıyor
+    // (aynı komut adları, aynı servis çağrısı, aynı yetki kapısı) → iki ekran zamanla ayrışamaz.
+    //
+    // ⚠️ Görünürlük (CanAddLookup) bir KOLAYLIKTIR, güvenlik değildir: gerçek kapı serviste
+    // (LookupService.Insert → AccessControl.Require(Create)). Buton gizlenmese bile yetkisiz
+    // kullanıcı tanım ekleyemez. Servis ayrıca aynı adı yeniden AÇMAZ, mevcut kaydın kimliğini döner.
+    [ObservableProperty] private bool _isAddingSupplier;
+    [ObservableProperty] private string _newSupplierName = "";
+
+    [RelayCommand] private void StartAddSupplier() { IsAddingSupplier = true; NewSupplierName = ""; }
+    [RelayCommand] private void CancelAddSupplier() { IsAddingSupplier = false; NewSupplierName = ""; }
+
+    [RelayCommand]
+    private void ConfirmAddSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
+        try
+        {
+            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+            Yerlestir(Suppliers, id, NewSupplierName, x => SelectedSupplier = x);
+            IsAddingSupplier = false; NewSupplierName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    // ── TDR-01 devamı (kullanıcı isteği 2026-09-05): AYNI DESEN diğer tanım alanlarında ──
+    //
+    // Tedarikçi eklendikten sonra bu ekranda tek bir kutuda "+" olup komşularında olmaması
+    // tutarsız görünüyordu; web'de Birim/Kategori/Marka'da "+" ZATEN vardı. Aynı kanıtlanmış desen
+    // (MaterialsViewModel) buraya taşındı → masaüstü web'le eşitlendi.
+    //
+    // ⚠️ Bu alanlar MEVCUT MALZEME seçilince KİLİTLENİR (NewFieldsEnabled): var olan bir malzemenin
+    // sınıflandırması stok girişinden değiştirilmemelidir. "+" düğmeleri o kilidin içinde kaldığı
+    // için birlikte devre dışı kalır — Tedarikçi ise bilinçli olarak DIŞARIDADIR (madde 1.1).
+
+    [ObservableProperty] private bool _isAddingCategory;
+    [ObservableProperty] private string _newCategoryName = "";
+    [ObservableProperty] private bool _isAddingSubCategory;
+    [ObservableProperty] private string _newSubCategoryName = "";
+    [ObservableProperty] private bool _isAddingUnit;
+    [ObservableProperty] private string _newUnitName = "";
+    [ObservableProperty] private bool _isAddingBrand;
+    [ObservableProperty] private string _newBrandName = "";
+
+    [RelayCommand] private void StartAddCategory() { IsAddingCategory = true; NewCategoryName = ""; }
+    [RelayCommand] private void CancelAddCategory() { IsAddingCategory = false; NewCategoryName = ""; }
+    [RelayCommand]
+    private void ConfirmAddCategory()
+    {
+        if (string.IsNullOrWhiteSpace(NewCategoryName)) return;
+        try
+        {
+            var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim());
+            Yerlestir(Categories, id, NewCategoryName, x => SelectedCategory = x);
+            IsAddingCategory = false; NewCategoryName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>Alt kategori bir ÜST kategoriye aittir — önce kategori seçilmeden eklenemez
+    /// (Malzemeler ekranındaki kuralın aynısı; aksi hâlde sahipsiz alt kategori oluşurdu).</summary>
+    [RelayCommand]
+    private void StartAddSubCategory()
+    {
+        if (SelectedCategory is null) { Status = "Önce kategori seçin."; return; }
+        IsAddingSubCategory = true; NewSubCategoryName = "";
+    }
+    [RelayCommand] private void CancelAddSubCategory() { IsAddingSubCategory = false; NewSubCategoryName = ""; }
+    [RelayCommand]
+    private void ConfirmAddSubCategory()
+    {
+        if (string.IsNullOrWhiteSpace(NewSubCategoryName) || SelectedCategory is null) return;
+        try
+        {
+            var id = DesktopServices.Lookups.AddCategory(_session, NewSubCategoryName.Trim(), SelectedCategory.Id);
+            Yerlestir(SubCategories, id, NewSubCategoryName, x => SelectedSubCategory = x);
+            IsAddingSubCategory = false; NewSubCategoryName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddUnit() { IsAddingUnit = true; NewUnitName = ""; }
+    [RelayCommand] private void CancelAddUnit() { IsAddingUnit = false; NewUnitName = ""; }
+    [RelayCommand]
+    private void ConfirmAddUnit()
+    {
+        if (string.IsNullOrWhiteSpace(NewUnitName)) return;
+        try
+        {
+            var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim());
+            Yerlestir(Units, id, NewUnitName, x => SelectedUnit = x);
+            IsAddingUnit = false; NewUnitName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddBrand() { IsAddingBrand = true; NewBrandName = ""; }
+    [RelayCommand] private void CancelAddBrand() { IsAddingBrand = false; NewBrandName = ""; }
+    [RelayCommand]
+    private void ConfirmAddBrand()
+    {
+        if (string.IsNullOrWhiteSpace(NewBrandName)) return;
+        try
+        {
+            // "material" ayırt edicisi ŞART: markalar araç ve malzeme için ayrı listelerdir.
+            var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material");
+            Yerlestir(Brands, id, NewBrandName, x => SelectedBrand = x);
+            IsAddingBrand = false; NewBrandName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// Eklenen tanımı listeye koyup seçer. Servis <b>aynı adı ikinci kez açmaz</b>, mevcut kaydın
+    /// kimliğini döner — bu yüzden listede zaten varsa TEKRAR EKLENMEZ, yalnız seçilir. Aksi hâlde
+    /// kullanıcı aynı adı iki kez yazdığında açılır listede iki özdeş satır görürdü.
+    /// </summary>
+    private static void Yerlestir(ObservableCollection<LookupItem> liste, string id, string ad,
+                                  Action<LookupItem> sec)
+    {
+        var mevcut = liste.FirstOrDefault(x => x.Id == id);
+        if (mevcut is null)
+        {
+            mevcut = new LookupItem(id, ad.Trim());
+            liste.Add(mevcut);
+        }
+        sec(mevcut);
+    }
+
     // ── Ortak hareket alanları ──
     /// <summary>
     /// STK-11 (kullanıcı isteği 2026-08-26) — İŞLEM TARİHİ: hareketin AİT OLDUĞU iş günü.

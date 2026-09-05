@@ -184,29 +184,104 @@
                         <ctrl:FormField Label="Tür" Width="180" IsEnabled="{Binding NewFieldsEnabled}">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Birim" IsRequired="True" Width="160" IsEnabled="{Binding NewFieldsEnabled}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
-                                            PlaceholderText="Birim seç / ara..."/>
+                        <!-- TDR-01 devamı: Birim/Kategori/Alt Kategori/Marka da satır içi "+" alır (web'de
+                             zaten vardı). Bu alanlar mevcut malzeme seçilince KİLİTLİDİR; "+" de o kilidin
+                             içinde olduğu için birlikte devre dışı kalır — var olan malzemenin sınıflandırması
+                             stok girişinden değiştirilmemelidir. -->
+                        <ctrl:FormField Label="Birim" IsRequired="True" Width="230" IsEnabled="{Binding NewFieldsEnabled}">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                                    ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                                    PlaceholderText="Birim seç / ara..."/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                            Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni birim"
+                                            Command="{Binding StartAddUnitCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewUnitName}" PlaceholderText="Yeni birim (adet, litre...)"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddUnitCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddUnitCommand}"/>
+                                </Grid>
+                            </StackPanel>
                         </ctrl:FormField>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Kategori" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
-                                            PlaceholderText="Kategori seç / ara..."/>
+                        <ctrl:FormField Label="Kategori" Width="260" IsEnabled="{Binding NewFieldsEnabled}">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                                    ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                                    PlaceholderText="Kategori seç / ara..."/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                            Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni kategori"
+                                            Command="{Binding StartAddCategoryCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCategoryName}" PlaceholderText="Yeni kategori adı"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddCategoryCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddCategoryCommand}"/>
+                                </Grid>
+                            </StackPanel>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Alt Kategori" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
-                                            PlaceholderText="Alt kategori seç / ara..."/>
+                        <!-- Alt kategori bir ÜST kategoriye aittir: "+" önce kategori seçilmesini ister
+                             (Malzemeler ekranındaki kuralın aynısı) — sahipsiz alt kategori oluşmaz. -->
+                        <ctrl:FormField Label="Alt Kategori" Width="260" IsEnabled="{Binding NewFieldsEnabled}">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                                    ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                                    PlaceholderText="Alt kategori seç / ara..."/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                            Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt kategori"
+                                            Command="{Binding StartAddSubCategoryCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubCategoryName}" PlaceholderText="Yeni alt kategori adı"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCategoryCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCategoryCommand}"/>
+                                </Grid>
+                            </StackPanel>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Marka" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
-                                            PlaceholderText="Marka seç / ara..."/>
+                        <ctrl:FormField Label="Marka" Width="260" IsEnabled="{Binding NewFieldsEnabled}">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                                    ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                                    PlaceholderText="Marka seç / ara..."/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                            Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni marka"
+                                            Command="{Binding StartAddBrandCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka adı"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddBrandCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddBrandCommand}"/>
+                                </Grid>
+                            </StackPanel>
                         </ctrl:FormField>
                         <!-- Tedarikçi (madde 1.1): mevcut malzeme seçilse bile AKTİF kalır — bu girişte farklı
                              tedarikçi seçilirse malzeme kartındaki tedarikçi de güncellenir (kullanıcı kararı). -->
-                        <ctrl:FormField Label="Tedarikçi" Width="200">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
-                                            PlaceholderText="Tedarikçi seç / ara..."/>
+                        <!-- TDR-01 (2026-09-05): satır içi "+" ile YENİ TEDARİKÇİ. Web'de bu zaten vardı,
+                             masaüstünde yoktu; kullanıcı formu bırakıp Malzemeler ekranına gitmek zorunda
+                             kalıyordu. Düzen MaterialsView'deki tedarikçi bloğunun birebir aynısıdır.
+                             "+" yalnız yetkiliye görünür (CanAddLookup); gerçek kapı serviste. -->
+                        <ctrl:FormField Label="Tedarikçi" Width="260">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                                    ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
+                                                    PlaceholderText="Tedarikçi seç / ara..."/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                            Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni tedarikçi"
+                                            Command="{Binding StartAddSupplierCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSupplierName}" PlaceholderText="Yeni tedarikçi adı"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSupplierCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSupplierCommand}"/>
+                                </Grid>
+                            </StackPanel>
                         </ctrl:FormField>
                     </StackPanel>
                 </StackPanel>

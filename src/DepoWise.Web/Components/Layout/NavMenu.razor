@@ -19,7 +19,7 @@
         {
             @foreach (var (g, e) in Filtered(gruplar))
             {
-                <MudNavLink Href="@e.Screen.WebRoute">@g.Title › @e.Label</MudNavLink>
+                <MudNavLink Href="@e.Screen.WebRoute" Icon="@EkranIkonu(e.Screen.Key)">@g.Title › @e.Label</MudNavLink>
             }
         }
         else
@@ -32,7 +32,7 @@
             {
                 if (node.IsSection)
                 {
-                    <MudNavGroup Title="@node.Title" Icon="@Icons.Material.Filled.FolderOpen">
+                    <MudNavGroup Title="@node.Title" Icon="@BolumIkonu(node.Title)">
                         @foreach (var g in node.Groups) { @GrupCiz(g) }
                     </MudNavGroup>
                 }
@@ -100,7 +100,12 @@
     /// kullanılır → çizim kuralı tek yerde kalır, iki dal ayrışamaz.</summary>
     private RenderFragment GrupCiz(MenuGroupView g) => @<MudNavGroup Title="@g.Title" Icon="@WebIcon(g.Key)"
                                                                     Expanded="@(g.Key == "Web Yönetimi")">
-        @foreach (var e in g.Entries) { <MudNavLink Href="@e.Screen.WebRoute">@e.Label</MudNavLink> }
+        @* ⭐ MNU-IKON (2026-09-05): alt menülerde ikon EKLENDİ. Eskiden hiçbirinde ikon yoktu —
+           eksik kalmış değil, hiç tanımlanmamıştı. Kullanıcı şartı: simgesiz menü kalmayacak. *@
+        @foreach (var e in g.Entries)
+        {
+            <MudNavLink Href="@e.Screen.WebRoute" Icon="@EkranIkonu(e.Screen.Key)">@e.Label</MudNavLink>
+        }
     </MudNavGroup>;
 
     private IEnumerable<(MenuGroupView G, MenuEntry E)> Filtered(IReadOnlyList<MenuGroupView> gruplar)
@@ -113,31 +118,109 @@
                     yield return (g, e);
     }
 
-    /// <summary>Grup ikonu — MudBlazor sabitleri yalnız web projesinde çözülebildiği için eşleme
-    /// BURADA durur (Application katmanı MudBlazor'a bağımlı olmasın). Eşleme grup ADINA değil
-    /// değişmez grup ANAHTARINA bakar → yönetici grubu yeniden adlandırınca ikon KAYBOLMAZ.
-    /// Kullanıcının oluşturduğu gruplar nötr ikon alır.</summary>
+    /// <summary>
+    /// ⭐ MNU-IKON (2026-09-05) — grup ikonu artık KAVRAM üzerinden çözülür.
+    ///
+    /// <b>Eskiden:</b> bu <c>switch</c> grup BAŞLIKLARINI doğrudan içeriyordu ve tablo katalogla
+    /// birlikte güncellenmediği için <b>beş anahtar eskimişti</b> ("Personel", "Yönetim",
+    /// "Raporlar", "İmport / Export", "Kullanıcı"). Karşılığı olmayan gruplar sessizce genel
+    /// klasör ikonuna düşüyordu — hata vermiyordu, yalnız ikon kayboluyordu. Ekipman, Zimmet,
+    /// Satın Alma, İş Emirleri, Takvim, Evrak, Duyurular, Denetim gibi gruplar da hiç eklenmemişti.
+    ///
+    /// <b>Artık:</b> hangi grubun hangi KAVRAMI kullandığı ortak katmanda
+    /// (<see cref="MenuIcons"/>); burada yalnız <b>kavram → MudBlazor sabiti</b> çevirisi var.
+    /// Katalog değişince tek yer güncellenir ve eksik kavram <c>MenuIkonTests</c> ile yakalanır.
+    /// Application katmanı MudBlazor'a bağımlı olmaz (kavramlar düz string'dir).
+    /// </summary>
     /// <remarks>Sekme şeridi de (MainLayout) bunu kullanır: sekme, ekranın AİT OLDUĞU GRUBUN
     /// ikonunu alır — menüde ne görülüyorsa sekmede de o görülür (kullanıcı tasarımı 2026-09-04).</remarks>
-    public static string WebIcon(string groupKey) => groupKey switch
+    public static string WebIcon(string groupKey) => KavramIkonu(DepoWise.Application.Security.MenuIcons.ForGroup(groupKey));
+
+    /// <summary>Ekran (alt menü) ikonu — kullanıcı isteği 2026-09-05: simgesiz menü kalmayacak.</summary>
+    public static string EkranIkonu(string screenKey) => KavramIkonu(DepoWise.Application.Security.MenuIcons.ForScreen(screenKey));
+
+    /// <summary>Üst grup (section) ikonu. Eskiden HEPSİ aynı <c>FolderOpen</c> ikonunu alıyordu.</summary>
+    public static string BolumIkonu(string sectionTitle) => KavramIkonu(DepoWise.Application.Security.MenuIcons.ForSection(sectionTitle));
+
+    /// <summary>Kavram → MudBlazor sabiti. Bilinmeyen kavram nötr bir ikon alır; menü öğesi
+    /// ASLA ikonsuz kalmaz.</summary>
+    private static string KavramIkonu(string kavram) => kavram switch
     {
-        "Uyarılar" => Icons.Material.Filled.NotificationsActive,
-        "Malzemeler" => Icons.Material.Filled.Inventory2,
-        "Araçlar" => Icons.Material.Filled.LocalShipping,
-        "Personel" => Icons.Material.Filled.Badge,
-        "Günlük Faaliyet" => Icons.Material.Filled.EventNote,
-        "Bakım Takibi" => Icons.Material.Filled.Build,
-        "Yakıt" => Icons.Material.Filled.LocalGasStation,
-        "Yönetim" => Icons.Material.Filled.ManageAccounts,
-        "Talepler" => Icons.Material.Filled.Description,
-        "Raporlar" => Icons.Material.Filled.BarChart,
-        "Yönetici Raporları" => Icons.Material.Filled.Assessment,
-        "İmport / Export" => Icons.Material.Filled.SwapHoriz,
-        "Ön Muhasebe" => Icons.Material.Filled.ReceiptLong,
-        "Kullanıcı" => Icons.Material.Filled.People,
-        "Ayarlar" => Icons.Material.Filled.Settings,
-        "Web Yönetimi" => Icons.Material.Filled.AdminPanelSettings,
-        "Çöp Kutusu" => Icons.Material.Filled.DeleteSweep,
+        // ── üst menüler ──
+        "alerts" => Icons.Material.Filled.NotificationsActive,
+        "materials" => Icons.Material.Filled.Inventory2,
+        "vehicles" => Icons.Material.Filled.LocalShipping,
+        "equipment" => Icons.Material.Filled.Construction,
+        "assignments" => Icons.Material.Filled.AssignmentInd,
+        "purchasing" => Icons.Material.Filled.ShoppingCart,
+        "work-orders" => Icons.Material.Filled.Assignment,
+        "calendar" => Icons.Material.Filled.CalendarMonth,
+        "daily-activity" => Icons.Material.Filled.EventNote,
+        "maintenance" => Icons.Material.Filled.Build,
+        "fuel" => Icons.Material.Filled.LocalGasStation,
+        "requests" => Icons.Material.Filled.Description,
+        "accounting" => Icons.Material.Filled.ReceiptLong,
+        "reports" => Icons.Material.Filled.BarChart,
+        "reports-manager" => Icons.Material.Filled.Assessment,
+        "branches" => Icons.Material.Filled.Apartment,
+        "users" => Icons.Material.Filled.People,
+        "documents" => Icons.Material.Filled.FolderCopy,
+        "announcements" => Icons.Material.Filled.Campaign,
+        "audit" => Icons.Material.Filled.FactCheck,
+        "web-admin" => Icons.Material.Filled.AdminPanelSettings,
+        "backup" => Icons.Material.Filled.Backup,
+        "trash" => Icons.Material.Filled.DeleteSweep,
+        "settings" => Icons.Material.Filled.Settings,
+
+        // ── alt menüler (ekranlar) ──
+        "list" => Icons.Material.Filled.FormatListBulleted,
+        "new" => Icons.Material.Filled.AddCircleOutline,
+        "stock-entry" => Icons.Material.Filled.SwapVert,
+        "movements" => Icons.Material.Filled.History,
+        "count" => Icons.Material.Filled.Checklist,
+        "template" => Icons.Material.Filled.ContentCopy,
+        "distribute" => Icons.Material.Filled.CallSplit,
+        "inspection" => Icons.Material.Filled.VerifiedUser,
+        "definition" => Icons.Material.Filled.Tune,
+        "fuel-depot" => Icons.Material.Filled.Storage,
+        "summary" => Icons.Material.Filled.Summarize,
+        "request-form" => Icons.Material.Filled.PostAdd,
+        "approve" => Icons.Material.Filled.TaskAlt,
+        "operations" => Icons.Material.Filled.ManageSearch,
+        "invoice" => Icons.Material.Filled.ReceiptLong,
+        "finance" => Icons.Material.Filled.AccountBalance,
+        "payment" => Icons.Material.Filled.Payments,
+        "cost-center" => Icons.Material.Filled.PieChart,
+        "designer" => Icons.Material.Filled.DesignServices,
+        "projects" => Icons.Material.Filled.Foundation,
+        "personnel" => Icons.Material.Filled.Badge,
+        "teams" => Icons.Material.Filled.Groups,
+        "permissions" => Icons.Material.Filled.Key,
+        "log" => Icons.Material.Filled.ManageHistory,
+        "companies" => Icons.Material.Filled.Business,
+        "update" => Icons.Material.Filled.SystemUpdateAlt,
+        "machine" => Icons.Material.Filled.Computer,
+        "server" => Icons.Material.Filled.Dns,
+        "quota" => Icons.Material.Filled.DataUsage,
+        "delete" => Icons.Material.Filled.DeleteForever,
+        "reset" => Icons.Material.Filled.RestartAlt,
+        "screens" => Icons.Material.Filled.ViewQuilt,
+        "field-settings" => Icons.Material.Filled.EditNote,
+        "excel" => Icons.Material.Filled.SwapHoriz,
+        "developer" => Icons.Material.Filled.Code,
+        "theme" => Icons.Material.Filled.Palette,
+        "info" => Icons.Material.Filled.Info,
+
+        // ── üst gruplar (section) ──
+        "section-stock" => Icons.Material.Filled.Warehouse,
+        "section-operations" => Icons.Material.Filled.PrecisionManufacturing,
+        "section-finance" => Icons.Material.Filled.AccountBalanceWallet,
+        "section-reports" => Icons.Material.Filled.Analytics,
+        "section-corporate" => Icons.Material.Filled.CorporateFare,
+        "section-system" => Icons.Material.Filled.SettingsApplications,
+
+        // ── nötrler: eşleşme bulunamazsa da ikon VARDIR ──
+        "screen" => Icons.Material.Filled.ChevronRight,
         _ => Icons.Material.Filled.Folder,
     };
 }

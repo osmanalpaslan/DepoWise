@@ -94,17 +94,21 @@
                     @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
                 </MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
-                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
+                                                  Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
                 @* G1-04: Kategori → Alt Kategori kaskadı (masaüstü paritesi). Kategori kutusu artık YALNIZ
                    üst seviyeyi listeler (/api/materials/subcategories); alt kategoriler ayrı kutuda gelir. *@
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" @bind-Value:after="OnCatChanged" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
-                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
+                                                  Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
+                @* ⭐ TDR-01 devamı (2026-09-05): Alt Kategori'de "+" YOKTU — bu ekrandaki tek eksik kutuydu
+                   (masaüstünde de yoktu, ikisi birlikte tamamlandı). Alt kategori seçili KATEGORİYE bağlıdır,
+                   bu yüzden ayrı uca (parentId ile) gider; kategori seçilmeden kutu zaten pasiftir. *@
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_subCat" Label="Alt Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                                  Disabled="@(_existingMaterial is not null || string.IsNullOrEmpty(_cat))">@Opts(_subCats)</MudSelect></MudItem>
+                                                  Disabled="@(_existingMaterial is not null || string.IsNullOrEmpty(_cat))"
+                                                  Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="AddAltKategori">@Opts(_subCats)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
-                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
+                                                  Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
+                                                  Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
             }
             else
@@ -527,6 +531,43 @@
         _existingMaterial = null;
         _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = "";
         _subCat = ""; _subCats = new();   // G1-04
+    }
+
+    /// <summary>
+    /// ⭐ TDR-01 (2026-09-05) — satır içi "+" SÜSLEMESİ yalnız yetkiliye gösterilir.
+    ///
+    /// <b>Bulgu:</b> masaüstü bu butonu <c>CanAddLookup</c> ile GİZLİYOR, web ise HERKESE
+    /// gösteriyordu. Yetkisiz kullanıcı tıklayınca diyalog açılıyor, adı yazıyor ve ancak
+    /// kaydederken hata alıyordu — emeği boşa gidiyordu (CLAUDE.md §5: UI ≡ API).
+    ///
+    /// ⚠️ Bu bir güvenlik açığı DEĞİLDİ: gerçek kapı serviste (<c>LookupService.Insert</c> →
+    /// <c>AccessControl.Require(Create)</c>) ve orada değişiklik yapılmadı. Burada yalnız arayüz
+    /// sunucuyla hizalanıyor — DEN-F1'de aynı gerekçeyle alınan kararın devamı.
+    ///
+    /// Anahtar <c>AppModules.SpecialButtons.AddLookup</c> ile aynıdır ("+ Satır İçi Ekleme").
+    /// </summary>
+    private Adornment LkEkleSuslemesi => Auth.CanButton("btn-add-lookup") ? Adornment.End : Adornment.None;
+
+    /// <summary>
+    /// ⭐ TDR-01 devamı — ALT KATEGORİ EKLEME. Diğer tanımlardan farklı bir uca gider
+    /// (<c>/api/materials/subcategories</c>) çünkü alt kategori seçili KATEGORİYE bağlıdır
+    /// (<c>parentId</c>); genel <c>/api/lookups/{table}</c> ucu üst kategori taşıyamaz ve sahipsiz
+    /// bir alt kategori oluştururdu. Aynı kural masaüstünde de uygulanır.
+    /// </summary>
+    private async Task AddAltKategori()
+    {
+        if (string.IsNullOrEmpty(_cat)) return;   // kutu zaten pasif; yine de savunmacı kontrol
+
+        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Alt Kategori",
+            new DialogParameters { ["Table"] = "material_categories", ["Label"] = "Alt kategori adı", ["ParentId"] = _cat },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled || res.Data is not string ad) return;
+
+        // Liste seçili kategoriye göre yeniden yüklenir; yeni kayıt seçili gelir.
+        _subCats = await LoadList($"/api/materials/subcategories?parentId={_cat}", "id", "name");
+        _subCat = IdOf(_subCats, ad);
+        StateHasChanged();
     }
 
     private async Task AddLk(string table)
