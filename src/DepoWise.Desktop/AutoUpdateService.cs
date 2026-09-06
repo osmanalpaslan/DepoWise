@@ -44,6 +44,51 @@ public static class AutoUpdateService
     public static void ClearPending()
     { PendingBytes = null; PendingVersion = null; PendingChecksum = null; }
 
+    // ═══ İNDİRİLEN PAKET DİSKTE SAKLANIR (kullanıcı bildirimi 2026-09-07) ═══════════════════════
+    //
+    // KULLANICI: "her login oluşumda 'Güncelleme indiriliyor (sürüm X)…' karşıma çıkıyor."
+    //
+    // SEBEBİ: paket yalnız BELLEKTE tutuluyordu. Kullanıcı "Ertele" derse ya da uygulamayı
+    // kapatırsa paket kayboluyor ve BİR SONRAKİ GİRİŞTE 86 MB yeniden iniyordu. Üstelik bu
+    // indirme ana pencere açılmadan ÖNCE yapıldığı için kullanıcı her seferinde bekliyordu.
+    //
+    // Artık paket diske yazılır ve sonraki girişte checksum'ı doğrulanarak yeniden kullanılır.
+    // Doğrulama şart: bozuk/yarım dosya kuruluma girmemeli — eşleşmezse dosya silinir ve
+    // normal indirme yapılır. Kurulum tamamlanınca dosya zaten silinir.
+    private static string OnbellekYolu(string version)
+        => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Alpnex", "staging", version + ".pkg");
+
+    /// <summary>Diskteki paketi doğrulayarak okur; yoksa/bozuksa null döner (ve bozuğu siler).</summary>
+    private static byte[]? OnbellektenOku(string version, string? checksum)
+    {
+        try
+        {
+            var yol = OnbellekYolu(version);
+            if (string.IsNullOrWhiteSpace(checksum) || !File.Exists(yol)) return null;
+            var bytes = File.ReadAllBytes(yol);
+            if (DepoWise.Infrastructure.Update.UpdateService.VerifyChecksum(bytes, checksum!)) return bytes;
+            try { File.Delete(yol); } catch { }   // bozuk dosya saklanmaz
+        }
+        catch { }
+        return null;
+    }
+
+    private static void OnbellegeYaz(string version, byte[] bytes)
+    {
+        try
+        {
+            var yol = OnbellekYolu(version);
+            Directory.CreateDirectory(Path.GetDirectoryName(yol)!);
+            // Eski sürümlerin paketleri disk doldurmasın.
+            foreach (var eski in Directory.GetFiles(Path.GetDirectoryName(yol)!, "*.pkg"))
+                if (!string.Equals(eski, yol, StringComparison.OrdinalIgnoreCase))
+                    try { File.Delete(eski); } catch { }
+            File.WriteAllBytes(yol, bytes);
+        }
+        catch { /* önbellek yazılamazsa akış bozulmaz: sadece bir dahaki sefere yeniden iner */ }
+    }
+
     public static void Snooze() => SnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes);
 
     /// <summary>Güncelleme var mı bakar; varsa indirir ve <see cref="PendingBytes"/>'i doldurur (true döner).
@@ -59,12 +104,20 @@ public static class AutoUpdateService
             if (latest is null || string.IsNullOrWhiteSpace(latest.DownloadUrl)) return HasPending;
             var res = DesktopServices.Update.Check(latest);
             if (!res.UpdateAvailable) { ClearPending(); return false; }
-            if (HasPending && PendingVersion == latest.Version) return true;   // önceden indirildi (tekrar inme)
+            if (HasPending && PendingVersion == latest.Version) return true;   // bu oturumda indirilmişti
+
+            // Önceki oturumda inmiş ve DİSKTE duruyorsa yeniden indirme (checksum doğrulanır).
+            if (OnbellektenOku(latest.Version, latest.ChecksumSha256) is { } saklanan)
+            {
+                SetPending(saklanan, latest.Version, latest.ChecksumSha256);
+                return true;
+            }
 
             status?.Invoke($"Güncelleme indiriliyor (sürüm {latest.Version})…");
             var bytes = await DesktopServices.UpdateDownload.DownloadAsync(
                 latest.DownloadUrl!, p => progress?.Invoke(p));
             SetPending(bytes, latest.Version, latest.ChecksumSha256);
+            OnbellegeYaz(latest.Version, bytes);
             return true;
         }
         catch { return HasPending; }
