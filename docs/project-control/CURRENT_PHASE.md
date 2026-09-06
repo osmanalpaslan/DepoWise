@@ -1,5 +1,63 @@
 # AKTİF DURUM
 
+## ✅ YAYIN — 2026-09-07: FAZ 6 — kullanıcı hataları (H1–H7) + alt bar tasarımı + 10.000 kayıt QA (masaüstü 1.0.184)
+
+**Kullanıcının bildirdiği 7 hatanın tamamı kapatıldı, 2 isteği yapıldı, yük testinde 3 yeni hata bulunup düzeltildi.**
+Ayrıntı: `docs/project-control/FAZ_6_KULLANICI_ISTEKLERI.md`.
+
+### Kullanıcının bildirdiği hatalar
+
+| # | Hata | Kök neden | Ortam |
+|---|---|---|---|
+| H1 | Ana ekranda sohbet düğmesine erişilemiyor | alt bar yalnız sekme varken çiziliyordu; İ1 ile en sağda sabitlendi | masaüstü |
+| H2/H4 | Çevrimdışı kişiler görünmüyor, gönderilen mesaj pencerede çıkmıyor | Blazor CSS izolasyonu: `b-xxxx` damgası MudPaper'a basılmıyor → kurallar hiç uygulanmıyordu | web |
+| H3 | Sohbet penceresinden arkadaki tabloya tıklanabiliyor | aynı CSS izolasyonu (`pointer-events` uygulanmamış) | web |
+| H5 | Cari Hesaplar "Object reference" hatası | **yarış durumu**: şube seçici kurucusu, ekranın `BranchScope` alanı atanmadan yüklemeyi tetikliyordu | masaüstü (web temiz) |
+| H6 | Excel Merkezi **yanlış şube şifresini kabul ediyordu** 🔴 | ayna şifre karmasını taşımaz → yerel karma boş → servis "şifre yok, serbest" diyordu | masaüstü (web zaten doğruydu) |
+| H7 | Web'de açılan ekip masaüstüne gelmiyor | tanımlar yalnız girişte/elle "Eşitle"de çekiliyordu (şubeler için SNK-12'de çözülmüştü, tanımlar dışarıda kalmış) | senkron |
+
+### İstekler
+
+- **İ1 — alt bar:** sığdığı kadar sekme → **"Diğer Sayfalar (N) ⌃"** (yukarı açılır, ikonlu, `(x2)` adetli)
+  → **en sağda sabit Sohbet**. Hangi sekmenin sığmadığı gerçek ölçümle bulunur; **aktif sekmeye daima yer açılır**.
+  Web'de karşılığı şeridin sağında sabit menü olarak eklendi.
+- **İ2 — 10.000 kayıt:** 12 tabloya 10.000'er kayıt (120.000) yüklendi; masaüstü tamamını **10 saniyede** çekti.
+
+### Yük altında bulunan 3 yeni hata
+
+1. Boş sayaç alanı olan **tek kayıt yakıt listesini komple çökertiyordu** (iki API ucu).
+2. Bilgi pencerelerinde yan yana **iki "Tamam" düğmesi** (yardımcı yazılmış ama çağrı yerleri dönüştürülmemişti).
+3. **Stok Hareketleri 1000'de sessizce kesiyor**, okuduğu satır sayısını "toplam" diye yazıyordu →
+   10.000 hareketli firmada 9.000 kayıt görünmüyordu. İki ortamda da düzeltildi.
+
+### Ölçümler
+
+| Alan | Sonuç |
+|---|---|
+| Tam süit | **3834 geçti / 1 başarısız / 48 atlandı** (37 dk 47 sn) — tek başarısız MOB3, düzeltmeden önceki hâli ölçmüştü; düzeltme sonrası ilgili sınıflar **44/44** |
+| API (120.000 kayıtla) | 139 uçta **500 hatası YOK**, en yavaş uç 1,15 sn |
+| Masaüstü ekranları | **54 ekran** açıldı, **hatalı 0**, hiçbiri 2 sn üzeri değil |
+| Web rotaları | **61 rota**, hepsi 200 |
+| Yeni test | 32 test (şube kapsamı yarışı, şube şifresi, ekip senkronu, alt bar, bilgi penceresi, stok tavanı) |
+
+### Yayın (2026-09-07)
+
+| Bileşen | Sürüm / sonuç |
+|---|---|
+| Masaüstü | **1.0.184** · 253 dosya · 86,6 MB · checksum `0613ee0b8113…` |
+| API | yeniden yayınlandı · `/health` 200 |
+| Web | yeniden yayınlandı · `/` ve `/login` 200 · CSS önbellek kırıcı çalışıyor |
+| Migration | **YOK** — şema değişmedi (üretim şema sürümü **96**) |
+| Yedek | `depowise_prod_20260906_234829.dump` (855 KB), yayından önce |
+
+**🔴 CANLI VERİ SAĞLAM:** araç 169 · malzeme 2534 satır · kullanıcı 9 · stok hareketi 789.
+Hiçbir kayıt silinmedi/değişmedi.
+
+⚠️ **Firma yöneticisinin yapması gereken:** yeni sürümde alt bar değişti; ek bir ayar gerekmez.
+Sohbet yetkisi hâlâ deny-by-default — verilmeyen rollerde sohbet düğmesi görünmez.
+
+---
+
 ## ✅ YAYIN — 2026-09-06 (2. tur): FAZ 1–5 — yakıt hatası · tarih alanı · kullanıcı alanları · yazdırma · SOHBET
 
 Kullanıcının bu turdaki istekleri ve benim önerip onayladığı "A grubu"nun ilk maddesi.

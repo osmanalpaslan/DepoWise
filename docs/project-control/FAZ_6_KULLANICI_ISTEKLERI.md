@@ -66,7 +66,7 @@ koşulacak (hem kod testleri hem **ekrana bağlanan** QA testleri).
 | **6H** | İ2 — 10.000 kayıt üretimi + yük altında kod ve QA testleri |
 | **6I** | Tam kapsamlı test + otomatik yayın |
 
-**Durum:** 6H bitti → sıradaki **6I** (tam kapsamlı test + otomatik yayın).
+**Durum:** FAZ 6 TAMAMLANDI (6A-6I) — masaüstü 1.0.184 + API + web yayında.
 
 ---
 
@@ -218,3 +218,31 @@ sunucusuna yüklendi. Masaüstü bu veriyi **10 saniyede** çekti (10.000/tablo 
 
 **Test:** `StokHareketleriTavanTests` (3), `BilgiPenceresiTekDugmeTests` (3) · ilgili küme
 (stok/büyük veri) **466 geçti / 10 atlandı** · masaüstü ve web derlemeleri **0 hata**.
+
+---
+
+## 6I — Tam kapsamlı test + yayın (2026-09-06/07)
+
+**Tam süit:** `3834 geçti / 1 başarısız / 48 atlandı` (37 dk 47 sn). Tek başarısız test **MOB3**'tü
+ve koşunun 1. dakikasında çalışmıştı — yani **düzeltmeden önceki** dosya hâlini ölçmüştü.
+Bulgu gerçekti: web'e eklenen sohbet ve "Diğer Sayfalar" stilleri `app.css`'in **sonuna**
+eklenmişti; orası mobil katmandır ve oraya konan kural medya sorgusu dışında kalıp **geniş ekranı
+da etkiler**. Bloklar mobil katmanın üstüne taşındı (tek bir kural/değer değişmedi) →
+ilgili sınıflar **44/44 geçti**.
+
+### Yayın
+
+| Bileşen | Sonuç |
+|---|---|
+| Yedek | `artifacts/prod-backup/depowise_prod_20260906_234829.dump` (855 KB) — yayından önce alındı |
+| API | yeniden yayınlandı · `/health` **200** |
+| Web | yeniden yayınlandı · `/` ve `/login` **200** · CSS önbellek kırıcı yeni etiket üretti |
+| Masaüstü | **1.0.184** · 253 dosya · 86,6 MB · checksum `0613ee0b8113…` · sunucudaki en güncel sürüm doğrulandı |
+| Migration | **YOK** — bu turda şema değişmedi (üretim şema sürümü **96**, aynı kaldı) |
+
+**🔴 CANLI VERİ SAĞLAM (yayın sonrası okuma):** araç **169** · malzeme **2534 satır**
+(1'i silinmiş işaretli, o silme **2 Eylül**'de normal kullanımda olmuş) · kullanıcı **9** ·
+stok hareketi **789**. Bu yayın hiçbir kaydı silmedi/değiştirmedi; şemaya dokunulmadı.
+
+**Yayınlanan CSS canlıdan indirilip doğrulandı:** yeni sınıflar yayında ve **mobil katmanın
+üstünde** (yani geniş ekranı etkilemiyor).
