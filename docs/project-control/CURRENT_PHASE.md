@@ -33,6 +33,34 @@ Ayrıca: web'de yetki paketi girişten sonra geldiği için sohbet ancak sayfa y
 
 **Rapor:** `docs/tests/FAZ_1_5_TEST_RAPORU.md` · **Kararlar:** ADR-230 · 231 · 232 · 233
 
+### Yayın (2026-09-06, 2. tur)
+
+| Bileşen | Sürüm | Not |
+|---|---|---|
+| Masaüstü | **1.0.183** | self-contained, 253 dosya, 86.6 MB · checksum `ffe9bac3af10…` |
+| API | **yeniden yayınlandı** | Migration **94 → 96** otomatik koştu (095 kullanıcı iletişim alanları · 096 sohbet) |
+| Web | **yeniden yayınlandı** | sohbet · yazdırma düğmeleri · kullanıcı alanları · CSS önbellek kırıcı |
+| Migration | **095 + 096** | ikisi de YALNIZ `ADD COLUMN` / `CREATE TABLE` — hiç UPDATE/DELETE/backfill yok |
+| Yedek | **alındı** | `artifacts/prod-backup/depowise_prod_20260906_191546.dump` (871 KB) — şema değiştiği için zorunluydu |
+
+**Yayın sonrası doğrulama (canlı, salt-okunur):** `schema_migrations` son satır **96** · `users`
+tablosunda `email · phone · title · notes · last_seen_at` sütunları **var** · `chat_messages` tablosu
+var ve **boş doğdu** · API + web `/`, `/login`, `/users` → **200** · masaüstü sunucudaki en güncel
+sürüm **1.0.183** · web CSS sürüm etiketi üretiliyor (önbellek kırıcı çalışıyor).
+
+**🔴 CANLI VERİ SAĞLAM:** araç **169** · malzeme **2534** · kullanıcı **9** — hiçbir kayıt
+silinmedi/değişmedi (migration'lar yalnız eklemeli).
+
+**Test:** tam süit **3803 geçti / 1 başarısız / 48 atlandı**; tek başarısız benim fazla kaba yazdığım
+bir kontroldü (kaldırmayı açıklayan yorumu da yakalıyordu), düzeltildi → ilgili dört sınıf **41/41**.
+Yeni testler **151** · yeni özellik API bataryası **32/32** · mevcut batarya **38/38**.
+
+⚠️ **Firma yöneticisinin yapması gereken TEK iş:** Yetkiler ekranından **"Sohbet (Uygulama İçi
+Mesajlaşma)"** yetkisini ilgili rollere vermek. Deny-by-default olduğu için verilmeden kimse
+sohbet düğmesini görmez.
+
+---
+
 ### Sırada (bu turda YAPILMADI, bir sonraki tur)
 **A grubu kalanı:** ekran içi liste toplamları · cari yaşlandırma (vade) · toplu işlem · favori ekranlar.
 **B grubu:** çek/senet portföyü · e-posta uyarısı · trafik cezası + HGS/OGS · araç zimmeti geçmişi ·
