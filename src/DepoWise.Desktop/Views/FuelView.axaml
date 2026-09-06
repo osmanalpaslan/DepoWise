@@ -25,7 +25,7 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Yakıt Dağıtımları" ShowSearch="False"
                                   PrimaryActionText="Yeni Dağıtım" PrimaryActionCommand="{Binding ToggleDistCommand}">
                         <ctrl:Toolbar.FilterContent>
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" VerticalAlignment="Center">
     <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center"/>
                                 <!-- Kullanıcı isteği (2026-09-02): yakıt kaydı düzeltilebilsin. Kayıt üzerine
                                      YAZILMAZ; eski kayıt iptal edilip düzeltilmiş kayıt oluşturulur (tek işlem). -->
@@ -36,7 +36,7 @@
                                         IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
                                         ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
                                 <Button Classes="Secondary" Content="Yenile" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
-                            </StackPanel>
+                            </WrapPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -59,7 +59,7 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
-                                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                                <ctrl:FormField Label="İşlem Tarihi" Width="280">
                                     <DatePicker Classes="Field" SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
                                 </ctrl:FormField>
@@ -123,10 +123,10 @@
                                                 </TextBox.KeyBindings>
                                             </TextBox>
                                         </ctrl:FormField>
-                                        <ctrl:FormField Label="Başlangıç Tarihi" Width="150">
+                                        <ctrl:FormField Label="Başlangıç Tarihi" Width="280">
                                             <DatePicker Classes="Field" SelectedDate="{Binding AramaBaslangic}"/>
                                         </ctrl:FormField>
-                                        <ctrl:FormField Label="Bitiş Tarihi" Width="150">
+                                        <ctrl:FormField Label="Bitiş Tarihi" Width="280">
                                             <DatePicker Classes="Field" SelectedDate="{Binding AramaBitis}"/>
                                         </ctrl:FormField>
                                         <ctrl:FormField Label="Ara (kod / plaka / açıklama)" Width="220">
@@ -254,7 +254,7 @@
                             <SelectableTextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
-                                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                                <ctrl:FormField Label="İşlem Tarihi" Width="280">
                                     <DatePicker Classes="Field" SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
                                 </ctrl:FormField>

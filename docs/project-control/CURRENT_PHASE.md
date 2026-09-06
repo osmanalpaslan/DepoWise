@@ -1,5 +1,43 @@
 # AKTİF DURUM
 
+## ✅ GÖRSEL QA 2. TUR — ölçeklendirme (masaüstü)
+
+**Kullanıcı talebi:** "ekran, tablo ve buton ölçeklendirmesi… pencere boyutuna göre", "her ekran için
+çalışmayan/hatalı çalışan alan, buton ve çalışma mantığı hatası", "kendi maddelerini de ekle",
+"bulduklarını düzelt", "sonunda eksiksiz otomatik yayınla".
+
+### Önce: bir önceki turun ölçümleri neden yanlıştı
+`MainWindow.axaml` içine XML yorumu **öznitelik listesinin ortasına** yazılmıştı → dosya geçersiz XML →
+**masaüstü derlemesi 11:38'den beri sessizce başarısızdı**. Birinci turun düzeltmeleri ikiliye hiç
+girmemişti. **Yönteme eklendi:** her derlemeden sonra `DepoWise.Desktop.dll` zaman damgası doğrulanır.
+
+### Bulunan ve düzeltilen hatalar
+
+| # | Hata | Ölçüm | Düzeltme |
+|---|---|---|---|
+| 1 | Üst bar dar pencerede taşıyor; hesap menüsü/çıkış tıklanamıyor | 1120'de 7 px, 1060'ta 67 px, 900'de 6 öğe dışarıda | Üst bar **uyarlanabilir** (`GenislikEsikConverter`): arama 1300, kullanıcı adı 1200, "Ekran" etiketi 1120 altında gizlenir → asgari genişlik **980** (ADR-227) |
+| 2 | Filtre/form satırları sarmıyor; düğmeler ekran dışında | "+"=161 px, "Temizle"=89 px, "Kaydet"=109 px dışarıda | 10 ekranda `StackPanel` → `WrapPanel`; `HorizontalAlignment="Left"` tuzağı kaldırıldı (ADR-229) |
+| 3 | **Tarih alanlarında YIL hiç görünmüyor** | 150/200 px'te yıl yok, 250'de kırpık, 280'de tam | 20 ekranda 37 alan **280 px**'e sabitlendi (ADR-228) |
+| 4 | Tarih alanlarında İngilizce "day/month/year" | — | `TarihYerTutucu` — tek noktadan 43 kullanım `gün/ay/yıl` (ADR-228) |
+| 5 | Atanmamış Stok Dağıtımı: "DAĞITILACAK" ve "Tümü" ekran dışında + başlık/satır hizasız | 1366'da 106 ve 286 px dışarıda | Diğer tabloların kalıbı: sabit kolonlar + yatay kaydırıcı |
+| 6 | Üst bar başlığı üç nokta göstermeden kesiliyor | "Maliye\|" | Dikey `StackPanel` → `Grid` (çocuğu daraltılmış genişliğe kırpar) |
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Masaüstü 53 ekran × 1920·1600·1366·1100·980 | **tıklanamaz/kırpık öğe YOK** |
+| Web 68 rota × 1920·1366·1024 | **bulgu YOK** |
+| Tam süit | **3689 geçti · 0 başarısız · 48 atlandı** |
+| API bataryası | **38/38** |
+| Ölü buton statik denetimi | ReflectionBinding 0 · boş komut 0 → yapısal olarak imkânsız |
+
+**Rapor:** `docs/tests/FINAL_QA_GORSEL_RAPORU_2.md` · **Kararlar:** ADR-227 · ADR-228 · ADR-229
+**Web'de karşılık iş YOK:** iki tarih kusuru da Avalonia'ya özgü; web `MudDatePicker` + `tr-TR` kullanır.
+
+---
+
+
 ## ✅ YAYIN — 2026-09-06: kullanıcı bildirimli 4 düzeltme (masaüstü 1.0.181, Web v218)
 
 Kullanıcının canlıda gördüğü hatalar; sırayla bildirildi, tek turda yayınlandı.

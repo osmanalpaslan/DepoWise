@@ -14,10 +14,10 @@
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Atanmamış Stok Dağıtımı">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <TextBox Classes="Field" Width="200" Watermark="Kod / ad ara..." Text="{Binding Search}"/>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -28,10 +28,10 @@
         </Border>
 
         <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="14">
+            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsız, daima gerçek saat.
                      Geri/ileri tarih YETKİYE bağlı (btn-backdate): yetki yoksa alan kilitli. -->
-                <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                <ctrl:FormField Label="İşlem Tarihi" Width="280">
                     <DatePicker Classes="Field" SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
                                 ToolTip.Tip="{Binding DocDateHint}"/>
                 </ctrl:FormField>
@@ -48,7 +48,7 @@
                 <SelectableTextBlock Text="{Binding SummaryText}" VerticalAlignment="Bottom" Classes="Helper"/>
                 <Button Classes="Primary" Content="Dağıtımı Kaydet" Command="{Binding SaveCommand}"
                         IsEnabled="{Binding !Busy}" VerticalAlignment="Bottom"/>
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- H-1: kaç kayıt VAR / kaç kayıt GÖSTERİLİYOR. Sığmayan kayıt varsa vurgulu (Warning) gösterilir
@@ -62,12 +62,23 @@
                                  IsVisible="{Binding Truncated}"/>
         </StackPanel>
 
-        <Border Grid.Row="4" Classes="Table" Margin="0,8,0,0" IsVisible="{Binding HasRows}">
-            <DockPanel>
+        <!-- ⭐ DÜZELTME (görsel QA 2026-09-06) — İKİ AYRI HATA vardı ve ikisi de ölçüldü:
+             1) MALZEME kolonu YILDIZ (*) genişlikteydi ve satır, ListBox öğesi içinde kendi istediği
+                genişlikte yerleşiyordu. Uzun bir malzeme adı satırı büyütünce "DAĞITILACAK" alanı ve
+                "Tümü" düğmesi ekranın DIŞINA itiliyordu (1366 px'te 106 ve 286 px dışarıda ölçüldü) —
+                yani dağıtım miktarı GİRİLEMİYORDU.
+             2) Başlık satırı sığdığı için kısalıyor, gövde satırı uzadığı için kaymıyordu → başlık ile
+                değerler HİZALANMIYORDU (ATANMAMIŞ boş görünüp sayılar KALAN'ın altına düşüyordu).
+             Çözüm, projedeki DİĞER tabloların (Stok Hareketleri · Malzemeler) zaten kullandığı kalıptır:
+             tüm kolonlar sabit (Min=Max), tablo yatay kaydırıcı içinde, başlık ve gövde aynı kaydırıcıyı
+             paylaşır. Böylece hiçbir hücre dışarı taşmaz ve hizalama her genişlikte korunur. -->
+        <Border Grid.Row="4" Classes="Table" Margin="0,8,0,0" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <DockPanel HorizontalAlignment="Left">
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
-                        <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="200"/>
+                        <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="260" MaxWidth="260"/>
                         <SelectableTextBlock Grid.Column="2" Text="ATANMAMIŞ" MinWidth="110" MaxWidth="110"/>
                         <SelectableTextBlock Grid.Column="3" Text="DAĞITILACAK" MinWidth="140" MaxWidth="140"/>
                         <SelectableTextBlock Grid.Column="4" Text="KALAN" MinWidth="100" MaxWidth="100"/>
@@ -77,12 +88,12 @@
                 <ListBox Classes="Table" ItemsSource="{Binding Lines}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:StockDistributeViewModel+UnassignedLineVm">
-                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}" />
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="260" MaxWidth="260" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
                                 <SelectableTextBlock Grid.Column="2" Text="{Binding AvailableText}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AvailableText}" />
                                 <!-- Negatif kalan (ADR-086 devralınan eksik stok) dağıtılamaz → alan kapalı. -->
-                                <NumericUpDown Grid.Column="3" Classes="Field" MinWidth="140" Minimum="0"
+                                <NumericUpDown Grid.Column="3" Classes="Field" MinWidth="140" MaxWidth="140" Minimum="0"
                                                Maximum="{Binding Available}" Value="{Binding Amount, Mode=TwoWay}"
                                                FormatString="0.##" ShowButtonSpinner="False"
                                                IsEnabled="{Binding CanDistribute}"/>
@@ -96,6 +107,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
+          </ScrollViewer>
         </Border>
 
         <SelectableTextBlock Grid.Row="4" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center"

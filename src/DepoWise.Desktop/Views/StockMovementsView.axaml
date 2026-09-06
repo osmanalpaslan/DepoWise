@@ -13,11 +13,16 @@
 
         <!-- Filtre satırı -->
         <Border Grid.Row="0" Classes="Panel" Padding="14,12">
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <ctrl:FormField Label="Başlangıç" Width="160">
+            <!-- ⭐ DÜZELTME (görsel QA 2026-09-06): burası yatay StackPanel'di. Sabit genişlikler
+                 (160+160+280+200) + iki düğme + boşluklar ~1050 px eder; pencere asgari genişlikte
+                 (1180) içerik alanı ~890 px kalır ve "Temizle" düğmesi pencerenin 89 px DIŞINDA
+                 kalıyordu (UI Automation ile ölçüldü) — yani filtreyi temizlemek imkânsızdı.
+                 WrapPanel dar pencerede alt satıra sarar; geniş pencerede görünüm aynıdır. -->
+            <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" VerticalAlignment="Center">
+                <ctrl:FormField Label="Başlangıç" Width="280">
                     <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="160">
+                <ctrl:FormField Label="Bitiş" Width="280">
                     <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <ctrl:FormField Label="Ara (kod, malzeme, not, belge no)" Width="280">
@@ -42,7 +47,7 @@
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Filtrele" Command="{Binding LoadCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- Hareket tablosu -->

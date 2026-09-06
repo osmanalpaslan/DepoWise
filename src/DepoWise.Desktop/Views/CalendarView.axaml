@@ -36,7 +36,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Takvim"
                       PrimaryActionText="Yeni Takvim Kaydı" PrimaryActionCommand="{Binding NewEventCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="◀" Command="{Binding PrevMonthCommand}"/>
                     <SelectableTextBlock Text="{Binding MonthTitle}" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="110" TextAlignment="Center"/>
                     <Button Classes="Secondary" Content="▶" Command="{Binding NextMonthCommand}"/>
@@ -48,7 +48,7 @@
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle bu ayın TÜM takvim öğelerini Excel dosyası olarak kaydeder."/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -61,10 +61,10 @@
                         <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
                     </ctrl:FormField>
                     <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez; kayıt anı audit'te korunur. -->
-                    <ctrl:FormField Label="Başlangıç" IsRequired="True" Width="160">
+                    <ctrl:FormField Label="Başlangıç" IsRequired="True" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="160" HelpText="Boşsa tek gün.">
+                    <ctrl:FormField Label="Bitiş" Width="280" HelpText="Boşsa tek gün.">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şantiye / Saha" Width="190">

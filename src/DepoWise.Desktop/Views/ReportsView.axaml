@@ -17,7 +17,10 @@
 
         <!-- Filtreler (ortak form bileşenleri) -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom">
+            <!-- DUZELTME (final QA olcumu 2026-09-06): bu satir yatay StackPanel idi; dar pencerede
+                 Excel disa aktarma dugmesi pencere DISINDA kaliyordu (1154 px de 91 px olculdu).
+                 WrapPanel dar pencerede alt satira sarar; genis pencerede gorunum aynidir. -->
+            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10" VerticalAlignment="Bottom">
                 <!-- Rapor listesi TEK KATALOĞA (ReportItems) göre; ComboBox raporun adını gösterir. -->
                 <ctrl:FormField Label="Rapor" Width="220">
                     <ComboBox Classes="Field" ItemsSource="{Binding ReportItems}"
@@ -28,10 +31,10 @@
                     </ComboBox>
                 </ctrl:FormField>
                 <!-- Tarih yalnız rapor tarih kullanıyorsa (RequiresDate → Bu Ay ön-dolu). -->
-                <ctrl:FormField Label="Başlangıç" Width="170" IsVisible="{Binding ShowDate}">
+                <ctrl:FormField Label="Başlangıç" Width="280" IsVisible="{Binding ShowDate}">
                     <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="170" IsVisible="{Binding ShowDate}">
+                <ctrl:FormField Label="Bitiş" Width="280" IsVisible="{Binding ShowDate}">
                     <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <!-- Şube seçici (çoklu) yalnız rapor şube kullanıyorsa VE kullanıcı yetkiliyse (btn-branch-select).
@@ -283,7 +286,7 @@
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
                 <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- Katalog-sürümlü bilgi/metodoloji notu (varsa) — genel amaçlı (ReportDescriptor.InfoNote). -->

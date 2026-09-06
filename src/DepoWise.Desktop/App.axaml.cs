@@ -29,6 +29,9 @@ public partial class App : Avalonia.Application
             ThemeApplier.Apply(this, boot.Theme);   // merkezi tema (sabit renk yok)
             DesktopServices.Initialize(boot);       // servisler + ilk açılış admin seed
             DepoWise.Desktop.Theming.ThemeService.ApplySaved(); // kullanıcının seçtiği tema modu (Koyu/Açık/Sistem)
+            // Tarih alanlarının boş hâlindeki İngilizce yer tutucularını ("day/month/year") Türkçeleştirir.
+            // Sınıf düzeyinde tek kurulum; hiçbir görünüm dosyası değişmez (bkz. TarihYerTutucu).
+            DepoWise.Desktop.Theming.TarihYerTutucu.Kur();
 
             // Kullanıcı isteği: uygulama kapatılınca oturum biter → her açılışta LOGIN ekranı gelir.
             // "Beni Hatırla" artık yalnız kullanıcı ADINI ön-doldurur (otomatik giriş YAPILMAZ). Kapanışta

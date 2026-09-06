@@ -45,7 +45,7 @@
                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </Border>
 
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"/>
                     </ctrl:FormField>
@@ -58,7 +58,7 @@
                          Varsayılan bugün; GEÇMİŞ ve GELECEK tarih serbesttir (üst sınır yok — ileri
                          tarihli planlanmış hareket bilinçli olarak mümkün). Kaydın sisteme girildiği
                          gerçek zaman (created_at + audit) sunucu saatinden yazılır, buradan değişmez. -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                    <ctrl:FormField Label="İşlem Tarihi" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding DocDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
@@ -105,9 +105,9 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding HedefSubeler}" SelectedItem="{Binding ToBranch}"
                                         PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240" IsVisible="{Binding ShowPersonnel}">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding PersonnelSel}"
                                         PlaceholderText="Personel seç / ara..."/>
@@ -116,7 +116,7 @@
                         <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding VehicleSel}"
                                         DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- Malzeme seçimi: Transfer/Depo Çıkışı'nda ZORUNLU; Yeni Kayıt'ta OPSİYONEL (madde 1.1,
                      kullanıcı isteği 2026-08-06) — mevcut malzeme seçilirse aşağıdaki kart alanları kilitlenir. -->
@@ -149,11 +149,11 @@
                      malzeme olabiliyordu. Artık "Listeye Ekle" ile birkaç malzeme toplanıp TEK belgede kaydedilir.
                      Liste boş bırakılırsa eski davranış aynen sürer (tek malzeme + miktar). -->
                 <StackPanel Spacing="8" IsVisible="{Binding ShowExitLines}">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12">
                         <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddExitLineCommand}"
                                 ToolTip.Tip="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz."/>
                         <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding ExitLinesSummary}"/>
-                    </StackPanel>
+                    </WrapPanel>
                     <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasExitLines}">
                         <ScrollViewer>
                             <ItemsControl ItemsSource="{Binding ExitLines}">
@@ -176,7 +176,7 @@
                 <!-- Yeni Kayıt: malzeme kartı alanları — mevcut malzeme seçildiyse (NewFieldsLocked) Kod/Ad/Tür/
                      Birim/Kategori/Alt Kategori/Marka KİLİTLENİR (madde 1.1); Tedarikçi HER ZAMAN aktif kalır. -->
                 <StackPanel Spacing="14" IsVisible="{Binding ShowNewForm}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                         <ctrl:FormField Label="Kod" IsRequired="True" Width="180" IsEnabled="{Binding NewFieldsEnabled}">
                             <TextBox Classes="Field" Text="{Binding Code}"/>
                         </ctrl:FormField>
@@ -207,8 +207,8 @@
                                 </Grid>
                             </StackPanel>
                         </ctrl:FormField>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    </WrapPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                         <ctrl:FormField Label="Kategori" Width="260" IsEnabled="{Binding NewFieldsEnabled}">
                             <StackPanel Spacing="6">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -285,10 +285,10 @@
                                 </Grid>
                             </StackPanel>
                         </ctrl:FormField>
-                    </StackPanel>
+                    </WrapPanel>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Fatura / İrsaliye No" Width="200">
                         <TextBox Classes="Field" Text="{Binding InvoiceNo}"/>
                     </ctrl:FormField>
@@ -298,7 +298,7 @@
                     <ctrl:FormField Label="Veresiye Fişi No" Width="200">
                         <TextBox Classes="Field" Text="{Binding CreditSlipNo}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <ctrl:FormField Label="Açıklama">
                     <TextBox Classes="Field" Text="{Binding Note}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>

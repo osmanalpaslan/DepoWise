@@ -14,7 +14,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Ekipman"
                       PrimaryActionText="Yeni Ekipman" PrimaryActionCommand="{Binding NewEquipmentCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: kod / ad / seri / tür / şube"/>
                     <ComboBox Classes="Field" Width="120" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
@@ -22,7 +22,7 @@
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder (yalnız ekrandakini değil)."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

@@ -21,7 +21,7 @@
                                   PrimaryActionText="Yeni Talep" PrimaryActionCommand="{Binding NewRequestCommand}"
                                   SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Belge no / açıklama ara...">
                         <ctrl:Toolbar.FilterContent>
-                            <StackPanel Orientation="Horizontal" Spacing="10">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                                 <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
                                 <Button Classes="Secondary"  Command="{Binding PickLogoCommand}"
                                         ToolTip.Tip="PDF başlığındaki firma logosu. Değiştirmedikçe seçili kalır.">
@@ -30,7 +30,7 @@
                                         <TextBlock Text="Firma Logosu Ekle" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                            </StackPanel>
+                            </WrapPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -50,7 +50,7 @@
                                         </ComboBox>
                                     </Grid>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Tarih" Width="180">
+                                <ctrl:FormField Label="Tarih" Width="280">
                                     <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
                                 </ctrl:FormField>
                                 <!-- B-2 (PRT-01 Grup 4): öncelik listede zaten gösteriliyordu ama hiçbir ekrandan

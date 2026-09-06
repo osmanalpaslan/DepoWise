@@ -5286,3 +5286,62 @@ ve "kazananı değiştirme" üretimde çalışmazdı. `PromoteLoser` artık hede
   bağlantısı kapanabiliyor (`ObjectDisposedException`). Bir koşuda `VehicleGridTests` böyle düştü,
   tek başına çalıştırıldığında GEÇTİ. **Ürün hatası değildir**; testi retry ile gizlemek yerine
   kaydedildi. Düzeltmesi 175 dosyaya dokunmak demek → ayrı iş.
+
+---
+
+## ADR-227 — Üst bar ÖLÇEKLENEBİLİR yapıldı; asgari genişlik 900 → 980 (2026-09-06)
+
+**Bağlam.** Üst bar 60 px sabit yükseklikte, tek satırlık ve sarılamayan bir Grid'dir. İçindeki
+öğelerin çoğu sabit genişliktedir. UI Automation ölçümü: 1120 px'te kullanıcı düğmesi 7 px, 1060'ta
+67 px, 900'de altı öğe pencere DIŞINDA kalıyor — hesap menüsü ve çıkış tıklanamıyordu.
+
+**Reddedilen çözüm.** Asgari genişliği 1150/1180'e çekmek. 1366 px'lik bir dizüstü **%125 Windows
+ölçeklemesinde** 1092 mantıksal px olur; 1180'lik pencere o ekrana sığmaz. Bu, sorunu çözmek değil
+başka bir kullanıcıya taşımaktır.
+
+**Karar.** Üst bar uyarlanabilir yapıldı (`GenislikEsikConverter`): pencere daraldıkça sırayla global
+arama kutusu (1300 altı), kullanıcı adı (1200 altı) ve "Ekran" etiketi (1120 altı) gizlenir. Gizlenen
+hiçbir şey tek erişim yolu değildir — menü araması, baş harf dairesi ve ikon yerinde kalır. Asgari
+genişlik ölçümle **980**'e indi; 53 ekran × 5 genişlikte (1920·1600·1366·1100·980) tıklanamaz öğe yok.
+
+**Sonuç.** Yeni bir ekran eklerken üst bara sabit genişlikli öğe eklenmemelidir; eklenecekse bu
+dönüştürücüyle bir eşik verilmelidir.
+
+---
+
+## ADR-228 — Tarih alanı standart genişliği 280 px; yer tutucular Türkçe (2026-09-06)
+
+**Bağlam (iki ayrı kusur, ikisi de ölçüldü).**
+1. Avalonia `DatePicker`, kendisine verilen genişlik yetmediğinde **yıl bölmesini tamamen düşürür**.
+   150 ve 200 px'te "7 Ağustos" görünüyor, yıl HİÇ yok; 250'de kırpık; **280'de tam**. Kullanıcı bir
+   tarih süzgecinin hangi yıla ait olduğunu göremiyordu.
+2. Tarih seçili değilken bölmelere İngilizce yer tutucu yazılıyordu: `day · month · year`.
+
+**Karar.**
+1. Tarih alanı içeren tüm `ctrl:FormField`'lar **280 px** tabanına çekildi (20 ekran, 37 alan). Yeni bir
+   tarih alanı eklenirken bu ölçünün altına inilmez — aksi hâlde yıl sessizce kaybolur.
+2. `TarihYerTutucu` (Theming): açılışta bir kez kurulan **sınıf düzeyinde** işleyici yer tutucuları
+   `gün · ay · yıl` yapar. **Stil ile çözülemez** — Avalonia bu metinleri şablon uygulandıktan sonra
+   *yerel değer* olarak yazar ve yerel değer stil setter'ını yener. Tek noktadan 43 kullanım düzeldi;
+   hiçbir görünüm dosyası değişmedi.
+
+**Not.** Her iki kusur da Avalonia'ya özgüdür. Web `MudDatePicker` + `tr-TR` kullanır; parite eksiği yok.
+
+---
+
+## ADR-229 — Dar pencerede yerleşim: WrapPanel ve "sola yaslama" tuzağı (2026-09-06)
+
+**Bağlam.** Sabit genişlikli alanlardan oluşan yatay `StackPanel` satırları, pencere daralınca
+düğmeleri pencere dışına itiyordu (ölçüm: "+" 161 px, "Temizle" 89 px, "Kaydet" 109 px dışarıda).
+
+**Karar.** Bu satırlar `WrapPanel`'e çevrildi (Avalonia'da `Spacing` YOKTUR → `ItemSpacing` +
+`LineSpacing`). Geniş pencerede görünüm birebir aynıdır.
+
+**Kritik tuzak (belgelenmeli).** `WrapPanel`, yalnız kendisine **sınırlı bir genişlik** verildiğinde
+sarar. Kapsayıcıda `HorizontalAlignment="Left"` varsa çocuğa sınırsız genişlik gider ve WrapPanel
+**hiç sarmaz** — `AssignmentsView` tam olarak bu yüzden düzeltilmiş görünüp düzelmemişti. Aynı şekilde
+`Auto` genişlikli bir ızgara sütunu da sarmayı iptal eder.
+
+**Yönteme eklenen ders.** `dotnet build` çıktısında "0 Hata" görmek YETMEZ: bir XAML dosyası bozuk
+bırakıldığında (yorum, öznitelik listesinin içine yazılmıştı) derleme başarısız olur ama akıştaki
+süzgeç bunu gizleyebilir. Her derlemeden sonra **`DepoWise.Desktop.dll` zaman damgası** doğrulanır.

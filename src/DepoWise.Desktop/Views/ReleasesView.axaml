@@ -12,11 +12,11 @@
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Güncelleme Yönetimi (Süper Admin)">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <SelectableTextBlock Text="Kurulu sürüm:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

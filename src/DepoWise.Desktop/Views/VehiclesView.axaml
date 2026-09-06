@@ -21,7 +21,7 @@
                       PrimaryActionText="{Binding AddButtonText}"
                       PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
                     <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
                     <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
@@ -35,7 +35,7 @@
                             ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

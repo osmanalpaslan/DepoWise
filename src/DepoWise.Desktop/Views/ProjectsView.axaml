@@ -13,11 +13,11 @@
         <ctrl:Toolbar Grid.Row="0" Title="Projeler"
                       PrimaryActionText="Yeni Proje" PrimaryActionCommand="{Binding NewProjectCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: ad / şantiye / sorumlu / konum"/>
                     <ComboBox Classes="Field" Width="130" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -33,10 +33,10 @@
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
                     </ctrl:FormField>
                     <!-- Tarih alanları KEHRİBAR temadan gelir (DatePicker Field stili, TRH-01 standardı) -->
-                    <ctrl:FormField Label="Başlangıç" Width="160">
+                    <ctrl:FormField Label="Başlangıç" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="160">
+                    <ctrl:FormField Label="Bitiş" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                 </StackPanel>

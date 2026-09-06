@@ -13,7 +13,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Şube / Şantiye Tanım"
                       PrimaryActionText="Yeni Şube" PrimaryActionCommand="{Binding NewBranchCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <!-- Firma seçici: yalnız süper adminde. Liste + yeni şube bu firmaya göre çalışır. -->
                     <SelectableTextBlock Text="Firma:" Classes="Helper" VerticalAlignment="Center" IsVisible="{Binding IsSuperAdmin}"/>
                     <!-- İş #9: ortak aranabilir seçim (LookupBox) — çok firmalı süper adminde düz liste
@@ -22,7 +22,7 @@
                                     ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}"
                                     PlaceholderText="Firma seç / ara..."/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

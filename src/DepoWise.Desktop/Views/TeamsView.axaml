@@ -17,9 +17,9 @@
 
         <ctrl:Toolbar Grid.Row="0" Title="Ekipler">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

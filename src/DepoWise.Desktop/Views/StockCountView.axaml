@@ -50,7 +50,7 @@
                         </Border>
                     </StackPanel>
                 </ctrl:FormField>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <!-- STK-05: SAYILAN DEPO her zaman görünür. Sayım fiziksel bir depoya aittir;
                          sistem stoğu da firma toplamı değil BU DEPONUN miktarıdır. -->
                     <!-- Şubeye bağlı kullanıcı: depo oturumdan gelir, DEĞİŞTİRİLEMEZ (salt-okunur). -->
@@ -77,19 +77,19 @@
                     </ctrl:FormField>
                     <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsızdır ve daima
                          gerçek saattir. Geri/ileri tarih YETKİYE bağlı: yetki yoksa alan kilitli. -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                    <ctrl:FormField Label="İşlem Tarihi" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
                                     ToolTip.Tip="{Binding DocDateHint}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <!-- G1-02: ÇOK MALZEMELİ SAYIM SEPETİ. Sepet boşken ekran eskisi gibi görünür (tablo gizli);
                      tek malzeme sayımı aynen çalışır. Desen: StockEntryView "Listeye Ekle" sepeti. -->
                 <StackPanel Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12">
                         <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddCountLineCommand}"
                                 ToolTip.Tip="Seçili malzemeyi ve sayılan miktarı listeye ekler; sonra başka malzeme sayabilirsiniz."/>
                         <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding CountLinesSummary}"/>
-                    </StackPanel>
+                    </WrapPanel>
                     <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasCountLines}">
                         <DockPanel>
                             <Border Classes="TableHeader" DockPanel.Dock="Top">

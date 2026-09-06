@@ -14,10 +14,10 @@
         <ctrl:Toolbar Grid.Row="0" Title="Maliyet Merkezleri"
                       PrimaryActionText="Yeni Merkez" PrimaryActionCommand="{Binding NewCenterCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: kod / ad / açıklama"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -83,18 +83,27 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Spacing="10">
                         <SelectableTextBlock Text="MALİYET ÖZETİ" Classes="SectionTitle"/>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <!-- Tarih alanları KEHRİBAR temadan -->
-                            <ctrl:FormField Label="Başlangıç" Width="150">
+                        <!-- ⭐ DÜZELTME (final QA ölçümü 2026-09-06): bu satır yatay StackPanel'di ve
+                             pencere daraldığında "Excel'e Aktar" pencere DIŞINDA kalıyordu (51 px ölçüldü).
+                             WrapPanel dar pencerede alt satıra sarar; geniş pencerede görünüm aynıdır. -->
+                        <!-- Tarih alanları KEHRİBAR temadan -->
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
+                            <ctrl:FormField Label="Başlangıç" Width="280">
                                 <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
                             </ctrl:FormField>
-                            <ctrl:FormField Label="Bitiş" Width="150">
+                            <ctrl:FormField Label="Bitiş" Width="280">
                                 <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
                             </ctrl:FormField>
-                            <Button Classes="Primary" Content="Sorgula" Command="{Binding LoadSummaryCommand}" VerticalAlignment="Bottom"/>
-                            <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
+                        </WrapPanel>
+                        <!-- Düğmeler AYRI satırda: bu panel ekranın YARISI kadar genişliktedir; dar
+                             pencerede tarih alanları + iki düğme aynı satıra sığmıyor ve "Excel'e Aktar"
+                             pencere DIŞINDA kalıyordu (1154 px'te 91 px ölçüldü). Sarmaya güvenmek yerine
+                             düzen belirlenimci yapıldı: alanlar üstte, işlemler altta. -->
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
+                            <Button Classes="Primary" Content="Sorgula" Command="{Binding LoadSummaryCommand}"/>
+                            <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
                                     IsVisible="{Binding CanExport}" ToolTip.Tip="Sorgulanan aralığın TÜM özetini Excel olarak kaydeder."/>
-                        </StackPanel>
+                        </WrapPanel>
                         <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSelection}">
                             <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                             <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>

@@ -12,7 +12,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Yedek Yönetimi"
                       PrimaryActionText="Yedek Al" PrimaryActionCommand="{Binding BackupCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <Button Classes="Secondary" Content="Sunucuya Yükle" Command="{Binding UploadToServerCommand}"
                             IsVisible="{Binding ServerConfigured}"/>
                     <!-- Kullanıcı isteği (2026-09-02): bir makinede eklenen fotoğraf her makinede görünsün.
@@ -22,7 +22,7 @@
                             ToolTip.Tip="Bu bilgisayardaki araç/malzeme fotoğraflarını sunucuya yükler; hiçbir fotoğraf silinmez, zaten yüklü olanlar atlanır. Fotoğrafların BULUNDUĞU bilgisayarda çalıştırın."/>
                     <Button Classes="Secondary" Content="Klasörü Aç" Command="{Binding OpenFolderCommand}"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

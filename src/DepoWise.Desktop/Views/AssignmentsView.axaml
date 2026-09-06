@@ -13,20 +13,26 @@
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Zimmet">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: personel / varlık / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
         <!-- İşlem formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding CanWrite}">
-            <StackPanel Spacing="14" HorizontalAlignment="Left">
+            <!-- ⭐ DÜZELTME (görsel QA 2026-09-06): burada HorizontalAlignment="Left" vardı. Sola
+                 yaslanmış bir kapsayıcı çocuklarına SINIRSIZ genişlik verir; içindeki WrapPanel de
+                 "yer var" sanıp hiç sarmaz. Ölçüm: 1100 px'te "Kaydet" düğmesi pencerenin 109 px
+                 DIŞINDA kalıyordu. Yaslama kaldırıldı → kapsayıcı gerçek genişliği görüyor ve satırlar
+                 sarıyor. Alanlar zaten sabit genişlikte ve soldan dizildiği için geniş pencerede
+                 görünüm DEĞİŞMEZ. -->
+            <StackPanel Spacing="14">
                 <SelectableTextBlock Text="YENİ İŞLEM" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="İşlem" Width="130">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding OpOptions}" SelectedItem="{Binding FormOp}"/>
                     </ctrl:FormField>
@@ -45,8 +51,8 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormToPersonnel}"
                                         PlaceholderText="Devralan kişi..."/>
                     </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Depo / Şube" Width="220" IsVisible="{Binding IsMaterial}"
                                     HelpText="Malzeme tesliminde stok bu depodan düşer; iadede buraya döner.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
@@ -56,14 +62,14 @@
                         <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
                     </ctrl:FormField>
                     <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                    <ctrl:FormField Label="İşlem Tarihi" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Açıklama" Width="300">
                         <TextBox Classes="Field" Text="{Binding FormNote}"/>
                     </ctrl:FormField>
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" VerticalAlignment="Bottom"/>
-                </StackPanel>
+                </WrapPanel>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
             </StackPanel>

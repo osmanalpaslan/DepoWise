@@ -107,7 +107,7 @@
                         <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
                                         DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Tarih" Width="160">
+                    <ctrl:FormField Label="Tarih" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
                     </ctrl:FormField>
                 </StackPanel>

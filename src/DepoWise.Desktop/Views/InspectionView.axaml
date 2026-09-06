@@ -14,13 +14,13 @@
         <ctrl:Toolbar Grid.Row="0" Title="Muayene / Sigorta"
                       PrimaryActionText="Yeni Kayıt" PrimaryActionCommand="{Binding NewRecordCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
                     <!-- ⭐ PRT-02: liste ekranı kuralı — filtrelenmiş TÜM sonuç Excel'e aktarılabilir. -->
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
                             IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Listedeki TÜM muayene/sigorta kayıtlarını Excel olarak indirir."/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -37,10 +37,10 @@
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Son Tarih" Width="160">
+                    <ctrl:FormField Label="Son Tarih" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FLastDate}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Sonraki Tarih" Width="160">
+                    <ctrl:FormField Label="Sonraki Tarih" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FNextDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Yer / Kurum" Width="200">
@@ -49,7 +49,7 @@
                     <ctrl:FormField Label="Sonuç" Width="150" IsVisible="{Binding IsInspectionType}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Erteleme Tarihi" Width="170" IsRequired="True" IsVisible="{Binding IsPostponed}">
+                    <ctrl:FormField Label="Erteleme Tarihi" Width="280" IsRequired="True" IsVisible="{Binding IsPostponed}">
                         <DatePicker Classes="Field" SelectedDate="{Binding FPostponeDate}"/>
                     </ctrl:FormField>
                 </StackPanel>

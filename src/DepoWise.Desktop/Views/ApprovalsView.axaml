@@ -15,11 +15,11 @@
 
         <ctrl:Toolbar Grid.Row="0" Title="Onaylamalarım">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
                     <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>
                     <Button Classes="Secondary" Content="Reddet" Command="{Binding RejectCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

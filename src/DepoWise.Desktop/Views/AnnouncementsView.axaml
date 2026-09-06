@@ -13,14 +13,14 @@
         <ctrl:Toolbar Grid.Row="0" Title="Duyurular"
                       PrimaryActionText="Yeni Duyuru" PrimaryActionCommand="{Binding NewAnnouncementCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: başlık / metin / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                     <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -40,10 +40,10 @@
                                         PlaceholderText="Şube... (boş olabilir)"/>
                     </ctrl:FormField>
                     <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
-                    <ctrl:FormField Label="Yayın Başlangıcı" Width="160" HelpText="Boş = hemen.">
+                    <ctrl:FormField Label="Yayın Başlangıcı" Width="280" HelpText="Boş = hemen.">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Yayın Bitişi" Width="160" HelpText="Boş = süresiz.">
+                    <ctrl:FormField Label="Yayın Bitişi" Width="280" HelpText="Boş = süresiz.">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                 </StackPanel>

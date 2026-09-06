@@ -17,11 +17,11 @@
         <ctrl:Toolbar Grid.Row="0" Title="Rapor Tasarımcısı"
                       PrimaryActionText="Yeni Rapor" PrimaryActionCommand="{Binding TemizleCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
                     <Button Classes="Secondary" Content="Kaydet" Command="{Binding KaydetCommand}" IsVisible="{Binding CanCreate}"/>
                     <Button Classes="Secondary" Content="Sil" Command="{Binding SilCommand}" IsVisible="{Binding CanDelete}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

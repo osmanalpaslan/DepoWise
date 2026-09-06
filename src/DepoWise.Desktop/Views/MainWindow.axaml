@@ -10,10 +10,28 @@
         x:Class="DepoWise.Desktop.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
         Icon="/Assets/app-logo.ico"
-        MinWidth="900" MinHeight="560"
+        MinWidth="980" MinHeight="560"
         Width="1180" Height="720"
         Background="{DynamicResource AppBackgroundBrush}"
         Title="{Binding AppName}">
+        <!-- ⭐ ASGARİ GENİŞLİK — ÖLÇÜMLE BULUNDU (görsel QA 2026-09-06).
+             ÖNCE: MinWidth 900'dü ve üst bar o genişliğe SIĞMIYORDU. UI Automation ölçümü: 934 px'te
+             kullanıcı düğmesi pencerenin 177 px DIŞINDA, yani hesap menüsüne/çıkışa TIKLANAMIYORDU.
+             Üst bar 60 px sabit yükseklikte TEK SATIRLIK Grid'dir (Auto,*,8×Auto) ve sarılamaz.
+
+             İLK ÇÖZÜM YETERSİZDİ: sınırı 1150/1180'e çekmek taşmayı bitiriyordu ama %125 Windows
+             ölçeklemesi kullanan 1366 px'lik bir dizüstünde mantıksal genişlik 1092 px'e düşer —
+             1180'lik bir pencere O EKRANA SIĞMAZDI. Yani sınırı yükseltmek sorunu başka kullanıcıya
+             taşıyordu.
+
+             ŞİMDİKİ ÇÖZÜM: üst bar UYARLANABİLİR (GenislikEsikConverter). Pencere daraldıkça sırayla
+             global arama kutusu (1300 altı · 178 px), kullanıcı adı (1200 altı · 148 px) ve "Ekran"
+             etiketi (1120 altı · 45 px) gizlenir; işlevlerin hiçbiri kaybolmaz (menü araması, baş harf
+             dairesi, ikon yerinde kalır). Böylece asgari genişlik ölçümle 980'e indi.
+
+             DOĞRULAMA (UI Automation, 53 ekran × 5 genişlik): 1920 · 1366 · 1180 · 1100 · 980 —
+             tıklanamaz/kırpık öğe SIFIR. 980, 1366@%125 (1092) ve 1280@%125 (1024) senaryolarının
+             ikisinin de altındadır. -->
 
     <!-- İkon rayı 2026-08-19'da KALDIRILDI (kullanıcı isteği): dikey şerit yer kaplıyordu ve
          taşıdığı her şeyin karşılığı menü panelinde zaten var (Ana Ekran · gruplar · kullanıcı).
@@ -198,14 +216,21 @@
                     </Button>
 
                     <!-- 2) Başlık + bağlam. MinWidth sayesinde pencere daralınca
-                            başlık tamamen kaybolmaz, kısalarak kalır. -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0"
-                                MinWidth="90" ClipToBounds="True">
-                        <SelectableTextBlock Text="{Binding CurrentTitle}" Classes="PageTitle"
+                            başlık tamamen kaybolmaz, kısalarak kalır.
+                         ⭐ DÜZELTME (görsel QA 2026-09-06): burası dikey StackPanel'di. Dikey StackPanel
+                            çocuklarını, kendisine verilen daraltılmış genişliğe SIKIŞTIRMAZ; metin tam
+                            genişlikte çizilir ve ClipToBounds onu HAM keser. Sonuç: 1150 px'te başlık
+                            "Maliye" diye ortadan kesiliyor, üç nokta (…) hiç görünmüyor ve firma kutusuna
+                            yapışıyordu. Grid çocuğu düzenlenen genişliğe kırpar → TextTrimming gerçekten
+                            çalışır ve "Maliyet Me…" gibi okunur bir kısaltma çıkar. Sağa 14 px boşluk
+                            eklendi ki başlık firma kutusuna yaslanmasın. Geniş pencerede görünüm aynıdır. -->
+                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto" VerticalAlignment="Center"
+                          Margin="10,0,14,0" MinWidth="90" ClipToBounds="True">
+                        <SelectableTextBlock Grid.Row="0" Text="{Binding CurrentTitle}" Classes="PageTitle"
                                              TextTrimming="CharacterEllipsis"/>
-                        <SelectableTextBlock Text="{Binding CurrentContext}" Classes="Helper"
+                        <SelectableTextBlock Grid.Row="1" Text="{Binding CurrentContext}" Classes="Helper"
                                              TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- 3) BAĞLAM: firma + şube tek kutuda -->
                     <Border Grid.Column="2" Height="36" Padding="12,0" CornerRadius="10"
@@ -291,7 +316,13 @@
                     <!-- ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
                          Yeni yetki modülü YOK — sonuçlar serviste kaynak modül yetkisi + kapsamdan süzülür.
                          Yerel kaynaklar ÇEVRİMDIŞI aranır; Proje+Evrak çevrimiçiyse sunucudan eklenir. -->
-                    <Panel Grid.Column="5" x:Name="GlobalSearchRoot" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <!-- ⭐ ÖLÇEKLENME (2026-09-06): 1300 px altında global arama kutusu (170 px) gizlenir.
+                         Arama kaybolmaz — menü panelindeki "Ekran ara…" kutusu yerinde durur ve dar
+                         pencerede üst barın taşmasını bu 178 px önler. -->
+                    <Panel Grid.Column="5" x:Name="GlobalSearchRoot" VerticalAlignment="Center" Margin="0,0,8,0"
+                           IsVisible="{Binding $parent[Window].Bounds.Width,
+                                       Converter={x:Static vm:GenislikEsikConverter.Instance},
+                                       ConverterParameter=1300}">
                         <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="170" Watermark="Ara… (Enter)"
                                  Text="{Binding SearchText}" a11y:AutomationProperties.Name="Global arama">
                             <TextBox.KeyBindings>
@@ -379,7 +410,11 @@
                         <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                             <PathIcon Width="15" Height="15" Data="{DynamicResource IconSettings}"
                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <SelectableTextBlock Text="Ekran" Classes="Body" FontSize="12.5" VerticalAlignment="Center"/>
+                            <!-- 1120 px altında yalnız ETİKET gizlenir; düğme ve ikonu yerinde kalır. -->
+                            <SelectableTextBlock Text="Ekran" Classes="Body" FontSize="12.5" VerticalAlignment="Center"
+                                                 IsVisible="{Binding $parent[Window].Bounds.Width,
+                                                             Converter={x:Static vm:GenislikEsikConverter.Instance},
+                                                             ConverterParameter=1120}"/>
                         </StackPanel>
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -413,9 +448,15 @@
                                 <SelectableTextBlock Text="{Binding Initial}" Foreground="#241703" FontWeight="Bold"
                                                      FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
+                            <!-- 1200 px altında kullanıcı ADI gizlenir; baş harf dairesi ve ok yerinde
+                                 kalır, menü (Sürüm · Yereli Sıfırla · Çıkış) aynen açılır. Ad, düğmenin
+                                 ToolTip'inde zaten var — bilgi kaybı yok. -->
                             <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" FontSize="12.5"
                                                  VerticalAlignment="Center" MaxWidth="140"
-                                                 TextTrimming="CharacterEllipsis"/>
+                                                 TextTrimming="CharacterEllipsis"
+                                                 IsVisible="{Binding $parent[Window].Bounds.Width,
+                                                             Converter={x:Static vm:GenislikEsikConverter.Instance},
+                                                             ConverterParameter=1200}"/>
                             <PathIcon Width="13" Height="13" Data="M7 10l5 5 5-5z"
                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>

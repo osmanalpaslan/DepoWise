@@ -14,13 +14,13 @@
         <ctrl:Toolbar Grid.Row="0" Title="Satın Alma"
                       PrimaryActionText="Yeni Sipariş" PrimaryActionCommand="{Binding NewOrderCommand}">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: no / tedarikçi / talep / depo"/>
                     <ComboBox Classes="Field" Width="130" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -45,7 +45,7 @@
                                         PlaceholderText="Depo seç / ara..."/>
                     </ctrl:FormField>
                     <!-- Tarih KEHRİBAR temadan; yetki yoksa bugüne kilitli -->
-                    <ctrl:FormField Label="Sipariş Tarihi" Width="160">
+                    <ctrl:FormField Label="Sipariş Tarihi" Width="280">
                         <DatePicker Classes="Field" SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"

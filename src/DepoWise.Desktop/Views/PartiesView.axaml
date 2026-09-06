@@ -14,7 +14,7 @@
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Cari Hesaplar">
             <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <TextBox Classes="Field" Width="230" Watermark="Kod / ünvan / vergi no / telefon"
                              Text="{Binding Search}"/>
                     <ComboBox Classes="Field" Width="170" ItemsSource="{Binding TypeOptions}"
@@ -47,7 +47,7 @@
                         </StackPanel>
                     </ctrl:FormField>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
-                </StackPanel>
+                </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

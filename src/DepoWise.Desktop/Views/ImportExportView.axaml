@@ -12,10 +12,13 @@
         <ctrl:Toolbar Grid.Row="0" Title="Excel Merkezi"/>
 
         <!-- Dışa Aktar -->
+        <!-- ⭐ DÜZELTME (final QA ölçümü 2026-09-06): bu iki satır yatay StackPanel idi; dar pencerede
+             "Excel'e Aktar" / "İçe Aktar" düğmeleri pencere DIŞINDA kalıyordu (1154 px'te 91 px ölçüldü).
+             WrapPanel dar pencerede alt satıra sarar; geniş pencerede görünüm aynıdır. -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="12">
                 <SelectableTextBlock Text="DIŞA AKTAR (EXPORT)" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="10" VerticalAlignment="Center">
                     <SelectableTextBlock Text="Kaynak" Classes="Helper" VerticalAlignment="Center"/>
                     <ComboBox Classes="Field" Width="250" ItemsSource="{Binding ExportItems}" SelectedItem="{Binding SelectedExport}"/>
                     <!-- 2026-09-03 (kullanıcı isteği): dışa aktarımda da şube seçilir. Varsayılan = giriş
@@ -37,7 +40,7 @@
                             <TextBlock Text="Excel'e Aktar" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </StackPanel>
+                </WrapPanel>
                 <SelectableTextBlock Text="Seçilen kaynağın güncel verisi Excel (.xlsx) olarak kaydedilir (yalnız yetkili olduğunuz veriler)." Classes="Helper"/>
             </StackPanel>
         </Border>
@@ -46,7 +49,7 @@
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="12">
                 <SelectableTextBlock Text="İÇE AKTAR (IMPORT)" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="10" VerticalAlignment="Center">
                     <SelectableTextBlock Text="Ekran" Classes="Helper" VerticalAlignment="Center"/>
                     <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ImportItems}" SelectedItem="{Binding SelectedImport}"/>
                     <SelectableTextBlock Text="Şube (zorunlu)" Classes="Helper" VerticalAlignment="Center"/>
@@ -76,7 +79,7 @@
                             <TextBlock Text="Excel'den İçe Aktar" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </StackPanel>
+                </WrapPanel>
                 <!-- ⭐ FAZ 4.15: engelin SEBEBİ ekranda yazar (buton neden pasif belli olsun). -->
                 <SelectableTextBlock Text="{Binding ImportEngeli}" IsVisible="{Binding HasImportEngeli}"
                                      Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
