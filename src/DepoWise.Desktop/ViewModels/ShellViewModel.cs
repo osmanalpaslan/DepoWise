@@ -1494,6 +1494,73 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// </summary>
     public bool AltBarGorunur => HasOpenTabs || Chat.Kullanilabilir;
 
+    // ═══ İ1 — "DİĞER SAYFALAR" TAŞMA MENÜSÜ (kullanıcı tasarımı 2026-09-06) ═══════════════════════
+    //
+    // KULLANICI: "sığdığı kadar sekme → hemen ardından «Diğer Sayfalar ∨» açılır menü → onun sağında
+    // her zaman görünen ve en sağda sabit «Sohbet». Açılır menü YUKARI doğru açılır, taşan sekmeler
+    // ikonlarıyla listelenir, aynı isimli gruplanmış sekmelerde adet gösterilir (örn. Bakım Takibi (x2)).
+    // Pencere boyutu değişince taşan sekmeler otomatik olarak panele aktarılır."
+    //
+    // Hangi sekmenin sığmadığı GERÇEK ÖLÇÜMLE bulunur (bkz. Controls/TasanSekmePaneli): sekme genişliği
+    // etiket uzunluğuna, ikona, yazı tipine ve temaya bağlıdır — tahmin etmek kırılgan olurdu.
+    // Panel sonucu bu komutla bildirir; burada yalnız GRUPLAMA ve etiketleme yapılır.
+
+    /// <summary>Menüde gösterilecek taşma satırı. Aynı etiketli sekmeler tek satırda toplanır.</summary>
+    public sealed record TasanSekmeGrubu(string Etiket, Avalonia.Media.Geometry? Icon, int Adet, OpenScreenTab Ilk)
+    {
+        /// <summary>Kullanıcının istediği biçim: tek ise "Bakım Takibi", çok ise "Bakım Takibi (x2)".</summary>
+        public string Gosterim => Adet > 1 ? $"{Etiket} (x{Adet})" : Etiket;
+    }
+
+    public ObservableCollection<TasanSekmeGrubu> TasanSekmeler { get; } = new();
+
+    /// <summary>"Diğer Sayfalar" düğmesi yalnız GERÇEKTEN taşan sekme varsa görünür.</summary>
+    public bool TasanVar => TasanSekmeler.Count > 0;
+
+    /// <summary>Düğme metni: kaç sayfanın gizlendiği görünsün (kullanıcı tahmin etmek zorunda kalmasın).</summary>
+    public string TasanBaslik => TasanSekmeler.Count == 0
+        ? "Diğer Sayfalar"
+        : $"Diğer Sayfalar ({TasanSekmeler.Sum(g => g.Adet)})";
+
+    /// <summary>Yerleşim panelinden gelir: hangi sekmeler bara sığmadı. Yalnız görünüm bilgisidir.</summary>
+    [RelayCommand]
+    private void TasmaGuncelle(object? liste)
+    {
+        var tasanlar = (liste as System.Collections.IEnumerable)?.OfType<OpenScreenTab>().ToList()
+                       ?? new List<OpenScreenTab>();
+
+        TasanSekmeler.Clear();
+        foreach (var grup in tasanlar.GroupBy(t => t.Label, StringComparer.Ordinal))
+            TasanSekmeler.Add(new TasanSekmeGrubu(grup.Key, grup.First().Icon, grup.Count(), grup.First()));
+
+        OnPropertyChanged(nameof(TasanVar));
+        OnPropertyChanged(nameof(TasanBaslik));
+    }
+
+    /// <summary>
+    /// AKTİF sekmenin sıra numarası (yoksa -1). Alt bardaki taşma paneli bunu okur ve aktif sekmeye
+    /// HER ZAMAN yer açar → "ekranı açtım ama sekmesi görünmüyor" durumu oluşmaz.
+    /// </summary>
+    public int AktifSekmeSirasi
+    {
+        get
+        {
+            for (int i = 0; i < OpenTabs.Count; i++) if (OpenTabs[i].IsActive) return i;
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// Menüden seçilen sayfa etkinleştirilir; <b>bara taşınması</b> panelin işidir (aktif sekmeye
+    /// daima yer açar). Böylece koleksiyon sırası kullanıcıyı şaşırtacak şekilde değişmez.
+    /// </summary>
+    [RelayCommand]
+    private void TasaniAc(TasanSekmeGrubu? grup)
+    {
+        if (grup is null) return;
+        ActivateTab(grup.Ilk);
+    }
+
     /// <summary>Gezinme sonrası sekmeyi ekler/etkinleştirir. Yalnız GERÇEKTEN AÇILAN ekran eklenir
     /// (platform kapısı ekranı reddettiyse CurrentPage null'dır → sekme oluşmaz).</summary>
     private void TabKaydet(string key)
@@ -1508,6 +1575,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             OnPropertyChanged(nameof(AltBarGorunur));
         }
         foreach (var t in OpenTabs) t.IsActive = ReferenceEquals(t, tab);
+        OnPropertyChanged(nameof(AktifSekmeSirasi));   // alt bar paneli aktif sekmeye yer acar
     }
 
     [RelayCommand]
@@ -1525,6 +1593,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         OpenTabs.Remove(tab);
         OnPropertyChanged(nameof(HasOpenTabs));
         OnPropertyChanged(nameof(AltBarGorunur));
+        OnPropertyChanged(nameof(AktifSekmeSirasi));
         // Aktif sekme kapatıldıysa kullanıcı boşlukta kalmaz: son sekmeye, o da yoksa ana ekrana dönülür.
         if (aktifti) Navigate(OpenTabs.LastOrDefault()?.Key ?? "dashboard");
     }

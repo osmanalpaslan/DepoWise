@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
         xmlns:search="using:DepoWise.Infrastructure.Search"
+        xmlns:ctrl="using:DepoWise.Desktop.Controls"
         xmlns:local="using:DepoWise.Desktop"
         xmlns:a11y="using:Avalonia.Automation"
         xmlns:chat="using:DepoWise.Infrastructure.Chat"
@@ -554,6 +555,21 @@
                     <Style Selector="Button.sekmeKapat:pointerover">
                         <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
                     </Style>
+                    <!-- İ1: "Diğer Sayfalar" menüsündeki satırlar. Renkler TEMA KAYNAKLARINDAN gelir,
+                         bu yüzden koyu ve açık temanın ikisinde de doğru okunur; köşeler yuvarlaktır. -->
+                    <Style Selector="Button.tasanSatir">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="CornerRadius" Value="8"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                    </Style>
+                    <Style Selector="Button.tasanSatir:pointerover">
+                        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                    </Style>
+                    <Style Selector="Button.tasanSatir:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+
                     <Style Selector="Button.yeniSekme">
                         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
                     </Style>
@@ -629,11 +645,56 @@
                     </StackPanel>
 
 
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{Binding OpenTabs}">
+                    <!-- ═══ İ1 (kullanıcı tasarımı 2026-09-06) — TAŞAN SEKMELER "DİĞER SAYFALAR"A GİDER ═══
+                         Eskiden şerit yatay KAYDIRILIYORDU: sekme çoğalınca kullanıcı kaydırma çubuğuyla
+                         uğraşıyor, sağdaki sohbet düğmesi de dar pencerede sıkışıyordu. Artık sığmayan
+                         sekmeler ölçümle belirlenip (bkz. Controls/TasanSekmePaneli) yukarı açılan
+                         "Diğer Sayfalar ∨" menüsünde toplanır. Pencere büyüyünce kendiliğinden geri gelirler.
+
+                         SIRA (soldan sağa): sığan sekmeler → "Diğer Sayfalar ∨" → EN SAĞDA SABİT "Sohbet".
+                         Sohbet yukarıda DockPanel.Dock="Right" ile sabitlenmiştir; bu blok kalan alanı doldurur. -->
+
+                    <!-- "Diğer Sayfalar ∨" — sekmelerin HEMEN ARDINDA, sohbetin SOLUNDA -->
+                    <Button DockPanel.Dock="Right" Classes="sekmeDugme" Padding="12,0" Margin="4,0,6,0"
+                            VerticalAlignment="Stretch" IsVisible="{Binding TasanVar}"
+                            ToolTip.Tip="Alt bara sığmayan açık sayfalar burada toplanır">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TasanBaslik}" FontSize="12.5" VerticalAlignment="Center"/>
+                            <TextBlock Text="⌃" FontSize="11" VerticalAlignment="Center" Opacity="0.75"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <!-- YUKARI açılır (şerit altta olduğu için tek doğru yön budur) -->
+                            <Flyout Placement="Top" HorizontalOffset="0" ShowMode="Standard">
+                                <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding TasanSekmeler}" MinWidth="230">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ShellViewModel+TasanSekmeGrubu">
+                                                <Button Classes="tasanSatir" HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Left" Padding="10,8"
+                                                        Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).TasaniAcCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                        <PathIcon Width="15" Height="15" VerticalAlignment="Center"
+                                                                  Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                  Data="{Binding Icon}"
+                                                                  IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        <TextBlock Text="{Binding Gosterim}" FontSize="12.5" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <ItemsControl ItemsSource="{Binding OpenTabs}" ClipToBounds="True">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="2"/>
+                                    <ctrl:TasanSekmePaneli AraBosluk="2"
+                                        AktifSira="{Binding $parent[Window].((vm:ShellViewModel)DataContext).AktifSekmeSirasi}"
+                                        TasmaKomutu="{Binding $parent[Window].((vm:ShellViewModel)DataContext).TasmaGuncelleCommand}"/>
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
@@ -666,8 +727,7 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    </ItemsControl>
                 </DockPanel>
             </Border>
 
