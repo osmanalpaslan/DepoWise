@@ -136,6 +136,29 @@ public sealed partial class EquipmentViewModel : ViewModelBase, IKayitLoguKaynag
         catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
     }
 
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz (aynı kolonlar,
+    /// aynı satırlar, aynı sıra ve aynı filtre kümesi). Sayfa başlığına firma, şube, kullanıcı
+    /// ve tarih; sayısal kolonlara toplam satırı otomatik eklenir (bkz. TablePdfService).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var st = FilterStatus == "Tümü" ? null : StatusCode(FilterStatus);
+            var rows = DesktopServices.Equipment.List(_session,
+                string.IsNullOrWhiteSpace(SearchText) ? null : SearchText, status: st);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(EquipmentService.ToTableModel(rows), _session);
+            if (hedef is null) return;
+            Status = $"PDF kaydedildi: {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
     /// <summary>BAR-01 (ADR-177): seçili ekipmanın KODUNU içeren yazdırılabilir QR etiketi (PNG).
     /// SALT-OKUNUR — kayda/DB'ye yazmaz; QR'a yalnız kod girer. Yerel üretim → çevrimdışı da çalışır.</summary>
     [RelayCommand]

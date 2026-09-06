@@ -187,6 +187,31 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         finally { IsExporting = false; }
     }
 
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz (aynı kolonlar,
+    /// aynı satırlar, aynı sıra ve aynı filtre kümesi). Sayfa başlığına firma, şube, kullanıcı
+    /// ve tarih; sayısal kolonlara toplam satırı otomatik eklenir (bkz. TablePdfService).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26).
+        if (!DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View))
+        { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            // G2-05: dışa aktarım ekrandaki filtreyle AYNI kümeyi verir → "Yalnız kritik" açıkken
+            // Excel de yalnız kritik satırları içerir (web'deki davranışın aynısı).
+            var rows = DesktopServices.Materials.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, CriticalOnly);            var hedef = await YazdirmaYardimcisi.YazdirAsync(MaterialService.ToTableModel(rows, FiyatGorunur), _session);            if (hedef is null) return;
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
     /// <summary>BAR-01 (ADR-177): seçili malzemenin KODUNU içeren yazdırılabilir QR etiketi (PNG).
     /// SALT-OKUNUR — kayda/DB'ye yazmaz; QR'a yalnız kod girer. Yerel üretim → çevrimdışı da çalışır.</summary>
     [RelayCommand]

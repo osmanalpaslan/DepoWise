@@ -85,6 +85,8 @@ public static class DesktopServices
     /// ekip verisi sunucu otoritelidir, yerelde degistirilmez.</summary>
     public static DepoWise.Infrastructure.Teams.TeamService Teams { get; private set; } = null!;
     public static ExcelExportService Excel { get; private set; } = null!;
+    /// <summary>⭐ 2026-09-06: liste/tablo YAZDIRMA (PDF). Excel ile AYNI TableModel'i kullanır.</summary>
+    public static TablePdfService TablePdf { get; private set; } = null!;
     public static MaterialImportService MaterialImport { get; private set; } = null!;
     public static DepoWise.Infrastructure.Files.TrashService Trash { get; private set; } = null!;
     public static AuditLogService Audit { get; private set; } = null!;
@@ -217,6 +219,7 @@ public static class DesktopServices
         Reports.Custom = CustomReports;
         Teams = new DepoWise.Infrastructure.Teams.TeamService(Factory, clock);
         Excel = new ExcelExportService();
+        TablePdf = new TablePdfService();
         Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         Audit = new AuditLogService(Factory);
         Backup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock);

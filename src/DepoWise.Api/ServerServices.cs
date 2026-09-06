@@ -112,6 +112,9 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     /// <summary>Filtrelenmiş liste sonuçlarını Excel'e aktarma (kullanıcı isteği 2026-07-19).</summary>
     public DepoWise.Infrastructure.Reporting.ExcelExportService Excel { get; }
+    /// <summary>⭐ 2026-09-06: liste YAZDIRMA (PDF). Excel ile AYNI TableModel'i kullanır; export
+    /// uçları ?format=pdf ile bunu döndürür → web ve masaüstü aynı çıktıyı üretir.</summary>
+    public DepoWise.Infrastructure.Reporting.TablePdfService TablePdf { get; }
 
     // ── Excel İÇE AKTARIM (İş #7, 2026-08-09) — masaüstünde zaten vardı, web'e taşındı.
     // Aynı servisler kullanılır → iki platform BİREBİR aynı doğrulama ve iş kurallarını uygular.
@@ -254,6 +257,7 @@ public sealed class ServerServices
         // BLD-01 (ADR-172): sunucuda evrak servisi verilir → evrak geçerlilik bildirimleri üretilir.
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection, Documents);
         Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();
+        TablePdf = new DepoWise.Infrastructure.Reporting.TablePdfService();
         // İçe aktarım servisleri — masaüstündeki (DesktopServices) bağlamayla BİREBİR aynı.
         MaterialImport = new DepoWise.Infrastructure.Reporting.MaterialImportService(Materials, Lookups, OpeningStock, Vehicles);
         VehicleImport = new DepoWise.Infrastructure.Reporting.VehicleImportService(Vehicles, Lookups);

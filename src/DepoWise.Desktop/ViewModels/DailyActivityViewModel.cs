@@ -202,6 +202,29 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         finally { IsExporting = false; }
     }
 
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz (aynı kolonlar,
+    /// aynı satırlar, aynı sıra ve aynı filtre kümesi). Sayfa başlığına firma, şube, kullanıcı
+    /// ve tarih; sayısal kolonlara toplam satırı otomatik eklenir (bkz. TablePdfService).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26).
+        if (!DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View))
+        { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var rows = DesktopServices.DailyActivity.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, ShowCancelled);            var hedef = await YazdirmaYardimcisi.YazdirAsync(DailyActivityService.ToTableModel(rows), _session);            if (hedef is null) return;
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
     private DailyActivityGridFilter BuildFilter()
     {
         string? V(string key)

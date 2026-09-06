@@ -18,6 +18,10 @@
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                    <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
+                         başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
+                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

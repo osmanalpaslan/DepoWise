@@ -300,4 +300,24 @@ public sealed partial class CalendarViewModel : ViewModelBase
         }
         catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
     }
+
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz (aynı kolonlar,
+    /// aynı satırlar, aynı sıra ve aynı filtre kümesi). Sayfa başlığına firma, şube, kullanıcı
+    /// ve tarih; sayısal kolonlara toplam satırı otomatik eklenir (bkz. TablePdfService).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(CalendarService.ToTableModel(_items), _session);
+            if (hedef is null) return;
+            Status = $"PDF kaydedildi: {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
 }

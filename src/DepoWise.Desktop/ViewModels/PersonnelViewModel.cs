@@ -345,6 +345,28 @@ public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynag
         }
         catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
     }
+
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz. Sayfa sınırı yoktur;
+    /// ekrandaki filtrenin TÜM sonucu yazdırılır (Excel ile birebir aynı küme).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tumu = DesktopServices.Personnel.ListAllForExport(_session,
+                string.IsNullOrWhiteSpace(Search) ? null : Search);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(
+                DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(tumu), _session);
+            if (hedef is null) return;
+            Status = $"PDF kaydedildi: {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
     [RelayCommand]
     private void CancelAdd() { ShowAdd = false; EditId = null; }
 

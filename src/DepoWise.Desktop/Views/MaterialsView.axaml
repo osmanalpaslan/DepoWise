@@ -31,6 +31,10 @@
                               ToolTip.Tip="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                    <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
+                         başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
+                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
+                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
                 </WrapPanel>

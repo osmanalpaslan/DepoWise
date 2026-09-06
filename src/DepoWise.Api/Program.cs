@@ -1030,7 +1030,7 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
     string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
     string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
     string? compatibleVehicles, string? equivalents, string? sort, bool? desc,
-    bool criticalOnly = false) =>   // A1 (Aurora): ekranla aynı "yalnız kritik" filtresi
+    bool criticalOnly = false, string? format = null) =>   // A1 (Aurora): ekranla aynı "yalnız kritik" filtresi · ⭐ format=pdf → yazdırma
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
@@ -1039,9 +1039,8 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
         description, compatibleVehicles, equivalents);
     var rows = svc.Materials.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, criticalOnly);
     // ⭐ FAZ 3b: kolon başlığıyla birlikte düşürülür (boş hücre bırakmak "gizleme" değildir).
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(
-        rows, DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s)));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Malzemeler.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(
+        rows, DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s)), format, "Malzemeler");
 }).RequireAuthorization();
 app.MapGet("/api/materials/{id}", (HttpContext c, string id) =>
 {
@@ -1164,7 +1163,7 @@ app.MapGet("/api/vehicles/grid", (HttpContext c,
 app.MapGet("/api/vehicles/grid/export", (HttpContext c,
     string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
     string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
-    string? chassisNo, string? engineNo, string? sort, bool? desc) =>
+    string? chassisNo, string? engineNo, string? sort, bool? desc, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
@@ -1172,8 +1171,7 @@ app.MapGet("/api/vehicles/grid/export", (HttpContext c,
         internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
         branch, driver, chassisNo, engineNo);
     var rows = svc.Vehicles.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Vehicles.VehicleService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Araclar.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Vehicles.VehicleService.ToTableModel(rows), format, "Araclar");
 }).RequireAuthorization();
 // Araç seçici (uyumlu araçlar vb. çoklu seçim için): id + görünen ad (iç kod - plaka).
 app.MapGet("/api/vehicles/options", (HttpContext c) =>
@@ -1293,15 +1291,14 @@ app.MapGet("/api/daily/grid", (HttpContext c,
 app.MapGet("/api/daily/grid/export", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
     string? materialQty,
-    string? sort, bool? desc, bool? includeCancelled) =>
+    string? sort, bool? desc, bool? includeCancelled, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty);
     // Excel ekrandaki AYNI kümeyi verir: "İptal edilenleri göster" işaretliyse iptaller de dışa aktarılır.
     var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "GunlukFaaliyet.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows), format, "GunlukFaaliyet");
 }).RequireAuthorization();
 // B-1 (PRT-01 Grup 4, 2026-08-10): durum/arama/limit artık SUNUCUYA ulaşıyor.
 // Eskiden uç parametresizdi (List(s)) → en yeni 200 kayıt dönüyor, web bunun İÇİNDE istemci tarafında
@@ -1520,13 +1517,12 @@ app.MapGet("/api/work-orders/{id}/cost", (HttpContext c, string id) =>
 app.MapGet("/api/work-orders/{id}/history", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.WorkOrders.History(s, id).Select(h => new { line = h.Line }))
     : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/work-orders/export", (HttpContext c, string? search, string? status, string? priority, string? branchId, string? assigneeId) =>
+app.MapGet("/api/work-orders/export", (HttpContext c, string? search, string? status, string? priority, string? branchId, string? assigneeId, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.WorkOrders.WorkOrderService.ToTableModel(
-        svc.WorkOrders.List(s, search, status, priority, branchId, assigneeId)));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "IsEmirleri.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.WorkOrders.WorkOrderService.ToTableModel(
+        svc.WorkOrders.List(s, search, status, priority, branchId, assigneeId)), format, "IsEmirleri");
 }).RequireAuthorization();
 
 // ═══ TKV-01 (ADR-171, 2026-08-28) — TAKVİM ═══
@@ -1548,13 +1544,12 @@ app.MapPut("/api/calendar/events/{id}", (HttpContext c, string id, CalendarEvent
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Calendar.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/calendar/events/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Calendar.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/calendar/export", (HttpContext c, long from, long to, string? source, string? branchId, string? search) =>
+app.MapGet("/api/calendar/export", (HttpContext c, long from, long to, string? source, string? branchId, string? search, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Calendars.CalendarService.ToTableModel(
-        svc.Calendar.Items(s, from, to, source, branchId, search)));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Takvim.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Calendars.CalendarService.ToTableModel(
+        svc.Calendar.Items(s, from, to, source, branchId, search)), format, "Takvim");
 }).RequireAuthorization();
 
 // ═══ ARA-01 (ADR-174, 2026-08-28) — GLOBAL ARAMA ═══
@@ -1592,14 +1587,36 @@ app.MapPut("/api/announcements/{id}", (HttpContext c, string id, AnnouncementDto
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Announcements.Update(s, id, d.ToNew(), d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/announcements/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Announcements.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/announcements/export", (HttpContext c, bool? all, string? search) =>
+
+// ⭐ 2026-09-06 (kullanıcı isteği "A grubu"): dışa aktarım uçları artık PDF de üretir.
+// Aynı uç, aynı süzgeçler, AYNI TableModel — yalnız ?format=pdf eklenir. Böylece Excel ve PDF
+// çıktısı asla ayrışamaz ve web, masaüstündeki "Yazdır" düğmesinin karşılığını alır.
+IResult TabloCikti(HttpContext c, DepoWise.Application.Reports.TableModel model, string? format, string dosyaAdi)
+{
+    if (!string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
+        return Results.File(svc.Excel.Export(model),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", dosyaAdi + ".xlsx");
+
+    var s2 = S(c);
+    var baslik = new DepoWise.Infrastructure.Reporting.PdfBaslik(
+        CompanyName: s2 is null ? null : SirketAdiGuvenli(s2.CompanyId),
+        UserName: s2?.UserId is null ? null : KullaniciAdiGuvenli(s2.UserId));
+    return Results.File(svc.TablePdf.Uret(model, baslik), "application/pdf", dosyaAdi + ".pdf");
+}
+
+string? SirketAdiGuvenli(string companyId)
+{ try { return svc.Companies.GetName(companyId); } catch { return null; } }
+
+string? KullaniciAdiGuvenli(string userId)
+{ try { return svc.Users.ListUsers(new DepoWise.Application.Security.SessionContext(userId, "", Array.Empty<string>(), DepoWise.Application.Security.PermissionSet.Empty)).FirstOrDefault(u => u.Id == userId)?.Username; } catch { return null; } }
+
+app.MapGet("/api/announcements/export", (HttpContext c, bool? all, string? search, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Announcements.AnnouncementService.ToTableModel(
-        svc.Announcements.List(s, all == true, search), now));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Duyurular.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Announcements.AnnouncementService.ToTableModel(
+        svc.Announcements.List(s, all == true, search), now), format, "Duyurular");
 }).RequireAuthorization();
 
 // ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
@@ -1630,12 +1647,11 @@ app.MapPost("/api/purchasing/{id}/receive", (HttpContext c, string id, PurchaseR
     S(c) is { } s ? Results.Ok(new { documentId = svc.Purchasing.Receive(s, id,
         (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Purchasing.ReceiveLine(l.LineId, l.Quantity)).ToList(),
         string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.DocDate, d.Note) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/purchasing/export", (HttpContext c, string? search, string? status) =>
+app.MapGet("/api/purchasing/export", (HttpContext c, string? search, string? status, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Purchasing.PurchaseOrderService.ToTableModel(svc.Purchasing.List(s, search, status)));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "SatinAlma.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Purchasing.PurchaseOrderService.ToTableModel(svc.Purchasing.List(s, search, status)), format, "SatinAlma");
 }).RequireAuthorization();
 
 // ═══ MLY-01 (ADR-168, 2026-08-28) — MALİYET MERKEZLERİ ═══
@@ -1656,12 +1672,11 @@ app.MapGet("/api/cost-centers/summary", (HttpContext c, long from, long to) =>
     S(c) is { } s ? Results.Ok(svc.CostCenters.Summary(s, from, to).Select(x => new
     { costCenterId = x.CostCenterId, costCenterName = x.CostCenterName, category = x.Category, currency = x.Currency, amount = x.Amount, count = x.Count }))
     : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/cost-centers/summary/export", (HttpContext c, long from, long to) =>
+app.MapGet("/api/cost-centers/summary/export", (HttpContext c, long from, long to, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Accounting.CostCenterService.SummaryTable(svc.CostCenters.Summary(s, from, to)));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "MaliyetMerkezi.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Accounting.CostCenterService.SummaryTable(svc.CostCenters.Summary(s, from, to)), format, "MaliyetMerkezi");
 }).RequireAuthorization();
 
 // ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET ═══
@@ -1697,39 +1712,35 @@ app.MapPost("/api/assignments/transfer", (HttpContext c, AssignmentOpDto d) =>
 // liste ekranında bu düğme bulunur ve O ANKİ SAYFAYI DEĞİL, filtrelenmiş TÜM sonucu indirir.
 // Bu iki ekran kuralın dışında kalmıştı. Desen /api/assignments/export ile birebir aynı; yeni bir
 // yol icat edilmedi ve yeni yetki modülü AÇILMADI (mevcut "export" modülü).
-app.MapGet("/api/personnel/export", (HttpContext c, string? search) =>
+app.MapGet("/api/personnel/export", (HttpContext c, string? search, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
     // ⭐ FAZ K düzeltmesi: `Limit = 100_000` YETMİYORDU — PageRequest.NormalizedLimit her isteği
     // MaxLimit=200'de kırpar, yani dosya sessizce 200 satırda kesilirdi. Dışa aktarım için AÇIK yol.
     var rows = svc.Personnel.ListAllForExport(s, Doc(search));
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Personel.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Org.PersonnelService.ToTableModel(rows), format, "Personel");
 }).RequireAuthorization();
-app.MapGet("/api/inspection/export", (HttpContext c) =>
+app.MapGet("/api/inspection/export", (HttpContext c, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
     var rows = svc.Inspection.List(s);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Maintenance.InspectionService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Muayene.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Maintenance.InspectionService.ToTableModel(rows), format, "Muayene");
 }).RequireAuthorization();
-app.MapGet("/api/assignments/export", (HttpContext c, string? search, string? assetType, string? personnelId) =>
+app.MapGet("/api/assignments/export", (HttpContext c, string? search, string? assetType, string? personnelId, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
     var rows = svc.Assignments.Holdings(s, search, assetType, personnelId);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Assignments.AssignmentService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Zimmet.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Assignments.AssignmentService.ToTableModel(rows), format, "Zimmet");
 }).RequireAuthorization();
-app.MapGet("/api/equipment/export", (HttpContext c, string? search, string? typeId, string? status) =>
+app.MapGet("/api/equipment/export", (HttpContext c, string? search, string? typeId, string? status, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi
     var rows = svc.Equipment.List(s, search, typeId, status);   // filtrelenmiş TÜM sonuç (sayfalama yok)
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Equipment.EquipmentService.ToTableModel(rows));
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Ekipman.xlsx");
+    return TabloCikti(c, DepoWise.Infrastructure.Equipment.EquipmentService.ToTableModel(rows), format, "Ekipman");
 }).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
@@ -3743,7 +3754,7 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
 }).RequireAuthorization();
 
 // Rapor Excel dışa aktarma — özel buton yetkisi ZORUNLU (yoksa 403; UI "yetkiniz yok" gösterir).
-app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReqDto d) =>
+app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReqDto d, string? format) =>
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
     // RPR-07: dışa aktarma AYNI kapsamı uygulamalı — yoksa ekranda görülmeyen satırlar Excel'e sızardı.
@@ -3752,9 +3763,9 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes, d.SortKey);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi + 2026-09-02 siralama
     var tbl = BuildReport(s, type, req);
-    var bytes = svc.Excel.Export(tbl);
-    var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
-    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fn);
+    // ⭐ 2026-09-06: rapor çıktısı Excel VEYA PDF (?format=pdf). Raporlar en çok yazdırılan çıktılardır.
+    var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_');
+    return TabloCikti(c, tbl, format, fn);
 }).RequireAuthorization();
 
 // ════════════════════ EXCEL İÇE AKTARIM (İş #7, 2026-08-09) ════════════════════

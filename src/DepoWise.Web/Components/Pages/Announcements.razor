@@ -60,6 +60,7 @@
         {
             <MudTooltip Text="Aktif filtrelerle TÜM sonucu Excel dosyası olarak indirir.">
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="Yazdir">Yazdır</MudButton>
             </MudTooltip>
         }
     </MudStack>
@@ -187,6 +188,19 @@
         if (bytes is null) { _msg = "Excel indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
         await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    // ⭐ 2026-09-06 (kullanıcı isteği "A grubu"): YAZDIR. Excel ile AYNI uç ve AYNI süzgeçler;
+    // yalnız format=pdf eklenir → iki çıktı asla ayrışmaz. Masaüstündeki "Yazdır" düğmesinin karşılığı.
+    private async Task Yazdir()
+    {
+        var q = new List<string>();
+        if (CanManage) q.Add("all=true");
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        var (bytes, name) = await Api.GetFileAsync("/api/announcements/export?format=pdf" + (q.Count > 0 ? "&" + string.Join("&", q) : ""), "Duyurular.pdf");
+        if (bytes is null) { _msg = "PDF indirilemedi (dışa aktarım yetkiniz olmayabilir)."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            "application/pdf");
     }
 
     private void Clear()

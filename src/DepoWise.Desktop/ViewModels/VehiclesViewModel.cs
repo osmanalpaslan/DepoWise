@@ -200,6 +200,31 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         finally { IsExporting = false; }
     }
 
+    /// <summary>
+    /// ⭐ YAZDIR (PDF) — kullanıcı isteği 2026-09-06.
+    ///
+    /// Excel çıktısıyla AYNI TableModel kullanılır: iki çıktı asla ayrışmaz (aynı kolonlar,
+    /// aynı satırlar, aynı sıra ve aynı filtre kümesi). Sayfa başlığına firma, şube, kullanıcı
+    /// ve tarih; sayısal kolonlara toplam satırı otomatik eklenir (bkz. TablePdfService).
+    /// </summary>
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26).
+        if (!DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View))
+        { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(VehicleService.ToTableModel(rows), _session);
+            if (hedef is null) return;
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
     /// <summary>BAR-01 (ADR-177): seçili aracın İÇ KODUNU içeren yazdırılabilir QR etiketi (PNG).
     /// SALT-OKUNUR — kayda/DB'ye yazmaz; QR'a yalnız kod girer. Yerel üretim → çevrimdışı da çalışır.</summary>
     [RelayCommand]
