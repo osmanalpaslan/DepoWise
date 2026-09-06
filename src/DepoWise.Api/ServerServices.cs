@@ -104,6 +104,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.CustomReportService CustomReports { get; }
     /// <summary>⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): ekip tanımı + üyelik. Yetki modülü `users` (PK-EK-07=B).</summary>
     public DepoWise.Infrastructure.Teams.TeamService Teams { get; }
+    /// <summary>⭐ 2026-09-06: uygulama içi sohbet (birebir mesaj + çevrimiçi bilgisi).</summary>
+    public DepoWise.Infrastructure.Chat.ChatService Chat { get; }
     /// <summary>⭐ ARA İŞ 5 / ALT FAZ 2 (ADR-187 PK-EK-02): kullanıcı hiyerarşisi (azami 4 seviye, döngüsüz).</summary>
     public DepoWise.Infrastructure.Approvals.UserHierarchyService Hierarchy { get; }
     /// <summary>⭐ ARA İŞ 5 / ALT FAZ 2 (PK-EK-03/04): TEK onay motoru — snapshot'lı zincir.
@@ -233,6 +235,7 @@ public sealed class ServerServices
         Reports.Custom = CustomReports;
         // ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187): ekipler ORGANİZASYONEL gruplamadır — onay zinciriyle bağlı DEĞİLDİR.
         Teams = new DepoWise.Infrastructure.Teams.TeamService(Factory, clock);
+        Chat = new DepoWise.Infrastructure.Chat.ChatService(Factory, clock);
 
         // ═══ ARA İŞ 5 / ALT FAZ 2 (ADR-187 + ADR-188) — HİYERARŞİ + TEK ONAY MOTORU ═══
         // Motor YALNIZ sunucuda kurulur: onay çevrimdışı yapılamaz (PK-EK-05 / İK-9). Masaüstü bu

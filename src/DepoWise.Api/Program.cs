@@ -487,6 +487,44 @@ app.MapGet("/api/sync/business-version", (HttpContext c) =>
 // ⭐ FAZ 4.4 (2026-09-06): çakışma LİSTESİ artık "sync_conflicts" ekran yetkisine bağlıdır — arayüzdeki
 // kapıyla AYNI (CLAUDE.md §5: menü/işlem yetkisi UI ile API'da aynı uygulanır). Personelin kendi
 // uyarısı BU UÇTAN GELMEZ: o /api/sync/conflicts/unseen'dir ve eskisi gibi herkese açıktır.
+// ═══════════════════ UYGULAMA İÇİ SOHBET (kullanıcı isteği 2026-09-06) ═══════════════════
+//
+// Dört uç: kişiler(+çevrimiçi+okunmamış) · konuşma · gönder · okundu.
+// Yetki: "chat" modülü, DENY-BY-DEFAULT — yetkisi olmayan hiçbir ucu kullanamaz (UI'de düğmeyi
+// de görmez; iki kapı da aynı anahtara bakar). Tenant sınırı servistedir: her sorgu company_id ile
+// süzülür, alıcının aynı firmada olduğu YAZMADAN ÖNCE doğrulanır.
+//
+// SENKRON DIŞI: bu uçlar /api/sync akışına dahil DEĞİLDİR; masaüstü doğrudan çağırır ve yerel
+// kopya tutmaz (kullanıcı isteği: "chat i normal eşitleme sürecinin dışında tutalım").
+app.MapGet("/api/chat/users", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
+    return Results.Ok(svc.Chat.Kisiler(s));
+}).RequireAuthorization();
+
+app.MapGet("/api/chat/messages", (HttpContext c, string withUserId, long? since) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
+    return Results.Ok(svc.Chat.Konusma(s, withUserId, since));
+}).RequireAuthorization();
+
+app.MapPost("/api/chat/messages", (HttpContext c, ChatGonderDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Mesaj YAZMAK için Create yetkisi: salt-okunur bir kullanıcı sohbeti izleyip yazamaz.
+    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.Create);
+    return Results.Ok(new { id = svc.Chat.Gonder(s, d.ToUserId, d.Body) });
+}).RequireAuthorization();
+
+app.MapPost("/api/chat/seen", (HttpContext c, ChatOkunduDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
+    return Results.Ok(new { count = svc.Chat.OkunduIsaretle(s, d.WithUserId) });
+}).RequireAuthorization();
+
 app.MapGet("/api/sync/conflicts", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -4983,6 +5021,8 @@ record PersonnelDto(string FullName, string? Title, string? Phone, string? Branc
 record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
 record LinkUserDto(string? UserId);
+record ChatGonderDto(string ToUserId, string Body);
+record ChatOkunduDto(string WithUserId);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false, string? PersonnelId = null,
     // ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları — sona eklendi, varsayılanlı → eski istemciler bozulmaz.
     string? Email = null, string? Phone = null, string? Title = null, string? Notes = null);

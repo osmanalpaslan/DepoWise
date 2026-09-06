@@ -1,0 +1,341 @@
+@using System.Text.Json
+@implements IAsyncDisposable
+@inject ApiClient Api
+@inject AuthState Auth
+
+@*
+    ═══ UYGULAMA İÇİ SOHBET — WEB ═══ (kullanıcı isteği 2026-09-06)
+
+    Masaüstündeki tasarımın birebir karşılığı:
+      · Sohbet düğmesi ekranın SAĞ ALT köşesinde SABİT durur (masaüstünde alt barın en sağı).
+      · Açık konuşmalar onun solunda birer SEKME olur; sekmeye tıklamak pencereyi açar/kapatır,
+        ✕ sekmeyi kaldırır.
+      · Pencereler position:fixed ile çizilir → sayfa yerleşimine girmez, "ekranda fazladan yer
+        işgal etmez" (kullanıcının açık şartı).
+
+    Yoklama: pencere açıkken 3 sn, kapalıyken 20 sn (yalnız okunmamış rozeti). Sunucuya
+    ulaşılamazsa sohbet "çevrimdışı" gösterir; sahte veri üretmez.
+
+    Yetki: "chat" modülü, deny-by-default. Yetkisi olmayan kullanıcıda BU BİLEŞEN HİÇ ÇİZİLMEZ ve
+    tek bir istek bile atılmaz (UI ile API aynı kapıya bakar).
+*@
+
+@if (Auth.CanView("chat"))
+{
+    <div class="dw-chat-dock">
+
+        @* ── Açık konuşma pencereleri ── *@
+        @foreach (var k in _konusmalar.Where(x => x.Acik))
+        {
+            <MudPaper Class="dw-chat-window" Elevation="8">
+                <div class="dw-chat-head">
+                    <MudAvatar Size="Size.Small" Color="Color.Primary">@k.Initial</MudAvatar>
+                    <div class="dw-chat-head-text">
+                        <div class="dw-chat-name">@k.Display</div>
+                        <div class="dw-chat-status">
+                            <span class="dw-dot @(k.Online ? "on" : "off")"></span>
+                            @(k.Online ? "Çevrim içi" : "Çevrim dışı")
+                        </div>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                   OnClick="@(() => PencereAcKapa(k))" Title="Pencereyi kapat (sekme kalır)" />
+                </div>
+
+                <div class="dw-chat-body">
+                    @foreach (var m in k.Mesajlar)
+                    {
+                        <div class="dw-msg @(m.Mine ? "mine" : "theirs")">
+                            <div class="dw-msg-body">@m.Body</div>
+                            <div class="dw-msg-time">@m.Saat</div>
+                        </div>
+                    }
+                    @if (k.Mesajlar.Count == 0)
+                    {
+                        <div class="dw-chat-empty">Henüz mesaj yok. İlk mesajı siz yazın.</div>
+                    }
+                </div>
+
+                <div class="dw-chat-foot">
+                    @if (!string.IsNullOrEmpty(k.Hata))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Error">@k.Hata</MudText>
+                    }
+                    <div class="dw-chat-input">
+                        <MudTextField @bind-Value="k.Taslak" Placeholder="Mesaj yazın…" Margin="Margin.Dense"
+                                      Variant="Variant.Outlined" Immediate="true"
+                                      OnKeyDown="@(e => EnterIleGonder(e, k))" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="@(() => Gonder(k))">Gönder</MudButton>
+                    </div>
+                </div>
+            </MudPaper>
+        }
+
+        @* ── Kişi listesi ── *@
+        @if (_panelAcik)
+        {
+            <MudPaper Class="dw-chat-window dw-chat-users" Elevation="8">
+                <div class="dw-chat-head">
+                    <div class="dw-chat-head-text"><div class="dw-chat-name">Kullanıcılar</div></div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                   OnClick="@(() => { _panelAcik = false; })" Title="Kapat" />
+                </div>
+                <div class="dw-chat-search">
+                    <MudTextField @bind-Value="_arama" Placeholder="Kullanıcı ara…" Margin="Margin.Dense"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </div>
+                <div class="dw-chat-body">
+                    @if (_cevrimdisi)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="ma-2">
+                            Sunucuya ulaşılamıyor. Sohbet yalnız çevrimiçiyken çalışır.
+                        </MudAlert>
+                    }
+                    @foreach (var k in Gorunenler())
+                    {
+                        <div class="dw-chat-person" @onclick="@(() => KisiyiAc(k))">
+                            <MudAvatar Size="Size.Small" Color="Color.Default">@k.Initial</MudAvatar>
+                            <div class="dw-chat-person-text">
+                                <div class="dw-chat-name">@k.Display</div>
+                                <div class="dw-chat-status">
+                                    <span class="dw-dot @(k.Online ? "on" : "off")"></span>
+                                    @(k.Online ? "Çevrim içi" : "Çevrim dışı")
+                                </div>
+                            </div>
+                            @if (k.Unread > 0)
+                            {
+                                <MudBadge Content="@k.Unread" Color="Color.Error" Overlap="false" />
+                            }
+                        </div>
+                    }
+                    @if (!Gorunenler().Any() && !_cevrimdisi)
+                    {
+                        <div class="dw-chat-empty">Bu firmada başka kullanıcı yok.</div>
+                    }
+                </div>
+            </MudPaper>
+        }
+
+        @* ── Alt şerit: konuşma sekmeleri + sabit sohbet düğmesi ── *@
+        <div class="dw-chat-bar">
+            @foreach (var k in _konusmalar)
+            {
+                <div class="dw-chat-tab">
+                    <span class="dw-dot @(k.Online ? "on" : "off")"></span>
+                    <span class="dw-chat-tab-label" @onclick="@(() => PencereAcKapa(k))">@k.Display</span>
+                    @if (k.Okunmamis > 0) { <span class="dw-chat-tab-badge">@k.Okunmamis</span> }
+                    <span class="dw-chat-tab-close" @onclick="@(() => _konusmalar.Remove(k))" title="Sekmeyi kaldır">✕</span>
+                </div>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Chat"
+                       OnClick="@(() => { _panelAcik = !_panelAcik; if (_panelAcik) _ = Yokla(); })">
+                Sohbet@(_toplamOkunmamis > 0 ? $" ({_toplamOkunmamis})" : "")
+            </MudButton>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Pencere açıkken yoklama (sn). Kullanıcı kararı; geçici — gerçek sunucuda yeniden ele alınacak.</summary>
+    private const int AcikSaniye = 3;
+    /// <summary>Kapalıyken yoklama (sn) — yalnız okunmamış rozeti için.</summary>
+    private const int KapaliSaniye = 20;
+
+    private sealed class Kisi
+    {
+        public string UserId = "", Username = "", Display = "";
+        public bool Online;
+        public int Unread;
+        public string Initial => string.IsNullOrWhiteSpace(Display) ? "?" : Display.Trim()[..1].ToUpperInvariant();
+    }
+
+    private sealed class Mesaj
+    {
+        public string Id = "", Body = "";
+        public bool Mine;
+        public long CreatedAt;
+        public string Saat => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("HH:mm");
+    }
+
+    private sealed class Konusma
+    {
+        public string UserId = "", Display = "";
+        public bool Online, Acik = true;
+        public int Okunmamis;
+        public string Taslak = "", Hata = "";
+        public long? SonZaman;
+        public List<Mesaj> Mesajlar = new();
+        public string Initial => string.IsNullOrWhiteSpace(Display) ? "?" : Display.Trim()[..1].ToUpperInvariant();
+    }
+
+    private readonly List<Kisi> _kisiler = new();
+    private readonly List<Konusma> _konusmalar = new();
+    private bool _panelAcik, _cevrimdisi, _yoklamaCalisiyor;
+    private int _toplamOkunmamis;
+    private string _arama = "";
+    private Timer? _zamanlayici;
+
+    protected override void OnInitialized()
+    {
+        // Yetki bilgisi (menü paketi) girişten SONRA, ayrı bir çağrıyla gelir. Bu bileşen giriş
+        // anında zaten çizilmiş olabileceği için yetkiye BİR KEZ bakmak yetmez: AuthState değişince
+        // yeniden değerlendirilir. Aksi hâlde sohbet ancak sayfa yenilenince görünürdü.
+        Auth.Changed += YetkiDegisti;
+        ZamanlayiciyiKurGerekirse();
+    }
+
+    private void YetkiDegisti()
+    {
+        ZamanlayiciyiKurGerekirse();
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Yetki varsa yoklamayı başlatır. Yetkisiz kullanıcıda tek istek bile atılmaz.</summary>
+    private void ZamanlayiciyiKurGerekirse()
+    {
+        if (_zamanlayici is not null || !Auth.CanView("chat")) return;
+        _zamanlayici = new Timer(async _ => await Yokla(), null,
+            TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(KapaliSaniye));
+    }
+
+    private IEnumerable<Kisi> Gorunenler()
+    {
+        var q = (_arama ?? "").Trim();
+        return q.Length == 0
+            ? _kisiler
+            : _kisiler.Where(k => k.Display.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void AraligiAyarla()
+    {
+        var hizli = _panelAcik || _konusmalar.Any(k => k.Acik);
+        var sn = hizli ? AcikSaniye : KapaliSaniye;
+        try { _zamanlayici?.Change(TimeSpan.FromSeconds(sn), TimeSpan.FromSeconds(sn)); } catch { }
+    }
+
+    private async Task Yokla()
+    {
+        if (_yoklamaCalisiyor) return;
+        _yoklamaCalisiyor = true;
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/chat/users");
+            _cevrimdisi = false;
+            _kisiler.Clear();
+            foreach (var e in arr)
+            {
+                _kisiler.Add(new Kisi
+                {
+                    UserId = S(e, "userId"),
+                    Username = S(e, "username"),
+                    Display = S(e, "display"),
+                    Online = B(e, "online"),
+                    Unread = I(e, "unread"),
+                });
+            }
+            _kisiler.Sort((a, b) => a.Online == b.Online
+                ? string.Compare(a.Display, b.Display, StringComparison.OrdinalIgnoreCase)
+                : (a.Online ? -1 : 1));
+            _toplamOkunmamis = _kisiler.Sum(k => k.Unread);
+
+            foreach (var kon in _konusmalar)
+            {
+                var k = _kisiler.FirstOrDefault(x => x.UserId == kon.UserId);
+                if (k is null) continue;
+                kon.Online = k.Online;
+                if (!kon.Acik) kon.Okunmamis = k.Unread;
+            }
+
+            foreach (var kon in _konusmalar.Where(x => x.Acik).ToList())
+                await KonusmayiTazele(kon);
+        }
+        catch { _cevrimdisi = true; }
+        finally
+        {
+            _yoklamaCalisiyor = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task KonusmayiTazele(Konusma kon)
+    {
+        var yol = $"/api/chat/messages?withUserId={Uri.EscapeDataString(kon.UserId)}"
+                  + (kon.SonZaman is { } t ? $"&since={t}" : "");
+        var arr = await Api.GetArrayAsync(yol);
+        var yeniGeldi = false;
+        foreach (var e in arr)
+        {
+            var id = S(e, "id");
+            if (kon.Mesajlar.Any(m => m.Id == id)) continue;
+            var m = new Mesaj { Id = id, Body = S(e, "body"), Mine = B(e, "mine"), CreatedAt = L(e, "createdAt") };
+            kon.Mesajlar.Add(m);
+            if (m.CreatedAt > (kon.SonZaman ?? 0)) kon.SonZaman = m.CreatedAt;
+            if (!m.Mine) yeniGeldi = true;
+        }
+        // Pencere açıkken gelen mesaj OKUNMUŞ sayılır (kullanıcı ekrana bakıyor).
+        if (yeniGeldi)
+        {
+            await Api.PostAsync("/api/chat/seen", new { withUserId = kon.UserId });
+            kon.Okunmamis = 0;
+        }
+    }
+
+    private async Task KisiyiAc(Kisi kisi)
+    {
+        var kon = _konusmalar.FirstOrDefault(k => k.UserId == kisi.UserId);
+        if (kon is null)
+        {
+            kon = new Konusma { UserId = kisi.UserId, Display = kisi.Display, Online = kisi.Online };
+            _konusmalar.Add(kon);
+        }
+        kon.Acik = true;
+        _panelAcik = false;
+        AraligiAyarla();
+
+        kon.Mesajlar.Clear();
+        kon.SonZaman = null;
+        await KonusmayiTazele(kon);
+        await Api.PostAsync("/api/chat/seen", new { withUserId = kon.UserId });
+        kon.Okunmamis = 0;
+        await Yokla();
+    }
+
+    private void PencereAcKapa(Konusma kon)
+    {
+        kon.Acik = !kon.Acik;
+        if (kon.Acik) { kon.Okunmamis = 0; _ = KonusmayiTazele(kon); }
+        AraligiAyarla();
+    }
+
+    private async Task EnterIleGonder(KeyboardEventArgs e, Konusma kon)
+    {
+        if (e.Key == "Enter") await Gonder(kon);
+    }
+
+    private async Task Gonder(Konusma kon)
+    {
+        var metin = (kon.Taslak ?? "").Trim();
+        if (metin.Length == 0) return;
+        kon.Hata = "";
+        var err = await Api.PostAsync("/api/chat/messages", new { toUserId = kon.UserId, body = metin });
+        if (err is not null) { kon.Hata = err; return; }
+        kon.Taslak = "";
+        await KonusmayiTazele(kon);
+    }
+
+    private static string S(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool B(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static int I(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
+    private static long L(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : 0L;
+
+    public async ValueTask DisposeAsync()
+    {
+        Auth.Changed -= YetkiDegisti;
+        if (_zamanlayici is not null) await _zamanlayici.DisposeAsync();
+    }
+}

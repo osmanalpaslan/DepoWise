@@ -100,5 +100,6 @@ public static class MigrationCatalog
         new Migration093_FieldProtections(),      // 2026-09-05 FAZ 3b (ADR-223): korumalı alanlar — yalnız CREATE TABLE, boş doğar
         new Migration094_ConflictSnapshots(),     // 2026-09-06 FAZ 4.4: çakışmada kazanan/kaybeden görüntüsü — yalnız ADD COLUMN
         new Migration095_UserContactFields(),     // 2026-09-06 kullanıcı isteği: e-posta · telefon · unvan · not — yalnız ADD COLUMN
+        new Migration096_Chat(),                  // 2026-09-06 kullanıcı isteği: uygulama içi sohbet — CREATE TABLE (boş doğar) + ADD COLUMN
     };
 }

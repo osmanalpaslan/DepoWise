@@ -769,6 +769,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         ActiveCompanyTip = session.IsSuperAdmin
             ? $"Aktif firma: {ActiveCompanyName} (Süper Admin)\nKayıtlar bu firmaya yazılır. Firmayı değiştirmek için çıkış yapıp giriş ekranından seçin."
             : $"Aktif firma: {ActiveCompanyName}";
+        Chat = new ChatViewModel(session);
         IsAllBranches = BranchGuard.IsAllBranches(session);
         ActiveBranchName = IsAllBranches ? "Tüm Şubeler" : (DesktopServices.CurrentBranchName ?? "—");
         ActiveBranchTip = IsAllBranches
@@ -802,12 +803,20 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// Çağıran: <c>App.ShowLogin()</c> — yeni kabuk oluşturulmadan ÖNCE eskisini bırakır.
     /// Birden çok kez çağrılması güvenlidir (idempotent).
     /// </summary>
+    /// <summary>
+    /// ⭐ UYGULAMA İÇİ SOHBET (kullanıcı isteği 2026-09-06). Kabuk sahiplenir çünkü sohbet BİR EKRAN
+    /// DEĞİL, her ekranın üstünde duran bir katmandır: alt bardaki düğme ve pencereler ekran
+    /// değiştirince kaybolmaz.
+    /// </summary>
+    public ChatViewModel Chat { get; }
+
     public void Release()
     {
         _connTimer?.Stop(); _connTimer = null;
         _updateTimer?.Stop(); _updateTimer = null;
         DeveloperMode.Changed -= OnDeveloperModeChanged;
         ServerAuthClient.SessionExpiredRaised -= OnSessionExpired;
+        Chat.Dispose();   // sohbet yoklaması eski kabukla birlikte DURMALI (MAS-01 kusuru tekrarlanmasın)
     }
 
     private bool _sessionExpiredHandled;
@@ -1469,6 +1478,13 @@ public sealed partial class ShellViewModel : ViewModelBase
     public ObservableCollection<OpenScreenTab> OpenTabs { get; } = new();
     public bool HasOpenTabs => OpenTabs.Count > 0;
 
+    /// <summary>
+    /// ⭐ Alt bar görünür mü? (2026-09-06) Eskiden yalnız AÇIK EKRAN SEKMESİ varsa çiziliyordu.
+    /// Kullanıcı sohbet düğmesinin "alt barın en sağında SABİT" olmasını istedi; sekme yokken bar
+    /// hiç çizilmediği için düğme de kaybolurdu. Artık sohbet yetkisi varsa bar sekme olmasa da durur.
+    /// </summary>
+    public bool AltBarGorunur => HasOpenTabs || Chat.Kullanilabilir;
+
     /// <summary>Gezinme sonrası sekmeyi ekler/etkinleştirir. Yalnız GERÇEKTEN AÇILAN ekran eklenir
     /// (platform kapısı ekranı reddettiyse CurrentPage null'dır → sekme oluşmaz).</summary>
     private void TabKaydet(string key)
@@ -1480,6 +1496,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             tab = new OpenScreenTab(key, string.IsNullOrWhiteSpace(CurrentTitle) ? FindLabel(key) : CurrentTitle);
             OpenTabs.Add(tab);
             OnPropertyChanged(nameof(HasOpenTabs));
+            OnPropertyChanged(nameof(AltBarGorunur));
         }
         foreach (var t in OpenTabs) t.IsActive = ReferenceEquals(t, tab);
     }
@@ -1498,6 +1515,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         var aktifti = tab.IsActive;
         OpenTabs.Remove(tab);
         OnPropertyChanged(nameof(HasOpenTabs));
+        OnPropertyChanged(nameof(AltBarGorunur));
         // Aktif sekme kapatıldıysa kullanıcı boşlukta kalmaz: son sekmeye, o da yoksa ana ekrana dönülür.
         if (aktifti) Navigate(OpenTabs.LastOrDefault()?.Key ?? "dashboard");
     }

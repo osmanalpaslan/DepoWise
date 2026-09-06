@@ -257,6 +257,12 @@
         </MudContainer>
 
     </MudMainContent>
+
+    @* ⭐ 2026-09-06 (kullanıcı isteği): uygulama içi sohbet. MainLayout'ta durur ki HER SAYFADA
+       erişilebilsin ve sayfa değişince kaybolmasın. Kendisi position:fixed olduğu için sayfa
+       yerleşimine girmez — "ekranda fazladan yer işgal etmemeli" şartı bu şekilde karşılanır.
+       Yetkisi olmayan kullanıcıda bileşen hiç çizilmez. *@
+    <ChatDock />
 </MudLayout>
 
 @code {

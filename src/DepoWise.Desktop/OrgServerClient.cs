@@ -491,6 +491,53 @@ public static class OrgServerClient
         catch { return (true, null, null); }
     }
 
+    // ═══════════ UYGULAMA İÇİ SOHBET (kullanıcı isteği 2026-09-06) ═══════════
+    //
+    // Sohbet SENKRON DIŞIDIR: yerel SQLite'a hiçbir şey yazılmaz, doğrudan sunucu okunur/yazılır.
+    // Bu yüzden "çevrimdışı" bir davranış YOKTUR — bağlantı yoksa çağrılar boş/başarısız döner ve
+    // arayüz sohbeti kapalı gösterir (bkz. Migration096 gerekçesi).
+
+    /// <summary>Firmadaki kullanıcılar + çevrimiçi durumu + okunmamış sayısı. null = ulaşılamadı.</summary>
+    public static async Task<List<DepoWise.Infrastructure.Chat.ChatKisi>?> ChatKisilerAsync()
+    {
+        using var doc = await GetJsonAsync("/api/chat/users");
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+        var liste = new List<DepoWise.Infrastructure.Chat.ChatKisi>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.Object) continue;
+            liste.Add(new DepoWise.Infrastructure.Chat.ChatKisi(
+                Str(e, "userId"), Str(e, "username"), NullS(e, "fullName"), NullS(e, "title"),
+                Bool(e, "online"), Int(e, "unread"), NullLong(e, "lastSeenAt")));
+        }
+        return liste;
+    }
+
+    /// <summary>Bir kişiyle olan konuşma. <paramref name="since"/> verilirse yalnız SONRAKİ mesajlar.</summary>
+    public static async Task<List<DepoWise.Infrastructure.Chat.ChatMesaj>?> ChatKonusmaAsync(string karsiUserId, long? since = null)
+    {
+        var yol = $"/api/chat/messages?withUserId={Uri.EscapeDataString(karsiUserId)}" + (since is { } t ? $"&since={t}" : "");
+        using var doc = await GetJsonAsync(yol);
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+        var liste = new List<DepoWise.Infrastructure.Chat.ChatMesaj>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.Object) continue;
+            liste.Add(new DepoWise.Infrastructure.Chat.ChatMesaj(
+                Str(e, "id"), Str(e, "senderId"), Str(e, "recipientId"), Str(e, "body"),
+                Long(e, "createdAt"), NullLong(e, "readAt"), Bool(e, "mine")));
+        }
+        return liste;
+    }
+
+    /// <summary>Mesaj gönderir.</summary>
+    public static Task<Result> ChatGonderAsync(string aliciUserId, string govde)
+        => PostIdAsync("/api/chat/messages", new { toUserId = aliciUserId, body = govde });
+
+    /// <summary>Bir kişiden gelenleri okundu işaretler.</summary>
+    public static Task<Result> ChatOkunduAsync(string karsiUserId)
+        => SendOkAsync(HttpMethod.Post, "/api/chat/seen", new { withUserId = karsiUserId });
+
     private static async Task<JsonDocument?> GetJsonAsync(string path)
     {
         var (url, token) = await ResolveAsync();
@@ -511,6 +558,13 @@ public static class OrgServerClient
     private static string? NullS(JsonElement o, string k) { var s = Str(o, k); return string.IsNullOrEmpty(s) ? null : s; }
     private static bool Bool(JsonElement o, string k)
         => o.TryGetProperty(k, out var v) && (v.ValueKind == JsonValueKind.True || (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) && n != 0));
+
+    private static int Int(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
+    private static long Long(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : 0L;
+    private static long? NullLong(JsonElement o, string k)
+        => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
 
     private static async Task<Result> PostIdAsync(string path, object body)
     {

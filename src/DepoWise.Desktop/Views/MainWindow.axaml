@@ -4,6 +4,7 @@
         xmlns:search="using:DepoWise.Infrastructure.Search"
         xmlns:local="using:DepoWise.Desktop"
         xmlns:a11y="using:Avalonia.Automation"
+        xmlns:chat="using:DepoWise.Infrastructure.Chat"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
@@ -493,7 +494,7 @@
             <Border DockPanel.Dock="Bottom" Height="46"
                     Background="{DynamicResource SurfaceElevatedBrush}"
                     BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0"
-                    IsVisible="{Binding HasOpenTabs}" Padding="8,0">
+                    IsVisible="{Binding AltBarGorunur}" Padding="8,0">
                 <Border.Styles>
                     <!-- Sekme gövdesi: boşta şeffaf, üzerine gelince hafif zemin, aktifken açık zemin. -->
                     <Style Selector="Border.sekme">
@@ -568,6 +569,66 @@
                          işlev kaybolmadı. Boşalan sağ uç, alt barın en sağında SABİT duracak olan
                          SOHBET düğmesine ayrıldı (aşağıda). -->
 
+                    <!-- ═══ SOHBET — alt barın EN SAĞINDA SABİT (kullanıcı tasarımı 2026-09-06) ═══
+                         Sağa yerleştirildiği için ekran sekmeleri kayarken kaybolmaz. İçinde önce
+                         AÇIK KONUŞMA SEKMELERİ, en sağda da ANA SOHBET düğmesi durur. Yetkisi
+                         olmayan kullanıcıda tamamı görünmez (deny-by-default). -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                                VerticalAlignment="Stretch" IsVisible="{Binding Chat.Kullanilabilir}">
+
+                        <!-- Açık konuşmaların sekmeleri: tıkla → pencere açılır/kapanır, ✕ → sekme kalkar -->
+                        <ItemsControl ItemsSource="{Binding Chat.Konusmalar}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:KonusmaVm">
+                                    <Border Classes="sekme" VerticalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="10,0,6,0">
+                                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                                     Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding Online}"/>
+                                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                                     Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !Online}"/>
+                                            <Button Classes="sekmeDugme" Padding="0" Background="Transparent"
+                                                    Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KonusmaAcKapaCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Mesaj penceresini aç / kapat">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center"
+                                                               MaxWidth="130" TextTrimming="CharacterEllipsis"/>
+                                                    <Border CornerRadius="999" Background="{DynamicResource DangerBrush}" Padding="5,0"
+                                                            VerticalAlignment="Center" IsVisible="{Binding OkunmamisVar}">
+                                                        <TextBlock Text="{Binding Okunmamis}" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Classes="sekmeKapat" Content="✕" FontSize="11" Padding="4,0"
+                                                    Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KonusmayiKapatCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Sekmeyi kaldır (mesajlar silinmez)"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- ANA SOHBET DÜĞMESİ — en sağda, sabit -->
+                        <Button Classes="sekmeDugme" Padding="14,0" VerticalAlignment="Stretch"
+                                Command="{Binding Chat.PaneliAcKapaCommand}"
+                                ToolTip.Tip="Sohbet: firmadaki kullanıcıları gör ve mesaj gönder">
+                            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <PathIcon Width="15" Height="15" VerticalAlignment="Center"
+                                          Data="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 4V5a1 1 0 0 1 1-1Z"/>
+                                <TextBlock Text="Sohbet" FontSize="12.5" VerticalAlignment="Center"/>
+                                <Border CornerRadius="999" Background="{DynamicResource DangerBrush}" Padding="5,0"
+                                        VerticalAlignment="Center" IsVisible="{Binding Chat.ToplamOkunmamisVar}">
+                                    <TextBlock Text="{Binding Chat.ToplamOkunmamis}" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding OpenTabs}">
                             <ItemsControl.ItemsPanel>
@@ -613,5 +674,173 @@
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->
             <ContentControl Content="{Binding CurrentPage}"/>
         </DockPanel>
+
+        <!-- ═══════════════ SOHBET PENCERELERİ — ÜST KATMAN ═══════════════
+             Kullanıcı isteği: "ekranda fazladan yer işgal etmemeli". Bu yüzden pencereler
+             yerleşime (layout) GİRMEZ: içeriğin üstünde, sağ alt köşede çizilirler. Alt bar
+             46 px olduğu için 58 px alt boşlukla onun üzerinde dururlar. Kapalıyken hiçbiri
+             çizilmediğinden ekranda sıfır yer kaplarlar. -->
+        <Grid Grid.Column="1" ZIndex="50" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Margin="0,0,12,58" IsVisible="{Binding Chat.Kullanilabilir}">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+
+                <!-- Açık konuşma pencereleri (yan yana) -->
+                <ItemsControl ItemsSource="{Binding Chat.Konusmalar}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KonusmaVm">
+                            <Border Width="330" Height="430" CornerRadius="12" IsVisible="{Binding Acik}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                    BoxShadow="0 8 28 0 #55000000">
+                                <DockPanel>
+                                    <!-- Başlık: kim, çevrimiçi mi, kapat -->
+                                    <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceElevatedBrush}"
+                                            CornerRadius="12,12,0,0" Padding="10,8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
+                                                    Background="{DynamicResource AccentBrush}">
+                                                <TextBlock Text="{Binding Initial}" Foreground="#241703" FontWeight="Bold"
+                                                           FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="9,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Display}" FontWeight="SemiBold" FontSize="13"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                             Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding Online}"/>
+                                                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                             Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !Online}"/>
+                                                    <TextBlock Text="Çevrim içi" FontSize="10.5" IsVisible="{Binding Online}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Text="Çevrim dışı" FontSize="10.5" IsVisible="{Binding !Online}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Classes="IconGhost" Content="✕" FontSize="12"
+                                                    Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KonusmaAcKapaCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Pencereyi kapat (sekme alt barda kalır)"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Yazma alanı -->
+                                    <Border DockPanel.Dock="Bottom" Padding="8" BorderThickness="0,1,0,0"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}">
+                                        <StackPanel Spacing="6">
+                                            <SelectableTextBlock Text="{Binding Hata}" Classes="Helper" TextWrapping="Wrap"
+                                                                 Foreground="{DynamicResource DangerBrush}"
+                                                                 IsVisible="{Binding Hata, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding Taslak}"
+                                                         Watermark="Mesaj yazın…" AcceptsReturn="False">
+                                                    <TextBox.KeyBindings>
+                                                        <KeyBinding Gesture="Enter"
+                                                                    Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}"
+                                                                    CommandParameter="{Binding}"/>
+                                                    </TextBox.KeyBindings>
+                                                </TextBox>
+                                                <Button Grid.Column="1" Classes="Primary" Content="Gönder" Margin="6,0,0,0"
+                                                        Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Mesajlar (eskiden yeniye) -->
+                                    <ScrollViewer Padding="8">
+                                        <ItemsControl ItemsSource="{Binding Mesajlar}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="chat:ChatMesaj">
+                                                    <Border CornerRadius="10" Padding="9,6" Margin="0,3" MaxWidth="240"
+                                                            HorizontalAlignment="{Binding Mine, Converter={x:Static vm:MesajHizaConverter.Instance}}"
+                                                            Background="{Binding Mine, Converter={x:Static vm:MesajZeminConverter.Instance}}">
+                                                        <StackPanel Spacing="2">
+                                                            <SelectableTextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12.5"/>
+                                                            <TextBlock Text="{Binding SaatMetni}" FontSize="9.5" HorizontalAlignment="Right"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- KİŞİ LİSTESİ paneli (ana sohbet penceresi) -->
+                <Border Width="330" Height="470" CornerRadius="12" IsVisible="{Binding Chat.PanelAcik}"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                        BoxShadow="0 8 28 0 #55000000">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceElevatedBrush}"
+                                CornerRadius="12,12,0,0" Padding="12,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Kullanıcılar" FontWeight="SemiBold" FontSize="14"
+                                           VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Classes="IconGhost" Content="✕" FontSize="12"
+                                        Command="{Binding Chat.PaneliAcKapaCommand}" ToolTip.Tip="Kapat"/>
+                            </Grid>
+                        </Border>
+
+                        <Border DockPanel.Dock="Top" Padding="10,8,10,4">
+                            <TextBox Classes="Search" Text="{Binding Chat.Arama}" Watermark="Kullanıcı ara…"/>
+                        </Border>
+
+                        <!-- Çevrimdışıyken sohbet çalışmaz: sahte liste göstermek yerine açıkça söylenir. -->
+                        <Border DockPanel.Dock="Bottom" Padding="10,8" IsVisible="{Binding Chat.Cevrimdisi}">
+                            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                                 Foreground="{DynamicResource WarningBrush}"
+                                                 Text="Sunucuya ulaşılamıyor. Sohbet yalnız çevrimiçiyken çalışır; bağlantı gelince liste kendiliğinden tazelenir."/>
+                        </Border>
+
+                        <ScrollViewer Padding="6">
+                            <ItemsControl ItemsSource="{Binding Chat.GorunenKisiler}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="chat:ChatKisi">
+                                        <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Padding="8,7" Margin="0,1" Cursor="Hand"
+                                                Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KisiyiAcCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Mesaj penceresini aç">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <Panel Grid.Column="0">
+                                                    <Border Width="34" Height="34" CornerRadius="17"
+                                                            Background="{DynamicResource OverlaySelectedBrush}">
+                                                        <TextBlock Text="{Binding Initial}" FontWeight="Bold" FontSize="13"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Ellipse Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                             Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding Online}"/>
+                                                    <Ellipse Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                             Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !Online}"/>
+                                                </Panel>
+                                                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Display}" FontSize="13" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding DurumMetni}" FontSize="10.5"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="2" CornerRadius="999" Background="{DynamicResource DangerBrush}"
+                                                        Padding="6,1" VerticalAlignment="Center"
+                                                        IsVisible="{Binding Unread}">
+                                                    <TextBlock Text="{Binding Unread}" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                                </Border>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

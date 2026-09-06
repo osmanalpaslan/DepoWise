@@ -30,8 +30,14 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
 
     @* 2) BİZİM stillerimiz EN SON — MudBlazor'ı ezebilmesi için (kritik) *@
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="DepoWise.Web.styles.css" />
+    @* ⭐ ÖNBELLEK KIRICI (2026-09-06): stil dosyaları sürüm etiketiyle istenir.
+       GEREKÇE — gerçek bir olay: sohbet bileşeni eklendiğinde tarayıcı ESKİ
+       DepoWise.Web.styles.css'i önbellekten sunmayı sürdürdü; bileşen doğru çizildi ama
+       stilsiz kaldı (position:fixed uygulanmadı, pencere sayfanın altına düştü). Yayında bu,
+       "yeni özellik bozuk göründü" olarak yaşanırdı. Etiket her yayında değiştiği için
+       tarayıcı dosyayı YENİDEN indirir; değişmediğinde ise önbellek çalışmaya devam eder. *@
+    <link rel="stylesheet" href="app.css?v=@StilSurumu" />
+    <link rel="stylesheet" href="DepoWise.Web.styles.css?v=@StilSurumu" />
 
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
@@ -200,3 +206,13 @@
 </body>
 
 </html>
+
+@code {
+    /// <summary>
+    /// Stil dosyalarının önbellek etiketi. Derlemenin ÜRETİM ZAMANINDAN türetilir: her yeni yayın
+    /// yeni bir değer üretir, aynı yayın içinde ise sabit kalır (böylece önbellek işini yapmaya
+    /// devam eder). Elle güncellenmesi gereken bir sürüm numarası DEĞİLDİR — unutulamaz.
+    /// </summary>
+    private static readonly string StilSurumu =
+        System.IO.File.GetLastWriteTimeUtc(typeof(App).Assembly.Location).Ticks.ToString("x");
+}
