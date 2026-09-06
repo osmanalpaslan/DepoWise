@@ -9,7 +9,7 @@
              x:Class="DepoWise.Desktop.Views.PermissionsView"
              x:DataType="vm:PermissionsViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Yetkiler"/>
 
         <!-- Kullanıcı seçimi (önce kullanıcı seçilir → ağaç oluşur) -->
@@ -90,8 +90,15 @@
         </Border>
 
         <!-- Yetki ağacı (yalnız kullanıcı seçilince) -->
-        <ScrollViewer Grid.Row="3" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
+        <!-- ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): "Korumalı Alanlar" bölümü ALT BAR gibi
+             davranıp sayfanın içeriğini daraltıyordu. Grid'de Auto yükseklikli AYRI bir satırdaydı;
+             listesi uzadıkça yetki ağacına kalan yeri sürekli yiyordu. Artık AYNI kaydırma alanının
+             EN ALTINDA duruyor: ekranda sabit yer KAPLAMAZ, sayfa aşağı kaydırılınca gelir.
+             Görünürlük kuralları DEĞİŞMEDİ: ağaç yalnız kullanıcı seçiliyken, korumalı alanlar
+             (firma ayarı olduğu için) kullanıcı seçilmeden de görünür. -->
+        <ScrollViewer Grid.Row="3" Margin="0,16,0,0">
             <StackPanel Spacing="16">
+                <StackPanel Spacing="16" IsVisible="{Binding HasUser}">
                 <!-- ── ŞUBE KAPSAMI (G4-3e) ────────────────────────────────────────────────
                      İKİNCİ BİR YETKİ AĞACI DEĞİLDİR: modül yetkileri aşağıdaki ağaçta kalır.
                      Burada yalnız "hangi şubelerde" sorusu yönetilir.
@@ -264,44 +271,47 @@
 
                 <SelectableTextBlock Text="Verilmeyen modüller menüde/butonlarda görünmez (deny-by-default). Admin / Süper Admin her zaman tam yetkilidir; onlara yetki vermeye gerek yoktur."
                            Classes="Helper" TextWrapping="Wrap"/>
+                </StackPanel>
+
+            <!-- Kullanıcı seçilmeden -->
+            <ctrl:StatePanel Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
+                             Message="Yetki ağacını görmek için yukarıdan bir kullanıcı seçin." IsVisible="{Binding !HasUser}"/>
+
+            <!-- ═══ FAZ 3b-5 (ADR-223) — KORUMALI ALANLAR ═══════════════════════════════════════
+                 FİRMA ayarıdır, kişiye özel DEĞİLDİR → kullanıcı seçilmeden de görünür ve yönetilir
+                 (web'deki bölümle aynı davranış). Korumalı yapılan alan YETKİ AĞACINDA ayrı bir satır
+                 olarak belirir; kimin göreceği oradan seçilir. Karar aynı servisten gelir. -->
+            <StackPanel Margin="0,16,0,0" IsVisible="{Binding KorumaYonetebilir}">
+                <SelectableTextBlock Text="KORUMALI ALANLAR" Classes="SectionTitle"/>
+                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                    Text="Bir alanı korumalı yaparsanız o alanı yalnız yetkisi olan kişiler görür. Yetkiyi yukarıdaki yetki ağacından, alanın kendi ekranının altından verirsiniz. Hiçbir alan korumalı değilken uygulama bugünkü gibi çalışır."/>
+                <Border Classes="Table">
+                    <ItemsControl ItemsSource="{Binding KorumaliAlanlar}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:KorumaliAlanNode">
+                                <Grid ColumnDefinitions="280,*" Margin="12,6">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding Korumali}" VerticalAlignment="Center">
+                                        <StackPanel>
+                                            <SelectableTextBlock Text="{Binding Label}"/>
+                                            <SelectableTextBlock Text="{Binding ScreenLabel}" Classes="Helper"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Note}" Classes="Helper"
+                                                         TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+                <SelectableTextBlock Text="{Binding KorumaStatus}" Classes="Helper" TextWrapping="Wrap"
+                                     IsVisible="{Binding KorumaStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
 
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Kullanıcı seçilmeden -->
-        <ctrl:StatePanel Grid.Row="3" Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
-                         Message="Yetki ağacını görmek için yukarıdan bir kullanıcı seçin." IsVisible="{Binding !HasUser}"/>
 
-        <!-- ═══ FAZ 3b-5 (ADR-223) — KORUMALI ALANLAR ═══════════════════════════════════════
-             FİRMA ayarıdır, kişiye özel DEĞİLDİR → kullanıcı seçilmeden de görünür ve yönetilir
-             (web'deki bölümle aynı davranış). Korumalı yapılan alan YETKİ AĞACINDA ayrı bir satır
-             olarak belirir; kimin göreceği oradan seçilir. Karar aynı servisten gelir. -->
-        <StackPanel Grid.Row="4" Margin="0,16,0,0" IsVisible="{Binding KorumaYonetebilir}">
-            <SelectableTextBlock Text="KORUMALI ALANLAR" Classes="SectionTitle"/>
-            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
-                Text="Bir alanı korumalı yaparsanız o alanı yalnız yetkisi olan kişiler görür. Yetkiyi yukarıdaki yetki ağacından, alanın kendi ekranının altından verirsiniz. Hiçbir alan korumalı değilken uygulama bugünkü gibi çalışır."/>
-            <Border Classes="Table">
-                <ItemsControl ItemsSource="{Binding KorumaliAlanlar}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:KorumaliAlanNode">
-                            <Grid ColumnDefinitions="280,*" Margin="12,6">
-                                <CheckBox Grid.Column="0" IsChecked="{Binding Korumali}" VerticalAlignment="Center">
-                                    <StackPanel>
-                                        <SelectableTextBlock Text="{Binding Label}"/>
-                                        <SelectableTextBlock Text="{Binding ScreenLabel}" Classes="Helper"/>
-                                    </StackPanel>
-                                </CheckBox>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding Note}" Classes="Helper"
-                                                     TextWrapping="Wrap" VerticalAlignment="Center"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Border>
-            <SelectableTextBlock Text="{Binding KorumaStatus}" Classes="Helper" TextWrapping="Wrap"
-                                 IsVisible="{Binding KorumaStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-        </StackPanel>
 
-        <SelectableTextBlock Grid.Row="5" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>
