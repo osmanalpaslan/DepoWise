@@ -16,54 +16,60 @@
 
     <!-- Sayfalama tablonun ALTINDA (sol) — kullanıcı isteği 2026-07-19 (tüm tablolu ekranlar). Tablo Row 2 (*),
          sayfalama Row 3 (Auto), durum Row 4. -->
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Günlük Faaliyet"
-                      PrimaryActionText="Yeni Kayıt Oluştur" PrimaryActionCommand="{Binding NewRecordCommand}">
-            <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <!-- ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): TARİH ARALIĞI + ÇOKLU ARAÇ.
-                         Tarih aralığı servis tarafında zaten destekleniyordu; ekranda alanı yoktu.
-                         Ağır sorgu "Filtrele"ye basılmadan çalışmaz; tablo üstündeki kolon filtreleri
-                         bu aralığın İÇİNDE çalışmaya devam eder. -->
-                    <SelectableTextBlock Text="Tarih:" Classes="Caption" VerticalAlignment="Center"/>
-                    <DatePicker SelectedDate="{Binding GunBaslangic}" Width="145"/>
-                    <SelectableTextBlock Text="—" Classes="Caption" VerticalAlignment="Center"/>
-                    <DatePicker SelectedDate="{Binding GunBitis}" Width="145"/>
-                    <Button Classes="Primary" Content="Tarihe Göre Getir" Command="{Binding TarihUygulaCommand}"
-                            ToolTip.Tip="Seçilen tarih aralığındaki faaliyetleri getirir (bitiş günü dahildir). Seçili araç varsa yalnız o araçlar listelenir."/>
-                    <Button Classes="Secondary" Content="Tarihi Temizle" Command="{Binding TarihTemizleCommand}"/>
+                      PrimaryActionText="Yeni Kayıt Oluştur" PrimaryActionCommand="{Binding NewRecordCommand}"/>
 
-                    <!-- Çoklu araç: seçim aramada korunur; boş bırakılırsa tüm araçlar gelir. -->
-                    <ComboBox Width="200" PlaceholderText="Araç seç (çoklu)"
-                              ToolTip.Tip="Birden fazla araç seçebilirsiniz. Hiçbiri seçili değilse tüm araçlar listelenir.">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:AracSecim">
-                                <CheckBox Content="{Binding Etiket}" IsChecked="{Binding Secili}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                        <ComboBox.ItemsSource>
-                            <Binding Path="AracSecenekleri"/>
-                        </ComboBox.ItemsSource>
-                    </ComboBox>
-                    <SelectableTextBlock Text="{Binding SeciliAracSayisi, StringFormat='{}{0} araç seçili'}"
-                                         Classes="Caption" VerticalAlignment="Center"
-                                         IsVisible="{Binding AracSecimiVar}"/>
+        <!-- ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): FAZ 4.9 filtreleri Toolbar'ın İÇİNE
+             konmuştu. Toolbar tek satırlık bir grid (başlık · arama · filtre · birincil düğme);
+             filtreler büyüyünce satır taştı ve "Yeni Kayıt Oluştur" düğmesi görünür alanın DIŞINDA
+             kaldı — kullanıcı yeni kayıt açamadı. Filtreler artık başlığın ALTINDA kendi satırında ve
+             WrapPanel içinde: dar ekranda alt satıra sarar, hiçbir şeyi ekran dışına itmez. -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0" Padding="12,10">
+            <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
+                <!-- ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): TARİH ARALIĞI + ÇOKLU ARAÇ.
+                     Tarih aralığı servis tarafında zaten destekleniyordu; ekranda alanı yoktu.
+                     Ağır sorgu "Filtrele"ye basılmadan çalışmaz; tablo üstündeki kolon filtreleri
+                     bu aralığın İÇİNDE çalışmaya devam eder. -->
+                <SelectableTextBlock Text="Tarih:" Classes="Caption" VerticalAlignment="Center"/>
+                <DatePicker SelectedDate="{Binding GunBaslangic}" Width="145"/>
+                <SelectableTextBlock Text="—" Classes="Caption" VerticalAlignment="Center"/>
+                <DatePicker SelectedDate="{Binding GunBitis}" Width="145"/>
+                <Button Classes="Primary" Content="Tarihe Göre Getir" Command="{Binding TarihUygulaCommand}"
+                        ToolTip.Tip="Seçilen tarih aralığındaki faaliyetleri getirir (bitiş günü dahildir). Seçili araç varsa yalnız o araçlar listelenir."/>
+                <Button Classes="Secondary" Content="Tarihi Temizle" Command="{Binding TarihTemizleCommand}"/>
 
-                    <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
-                    <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
-                    <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
-                    <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
-                    <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM faaliyetleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
-                </StackPanel>
-            </ctrl:Toolbar.FilterContent>
-        </ctrl:Toolbar>
+                <!-- Çoklu araç: seçim aramada korunur; boş bırakılırsa tüm araçlar gelir. -->
+                <ComboBox Width="200" PlaceholderText="Araç seç (çoklu)"
+                          ToolTip.Tip="Birden fazla araç seçebilirsiniz. Hiçbiri seçili değilse tüm araçlar listelenir.">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AracSecim">
+                            <CheckBox Content="{Binding Etiket}" IsChecked="{Binding Secili}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <ComboBox.ItemsSource>
+                        <Binding Path="AracSecenekleri"/>
+                    </ComboBox.ItemsSource>
+                </ComboBox>
+                <SelectableTextBlock Text="{Binding SeciliAracSayisi, StringFormat='{}{0} araç seçili'}"
+                                     Classes="Caption" VerticalAlignment="Center"
+                                     IsVisible="{Binding AracSecimiVar}"/>
+
+                <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
+                <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
+                <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
+                <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
+                <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
+                        ToolTip.Tip="Aktif filtrelerle eşleşen TÜM faaliyetleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                </WrapPanel>
+        </Border>
+
 
 
         <!-- İş #5: metadata düzenleme paneli — yalnız yan etkisiz alanlar. -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMetaEdit}">
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMetaEdit}">
             <StackPanel Spacing="10" MaxWidth="620" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="FAALİYET KAYDINI DÜZENLE" Classes="SectionTitle"/>
                 <SelectableTextBlock Classes="Helper"
@@ -88,7 +94,7 @@
         </Border>
 
         <!-- Tek form — Kayıt Tipi'ne göre alanlar değişir -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
             <ScrollViewer MaxHeight="440">
             <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
@@ -281,7 +287,7 @@
         </Border>
 
         <!-- Numaralı sayfalama + kayıt bilgisi — EN SOLDA, tablonun ÜSTÜNDE (kullanıcı isteği 2026-07-18/19). -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
                 <Button Classes="Secondary" Content="‹" Padding="10,4"
                         Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
@@ -304,7 +310,7 @@
         </StackPanel>
 
         <!-- Liste -->
-        <Panel Grid.Row="2" Margin="0,16,0,0">
+        <Panel Grid.Row="3" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
               <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <DockPanel HorizontalAlignment="Left">
@@ -533,6 +539,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Faaliyet yok" Message="Filtre kriterine uygun faaliyet bulunamadı." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="5" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>
