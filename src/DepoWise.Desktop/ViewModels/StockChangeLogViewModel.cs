@@ -42,7 +42,16 @@ public sealed partial class StockChangeLogViewModel : ViewModelBase
             long? from = FromDate is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
             long? to = ToDate is { } t ? new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
             foreach (var a in DesktopServices.StockChangeLog.List(_session, from, to, Limit)) Items.Add(a);
-            Status = Items.Count == 0 ? "Seçilen ölçütlerde kayıt yok." : $"{Items.Count} kayıt (salt okunur)";
+
+            // ⭐ LST-01 (2026-09-07) — SESSİZ KESME KALDIRILDI.
+            // Bu ekran en fazla `Limit` satır okur ve eskiden OKUDUĞU satır sayısını yazıyordu:
+            // 10.000 kaydı olan firmada "300 kayıt" görünüyor, geri kalanı kullanıcıdan SESSİZCE
+            // gizleniyordu. Artık gerçek toplam ayrıca sorulur ve tavana takıldığı açıkça söylenir.
+            var toplam = DesktopServices.StockChangeLog.Sayim(_session, from, to);
+            Status = toplam == 0 ? "Seçilen ölçütlerde kayıt yok."
+                : toplam > Items.Count
+                    ? $"{toplam} kayıt — en yenisinden {Items.Count} tanesi gösteriliyor. Daraltmak için tarih aralığı kullanın. (salt okunur)"
+                    : $"{toplam} kayıt (salt okunur)";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(HasRows));

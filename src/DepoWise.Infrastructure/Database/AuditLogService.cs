@@ -83,6 +83,30 @@ WHERE a.company_id = @c");
     }
 
     /// <summary>
+    /// ⭐ LST-01 (2026-09-07) — AYNI FİLTREDEKİ GERÇEK TOPLAM.
+    ///
+    /// <see cref="List"/> en fazla <c>limit</c> satır döner. Ekran, dönen satır sayısını "toplam"
+    /// diye yazarsa 10.000 kayıtlı bir firmada kullanıcı "300 kayıt var" sanır ve geri kalanı
+    /// SESSİZCE kaybolur. Bu yüzden ekran gerçek toplamı buradan sorar ve tavana takıldığını
+    /// kullanıcıya açıkça söyler. Sayım, listeyle AYNI koşulu kullanır — aksi hâlde iki sayı
+    /// birbirini tutmaz.
+    /// </summary>
+    public int Sayim(SessionContext s, long? fromMs = null, long? toMs = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var sb = new System.Text.StringBuilder("SELECT COUNT(*) FROM audit_logs a WHERE a.company_id = @c");
+        if (fromMs is not null) sb.Append(" AND a.created_at >= @from");
+        if (toMs is not null) sb.Append(" AND a.created_at <= @to");
+        cmd.CommandText = sb.Append(';').ToString();
+        cmd.AddWithValue("@c", s.CompanyId);
+        if (fromMs is not null) cmd.AddWithValue("@from", fromMs.Value);
+        if (toMs is not null) cmd.AddWithValue("@to", toMs.Value);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    /// <summary>
     /// ⭐ LOG-01 (kullanıcı isteği 2026-08-27) — EKRANA ÖZEL KAYIT GEÇMİŞİ.
     ///
     /// Her ekranın kendi log düğmesi buradan beslenir ve YALNIZ o ekranın varlık tiplerini gösterir

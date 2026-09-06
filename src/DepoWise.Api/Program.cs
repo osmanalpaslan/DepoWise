@@ -4749,6 +4749,11 @@ app.MapGet("/api/audit/screen", (HttpContext c, string module, long? from, long?
 app.MapGet("/api/audit", (HttpContext c, long? from, long? to, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.AuditLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
 
+// LST-01 (2026-09-07): AYNI filtredeki GERCEK toplam. Liste tavanlidir; ekran donen satir
+// sayisini "toplam" diye yazarsa kayitlar SESSIZCE gizlenir. Ekran bu uctan gercek sayiyi alir.
+app.MapGet("/api/audit/count", (HttpContext c, long? from, long? to) =>
+    S(c) is { } s ? Results.Ok(new { total = svc.AuditLog.Sayim(s, from, to) }) : Results.Unauthorized()).RequireAuthorization();
+
 // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — TEK KAYDIN KENDİ LOG EKRANI.
 // "her kaydın kendine ait bir log ekranı olmalı": seçili kaydın TÜM geçmişi + alan bazlı fark
 // ("hangi alanda neyi güncelledi"). Yetki servistedir: btn-screen-log + kaydın ait olduğu ekranda View.
@@ -4770,6 +4775,10 @@ app.MapPost("/api/stock/change-log", (HttpContext c, StockChangeLogDto d) =>
 // GET: log görüntüleme (Tarih Aralığı + kayıt sayısı). Yetki: module stock_change_log.
 app.MapGet("/api/stock/change-log", (HttpContext c, long? from, long? to, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.StockChangeLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
+
+// LST-01 (2026-09-07): ayni filtredeki gercek toplam (bkz. /api/audit/count).
+app.MapGet("/api/stock/change-log/count", (HttpContext c, long? from, long? to) =>
+    S(c) is { } s ? Results.Ok(new { total = svc.StockChangeLog.Sayim(s, from, to) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Sunucu veritabanı yedeği (Yedek Yönetimi'nin web karşılığı) ──
 // GUV-A2 (2026-08-18): eskiden yalnız "oturum var mı" bakılıyordu → HER firmanın HER kullanıcısı

@@ -117,6 +117,26 @@ WHERE l.company_id = @c");
         return list;
     }
 
+    /// <summary>
+    /// ⭐ LST-01 (2026-09-07) — AYNI FİLTREDEKİ GERÇEK TOPLAM.
+    /// <see cref="List"/> tavanlıdır; ekran dönen satır sayısını "toplam" diye yazarsa kayıtlar
+    /// SESSİZCE gizlenir. Ekran gerçek toplamı buradan sorar ve tavana takıldığını kullanıcıya söyler.
+    /// </summary>
+    public int Sayim(SessionContext s, long? fromMs = null, long? toMs = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var sb = new System.Text.StringBuilder("SELECT COUNT(*) FROM stock_change_logs l WHERE l.company_id = @c");
+        if (fromMs is not null) sb.Append(" AND l.created_at >= @from");
+        if (toMs is not null) sb.Append(" AND l.created_at <= @to");
+        cmd.CommandText = sb.Append(';').ToString();
+        cmd.AddWithValue("@c", s.CompanyId);
+        if (fromMs is not null) cmd.AddWithValue("@from", fromMs.Value);
+        if (toMs is not null) cmd.AddWithValue("@to", toMs.Value);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
     private (string? Code, string? Name) ReadMaterial(string companyId, string materialId)
     {
         using var conn = _factory.Create();

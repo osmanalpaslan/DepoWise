@@ -75,6 +75,15 @@ else
                 </RowTemplate>
             </MudTable>
             <MudText Typo="Typo.caption" Class="mud-text-secondary">@filtered.Count / @_rows.Length kayıt</MudText>
+            @* LST-01: liste tavanli. Toplam, gosterilenden BUYUKSE kullaniciya acikca soylenir. *@
+            @if (_gercekToplam > _rows.Length)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="ml-3">
+                    Toplam <b>@_gercekToplam.ToString("N0")</b> kayıt var; en yenisinden
+                    <b>@_rows.Length.ToString("N0")</b> tanesi gösteriliyor. Tarih aralığını daraltın
+                    ya da satır sayısını artırın.
+                </MudAlert>
+            }
         }
     }
 </MudPaper>
@@ -87,6 +96,8 @@ else
     // Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06) — StockMovements.razor ile AYNI desen.
     private DateTime? _from, _to;
     private readonly int[] _limitOptions = { 100, 300, 500, 1000, 2000, 5000 };
+    /// <summary>Aynı filtredeki GERÇEK toplam (liste tavanlı olduğu için ayrıca sorulur, LST-01).</summary>
+    private int _gercekToplam;
     private int _limit = 300;
 
     protected override async Task OnInitializedAsync() => await Load();
@@ -100,6 +111,12 @@ else
             if (_from is { } f) qs.Add($"from={DepoWise.Web.Services.FieldChecks.ToUnixMs(f)}");
             if (_to is { } t) qs.Add($"to={DepoWise.Web.Services.FieldChecks.ToUnixMs(t, endOfDay: true)}");
             _rows = await Api.GetArrayAsync("/api/audit?" + string.Join("&", qs));
+
+            // LST-01 (2026-09-07): liste TAVANLIDIR; donen satir sayisi toplam DEGILDIR.
+            // Gercek toplam ayni filtreyle ayrica sorulur, tavana takilirsa kullaniciya soylenir.
+            var sayimQs = qs.Where(x => !x.StartsWith("limit=")).ToList();
+            var sayim = await Api.GetObjectAsync("/api/audit/count" + (sayimQs.Count > 0 ? "?" + string.Join("&", sayimQs) : ""));
+            _gercekToplam = sayim.ValueKind == JsonValueKind.Object && sayim.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : _rows.Length;
         }
         catch { _rows = Array.Empty<JsonElement>(); }
         _entities = _rows.Select(r => Str(r, "entityType")).Where(x => x != "").Distinct().OrderBy(x => x).ToList();

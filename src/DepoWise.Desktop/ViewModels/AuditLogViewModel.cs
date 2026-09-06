@@ -42,7 +42,17 @@ public sealed partial class AuditLogViewModel : ViewModelBase
             long? from = FromDate is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
             long? to = ToDate is { } t ? new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
             foreach (var a in DesktopServices.Audit.List(_session, from, to, Limit)) Items.Add(a);
-            Status = Items.Count == 0 ? "Seçilen ölçütlerde kayıt yok." : $"{Items.Count} kayıt (loglar silinemez)";
+
+            // ⭐ LST-01 (2026-09-07) — SESSİZ KESME KALDIRILDI.
+            // Bu ekran en fazla `Limit` satır okur ve eskiden OKUDUĞU satır sayısını yazıyordu:
+            // 10.000 kaydı olan firmada "300 kayıt" görünüyor, geri kalanı SESSİZCE gizleniyordu.
+            // Denetim izi tam da geriye bakmak için tutulur; eksik olduğunu söylememek en kötüsüdür.
+            var toplam = DesktopServices.Audit.Sayim(_session, from, to);
+            Status = toplam == 0 ? "Seçilen ölçütlerde kayıt yok."
+                : toplam > Items.Count
+                    ? $"{toplam} kayıt — en yenisinden {Items.Count} tanesi gösteriliyor. " +
+                      "Tümünü görmek için tarih aralığını daraltın ya da satır sayısını artırın. (loglar silinemez)"
+                    : $"{toplam} kayıt (loglar silinemez)";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(HasRows));
