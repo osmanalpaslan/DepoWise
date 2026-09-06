@@ -369,7 +369,10 @@ public class PersonnelImportTests : IDisposable
         Assert.Equal(12, _titles.List(_admin).Count);
         // 12 unvan; 8 şantiye ARTIK oluşturulmuyor (önceden tanımlı) → yalnız 12.
         Assert.Equal(12, created.Count);
-        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"3000 personel {sw.Elapsed.TotalSeconds:0} sn sürdü — çok yavaş (önbellek bozulmuş olabilir).");
+        // PERFORMANS ESIGI (2026-09-07, olculdu): bu tur testler tam suitte paralel kostugu icin
+        // duvar saati 33 KATA kadar sisebiliyor (olculen: bos makine 5,5 sn, suit altinda 185 sn).
+        // Sinir, gurultunun DISINA tasindi; amac algoritmik bozulmayi (N+1 gibi) yakalamaktir.
+        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(6), $"3000 personel {sw.Elapsed.TotalSeconds:0} sn surdu — algoritmik bir yavaslama olmali (bos makinede bu is saniyeler surer).");
     }
 
     /// <summary>⚠️ REGRESYON: PersonnelService.List (PageRequest) 200 ile SINIRLIDIR. Mükerrer kontrolü buna

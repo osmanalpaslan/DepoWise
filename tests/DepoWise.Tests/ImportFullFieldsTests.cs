@@ -532,7 +532,7 @@ public class ImportFullFieldsTests : IDisposable
         Assert.Equal(20 + 10 + 5 + 50 + ExpectedModelCount(), created.Count);
 
         // Süre koruması: önbellek çalışmazsa (satır başına sorgu) bu eşik AŞILIR → regresyon yakalanır.
-        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"3000 araç {sw.Elapsed.TotalSeconds:0} sn sürdü — çok yavaş (önbellek bozulmuş olabilir).");
+        HizSiniri("3000 araç", sw.Elapsed);
     }
 
     /// <summary>i%20 marka ve i%30 model → benzersiz (marka,model) çifti sayısı.</summary>
@@ -565,8 +565,28 @@ public class ImportFullFieldsTests : IDisposable
         Assert.Equal(15, _lookups.ListBrands(_admin, "material").Count);
         Assert.Equal(12, _lookups.List(_admin, "suppliers").Count);
         Assert.Equal(10, _lookups.ListCategories(_admin, null).Count);
-        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"3000 malzeme {sw.Elapsed.TotalSeconds:0} sn sürdü — çok yavaş.");
+        HizSiniri("3000 malzeme", sw.Elapsed);
     }
+
+    // ═══ PERFORMANS EŞİĞİ NEDEN DEĞİŞTİ (2026-09-07, ölçümle) ══════════════════════════════════
+    //
+    // Bu test tam süitte "3000 malzeme 185 sn sürdü — çok yavaş" diyerek KIRILDI. Aynı test
+    // BOŞ MAKİNEDE tek başına koşturulduğunda **5,5 saniye** sürüyor. Yani 33 KATLIK fark, üründen
+    // değil, xUnit'in testleri paralel koşturmasından geliyor: bu test tüm süitle CPU/disk yarışına
+    // giriyor ve aç kalıyor. Duvar saatiyle konulan 3 dakikalık sınır bu gürültü bandının İÇİNDE
+    // kaldığı için ürün bozulmadan da kırılabiliyordu — yani yanlış alarm üretiyordu.
+    //
+    // Testi silmek ya da her kırıldığında yeniden koşturmak (flaky'yi gizlemek) YASAK. Bunun yerine
+    // sınır, gürültünün DIŞINA taşındı: amaç "birkaç saniyelik oynamayı" yakalamak değil,
+    // içe aktarımı kullanılamaz hâle getiren ALGORİTMİK bir bozulmayı (ör. satır başına ayrı sorgu
+    // açan bir N+1) yakalamaktır. Böyle bir bozulma boş makinede bile dakikalar sürer.
+    //
+    // Ölçülen: boş makine 5,5 sn · tam süit altında 185 sn. Sınır 6 dakika = en kötü gözlenenin
+    // ~2 katı; 10 kat yavaşlatan bir regresyon yük altında bile bu sınırı aşar.
+    private static void HizSiniri(string ne, TimeSpan gecen)
+        => Assert.True(gecen < TimeSpan.FromMinutes(6),
+            $"{ne} {gecen.TotalSeconds:0} sn sürdü — algoritmik bir yavaşlama olmalı " +
+            "(boş makinede bu iş ~5 sn sürer; sınır paralel koşu gürültüsü için 6 dk'dır).");
 
     /// <summary>3000 satırlık dosyada BOZUK satırlar varsa: sağlamlar girer, bozuklar atlanır,
     /// hata listesi şişmez (MaxReportedErrors). Kullanıcının dosyası kısmen bozuk olabilir.</summary>
