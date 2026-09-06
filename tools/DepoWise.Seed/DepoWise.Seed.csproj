@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ═══ YÜK TESTİ TOHUMLAMA ARACI (kullanıcı isteği 2026-09-06) ═══
+
+    Kullanıcı: "yeni kayıt girilebilen ekranlarda 10.000 data olmalı ki tablolar dolu olduğunda
+    sistemin nerelerde hataya düşeceğini bilelim… ekranlara boş girip çıkıyorsun."
+
+    Bu araç YALNIZ TEST ORTAMLARI içindir. Üretim veritabanına bağlanmaz: yolu komut satırından
+    alır ve çalışmadan önce yolun bir QA dizini olduğunu doğrular (bkz. Program.cs güvenlik kapısı).
+
+    Çözümde (DepoWise.sln) YER ALMAZ; "dotnet run" ile elle çalıştırılır (bkz. Program.cs başlığı).
+    Böylece ana derlemeyi, testleri ve yayın paketini hiçbir şekilde etkilemez.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DepoWise.Seed</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+  </ItemGroup>
+
+</Project>

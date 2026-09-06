@@ -91,8 +91,15 @@
                             Sunucuya ulaşılamıyor. Sohbet yalnız çevrimiçiyken çalışır.
                         </MudAlert>
                     }
-                    @foreach (var k in Gorunenler())
+                    @* ⭐ 2026-09-06 (kullanıcı isteği): kişiler ÇEVRİM İÇİ / ÇEVRİM DIŞI olarak
+                       GRUPLANIR ve her grubun sayısı yazılır. Kullanıcının çizdiği tasarım budur ve
+                       çevrimdışı kişilerin listede olduğu böylece tartışmasız görünür. Çevrimdışı
+                       birine de mesaj atılabilir; karşı taraf çevrimiçi olunca mesajı görür. *@
+                    @foreach (var grup in Gruplar())
                     {
+                        <div class="dw-chat-group">@grup.Baslik (@grup.Kisiler.Count)</div>
+                        @foreach (var k in grup.Kisiler)
+                        {
                         <div class="dw-chat-person" @onclick="@(() => KisiyiAc(k))">
                             <MudAvatar Size="Size.Small" Color="Color.Default">@k.Initial</MudAvatar>
                             <div class="dw-chat-person-text">
@@ -104,9 +111,10 @@
                             </div>
                             @if (k.Unread > 0)
                             {
-                                <MudBadge Content="@k.Unread" Color="Color.Error" Overlap="false" />
+                                <span class="dw-chat-tab-badge">@k.Unread</span>
                             }
                         </div>
+                        }
                     }
                     @if (!Gorunenler().Any() && !_cevrimdisi)
                     {
@@ -205,6 +213,23 @@
         return q.Length == 0
             ? _kisiler
             : _kisiler.Where(k => k.Display.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed record Grup(string Baslik, List<Kisi> Kisiler);
+
+    /// <summary>
+    /// Kişiler ÇEVRİM İÇİ / ÇEVRİM DIŞI olarak gruplanır (kullanıcının çizdiği tasarım).
+    /// BOŞ grup çizilmez — "Çevrim İçi (0)" başlığı bilgi vermez, yer kaplar.
+    /// </summary>
+    private List<Grup> Gruplar()
+    {
+        var gorunen = Gorunenler().ToList();
+        var liste = new List<Grup>();
+        var ici = gorunen.Where(k => k.Online).ToList();
+        var disi = gorunen.Where(k => !k.Online).ToList();
+        if (ici.Count > 0) liste.Add(new Grup("Çevrim İçi", ici));
+        if (disi.Count > 0) liste.Add(new Grup("Çevrim Dışı", disi));
+        return liste;
     }
 
     private void AraligiAyarla()

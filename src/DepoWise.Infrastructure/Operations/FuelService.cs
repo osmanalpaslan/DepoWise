@@ -448,9 +448,13 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
         var list = new List<FuelDistributionRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
+            // ⭐ Sayaç sütunları şemada NULL kabul eder; korumasız okunursa TEK bir eksik kayıt
+            // tüm listeyi/özeti çökertir (bkz. aynı dosyadaki grid okuması).
             list.Add(new FuelDistributionRow(
                 r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
-                Money.Parse(r.GetString(3)), Money.Parse(r.GetString(4)), Money.Parse(r.GetString(5)),
+                r.IsDBNull(3) ? 0m : Money.Parse(r.GetString(3)),
+                r.IsDBNull(4) ? 0m : Money.Parse(r.GetString(4)),
+                Money.Parse(r.GetString(5)),
                 Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
                 r.IsDBNull(10) ? null : r.GetString(10),
                 r.IsDBNull(11) ? null : r.GetString(11),
@@ -553,9 +557,16 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@off", (page - 1) * pageSize);
             using var r = cmd.ExecuteReader();
             while (r.Read())
+                // ⭐ DÜZELTME (10.000 kayıtlık yük testi, 2026-09-06): prev_meter ve current_meter
+                // sütunları şemada NULL KABUL EDER (notnull=0) ama burada korumasız okunuyordu.
+                // Tek bir NULL satır TÜM Yakıt Dağıtımları listesini çökertiyordu:
+                // "The data is NULL at ordinal 3." Bir liste, tek bir eksik alan yüzünden hiç
+                // açılmamalı — eksik sayaç 0 olarak gösterilir, kayıt görünür kalır.
                 list.Add(new FuelDistributionRow(
                     r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
-                    Money.Parse(r.GetString(3)), Money.Parse(r.GetString(4)), Money.Parse(r.GetString(5)),
+                    r.IsDBNull(3) ? 0m : Money.Parse(r.GetString(3)),
+                    r.IsDBNull(4) ? 0m : Money.Parse(r.GetString(4)),
+                    Money.Parse(r.GetString(5)),
                     Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8), r.GetInt64(9) == 1,
                     r.IsDBNull(10) ? null : r.GetString(10),
                     r.IsDBNull(11) ? null : r.GetString(11),
