@@ -932,7 +932,15 @@ public sealed partial class ShellViewModel : ViewModelBase
                 if (!restart) { AutoUpdateService.Snooze(); return; }
 
                 SetConn("#3B82F6", "Yeniden başlatılıyor…");
-                AutoUpdateService.InstallPendingNow(); // uygulamayı kapat → yardımcı kopyalar + yeniden açar
+                if (!AutoUpdateService.InstallPendingNow())   // başarıda uygulama kapanır
+                {
+                    // Kurulum yapılamadı: çalışmaya devam edilir, sebep söylenir (2026-09-07).
+                    SetConn("#EF4444", "Güncelleme kurulamadı");
+                    await ConfirmService.InfoAsync(
+                        "Güncelleme kurulamadı, bu sürümle devam ediliyor.\n\nSebep: " +
+                        (AutoUpdateService.SonKurulumHatasi ?? "bilinmiyor"),
+                        "Güncelleme Kurulamadı", "Tamam");
+                }
             }
             finally { _updateBusy = false; }
         }

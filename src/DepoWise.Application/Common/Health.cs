@@ -8,7 +8,9 @@ public sealed record HealthResult(
     string JournalMode,
     bool ForeignKeysOn,
     bool WriteReadOk,
-    string? Error = null);
+    string? Error = null,
+    /// <summary>Açılışta bozuk indeks bulunup KENDİLİĞİNDEN onarıldıysa doludur (bilgi amaçlı; hata değildir).</summary>
+    string? Onarim = null);
 
 /// <summary>Yerel veritabanı sağlık kontrolü sözleşmesi (Infrastructure implemente eder).</summary>
 public interface IDatabaseHealth

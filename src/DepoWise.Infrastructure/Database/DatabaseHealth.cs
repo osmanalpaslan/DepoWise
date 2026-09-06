@@ -54,18 +54,51 @@ public sealed class DatabaseHealth : IDatabaseHealth
             // quick_check tercih edildi: integrity_check tam tarama yapar ve büyük veritabanında
             // ekranı bekletir; quick_check aynı sınıf bozulmayı (sayfa/btree) yakalar, çok daha hızlıdır.
             string? bozulma = null;
+            string? onarim = null;
             if (sqlite)
             {
                 var sonuc = ScalarText(conn, "PRAGMA quick_check(1);");
                 if (!string.Equals(sonuc, "ok", StringComparison.OrdinalIgnoreCase))
-                    bozulma = "Veritabanı dosyası hasarlı görünüyor. Verileriniz sunucuda güvendedir; " +
-                              "Ayarlar → Yedekler'den son geçerli yedeği geri yükleyin ya da yöneticinize başvurun. " +
-                              "Teknik ayrıntı: " + sonuc;
+                {
+                    // ⭐ KENDİ KENDİNE ONARIM (kullanıcı bildirimi 2026-09-07) ──────────────────────
+                    //
+                    // YAŞANAN: kullanıcı 1.0.184'e güncelledi, sonra uygulama HİÇ AÇILMADI. Açılış
+                    // günlüğündeki tek satır şuydu: "wrong # of entries in index ix_audit_company_time".
+                    // Yani bozulan şey bir İNDEKSTİ; kullanıcının verisi yerindeydi (sayımlar birebir
+                    // aynıydı) ama uygulama açılmayı tümden reddediyor ve "yedeği geri yükleyin"
+                    // diyordu. Bu, onarılabilir bir durum için fazla ağır bir cezaydı.
+                    //
+                    // İNDEKS TÜRETİLMİŞ VERİDİR: tablodan yeniden üretilir, hiçbir kaydı değiştirmez.
+                    // Bu yüzden yalnız indeks kaynaklı bozulmada REINDEX denenir ve kontrol tekrarlanır.
+                    // Düzeldiyse uygulama normal açılır (olay günlüğe yazılır); düzelmediyse ya da
+                    // bozulma TABLO sayfalarındaysa eski davranış aynen korunur — veri riski olan
+                    // durumda uygulama açılmamalıdır.
+                    if (sonuc.Contains("index", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            Execute(conn, "REINDEX;");
+                            var tekrar = ScalarText(conn, "PRAGMA quick_check(1);");
+                            if (string.Equals(tekrar, "ok", StringComparison.OrdinalIgnoreCase))
+                                onarim = "Bozuk indeks açılışta onarıldı (REINDEX). Kayıtlara dokunulmadı. " +
+                                         "Bulunan: " + sonuc;
+                            else
+                                sonuc = tekrar;   // onarım tutmadı → asıl hatayı bildir
+                        }
+                        catch (Exception ex) { sonuc += " (onarım denendi, başarısız: " + ex.Message + ")"; }
+                    }
+
+                    if (onarim is null)
+                        bozulma = "Veritabanı dosyası hasarlı görünüyor. Verileriniz sunucuda güvendedir; " +
+                                  "Ayarlar → Yedekler'den son geçerli yedeği geri yükleyin ya da yöneticinize başvurun. " +
+                                  "Teknik ayrıntı: " + sonuc;
+                }
             }
 
             return Task.FromResult(new HealthResult(
                 Ok: writeRead && fk && bozulma is null,
                 Error: bozulma,
+                Onarim: onarim,
                 Host: host,
                 DatabasePath: _factory.DatabasePath,
                 JournalMode: journal,

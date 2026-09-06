@@ -92,8 +92,12 @@ public partial class App : Avalonia.Application
                         if (install)
                         {
                             vm.Status = "Güncelleme kuruluyor, yeniden başlatılıyor…";
-                            AutoUpdateService.InstallPendingNow();   // uygulama kapanır + yeniden açılır
-                            return;
+                            if (AutoUpdateService.InstallPendingNow()) return;   // başarıda uygulama kapanır
+                            // Kurulum yapılamadı: kullanıcı KİLİTLENMEZ, sebebi söylenir ve uygulama açılır.
+                            await ConfirmService.InfoAsync(
+                                "Güncelleme kurulamadı, bu sürümle devam ediliyor.\n\nSebep: " +
+                                (AutoUpdateService.SonKurulumHatasi ?? "bilinmiyor"),
+                                "Güncelleme Kurulamadı", "Tamam");
                         }
                         AutoUpdateService.Snooze();   // ertele: main açılır, 10 dk sonra tekrar sorulur
                     }

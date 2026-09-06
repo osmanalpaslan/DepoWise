@@ -46,8 +46,13 @@ public partial class MainWindow : Window
                 $"Bekleyen bir güncelleme var (sürüm {AutoUpdateService.PendingVersion}).\n\n" +
                 "Uygulama kapatılmadan güncelleme kurulacak ve yeniden başlatılacaktır.",
                 "Güncelleme Kuruluyor", "Tamam");
-            AutoUpdateService.InstallPendingNow();   // kapanır + yeniden başlar
-            return;
+            if (AutoUpdateService.InstallPendingNow()) return;   // başarıda kapanır + yeniden başlar
+            // Kurulum yapılamadı (2026-09-07): kullanıcı kapatamadan kilitlenmemeli — sebebi söylenir
+            // ve normal kapanış akışına devam edilir.
+            await ConfirmService.InfoAsync(
+                "Güncelleme kurulamadı, uygulama normal şekilde kapatılacak.\n\nSebep: " +
+                (AutoUpdateService.SonKurulumHatasi ?? "bilinmiyor"),
+                "Güncelleme Kurulamadı", "Tamam");
         }
 
         var ok = await ConfirmService.AskAsync(

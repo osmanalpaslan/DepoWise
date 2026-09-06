@@ -40,8 +40,11 @@ public static class DesktopBootstrap
             var root = System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData);
             var dir = Path.Combine(root, AppPaths.AppFolderName, "Logs");
             Directory.CreateDirectory(dir);
+            // ⭐ Onarım bilgisi de yazılır (2026-09-07): bozuk indeks kendiliğinden onarıldıysa
+            // bunun izi kalmalı — "uygulama neden bir kez geç açıldı" sorusu sonradan cevaplanabilsin.
             var line = $"{DateTimeOffset.UtcNow:O}\tstartup\thost={r.Host}\tdb={r.DatabasePath}\t" +
-                       $"journal={r.JournalMode}\tfk={r.ForeignKeysOn}\twriteRead={r.WriteReadOk}\tok={r.Ok}\terr={r.Error}";
+                       $"journal={r.JournalMode}\tfk={r.ForeignKeysOn}\twriteRead={r.WriteReadOk}\tok={r.Ok}\terr={r.Error}" +
+                       (string.IsNullOrEmpty(r.Onarim) ? "" : $"\tonarim={r.Onarim}");
             File.AppendAllText(Path.Combine(dir, "startup.log"), line + System.Environment.NewLine);
         }
         catch { /* log hatası açılışı engellemez */ }

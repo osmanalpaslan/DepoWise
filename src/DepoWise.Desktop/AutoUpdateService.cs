@@ -70,12 +70,37 @@ public static class AutoUpdateService
         catch { return HasPending; }
     }
 
-    /// <summary>Bekleyen paketi kurar + uygulamayı yeniden başlatır. Bu çağrıdan sonra uygulama KAPANIR.</summary>
-    public static void InstallPendingNow()
+    /// <summary>Kurulum denemesi başarısızsa sebebi (arayüzde gösterilir). Başarıda null.</summary>
+    public static string? SonKurulumHatasi { get; private set; }
+
+    /// <summary>
+    /// Bekleyen paketi kurar + uygulamayı yeniden başlatır. Başarıda bu çağrıdan DÖNÜLMEZ (uygulama kapanır).
+    /// <b>false</b> dönerse kurulum yapılamadı ve uygulama çalışmaya devam etmelidir.
+    ///
+    /// <para>⭐ 2026-09-07: eskiden hata FIRLATIYORDU. Çağıranların ikisi <c>async void</c> olduğu için
+    /// (pencere kapanışı ve giriş akışı) fırlayan hata YAKALANAMIYOR ve uygulama sessizce ölüyordu —
+    /// kullanıcı "güncelledim, uygulama hiç açılmıyor" durumuyla kalıyordu. Artık hata yutulmaz ama
+    /// FIRLATILMAZ da: sebebi <see cref="SonKurulumHatasi"/>'na yazılır, çağıran kullanıcıya söyler
+    /// ve uygulama normal şekilde açılmaya devam eder.</para>
+    /// </summary>
+    public static bool InstallPendingNow()
     {
-        if (!HasPending) return;
-        UpdateInstaller.InstallAndRestart(PendingBytes!, PendingVersion!, PendingChecksum!);
+        SonKurulumHatasi = null;
+        if (!HasPending) return false;
+        try
+        {
+            UpdateInstaller.InstallAndRestart(PendingBytes!, PendingVersion!, PendingChecksum!);
+        }
+        catch (Exception ex)
+        {
+            SonKurulumHatasi = ex.Message;
+            // Bozuk/doğrulanamayan paketi elde tutma: aynı oturumda tekrar tekrar denenip
+            // kullanıcıyı kilitlemesin. Bir sonraki girişte yeniden indirilir.
+            ClearPending();
+            return false;
+        }
         Environment.Exit(0);   // uygulama kapanır → harici yardımcı kopyalar + yeniden açar
+        return true;
     }
 
     /// <summary>Güncelleme sunucusu: DB ayarı yoksa kurulum aracının yazdığı serverurl.txt.</summary>
