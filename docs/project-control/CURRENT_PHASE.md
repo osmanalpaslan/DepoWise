@@ -1,5 +1,43 @@
 # AKTİF DURUM
 
+## ✅ YAYIN — 2026-09-06: kullanıcı bildirimli 4 düzeltme (masaüstü 1.0.181, Web v218)
+
+Kullanıcının canlıda gördüğü hatalar; sırayla bildirildi, tek turda yayınlandı.
+
+| # | Hata (kullanıcının cümlesi) | Kök neden | Kapsam |
+|---|---|---|---|
+| 1 | "Günlük Faaliyet ekranındaki yeni kayıt formu girişini göremiyorum" | FAZ 4.9 filtreleri Toolbar'ın içine konmuştu; Toolbar tek satırlık grid, satır taşınca "Yeni Kayıt Oluştur" görünür alanın DIŞINDA kaldı | masaüstü |
+| 2 | "Korumalı alanlar kısmı alt bar gibi olmuş, sayfanın içeriğini daraltmış" | Bölüm dış grid'de ayrı ve `Auto` yükseklikli satırdaydı; liste uzadıkça yetki ağacının yerini yiyordu | masaüstü |
+| 3 | "Şube kapsamı ve korumalı alanlarda düzenle butonuna tıklamadan aktif/pasif yapabiliyorum" | İki bölüm de düzenleme moduna bağlı değildi; **korumalı alan kutusu ANINDA kaydediyordu** (kaydet düğmesi yok) | masaüstü **+ web** |
+| 4 | "Kullanıcıyı ve makineyi Düzce'ye atadım ama giriş hâlâ Karaman getiriyor" | Varsayılan şube YEREL aynadan okunuyordu; sunucu paketi yerele üç adımda yazılıyor ve biri sessizce düşerse ekran eski şubeyi öneriyordu | masaüstü |
+
+**#4 için ölçüm (canlı, salt-okunur):** sunucu doğruydu — kullanıcı → DÜZCE, makine → DÜZCE,
+kapsamda DÜZCE var. Hata atamada değil, masaüstünün yerel kopyayı otorite saymasındaydı.
+Artık çevrimiçi girişte otorite **sunucunun yanıtıdır**; kapsam kırpması kullanıcının kendi
+şubesini listeden atmaz. Şube adımı yine gelir, kullanıcı seçimi değiştirebilir.
+
+### Sürümler
+
+| Bileşen | Sürüm | Not |
+|---|---|---|
+| Masaüstü | **1.0.181** | checksum `462df10b7775…`, 86.5 MB |
+| Web | **v218** | yalnız Yetkiler ekranı (düzenleme modu kapısı) |
+| API | **v189 — DEĞİŞMEDİ** | `src/DepoWise.Api`, `Application`, `Infrastructure` bu turda hiç değişmedi (0 dosya) |
+| Migration | **YOK** | şemaya dokunulmadı |
+| Yedek | alınmadı — **gerekçe:** şema ve API değişmedi, veri yapısını etkileyen hiçbir adım yok. Son yedek: `depowise_prod_20260906_040646.dump` |
+
+**Doğrulama:** web `/`, `/permissions`, `/sync-conflicts` → 200 · API `/health` → 200 ·
+masaüstü sunucudaki en güncel sürüm 1.0.181 olarak doğrulandı.
+
+**Test:** kullanıcı isteğiyle kapsamlı test yapılmadı. Değişen alanların hedefli testleri koşturuldu:
+133 + 65 + 42 = **240 test geçti**, Desktop ve Web build 0 hata. İki yeni regresyon test dosyası
+eklendi: `DuzenlemeModuKapisiTests`, `GirisVarsayilanSubeTests`.
+
+⚠️ **Not:** #4 düzeltmesi babanın makinesine ancak masaüstü güncellemesi kurulunca geçer. O ana kadar
+giriş ekranında şubeyi elle DÜZCE seçmesi yeterlidir — kayıtlar seçilen şubeye yazılır.
+
+---
+
 ## 🔧 DÜZELTME — 2026-09-06: Günlük Faaliyet "Yeni Kayıt Oluştur" düğmesi (masaüstü 1.0.180)
 
 Kullanıcı bildirdi: Günlük Faaliyet ekranında yeni kayıt formu girişi görünmüyor.
