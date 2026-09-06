@@ -103,6 +103,7 @@ public sealed partial class BranchScopeSelector : ObservableObject
         }
 
         BuildPicks();   // çoklu seçim listesi (web BranchPicker ile aynı semantik)
+        _kurulumBitti = true;   // ⭐ H5: bundan SONRAKİ değişiklikler ekranı yeniler (yarış durumu düzeltmesi)
     }
 
     /// <summary>
@@ -135,7 +136,7 @@ public sealed partial class BranchScopeSelector : ObservableObject
         SyncPicks();
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(SelectionText));
-        _changed();
+        Tetikle();
     }
 
     /// <summary>Picks işaretlerini Selected ile eşitler (tetikleme yapmadan).</summary>
@@ -156,7 +157,7 @@ public sealed partial class BranchScopeSelector : ObservableObject
         SyncPicks();
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(SelectionText));
-        _changed();
+        Tetikle();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════════════
@@ -192,6 +193,28 @@ public sealed partial class BranchScopeSelector : ObservableObject
 
     private bool _suppress;   // toplu değişimde tek yenileme
 
+    /// <summary>
+    /// ⭐ H5 (2026-09-06, kullanıcının bildirdiği hata) — KURULUM SIRASINDA YENİLEME TETİKLENMEZ.
+    ///
+    /// Kurucu içindeki <c>Single = varsayilan;</c> ataması <see cref="OnSingleChanged"/> → <c>_changed()</c>
+    /// zincirini KURUCU DAHA BİTMEDEN çalıştırıyordu. O anda çağıran ViewModel'in <c>BranchScope</c>
+    /// özelliği HENÜZ ATANMAMIŞ (null) olduğu için, geri çağırmanın tetiklediği <c>Load()</c> metodu
+    /// <c>BranchScope.Filter</c> satırında NullReferenceException atıyordu → ekranda
+    /// <i>"Liste yüklenemedi: Object reference not set to an instance of an object."</i>
+    ///
+    /// <b>Neden bazen oluyordu:</b> <c>Load()</c> içindeki okuma <c>Task.Run</c> ile iş parçacığı
+    /// havuzunda çalışır. Havuz kurucudan SONRA yetişirse hata yok; ÖNCE yetişirse hata var.
+    /// Klasik yarış durumu (race condition) → "bir açıyorum oluyor, bir açıyorum olmuyor".
+    ///
+    /// <b>Davranış değişmez:</b> çağıran ViewModel zaten kurucusunun sonunda kendi <c>Load()</c>'unu
+    /// çağırır; burada bastırılan tetikleme GEREKSİZ İKİNCİ yüklemeydi (üstelik bir sorgu tasarrufu).
+    /// Etkilenen ekranlar: Cari Hesaplar · Faturalar · Kasa-Banka · Tahsilat-Ödeme.
+    /// </summary>
+    private bool _kurulumBitti;
+
+    /// <summary>Yenileme geri çağrısı — YALNIZ kurulum tamamlandıktan sonra çalışır (bkz. <see cref="_kurulumBitti"/>).</summary>
+    private void Tetikle() { if (_kurulumBitti) _changed(); }
+
     /// <summary>İşaret değişince kapsamı güncelle (tek noktadan).</summary>
     private void OnPickChanged()
     {
@@ -203,7 +226,7 @@ public sealed partial class BranchScopeSelector : ObservableObject
         _suppress = false;
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(SelectionText));
-        _changed();
+        Tetikle();
     }
 
     /// <summary>Kullanıcıya gösterilen özet: "Tüm yetkili şubeler" / "DÜZCE" / "2 şube seçili".</summary>
