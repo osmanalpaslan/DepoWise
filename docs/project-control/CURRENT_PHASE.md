@@ -1,5 +1,23 @@
 # AKTİF DURUM
 
+## 🔧 DÜZELTME — 2026-09-06: Günlük Faaliyet "Yeni Kayıt Oluştur" düğmesi (masaüstü 1.0.180)
+
+Kullanıcı bildirdi: Günlük Faaliyet ekranında yeni kayıt formu girişi görünmüyor.
+
+**Kök neden:** FAZ 4.9 filtreleri (tarih aralığı + çoklu araç) Toolbar'ın FilterContent'ine konmuştu.
+Toolbar TEK SATIRLIK bir grid; filtre şeridi büyüyünce satır taştı ve son sütundaki birincil düğme
+görünür alanın dışında kaldı. Düğme kaybolmamıştı, **erişilemiyordu**.
+
+**Düzeltme:** filtreler başlığın ALTINDA kendi satırına alındı ve WrapPanel içine kondu (dar ekranda
+alt satıra sarar). Toolbar'da yalnız başlık + birincil düğme kaldı → taşma yapısal olarak imkânsız.
+
+**Kapsam:** yalnız masaüstü. Web'de form zaten başlık altında ayrı blokta (Daily.razor) — dokunulmadı.
+
+**Yayın:** masaüstü **1.0.180** (checksum 3db7f9443bb4...). API ve web DEĞİŞMEDİ (v189 / v217).
+**Test:** ilgili 133 test geçti · Desktop build 0 hata · kapsamlı test yapılmadı (kullanıcı: acil yayın).
+
+---
+
 ## ✅ YAYIN — 2026-09-06: FAZ 4.1–4.16 (+ bekleyen FAZ 3c/3d) — **CANLIDA**
 
 | Bileşen | Sürüm | Not |
