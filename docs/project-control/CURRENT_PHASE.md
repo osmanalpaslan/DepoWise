@@ -1,10 +1,49 @@
 # AKTİF DURUM
 
-## 🟦 ÇALIŞMA — 2026-09-06: FAZ 4.1–4.16 (kullanıcının 16 isteği) — ✅ TAMAM · **YAYINLANMADI**
+## ✅ YAYIN — 2026-09-06: FAZ 4.1–4.16 (+ bekleyen FAZ 3c/3d) — **CANLIDA**
 
-> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı.
-> Sıradaki tek iş: kullanıcının kaydettiği kapsamlı test promptu (`FAZ_4_TEST_PROMPTU.md`) ile
-> uçtan uca test → başarılıysa **otomatik yayın**.
+| Bileşen | Sürüm | Not |
+|---|---|---|
+| API (`depowise-erp`) | **v189** | Migration **91 → 94** otomatik koştu (092 rol yetkileri · 093 alan korumaları · 094 çakışma görüntüleri) |
+| Web (`depowise-web`) | **v217** | `/sync-conflicts` ekranı canlıda (HTTP 200) |
+| Masaüstü | **1.0.179** | self-contained, 253 dosya, 86.5 MB · checksum `553214c7a107…` |
+| Kurulum aracı | değişmedi | `AlpnexSetup.exe` (2026-09-04) — FAZ 4'te dokunulmadı, yeniden yüklenmedi |
+| Commit | `cf77469` | 192 dosya · pushlandı |
+
+**Yayın öncesi yedek:** `artifacts/prod-backup/depowise_prod_20260906_040646.dump` (844 KB, `pg_dump -Fc`).
+
+**Yayın sonrası doğrulama (salt-okunur):**
+- `/health` ve `/` → 200 · web `/`, `/login`, `/sync-conflicts` → 200
+- `schema_migrations` son satır **94**; `data_conflicts` tablosunda `winner_json`, `loser_json`,
+  `resolution`, `resolved_by`, `resolved_at` sütunları **var**
+- `/api/sync/conflicts`, `/api/audit`, `/api/lookup-plus` → 200
+- **Veri yerinde:** araç sayısı 75 (silinme/kayıp yok)
+- **Yeni log gerçekten çalışıyor:** canlıdaki bir kayıtta `"Entity: — → material · Dosya Türü: — →
+  image/jpeg"` özeti üretildi. Yayından ÖNCEKİ satırlarda özet boş — beklenen davranış (o kayıtların
+  anlık görüntüsü yok; arayüz "öncesi bilinmiyor" der, uydurma fark üretmez).
+
+### ⚠️ Firma yöneticisinin yapması gereken TEK iş
+
+Üç yeni yetki **deny-by-default**tir; kimseye otomatik verilmez. Yetkiler ekranından ilgili rollere
+verilmelidir:
+
+| Yetki | Verilmezse |
+|---|---|
+| Şablon Dışı Araç / Malzeme Ekleme | Şablon seçmek zorunlu olur (yalnız firmada şablon varsa) |
+| Personele Kullanıcı Bağlama | Bağlama düğmesi çalışmaz |
+| Senkron Çakışmasını Çözme | Çakışma listesi görünür, kazanan değiştirilemez |
+
+Ayrıca **Senkron Çakışmaları** ekranı (Denetim grubu) yeni bir ekran modülüdür; admin dışındaki
+kullanıcıların görmesi için `sync_conflicts` yetkisi verilmelidir.
+
+**QA raporu:** `docs/tests/FAZ_4_FINAL_QA_RAPORU.md` — sonuç: *FINAL QA PASSED WITH KNOWN LOW/MEDIUM ISSUES*
+(kritik/yüksek sıfır). Kararlar: ADR-224 (log) · ADR-225 (çakışma) · ADR-226 (QA bulguları).
+
+---
+
+## 🟩 ÇALIŞMA — 2026-09-06: FAZ 4.1–4.16 (kullanıcının 16 isteği) — ✅ TAMAM · **YAYINLANDI** (yukarıdaki yayın kaydı)
+
+> Final QA tamamlandı ve yayın yapıldı — ayrıntı en üstteki yayın kaydında.
 
 İsteklerin tam metni ve uygulama durumu tablosu: `docs/project-control/FAZ_4_KULLANICI_ISTEKLERI.md`.
 
