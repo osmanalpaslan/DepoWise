@@ -19,7 +19,7 @@
 
 | # | Hata (kullanıcının cümlesi) | Ortam | Durum |
 |---|---|---|---|
-| H1 | "sohbet butonuna masaüstü uygulamanın ana sayfasında erişemiyorum" | masaüstü | ⏳ |
+| H1 | "sohbet butonuna masaüstü ana sayfasında erişemiyorum" | masaüstü | ✅ **6A+6G** — ana ekranda ve en sağda sabit, ölçüldü |
 | H2 | "webte çevirim dışı kullanıcıları göstermiyor. 2 ortam içinde çevirim dışıykende mesaj atabilmeliyim ve kişiler çevirim içi olduklarında mesajları görebilmeliler" | web (+ kural iki ortam) | ⏳ |
 | H3 | "sohbet penceresi bir duvar gibi olmalı ve arka planındaki şeyleri etkilememeli… tabloya sohbet penceresi üzerinden tıklama yapabiliyorum" | web | ⏳ |
 | H4 | "webten mesaj yollayamadım… gönder butonuna tıkladığım halde sohbet penceresinde görünmedi. ama karşıdaki kullanıcıya bildirim düştü" | web + masaüstü | ⏳ |
@@ -66,7 +66,7 @@ koşulacak (hem kod testleri hem **ekrana bağlanan** QA testleri).
 | **6H** | İ2 — 10.000 kayıt üretimi + yük altında kod ve QA testleri |
 | **6I** | Tam kapsamlı test + otomatik yayın |
 
-**Durum:** 6F bitti → sıradaki **6G** (İ1: alt bar taşma menüsü + sabit Sohbet, iki ortam).
+**Durum:** 6G bitti (masaüstü + web) → sıradaki **6H** (10.000 kayıtla ekrana bağlı QA).
 
 ---
 
@@ -158,3 +158,32 @@ yeniden yüklüyor; web'de kayıt anında görünüyor.
 masaüstünün çektiği pakette geldiğini **gerçek API üzerinden** doğrular, ayrıca masaüstü sözleşmesini
 (otomatik tazeleme + yenilenebilir ekran) korur.
 İlgili küme (senkron · ekip · tanım): **348 geçti / 1 atlandı** · masaüstü derleme **0 hata**.
+
+---
+
+## 6G — İ1 alt bar (2026-09-06)
+
+### Masaüstü — kullanıcının görseline sadık
+Soldan sağa: **sığdığı kadar sekme → "Diğer Sayfalar (N) ⌃" (YUKARI açılır) → en sağda sabit "Sohbet"**.
+
+- **Hangi sekmenin sığmadığı gerçek ölçümle** bulunur (`Controls/TasanSekmePaneli`): sekme genişliği
+  etiket uzunluğuna, ikona ve temaya bağlıdır — tahmin kırılgan olurdu. Sığmayanlar çizilmez;
+  `IsVisible`'a **dokunulmaz** (yeni ölçüm turu → titreme olurdu).
+- Menü satırları **ikonlu**; aynı isimli sekmeler tek satırda toplanır ve **adet** gösterilir (`(x2)`).
+- **Aktif sekmeye daima yer açılır.** Görsel doğrulamada bulundu: yeni açılan ekranın sekmesi listenin
+  sonuna eklendiği için bar doluyken doğrudan taşmaya düşüyordu — kullanıcı ekranı açtığı hâlde
+  sekmesini göremiyor ve şeritte hiçbir sekme vurgulu kalmıyordu.
+- Renkler tema anahtarlarından gelir → **koyu ve açık** temada doğru; köşeler yuvarlatılmış.
+
+**Çalışan uygulamada ölçüldü (1366×768):** sığan sekmeler solda · "Diğer Sayfalar (2/3)" onun sağında ·
+"Sohbet" en sağda · menü **yukarı** açıldı · aktif sekme barda ve kehribar vurgulu.
+
+### Web — aynı yetenek, kendi yerleşimiyle
+Web şeridi **üstte** ve yatay kayar; hiçbir sekme erişilemez değildir. Şeridin **sağında sabit**
+"Diğer Sayfalar (N)" menüsü eklendi: tek tıkla açık sayfaların tamamı, **ikonlu** ve **adetli**
+(`(x2)`), **aşağı** açılır (şerit üstte olduğu için tek doğru yön). Birebir taşma ölçümü yapılmadı:
+o yalnız tarayıcıda JS ile ölçülebilir ve şerit zaten kaydığı için kullanıcıya kazandıracağı bir şey yok
+(CLAUDE.md §4: işlevsel eşitlik zorunlu, piksel eşitliği değil).
+
+**Test:** `tests/DepoWise.Tests/AltBarTasmaTests.cs` — masaüstü 10 test + web 2 test, **12/12 geçti**;
+ilgili küme (şerit · tasarım paketi) **36/36**. Masaüstü ve web derlemeleri **0 hata**.

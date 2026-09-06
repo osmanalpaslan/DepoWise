@@ -1644,3 +1644,168 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     .dw-sekme-kapat { padding: 0 8px 0 4px; }
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SOHBET (ChatDock) — kullanıcı isteği 2026-09-06
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ NEDEN İZOLE CSS DEĞİL DE BURADA (2026-09-06, ölçülerek bulundu):
+   Bu stiller önce ChatDock.razor.css içindeydi. Blazor'un CSS izolasyonu kapsam
+   etiketini (b-xxxx) YALNIZ bileşenin kendi yazdığı HTML öğelerine koyar; bir ALT
+   BİLEŞENİN (MudPaper) kök öğesine KOYMAZ. Sonuç ölçüldü: sohbet penceresi
+   263x359 px, display:block, overflow:visible olarak çiziliyordu (olması gereken
+   330x470, flex, hidden) ve en önemlisi 'pointer-events: auto' hiç uygulanmadığı
+   için pencere TIKLANAMIYOR, arkasındaki tabloya tıklama GEÇİYORDU.
+   Kullanıcının bildirdiği üç hata (çevrimdışı kişiler görünmüyor · pencere duvar
+   gibi davranmıyor · web'den mesaj gönderilemiyor) hep bu tek kusurdan geliyordu.
+   Global sayfada kapsam etiketi olmadığı için kurallar MudBlazor öğelerine de işler.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.dw-chat-dock {
+    position: fixed;
+    right: 16px;
+    bottom: 0;
+    z-index: 1300;              /* MudBlazor drawer'ın üstünde, dialog'un altında */
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: none;       /* boş alan tıklamayı yutmasın */
+}
+
+.dw-chat-dock > * { pointer-events: auto; }
+
+/* Alt şerit: sekmeler + sabit sohbet düğmesi (masaüstündeki alt barın karşılığı) */
+.dw-chat-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+}
+
+.dw-chat-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 8px 8px 0 0;
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    font-size: 12.5px;
+    max-width: 190px;
+}
+
+.dw-chat-tab-label { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-chat-tab-close { cursor: pointer; opacity: .6; font-size: 11px; }
+.dw-chat-tab-close:hover { opacity: 1; color: var(--mud-palette-error); }
+
+.dw-chat-tab-badge {
+    background: var(--mud-palette-error);
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Pencereler */
+.dw-chat-window {
+    width: 330px;
+    height: 430px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.dw-chat-users { height: 470px; }
+
+.dw-chat-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    background: var(--mud-palette-background-grey);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.dw-chat-head-text { flex: 1; min-width: 0; }
+.dw-chat-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-chat-status { font-size: 10.5px; opacity: .75; display: flex; align-items: center; gap: 5px; }
+
+/* Çevrimiçi noktası — renk TEK BAŞINA anlam taşımaz, yanında metin de var */
+.dw-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dw-dot.on { background: var(--mud-palette-success); }
+.dw-dot.off { background: var(--mud-palette-text-disabled); }
+
+.dw-chat-search { padding: 8px 10px 4px; }
+
+.dw-chat-body { flex: 1; overflow-y: auto; padding: 8px; }
+
+.dw-chat-empty { text-align: center; opacity: .6; font-size: 12px; padding: 24px 8px; }
+
+/* Mesaj balonu: benimki SAĞDA. Hiza ve renk aynı bilgiyi iki kez verir. */
+.dw-msg { max-width: 78%; margin: 4px 0; padding: 7px 10px; border-radius: 10px; }
+.dw-msg .dw-msg-body { font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.dw-msg .dw-msg-time { font-size: 9.5px; opacity: .6; text-align: right; }
+.dw-msg.mine { margin-left: auto; background: var(--mud-palette-primary-hover); }
+.dw-msg.theirs { margin-right: auto; background: var(--mud-palette-background-grey); }
+
+.dw-chat-foot { padding: 8px; border-top: 1px solid var(--mud-palette-lines-default); }
+.dw-chat-input { display: flex; gap: 6px; align-items: center; }
+.dw-chat-input .mud-input-control { flex: 1; }
+
+.dw-chat-person {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dw-chat-person:hover { background: var(--mud-palette-action-default-hover); }
+.dw-chat-person-text { flex: 1; min-width: 0; }
+
+/* Dar ekran (telefon): pencereler ekranı kaplamasın */
+@media (max-width: 600px) {
+    .dw-chat-window { width: calc(100vw - 32px); }
+    .dw-chat-dock { right: 8px; }
+}
+
+/* Kişi listesi grup başlığı: "Çevrim İçi (3)" / "Çevrim Dışı (8)" — kullanıcının çizdiği tasarım. */
+.dw-chat-group {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    opacity: .6;
+    padding: 10px 8px 4px;
+}
+
+/* ═══ İ1 — sekme şeridindeki "Diğer Sayfalar" menüsü (kullanıcı tasarımı 2026-09-06) ═══
+   Şerit yatay kayar; bu düğme SAĞDA SABİT kalır ki kaydırma nerede olursa olsun erişilebilsin.
+   Renkler MudBlazor değişkenlerinden gelir → koyu ve açık temada doğru okunur. */
+.dw-sekme-diger {
+    position: sticky;
+    right: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    background: var(--mud-palette-surface);
+    box-shadow: -10px 0 10px -6px var(--mud-palette-surface);
+}
+
+.dw-sekme-diger .mud-button-root {
+    border-radius: 8px;               /* yuvarlatılmış hatlar (kullanıcı isteği) */
+    font-size: 12.5px;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+/* Menü satırı: ikon + etiket; "Bakım Takibi (x2)" biçimi ViewModel'den gelir. */
+.dw-diger-satir {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

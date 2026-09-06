@@ -202,6 +202,39 @@
                    "yeni sekme alanını tamamen kaldıralım". Masaüstünde de kaldırıldı — iki şerit
                    AYNI parçaları taşımak zorundadır (bkz. SekmeSeridiTests SEK4). Yaptığı tek iş
                    soldaki ekran aramasına odaklanmaktı; o kutu menüde zaten duruyor. *@
+
+                @* ═══ İ1 — "DİĞER SAYFALAR" (kullanıcı tasarımı 2026-09-06) ═══════════════════════
+                   Masaüstünde alt bar sekmeleri sığdığı kadar gösterir, kalanı bu menüde toplar.
+                   WEB'DE ŞERİT ÜSTTE ve YATAY KAYDIRILABİLİR olduğu için hiçbir sekme erişilemez
+                   değildir; buradaki menü aynı YETENEĞİ verir: tek tıkla açık sayfaların TAMAMI
+                   listelenir, aynı isimliler adetle toplanır ve ikonlarıyla gösterilir.
+
+                   Neden birebir aynı "taşma ölçümü" yapılmıyor: hangi sekmenin sığmadığı yalnız
+                   tarayıcıda ölçülebilir (JS interop + ResizeObserver). Şerit zaten kaydığı için bu
+                   karmaşıklığın kullanıcıya kazandıracağı bir şey yok. CLAUDE.md §4: web ve masaüstü
+                   İŞLEVSEL olarak eşittir, piksel eşitliği zorunlu değildir.
+
+                   Menü AŞAĞI açılır — masaüstünde şerit ALTTA olduğu için yukarı açılıyordu; burada
+                   şerit ÜSTTE, dolayısıyla tek doğru yön aşağıdır. *@
+                <div class="dw-sekme-diger">
+                    <MudMenu Icon="@Icons.Material.Filled.ExpandMore" Dense="true"
+                             Label="@($"Diğer Sayfalar ({_ekranSekmeleri.Count})")"
+                             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                             Variant="Variant.Text" Color="Color.Default"
+                             title="Açık sayfaların tamamı">
+                        @foreach (var g in _ekranSekmeleri.GroupBy(t => t.Label))
+                        {
+                            var ilk = g.First();
+                            var adet = g.Count();
+                            <MudMenuItem OnClick="@(() => SekmeyeGit(ilk))">
+                                <div class="dw-diger-satir">
+                                    <MudIcon Icon="@SekmeIkon(ilk)" Size="Size.Small" />
+                                    <span>@(adet > 1 ? $"{g.Key} (x{adet})" : g.Key)</span>
+                                </div>
+                            </MudMenuItem>
+                        }
+                    </MudMenu>
+                </div>
             </div>
         }
 

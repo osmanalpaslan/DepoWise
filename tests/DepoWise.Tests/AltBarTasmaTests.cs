@@ -108,3 +108,45 @@ public class AltBarTasmaTests
         Assert.Contains("CornerRadius", stil[..600]);
     }
 }
+
+/// <summary>
+/// İ1'in WEB karşılığı (platform kuralı: "web eksik bırakılmaz").
+/// Web şeridi ÜSTTEDİR ve yatay kayar → hiçbir sekme erişilemez değildir; menü aynı yeteneği
+/// (tek tıkla tüm açık sayfalar, ikonlu, adetli) verir ve AŞAĞI açılır.
+/// </summary>
+public class AltBarTasmaWebTests
+{
+    private static string Kok()
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "DepoWise.sln"))) d = d.Parent;
+        Assert.NotNull(d);
+        return d!.FullName;
+    }
+
+    private static string Oku(params string[] p) => File.ReadAllText(Path.Combine(new[] { Kok() }.Concat(p).ToArray()));
+
+    [Fact]
+    public void Web_SekmeSeridinde_DigerSayfalarMenusu_Vardir()
+    {
+        var x = Oku("src", "DepoWise.Web", "Components", "Layout", "MainLayout.razor");
+        Assert.Contains("dw-sekme-diger", x);
+        Assert.Contains("Diğer Sayfalar", x);
+        Assert.Contains("SekmeyeGit(ilk)", x);
+        Assert.Contains("(x{adet})", x);                 // masaüstüyle AYNI adet biçimi
+        Assert.Contains("Origin.BottomRight", x);        // şerit üstte → menü AŞAĞI açılır
+    }
+
+    [Fact]
+    public void Web_DigerSayfalar_SagdaSabit_VeYuvarlatilmis()
+    {
+        var css = Oku("src", "DepoWise.Web", "wwwroot", "app.css");
+        var blok = css[css.IndexOf(".dw-sekme-diger {", StringComparison.Ordinal)..];
+        string Bas(int n) => blok[..Math.Min(n, blok.Length)];   // blok dosya sonundaysa taşmasın
+        Assert.Contains("position: sticky", Bas(400));
+        Assert.Contains("right: 0", Bas(400));
+        Assert.Contains("border-radius: 8px", Bas(900));
+        // Renkler tema değişkenlerinden gelmeli (sabit renk = tek temada doğru olurdu).
+        Assert.Contains("var(--mud-palette-surface)", Bas(600));
+    }
+}
