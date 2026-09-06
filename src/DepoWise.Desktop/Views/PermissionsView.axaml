@@ -120,8 +120,10 @@
                                              Foreground="{DynamicResource DangerBrush}"
                                              IsVisible="{Binding ScopeError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
 
+                        <!-- ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): kutular artık DÜZENLEME MODU
+                             dışında TIKLANAMAZ. Bölüm gizlenmiyor — mevcut kapsam salt-okunur görünsün. -->
                         <Border Classes="Field" MaxHeight="160" Padding="8,4"
-                                IsVisible="{Binding CanEditScope}">
+                                IsVisible="{Binding ScopeGorunur}" IsEnabled="{Binding CanEditScope}">
                             <ScrollViewer>
                                 <ItemsControl ItemsSource="{Binding ScopeBranches}">
                                     <ItemsControl.ItemTemplate>
@@ -132,6 +134,10 @@
                                 </ItemsControl>
                             </ScrollViewer>
                         </Border>
+
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                             IsVisible="{Binding !CanEditScope}"
+                                             Text="Şube kapsamını değiştirmek için önce yukarıdaki «Düzenle» düğmesine basın."/>
 
                         <Button Classes="Primary" Content="Şube Kapsamını Kaydet"
                                 Command="{Binding SaveBranchScopeCommand}"
@@ -285,7 +291,13 @@
                 <SelectableTextBlock Text="KORUMALI ALANLAR" Classes="SectionTitle"/>
                 <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
                     Text="Bir alanı korumalı yaparsanız o alanı yalnız yetkisi olan kişiler görür. Yetkiyi yukarıdaki yetki ağacından, alanın kendi ekranının altından verirsiniz. Hiçbir alan korumalı değilken uygulama bugünkü gibi çalışır."/>
-                <Border Classes="Table">
+                <!-- ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): bu kutular "Düzenle"ye basılmadan da
+                     değiştirilebiliyordu ve değişiklik ANINDA kaydediliyordu. Artık düzenleme modu şart;
+                     liste salt-okunur olarak görünmeye devam eder. İkinci kapı ViewModel'de. -->
+                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                     IsVisible="{Binding !KorumaDuzenlenebilir}"
+                                     Text="Korumalı alanları değiştirmek için önce yukarıdaki «Düzenle» düğmesine basın."/>
+                <Border Classes="Table" IsEnabled="{Binding KorumaDuzenlenebilir}">
                     <ItemsControl ItemsSource="{Binding KorumaliAlanlar}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:KorumaliAlanNode">

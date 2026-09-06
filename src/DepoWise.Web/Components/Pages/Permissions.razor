@@ -145,7 +145,9 @@
                        seçili DEĞERLERİ yazar; etiket göstermek için MultiSelectionTextFunc gerekir.
                        Aynı düzeltme Reports.razor ve BranchPicker'da zaten vardı — burada eksikti.
                        Kullanıcı sayı değil AD istedi: "bütün alanlarda tanım ismi ne ise o görünmeli". *@
-                    <MudSelect T="string" MultiSelection="true" SelectedValues="_scopeSelected"
+                    @* ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): şube kapsamı "Düzenle"ye basılmadan
+                       değiştirilebiliyordu. Artık düzenleme modu şart; bölüm salt-okunur görünür. *@
+                    <MudSelect T="string" MultiSelection="true" SelectedValues="_scopeSelected" Disabled="@(!_edit)"
                                SelectedValuesChanged="@(v => _scopeSelected = v?.ToHashSet(StringComparer.Ordinal) ?? new())"
                                MultiSelectionTextFunc="@(v => SubeAdlari(v))"
                                Label="Çalışabileceği şubeler" Margin="Margin.Dense" Variant="Variant.Outlined"
@@ -156,8 +158,14 @@
                             <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem>
                         }
                     </MudSelect>
+                    @if (!_edit)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">
+                            Şube kapsamını değiştirmek için önce yukarıdaki «Düzenle» düğmesine basın.
+                        </MudText>
+                    }
                     <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-2"
-                               OnClick="SaveScope" Disabled="_busy">Şube Kapsamını Kaydet</MudButton>
+                               OnClick="SaveScope" Disabled="@(_busy || !_edit)">Şube Kapsamını Kaydet</MudButton>
                 }
             </MudPaper>
         }
@@ -207,6 +215,20 @@
         Hiçbir alan korumalı değilken uygulama <b>bugünkü gibi</b> çalışır.
     </MudText>
 
+    @* ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): bu kutular "Düzenle"ye basılmadan değiştirilebiliyor
+       ve değişiklik ANINDA kaydediliyordu. Artık AYNI düzenleme modu şart. Kullanıcı seçilmeden de
+       yönetilebilmesi gerektiği için düğme burada da sunulur — aynı `_edit` bayrağını kullanır. *@
+    @if (!_edit)
+    {
+        <div class="d-flex align-center flex-wrap mb-3" style="gap:12px;">
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                Korumalı alanları değiştirmek için önce «Düzenle» düğmesine basın.
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                       OnClick="BeginEdit" Disabled="_busy">Düzenle</MudButton>
+        </div>
+    }
+
     @if (_korumaSatirlari.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Dense="true">Korunabilir alan listesi yüklenemedi ya da boş.</MudAlert>
@@ -228,7 +250,7 @@
                 <tr>
                     <td>@satir.Label</td>
                     <td>
-                        <MudCheckBox T="bool" Dense="true" Value="@satir.IsProtected" Disabled="_korumaBusy"
+                        <MudCheckBox T="bool" Dense="true" Value="@satir.IsProtected" Disabled="@(_korumaBusy || !_edit)"
                                      ValueChanged="@(async (bool v) => await KorumaDegistir(satir, v))" />
                     </td>
                     <td><MudText Typo="Typo.caption" Class="mud-text-secondary">@satir.Note</MudText></td>
@@ -401,6 +423,8 @@
     /// </summary>
     private async Task KorumaDegistir(KorumaSatiri satir, bool korumali)
     {
+        // ⭐ İKİNCİ KAPI (2026-09-06): arayüz kilidi atlansa bile düzenleme modu dışında YAZILMAZ.
+        if (!_edit) return;
         _korumaBusy = true; _korumaMsg = null;
         try
         {

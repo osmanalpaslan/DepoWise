@@ -168,6 +168,10 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanBeginEdit))]
     [NotifyPropertyChangedFor(nameof(RoleEnabled))]
     [NotifyPropertyChangedFor(nameof(TemplateEnabled))]
+    // ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): şube kapsamı ve korumalı alanlar da
+    //    düzenleme moduna bağlandı — "Düzenle"ye basılmadan hiçbir yetki değişemez.
+    [NotifyPropertyChangedFor(nameof(CanEditScope))]
+    [NotifyPropertyChangedFor(nameof(KorumaDuzenlenebilir))]
     private bool _isEditing;
 
     /// <summary>Atanabilir roller (Süper Admin / Kısıtlı Süper Admin yalnız süper admine listelenir).</summary>
@@ -208,7 +212,14 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     /// <summary>Ağaç düzenlenebilir mi — admin hedefte salt-okunur, ayrıca DÜZENLEME MODU şart.</summary>
     public bool TreeEnabled => HasUser && !IsTargetAdmin && IsEditing;
     /// <summary>"Düzenle" görünür mü — yetki varsa, kullanıcı seçiliyse ve henüz düzenlemiyorsa.</summary>
-    public bool CanBeginEdit => HasUser && !IsTargetAdmin && CanManage && !IsEditing;
+    /// <summary>
+    /// "Düzenle" görünür mü. ⭐ DÜZELTME (2026-09-06): korumalı alanlar FİRMA ayarıdır ve kullanıcı
+    /// seçilmeden de yönetilir. Düzenle yalnız "kullanıcı seçili" koşuluna bağlı kalsaydı, bu bölüm
+    /// düzenleme moduna alınınca HİÇ düzenlenemez hâle gelirdi. Bu yüzden ikinci bir yol eklendi:
+    /// koruma yönetme yetkisi olan kullanıcı, kimse seçili değilken de düzenlemeye girebilir.
+    /// </summary>
+    public bool CanBeginEdit => !IsEditing && CanManage
+                                && ((HasUser && !IsTargetAdmin) || KorumaYonetebilir);
     /// <summary>Kaydet/Vazgeç görünür mü — yalnız düzenleme modunda.</summary>
     public bool CanSavePerms => HasUser && !IsTargetAdmin && IsEditing;
 
@@ -224,6 +235,12 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     /// <summary>Koruma yönetimi yalnız yetki düzenleyebilen kullanıcıya açıktır (servis de reddeder).</summary>
     public bool KorumaYonetebilir => AccessControl.Can(_session,
         DepoWise.Infrastructure.Organization.FieldProtectionService.Module, PermissionAction.Edit);
+
+    /// <summary>Korumalı alan kutuları TIKLANABİLİR mi. ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06):
+    /// bu kutular "Düzenle"ye basılmadan da değiştirilebiliyordu ve değişiklik ANINDA kaydediliyordu —
+    /// yanlışlıkla yapılan tek tık, firma genelinde bir alanı gizleyebiliyordu. Artık düzenleme modu
+    /// şart. Bölüm salt-okunur olarak görünmeye devam eder (mevcut durum görülebilsin).</summary>
+    public bool KorumaDuzenlenebilir => KorumaYonetebilir && IsEditing;
 
     [ObservableProperty] private string? _korumaStatus;
 
@@ -249,6 +266,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     /// </summary>
     private void KorumaDegistir(KorumaliAlanNode node, bool korumali)
     {
+        // ⭐ İKİNCİ KAPI (2026-09-06): arayüz kilidi atlansa bile düzenleme modu dışında YAZILMAZ.
+        // Görünürlük tek başına güvenlik değildir; asıl yetki kapısı zaten serviste.
+        if (!KorumaDuzenlenebilir) return;
         try
         {
             DesktopServices.FieldProtections.Set(_session, node.ScreenKey, node.FieldKey, korumali);
@@ -733,7 +753,17 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     /// <summary>Kendi kapsamını değiştiremez — yetki sıfırlamadaki kuralın aynısı.
     /// Kapsam okunamadıysa da düzenleme AÇILMAZ (boş listeyi kaydedip kapsamı silmeyi önler).</summary>
-    public bool CanEditScope => HasUser && CanManage && SelectedUser?.Id != _session.UserId && ScopeError is null;
+    /// <summary>Şube kapsamı düzenlenebilir mi. ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06):
+    /// <c>IsEditing</c> koşulu EKLENDİ. Eskiden "Düzenle"ye basılmadan da kutular tıklanabiliyor ve
+    /// "Şube Kapsamını Kaydet" ile yazılabiliyordu — kullanıcının beklentisi ve ekranın geri kalanı
+    /// (yetki ağacı, rol, şablon) ile çelişiyordu.</summary>
+    public bool CanEditScope => IsEditing && HasUser && CanManage
+                                && SelectedUser?.Id != _session.UserId && ScopeError is null;
+
+    /// <summary>Şube kapsamı bölümü GÖRÜNÜR mü (salt-okunur da olsa). Düzenleme kapalıyken bölüm
+    /// kaybolmamalı — yalnız tıklanamaz olmalı; aksi hâlde kullanıcı mevcut kapsamı göremezdi.</summary>
+    public bool ScopeGorunur => HasUser && CanManage
+                                && SelectedUser?.Id != _session.UserId && ScopeError is null;
 
     /// <summary>Kapsam bölümünde gösterilecek açıklama (kullanıcı ne olduğunu tahmin etmesin).</summary>
     public string ScopeHint => SelectedUser?.Id == _session.UserId
@@ -791,6 +821,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     private void Notify()
     {
         OnPropertyChanged(nameof(CanEditScope));
+        OnPropertyChanged(nameof(ScopeGorunur));   // düzeltme 2026-09-06: salt-okunur görünürlük
         OnPropertyChanged(nameof(ScopeHint));
     }
 
