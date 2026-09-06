@@ -42,10 +42,10 @@ public partial class MainWindow : Window
         // Kapatma yerine güncelleme ZORLA kurulur ve uygulama yeniden başlatılır (kullanıcı isteği 2026-07-25).
         if (AutoUpdateService.HasPending)
         {
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 $"Bekleyen bir güncelleme var (sürüm {AutoUpdateService.PendingVersion}).\n\n" +
                 "Uygulama kapatılmadan güncelleme kurulacak ve yeniden başlatılacaktır.",
-                "Güncelleme Kuruluyor", "Tamam", "Tamam");
+                "Güncelleme Kuruluyor", "Tamam");
             AutoUpdateService.InstallPendingNow();   // kapanır + yeniden başlar
             return;
         }

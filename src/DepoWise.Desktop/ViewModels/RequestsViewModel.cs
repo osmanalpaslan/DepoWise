@@ -459,9 +459,9 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
         var (readable, opaque, err) = InspectLogo(src);
         if (!readable)
         {
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 $"Logo okunamadı ({err}).\n\nÖnerilen: arka planı SAYDAM (transparan) PNG, yaklaşık 300×120 px.",
-                "Logo Hatası", "Tamam", "Tamam");
+                "Logo Hatası", "Tamam");
             return;
         }
         if (opaque)

@@ -317,12 +317,12 @@ public sealed partial class ShellViewModel : ViewModelBase
             // SNK-03: manuel "Eşitle" backoff'a TABİ DEĞİLDİR (bu yol MaybePushBusinessAsync'ten geçmez);
             // başarılı olduysa sunucu geri gelmiş demektir → otomatik tur da normal kadansa dönsün.
             if (allOk) ResetSyncBackoff();
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 (ok && !BusinessSyncPushService.LastPushFailed && !hasSkips) ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
                 BusinessSyncPushService.LastPushFailed ? "Veri gönderimi başarısız oldu (sunucuya ulaşılamadı ya da zaman aşımı). İnternet bağlantısını kontrol edip tekrar deneyin." :
                 hasSkips ? "Eşitleme yapıldı ama BAZI KAYITLAR sunucuya uygulanamadı." + PushResultDetail() :
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
-                "Eşitle", "Tamam", "Tamam", danger: !allOk);
+                "Eşitle", "Tamam", danger: !allOk);
         }
         finally { IsSyncing = false; SyncProgress = 0; SyncGate.Exit(); }
     }
@@ -351,10 +351,10 @@ public sealed partial class ShellViewModel : ViewModelBase
             var sv = await BusinessSyncPullService.GetServerVersionAsync();                                            // 3) imleci güncelle
             if (sv is { } v) { _lastServerVersionPulled = v; try { DesktopServices.Settings.Set(cid, "sync_pull_cursor", v.ToString(), _session.UserId); } catch { } }
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 ok ? "Yerel veri temizlendi ve sunucudan yeniden çekildi." :
                      "Yerel veri temizlendi ama sunucudan çekilemedi (çevrimdışı olabilirsiniz). İnternet gelince üst bardaki “Eşitle”ye basın.",
-                "Yerel Sıfırlama", "Tamam", "Tamam", danger: !ok);
+                "Yerel Sıfırlama", "Tamam", danger: !ok);
         }
         catch (Exception ex) { await ConfirmService.InfoAsync("Hata: " + ex.Message, "Yerel Sıfırlama", danger: true); }
         finally { IsSyncing = false; SyncProgress = 0; SyncGate.Exit(); }
@@ -449,12 +449,12 @@ public sealed partial class ShellViewModel : ViewModelBase
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
         {
             _connTimer?.Stop();
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 "Yöneticiniz bu firmanın verisini sunucuda sıfırladı. Bu bilgisayardaki eski veriler " +
                 "sunucuya GÖNDERİLMEDİ (eski kayıtların geri gelmesi böylece önlendi).\n\n" +
                 "Oturumunuz kapatılıyor. Tekrar giriş yaptığınızda bu bilgisayardaki veriler temizlenip " +
                 "sunucudan yeniden çekilecek.",
-                "Veri Sıfırlandı", "Tamam", "Tamam", danger: true);
+                "Veri Sıfırlandı", "Tamam", danger: true);
             DepoWise.Desktop.App.Current?.Logout();
         });
     }

@@ -295,9 +295,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
             UpdateMessage = "Kuruluyor…";
             UpdateProgress = 100;
             // Yeniden başlatma öncesi bilgilendirme — Tamam'a basınca kapanıp yeniden açılır.
-            await ConfirmService.AskAsync(
+            await ConfirmService.InfoAsync(
                 "Güncelleme indirildi. Uygulamanız yeniden başlatılacaktır, lütfen bekleyiniz…",
-                "Yeniden Başlatılıyor", "Tamam", "Tamam");
+                "Yeniden Başlatılıyor", "Tamam");
             UpdateMessage = "Yeniden başlatılıyor…";
             // GERÇEK kurulum: dosyaları kurulum dizinine kopyalar + sürümü yazar + uygulamayı yeniden açar.
             DepoWise.Desktop.UpdateInstaller.InstallAndRestart(bytes, pkg.Version, pkg.ChecksumSha256);
