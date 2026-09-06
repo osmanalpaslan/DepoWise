@@ -150,10 +150,12 @@ public sealed partial class ProjectsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "Proje seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = Selected.Id; _editVersion = Selected.Version;
         FormName = Selected.Name;
         FormStatus = Selected.Status switch { "on_hold" => "Beklemede", "completed" => "Tamamlandı", _ => "Aktif" };

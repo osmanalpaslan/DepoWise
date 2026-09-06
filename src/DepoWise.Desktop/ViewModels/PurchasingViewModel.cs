@@ -41,6 +41,11 @@ public sealed partial class PurchasingViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
+    // FAZ 3c-2 — sipariş toplamı birim fiyattan türer; karar servisin kendisiyle AYNI kaynaktan
+    // (MaterialService.FiyatGorunur → FieldAccess) gelir. Gerçek kapı PurchaseOrderService'tedir.
+    /// <summary>Sipariş tutarları bu kullanıcıya açık mı?</summary>
+    public bool FiyatGorunur => DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(_session);
+
     public bool CanWrite => AccessControl.Can(_session, PurchaseOrderService.Module, PermissionAction.Create);
     public bool CanCancel => AccessControl.Can(_session, PurchaseOrderService.Module, PermissionAction.Delete);
     /// <summary>Mal kabul = sipariş Edit + STOK Create (stok yan kapısı yok — servis de zorlar).</summary>

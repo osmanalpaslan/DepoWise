@@ -86,7 +86,9 @@ public class PermissionScreenUxTests
     {
         var vm = Read("src/DepoWise.Desktop/ViewModels/PermissionsViewModel.cs");
         Assert.Contains("public bool TreeEnabled => HasUser && !IsTargetAdmin && IsEditing;", vm);
-        Assert.Contains("private void BeginEdit()", vm);
+        // ⭐ FAZ 4.2 (kullanıcı isteği 2026-09-06): "Düzenle" artık ONAY SORUYOR → imza async oldu.
+        // Davranış güvencesi DEĞİŞMEDİ (aşağıda U4): BeginEdit yalnız kilidi açar, ağaca dokunmaz.
+        Assert.Contains("private async System.Threading.Tasks.Task BeginEdit()", vm);
         Assert.Contains("private async Task CancelEdit()", vm);
 
         var view = Read("src/DepoWise.Desktop/Views/PermissionsView.axaml");
@@ -103,14 +105,14 @@ public class PermissionScreenUxTests
     public void U4_Duzenlemeye_Gecmek_Yetkileri_Silmez()
     {
         var vm = Read("src/DepoWise.Desktop/ViewModels/PermissionsViewModel.cs");
-        var i = vm.IndexOf("private void BeginEdit()", StringComparison.Ordinal);
+        var i = vm.IndexOf("private async System.Threading.Tasks.Task BeginEdit()", StringComparison.Ordinal);
         Assert.True(i > 0);
         var govde = vm.Substring(i, Math.Min(320, vm.Length - i));
         Assert.DoesNotContain("ResetTree", govde);
         Assert.DoesNotContain("BuildTree", govde);
 
         var web = Read("src/DepoWise.Web/Components/Pages/Permissions.razor");
-        var j = web.IndexOf("private void BeginEdit()", StringComparison.Ordinal);
+        var j = web.IndexOf("private async Task BeginEdit()", StringComparison.Ordinal);
         Assert.True(j > 0);
         var wgovde = web.Substring(j, Math.Min(200, web.Length - j));
         Assert.DoesNotContain("LoadUserPerms", wgovde);

@@ -309,6 +309,10 @@ VALUES(@id,@c,@p,@br,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,N
             var d = r.GetInt64(2);
             if (last is null || d > last) last = d;
         }
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        // Hareket SAYISI ve son hareket tarihi tutar değildir → gizlenmez (kullanıcı "hareket var
+        // ama tutarını göremiyorum" bilgisini görür; bu, tutarın kendisini açığa çıkarmaz).
+        if (!AccountingFieldGate.CariBakiye(s)) return new PartyBalance(0m, 0m, n, last);
         return new PartyBalance(debit, credit, n, last);
     }
 
@@ -344,6 +348,9 @@ FROM party_ledger WHERE company_id=@c AND party_id=@p";
         BranchAccess.Bind(cmd, s, branchIds);
         cmd.AddWithValue("@lim", limit);
 
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        var bakiyeGorunur = AccountingFieldGate.CariBakiye(s);
+
         var list = new List<PartyStatementRow>();
         decimal running = 0m;
         using (var r = cmd.ExecuteReader())
@@ -357,7 +364,11 @@ FROM party_ledger WHERE company_id=@c AND party_id=@p";
                     r.IsDBNull(10) ? null : r.GetString(10), r.IsDBNull(11) ? null : r.GetString(11),
                     r.IsDBNull(12) ? null : r.GetString(12), r.GetInt64(13) == 1, r.GetInt64(14));
                 if (!e.IsReversed) running += e.Direction * e.Amount;   // iptal bakiyeye girmez
-                list.Add(new PartyStatementRow(e, running));
+                // Ekstrede tutar gizliyken YÜRÜYEN BAKİYE de gizlenir: iki satırın farkı tek
+                // hareketin tutarını verirdi (çıkarım kanalı).
+                list.Add(bakiyeGorunur
+                    ? new PartyStatementRow(e, running)
+                    : new PartyStatementRow(e with { Amount = 0m }, 0m));
             }
 
         if (newestFirst) list.Reverse();

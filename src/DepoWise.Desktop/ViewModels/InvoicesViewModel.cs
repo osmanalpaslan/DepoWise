@@ -35,6 +35,12 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed partial class InvoicesViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar servisin kendisinden (FieldAccess) gelir — web de AYNI fonksiyonun sonucunu
+    // /api/field-access üzerinden okur. İki platformda ikinci bir yetki mantığı YOKTUR.
+    // ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR: gerçek kapı serviste. Burası "0,00 gösterme" içindir.
+    /// <summary>Fatura tutarı bu kullanıcıya açık mı?</summary>
+    public bool TutarGorunur => DepoWise.Application.Security.FieldAccess.Gorunur(_session, DepoWise.Application.Security.FieldProtectionCatalog.Invoices, DepoWise.Application.Security.FieldProtectionCatalog.GrandTotal);
     private const int PageSize = 50;
 
     /// <summary>G4-3d — ORTAK ŞUBE KAPSAMI. Seçim OKUMA filtresidir; yazmada tekil
@@ -212,6 +218,9 @@ public sealed partial class InvoicesViewModel : ViewModelBase
         if (Detail is null || !CanCancelSelected) return;
         if (string.IsNullOrWhiteSpace(CancelReason)) { FormError = "İptal gerekçesi zorunlu."; return; }
         var d = Detail;
+        // ⭐ FAZ 4.2: önce STANDART iptal onayı, sonra ekrana özel bilgi (kullanıcının istediği sıra).
+        if (!await ConfirmService.ConfirmCancelAsync(
+                $"'{d.InvoiceNo}' faturası iptal edilecek. Cari ve stok etkileri ters kayıtla geri alınır; kayıt silinmez.")) return;
         try
         {
             DesktopServices.Invoices.Cancel(_session, d.Id, CancelReason);

@@ -96,5 +96,8 @@ public static class MigrationCatalog
         new Migration089_DocumentFields(),       // 2026-09-04 MUH-01b: yakıt dağıtımı + iki bakım tablosuna belge no — yalnız ekleme
         new Migration090_MaintenancePartyLink(),  // 2026-09-04 MUH-01c: bakımlara cari (dış servis sağlayıcısı) — yalnız ekleme
         new Migration091_ListIndexes(),           // 2026-09-04 FAZ I: liste sorgularının indeksleri — yalnız CREATE INDEX
+        new Migration092_RolePermissions(),       // 2026-09-05 FAZ 3a (ADR-222): rol bazlı ALLOW — yalnız CREATE TABLE, boş doğar
+        new Migration093_FieldProtections(),      // 2026-09-05 FAZ 3b (ADR-223): korumalı alanlar — yalnız CREATE TABLE, boş doğar
+        new Migration094_ConflictSnapshots(),     // 2026-09-06 FAZ 4.4: çakışmada kazanan/kaybeden görüntüsü — yalnız ADD COLUMN
     };
 }

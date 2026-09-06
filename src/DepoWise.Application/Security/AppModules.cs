@@ -99,6 +99,7 @@ public static class AppModules
         ("files", "Dosya / Fotoğraf"),
         ("audit", "Sistem Logu / Audit"),
         ("stock_change_log", "Stok Değişiklik Kaydı"),   // madde 1.5: doğrudan stok değişikliği uyarı logu ekranı
+        ("sync_conflicts", "Senkron Çakışmaları"),      // FAZ 4.4: cakisma ekrani (kazananin degistirilmesi ayri yetki: btn-conflict-resolve)
         ("backup", "Yedekleme"),
         ("server_backups", "Sunucu Yedekleri"),
         ("machines", "Makine Yönetimi"),
@@ -186,12 +187,46 @@ public static class AppModules
             "report_requests", "report_management", "report_material", "report_accounting", "report_daily_activity" }),
         ("Organizasyon", new[] { "branches", "users", "personnel", "permissions", "permission_templates", "role_permissions" }),
         ("Sistem & Yönetim", new[] { "companies", "releases", "quota_monitor", "backup", "server_backups", "machines", "field_settings",
-            "machine_backups", "server_status", "purge_company", "local_reset", "screen_visibility", "audit" }),
+            "machine_backups", "server_status", "purge_company", "local_reset", "screen_visibility", "audit", "sync_conflicts" }),
     };
+
+    // ═══ ⭐ FAZ 3b-5 (ADR-223, 2026-09-05) — ALAN BAZLI YETKİ KALEMLERİ ═══════════════════════════
+    //
+    // Anahtar biçimi: "fld_" + ekran + "_" + alan (bkz. FieldAccess.Key). rpt_ ve datype_ ile AYNI
+    // kanıtlanmış desen: user_permissions.module_key serbest metin olduğu için MIGRATION GEREKMEZ ve
+    // Faz 3a rol birleşimi bu anahtarlarda kendiliğinden çalışır.
+    //
+    // 🔴 KRİTİK FARK — alan kalemleri KOŞULLU listelenir: yalnız firmanın KORUMALI işaretlediği
+    // alanlar ağaçta görünür. Nedeni dürüstlük: korumasız bir alanı herkes zaten görür; ağaçta
+    // "Birim Fiyat ☐" boş kutusu göstermek yöneticiye "kapalı" izlenimi verirdi. Koruma yoksa satır
+    // da yoktur → yayın günü yetki ağacı BİREBİR bugünkü gibidir.
+    public const string FieldItemPrefix = FieldAccess.Prefix;
+
+    public static bool IsFieldItem(string moduleKey) => FieldAccess.IsFieldKey(moduleKey);
+
+    /// <summary>Alan kalemlerinde YALNIZ "Oku" ve "Düzelt" anlamlıdır; "Yaz"/"Sil" bir ALANDA
+    /// anlamsızdır. İki arayüz de bu bayrağa bakarak yalnız iki kutu çizer.</summary>
+    public static bool FieldItemUsesViewEditOnly(string moduleKey) => IsFieldItem(moduleKey);
+
+    /// <summary>Korumalı alan kümesinden (<c>ekran|alan</c>) yetki ağacı kalemleri üretir.</summary>
+    private static IReadOnlyList<(string Key, string Label)> FieldItemsFor(
+        IReadOnlySet<string>? korumaliAlanlar, string moduleKey)
+    {
+        if (korumaliAlanlar is null || korumaliAlanlar.Count == 0)
+            return System.Array.Empty<(string, string)>();
+        return FieldProtectionCatalog.All
+            .Where(f => f.ModuleKey == moduleKey
+                        && korumaliAlanlar.Contains(FieldAccess.ProtectionKey(f.ScreenKey, f.FieldKey)))
+            .Select(f => (FieldAccess.Key(f.ScreenKey, f.FieldKey), FieldProtectionCatalog.TreeLabel(f)))
+            .ToList();
+    }
 
     /// <summary>Yetki ağacının KATEGORİZE hâli: ekran modülleri + (Raporlar grubunda) rapor kalemleri.
     /// Sıra, gruplar içinde <see cref="All"/> sırasını korur. Eşlenmemiş anahtarlar "Diğer"e düşer.</summary>
-    public static IReadOnlyList<ModuleGroup> Grouped()
+    /// <param name="korumaliAlanlar">FAZ 3b-5: firmanın KORUMALI işaretlediği alanlar
+    ///   (<c>SessionContext.ProtectedFields</c>). <c>null</c>/boş = alan kalemi YOK → ağaç bugünküyle
+    ///   birebir aynı. Parametresiz çağrılar (mevcut kod ve testler) bu davranışı alır.</param>
+    public static IReadOnlyList<ModuleGroup> Grouped(IReadOnlySet<string>? korumaliAlanlar = null)
     {
         var yeri = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (title, keys) in GroupMap)
@@ -201,8 +236,11 @@ public static class AppModules
         var diger = new List<(string, string)>();
         foreach (var (key, label) in All)
         {
-            if (yeri.TryGetValue(key, out var g)) gruplar[g].Add((key, label));
-            else diger.Add((key, label));
+            var hedef = yeri.TryGetValue(key, out var g) ? gruplar[g] : diger;
+            hedef.Add((key, label));
+            // FAZ 3b-5: bu ekranın KORUMALI alanları, ekranın hemen ardına. Ayrı bir "Alanlar"
+            // grubu açılmadı — yönetici alanı ait olduğu ekranın altında bulur.
+            hedef.AddRange(FieldItemsFor(korumaliAlanlar, key));
         }
         // Rapor kalemleri "Raporlar" grubunun sonuna eklenir (kategori anahtarlarından sonra).
         gruplar["Raporlar"].AddRange(ReportItems);
@@ -241,6 +279,11 @@ public static class AppModules
         // 2026-09-03: rapor kalemleri de etiketlenir (hata mesajında ham "rpt_stock" görünmesin).
         foreach (var (k, l) in ReportItems) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
         foreach (var (k, l) in DailyActivityTypeGate.Items) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
+        // FAZ 3b-5: alan kalemleri (koruma durumundan BAĞIMSIZ etiketlenir — hata mesajı, denetim
+        // kaydı ve yetki özeti korumalı olmayan bir anahtarı da okunur göstermelidir).
+        foreach (var f in FieldProtectionCatalog.All)
+            if (string.Equals(FieldAccess.Key(f.ScreenKey, f.FieldKey), moduleKey, StringComparison.Ordinal))
+                return FieldProtectionCatalog.TreeLabel(f);
         return moduleKey;
     }
 
@@ -324,6 +367,47 @@ public static class SpecialButtons
     /// </summary>
     public const string ScreenLog = "btn-screen-log";
 
+    /// <summary>
+    /// ⭐ FAZ 4.16 (kullanıcı isteği 2026-09-06) — PERSONELE KULLANICI BAĞLAMA.
+    ///
+    /// Bugüne kadar bu işlem YALNIZ Admin/Süper Admin'e açıktı (kod içinde sabit <c>IsAdmin</c>
+    /// kontrolü). Kullanıcı: <i>"personel veya kullanıcı ekranlarında her yetkisi olan değil
+    /// BAĞLAMA yetkisi olan kullanıcılar bağlayabilmeli."</i>
+    ///
+    /// Yeni bir yetki motoru KURULMAZ: mevcut özel buton deseni kullanılır → <c>module_key</c>
+    /// serbest metin olduğu için <b>migration gerekmez</b> ve yetki ağacında kendiliğinden görünür.
+    /// Admin davranışı DEĞİŞMEZ (bypass sürer); bu yetki, admin olmayanlara devredebilmek içindir.
+    /// </summary>
+    public const string LinkUser = "btn-link-user";
+
+    /// <summary>
+    /// ⭐ FAZ 4.10 (kullanıcı isteği 2026-09-06) — ŞABLON DIŞI ARAÇ/MALZEME EKLEME.
+    ///
+    /// Kullanıcı: <i>"Şablon dışı araç ve malzeme eklemekte yetkiye dahil olan bir durum olmalı;
+    /// firmalar bunu kontrol edemeyebilirler."</i>
+    ///
+    /// Şablon (Araç/Malzeme Genel Tanım) seçmeden kayıt açmak, firmanın tanım düzenini bozar:
+    /// aynı malzeme farklı adlarla çoğalır, raporlar "şablon dışı" kovasında birikir. Bu yetki
+    /// olmayan kullanıcı ŞABLON SEÇMEK ZORUNDADIR; olan kullanıcı eskisi gibi serbesttir.
+    ///
+    /// ⚠️ Geriye uyumluluk: yetki VERİLMEMİŞ bir firmada mevcut kayıtlar etkilenmez; yalnız YENİ
+    /// kayıt açarken şablon istenir. Admin bypass'ı sürer (firma yöneticisi kilitlenmez).
+    /// Yeni yetki motoru YOK; <c>module_key</c> serbest metin olduğu için migration gerekmez.
+    /// </summary>
+    public const string TemplateFreeCreate = "btn-template-free-create";
+
+    /// <summary>
+    /// ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMASINI ÇÖZME.
+    ///
+    /// Kullanıcı: <i>"Üzerine yazılan kaydı iptal edip istenen kaydı kazanan yapabilmeli."</i>
+    ///
+    /// Bu işlem, kaybeden sürümü kayda GERİ YAZAR — yani gerçek bir veri değişikliğidir. Çakışma
+    /// listesini GÖRMEK bu yetkiyi gerektirmez (uyarı herkese gösterilir); yalnız <b>kazananı
+    /// değiştirmek</b> buna bağlıdır. Aksi hâlde uyarıyı gören herkes başkasının kaydını geri
+    /// alabilirdi. Deny-by-default; admin bypass'ı sürer. Yeni yetki motoru YOK, migration YOK.
+    /// </summary>
+    public const string ConflictResolve = "btn-conflict-resolve";
+
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
     /// <summary>
     /// Yetki AĞACINDA görünen (yani devredilebilen) özel butonlar.
@@ -347,5 +431,8 @@ public static class SpecialButtons
         (BranchSelect, "Şube Seçimi (Çok Şubeli Görüntüleme)"),
         (BackDate, "Geri / İleri Tarihli İşlem"),
         (ScreenLog, "Ekran Kayıt Geçmişi (Log)"),
+        (LinkUser, "Personele Kullanıcı Bağlama"),
+        (TemplateFreeCreate, "Şablon Dışı Araç / Malzeme Ekleme"),
+        (ConflictResolve, "Senkron Çakışmasını Çözme (Kazananı Değiştirme)"),
     };
 }

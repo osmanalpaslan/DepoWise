@@ -111,6 +111,7 @@ public static class MenuIcons
         ["permission_templates"]      = "template",
         ["audit"]                     = "audit",
         ["stock_change_log"]          = "log",
+        ["sync_conflicts"]            = "log",               // FAZ 4.4 (2026-09-06): denetim ailesindeki log ekranlarıyla aynı kavram
 
         // Sistem / web yönetimi
         ["companies"]                 = "companies",

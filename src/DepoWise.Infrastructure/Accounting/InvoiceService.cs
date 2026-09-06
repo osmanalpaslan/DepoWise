@@ -162,6 +162,7 @@ public sealed class InvoiceService
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         Validate(dto);
+        MalzemeFiyatiKapisi(s, dto);
 
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var date = dto.InvoiceDate ?? now;
@@ -365,6 +366,23 @@ WHERE id=@id AND company_id=@c AND status=@active;";
     // ═══════════════════════════════════════════════════════════════════════
     //  DOĞRULAMA
     // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ FAZ 3c-2 — YAZMA KAPISI: malzeme birim fiyatını GÖREMEYEN kullanıcı, malzeme satırlı fatura
+    /// yazamaz. Burada kanonik "gönderileni yok say" davranışı UYGULANAMAZ: fatura satır tutarı,
+    /// KDV'si ve genel toplamı birim fiyattan hesaplanır — fiyatı sessizce 0 yazmak YANLIŞ bir mali
+    /// belge üretirdi (sessiz veri kaybı yasağı). Bu yüzden açık ret verilir; hizmet/serbest metin
+    /// satırlı faturalar etkilenmez. Alan korumalı değilse (varsayılan) bu kapı hiçbir şey yapmaz.
+    /// </summary>
+    private static void MalzemeFiyatiKapisi(SessionContext s, NewInvoice dto)
+    {
+        if (AccountingFieldGate.MalzemeBirimFiyati(s)) return;
+        if (dto.Lines is null) return;
+        foreach (var l in dto.Lines)
+            if (!string.IsNullOrWhiteSpace(l.MaterialId))
+                throw new ForbiddenException(
+                    "Malzeme birim fiyatlarını görme yetkiniz olmadığı için malzeme satırlı fatura kaydedemezsiniz.");
+    }
 
     private static void Validate(NewInvoice dto)
     {

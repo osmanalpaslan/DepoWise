@@ -13,8 +13,10 @@ public sealed class ArcProgressConverter : IValueConverter
 {
     public static readonly ArcProgressConverter Instance = new();
 
-    private const double Size = 160;
-    private const double Thickness = 12;
+    // Varsayılan: senkron penceresindeki büyük halka. ⭐ FAZ 4.12 (2026-09-06): üst bardaki küçük
+    // halka için ConverterParameter ile boyut verilebilir (ör. 24) — kalınlık oranla ölçeklenir.
+    private const double VarsayilanBoyut = 160;
+    private const double VarsayilanKalinlik = 12;
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -25,6 +27,17 @@ public sealed class ArcProgressConverter : IValueConverter
             _ => double.TryParse(value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
         };
         pct = Math.Max(0, Math.Min(100, pct));
+
+        // ConverterParameter = halka çapı (px). Verilmezse büyük halka ölçüsü kullanılır.
+        double Size = parameter switch
+        {
+            double d2 => d2,
+            int i2 => i2,
+            string s2 when double.TryParse(s2, NumberStyles.Any, CultureInfo.InvariantCulture, out var x2) => x2,
+            _ => VarsayilanBoyut,
+        };
+        if (Size < 8) Size = VarsayilanBoyut;
+        double Thickness = Size * (VarsayilanKalinlik / VarsayilanBoyut);
 
         var geo = new StreamGeometry();
         using (var ctx = geo.Open())

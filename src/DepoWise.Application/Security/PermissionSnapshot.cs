@@ -25,6 +25,8 @@ namespace DepoWise.Application.Security;
 /// <param name="BlockedModules">Rol Yetki Kontrol ile kullanıcının ROLÜNE kapatılmış modüller.</param>
 /// <param name="ScopeBranchIds">G4-3b ile KULLANIMA ALINDI: user_scopes satırları. null/boş = açık kapsam yok.</param>
 /// <param name="HomeBranchId">G4-3b ile eklendi: users.branch_id (kullanıcının ana şubesi).</param>
+/// <param name="ProtectedFields">FAZ 3b (ADR-223): firmada korumalı işaretlenmiş alanlar (<c>ekran|alan</c>).
+///   <b>BOŞ = bugünkü davranış</b> — hiçbir alan korunmaz. Firma bazlıdır; snapshot ile önbelleklenir.</param>
 /// <param name="ScopeUnitIds">F4 (BRM-01) için AYRILMIŞ — bugün daima null, okuyucusu yok.</param>
 /// <param name="AllowedRecordTypes">F5 (GNL-03) için AYRILMIŞ — bugün daima null, okuyucusu yok.</param>
 public sealed record PermissionSnapshot(
@@ -38,7 +40,8 @@ public sealed record PermissionSnapshot(
     string? HomeBranchId = null,
     IReadOnlyList<string>? ScopeUnitIds = null,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? AllowedRecordTypes = null,
-    IReadOnlyDictionary<string, IReadOnlyList<string>>? BranchDescendants = null)
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? BranchDescendants = null,
+    IReadOnlySet<string>? ProtectedFields = null)
 {
     /// <summary>Bu fotoğraftan İSTEĞE ÖZEL yeni bir oturum kurar. Her çağrıda YENİ nesne döner:
     /// <see cref="SessionContext.OperatingBranchId"/> isteğe göre değiştiği için paylaşılamaz.</summary>
@@ -49,5 +52,7 @@ public sealed record PermissionSnapshot(
             ScopeBranchIds = ScopeBranchIds,
             HomeBranchId = HomeBranchId,
             BranchDescendants = BranchDescendants,   // ŞB-04: şube ağacı (üst şube → alt şubeleri)
+            // FAZ 3b: null gelirse BOŞ küme → korumasız (bugünkü) davranış. Fail-safe taraf budur.
+            ProtectedFields = ProtectedFields ?? new HashSet<string>(StringComparer.Ordinal),
         };
 }

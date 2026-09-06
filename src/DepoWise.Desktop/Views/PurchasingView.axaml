@@ -98,7 +98,9 @@
                                 <SelectableTextBlock Grid.Column="2" Text="TEDARİKÇİ" MinWidth="150"/>
                                 <SelectableTextBlock Grid.Column="3" Text="DEPO" MinWidth="120" MaxWidth="120"/>
                                 <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="90" MaxWidth="90"/>
-                                <SelectableTextBlock Grid.Column="5" Text="TOPLAM" MinWidth="110" MaxWidth="110"/>
+                                <!-- FAZ 3c-2: sipariş toplamı birim fiyattan türer → kapalıysa başlık da çizilmez. -->
+                                <SelectableTextBlock Grid.Column="5" Text="TOPLAM" MinWidth="110" MaxWidth="110"
+                                                     IsVisible="{Binding FiyatGorunur}"/>
                             </Grid>
                         </Border>
                         <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
@@ -110,7 +112,8 @@
                                         <SelectableTextBlock Grid.Column="2" Text="{Binding SupplierDisplay}" MinWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SupplierDisplay}"/>
                                         <SelectableTextBlock Grid.Column="3" Text="{Binding BranchDisplay}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BranchDisplay}"/>
                                         <SelectableTextBlock Grid.Column="4" Text="{Binding StatusDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="5" Text="{Binding TotalDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="{Binding TotalDisplay}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center"
+                                                             IsVisible="{Binding $parent[ListBox].((vm:PurchasingViewModel)DataContext).FiyatGorunur}"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

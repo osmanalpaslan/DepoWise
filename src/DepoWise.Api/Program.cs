@@ -484,14 +484,36 @@ app.MapGet("/api/sync/business-version", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(new { version = svc.BusinessSync.CompanyVersion(s.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
 
 // Çakışmalar — admin (tümü) / personel (görmediği, şube kapsamında)
+// ⭐ FAZ 4.4 (2026-09-06): çakışma LİSTESİ artık "sync_conflicts" ekran yetkisine bağlıdır — arayüzdeki
+// kapıyla AYNI (CLAUDE.md §5: menü/işlem yetkisi UI ile API'da aynı uygulanır). Personelin kendi
+// uyarısı BU UÇTAN GELMEZ: o /api/sync/conflicts/unseen'dir ve eskisi gibi herkese açıktır.
 app.MapGet("/api/sync/conflicts", (HttpContext c) =>
-    S(c) is { } s ? Results.Ok(svc.BusinessSync.ListConflicts(s.CompanyId)) : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "sync_conflicts", PermissionAction.View);
+    return Results.Ok(svc.BusinessSync.ListConflicts(s.CompanyId));
+}).RequireAuthorization();
 app.MapGet("/api/sync/conflicts/unseen", (HttpContext c, string? branchId) =>
     S(c) is { } s ? Results.Ok(svc.BusinessSync.ListUnseen(s.CompanyId, string.IsNullOrWhiteSpace(branchId) ? null : branchId)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/sync/conflicts/seen", (HttpContext c, ConflictSeenDto d) =>
     S(c) is { } s ? Results.Ok(new { marked = svc.BusinessSync.MarkSeen(s.CompanyId, string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/sync/conflicts/{id}/resolve", (HttpContext c, string id) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.BusinessSync.ResolveConflict(s.CompanyId, id)) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.BusinessSync.ResolveConflict(s.CompanyId, id, s.UserId)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMA EKRANI.
+// Ayrıntı: kim kazandı / kim kaybetti + alan bazlı fark. Çözme: üzerine yazılan (kaybeden) sürümü
+// kazanan yapar — yetki kapısı SERVİSTEDİR (btn-conflict-resolve); listeyi görmek yetmez.
+app.MapGet("/api/sync/conflicts/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "sync_conflicts", PermissionAction.View);
+    var row = svc.BusinessSync.ConflictDetail(s.CompanyId, id);
+    return row is null ? Results.NotFound(new { error = "Çakışma kaydı bulunamadı." }) : Results.Ok(row);
+}).RequireAuthorization();
+
+app.MapPost("/api/sync/conflicts/{id}/promote-loser", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { fields = svc.BusinessSync.PromoteLoser(s, id) }) : Results.Unauthorized())
+    .RequireAuthorization();
 
 // ── Makine yönetimi (JWT — admin) ── firma+şube filtresi VEYA kayıtsız (şubesiz) makineler (firma bağımsız)
 app.MapGet("/api/machines", (HttpContext ctx, string? companyId, string? branchId, bool? unassigned) =>
@@ -818,6 +840,15 @@ IEnumerable<object> LoginBranchesFor(SessionContext s)
         .Select(b => (object)new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
 }
 static string? Doc(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+// ⭐ FAZ 4.9 (2026-09-06): virgülle ayrılmış araç kimliklerini listeye çevirir. Boş/eksik → null
+// (süzme yok). Değerler servise PARAMETRE olarak bağlanır; SQL metnine asla gömülmez.
+static IReadOnlyList<string>? AracIdListesi(string? csv)
+{
+    if (string.IsNullOrWhiteSpace(csv)) return null;
+    var liste = csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    return liste.Length > 0 ? liste : null;
+}
 static string? ClientIp(HttpContext c)
 {
     var fly = c.Request.Headers["Fly-Client-IP"].ToString();
@@ -941,12 +972,18 @@ app.MapGet("/api/materials", (HttpContext c, string? search) =>
     // (sayfa başına 200'e kadar) — sunucu PostgreSQL'e (ağ üzerinden) geçtiği için her biri bir
     // gidiş-dönüştü. Bu uç, diğer ekranlardaki hızlı-arama seçicisidir; sık çağrılır.
     var balances = svc.Stock.GetBalances(s, items.Select(m => m.Id).ToList());
-    var rows = items.Select(m =>
+    // ⭐ FAZ 3b (ADR-223 · K2): gizli alan yanıta NULL/0 olarak konmaz, HİÇ KONMAZ. İki ayrı
+    // şekillendirme var çünkü görünür durumda yanıt sözleşmesi harfiyen eskisi gibi kalmalıdır.
+    var fiyatGorunur = DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s);
+    object Satir(DepoWise.Infrastructure.Materials.MaterialRecord m)
     {
         var stock = balances.TryGetValue(m.Id, out var q) ? q : 0m;   // bakiyesi yoksa 0 (eski davranışla aynı)
         var status = stock <= 0 ? "Stok Yok" : stock <= m.MinStock ? "Düşük Stok" : "Yeterli";
-        return new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, unitPrice = m.UnitPrice, currency = m.Currency, minStock = m.MinStock, stock, statusText = status };
-    }).ToList();
+        return fiyatGorunur
+            ? new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, unitPrice = m.UnitPrice, currency = m.Currency, minStock = m.MinStock, stock, statusText = status }
+            : (object)new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, currency = m.Currency, minStock = m.MinStock, stock, statusText = status };
+    }
+    var rows = items.Select(Satir).ToList();
     return Results.Ok(rows);
 }).RequireAuthorization();
 // Malzeme LİSTE ekranı: kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Eski
@@ -968,10 +1005,23 @@ app.MapGet("/api/materials/grid", (HttpContext c,
     // eski istemciler (masaüstü) bunu okumaz ve etkilenmez. Sayfalamadan bağımsız, AKTİF FİLTRELERLE
     // tutarlı hesaplanır (liste ile aynı GridSorgusu kurulumu) → şeritteki sayı listeyle çelişmez.
     var summary = svc.Materials.SearchGridSummary(s, filter, criticalOnly);
+    // ⭐ FAZ 3b: birim fiyat gizliyse hem satırdaki alan hem de ondan TÜREYEN "stok değeri"
+    // yanıttan çıkarılır. Görünür durumda yanıt eskisiyle BİREBİR aynıdır (res.Items doğrudan).
+    var fiyatGorunur = DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s);
+    object items = fiyatGorunur ? res.Items : res.Items.Select(r => new
+    {
+        id = r.Id, code = r.Code, name = r.Name, type = r.Type, category = r.Category, unit = r.Unit,
+        brand = r.Brand, supplier = r.Supplier, currency = r.Currency, minStock = r.MinStock,
+        stock = r.Stock, status = r.Status, description = r.Description,
+        compatibleVehicles = r.CompatibleVehicles, equivalents = r.Equivalents,
+    }).ToList();
+    object ozet = summary.StockValueVisible
+        ? new { criticalCount = summary.CriticalCount, categoryCount = summary.CategoryCount, stockValue = summary.StockValue }
+        : new { criticalCount = summary.CriticalCount, categoryCount = summary.CategoryCount };
     return Results.Ok(new
     {
-        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
-        summary = new { criticalCount = summary.CriticalCount, categoryCount = summary.CategoryCount, stockValue = summary.StockValue },
+        items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+        summary = ozet,
     });
 }).RequireAuthorization();
 // Malzeme Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF FİLTRELERLE eşleşen TÜM sonuçları
@@ -988,10 +1038,28 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
     var rows = svc.Materials.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, criticalOnly);
-    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(rows));
+    // ⭐ FAZ 3b: kolon başlığıyla birlikte düşürülür (boş hücre bırakmak "gizleme" değildir).
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(
+        rows, DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s)));
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Malzemeler.xlsx");
 }).RequireAuthorization();
-app.MapGet("/api/materials/{id}", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Materials.GetDetail(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/materials/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var m = svc.Materials.GetDetail(s, id);
+    // ⭐ FAZ 3b: fiyat gizliyse alan yanıta HİÇ konmaz (K2). Görünürken kayıt doğrudan döner →
+    // mevcut yanıt sözleşmesi harfiyen korunur.
+    if (DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(s)) return Results.Ok(m);
+    return Results.Ok(new
+    {
+        id = m.Id, code = m.Code, name = m.Name, type = m.Type,
+        categoryId = m.CategoryId, unitId = m.UnitId, brandId = m.BrandId, supplierId = m.SupplierId,
+        categoryName = m.CategoryName, unitName = m.UnitName, brandName = m.BrandName, supplierName = m.SupplierName,
+        minStock = m.MinStock, currency = m.Currency, description = m.Description, stock = m.Stock,
+        equivalents = m.Equivalents, compatibleVehicles = m.CompatibleVehicles,
+        version = m.Version, templateId = m.TemplateId,
+    });
+}).RequireAuthorization();
 // A3 (Aurora): malzeme kartı "Son Hareketler" — tek malzemenin son N hareketi. Yetki: malzeme okuma + firma
 // kapsamı (RecentForMaterial içinde Require(materials,View) + EnsureMaterialOwned). take verilmezse 10.
 app.MapGet("/api/materials/{id}/movements", (HttpContext c, string id, int? take) =>
@@ -1206,13 +1274,16 @@ app.MapGet("/api/daily/allowed-types", (HttpContext c) =>
 app.MapGet("/api/daily/grid", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
     string? materialQty,
-    int page, int pageSize, string? sort, bool? desc, bool? includeCancelled) =>
+    int page, int pageSize, string? sort, bool? desc, bool? includeCancelled,
+    // ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): tarih aralığı + ÇOKLU araç (virgülle ayrılmış kimlikler).
+    long? fromDate, long? toDate, string? vehicleIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty);
+    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty,
+        AracIdListesi(vehicleIds));
     // K3 (2026-08-09): iptal edilen faaliyetler varsayılan GİZLİ; yalnız "İptal edilenleri göster" kutusu ile gelir.
     var res = svc.DailyActivity.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
-        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true);
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true, fromDate, toDate);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -1263,6 +1334,27 @@ app.MapGet("/api/requests", (HttpContext c, string? status, string? search, int?
     var lim = limit is > 0 ? Math.Min(limit.Value, MaxLimit) : DefaultLimit;
 
     return Results.Ok(svc.Requests.List(s, st, string.IsNullOrWhiteSpace(search) ? null : search!.Trim(), lim));
+}).RequireAuthorization();
+// ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" YÖNETİMİ (firma ayarı; MIGRATION YOK).
+// Okuma herkese açıktır (arayüz düğmeyi gizlemek için bilmek zorunda); YAZMA yalnız yöneticide.
+app.MapGet("/api/lookup-plus", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(DepoWise.Application.Ui.LookupPlusCatalog.All.Select(x => new
+    {
+        table = x.Table, label = x.Label, screen = x.Screen, enabled = svc.Lookups.QuickAddEnabled(s, x.Table),
+    }));
+}).RequireAuthorization();
+app.MapPost("/api/lookup-plus/{table}", (HttpContext c, string table, LookupPlusDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!DepoWise.Application.Security.AccessControl.IsAdmin(s))
+        return Results.Json(new { error = "Bu ayarı yalnız firma yöneticisi değiştirebilir." }, statusCode: 403);
+    if (!DepoWise.Application.Ui.LookupPlusCatalog.Bilinen(table))
+        return Results.Json(new { error = "Bilinmeyen tanım tablosu." }, statusCode: 400);
+    svc.Settings.Set(s.CompanyId, DepoWise.Application.Ui.LookupPlusCatalog.Key(table),
+        d.Enabled ? "1" : DepoWise.Application.Ui.LookupPlusCatalog.Kapali, s.UserId);
+    return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
 // Araç markaları (brand_type=vehicle) — malzeme markalarından ayrı
@@ -1679,9 +1771,13 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
-app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
+app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d, bool? quick) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    // ⭐ FAZ 4.6 (2026-09-06): quick=true → satır içi "+" yolu. Firma o tanım için "+"yı kapattıysa
+    // burada reddedilir (arayüz düğmeyi zaten gizler; bu sunucu tarafı kalkanıdır). Tanım Düzenle
+    // ekranı quick GÖNDERMEZ → yönetim yolu hiçbir zaman engellenmez.
+    var q = quick == true;
     // DEN-F2 (2026-08-18): "+" satır içi tanım ekleme yetkisi (btn-add-lookup) SUNUCUDA kapısızdı;
     // yalnız masaüstü UI'ında uygulanıyordu → web'den atlatılabiliyordu. Deny-by-default gereği
     // kapı buraya taşındı (admin bypass CanUseButton içinde korunur). Alttaki LookupService yine
@@ -1689,13 +1785,13 @@ app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
     AccessControl.RequireButton(s, SpecialButtons.AddLookup);
     var id = table switch
     {
-        "units" => svc.Lookups.AddUnit(s, d.Name),
-        "suppliers" => svc.Lookups.AddSupplier(s, d.Name),
-        "material_categories" => svc.Lookups.AddCategory(s, d.Name),
-        "brands" => svc.Lookups.AddBrand(s, d.Name, "material"),
-        "vehicle_types" => svc.Lookups.AddVehicleType(s, d.Name),
-        "vehicle_categories" => svc.Lookups.AddVehicleCategory(s, d.Name),
-        "vehicle_brands" => svc.Lookups.AddVehicleBrand(s, d.Name),
+        "units" => svc.Lookups.AddUnit(s, d.Name, q),
+        "suppliers" => svc.Lookups.AddSupplier(s, d.Name, q),
+        "material_categories" => svc.Lookups.AddCategory(s, d.Name, null, q),
+        "brands" => svc.Lookups.AddBrand(s, d.Name, "material", q),
+        "vehicle_types" => svc.Lookups.AddVehicleType(s, d.Name, q),
+        "vehicle_categories" => svc.Lookups.AddVehicleCategory(s, d.Name, q),
+        "vehicle_brands" => svc.Lookups.AddVehicleBrand(s, d.Name, q),
         _ => throw new ArgumentException("Bilinmeyen tanım tablosu."),
     };
     return Results.Ok(new { id });
@@ -2385,16 +2481,32 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var res = svc.Parties.List(s, search, type, onlyActive, page ?? 1, pageSize ?? 50, Branches(branchIds));
+    // ⭐ FAZ 3b (K2): gizli alan yanıta 0/null olarak KONMAZ, hiç konmaz. Görünür durumda
+    // yanıt sözleşmesi harfiyen eskisi gibidir (mevcut istemciler etkilenmez).
+    var bakiyeGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s,
+        DepoWise.Application.Security.FieldProtectionCatalog.Parties,
+        DepoWise.Application.Security.FieldProtectionCatalog.Balance);
     return Results.Ok(new
     {
-        items = res.Items.Select(x => new
+        items = res.Items.Select(x =>
         {
-            id = x.Party.Id, code = x.Party.Code, title = x.Party.Title,
-            partyType = x.Party.PartyType, typeText = x.Party.TypeText,
-            taxNo = x.Party.TaxNo, nationalId = x.Party.NationalId, taxIdText = x.Party.TaxIdText,
-            phone = x.Party.Phone, email = x.Party.Email, city = x.Party.City,
-            isActive = x.Party.IsActive, statusText = x.Party.StatusText,
-            debit = x.Debit, credit = x.Credit, balance = x.Balance, balanceText = x.BalanceText,
+            var ortak = new
+            {
+                id = x.Party.Id, code = x.Party.Code, title = x.Party.Title,
+                partyType = x.Party.PartyType, typeText = x.Party.TypeText,
+                taxNo = x.Party.TaxNo, nationalId = x.Party.NationalId, taxIdText = x.Party.TaxIdText,
+                phone = x.Party.Phone, email = x.Party.Email, city = x.Party.City,
+                isActive = x.Party.IsActive, statusText = x.Party.StatusText,
+            };
+            return bakiyeGorunur
+                ? (object)new
+                {
+                    ortak.id, ortak.code, ortak.title, ortak.partyType, ortak.typeText,
+                    ortak.taxNo, ortak.nationalId, ortak.taxIdText,
+                    ortak.phone, ortak.email, ortak.city, ortak.isActive, ortak.statusText,
+                    debit = x.Debit, credit = x.Credit, balance = x.Balance, balanceText = x.BalanceText,
+                }
+                : ortak;
         }),
         total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
     });
@@ -2412,8 +2524,14 @@ app.MapGet("/api/parties/{id}", (HttpContext c, string id, string? branchIds) =>
         phone = p.Phone, email = p.Email, address = p.Address, city = p.City, district = p.District,
         currency = p.Currency, note = p.Note, isActive = p.IsActive, version = p.Version,
         supplierId = p.SupplierId,   // ⭐ MUH-01c: köprü düzenlenebilsin diye geri döner
-        balance = new { debit = b.Debit, credit = b.Credit, balance = b.Balance, balanceText = b.BalanceText,
-                        entryCount = b.EntryCount, lastEntryText = b.LastEntryText },
+        // ⭐ FAZ 3b: bakiye gizliyse tutarlar konmaz; hareket sayısı ve son hareket tarihi tutar
+        // değildir, kalır (kullanıcı hareket olduğunu görür, tutarını değil).
+        balance = DepoWise.Application.Security.FieldAccess.Gorunur(s,
+                      DepoWise.Application.Security.FieldProtectionCatalog.Parties,
+                      DepoWise.Application.Security.FieldProtectionCatalog.Balance)
+            ? (object)new { debit = b.Debit, credit = b.Credit, balance = b.Balance, balanceText = b.BalanceText,
+                            entryCount = b.EntryCount, lastEntryText = b.LastEntryText }
+            : new { entryCount = b.EntryCount, lastEntryText = b.LastEntryText },
     });
 }).RequireAuthorization();
 
@@ -2454,12 +2572,27 @@ app.MapGet("/api/parties/{id}/ledger", (HttpContext c, string id, long? from, lo
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var rows = svc.PartyLedger.Statement(s, id, from, to, limit ?? 500, true, Branches(branchIds));
-    return Results.Ok(rows.Select(x => new
+    // ⭐ FAZ 3b (K2): bakiye gizliyse borç/alacak/yürüyen bakiye yanıta HİÇ konmaz (0 gönderilmez).
+    var bakiyeGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s,
+        DepoWise.Application.Security.FieldProtectionCatalog.Parties,
+        DepoWise.Application.Security.FieldProtectionCatalog.Balance);
+    return Results.Ok(rows.Select(x =>
     {
-        id = x.Entry.Id, dateText = x.Entry.DateText, entryDate = x.Entry.EntryDate,
-        docType = x.Entry.DocType, typeText = x.Entry.TypeText, docNo = x.Entry.DocNo,
-        description = x.Entry.Description, debit = x.Entry.Debit, credit = x.Entry.Credit,
-        dueText = x.Entry.DueText, isReversed = x.Entry.IsReversed, runningBalance = x.RunningBalance,
+        var ortak = new
+        {
+            id = x.Entry.Id, dateText = x.Entry.DateText, entryDate = x.Entry.EntryDate,
+            docType = x.Entry.DocType, typeText = x.Entry.TypeText, docNo = x.Entry.DocNo,
+            description = x.Entry.Description,
+            dueText = x.Entry.DueText, isReversed = x.Entry.IsReversed,
+        };
+        return bakiyeGorunur
+            ? (object)new
+            {
+                ortak.id, ortak.dateText, ortak.entryDate, ortak.docType, ortak.typeText, ortak.docNo,
+                ortak.description, debit = x.Entry.Debit, credit = x.Entry.Credit,
+                ortak.dueText, ortak.isReversed, runningBalance = x.RunningBalance,
+            }
+            : ortak;
     }));
 }).RequireAuthorization();
 
@@ -2499,17 +2632,34 @@ app.MapGet("/api/invoices", (HttpContext c, string? search, string? direction, s
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var res = svc.InvoiceQueries.List(s, search, direction, status, partyId, from, to, page ?? 1, pageSize ?? 50, Branches(branchIds));
+    // ⭐ FAZ 3b (K2): gizli alan yanıta 0/null olarak KONMAZ, hiç konmaz. Görünür durumda
+    // yanıt sözleşmesi harfiyen eskisi gibidir (mevcut istemciler etkilenmez).
+    var tutarGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s,
+        DepoWise.Application.Security.FieldProtectionCatalog.Invoices,
+        DepoWise.Application.Security.FieldProtectionCatalog.GrandTotal);
     return Results.Ok(new
     {
-        items = res.Items.Select(x => new
+        items = res.Items.Select(x =>
         {
-            id = x.Id, direction = x.Direction, directionText = x.DirectionText,
-            invoiceNo = x.InvoiceNo, externalNo = x.ExternalNo,
-            partyId = x.PartyId, partyTitle = x.PartyTitle,
-            invoiceDate = x.InvoiceDate, dateText = x.DateText, dueDate = x.DueDate, dueText = x.DueText,
-            currency = x.Currency, grandTotal = x.GrandTotal,
-            status = x.Status, statusText = x.StatusText, isCancelled = x.IsCancelled,
-            affectsStock = x.AffectsStock,
+            var ortak = new
+            {
+                id = x.Id, direction = x.Direction, directionText = x.DirectionText,
+                invoiceNo = x.InvoiceNo, externalNo = x.ExternalNo,
+                partyId = x.PartyId, partyTitle = x.PartyTitle,
+                invoiceDate = x.InvoiceDate, dateText = x.DateText, dueDate = x.DueDate, dueText = x.DueText,
+                currency = x.Currency,
+                status = x.Status, statusText = x.StatusText, isCancelled = x.IsCancelled,
+                affectsStock = x.AffectsStock,
+            };
+            return tutarGorunur
+                ? (object)new
+                {
+                    ortak.id, ortak.direction, ortak.directionText, ortak.invoiceNo, ortak.externalNo,
+                    ortak.partyId, ortak.partyTitle, ortak.invoiceDate, ortak.dateText,
+                    ortak.dueDate, ortak.dueText, ortak.currency, grandTotal = x.GrandTotal,
+                    ortak.status, ortak.statusText, ortak.isCancelled, ortak.affectsStock,
+                }
+                : ortak;
         }),
         total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
     });
@@ -2627,14 +2777,27 @@ app.MapGet("/api/invoices/meta", (HttpContext c) =>
 app.MapGet("/api/finance/accounts", (HttpContext c, string? kind, bool? all, string? search, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    return Results.Ok(svc.FinanceQueries.Accounts(s, kind, !(all ?? false), search, Branches(branchIds)).Select(x => new
+    // FAZ 3b (K2): bakiye gizliyse tutar alanlari yanita HIC konmaz.
+    var bakiyeGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
+    return Results.Ok(svc.FinanceQueries.Accounts(s, kind, !(all ?? false), search, Branches(branchIds)).Select(x =>
     {
-        id = x.Account.Id, code = x.Account.Code, name = x.Account.Name,
-        accountKind = x.Account.AccountKind, kindText = x.Account.KindText,
-        currency = x.Account.Currency, branchId = x.Account.BranchId, branchName = x.Account.BranchName,
-        bankName = x.Account.BankName, iban = x.Account.Iban,
-        isDefault = x.Account.IsDefault, isActive = x.Account.IsActive, statusText = x.Account.StatusText,
-        inflow = x.Inflow, outflow = x.Outflow, balance = x.Balance, balanceText = x.BalanceText,
+        var ortak = new
+        {
+            id = x.Account.Id, code = x.Account.Code, name = x.Account.Name,
+            accountKind = x.Account.AccountKind, kindText = x.Account.KindText,
+            currency = x.Account.Currency, branchId = x.Account.BranchId, branchName = x.Account.BranchName,
+            bankName = x.Account.BankName, iban = x.Account.Iban,
+            isDefault = x.Account.IsDefault, isActive = x.Account.IsActive, statusText = x.Account.StatusText,
+        };
+        return bakiyeGorunur
+            ? (object)new
+            {
+                ortak.id, ortak.code, ortak.name, ortak.accountKind, ortak.kindText, ortak.currency,
+                ortak.branchId, ortak.branchName, ortak.bankName, ortak.iban,
+                ortak.isDefault, ortak.isActive, ortak.statusText,
+                inflow = x.Inflow, outflow = x.Outflow, balance = x.Balance, balanceText = x.BalanceText,
+            }
+            : ortak;
     }));
 }).RequireAuthorization();
 
@@ -2642,12 +2805,20 @@ app.MapGet("/api/finance/accounts/{id}", (HttpContext c, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var a = svc.FinanceQueries.Account(s, id);
-    return Results.Ok(new
+    var kart = new
     {
         id = a.Id, code = a.Code, name = a.Name, accountKind = a.AccountKind, kindText = a.KindText,
         currency = a.Currency, branchId = a.BranchId, branchName = a.BranchName,
         bankName = a.BankName, bankBranch = a.BankBranch, accountNo = a.AccountNo, iban = a.Iban,
         note = a.Note, isDefault = a.IsDefault, isActive = a.IsActive, version = a.Version,
+    };
+    // FAZ 3b: bakiye gizliyse alan yanita hic konmaz (0 gostermek yanlis bilgi olurdu).
+    if (!DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance)) return Results.Ok(kart);
+    return Results.Ok(new
+    {
+        kart.id, kart.code, kart.name, kart.accountKind, kart.kindText, kart.currency,
+        kart.branchId, kart.branchName, kart.bankName, kart.bankBranch, kart.accountNo, kart.iban,
+        kart.note, kart.isDefault, kart.isActive, kart.version,
         balance = svc.FinanceQueries.Balance(s, id),
     });
 }).RequireAuthorization();
@@ -2688,17 +2859,31 @@ app.MapDelete("/api/finance/accounts/{id}", (HttpContext c, string id) =>
 app.MapGet("/api/finance/accounts/{id}/statement", (HttpContext c, string id, long? from, long? to, int? limit) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    return Results.Ok(svc.FinanceQueries.Statement(s, id, from, to, limit ?? 500).Select(x => new
+    // FAZ 3b: tutar gizliyse tutar ve yuruyen bakiye alanlari yanita hic konmaz.
+    var tutarGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Amount);
+    var bakiyeGorunur2 = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
+    return Results.Ok(svc.FinanceQueries.Statement(s, id, from, to, limit ?? 500).Select(x =>
     {
-        id = x.Txn.Id, dateText = x.Txn.DateText, txnDate = x.Txn.TxnDate,
-        txnType = x.Txn.TxnType, typeText = x.Txn.TypeText,
-        inAmount = x.Txn.In, outAmount = x.Txn.Out, amount = x.Txn.Amount,
-        partyId = x.Txn.PartyId, partyTitle = x.Txn.PartyTitle,
-        description = x.Txn.Description, docNo = x.Txn.DocNo,
-        paymentMethod = x.Txn.PaymentMethod, referenceNo = x.Txn.ReferenceNo,
-        isReversed = x.Txn.IsReversed, isReversalEntry = x.Txn.IsReversalEntry,
-        reversalReason = x.Txn.ReversalReason, isTransfer = x.Txn.IsTransfer,
-        runningBalance = x.RunningBalance,
+        var ortak = new
+        {
+            id = x.Txn.Id, dateText = x.Txn.DateText, txnDate = x.Txn.TxnDate,
+            txnType = x.Txn.TxnType, typeText = x.Txn.TypeText,
+            partyId = x.Txn.PartyId, partyTitle = x.Txn.PartyTitle,
+            description = x.Txn.Description, docNo = x.Txn.DocNo,
+            paymentMethod = x.Txn.PaymentMethod, referenceNo = x.Txn.ReferenceNo,
+            isReversed = x.Txn.IsReversed, isReversalEntry = x.Txn.IsReversalEntry,
+            reversalReason = x.Txn.ReversalReason, isTransfer = x.Txn.IsTransfer,
+        };
+        if (!tutarGorunur) return (object)ortak;
+        return new
+        {
+            ortak.id, ortak.dateText, ortak.txnDate, ortak.txnType, ortak.typeText,
+            inAmount = x.Txn.In, outAmount = x.Txn.Out, amount = x.Txn.Amount,
+            ortak.partyId, ortak.partyTitle, ortak.description, ortak.docNo,
+            ortak.paymentMethod, ortak.referenceNo, ortak.isReversed, ortak.isReversalEntry,
+            ortak.reversalReason, ortak.isTransfer,
+            runningBalance = bakiyeGorunur2 ? x.RunningBalance : 0m,
+        };
     }));
 }).RequireAuthorization();
 
@@ -2709,15 +2894,30 @@ app.MapGet("/api/finance/transactions", (HttpContext c, string? accountId, strin
     var res = svc.FinanceQueries.Transactions(s, accountId, txnType, partyId, search, from, to, page ?? 1, pageSize ?? 50, Branches(branchIds));
     return Results.Ok(new
     {
-        items = res.Items.Select(x => new
+        items = res.Items.Select(x =>
         {
-            id = x.Id, accountId = x.AccountId, accountName = x.AccountName,
-            txnType = x.TxnType, typeText = x.TypeText, dateText = x.DateText, txnDate = x.TxnDate,
-            inAmount = x.In, outAmount = x.Out, amount = x.Amount, currency = x.Currency,
-            partyId = x.PartyId, partyTitle = x.PartyTitle, description = x.Description,
-            docNo = x.DocNo, paymentMethod = x.PaymentMethod, referenceNo = x.ReferenceNo,
-            branchId = x.BranchId, branchName = x.BranchName,
-            isReversed = x.IsReversed, isReversalEntry = x.IsReversalEntry, isTransfer = x.IsTransfer,
+            var ortak = new
+            {
+                id = x.Id, accountId = x.AccountId, accountName = x.AccountName,
+                txnType = x.TxnType, typeText = x.TypeText, dateText = x.DateText, txnDate = x.TxnDate,
+                currency = x.Currency,
+                partyId = x.PartyId, partyTitle = x.PartyTitle, description = x.Description,
+                docNo = x.DocNo, paymentMethod = x.PaymentMethod, referenceNo = x.ReferenceNo,
+                branchId = x.BranchId, branchName = x.BranchName,
+                isReversed = x.IsReversed, isReversalEntry = x.IsReversalEntry, isTransfer = x.IsTransfer,
+            };
+            // FAZ 3b: tutar gizliyse in/out/amount yanita hic konmaz.
+            return DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Amount)
+                ? (object)new
+                {
+                    ortak.id, ortak.accountId, ortak.accountName, ortak.txnType, ortak.typeText,
+                    ortak.dateText, ortak.txnDate,
+                    inAmount = x.In, outAmount = x.Out, amount = x.Amount, ortak.currency,
+                    ortak.partyId, ortak.partyTitle, ortak.description, ortak.docNo,
+                    ortak.paymentMethod, ortak.referenceNo, ortak.branchId, ortak.branchName,
+                    ortak.isReversed, ortak.isReversalEntry, ortak.isTransfer,
+                }
+                : ortak;
         }),
         total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
     });
@@ -2884,6 +3084,51 @@ app.MapGet("/api/field-requirements/{screenKey}", (HttpContext c, string screenK
     S(c) is { } s ? Results.Ok(svc.FieldRequirements.RequiredFieldsFor(s.CompanyId, screenKey)) : Results.Unauthorized())
     .RequireAuthorization();
 
+// ⭐ FAZ 3b-5 — ALAN GÖRÜNÜRLÜĞÜ (arayüzün TEK bilgi kaynağı).
+//
+// Web, "bu alanı çizeyim mi?" sorusunu KENDİ BAŞINA yanıtlamaz — yanıtı sunucudan alır. Böylece
+// yetki kararı iki yerde yeniden üretilmez (kullanıcı şartı §9): masaüstü FieldAccess'i doğrudan
+// çağırır, web aynı fonksiyonun sonucunu buradan okur. Sözleşme: alan anahtarı → görünür mü.
+// ⚠️ Bu uç GÜVENLİK KAPISI DEĞİLDİR; gerçek kapı serviste ve diğer uçlardadır. Buradaki bilgi
+// yalnız "yanlış bilgi gösterme" içindir (boş kolon / "0,00" çizmemek).
+app.MapGet("/api/field-access", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(DepoWise.Application.Security.FieldProtectionCatalog.All.Select(f => new
+    {
+        screenKey = f.ScreenKey,
+        fieldKey = f.FieldKey,
+        key = f.ScreenKey + "." + f.FieldKey,
+        canView = DepoWise.Application.Security.FieldAccess.Gorunur(s, f.ScreenKey, f.FieldKey),
+        canEdit = DepoWise.Application.Security.FieldAccess.Duzenlenebilir(s, f.ScreenKey, f.FieldKey),
+    }));
+}).RequireAuthorization();
+
+// ═══ FAZ 3b-5 (ADR-223, 2026-09-05) — KORUMALI ALAN YÖNETİMİ ════════════════════════════════
+// Firma bazlı "bu alan hassastır" kaydı. Yetki: "permissions" modülü (alan koruması bir YETKİ
+// ayarıdır → yeni bir yetki adası açılmadı). Kapı SERVİSTEDİR; bu uçlar yalnız taşıyıcıdır.
+
+app.MapGet("/api/field-protections", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.FieldProtections.List(s).Select(r => new
+    {
+        screenKey = r.ScreenKey, screenLabel = r.ScreenLabel, fieldKey = r.FieldKey, label = r.Label,
+        note = r.Note, isProtected = r.Protected, statusText = r.StatusText,
+        // Yönetici teknik anahtarı görmek zorunda DEĞİLDİR; tanılama için döner (UI'da ana bilgi değil).
+        permissionKey = DepoWise.Application.Security.FieldAccess.Key(r.ScreenKey, r.FieldKey),
+    }));
+}).RequireAuthorization();
+
+app.MapPost("/api/field-protections", (HttpContext c, FieldProtectionDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.ScreenKey) || string.IsNullOrWhiteSpace(d.FieldKey))
+        throw new ArgumentException("Ekran ve alan seçin.");
+    svc.FieldProtections.Set(s, d.ScreenKey, d.FieldKey, d.IsProtected);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ═══ MNU — MENÜ DÜZENİ (2026-08-18) ═════════════════════════════════════════════════════════
 // Ekranın menüdeki ADI · ÜST MENÜSÜ · SIRASI. Route, ekran anahtarı, yetki anahtarı ve servisler
 // BURADAN ETKİLENMEZ. Yetki: platform yönetimiyle AYNI modül (screen_visibility, süper admin) —
@@ -2962,7 +3207,9 @@ app.MapGet("/api/modules", (HttpContext c, string? userId) =>
     // ve "Raporlar" grubunda RAPOR BAZLI yetki kalemleri (rpt_*) de listelenir. Süzme kuralları
     // BİREBİR korunur; yalnız sıralama gruplu ve her satıra `group` alanı eklendi (eski istemci
     // alanı yok sayar — sözleşme kırılmaz).
-    var mods = AppModules.Grouped()
+    // ⭐ FAZ 3b-5: ağaca firmanın KORUMALI alanları da girer (fld_*). Koruma yoksa hiçbir alan
+    // kalemi gelmez → ağaç bugünküyle birebir aynıdır.
+    var mods = AppModules.Grouped(s.ProtectedFields)
         .SelectMany(g => g.Items.Select(m => (Group: g.Title, m.Key, m.Label)))
         .Where(m => AccessControl.CanGrantModule(s, m.Key)          // aktörün delegasyon tavanı
                     && !roleBlocked.Contains(m.Key)                  // hedefin rolüne kapalı → gizli
@@ -2971,7 +3218,9 @@ app.MapGet("/api/modules", (HttpContext c, string? userId) =>
                     // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — artık bu ekranları istediği
                     // role verebildiği için (PermissionService) ağaçta da görebilmelidir.
                     && !(hasTarget && !s.IsSuperAdmin && AppModules.IsSuperAdminOnly(m.Key) && !targetCanReceiveSuperOnly))
-        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key), group = m.Group });
+        // fieldItem: arayüz bu satırda YALNIZ "Oku" ve "Düzelt" kutularını çizer ("Yaz"/"Sil" bir
+        // ALANDA anlamsızdır). Eski istemci alanı yok sayar → sözleşme kırılmaz.
+        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key), group = m.Group, fieldItem = AppModules.IsFieldItem(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
 
@@ -4058,6 +4307,16 @@ app.MapPost("/api/vehicles/{id}/status", (HttpContext c, string id, VehicleStatu
     svc.Vehicles.SetStatus(s, id, code, Doc(d.StatusNote));
     return Results.Ok(new { ok = true, status = code });
 }).RequireAuthorization();
+// ⭐ FAZ 4.1 (2026-09-06) — ARAÇ SAYACINI GERÇEK KAYITLARDAN YENİDEN HESAPLA.
+// Gerçek olay: yanlış-yüksek sayaç girilen kayıt düzeltildi ama araçta eski değer kaldı; kullanıcı
+// hiçbir ekrandan düzeltemedi. Artık düzeltme/iptal sayacı kendiliğinden toparlar; bu iki uç,
+// GEÇMİŞTE zehirlenmiş kayıtların elle onarımı içindir. Yetki: vehicles/Edit (serviste uygulanır).
+app.MapPost("/api/vehicles/{id}/meter/recalc", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { changed = svc.Vehicles.RecalculateMeter(s, id), meter = svc.Vehicles.GetMeter(s, id) })
+                  : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/vehicles/meter/recalc-all", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(new { fixedCount = svc.Vehicles.RecalculateAllMeters(s) })
+                  : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/models/{brandId}", (HttpContext c, string brandId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListVehicleModels(s, brandId)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/vehicles/models", (HttpContext c, VehicleModelDto d) =>
@@ -4329,6 +4588,28 @@ app.MapPost("/api/permissions/{userId}", (HttpContext c, string userId, PermSave
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ═══ FAZ 3a (ADR-222, 2026-09-05) — ROL BAZLI YETKİ UÇLARI ═══════════════════════════════════
+//
+// Kullanıcı uçlarının aynası; tek fark hedefin KULLANICI değil ROL olmasıdır. Yetki, tenant,
+// devretme tavanı, rol kilidi, audit ve önbellek kontrollerinin TAMAMI servistedir
+// (PermissionService.SaveForRole) — burada ikinci bir kapı YOKTUR.
+//
+// ⚠️ Rol izni o role sahip HERKESİ etkiler; servis bu yüzden tüm yetki fotoğraflarını düşürür.
+app.MapGet("/api/permissions/role/{roleKey}", (HttpContext c, string roleKey) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Arayüz ROL ANAHTARI ile konuşur (Rol Yetki Kontrol ekranı da öyle); servis id'ye çevirir.
+    var data = svc.Permissions.LoadForRoleKey(s, roleKey);
+    return Results.Ok(new { modules = data.Modules, buttons = data.Buttons });
+}).RequireAuthorization();
+app.MapPost("/api/permissions/role/{roleKey}", (HttpContext c, string roleKey, PermSaveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mods = (d.Modules ?? new()).Select(m => new ModulePermission(m.ModuleKey, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete));
+    svc.Permissions.SaveForRoleKey(s, roleKey, mods, d.Buttons ?? new());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // G1a (2026-08-12) — YETKİ SIFIRLAMA. Kullanıcının tüm modül/buton izinlerini siler (deny-by-default'a
 // döner). Rol ataması ve kullanıcı kaydı DEĞİŞMEZ. SaveForUser ile aynı kapılardan geçer (yetki, firma
 // sahipliği, hedef yönetilebilirlik, düzenleme kilidi, audit) — kısa yol YOKTUR.
@@ -4412,6 +4693,14 @@ app.MapGet("/api/audit/screen", (HttpContext c, string module, long? from, long?
 
 app.MapGet("/api/audit", (HttpContext c, long? from, long? to, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.AuditLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
+
+// ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — TEK KAYDIN KENDİ LOG EKRANI.
+// "her kaydın kendine ait bir log ekranı olmalı": seçili kaydın TÜM geçmişi + alan bazlı fark
+// ("hangi alanda neyi güncelledi"). Yetki servistedir: btn-screen-log + kaydın ait olduğu ekranda View.
+app.MapGet("/api/audit/record", (HttpContext c, string entityType, string entityId, int? limit) =>
+    S(c) is { } s
+        ? Results.Ok(svc.AuditLog.ForEntity(s, entityType ?? "", entityId ?? "", limit is > 0 ? limit.Value : 500))
+        : Results.Unauthorized()).RequireAuthorization();
 
 // ── Doğrudan stok değişikliği uyarı logu (madde 1.4/1.5, kullanıcı isteği 2026-08-06) ──
 // POST: Malzeme kartından doğrudan stok değişimi kararı (uyarı gösterildikten sonra). continued=true →
@@ -4669,6 +4958,8 @@ record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0, string? Id = null, int MaxAdmins = 0, int MachineQuota = 3);
 record NameDto(string Name);
+/// <summary>FAZ 4.6: satır içi "+" firma ayarı (açık/kapalı).</summary>
+record LookupPlusDto(bool Enabled);
 record LockDto(bool Locked);
 // Version: DÜZENLEME KİLİDİ — null = kontrol yok (geriye uyumlu).
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false, long? Version = null);
@@ -4908,6 +5199,7 @@ record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons, long Ver
 record PermResetDto(long Version = 0);   // G1a — yetki sıfırlama; düzenleme kilidi jetonu (0 = kontrol yok)
 // G5 — ekran platform ayarı. null = kaydı sil (katalog varsayılanına dön).
 record FieldRequirementDto(string ScreenKey, string FieldKey, bool Required);   // 2026-09-03: alan zorunlulugu
+record FieldProtectionDto(string ScreenKey, string FieldKey, bool IsProtected);   // 2026-09-05: alan korumasi (FAZ 3b-5)
 record ScreenVisibilityDto(string ScreenKey, bool? Desktop, bool? Web);
 
 // MNU — menü düzeni kaydetme gövdesi. Tam durum gönderilir (bkz. MenuLayoutService.Save).

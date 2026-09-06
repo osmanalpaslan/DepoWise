@@ -330,6 +330,8 @@
 
     private async Task BeginEdit(string id)
     {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         try
         {
             var d = await Api.GetObjectAsync($"/api/requests/{id}/edit");

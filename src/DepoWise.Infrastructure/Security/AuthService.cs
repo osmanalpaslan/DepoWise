@@ -83,7 +83,7 @@ public sealed class AuthService
 
         // 3) Oturum + yetkiler
         var roles = LoadRoleKeys(conn, user!.Value.Id);
-        var perms = LoadPermissions(conn, user.Value.Id);
+        var perms = LoadPermissions(conn, companyId, user.Value.Id);
         CreateSession(conn, user.Value.Id, companyId, now);
         var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id))
         {
@@ -98,6 +98,9 @@ public sealed class AuthService
             // ⭐ ŞB-04 (2026-08-18): ŞUBE AĞACI. Üst şubeye yetkili kullanıcı alt şubeleri de görsün
             // (bugüne kadar parent_id hiçbir yerde okunmuyordu; "Üst Şube" yalnız bir etiketti).
             BranchDescendants = Organization.BranchTree.LoadDescendants(conn, companyId),
+            // ⭐ FAZ 3b (ADR-223): firmanın KORUMALI alanları. Tablo boşsa küme boş kalır →
+            // hiçbir alan korunmaz, davranış bugünküyle birebir aynıdır (fail-safe taraf).
+            ProtectedFields = LoadProtectedFields(conn, companyId),
         };
         return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
     }
@@ -214,7 +217,7 @@ public sealed class AuthService
             }
         }
 
-        var perms = LoadPermissions(conn, userId);
+        var perms = LoadPermissions(conn, companyId, userId);
         return new PermissionSnapshot(
             CompanyId: companyId,
             UserId: userId,
@@ -229,7 +232,10 @@ public sealed class AuthService
             ScopeBranchIds: LoadUserScopes(conn, companyId, userId),
             HomeBranchId: LoadHomeBranch(conn, userId),
             // ⭐ ŞB-04: şube ağacı web/API oturumuna da girer — kapsam iki platformda AYNI davranır.
-            BranchDescendants: Organization.BranchTree.LoadDescendants(conn, companyId));
+            BranchDescendants: Organization.BranchTree.LoadDescendants(conn, companyId),
+            // ⭐ FAZ 3b: korumalı alanlar snapshot ile ÖNBELLEKLENİR → istek başına da satır başına da
+            // ek sorgu YOKTUR (talimat §37). Koruma değişince PermissionService InvalidateAll çağırır.
+            ProtectedFields: LoadProtectedFields(conn, companyId));
     }
 
     /// <summary>Kullanıcıya AÇIKÇA atanmış şube kapsamı (user_scopes). Satır yoksa null.</summary>
@@ -314,7 +320,7 @@ public sealed class AuthService
         if (userId is null || coId is null || hash is null) return null;
 
         var roles = LoadRoleKeys(conn, userId);
-        var perms = LoadPermissions(conn, userId);
+        var perms = LoadPermissions(conn, companyId, userId);
         string coName = coId;
         using (var cn = conn.CreateCommand())
         {
@@ -532,20 +538,77 @@ public sealed class AuthService
         return list;
     }
 
-    private static PermissionSet LoadPermissions(DbConnection conn, string userId)
+    /// <summary>
+    /// ═══ FAZ 3a (ADR-222, 2026-09-05) — ETKİN İZİN = BİRLEŞİM(kullanıcı, roller) ═══
+    ///
+    /// <b>Neden BURASI:</b> bu metot oturum kuran İKİ yolun da (masaüstünün <c>Login</c>'i ve
+    /// web/API'nin <c>CreateSessionForUser</c>'ı) ortak noktasıdır. Birleştirme burada yapılınca
+    /// iki platform da AYNI etkin kümeyi alır; ikinci bir çözümleyici yazılmaz.
+    ///
+    /// <b>Kural (K1 — yalnız ALLOW):</b> bayrak bazlı <b>VEYA</b>. Rol izni yalnız <b>ekler</b>;
+    /// hiçbir kullanıcı izni rol yüzünden kaybolmaz, hiçbir rol bir izni KALDIRAMAZ.
+    ///
+    /// <b>Geri uyumluluk:</b> <c>role_permissions</c> boşsa sonuç kullanıcı satırlarının
+    /// birebir aynısıdır → yayın günü davranış değişmez. (<c>RolIzinleriBosken…</c> testi kilitler.)
+    ///
+    /// <b>Precedence BOZULMAZ (K5):</b> burada üretilen küme <c>AccessControl.Can</c>'in
+    /// <b>4. basamağıdır</b> (açık izin). Rol kilidi (1), yapısal sınıf (2) ve admin bypass (3)
+    /// bu kümeden ÖNCE çalışır; rol ALLOW'ı onların hiçbirini aşamaz.
+    ///
+    /// <b>Performans:</b> oturum/snapshot başına +2 sorgu (modül + buton). İstek başına EK SORGU
+    /// YOKTUR — sonuç <c>PermissionSnapshot</c> içinde önbelleklenir ve 329 servis yetki çağrısı
+    /// bu hazır kümeyi okur.
+    ///
+    /// <b>Firma süzgeci ZORUNLU:</b> roller sistem geneli olabilir (<c>roles.company_id IS NULL</c>);
+    /// izin satırı ise firmaya aittir. Süzgeç olmadan bir firmanın rolüne verdiği izin, aynı rolü
+    /// taşıyan BAŞKA firmanın kullanıcısına sızardı.
+    /// </summary>
+    private static PermissionSet LoadPermissions(DbConnection conn, string companyId, string userId)
     {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            "SELECT module_key, can_view, can_create, can_edit, can_delete " +
-            "FROM user_permissions WHERE user_id = @u;";
-        cmd.AddWithValue("@u", userId);
-        var mods = new List<ModulePermission>();
-        using (var r = cmd.ExecuteReader())
+        // ── 1) Kullanıcının KENDİ satırları (bugünkü davranış — dokunulmadı) ──────────────
+        var mods = new Dictionary<string, ModulePermission>(StringComparer.Ordinal);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT module_key, can_view, can_create, can_edit, can_delete " +
+                "FROM user_permissions WHERE user_id = @u;";
+            cmd.AddWithValue("@u", userId);
+            using var r = cmd.ExecuteReader();
             while (r.Read())
-                mods.Add(new ModulePermission(r.GetString(0), r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1));
+                mods[r.GetString(0)] = new ModulePermission(r.GetString(0),
+                    r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1);
+        }
 
-        // Özel buton ("+") izinleri
-        var buttons = new List<string>();
+        // ── 2) ROL satırları — VEYA ile birleştirilir ─────────────────────────────────────
+        if (TableExists(conn, "role_permissions"))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT rp.module_key, rp.can_view, rp.can_create, rp.can_edit, rp.can_delete " +
+                "FROM role_permissions rp " +
+                "JOIN user_roles ur ON ur.role_id = rp.role_id " +
+                "WHERE ur.user_id = @u AND rp.company_id = @c;";
+            cmd.AddWithValue("@u", userId);
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var key = r.GetString(0);
+                var gelen = new ModulePermission(key,
+                    r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1);
+                // Aynı izin birden çok rolden gelirse de sonuç TEK satırdır (VEYA birikimli).
+                mods[key] = mods.TryGetValue(key, out var v)
+                    ? new ModulePermission(key,
+                        v.CanView || gelen.CanView,
+                        v.CanCreate || gelen.CanCreate,
+                        v.CanEdit || gelen.CanEdit,
+                        v.CanDelete || gelen.CanDelete)
+                    : gelen;
+            }
+        }
+
+        // ── 3) Özel buton ("+") izinleri — kullanıcı ∪ rol ───────────────────────────────
+        var buttons = new HashSet<string>(StringComparer.Ordinal);
         using (var bc = conn.CreateCommand())
         {
             bc.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id = @u;";
@@ -553,7 +616,51 @@ public sealed class AuthService
             using var br = bc.ExecuteReader();
             while (br.Read()) buttons.Add(br.GetString(0));
         }
-        return new PermissionSet(mods, buttons);
+        if (TableExists(conn, "role_button_permissions"))
+        {
+            using var bc = conn.CreateCommand();
+            bc.CommandText =
+                "SELECT rb.button_key FROM role_button_permissions rb " +
+                "JOIN user_roles ur ON ur.role_id = rb.role_id " +
+                "WHERE ur.user_id = @u AND rb.company_id = @c;";
+            bc.AddWithValue("@u", userId);
+            bc.AddWithValue("@c", companyId);
+            using var br = bc.ExecuteReader();
+            while (br.Read()) buttons.Add(br.GetString(0));
+        }
+
+        return new PermissionSet(mods.Values, buttons);
+    }
+
+    /// <summary>
+    /// Tablo var mı? <b>Neden gerekli:</b> masaüstü kendi SQLite'ını KENDİ migration kataloğuyla
+    /// yürütür ve eski bir kurulum henüz 092'yi uygulamamış olabilir. Tablo yoksa rol katmanı
+    /// sessizce devre dışı kalır ve davranış bugünküyle aynı olur — çökme yerine geri düşüş.
+    /// </summary>
+    /// <summary>
+    /// FAZ 3b (ADR-223) — Firmanın korumalı alanları (<c>ekran|alan</c> kümesi).
+    ///
+    /// FİRMA bazlıdır (kullanıcıya göre değişmez) ve oturum/snapshot başına <b>tek sorgu</b> ile okunur.
+    /// Tablo yoksa (henüz göç etmemiş eski masaüstü veritabanı) BOŞ küme döner — yani koruma yok,
+    /// bugünkü davranış. Bu, <c>role_permissions</c> için kanıtlanmış aynı geriye uyumluluk desenidir.
+    /// </summary>
+    private static IReadOnlySet<string> LoadProtectedFields(DbConnection conn, string companyId)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        if (!TableExists(conn, "field_protections")) return set;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT screen_key, field_key FROM field_protections WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            set.Add(Application.Security.FieldAccess.ProtectionKey(r.GetString(0), r.GetString(1)));
+        return set;
+    }
+
+    private static bool TableExists(DbConnection conn, string table)
+    {
+        try { return DbIntrospect.TableExists(conn, null, table); }
+        catch { return false; }
     }
 
     private void CreateSession(DbConnection conn, string userId, string companyId, DateTimeOffset now)

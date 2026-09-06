@@ -23,6 +23,15 @@ public sealed partial class NavLinkVm : ViewModelBase
     public Avalonia.Media.Geometry? IconGeometry { get; init; }
     public bool HasIcon => IconGeometry is not null;
 
+    /// <summary>
+    /// ⭐ FAZ 2 (ADR-221) — HİYERARŞİ RENK AİLESİ. Ekran, ait olduğu ÜST MENÜNÜN ailesini
+    /// MİRAS ALIR; kendi rengi yoktur ve hiçbir yerde hardcode edilmez (bkz. MenuPalette).
+    /// Kaynak yoksa null → çubuk çizilmez, akış bozulmaz.
+    /// ⚠️ Renk TEK BAŞINA anlam taşımaz: aynı bilgiyi ikon, girinti ve tipografi de taşır.
+    /// </summary>
+    public Avalonia.Media.IBrush? FamilyBrush { get; init; }
+    public bool HasFamily => FamilyBrush is not null;
+
     [ObservableProperty] private bool _isActive;
 
     public NavLinkVm(string title, string key)
@@ -49,6 +58,11 @@ public sealed partial class NavSectionVm : ViewModelBase
     /// <summary>M6: üst grup ikonu (Themes/Icons.axaml). Yoksa üst grup ikonsuz görünür.</summary>
     public Avalonia.Media.Geometry? IconGeometry { get; init; }
     public bool HasIcon => IconGeometry is not null;
+
+    /// <summary>⭐ FAZ 2 (ADR-221) — Üst grup, renk ailesinin KAYNAĞIDIR; altındaki üst menüler
+    /// ve ekranlar bunu miras alır. En GÜÇLÜ ton burada kullanılır (hiyerarşi ipucu).</summary>
+    public Avalonia.Media.IBrush? FamilyBrush { get; init; }
+    public bool HasFamily => FamilyBrush is not null;
 
     [ObservableProperty] private bool _isExpanded;
 
@@ -81,6 +95,12 @@ public sealed partial class NavGroupVm : ViewModelBase
     /// Emoji tasiyan <see cref="Icon"/> alani DURUR: geri donus yolu ve web/MenuLayout ile ortak katalog.</summary>
     public Avalonia.Media.Geometry? IconGeometry { get; init; }
     public bool HasIcon => IconGeometry is not null;
+
+    /// <summary>⭐ FAZ 2 (ADR-221) — Üst menü, bağlı olduğu ÜST GRUBUN ailesini miras alır.
+    /// Kardeş menüler aynı aileyi paylaşır; onları ayıran şey ikon ve addır (renk kimlik değil,
+    /// gruplama ipucudur).</summary>
+    public Avalonia.Media.IBrush? FamilyBrush { get; init; }
+    public bool HasFamily => FamilyBrush is not null;
 
     [ObservableProperty] private bool _isExpanded;
     [ObservableProperty] private bool _isActive;

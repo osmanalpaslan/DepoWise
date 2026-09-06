@@ -18,7 +18,13 @@
     {
       "name": "api-local",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/DepoWise.Api", "--urls", "http://localhost:5224"],
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Api",
+        "--urls",
+        "http://localhost:5224"
+      ],
       "port": 5224
     },
     {
@@ -35,13 +41,15 @@
       ],
       "port": 5283
     },
-
     {
       "//": "IZOLE QA SUNUCUSU (2026-09-04). Veritabani artifacts/qa-data altindadir (git'te YOK) -> gelistiricinin kendi yerel verisine ASLA dokunulmaz. Arayuz denemeleri (ornegin mobil uyumluluk) bu ciftle yapilir.",
       "name": "api-qa",
       "runtimeExecutable": "powershell",
       "runtimeArgs": [
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
         "$env:DEPOWISE_SERVER_DATA = (Join-Path $PWD 'artifacts/qa-data'); dotnet run --project src/DepoWise.Api --urls http://localhost:5225"
       ],
       "port": 5225
@@ -59,6 +67,87 @@
         "--Api:BaseUrl=http://localhost:5225"
       ],
       "port": 5284
+    },
+    {
+      "//": "FAZ 2 GORSEL QA (2026-09-05). TAMAMEN YENI izole veri dizini (artifacts/visual-data) + BU OTURUMDA belirlenen tohum parolasi -> canli parola KULLANILMAZ, mevcut qa-data'ya DOKUNULMAZ.",
+      "name": "api-visual",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:DEPOWISE_SERVER_DATA = (Join-Path $PWD 'artifacts/visual-data'); $env:DEPOWISE_SEED_SUPERADMIN_PASSWORD = 'VisualQA!2026'; $env:DEPOWISE_SEED_ADMIN_PASSWORD = 'VisualQA!2026'; dotnet run --project src/DepoWise.Api --urls http://localhost:5226"
+      ],
+      "port": 5226
+    },
+    {
+      "name": "web-visual",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5285",
+        "--",
+        "--Api:BaseUrl=http://localhost:5226"
+      ],
+      "port": 5285
+    },
+    {
+      "//": "FAZ 3b-5 GORSEL QA (2026-09-05). TAMAMEN YENI izole veri dizini (artifacts/p5-data) + bu oturumda belirlenen tohum parolasi. Canli parola KULLANILMAZ; visual-data ve qa-data dizinlerine DOKUNULMAZ.",
+      "name": "api-p5",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:DEPOWISE_SERVER_DATA = (Join-Path $PWD artifacts/p5-data); $env:DEPOWISE_SEED_SUPERADMIN_PASSWORD = AlanQA!2026; $env:DEPOWISE_SEED_ADMIN_PASSWORD = AlanQA!2026; dotnet run --project src/DepoWise.Api --urls http://localhost:5227"
+      ],
+      "port": 5227
+    },
+    {
+      "name": "web-p5",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5286",
+        "--",
+        "--Api:BaseUrl=http://localhost:5227"
+      ],
+      "port": 5286
+    },
+    {
+      "//": "FAZ 4 FINAL QA (2026-09-06). TAMAMEN YENI izole veri dizini (artifacts/f4-data) + bu oturumda belirlenen tohum parolasi. Canli parola KULLANILMAZ; diger QA dizinlerine DOKUNULMAZ.",
+      "name": "api-f4",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:DEPOWISE_SERVER_DATA = (Join-Path $PWD 'artifacts/f4-data'); $env:DEPOWISE_SEED_SUPERADMIN_PASSWORD = 'Faz4QA!2026'; $env:DEPOWISE_SEED_ADMIN_PASSWORD = 'Faz4QA!2026'; dotnet run --project src/DepoWise.Api --urls http://localhost:5228"
+      ],
+      "port": 5228
+    },
+    {
+      "name": "web-f4",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5287",
+        "--",
+        "--Api:BaseUrl=http://localhost:5228"
+      ],
+      "port": 5287
     }
   ]
 }

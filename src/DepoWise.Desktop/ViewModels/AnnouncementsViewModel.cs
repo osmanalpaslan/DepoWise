@@ -121,10 +121,12 @@ public sealed partial class AnnouncementsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "Duyuru seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         var a = Selected.Row;
         EditId = a.Id; _editVersion = a.Version;
         FormTitle2 = a.Title; FormBody = a.Body ?? "";

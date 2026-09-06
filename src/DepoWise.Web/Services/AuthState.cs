@@ -40,6 +40,24 @@ public sealed class AuthState
     /// <summary>Kullanıcı bu özel butonu kullanabilir mi (deny-by-default; süper admin daima).</summary>
     public bool CanButton(string key) => IsSuperAdmin || _buttons.Contains(key);
 
+    /// <summary>
+    /// ⭐ FAZ 4.16 — PERSONELE KULLANICI BAĞLAMA. Admin bypass'ı VEYA açıkça verilmiş
+    /// «Personele Kullanıcı Bağlama» yetkisi. Sunucudaki <c>UserService.RequireLinkPermission</c>
+    /// ile AYNI kural — arayüz burada ikinci bir yetki mantığı kurmaz, aynı soruyu sorar.
+    /// </summary>
+    public bool CanLinkUser => IsAdmin || CanButton("btn-link-user");
+
+    // ═══ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" FİRMA AYARI ═══════════════════════
+    // Firma hangi sabit tanımların yanında "+" çıkacağını seçer. Ayar oturumda bir kez okunur;
+    // kayıt yoksa AÇIK sayılır (bugünkü davranış). Gerçek kapı SUNUCUDADIR (LookupService).
+    private IReadOnlyDictionary<string, bool>? _lookupPlus;
+
+    public void SetLookupPlus(IReadOnlyDictionary<string, bool> harita) { _lookupPlus = harita; Changed?.Invoke(); }
+
+    /// <summary>Bu tanım için satır içi "+" açık mı? (Bilinmiyorsa AÇIK — kullanıcı kilitlenmez.)</summary>
+    public bool LookupPlusAcik(string table)
+        => _lookupPlus is null || !_lookupPlus.TryGetValue(table, out var acik) || acik;
+
     public void SetModules(IReadOnlyList<MenuModule> m, bool isAdmin = false, bool isRestrictedSuperAdmin = false,
         IReadOnlyList<string>? buttons = null)
     {

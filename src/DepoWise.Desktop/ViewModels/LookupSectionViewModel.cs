@@ -20,6 +20,16 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     private readonly Func<SessionContext, IReadOnlyList<LookupItem>> _load;
     private readonly Action<SessionContext, string> _add;
 
+    // ⭐ FAZ 4.5 (kullanıcı isteği 2026-09-06): "+" ile eklenebilen HER tanım "Tanımlar" ekranında da
+    // yönetilebilmeli. Bazı tanımlar (ör. personel unvanı) ortak LookupService'te DEĞİL, kendi
+    // servisindedir. Bu üç işlem dışarıdan verilebilir; verilmezse davranış eskisiyle BİREBİR aynıdır.
+    private readonly Action<SessionContext, string>? _delete;      // (oturum, id)
+    private readonly Action<SessionContext, string, string>? _rename;   // (oturum, id, yeniAd)
+    private readonly bool _kilitDestekli;
+
+    /// <summary>Kilit (sabit tanım) bu bölümde destekleniyor mu — desteklenmiyorsa düğme çizilmez.</summary>
+    public bool SupportsLock => _kilitDestekli;
+
     public string Title { get; }
     public ObservableCollection<LookupRowViewModel> Items { get; } = new();
     [ObservableProperty] private string _newName = "";
@@ -29,12 +39,16 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     public bool CanDelete => AccessControl.Can(_s, "definitions", PermissionAction.Delete);
     public bool CanEdit => AccessControl.Can(_s, "definitions", PermissionAction.Edit);
     /// <summary>Kilit aç/kapa (sabit tanım) yalnız admin (kullanıcı isteği 2026-07-19).</summary>
-    public bool CanToggleLock => AccessControl.IsAdmin(_s);
+    public bool CanToggleLock => AccessControl.IsAdmin(_s) && _kilitDestekli;
 
     public LookupSectionViewModel(SessionContext s, string title, string table,
-        Func<SessionContext, IReadOnlyList<LookupItem>> load, Action<SessionContext, string> add)
+        Func<SessionContext, IReadOnlyList<LookupItem>> load, Action<SessionContext, string> add,
+        Action<SessionContext, string>? delete = null,
+        Action<SessionContext, string, string>? rename = null,
+        bool kilitDestekli = true)
     {
         _s = s; Title = title; _table = table; _load = load; _add = add;
+        _delete = delete; _rename = rename; _kilitDestekli = kilitDestekli;
         Reload();
     }
 
@@ -59,7 +73,7 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     {
         if (item is null) return;
         if (!await ConfirmService.AskAsync($"'{item.OriginalName}' silinsin mi?", "Tanım Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
-        try { DesktopServices.Lookups.Delete(_s, _table, item.Id); Reload(); }
+        try { if (_delete is not null) _delete(_s, item.Id); else DesktopServices.Lookups.Delete(_s, _table, item.Id); Reload(); }
         catch (Exception ex) { Error = ex.Message; }
     }
 
@@ -71,7 +85,7 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
         Error = null;
         var newName = (item.Name ?? "").Trim();
         if (newName == item.OriginalName) return;   // değişmemiş → sessiz geç
-        try { DesktopServices.Lookups.Rename(_s, _table, item.Id, newName); Reload(); }
+        try { if (_rename is not null) _rename(_s, item.Id, newName); else DesktopServices.Lookups.Rename(_s, _table, item.Id, newName); Reload(); }
         catch (Exception ex) { Error = ex.Message; item.Name = item.OriginalName; }
     }
 
@@ -81,7 +95,7 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     {
         if (item is null) return;
         Error = null;
-        try { DesktopServices.Lookups.SetLocked(_s, _table, item.Id, !item.IsLocked); Reload(); }
+        try { if (!_kilitDestekli) return; DesktopServices.Lookups.SetLocked(_s, _table, item.Id, !item.IsLocked); Reload(); }
         catch (Exception ex) { Error = ex.Message; }
     }
 }

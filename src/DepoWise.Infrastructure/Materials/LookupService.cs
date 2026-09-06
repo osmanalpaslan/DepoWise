@@ -26,23 +26,67 @@ public sealed class LookupService
         _clock = clock ?? new SystemClock();
     }
 
-    public string AddCategory(SessionContext s, string name, string? parentId = null)
-        => Insert(s, "material_categories", name, ("parent_id", (object?)parentId ?? DBNull.Value));
+    // ═══ FAZ 4.6 (kullanıcı isteği 2026-09-06) — "+" (HIZLI EKLEME) FİRMA AYARI ════════════════
+    //
+    // Firma, hangi sabit tanımların yanında "+" çıkacağını seçebilir (LookupPlusCatalog).
+    // ⚠️ Kapatma YALNIZ hızlı ekleme yolunu (quick) etkiler: "Tanım Düzenle" ekranından ekleme
+    // her zaman serbesttir — aksi hâlde firma kendi tanımını hiçbir yerden ekleyemez hâle gelirdi.
+    // Kayıt yoksa varsayılan AÇIK → hiçbir firmada bugünkü davranış değişmez.
 
-    public string AddBrand(SessionContext s, string name, string brandType = "material")
-        => Insert(s, "brands", name, ("brand_type", brandType));
+    /// <summary>Bu tanım için satır içi "+" (hızlı ekleme) firma ayarında açık mı?</summary>
+    public bool QuickAddEnabled(SessionContext s, string table)
+    {
+        if (!DepoWise.Application.Ui.LookupPlusCatalog.Bilinen(table)) return true;   // bilinmeyen → kilitleme
+        try
+        {
+            using var conn = _factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id=@c AND setting_key=@k;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@k", DepoWise.Application.Ui.LookupPlusCatalog.Key(table));
+            return (cmd.ExecuteScalar() as string) != DepoWise.Application.Ui.LookupPlusCatalog.Kapali;
+        }
+        catch { return true; }   // ayar okunamadıysa kullanıcıyı engelleme
+    }
 
-    public string AddUnit(SessionContext s, string name) => Insert(s, "units", name);
+    /// <summary>Hızlı ekleme kapalıysa açık ret (arayüz zaten gizler; bu sunucu tarafı kalkanıdır).</summary>
+    private void RequireQuickAdd(SessionContext s, string table, bool quick)
+    {
+        if (!quick || QuickAddEnabled(s, table)) return;
+        throw new ForbiddenException(
+            $"«{DepoWise.Application.Ui.LookupPlusCatalog.Label(table)}» için satır içi hızlı ekleme firma ayarlarında kapalı. "
+            + "Tanımı «Tanım Düzenle» ekranından ekleyebilirsiniz.");
+    }
 
-    public string AddSupplier(SessionContext s, string name) => Insert(s, "suppliers", name);
+    public string AddCategory(SessionContext s, string name, string? parentId = null, bool quick = false)
+        => QuickAdd(s, "material_categories", quick, () => Insert(s, "material_categories", name, ("parent_id", (object?)parentId ?? DBNull.Value)));
+
+    public string AddBrand(SessionContext s, string name, string brandType = "material", bool quick = false)
+        => QuickAdd(s, brandType == "vehicle" ? "vehicle_brands" : "brands", quick, () => Insert(s, "brands", name, ("brand_type", brandType)));
+
+    public string AddUnit(SessionContext s, string name, bool quick = false)
+        => QuickAdd(s, "units", quick, () => Insert(s, "units", name));
+
+    public string AddSupplier(SessionContext s, string name, bool quick = false)
+        => QuickAdd(s, "suppliers", quick, () => Insert(s, "suppliers", name));
 
     // ── Araç tanımları ──
-    public string AddVehicleType(SessionContext s, string name) => Insert(s, "vehicle_types", name);
+    public string AddVehicleType(SessionContext s, string name, bool quick = false)
+        => QuickAdd(s, "vehicle_types", quick, () => Insert(s, "vehicle_types", name));
     public string AddEquipmentType(SessionContext s, string name) => Insert(s, "equipment_types", name);   // EKP-01
-    public string AddVehicleCategory(SessionContext s, string name) => Insert(s, "vehicle_categories", name);
-    public string AddVehicleBrand(SessionContext s, string name) => Insert(s, "brands", name, ("brand_type", "vehicle"));
-    public string AddVehicleModel(SessionContext s, string brandId, string name)
-        => Insert(s, "vehicle_models", name, ("brand_id", brandId));
+    public string AddVehicleCategory(SessionContext s, string name, bool quick = false)
+        => QuickAdd(s, "vehicle_categories", quick, () => Insert(s, "vehicle_categories", name));
+    public string AddVehicleBrand(SessionContext s, string name, bool quick = false)
+        => QuickAdd(s, "vehicle_brands", quick, () => Insert(s, "brands", name, ("brand_type", "vehicle")));
+    public string AddVehicleModel(SessionContext s, string brandId, string name, bool quick = false)
+        => QuickAdd(s, "vehicle_models", quick, () => Insert(s, "vehicle_models", name, ("brand_id", brandId)));
+
+    /// <summary>Hızlı ekleme kapısı: <paramref name="quick"/> ise firma ayarı kontrol edilir.</summary>
+    private string QuickAdd(SessionContext s, string tablo, bool quick, Func<string> ekle)
+    {
+        RequireQuickAdd(s, tablo, quick);
+        return ekle();
+    }
 
     /// <summary>Bir markanın araç modelleri.</summary>
     public IReadOnlyList<LookupItem> ListVehicleModels(SessionContext s, string brandId)

@@ -236,6 +236,14 @@
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
                                    Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
                     </MudTooltip>
+                    @* ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı (masaüstüyle aynı). *@
+                    @if (Auth.CanEdit("vehicles"))
+                    {
+                        <MudTooltip Text="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez.">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Autorenew"
+                                       Disabled="@_meterBusy" OnClick="SayaclariOnar">Sayaçları Onar</MudButton>
+                        </MudTooltip>
+                    }
                 </MudStack>
             </div>
 
@@ -379,11 +387,10 @@
     /// yönlendiği için Blazor bileşeni yeniden oluşturmaz — <c>OnInitializedAsync</c> çalışmaz ve
     /// <c>?edit=</c> okunmadan boş form açılırdı (malzemede birebir aynı tuzağa düşülmüştü).
     /// </summary>
-    private Task EditNav(string id)
-    {
-        Nav.NavigateTo($"/vehicles/new?edit={id}", forceLoad: true);
-        return Task.CompletedTask;
-    }
+    /// <remarks>⭐ FAZ 4.2: burada onay SORULMAZ — bu bir NAVİGASYONdur, düzenleme değil. Kullanıcı
+    /// zaten "Tam Düzenleme" düğmesine bilinçli bastı; asıl düzenleme onayı formun kendi akışındadır.
+    /// (Kullanıcının şartı: "aynı koşula sahip olan butonları pas geç".)</remarks>
+    private void EditNav(string id) => Nav.NavigateTo($"/vehicles/new?edit={id}", forceLoad: true);
 
     /// <summary>Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılır —
     /// böylece liste ekranı (filtre/sayfa) kaybolmaz. Tarayıcı yeni sekmeyi engellerse (pop-up engelleyici)
@@ -397,7 +404,7 @@
             if (acildi) return;
         }
         catch { /* JS erişilemedi → aynı sekmede aç */ }
-        await EditNav(id);
+        EditNav(id);
     }
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
@@ -603,6 +610,31 @@
     }
 
     private bool _exporting;
+    // ═══ FAZ 4.1 (2026-09-06) — ARAÇ SAYAÇLARINI GERÇEK KAYITLARDAN ONAR ════════════════════════
+    // Gerçek olay: yakıt fişine yanlış-yüksek sayaç girildi, kayıt düzeltildi ama araçta eski değer
+    // kaldı. Düzeltme/iptal artık sayacı kendiliğinden toparlıyor; bu buton GEÇMİŞTE bozulmuş
+    // kayıtları tek seferde onarır. Karar ve yetki SUNUCUDA (vehicles/Edit) — arayüz yalnız çağırır.
+    private bool _meterBusy;
+
+    private async Task SayaclariOnar()
+    {
+        if (!await Dialog.Confirm(
+                "Tüm araçların sayacı, GEÇERLİ yakıt ve bakım kayıtlarından yeniden hesaplansın mı?\n\n" +
+                "Yanlış girilip sonradan düzeltilen/iptal edilen sayaçlar bu işlemle toparlanır.\n" +
+                "Hiçbir kayıt silinmez; araç kartında elle girilen sayaç korunur.", "Evet, Onar")) return;
+        _meterBusy = true;
+        try
+        {
+            var sonuc = await Api.PostJsonAsync("/api/vehicles/meter/recalc-all", new { });
+            var adet = sonuc is { } j && j.TryGetProperty("fixedCount", out var f) && f.ValueKind == JsonValueKind.Number ? f.GetInt32() : 0;
+            Snackbar.Add(adet == 0 ? "Tüm sayaçlar zaten doğru — değişiklik yapılmadı." : $"{adet} aracın sayacı düzeltildi.",
+                adet == 0 ? Severity.Info : Severity.Success);
+            await Load();
+        }
+        catch (Exception ex) { Snackbar.Add("Onarılamadı: " + ex.Message, Severity.Error); }
+        finally { _meterBusy = false; }
+    }
+
     /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları indirir.</summary>
     private async Task ExportExcel()
     {
@@ -724,6 +756,8 @@
     private async Task BeginEdit()
     {
         if (_detail is null) return;
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi

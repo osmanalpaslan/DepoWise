@@ -16,8 +16,16 @@ namespace DepoWise.Desktop.ViewModels;
 /// Araçlar gibi YEREL çalışır (çevrimdışı dahil): CRUD yerel SQLite'a yazılır, senkron taşır.
 /// Yetki: equipment modülü + BranchAccess kapsamı (serviste). Bakım/yakıt entegrasyonu kapsam dışı (PK-E2/E3).
 /// </summary>
-public sealed partial class EquipmentViewModel : ViewModelBase
+public sealed partial class EquipmentViewModel : ViewModelBase, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "equipment";
+    public string? LogEntityId => Selected?.Id;
+    public string? LogKayitAdi => Selected?.Name;
+
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, EquipmentService.Module, PermissionAction.Create);
@@ -159,10 +167,12 @@ public sealed partial class EquipmentViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "Ekipman seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = Selected.Id; _editVersion = Selected.Version;
         FormCode = Selected.Code; FormName = Selected.Name;
         FormType = TypeOptions.FirstOrDefault(t => t.Id == Selected.TypeId);

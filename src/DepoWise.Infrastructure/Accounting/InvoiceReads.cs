@@ -126,6 +126,9 @@ public sealed partial class InvoiceQueryService
             total = Convert.ToInt32(cmd.ExecuteScalar());
         }
 
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        var tutarGorunur = AccountingFieldGate.FaturaTutari(s);
+
         var rows = new List<InvoiceListRow>();
         using (var cmd = conn.CreateCommand())
         {
@@ -141,7 +144,7 @@ public sealed partial class InvoiceQueryService
                 rows.Add(new InvoiceListRow(r.GetString(0), r.GetString(1), r.GetString(2),
                     r.IsDBNull(3) ? null : r.GetString(3), r.GetString(4), r.GetString(5),
                     Convert.ToInt64(r.GetValue(6)), r.IsDBNull(7) ? null : Convert.ToInt64(r.GetValue(7)),
-                    r.GetString(8), Money.Parse(r.GetString(9)), r.GetString(10),
+                    r.GetString(8), tutarGorunur ? Money.Parse(r.GetString(9)) : 0m, r.GetString(10),
                     Convert.ToInt64(r.GetValue(11)) != 0));
         }
         return new GridResult<InvoiceListRow>(rows, total, page, pageSize);
@@ -151,10 +154,20 @@ public sealed partial class InvoiceQueryService
     //  DETAY
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>Fatura detayı + satırları. Başka firmanın faturası OKUNAMAZ.</summary>
+    /// <summary>
+    /// Fatura detayı + satırları. Başka firmanın faturası OKUNAMAZ.
+    ///
+    /// ⭐ FAZ 3b: fatura tutarı korumalıysa ve kullanıcı göremiyorsa detay AÇILMAZ (fail-closed).
+    /// Gerekçe: fatura detayı baştan sona tutardır (ara toplam, iskonto, KDV, tevkifat, genel toplam
+    /// ve her satırda birim fiyat/satır tutarı). Hepsini sıfırlayıp "detay" göstermek kullanıcıya
+    /// YANLIŞ BİLGİ verirdi; tek bir alanı atlamak ise korumayı sessizce delerdi. Liste görünmeye
+    /// devam eder (tutar kolonu gizli) — kullanıcı faturanın VARLIĞINI görür, tutarını değil.
+    /// </summary>
     public InvoiceRecord Get(SessionContext s, string invoiceId)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        if (!AccountingFieldGate.FaturaTutari(s))
+            throw new ForbiddenException("Fatura tutarlarını görme yetkiniz olmadığı için fatura detayını açamazsınız.");
         using var conn = _factory.Create();
 
         InvoiceRecord head;
@@ -215,6 +228,15 @@ WHERE l.company_id=@c AND l.invoice_id=@id ORDER BY l.line_no;";
                     Money.Parse(r.GetString(13)), Money.Parse(r.GetString(14)),
                     Money.Parse(r.GetString(15)), Money.Parse(r.GetString(16))));
         }
+
+        // ⭐ FAZ 3c-2 — KAÇAK KANAL: fatura SATIRI malzemenin birim fiyatını taşır. Malzeme birim
+        // fiyatı gizliyken bu detay açılırsa koruma delinir. Satır fiyatını sıfırlamak seçenek DEĞİL:
+        // satır tutarı/KDV/genel toplam onunla tutarsız kalır, yani kullanıcıya YANLIŞ fatura gösterilir.
+        // Bu yüzden fatura tutarındaki ile AYNI fail-closed kararı verilir — ama YALNIZ malzeme satırı
+        // içeren faturalarda; hizmet/serbest metin faturaları eskisi gibi açılır (gereksiz daraltma yok).
+        if (!AccountingFieldGate.MalzemeBirimFiyati(s) && lines.Any(l => !string.IsNullOrEmpty(l.MaterialId)))
+            throw new ForbiddenException(
+                "Bu fatura malzeme satırı içeriyor; malzeme birim fiyatlarını görme yetkiniz olmadığı için detay açılamaz.");
 
         return head with { Lines = lines };
     }

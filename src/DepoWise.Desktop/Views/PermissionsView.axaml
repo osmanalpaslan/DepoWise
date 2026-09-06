@@ -9,7 +9,7 @@
              x:Class="DepoWise.Desktop.Views.PermissionsView"
              x:DataType="vm:PermissionsViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Yetkiler"/>
 
         <!-- Kullanıcı seçimi (önce kullanıcı seçilir → ağaç oluşur) -->
@@ -159,6 +159,24 @@
                         </Border>
                     </StackPanel>
                 </Border>
+                <!-- ⭐ FAZ 3d — ARAMA · SÜZGEÇ · DEĞİŞİKLİK ROZETİ.
+                     Yalnız GÖRÜNÜRLÜK süzer; hiçbir yetki kararı burada verilmez. -->
+                <Border Classes="Panel">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding AgacArama}" Watermark="Ekran / alan ara…"
+                                     ToolTip.Tip="Yazdıkça ağaç süzülür; eşleşmeyen gruplar gizlenir."/>
+                            <CheckBox Grid.Column="1" Content="Yalnız verilenler" Margin="12,0,0,0"
+                                      IsChecked="{Binding YalnizVerilenler}"
+                                      ToolTip.Tip="Yalnız en az bir kutusu işaretli satırları gösterir."/>
+                            <CheckBox Grid.Column="2" Content="Yalnız değişenler" Margin="12,0,0,0"
+                                      IsChecked="{Binding YalnizDegisenler}"
+                                      ToolTip.Tip="Yükledikten sonra değiştirdiğiniz satırları gösterir — kaydetmeden önce gözden geçirmek için."/>
+                        </Grid>
+                        <SelectableTextBlock Text="{Binding DegisiklikRozeti}" Classes="Helper" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Modüller -->
                 <Border Classes="Table">
                     <DockPanel>
@@ -177,15 +195,21 @@
                         <ItemsControl ItemsSource="{Binding Groups}" IsEnabled="{Binding TreeEnabled}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PermGroupNode">
-                                    <StackPanel>
+                                    <StackPanel IsVisible="{Binding Gorunur}">
                                         <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" Margin="0,8,0,0">
-                                            <Grid ColumnDefinitions="*,Auto,Auto">
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}" Classes="SectionTitle" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="1" Classes="Ghost" Content="Tümünü Seç" FontSize="12" Padding="8,3"
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                                <!-- ⭐ FAZ 3d: ÜÇ DURUMLU grup kutusu — hepsi / hiçbiri / KISMEN.
+                                                     Kısmi durum artık görünür; işaretlemek görünen satırların
+                                                     tamamını açar/kapatır. -->
+                                                <CheckBox Grid.Column="0" IsThreeState="True" IsChecked="{Binding TumSecili}"
+                                                          Margin="0,0,8,0" VerticalAlignment="Center"
+                                                          ToolTip.Tip="Bu gruptaki GÖRÜNEN satırların tamamını işaretler/temizler. Kare işaret = grup kısmen yetkili."/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Title}" Classes="SectionTitle" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="2" Classes="Ghost" Content="Tümünü Seç" FontSize="12" Padding="8,3"
                                                         Command="{Binding $parent[ItemsControl].((vm:PermissionsViewModel)DataContext).SelectAllInGroupCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="Bu gruptaki tüm yetkileri işaretler; uygun olmayanları elle kaldırıp kaydedin."/>
-                                                <Button Grid.Column="2" Classes="Ghost" Content="Temizle" FontSize="12" Padding="8,3"
+                                                <Button Grid.Column="3" Classes="Ghost" Content="Temizle" FontSize="12" Padding="8,3"
                                                         Command="{Binding $parent[ItemsControl].((vm:PermissionsViewModel)DataContext).ClearAllInGroupCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="Bu gruptaki tüm işaretleri kaldırır (kaydedene kadar yazılmaz)."/>
@@ -194,12 +218,27 @@
                                         <ItemsControl ItemsSource="{Binding Items}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:ModulePermNode">
-                                                    <Grid ColumnDefinitions="*,90,90,90,90" Height="38">
-                                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="200" VerticalAlignment="Center"/>
+                                                    <!-- FAZ 3b-5: ALAN kalemlerinde (fld_*) "Yaz" ve "Sil" anlamsızdır;
+                                                         o iki kutu HİÇ çizilmez ("—" yazılır). Web'deki PermMatrix ile
+                                                         aynı karar; iki platform aynı şeyi gösterir. -->
+                                                    <Grid ColumnDefinitions="*,90,90,90,90" Height="38" IsVisible="{Binding Gorunur}">
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                            <!-- FAZ 3d: kaydedilmemiş değişiklik işareti -->
+                                                            <TextBlock Text="●" Foreground="{DynamicResource WarningBrush}" FontSize="14"
+                                                                       VerticalAlignment="Center" IsVisible="{Binding Degisti}"
+                                                                       ToolTip.Tip="Bu satır değişti — henüz kaydedilmedi."/>
+                                                            <SelectableTextBlock Text="{Binding Label}" MinWidth="180" VerticalAlignment="Center"/>
+                                                        </StackPanel>
                                                         <CheckBox Grid.Column="1" IsChecked="{Binding CanView}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  IsVisible="{Binding IsModuleItem}"/>
+                                                        <TextBlock Grid.Column="2" Text="—" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   IsVisible="{Binding IsFieldItem}"/>
                                                         <CheckBox Grid.Column="3" IsChecked="{Binding CanEdit}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  IsVisible="{Binding IsModuleItem}"/>
+                                                        <TextBlock Grid.Column="4" Text="—" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   IsVisible="{Binding IsFieldItem}"/>
                                                     </Grid>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -225,6 +264,7 @@
 
                 <SelectableTextBlock Text="Verilmeyen modüller menüde/butonlarda görünmez (deny-by-default). Admin / Süper Admin her zaman tam yetkilidir; onlara yetki vermeye gerek yoktur."
                            Classes="Helper" TextWrapping="Wrap"/>
+
             </StackPanel>
         </ScrollViewer>
 
@@ -232,6 +272,36 @@
         <ctrl:StatePanel Grid.Row="3" Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
                          Message="Yetki ağacını görmek için yukarıdan bir kullanıcı seçin." IsVisible="{Binding !HasUser}"/>
 
-        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <!-- ═══ FAZ 3b-5 (ADR-223) — KORUMALI ALANLAR ═══════════════════════════════════════
+             FİRMA ayarıdır, kişiye özel DEĞİLDİR → kullanıcı seçilmeden de görünür ve yönetilir
+             (web'deki bölümle aynı davranış). Korumalı yapılan alan YETKİ AĞACINDA ayrı bir satır
+             olarak belirir; kimin göreceği oradan seçilir. Karar aynı servisten gelir. -->
+        <StackPanel Grid.Row="4" Margin="0,16,0,0" IsVisible="{Binding KorumaYonetebilir}">
+            <SelectableTextBlock Text="KORUMALI ALANLAR" Classes="SectionTitle"/>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                Text="Bir alanı korumalı yaparsanız o alanı yalnız yetkisi olan kişiler görür. Yetkiyi yukarıdaki yetki ağacından, alanın kendi ekranının altından verirsiniz. Hiçbir alan korumalı değilken uygulama bugünkü gibi çalışır."/>
+            <Border Classes="Table">
+                <ItemsControl ItemsSource="{Binding KorumaliAlanlar}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KorumaliAlanNode">
+                            <Grid ColumnDefinitions="280,*" Margin="12,6">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding Korumali}" VerticalAlignment="Center">
+                                    <StackPanel>
+                                        <SelectableTextBlock Text="{Binding Label}"/>
+                                        <SelectableTextBlock Text="{Binding ScreenLabel}" Classes="Helper"/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Note}" Classes="Helper"
+                                                     TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+            <SelectableTextBlock Text="{Binding KorumaStatus}" Classes="Helper" TextWrapping="Wrap"
+                                 IsVisible="{Binding KorumaStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+
+        <SelectableTextBlock Grid.Row="5" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

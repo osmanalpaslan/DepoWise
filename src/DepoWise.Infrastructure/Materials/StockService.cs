@@ -710,13 +710,15 @@ WHERE sm.company_id = @c");
         filtre.Bind(cmd);
         cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
+        // ⭐ FAZ 3c: karar SORGU başına bir kez — satır başına değil (ADR-223 performans sözleşmesi).
+        var fiyatGorunur = MaterialService.FiyatGorunur(s);
         var list = new List<StockMovementRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new StockMovementRow(
                 r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
-                r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
+                !fiyatGorunur || r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
                 S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
                 S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
         return list;
@@ -794,12 +796,14 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);
             string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
+            // ⭐ FAZ 3c: karar SORGU başına bir kez.
+            var fiyatGorunur = MaterialService.FiyatGorunur(s);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 list.Add(new StockMovementRow(
                     r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
                     r.GetInt32(5), Money.Parse(r.GetString(6)),
-                    r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
+                    !fiyatGorunur || r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
                     S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
                     S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
         }
@@ -949,16 +953,22 @@ LIMIT @take;";
     // ─────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Fatura/belge kaynaklı GİRİŞ — çağıranın transaction'ı içinde. Bkz. <see cref="RunDocumentInTx"/>.</summary>
+    /// <param name="fiyatSunucuKaynakli">⭐ FAZ 3c-2: fiyat KULLANICIDAN değil, sunucudaki mevcut bir
+    /// kayıttan geliyorsa (ör. mal kabulde sipariş satırının fiyatı) alan yazma kapısı UYGULANMAZ.
+    /// Aksi hâlde fiyatı göremeyen bir depo görevlisinin yaptığı mal kabul, siparişte YAZILI olan
+    /// fiyatı hareketten silerdi — bu güvenlik değil, sessiz veri kaybı olurdu.</param>
     public StockDocResult ReceiveInTx(DbConnection conn, DbTransaction tx, SessionContext s,
         IReadOnlyList<StockLine> lines, string operationId, string? branchId = null,
-        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null)
+        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null,
+        bool fiyatSunucuKaynakli = false)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         return RunDocumentInTx(conn, tx, s, "in", operationId, branchId, null, branchId, personnelId, null, note, docDate,
             (c, t, docId) =>
             {
                 for (int i = 0; i < lines.Count; i++)
-                    ApplyLine(c, t, s, docId, lines[i], +1, $"{operationId}:{i}", "in", branchId, null);
+                    ApplyLine(c, t, s, docId, lines[i], +1, $"{operationId}:{i}", "in", branchId, null,
+                        fiyatSunucuKaynakli: fiyatSunucuKaynakli);
             }, invoiceNo: invoiceNo);
     }
 
@@ -979,7 +989,8 @@ LIMIT @take;";
     }
 
     private void ApplyLine(DbConnection conn, DbTransaction tx, SessionContext s, string docId,
-        StockLine line, int direction, string operationId, string movementType, string? branchId, string? branchFromId, string? groupId = null)
+        StockLine line, int direction, string operationId, string movementType, string? branchId, string? branchFromId,
+        string? groupId = null, bool fiyatSunucuKaynakli = false)
     {
         if (line.Quantity <= 0) throw new ArgumentException("Miktar pozitif olmalı.");
         EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
@@ -999,8 +1010,16 @@ LIMIT @take;";
         // bilinmiyorsa ATANMAMIŞ kovası kullanılır — asla rastgele şube seçilmez.
         ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, branchId ?? StockBalanceWriter.Unassigned,
             direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
+        // ⭐ FAZ 3c — YAZMA KAPISI (tek nokta). Birim fiyatı GÖREMEYEN kullanıcının gönderdiği fiyat
+        // yazılmaz: değeri hiç görmediği için gönderdiği şey anlamlı değildir ve hareket fiyatı,
+        // malzeme birim fiyatının bir yansımasıdır. Hareket YENİ kayıttır → korunacak eski değer
+        // yoktur, bu yüzden 403 yerine "fiyatsız hareket" (null) yazılır; ekran zaten "—" gösterir.
+        // Korumasızken davranış birebir eskisi gibidir.
+        // ⭐ FAZ 3c-2 DÜZELTMESİ: kapı yalnız KULLANICININ gönderdiği fiyata uygulanır. Sunucunun
+        // kendi kaydından okuduğu fiyat (mal kabul) korunur — aksi hâlde koruma veri kaybına dönerdi.
+        var yazilacakFiyat = (fiyatSunucuKaynakli || MaterialService.FiyatGorunur(s)) ? line.UnitPrice : null;
         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
-            line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
+            yazilacakFiyat, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
     }
 
     /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.

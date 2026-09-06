@@ -32,7 +32,12 @@
             <MudItem xs="12" md="6"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" AddTable="brands" OnAdded="ReloadBrands" /></MudItem>
             <MudItem xs="12" md="6"><LookupSelect Label="Tedarikçi" @bind-Value="_sup" Items="_sups" AddTable="suppliers" OnAdded="ReloadSups" /></MudItem>
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            @* FAZ 3c: şablon fiyatı, malzeme birim fiyatının KAYNAĞIDIR — aynı korumaya tabidir.
+               Kaydetmede gönderilen değer sunucuda yok sayılır (şablondaki fiyat korunur). *@
+            @if (_fiyatGorunur)
+            {
+                <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            }
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="6">
                 @* İş A: diğer iki ekranla AYNI davranış (aranabilir uç). Not: bu ekran daha önce
@@ -118,6 +123,9 @@
     private string _name = "", _code = "", _desc = "";
     private string? _type, _cat, _unit, _brand, _sup;
     private decimal _min, _price;
+
+    // FAZ 3c — karar SUNUCUDAN gelir (/api/field-access → FieldAccess); ekran yetki hesaplamaz.
+    private bool _fiyatGorunur = true;
     private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
     private IReadOnlyCollection<string> _compatVehicles = new HashSet<string>();
     private readonly List<Staged> _staged = new();
@@ -129,6 +137,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _fiyatGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Materials, DepoWise.Application.Security.FieldProtectionCatalog.UnitPrice);   // FAZ 3c
         if (Auth.CanCreate("material_templates"))
         {
             _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
@@ -148,6 +157,8 @@
 
     private async Task BeginEdit(string id)
     {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         try
         {
             var t = await Api.GetObjectAsync($"/api/material-templates/{id}");

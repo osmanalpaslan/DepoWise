@@ -30,6 +30,12 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed partial class PartiesViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar servisin kendisinden (FieldAccess) gelir — web de AYNI fonksiyonun sonucunu
+    // /api/field-access üzerinden okur. İki platformda ikinci bir yetki mantığı YOKTUR.
+    // ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR: gerçek kapı serviste. Burası "0,00 gösterme" içindir.
+    /// <summary>Cari borç/alacak/bakiye bu kullanıcıya açık mı?</summary>
+    public bool BakiyeGorunur => DepoWise.Application.Security.FieldAccess.Gorunur(_session, DepoWise.Application.Security.FieldProtectionCatalog.Parties, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
     private const int PageSize = 50;
 
     /// <summary>G4-3d — ORTAK ŞUBE KAPSAMI. Seçim OKUMA filtresidir; yazmada tekil
@@ -251,8 +257,10 @@ public sealed partial class PartiesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void EditParty()
+    private async System.Threading.Tasks.Task EditParty()
     {
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         if (Selected is null) return;
         if (!CanEdit) { FormError = "Cari düzenleme yetkiniz yok."; return; }
         var p = Selected.Party;

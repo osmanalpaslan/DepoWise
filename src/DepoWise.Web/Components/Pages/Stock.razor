@@ -109,7 +109,12 @@
                                                   Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
                                                   Adornment="@LkEkleSuslemesi" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
-                <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                @* FAZ 3c: fiyatı göremeyen kullanıcıya giriş alanı da açılmaz; gönderilse bile
+                   servis yok sayar (StockService yazma kapısı). *@
+                @if (_fiyatGorunur)
+                {
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                }
             }
             else
             {
@@ -249,7 +254,8 @@
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh">
             <HeaderContent>
                 <MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Kod</MudTh><MudTh>Malzeme</MudTh>
-                <MudTh>Yön</MudTh><MudTh>Miktar</MudTh><MudTh>Birim</MudTh><MudTh>B. Fiyat</MudTh>
+                <MudTh>Yön</MudTh><MudTh>Miktar</MudTh><MudTh>Birim</MudTh>
+                @if (_fiyatGorunur) { <MudTh>B. Fiyat</MudTh> }
                 <MudTh>Belge</MudTh><MudTh>Durum</MudTh><MudTh></MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -261,7 +267,8 @@
                 <MudTd>@Str(context, "directionText")</MudTd>
                 <MudTd>@Str(context, "quantity")</MudTd>
                 <MudTd>@Str(context, "unit")</MudTd>
-                <MudTd>@Str(context, "unitPrice")</MudTd>
+                @* FAZ 3c: kapalıysa kolon BAŞLIĞIYLA birlikte hiç çizilmez. *@
+                @if (_fiyatGorunur) { <MudTd>@Str(context, "unitPrice")</MudTd> }
                 <MudTd>@Str(context, "invoiceText")</MudTd>
                 <MudTd>@Str(context, "statusText")</MudTd>
                 <MudTd>
@@ -332,6 +339,15 @@
     private string _subCat = "";
     private List<(string Id, string Name)> _subCats = new();
     private decimal _price;
+
+    // ═══ FAZ 3c — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════════════════
+    // ⭐ Karar SUNUCUDAN gelir (/api/field-access → FieldAccess); ekran yetki HESAPLAMAZ.
+    // Malzeme birim fiyatı korumalıysa STOK HAREKETİ fiyatı da gizlenir: hareket fiyatı aynı
+    // bilginin başka bir taşıyıcısıdır (kaçak kanal). Varsayılan true = korumasız (bugünkü görünüm).
+    private bool _fiyatGorunur = true;
+
+    private async Task AlanGorunurluguYukle()
+        => _fiyatGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Materials, DepoWise.Application.Security.FieldProtectionCatalog.UnitPrice);
     // Ortak
     private decimal _qty;
     private string _note = "", _invoiceNo = "", _orderSlipNo = "", _creditSlipNo = "";
@@ -377,6 +393,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await AlanGorunurluguYukle();   // FAZ 3c: kolon/alan çizmeden ÖNCE
         await LoadCostCenters();
         if (Auth.CanCreate("stock"))
         {

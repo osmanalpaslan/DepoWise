@@ -131,10 +131,13 @@ FROM finance_accounts a LEFT JOIN branches b ON b.id=a.branch_id";
         if (records.Count == 0) return Array.Empty<FinanceAccountRow>();
 
         var totals = Totals(conn, s.CompanyId, records.Select(x => x.Id).ToList());
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        // Bakiye = Giriş − Çıkış → biri açıkta kalırsa bakiye de açıkta kalır; ikisi birlikte gizlenir.
+        var bakiyeGorunur = AccountingFieldGate.HesapBakiyesi(s);
         return records.Select(a =>
         {
             totals.TryGetValue(a.Id, out var t);
-            return new FinanceAccountRow(a, t.In, t.Out);
+            return bakiyeGorunur ? new FinanceAccountRow(a, t.In, t.Out) : new FinanceAccountRow(a, 0m, 0m);
         }).ToList();
     }
 
@@ -159,6 +162,7 @@ FROM finance_accounts a LEFT JOIN branches b ON b.id=a.branch_id";
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         Account(s, accountId);   // ⭐ kapsam + firma kapısı
+        if (!AccountingFieldGate.HesapBakiyesi(s)) return 0m;   // FAZ 3b: bakiye gizli
         using var conn = _factory.Create();
         var t = Totals(conn, s.CompanyId, new[] { accountId });
         return t.TryGetValue(accountId, out var v) ? v.In - v.Out : 0m;
@@ -223,12 +227,19 @@ FROM finance_accounts a LEFT JOIN branches b ON b.id=a.branch_id";
             while (r.Read()) rows.Add(ReadTxn(r));
         }
 
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        var tutarGorunur = AccountingFieldGate.HareketTutari(s);
+        var bakiyeGorunur = AccountingFieldGate.HesapBakiyesi(s);
+
         var list = new List<FinanceStatementRow>(rows.Count);
         decimal running = 0m;
         foreach (var t in rows)
         {
             if (!t.IsReversed) running += t.Direction * t.Amount;   // iptal edilenler bakiyeye GİRMEZ
-            list.Add(new FinanceStatementRow(t, running));
+            // Tutar gizliyken yürüyen bakiye de gizlenir (ardışık iki satırın farkı tutarı verirdi).
+            list.Add(new FinanceStatementRow(
+                tutarGorunur ? t : t with { Amount = 0m },
+                tutarGorunur && bakiyeGorunur ? running : 0m));
         }
         return list;
     }
@@ -277,6 +288,9 @@ FROM finance_accounts a LEFT JOIN branches b ON b.id=a.branch_id";
             total = Convert.ToInt32(cmd.ExecuteScalar());
         }
 
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        var tutarGorunur = AccountingFieldGate.HareketTutari(s);
+
         var rows = new List<FinanceTxnRow>();
         using (var cmd = conn.CreateCommand())
         {
@@ -285,7 +299,7 @@ FROM finance_accounts a LEFT JOIN branches b ON b.id=a.branch_id";
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);
             using var r = cmd.ExecuteReader();
-            while (r.Read()) rows.Add(ReadTxn(r));
+            while (r.Read()) { var t = ReadTxn(r); rows.Add(tutarGorunur ? t : t with { Amount = 0m }); }
         }
         return new GridResult<FinanceTxnRow>(rows, total, page, pageSize);
     }
@@ -324,6 +338,12 @@ SELECT t.id, t.account_id, COALESCE(a.name,'—'), t.txn_type, t.direction, t.am
         AccessControl.Require(s, Module, PermissionAction.View);
         limit = limit < 1 ? 1 : (limit > 500 ? 500 : limit);
 
+        // ⭐ FAZ 3b — FAIL-CLOSED. Bu akış BAŞTAN SONA tutarla ilgilidir; tutarı maskelemek
+        // listeyi sessizce boşaltır (kalan = 0 → hiçbir fatura görünmez) ve kullanıcı nedenini
+        // anlamaz. Bu yüzden değer gizlenmez, EKRAN AÇILMAZ: açık ve doğru hata verilir.
+        if (!AccountingFieldGate.FaturaTutari(s))
+            throw new ForbiddenException("Fatura tutarlarını görme yetkiniz olmadığı için tahsilat/ödeme ekranını kullanamazsınız.");
+
         var heads = new List<OpenInvoiceRow>();
         using var conn = _factory.Create();
         using (var cmd = conn.CreateCommand())
@@ -360,6 +380,7 @@ SELECT t.id, t.account_id, COALESCE(a.name,'—'), t.txn_type, t.direction, t.am
     public decimal PaidOf(SessionContext s, string invoiceId)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        if (!AccountingFieldGate.FaturaTutari(s)) return 0m;   // FAZ 3b: fatura tutarı gizli
         using var conn = _factory.Create();
         var map = PaidTotals(conn, s.CompanyId, new[] { invoiceId });
         return map.TryGetValue(invoiceId, out var v) ? v : 0m;

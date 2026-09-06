@@ -128,6 +128,14 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     /// <summary>Menüde gösterilecek başlık — hangi ekranın geçmişi olduğu açıkça yazar.</summary>
     public string ScreenLogHeader => $"Kayıt Geçmişi — {CurrentTitle}";
+
+    /// <summary>⭐ FAZ 4.3 — "Seçili Kaydın Geçmişi" menüsü görünsün mü. Ekran, kayıt logunu
+    /// destekliyorsa (<see cref="IKayitLoguKaynagi"/>) ve kullanıcının log yetkisi varsa görünür.
+    /// Kayıt SEÇİLİ değilse düğme yine görünür ve kullanıcıya "önce bir kayıt seçin" denir —
+    /// düğmenin sessizce kaybolması, kullanıcıya özelliğin yokmuş gibi görünmesine yol açardı.</summary>
+    public bool CanShowRecordLog
+        => CurrentPage is IKayitLoguKaynagi
+           && AccessControl.CanUseButton(_session, SpecialButtons.ScreenLog);
     [ObservableProperty] private bool _isNavPanelOpen = true;
 
     /// <summary>Aktif kabuk — çapraz ekran navigasyonu için (ör. malzeme detayından araç ekranına).</summary>
@@ -143,8 +151,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     private const string DefaultServerUrl = "https://depowise-erp.fly.dev";
 
     // ── Eşitle: sunucudan tanımları çek (%'li ilerleme + başarı bildirimi) ──
-    [ObservableProperty] private bool _isSyncing;
-    [ObservableProperty] private int _syncProgress;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncRingText))]
+    [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    private bool _isSyncing;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncRingText))]
+    [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    private int _syncProgress;
 
     // Z2 (2026-07-19): son push'ta sunucunun ATLADIĞI/HATA verdiği kayıt varsa üst barda uyarı rozeti göster
     // (sessiz başarısızlığı görünür kıl). Boşsa rozet gizli.
@@ -155,6 +169,47 @@ public sealed partial class ShellViewModel : ViewModelBase
     public bool HasSyncWarning => !string.IsNullOrEmpty(SyncWarning);
     /// <summary>Z5 — üst bardaki tıklanabilir senkron rozeti. Sorun yoksa "✓ Senkron".</summary>
     public string SyncStatusChip => string.IsNullOrEmpty(SyncWarning) ? "✓ Senkron" : SyncWarning;
+
+    // ═══ FAZ 4.12 (kullanıcı isteği 2026-09-06) — SENKRON GERİ SAYIM / İLERLEME ANİMASYONU ══════
+    //
+    // Kullanıcı: "Üst barda senkrona kalan başlama süresini ifade eden ANİMASYONLU bir görsel istiyorum,
+    // ama SANİYE GÖRÜNMESİN. Senkrona başladığında da yerini YÜZDELİ bir animasyon alsın."
+    //
+    // Tasarım: 24 px'lik ince bir halka. Boşta → halka bir sonraki eşitlemeye kadar yavaşça DOLAR
+    // (sayı yok, yalnız hareket). Eşitleme başlayınca aynı halka YÜZDE ilerlemesini gösterir ve
+    // ortasında %'lik değer yazar. İki durum aynı görselin iki hâlidir → yer değiştirme sıçraması olmaz.
+    //
+    // ⚠️ Sayaç yalnız GÖRSELDİR: eşitleme zamanlamasını değiştirmez, ağ trafiği üretmez.
+    // Zamanlayıcı 500 ms'de bir yalnız bir sayı günceller (CPU maliyeti ihmal edilebilir).
+
+    /// <summary>Bir sonraki eşitlemeye kalan sürenin YÜZDESİ (0 → yeni başladı, 100 → şimdi).</summary>
+    [ObservableProperty] private double _syncCountdown;
+
+    /// <summary>Halkanın ortasındaki metin: eşitlemede yüzde, boşta boş (saniye GÖSTERİLMEZ).</summary>
+    public string SyncRingText => IsSyncing ? $"%{(int)SyncProgress}" : "";
+
+    /// <summary>Kullanıcıya sözle durum (ekran okuyucu + tooltip): saniye vermeden.</summary>
+    public string SyncRingTooltip => IsSyncing
+        ? $"Eşitleniyor · %{(int)SyncProgress}"
+        : "Otomatik eşitleme yaklaşıyor — halka dolunca eşitleme başlar. Hemen eşitlemek için Eşitle düğmesini kullanın.";
+
+    private System.DateTimeOffset _sonTick = System.DateTimeOffset.UtcNow;
+    private Avalonia.Threading.DispatcherTimer? _ringTimer;
+
+    /// <summary>Geri sayım halkasını çalıştırır (yalnız görsel; eşitleme kadansına DOKUNMAZ).</summary>
+    private void HalkaSayaciniBaslat()
+    {
+        _ringTimer = new Avalonia.Threading.DispatcherTimer { Interval = System.TimeSpan.FromMilliseconds(500) };
+        _ringTimer.Tick += (_, _) =>
+        {
+            if (IsSyncing) { SyncCountdown = 100; OnPropertyChanged(nameof(SyncRingText)); return; }
+            var gecen = (System.DateTimeOffset.UtcNow - _sonTick).TotalSeconds;
+            var oran = gecen / FastTickSeconds * 100.0;
+            SyncCountdown = oran < 0 ? 0 : (oran > 100 ? 100 : oran);
+            OnPropertyChanged(nameof(SyncRingText));
+        };
+        _ringTimer.Start();
+    }
 
     /// <summary>Son push sonucuna bakıp uyarı rozetini günceller (arka plan + manuel eşitleme sonrası çağrılır).</summary>
     private void RefreshSyncWarning()
@@ -225,7 +280,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             return;
         }
 
-        await ConfirmService.AskAsync(govde, "Senkron Durumu", "Tamam", "Tamam", danger: false);
+        await ConfirmService.InfoAsync(govde, "Senkron Durumu");
     }
 
     /// <summary>Push sonucunu kullanıcıya gösterilecek okunur metne çevirir (manuel Eşitle diyaloğu için).</summary>
@@ -301,7 +356,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                      "Yerel veri temizlendi ama sunucudan çekilemedi (çevrimdışı olabilirsiniz). İnternet gelince üst bardaki “Eşitle”ye basın.",
                 "Yerel Sıfırlama", "Tamam", "Tamam", danger: !ok);
         }
-        catch (Exception ex) { await ConfirmService.AskAsync("Hata: " + ex.Message, "Yerel Sıfırlama", "Tamam", "Tamam", danger: true); }
+        catch (Exception ex) { await ConfirmService.InfoAsync("Hata: " + ex.Message, "Yerel Sıfırlama", danger: true); }
         finally { IsSyncing = false; SyncProgress = 0; SyncGate.Exit(); }
     }
 
@@ -499,11 +554,22 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             var items = await BusinessSyncPushService.GetUnseenConflictsAsync();
             if (items.Count == 0) return;
+            // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06): uyarı artık ÇIKMAZ SOKAK değil. "Ayrıntıları Aç"
+            // senkron çakışma ekranını açar; orada kim kazandı/kim kaybetti görünür ve üzerine yazılan
+            // sürüm geri getirilebilir. Uyarının kendisi eskisi gibi bir kez gösterilir.
             var msg = "Aşağıdaki kayıtlarda admin (web) ile aynı anda değişiklik yapıldı.\n" +
                       "En son düzenleyen geçerli oldu; kayıt tekrar düzenlenene kadar bu geçerlidir:\n\n" +
-                      string.Join("\n", items);
+                      string.Join("\n", items) +
+                      "\n\nAyrıntıları açarak kimin kazandığını görebilir, üzerine yazılan sürümü geri getirebilirsiniz.";
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
-                await ConfirmService.AskAsync(msg, "Senkron Çakışması", "Tamam", "Tamam"));
+            {
+                if (CanShowSyncConflicts)
+                {
+                    var ac = await ConfirmService.AskAsync(msg, "Senkron Çakışması", "Ayrıntıları Aç", "Kapat");
+                    if (ac) await Views.SyncConflictsWindow.GosterAsync(_session);
+                }
+                else await ConfirmService.InfoAsync(msg, "Senkron Çakışması");
+            });
             await BusinessSyncPushService.MarkSeenAsync();
         }
         catch { }
@@ -536,6 +602,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             // İlk tur (0) yavaş grubu DA çalıştırır → açılıştan sonra rozet/çakışma geç kalmaz.
             bool slow = (_tick++ % SlowEveryNTicks) == 0;
+            _sonTick = System.DateTimeOffset.UtcNow;   // FAZ 4.12: halka sıfırlanır (yalnız görsel)
 
             // Çağrı SIRASI bilinçli olarak DEĞİŞTİRİLMEDİ; yalnız iki uç koşullu hale geldi.
             if (slow) await PingAsync();      // YAVAŞ (60 sn): bağlantı rozeti — veri akışı buna bağlı DEĞİL
@@ -545,6 +612,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             await MaybeDailyBackupAsync();    // kendi saatlik kısıtı var
         };
         _connTimer.Start();
+        HalkaSayaciniBaslat();   // FAZ 4.12: üst bardaki geri sayım/ilerleme halkası
     }
 
     private async System.Threading.Tasks.Task PingAsync()
@@ -656,7 +724,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     _connTimer?.Stop();
-                    await ConfirmService.AskAsync(msg, "Makine Erişimi Kapatıldı", "Tamam", "Tamam", danger: true);
+                    await ConfirmService.InfoAsync(msg, "Makine Erişimi Kapatıldı", danger: true);
                     DepoWise.Desktop.App.Current?.Logout();
                 });
             }
@@ -853,7 +921,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch (Exception ex)
         {
             _updateBusy = false; _availableWindow = null;
-            try { await ConfirmService.AskAsync("Güncelleme başarısız: " + ex.Message, "Güncelleme", "Tamam", "Tamam"); } catch { }
+            try { await ConfirmService.InfoAsync("Güncelleme başarısız: " + ex.Message, "Güncelleme"); } catch { }
         }
     }
 
@@ -884,8 +952,16 @@ public sealed partial class ShellViewModel : ViewModelBase
                 // MNU-IKON (2026-09-05): alt menü ikonu ekranın KENDİ anahtarından çözülür
                 // (grubunkinden değil) — böylece "Malzeme Listesi" ile "Yeni Kayıt" ayırt edilir.
                 g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)
-                    { IconGeometry = DesktopIcons.ForScreenKey(e.Screen.Key) }).ToList())
-                { IconGeometry = DesktopIcons.ForGroup(g.Title) })   // M6: grup ikonu (baslik -> geometri)
+                    {
+                        IconGeometry = DesktopIcons.ForScreenKey(e.Screen.Key),
+                        // FAZ 2 (ADR-221): ekran rengi YOK — üst menüsünün ailesini miras alır.
+                        // Yeni ekran eklemek için burada hiçbir şey yazılmaz.
+                        FamilyBrush = DesktopMenuColors.ForScreenKey(e.Screen.Key),
+                    }).ToList())
+                {
+                    IconGeometry = DesktopIcons.ForGroup(g.Title),      // M6: grup ikonu (baslik -> geometri)
+                    FamilyBrush = DesktopMenuColors.ForGroup(g.Title),  // FAZ 2: üst grubundan miras
+                })
             .Where(g => g.Children.Count > 0)
             .ToList();
     }
@@ -924,7 +1000,14 @@ public sealed partial class ShellViewModel : ViewModelBase
                 .ToList();
             if (kids.Count == 0) continue;
             sonuc.Add(new NavSectionVm(node.Title, node.IsSection, kids)
-                { IconGeometry = node.IsSection ? DesktopIcons.ForSection(node.Title) : null });   // M6: üst grup ikonu
+            {
+                IconGeometry = node.IsSection ? DesktopIcons.ForSection(node.Title) : null,   // M6: üst grup ikonu
+                // FAZ 2 (ADR-221): üst grup, ailenin KAYNAĞIDIR. Gerçek bir üst grup değilse
+                // (tek başına duran üst menü) aile o menünün kendisinden çözülür.
+                FamilyBrush = node.IsSection
+                    ? DesktopMenuColors.ForSection(node.Title)
+                    : DesktopMenuColors.ForGroup(node.Title),
+            });
         }
         return sonuc;
     }
@@ -976,6 +1059,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanShowScreenLog));
         OnPropertyChanged(nameof(ScreenLogHeader));
+        OnPropertyChanged(nameof(CanShowRecordLog));   // FAZ 4.3: kayıt logu her ekranda yok
     }
 
     private static string BaseKey(string key)
@@ -1549,21 +1633,47 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         var modul = AktifModul;
         if (modul is null) return;
-        try
+        // ⭐ FAZ 4.3 (2026-09-06): eskiden tek satırlık düz metin dökümü gösterilirdi ("anlaşılır değil").
+        // Artık günlere ayrılmış, alan bazlı farkları olan gerçek bir log penceresi açılır.
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d
+            && d.MainWindow is not null)
+            await Views.RecordHistoryWindow.EkranGecmisiniGosterAsync(_session, modul, CurrentTitle, d.MainWindow);
+    }
+
+    /// <summary>⭐ FAZ 4.4 — çakışma ekranı yetkisi (web ile AYNI kapı: sync_conflicts modülü View).
+    /// Uyarının kendisi herkese gösterilmeye devam eder; yalnız AYRINTI ekranı yetkiye bağlıdır.</summary>
+    public bool CanShowSyncConflicts => AccessControl.Can(_session, "sync_conflicts", PermissionAction.View);
+
+    /// <summary>
+    /// ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMA EKRANI (menüden her zaman erişilir).
+    /// Uyarı kaçırılmış olsa bile çakışmalar buradan görülebilir; aksi hâlde uyarı bir kez gösterilip
+    /// kaybolduğu için kullanıcının çakışmaya geri dönme yolu kalmazdı.
+    /// </summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowSyncConflicts()
+        => await Views.SyncConflictsWindow.GosterAsync(_session);
+
+    /// <summary>
+    /// ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — <b>SEÇİLİ KAYDIN KENDİ LOG EKRANI.</b>
+    ///
+    /// Kullanıcı: <i>"ekranlarla beraber her kaydın kendine ait bir log ekranı olmalı"</i>. Aktif ekran
+    /// hangi kaydı seçtiğini <see cref="IKayitLoguKaynagi"/> ile bildirir; burada yalnız o kaydın
+    /// geçmişi açılır. Yetki kapısı SERVİSTEDİR (btn-screen-log + kaydın ekranında View).
+    /// </summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowRecordLog()
+    {
+        if (CurrentPage is not IKayitLoguKaynagi kaynak) return;
+        var tip = kaynak.LogEntityType;
+        var id = kaynak.LogEntityId;
+        if (string.IsNullOrWhiteSpace(tip) || string.IsNullOrWhiteSpace(id))
         {
-            var satirlar = DesktopServices.Audit.ForModule(_session, modul, limit: 200);
-            var govde = satirlar.Count == 0
-                ? "Bu ekran için henüz kayıt geçmişi yok."
-                : string.Join(System.Environment.NewLine,
-                    satirlar.Select(x => $"{x.DateText}  ·  {x.UserText}  ·  {x.ActionText}  ·  {x.EntityType}"));
-            await ScreenInfoService.ShowAsync($"Kayıt Geçmişi — {CurrentTitle}",
-                "Kaydın sisteme GİRİLDİĞİ an gösterilir (işlem tarihinden bağımsız)." +
-                System.Environment.NewLine + System.Environment.NewLine + govde);
+            await ScreenInfoService.ShowAsync("Kayıt Geçmişi",
+                "Önce listeden bir kayıt seçin; ardından bu menüden o kaydın geçmişini açabilirsiniz.");
+            return;
         }
-        catch (System.Exception ex)
-        {
-            await ScreenInfoService.ShowAsync("Kayıt Geçmişi", "Geçmiş okunamadı: " + ex.Message);
-        }
+        await Views.RecordHistoryWindow.KayitGecmisiniGosterAsync(_session, tip!, id!, kaynak.LogKayitAdi);
     }
 
     /// <summary>Araçlar ekranına gidip ilgili aracı seçer (malzeme detayındaki uyumlu araç tıklaması).</summary>

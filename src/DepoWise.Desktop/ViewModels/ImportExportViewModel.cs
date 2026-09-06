@@ -36,6 +36,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     public ObservableCollection<BranchOption> ImportBranches { get; } = new();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowImportBranchPassword))]
+    [NotifyPropertyChangedFor(nameof(ImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(HasImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
     private BranchOption? _selectedImportBranch;
 
     // ═══ ŞUBE ŞİFRESİ (kullanıcı isteği 2026-09-03) ══════════════════════════════════════════════
@@ -43,9 +46,40 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     // (girişteki L1/L2 kuralının aynısı). Kendi şubesinde ve "Tüm Şubeler"de alan GÖRÜNMEZ.
     // Şifresi tanımlı olmayan şube serbesttir (VerifyBranchPassword şifresizde true döner).
 
-    [ObservableProperty] private string _importBranchPassword = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    [NotifyPropertyChangedFor(nameof(HasImportEngeli))]
+    private string _importBranchPassword = "";
     public bool ShowImportBranchPassword =>
         SelectedImportBranch is { Id: not null } b && b.Id != _session.OperatingBranchId;
+
+    // ═══ FAZ 4.15 (kullanıcı isteği 2026-09-06) — ŞUBE ŞİFRESİ KAPISI ═══════════════════════════
+    // Eski davranış: buton HER ZAMAN aktifti; kullanıcı dosyayı seçiyor, ilerliyor ve şifre hatasını
+    // ancak en sonda görüyordu. Kullanıcı: "excelden içe aktar butonu AKTİF OLMADAN ÖNCE şifre
+    // uyarılarını vermeli ve işleme devam etmemeli."
+    //
+    // ⚠️ Bu bir GÜVENLİK katmanı DEĞİL, akış düzeltmesidir: gerçek doğrulama Import() içinde
+    // (SubeSifreKontrol) ve servis katmanındaki şube kapılarında aynen durur.
+
+    /// <summary>İçe aktarımı engelleyen sebep (null = engel yok). Arayüzde uyarı olarak gösterilir.</summary>
+    public string? ImportEngeli
+    {
+        get
+        {
+            if (SelectedImportBranch is null)
+                return "Önce içe aktarılacak ŞUBEYİ seçin (zorunlu).";
+            if (!ShowImportBranchPassword) return null;                      // kendi şubesi / Tüm Şubeler
+            if (string.IsNullOrWhiteSpace(ImportBranchPassword))
+                return $"«{SelectedImportBranch.Name}» şubesine aktarım için o şubenin ŞİFRESİNİ girin.";
+            return SubeSifreKontrol(SelectedImportBranch, ImportBranchPassword);   // hatalıysa metni döner
+        }
+    }
+
+    public bool HasImportEngeli => ImportEngeli is not null;
+
+    /// <summary>Buton yalnız engel yokken aktiftir.</summary>
+    public bool CanImport => ImportEngeli is null;
 
     /// <summary>Dışa aktarım şubesi (kullanıcı isteği 2026-09-03). Varsayılan = oturumun çalışma şubesi
     /// → seçime dokunulmazsa davranış BİREBİR eskisi gibidir.</summary>
@@ -155,6 +189,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 return;
             }
             var chosenBranchId = SelectedImportBranch.Id;   // null = Tüm Şubeler (firma geneli)
+
+            // ⭐ FAZ 4.15: buton zaten kilitli ama arayüze GÜVENİLMEZ — aynı kapı burada da uygulanır.
+            if (ImportEngeli is { } engel) { ImportResult = engel; return; }
 
             // 2026-09-03 (kullanıcı isteği): farklı şubeye aktarım o şubenin ŞİFRESİYLE doğrulanır.
             if (SubeSifreKontrol(SelectedImportBranch, ImportBranchPassword) is { } sifreHatasi)

@@ -40,7 +40,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     private void SelectAllInGroup(PermGroupNode? grup)
     {
         if (grup is null) return;
-        foreach (var m in grup.Items) m.Set(true, true, true, true);
+        // FAZ 3d: arama/süzgeç açıkken yalnız GÖRÜNEN satırlara uygulanır — kullanıcı görmediği
+        // bir satırı yanlışlıkla yetkilendirmiş olmaz.
+        foreach (var m in grup.Items) if (m.Gorunur) m.Set(true, true, true, true);
     }
 
     /// <summary>Grubun tüm kutularını temizler (Tümünü Seç'in geri alma karşılığı).</summary>
@@ -48,7 +50,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     private void ClearAllInGroup(PermGroupNode? grup)
     {
         if (grup is null) return;
-        foreach (var m in grup.Items) m.Set(false, false, false, false);
+        foreach (var m in grup.Items) if (m.Gorunur) m.Set(false, false, false, false);
     }
 
     /// <summary>
@@ -70,6 +72,80 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         ResetTree();
     }
     public ObservableCollection<ButtonPermNode> Buttons { get; } = new();
+
+    // ═══ FAZ 3d — YETKİ AĞACI UX: ARAMA · SÜZGEÇ · DEĞİŞİKLİK İZİ ═══════════════════════════
+    // ⚠️ Burada YETKİ KARARI YOKTUR: ağaç zaten yalnız verilebilir kalemlerle kurulur (BuildTree).
+    // Bu bölüm sadece GÖRÜNÜRLÜK süzer ve kaydedilmemiş değişikliği gösterir. Kaydetme yolu,
+    // precedence, EDIT⇒VIEW ve alan kuralları HİÇ DEĞİŞMEZ.
+
+    /// <summary>Ağaçta ekran/alan adına göre arama (boş = hepsi).</summary>
+    [ObservableProperty] private string _agacArama = "";
+
+    /// <summary>Yalnız en az bir kutusu işaretli satırlar.</summary>
+    [ObservableProperty] private bool _yalnizVerilenler;
+
+    /// <summary>Yalnız yüklendiğinden beri DEĞİŞEN satırlar (kaydetmeden önce gözden geçirme).</summary>
+    [ObservableProperty] private bool _yalnizDegisenler;
+
+    partial void OnAgacAramaChanged(string value) => SuzgeciUygula();
+    partial void OnYalnizVerilenlerChanged(bool value) => SuzgeciUygula();
+    partial void OnYalnizDegisenlerChanged(bool value) => SuzgeciUygula();
+
+    /// <summary>Kaydedilmemiş değişikliğin tek satırlık özeti (ekranın üstünde canlı görünür).</summary>
+    public string DegisiklikRozeti
+    {
+        get
+        {
+            int eklenen = 0, kaldirilan = 0, satir = 0;
+            foreach (var m in Modules) { if (!m.Degisti) continue; satir++; eklenen += m.EklenenSayisi; kaldirilan += m.KaldirilanSayisi; }
+            foreach (var b in Buttons) { if (!b.Degisti) continue; satir++; if (b.Granted) eklenen++; else kaldirilan++; }
+            if (satir == 0) return "Kaydedilmemiş değişiklik yok.";
+            return $"{satir} satır değişti · {eklenen} yetki eklenecek · {kaldirilan} yetki kaldırılacak (henüz kaydedilmedi).";
+        }
+    }
+
+    public bool DegisiklikVar => Modules.Any(m => m.Degisti) || Buttons.Any(b => b.Degisti);
+
+    /// <summary>Yüklenen (kaydedilmiş) durumu temel alır — "değişti" bundan sonra hesaplanır.</summary>
+    private void TemelleriAl()
+    {
+        foreach (var m in Modules) m.TemeliAl();
+        foreach (var b in Buttons) b.TemeliAl();
+        SuzgeciUygula();
+    }
+
+    private void DegisimBildir()
+    {
+        OnPropertyChanged(nameof(DegisiklikRozeti));
+        OnPropertyChanged(nameof(DegisiklikVar));
+        if (YalnizDegisenler || YalnizVerilenler) SuzgeciUygula();
+        else foreach (var g in Groups) g.DurumuTazele();
+    }
+
+    /// <summary>Arama + süzgeçleri uygular; grup başlığı yalnız görünen satırı varsa çizilir.</summary>
+    private void SuzgeciUygula()
+    {
+        var q = (AgacArama ?? "").Trim();
+        foreach (var g in Groups)
+        {
+            bool grupEslesti = q.Length > 0 && g.Title.Contains(q, StringComparison.OrdinalIgnoreCase);
+            int gorunen = 0;
+            foreach (var m in g.Items)
+            {
+                bool metin = q.Length == 0 || grupEslesti
+                             || m.Label.Contains(q, StringComparison.OrdinalIgnoreCase)
+                             || m.Key.Contains(q, StringComparison.OrdinalIgnoreCase);
+                bool verilen = !YalnizVerilenler || m.Herhangi;
+                bool degisen = !YalnizDegisenler || m.Degisti;
+                m.Gorunur = metin && verilen && degisen;
+                if (m.Gorunur) gorunen++;
+            }
+            g.Gorunur = gorunen > 0;
+            g.DurumuTazele();
+        }
+        OnPropertyChanged(nameof(DegisiklikRozeti));
+        OnPropertyChanged(nameof(DegisiklikVar));
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUser))]
@@ -138,9 +214,67 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     [ObservableProperty] private string? _status;
 
+    // ═══ FAZ 3b-5 (ADR-223, 2026-09-05) — KORUMALI ALANLAR ═══════════════════════════════════
+    //
+    // FİRMA ayarıdır, kişiye özel değildir. Korumalı yapılan alan yukarıdaki YETKİ AĞACINDA ayrı
+    // bir satır olarak belirir ve oradan kişi/rol bazında açılır. Web'deki bölümün birebir karşılığı;
+    // karar aynı servisten (FieldProtectionService) gelir — ikinci bir mantık yazılmadı.
+    public ObservableCollection<KorumaliAlanNode> KorumaliAlanlar { get; } = new();
+
+    /// <summary>Koruma yönetimi yalnız yetki düzenleyebilen kullanıcıya açıktır (servis de reddeder).</summary>
+    public bool KorumaYonetebilir => AccessControl.Can(_session,
+        DepoWise.Infrastructure.Organization.FieldProtectionService.Module, PermissionAction.Edit);
+
+    [ObservableProperty] private string? _korumaStatus;
+
+    private void KorumaYukle()
+    {
+        KorumaliAlanlar.Clear();
+        if (!KorumaYonetebilir) return;
+        try
+        {
+            foreach (var r in DesktopServices.FieldProtections.List(_session))
+                KorumaliAlanlar.Add(new KorumaliAlanNode(r.ScreenKey, r.ScreenLabel, r.FieldKey,
+                    r.Label, r.Note, r.Protected, KorumaDegistir));
+        }
+        catch (Exception ex) { KorumaStatus = "Korumalı alanlar yüklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// Korumayı açar/kapatır ve YETKİ AĞACINI yeniden kurar — yeni alan satırı hemen görünür/kaybolur.
+    ///
+    /// ⚠️ Oturumun <c>ProtectedFields</c> kümesi giriş anında okunur; ağacı doğru kurabilmek için
+    /// burada TAZE liste kullanılır. Kullanıcının kendi ETKİN yetkisi bir sonraki girişte tazelenir
+    /// (BlockedModules ve şube kapsamının bugünkü davranışıyla aynı).
+    /// </summary>
+    private void KorumaDegistir(KorumaliAlanNode node, bool korumali)
+    {
+        try
+        {
+            DesktopServices.FieldProtections.Set(_session, node.ScreenKey, node.FieldKey, korumali);
+            KorumaStatus = korumali
+                ? $"«{node.Label}» korumalı yapıldı. Yetki ağacından kimlerin göreceğini seçin."
+                : $"«{node.Label}» koruması kaldırıldı; alanı herkes görür.";
+            _session.ProtectedFields = DesktopServices.FieldProtections.ProtectedKeys(_session.CompanyId);
+            YenidenKur();
+        }
+        catch (Exception ex) { KorumaStatus = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    /// <summary>Ağacı mevcut hedef kullanıcıya göre yeniden kurar ve yetkileri geri yükler.</summary>
+    private void YenidenKur()
+    {
+        var hedef = SelectedUser;
+        BuildTree(hedef is null ? null : SafeBlocked(hedef.Id),
+                  hedef is null ? null : DesktopServices.Users.GetRoleKeys(_session, hedef.Id));
+        if (hedef is not null) SelectedUser = null;   // yeniden seçim mevcut yükleme yolunu tetikler
+        SelectedUser = hedef;
+    }
+
     public PermissionsViewModel(SessionContext session)
     {
         _session = session;
+        KorumaYukle();   // FAZ 3b-5: ağaç korumalı alanlara göre kurulduğu için ÖNCE okunur
         BuildTree(null);
         LoadRoles();
         _ = LoadUsers();
@@ -163,7 +297,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         // rapor kalemleri "Raporlar" grubunda). Süzme kuralları BİREBİR korunur. `Modules` düz listesi
         // AYNI düğüm örnekleriyle dolmaya devam eder → kaydetme/yükleme yolları HİÇ DEĞİŞMEZ;
         // grup yalnız görünümdür ve "Tümünü Seç" aynı düğümleri işaretler.
-        foreach (var grup in AppModules.Grouped())
+        // ⭐ FAZ 3b-5: ağaca firmanın KORUMALI alanları da girer (fld_*). Koruma yoksa hiçbir alan
+        // kalemi gelmez → ağaç bugünküyle birebir aynıdır. Web ile AYNI kaynak (AppModules.Grouped).
+        foreach (var grup in AppModules.Grouped(_session.ProtectedFields))
         {
             var grupNode = new PermGroupNode(grup.Title);
             foreach (var (key, label) in grup.Items)
@@ -174,7 +310,8 @@ public sealed partial class PermissionsViewModel : ViewModelBase
                 // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — bu ekranları istediği role
                 // verebildiği için ağaçta da görmelidir. Alt roller için kural aynen sürer.
                 if (hasTarget && !_session.IsSuperAdmin && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue;
-                var node = new ModulePermNode(key, label);
+                var node = new ModulePermNode(key, label, AppModules.IsFieldItem(key));
+                node.PropertyChanged += DugumDegisti;   // FAZ 3d: rozet + grup üç-durumu canlı kalsın
                 Modules.Add(node);
                 grupNode.Items.Add(node);
             }
@@ -183,8 +320,17 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         foreach (var (key, label) in SpecialButtons.All)
         {
             if (!AccessControl.CanGrantButton(_session, key)) continue;   // aktörün veremeyeceği buton ağaçta yok
-            Buttons.Add(new ButtonPermNode(key, label));
+            var btn = new ButtonPermNode(key, label);
+            btn.PropertyChanged += DugumDegisti;        // FAZ 3d
+            Buttons.Add(btn);
         }
+    }
+
+    /// <summary>FAZ 3d — kutu değiştiğinde rozet/grup durumu tazelenir (yetki kararı içermez).</summary>
+    private void DugumDegisti(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ModulePermNode.Gorunur) or nameof(ModulePermNode.Degisti)) return;
+        DegisimBildir();
     }
 
     /// <summary>Atanabilir rol listesi. Süper Admin / Kısıtlı Süper Admin YALNIZ süper admine
@@ -236,8 +382,10 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     /// <summary>Düzenleme moduna geç. ⭐ Ağaçtaki işaretlere DOKUNMAZ — yalnız kilidi açar.</summary>
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         if (!CanBeginEdit) return;
         IsEditing = true;
         Status = "Düzenleme açık — değişiklikleri Kaydet ile yazın, Vazgeç ile geri alın.";
@@ -302,6 +450,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
                 IsTargetAdmin = true;
                 foreach (var m in Modules) m.Set(true, true, true, true);
                 foreach (var b in Buttons) b.Granted = true;
+                TemelleriAl();   // FAZ 3d: salt-okunur admin görünümünde "değişiklik var" denmemeli
                 Status = $"{value.Username} — Admin/Süper Admin: tüm ekranlara erişir. Kısıtlamak için önce rolünü Personel yapın.";
                 return;
             }
@@ -321,8 +470,8 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             }
             foreach (var b in Buttons) b.Granted = btns.Contains(b.Key);
             // Kaydetme ÖZETİ için başlangıç durumu (kullanıcı isteği 2026-09-04) — web ile aynı davranış.
-            _yuklenenEkranlar = Modules.Where(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
-                .Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
+            _yuklenenEkranlar = Modules.Where(m => m.Herhangi).Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
+            TemelleriAl();   // FAZ 3d: "değişti" karşılaştırmasının sıfır noktası
             Status = $"{value.Username} yetkileri yüklendi.";
         }
         catch (Exception ex) { Status = "Yetkiler yüklenemedi: " + ex.Message; }
@@ -340,17 +489,23 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     /// </summary>
     private string DegisiklikOzeti()
     {
-        var secili = Modules.Where(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
-            .Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
+        var secili = Modules.Where(m => m.Herhangi).Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
         string Ad(string k) => Modules.FirstOrDefault(m => m.Key == k)?.Label ?? k;
 
         var eklenen = secili.Except(_yuklenenEkranlar).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
         var kaldirilan = _yuklenenEkranlar.Except(secili).Select(Ad).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
 
         var kullanici = SelectedUser?.Username ?? "";
-        if (eklenen.Count == 0 && kaldirilan.Count == 0)
-            return $"'{kullanici}' için ekran yetkilerinde değişiklik yok.\n\n" +
-                   "(İşlem hakları — ekle/düzenle/sil — değişmiş olabilir.)\n\nYine de kaydedilsin mi?";
+        // ⭐ FAZ 3d: özet artık İŞLEM HAKKI (ekle/düzenle/sil) ve özel buton değişikliklerini de sayar.
+        // Önceden yalnız "ekran var/yok" karşılaştırılıyor, kullanıcıya "değişmiş olabilir" deniyordu —
+        // yani ekran ne kaydettiğini tam söyleyemiyordu.
+        var hakDegisen = Modules
+            .Where(m => m.Degisti && secili.Contains(m.Key) && _yuklenenEkranlar.Contains(m.Key))
+            .Select(m => m.Label).OrderBy(x => x, StringComparer.CurrentCulture).ToList();
+        var butonDegisen = Buttons.Count(b => b.Degisti);
+
+        if (eklenen.Count == 0 && kaldirilan.Count == 0 && hakDegisen.Count == 0 && butonDegisen == 0)
+            return $"'{kullanici}' için hiçbir yetki değişikliği yok.\n\nYine de kaydedilsin mi?";
 
         var sb = new System.Text.StringBuilder();
         sb.Append($"'{kullanici}' kullanıcısı için:\n\n");
@@ -368,6 +523,14 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             if (eklenen.Count > 12) sb.Append($"\n• … ve {eklenen.Count - 12} ekran daha");
             sb.Append("\n\n");
         }
+        if (hakDegisen.Count > 0)
+        {
+            sb.Append($"İŞLEM HAKKI DEĞİŞEN ({hakDegisen.Count} ekran — ekle/düzenle/sil):\n• ");
+            sb.Append(string.Join("\n• ", hakDegisen.Take(12)));
+            if (hakDegisen.Count > 12) sb.Append($"\n• … ve {hakDegisen.Count - 12} ekran daha");
+            sb.Append("\n\n");
+        }
+        if (butonDegisen > 0) sb.Append($"ÖZEL BUTON YETKİSİ DEĞİŞEN: {butonDegisen}\n\n");
         sb.Append("Kaydedilsin mi?");
         return sb.ToString();
     }
@@ -658,11 +821,48 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 }
 
 /// <summary>Yetki ağacı GRUBU (2026-09-03) — menü kategorisi gibi başlık + o gruptaki modül düğümleri.</summary>
-public sealed class PermGroupNode
+public sealed partial class PermGroupNode : ObservableObject
 {
     public string Title { get; }
     public ObservableCollection<ModulePermNode> Items { get; } = new();
     public PermGroupNode(string title) { Title = title; }
+
+    // ═══ FAZ 3d — GÖRÜNÜRLÜK + ÜÇ DURUMLU GRUP KUTUSU ═══════════════════════════════════════
+    // "Hepsi / hiçbiri / KISMEN" ayrımı eskiden görünmüyordu: yönetici bir grubun yarısına yetki
+    // verdiğini ancak satırları tek tek okuyarak anlayabiliyordu.
+
+    /// <summary>Arama/süzgeç sonrası bu grup çizilecek mi?</summary>
+    [ObservableProperty] private bool _gorunur = true;
+
+    /// <summary>Grup durumu: true = görünen satırların hepsi işaretli · false = hiçbiri ·
+    /// null = KISMEN (belirsiz). Kullanıcı işaretlerse görünen satırların tamamı açılır/kapanır.</summary>
+    [ObservableProperty] private bool? _tumSecili = false;
+
+    /// <summary>Kısmen seçili mi — arayüzde "kısmi" rozeti için.</summary>
+    public bool Kismi => TumSecili is null;
+
+    private bool _icGuncelleme;
+
+    /// <summary>Görünen satırlardan grup durumunu yeniden hesaplar (yazma yapmaz).</summary>
+    public void DurumuTazele()
+    {
+        var gorunenler = Items.Where(i => i.Gorunur).ToList();
+        bool? yeni = gorunenler.Count == 0 ? false
+            : gorunenler.All(i => i.TamSecili) ? true
+            : gorunenler.Any(i => i.Herhangi) ? (bool?)null
+            : false;
+        _icGuncelleme = true;
+        TumSecili = yeni;
+        _icGuncelleme = false;
+        OnPropertyChanged(nameof(Kismi));
+    }
+
+    partial void OnTumSeciliChanged(bool? value)
+    {
+        OnPropertyChanged(nameof(Kismi));
+        if (_icGuncelleme || value is null) return;   // null = hesaplanmış "kısmi" durum, komut değil
+        foreach (var m in Items) if (m.Gorunur) m.Set(value.Value, value.Value, value.Value, value.Value);
+    }
 }
 
 public sealed partial class ModulePermNode : ObservableObject
@@ -674,9 +874,57 @@ public sealed partial class ModulePermNode : ObservableObject
     [ObservableProperty] private bool _canEdit;
     [ObservableProperty] private bool _canDelete;
 
-    public ModulePermNode(string key, string label) { Key = key; Label = label; }
+    /// <summary>⭐ FAZ 3b-5: bu satır bir ALAN yetkisi mi (<c>fld_*</c>)? Bir ALANDA "Yaz" ve "Sil"
+    /// anlamsızdır → arayüz o iki kutuyu HİÇ çizmez (web'deki PermMatrix ile aynı karar).</summary>
+    public bool IsFieldItem { get; }
 
-    public void Set(bool v, bool c, bool e, bool d) { CanView = v; CanCreate = c; CanEdit = e; CanDelete = d; }
+    /// <summary>XAML kolaylığı: alan kalemi DEĞİLSE dört kutu çizilir.</summary>
+    public bool IsModuleItem => !IsFieldItem;
+
+    // ═══ FAZ 3d — SÜZGEÇ + DEĞİŞİKLİK İZİ (yetki kararı içermez) ════════════════════════════
+    /// <summary>Arama/süzgeç sonrası bu satır çizilecek mi?</summary>
+    [ObservableProperty] private bool _gorunur = true;
+
+    /// <summary>Yüklendiğinden beri değişti mi (kaydedilmemiş).</summary>
+    [ObservableProperty] private bool _degisti;
+
+    private bool _tV, _tC, _tE, _tD;   // yüklenen (kaydedilmiş) durum
+
+    /// <summary>En az bir hak açık mı?</summary>
+    public bool Herhangi => CanView || CanCreate || CanEdit || CanDelete;
+
+    /// <summary>Grup üç-durumu için: bu satırın verilebilir tüm hakları açık mı? (Alan kaleminde
+    /// Yaz/Sil hiç çizilmediği için onlar sayılmaz — aksi hâlde grup ASLA "tam" olamazdı.)</summary>
+    public bool TamSecili => IsFieldItem ? (CanView && CanEdit) : (CanView && CanCreate && CanEdit && CanDelete);
+
+    /// <summary>Bu satırda kaç hak EKLENDİ / KALDIRILDI (özet sayacı).</summary>
+    public int EklenenSayisi => (CanView && !_tV ? 1 : 0) + (CanCreate && !_tC ? 1 : 0) + (CanEdit && !_tE ? 1 : 0) + (CanDelete && !_tD ? 1 : 0);
+    public int KaldirilanSayisi => (!CanView && _tV ? 1 : 0) + (!CanCreate && _tC ? 1 : 0) + (!CanEdit && _tE ? 1 : 0) + (!CanDelete && _tD ? 1 : 0);
+
+    /// <summary>Yüklenen durumu temel al — "değişti" bundan sonra hesaplanır.</summary>
+    public void TemeliAl() { _tV = CanView; _tC = CanCreate; _tE = CanEdit; _tD = CanDelete; Degisti = false; }
+
+    private void DegisimiHesapla() => Degisti = CanView != _tV || CanCreate != _tC || CanEdit != _tE || CanDelete != _tD;
+
+    public ModulePermNode(string key, string label, bool isFieldItem = false)
+    { Key = key; Label = label; IsFieldItem = isFieldItem; }
+
+    public void Set(bool v, bool c, bool e, bool d)
+    {
+        // Alan kaleminde Yaz/Sil daima kapalıdır (sunucudan yanlışlıkla gelse bile arayüz taşımaz).
+        CanView = v; CanCreate = IsFieldItem ? false : c; CanEdit = e; CanDelete = IsFieldItem ? false : d;
+    }
+
+    // ⭐ KANONİK KURAL — EDIT ⇒ VIEW (ADR-223 · D3). Yönetici "göremez ama düzenleyebilir" gibi
+    // anlamsız bir kombinasyonu OLUŞTURAMAZ. Sunucu da aynı kuralı ayrıca uygular.
+    partial void OnCanEditChanged(bool value)
+    { if (IsFieldItem && value) CanView = true; DegisimiHesapla(); }
+
+    partial void OnCanViewChanged(bool value)
+    { if (IsFieldItem && !value) CanEdit = false; DegisimiHesapla(); }
+
+    partial void OnCanCreateChanged(bool value) => DegisimiHesapla();
+    partial void OnCanDeleteChanged(bool value) => DegisimiHesapla();
 }
 
 public sealed partial class ButtonPermNode : ObservableObject
@@ -686,6 +934,46 @@ public sealed partial class ButtonPermNode : ObservableObject
     [ObservableProperty] private bool _granted;
     public ButtonPermNode(string key, string label) { Key = key; Label = label; }
 
+    // FAZ 3d — değişiklik izi (özel buton yetkileri de kaydetme özetine girer).
+    [ObservableProperty] private bool _degisti;
+    private bool _temel;
+    public void TemeliAl() { _temel = Granted; Degisti = false; }
+    partial void OnGrantedChanged(bool value) => Degisti = value != _temel;
+
     // ═══════════════════════════════════════════════════════════════════════════════════════
     //  G4-3e — ŞUBE KAPSAMI YÖNETİMİ (masaüstü). Web'deki Permissions.razor bölümünün karşılığı.
+}
+
+/// <summary>
+/// FAZ 3b-5 — "Korumalı Alanlar" listesinin bir satırı (masaüstü).
+///
+/// Kutu işaretlenir işaretlenmez kaydedilir: tek kutu = tek karar. "Kaydet"i beklemek yetki
+/// ağacının bayat kalmasına yol açardı (ağaç korumalı alanlara göre kuruluyor).
+/// </summary>
+public sealed partial class KorumaliAlanNode : ObservableObject
+{
+    public string ScreenKey { get; }
+    public string ScreenLabel { get; }
+    public string FieldKey { get; }
+    public string Label { get; }
+    public string Note { get; }
+
+    private readonly System.Action<KorumaliAlanNode, bool> _degistir;
+    private bool _sessiz;
+
+    [ObservableProperty] private bool _korumali;
+
+    public KorumaliAlanNode(string screenKey, string screenLabel, string fieldKey, string label,
+        string note, bool korumali, System.Action<KorumaliAlanNode, bool> degistir)
+    {
+        ScreenKey = screenKey; ScreenLabel = screenLabel; FieldKey = fieldKey;
+        Label = label; Note = note; _degistir = degistir;
+        _sessiz = true; Korumali = korumali; _sessiz = false;
+    }
+
+    partial void OnKorumaliChanged(bool value)
+    {
+        if (_sessiz) return;   // ilk doldurma kaydetme tetiklemez
+        _degistir(this, value);
+    }
 }

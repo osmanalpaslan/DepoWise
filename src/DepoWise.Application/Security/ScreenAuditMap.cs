@@ -59,4 +59,23 @@ public static class ScreenAuditMap
 
     /// <summary>Kayıt geçmişi tanımlı TÜM modüller (test ve yönetim ekranları için).</summary>
     public static IReadOnlyCollection<string> Modules => (IReadOnlyCollection<string>)ByModule.Keys;
+
+    /// <summary>
+    /// ⭐ FAZ 4.3 (2026-09-06) — TERS EŞLEME: bu varlık tipi hangi ekran(lar)a aittir?
+    ///
+    /// "Kaydın kendi log ekranı" açılırken yetki bu listeden doğrulanır: kullanıcı, kaydın ait olduğu
+    /// ekranlardan HİÇBİRİNİ göremiyorsa o kaydın geçmişini de göremez. Aksi hâlde kayıt logu, ekran
+    /// yetkisinin etrafından dolaşan sessiz bir yan kapı olurdu.
+    ///
+    /// Bir tip birden çok ekranda geçebilir (ör. <c>material_template</c> hem Malzemeler hem Malzeme
+    /// Şablonları ekranında) — bu yüzden liste döner.
+    /// </summary>
+    public static IReadOnlyList<string> ModulesForEntity(string? entityType)
+    {
+        if (string.IsNullOrWhiteSpace(entityType)) return Array.Empty<string>();
+        var sonuc = new List<string>();
+        foreach (var (modul, tipler) in ByModule)
+            if (Array.IndexOf(tipler, entityType) >= 0) sonuc.Add(modul);
+        return sonuc;
+    }
 }

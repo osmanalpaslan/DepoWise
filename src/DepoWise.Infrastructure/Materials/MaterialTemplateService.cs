@@ -135,8 +135,13 @@ WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
         string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        // ⭐ FAZ 3c — KAÇAK KANALI KAPATILDI. Şablon birim fiyatı, malzemenin birim fiyatının
+        // KAYNAĞIDIR (şablondan malzeme türetilir). "fld_materials_unit_price" korumalıyken bu
+        // alan açık kalsaydı, kullanıcı aynı bilgiyi şablon ekranından okurdu.
+        // Değer 0'lanır; arayüz alanı hiç oluşturmaz (C# kaydından alan çıkarılamaz — ADR-223 · D5).
+        var sablonFiyati = MaterialService.FiyatGorunur(s) ? P(r.GetString(9)) : 0m;
         return new MaterialTemplateRecord(r.GetString(0), r.GetString(1), S(2), S(3), S(4), S(5), S(6), S(7),
-            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11), S(12),
+            P(r.GetString(8)), sablonFiyati, r.GetString(10), S(11), S(12),
             r.IsDBNull(13) ? 0L : r.GetInt64(13));   // KLT-01d: düzenleme kilidi jetonu
     }
 
@@ -154,6 +159,18 @@ WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@
     ///
     /// <c>null</c> → kontrol yok (geriye uyumlu: sürüm taşımayan eski çağrılar bozulmaz).
     /// </param>
+    /// <summary>Şablonda duran birim fiyat — yazma kararı için AYNI transaction içinde okunur.</summary>
+    private static decimal MevcutFiyat(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
+        string templateId, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT unit_price FROM material_templates WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", templateId);
+        cmd.AddWithValue("@c", companyId);
+        return P(cmd.ExecuteScalar() as string ?? "0");
+    }
+
     public void Update(SessionContext s, string templateId, NewMaterialTemplate dto, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
@@ -161,6 +178,15 @@ WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         EnsureManageable(conn, tx, s, templateId);
+
+        // ⭐ FAZ 3c — YAZMA KAPISI (ADR-223 kanonik kuralı). Fiyatı GÖREMEYEN kullanıcı şablonu
+        // güncellediğinde gönderdiği değer YOK SAYILIR ve kayıttaki fiyat KORUNUR; aksi hâlde
+        // form 0 gösterdiği için fiyat sessizce sıfırlanırdı (veri kaybı).
+        var etkinFiyat = DepoWise.Application.Security.FieldAccess.YazmaDegeri(
+            s, DepoWise.Application.Security.FieldProtectionCatalog.Materials,
+            DepoWise.Application.Security.FieldProtectionCatalog.UnitPrice,
+            dto.UnitPrice, MevcutFiyat(conn, tx, templateId, s.CompanyId), "Birim Fiyat");
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -177,7 +203,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@br", (object?)dto.BrandId ?? DBNull.Value);
             cmd.AddWithValue("@sup", (object?)dto.SupplierId ?? DBNull.Value);
             cmd.AddWithValue("@min", D(dto.MinStock));
-            cmd.AddWithValue("@up", D(dto.UnitPrice));
+            cmd.AddWithValue("@up", D(etkinFiyat));
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@desc", (object?)Norm(dto.Description) ?? DBNull.Value);
             // B-4: yabancı/silinmiş araç id'leri süzülür (firma izolasyonu) — bkz. SanitizeVehicleIds.

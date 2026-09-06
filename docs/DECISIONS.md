@@ -5149,3 +5149,140 @@ arayüz + ortak katalog); şema 91'de kalır.
 **Doğrulanamayan.** Hem menü hem giriş-çıkış ekranı oturum açmayı gerektiriyor; giriş formuna parola
 yazılmadığı için 10 "+" düğmesi ve 41 yeni geometri **ekranda gözle görülmedi**. Kanıt kaynak
 sözleşmesi + testlerdir; görsel onay kullanıcıya aittir.
+
+---
+
+## ADR-224 — FAZ 4.3: logun anlaşılır hâle getirilmesi ve kayıt bazlı log ekranı (2026-09-06)
+
+**Bağlam.** Kullanıcı: *"Log bilgilerin anlaşılır değil… işlem tarihi, saati, yaptığı işlemi, yapılan
+işlemin önceki ve sonraki hallerini günlere ayırıp… kayıta ait hangi alanda neyi güncelledi ise
+görebilmeliyim. Ekranlarla beraber her kaydın kendine ait bir log ekranı olmalı."*
+
+**Kök neden (kanıtlanmış).** `audit_logs.before_json` / `after_json` sütunları **Migration001'den beri
+vardı**, ama 59 dosyadaki **162 `AuditEntry` çağrısının neredeyse tamamı bunları boş bırakıyordu**
+(yalnız `PermissionService` ve `SettingsService` dolduruyordu). Log bu yüzden "kim, ne zaman, hangi tip,
+hangi işlem" diyor; **ne değiştiğini hiç söylemiyordu.**
+
+**Karar.**
+1. **Tek noktada zenginleştirme.** `AuditWriter.Write`, çağıran kendi görüntüsünü vermediyse kaydın o
+   andaki hâlini `AuditSnapshot` ile alır ve `after_json`'a yazar. **162 çağrı yerinin hiçbirine
+   dokunulmadı** — canlı veri varken 59 dosyada iş mantığı değiştirmek kabul edilebilir bir risk değildi.
+2. **"Önceki hâl" türetilir, ayrıca saklanmaz.** Aynı kaydın bir önceki log satırının görüntüsü zaten
+   önceki hâldir (`AuditLogService.OncesiniBagla`). Ek depolama yok; sayfa dışında kalan öncekiler için
+   kayıt başına **tek** hedefli sorgu yapılır (üst sınır 60) — bulunamazsa "öncesi bilinmiyor" denir,
+   **uydurma fark üretilmez.**
+3. **Alan bazlı fark** `AuditDiff` + `AuditFields` ile Türkçe etiketli üretilir ("Sayaç: 10.000 →
+   155.000"). Teknik sütunlar (`version`, `updated_at`, `id`…) gizlenir — her güncellemede değiştikleri
+   için gerçek değişikliği gölgelerlerdi.
+4. **Güvenlik.** `AuditFields.Gizli` listesi (parola özeti, jeton, imza, TCKN, IBAN…) görüntüye **hiç
+   girmez**; ham `before_json`/`after_json` API yanıtına da konmaz (`JsonIgnore`) — istemciye yalnız
+   hazır fark listesi gider.
+5. **Her kaydın kendi log ekranı.** `AuditLogService.ForEntity` + masaüstünde `RecordHistoryWindow`,
+   web'de `AuditHistoryDialog` (+ `/api/audit/record`). Erişim yolları: ekran logu satırından
+   "Bu kaydın geçmişi", kabuk menüsünde "Seçili Kaydın Geçmişi" (`IKayitLoguKaynagi` uygulayan
+   ekranlar), web'de araç/malzeme kartındaki "Geçmiş" düğmesi.
+6. **Yetki değişmedi.** İki kapı sürüyor: `btn-screen-log` + kaydın ait olduğu ekranda `View`
+   (`ScreenAuditMap.ModulesForEntity`). Eşlemesi olmayan tipte **`ForbiddenException`** atılır; sessizce
+   genel log okuyucusuna dönüşmesi engellendi.
+
+**Sonuç.** Migration **gerekmedi** (sütunlar zaten vardı). Testler: `AnlasilirLogTests` (10).
+
+**Riskler.** Her audit yazımına PK üzerinden bir `SELECT` eklendi; PostgreSQL'de hatalı bir sorgunun
+transaction'ı bozmaması için görüntü **SAVEPOINT** içinde alınır ve hata hâlinde `null` döner — log
+zenginleştirme iş kaydını **asla** düşüremez.
+
+---
+
+## ADR-225 — FAZ 4.4: senkron çakışma ekranı ve kazananın değiştirilebilmesi (2026-09-06)
+
+**Bağlam.** Kullanıcı: *"Senkron çakışma uyarısı web'te var masaüstünde de olmalı. Kimin kazandığı kimin
+kaybettiği belirtilmeli. Uyarıya tıklandığında yeni bir senkron çakışma ekranı açılmalı. Üzerine yazılan
+kaydı iptal edip istenen kaydı kazanan yapabilmeli."*
+
+**Kök neden.** `data_conflicts` yalnız kazananı ve zaman damgalarını tutuyordu; **kaybeden sürümün verisi
+hiçbir yerde saklanmıyordu.** "Üzerine yazılanı geri getir" isteği mevcut şemayla **teknik olarak
+karşılanamıyordu** — geri getirilecek veri yoktu.
+
+**Karar.**
+1. **Migration094 (`conflict_snapshots`)** — yalnız `ADD COLUMN`: `winner_json`, `loser_json`,
+   `resolution`, `resolved_by`, `resolved_at`. Backfill/UPDATE/DELETE yok; eski çakışmalar boş görüntüyle
+   geçerli kalır ve arayüz bunu **açıkça söyler** ("verisi saklanmamış").
+2. **Görüntüler çakışma anında, `UpsertRow`'dan ÖNCE** alınır → sunucudaki sürüm henüz ezilmemiştir.
+   Hassas sütunlar burada da elenir.
+3. **`PromoteLoser`** kaybeden görüntüyü kayda geri yazar; `version` bir artar, `updated_at` şimdiye
+   çekilir → değişiklik **normal senkron akışıyla** yayılır (özel bir yol açılmadı). Kayıt **silinmez**,
+   ters kayıt açılmaz; kaybeden görüntü `data_conflicts`'te kalır (geri izlenebilir).
+4. **Yazılmayan sütunlar:** `id`, `company_id`, `version`, `created_at`, `updated_at`. Eski bir `version`
+   geri yazmak senkron kararlarını bozar; `company_id` yazmak kaydı başka firmaya taşıyabilirdi (CK11).
+5. **Yeni yetki `btn-conflict-resolve`** (deny-by-default, yetki ağacında görünür). Çakışma listesini
+   **görmek** yetki gerektirmez — uyarı zaten herkese gösteriliyordu; yalnız **kazananı değiştirmek**
+   bu yetkiye bağlıdır.
+6. **Ekranlar.** Masaüstü: `SyncConflictsWindow` — uyarıdaki "Ayrıntıları Aç" ve kabuk menüsünden
+   erişilir (uyarı bir kez göründüğü için menü şart). Web: `/sync-conflicts` — ana ekrandaki çakışma
+   kartına tıklanınca açılır. Her iki ekran da kazanan/kaybeden tarafı, alan bazlı farkı ve kaydın
+   FAZ 4.3 log ekranına köprüyü gösterir.
+
+**Testler.** `SenkronCakismaEkraniTests` (11): görüntü saklama, kazanan/kaybeden metni, gerçek güncelleme,
+senkrona yayılma, yetki, çift çözüm, firma sınırı, görüntüsüz çakışma, log kaydı, alan farkı, kimlik/firma/
+sürüm sütunlarının geri yazılmaması.
+
+---
+
+## ADR-226 — FAZ 4 final QA sırasında bulunan ve düzeltilen kusurlar (2026-09-06)
+
+Bu ADR, **kod yazmak için değil, ÖLÇTÜĞÜMÜZ İÇİN** açıldı: aşağıdaki dördü FAZ 4 uygulaması bittikten
+sonra, izole QA ortamında (`artifacts/f4-data`, üretime dokunulmadan) gerçek isteklerle bulundu.
+
+### 1) 🔴 Negatif sayaç kabul ediliyordu (veri bütünlüğü)
+
+`POST /api/vehicles` gövdesinde `currentMeter: -5000` gönderilince kayıt **sessizce** açılıyordu; log
+ekranında `Sayaç: — → -5000` olarak görüldü. Sayaç yakıt tüketimi ve bakım periyodu hesaplarının
+girdisidir; eksi bir başlangıç bu hesapları ve raporları bozar. Doğrudan sayaç yazma yolunda
+(`SetMeter`) koruma "geriye gitmez" kuralıyla zaten vardı — eksik olan **kayıt açılışıydı**.
+
+**Karar:** `VehicleService.Create` ve `SetMeter` negatif değeri reddeder (`ArgumentException`).
+Sıfır GEÇERLİDİR (sıfır kilometre araç). Regresyon testi: `AracSayaciDuzeltmeTests.SY9`.
+Bu kusur FAZ 4'ten GELMİYOR; mevcut bir açıktı ve QA'da yakalandı.
+
+### 2) Web'de yanlış onay metni (UX / yanlış işlem riski)
+
+"Üzerine Yazılanı Kazanan Yap" düğmesi standart **"Kaydı iptal etmek istediğinize emin misiniz?"**
+onayını gösteriyordu (düğme metni "Evet, İptal Et"). Kullanıcı kaydı sildiğini/iptal ettiğini
+sanabilirdi — oysa işlem, üzerine yazılan sürümü GERİ GETİRİR. Masaüstündeki doğru metinle eşitlendi
+("Evet, kazanan yap"). "Gizle" için de aynı düzeltme yapıldı.
+
+### 3) Logda kimlik yerine ad (FAZ 4.3'ün kendi amacı)
+
+Kayıt geçmişinde `Şube: — → 0a795b419c1f...` yazıyordu. Kullanıcının isteği "hangi alanda **NEYİ**
+güncelledi ise görebilmeliyim" idi; 32 haneli bir kimlik bunu karşılamaz.
+
+**Karar:** bağlantı sütunları (şube, personel, malzeme, araç, cari, tanımlar…) okunur ADA çevrilir
+(`AuditFields.BagliTablo` + `AuditLogService.AdlariCoz`). **Maliyet kontrollü:** satır başına sorgu
+YOK — sayfadaki tüm kimlikler toplanır, **tablo başına TEK** sorgu çalışır ve sorgu firma sınırıyla
+sınırlıdır (başka firmanın adı sızmaz). Ad bulunamazsa ham değer kalır; uydurma ad yazılmaz.
+Ayrıca `active/passive` → `Aktif/Pasif` ve `app_setting` → `Firma Ayarı` gibi teknik değerler
+Türkçeleştirildi.
+
+### 4) PostgreSQL tür uyumsuzluğu (üretimi vururdu, SQLite'ta görünmezdi)
+
+FAZ 4.4'ün çakışma görüntüleri tüm değerleri METİN saklar (iki taraf tutarlı karşılaştırılsın diye).
+SQLite tür konusunda esnektir; **PostgreSQL değildir** — bir `bigint` kolona metin yazmak hata verir
+ve "kazananı değiştirme" üretimde çalışmazdı. `PromoteLoser` artık hedef kolonun GERÇEK türünü okur
+(`DbIntrospect.ColumnTypes`) ve parametreyi ona göre bağlar. Testler SQLite'ta koştuğu için bu kusuru
+**testler yakalayamazdı**; kod okumasıyla bulundu ve kapatıldı.
+
+### Kapsam dışı bırakılan iki bulgu (rapora yazıldı, DEĞİŞTİRİLMEDİ)
+
+- **Eksik zorunlu sorgu parametresi 500 döndürüyor.** `page` verilmeden `/api/*/grid` çağrılırsa ortak
+  hata katmanı `BadHttpRequestException`'ı 400 yerine **500**'e çeviriyor. Kullanıcı arayüzü bu
+  parametreyi daima gönderdiği için son kullanıcıya etkisi yok; düzeltmek ortak hata katmanını
+  değiştirmek demek → ayrı iş.
+- **`mustChangePassword` yalnız arayüzde zorlanıyor.** Doğrudan API kullanan bir istemci, parolasını
+  değiştirmeden token'ıyla çalışabiliyor. Kimlik doğrulama atlatması DEĞİL (geçerli parola gerekiyor),
+  ama politika sunucuda zorlanmıyor. Sunucuda zorlamak mevcut istemcilerin erişimini daraltır →
+  kullanıcı kararı gerektirir (CLAUDE.md geliştirme protokolü §10).
+- **Test altyapısı — paralel koşuda `ClearAllPools()`.** 175 test sınıfı `Dispose`'da süreç geneli
+  bağlantı havuzunu temizliyor; xUnit sınıfları paralel koşturduğu için başka bir sınıfın açık
+  bağlantısı kapanabiliyor (`ObjectDisposedException`). Bir koşuda `VehicleGridTests` böyle düştü,
+  tek başına çalıştırıldığında GEÇTİ. **Ürün hatası değildir**; testi retry ile gizlemek yerine
+  kaydedildi. Düzeltmesi 175 dosyaya dokunmak demek → ayrı iş.

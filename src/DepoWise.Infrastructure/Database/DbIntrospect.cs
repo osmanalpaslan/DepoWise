@@ -67,6 +67,34 @@ public static class DbIntrospect
         return set;
     }
 
+    /// <summary>
+    /// ⭐ FAZ 4.4 (2026-09-06) — Tablonun kolon ADI → VERİ TÜRÜ eşlemesi (küçük harf tür adı).
+    ///
+    /// <b>Neden gerekli.</b> Çakışma görüntüsü tüm değerleri METİN olarak saklar (iki taraf tutarlı
+    /// karşılaştırılabilsin diye). SQLite tür konusunda esnektir, <b>PostgreSQL değildir</b>: bir
+    /// <c>bigint</c> kolona metin yazmak hata verir. Geri yazarken hedef kolonun gerçek türü bilinmeden
+    /// doğru parametre bağlanamaz — bu yüzden tür okunur.
+    /// </summary>
+    public static Dictionary<string, string> ColumnTypes(DbConnection conn, string table)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = conn.CreateCommand();
+        if (SqlDialect.IsSqlite(conn))
+        {
+            cmd.CommandText = $"PRAGMA table_info({table});";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) map[r.GetString(1)] = (r.IsDBNull(2) ? "" : r.GetString(2)).ToLowerInvariant();
+        }
+        else
+        {
+            cmd.CommandText = "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND table_name=@t;";
+            cmd.AddWithValue("@t", table);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) map[r.GetString(0)] = (r.IsDBNull(1) ? "" : r.GetString(1)).ToLowerInvariant();
+        }
+        return map;
+    }
+
     /// <summary>Birincil anahtar kolonları (sıralı).</summary>
     public static List<string> PrimaryKey(DbConnection conn, string table)
     {

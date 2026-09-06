@@ -785,14 +785,44 @@ public sealed class BusinessSyncService
         int PermanentSkipped = 0);
 
     public sealed record ConflictRow(string Id, string EntityType, string EntityId, string Winner,
-        string? AdminName, long ServerUpdatedAt, long DeviceUpdatedAt, bool PersonnelSeen, long CreatedAt)
+        string? AdminName, long ServerUpdatedAt, long DeviceUpdatedAt, bool PersonnelSeen, long CreatedAt,
+        // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — kazanan/kaybeden sürümlerin anlık görüntüsü.
+        // Ham JSON istemciye GÖNDERİLMEZ; istemcinin ihtiyacı olan hazır fark listesidir (Differences).
+        [property: System.Text.Json.Serialization.JsonIgnore] string? WinnerJson = null,
+        [property: System.Text.Json.Serialization.JsonIgnore] string? LoserJson = null,
+        string? Resolution = null, string Status = "open")
     {
         public string WinnerText => Winner == "device" ? "Personel (masaüstü) kazandı" : "Admin (web) kazandı";
+
+        /// <summary>⭐ FAZ 4.4 — "kimin kaybettiği" açıkça yazar (kullanıcı isteği).</summary>
+        public string LoserText => Winner == "device"
+            ? "Admin (web) sürümü üzerine yazıldı"
+            : "Personel (masaüstü) sürümü üzerine yazıldı";
+
+        /// <summary>Kazanan tarafın adı (varsa kişi adı).</summary>
+        public string WinnerWho => Winner == "device" ? "Masaüstü (personel)"
+            : (string.IsNullOrWhiteSpace(AdminName) ? "Web (admin)" : AdminName! + " (web)");
+        public string LoserWho => Winner == "device"
+            ? (string.IsNullOrWhiteSpace(AdminName) ? "Web (admin)" : AdminName! + " (web)")
+            : "Masaüstü (personel)";
+
         public string EntityLabel => EntityType switch
         {
             "materials" => "Malzeme", "vehicles" => "Araç", "personnel" => "Personel",
             "material_requests" => "Talep", "vehicle_maintenances" => "Bakım", _ => EntityType,
         };
+
+        /// <summary>Log varlık tipi — kaydın KENDİ geçmişini açmak için (FAZ 4.3 ekranı).</summary>
+        public string? AuditEntityType => Application.Common.AuditFields.TipTablodan(EntityType);
+
+        /// <summary>Kaybeden sürümden kazanan sürüme ALAN BAZLI fark: "Plaka: A → B".</summary>
+        public IReadOnlyList<Application.Common.AuditChange> Differences
+            => Application.Common.AuditDiff.Hesapla(LoserJson, WinnerJson);
+
+        /// <summary>Kaybeden sürüm kayıtlı mı — bu migration ÖNCESİ çakışmalarda görüntü yoktur.</summary>
+        public bool CanPromoteLoser => Status == "open" && !string.IsNullOrWhiteSpace(LoserJson);
+
+        public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     }
 
     /// <summary>Firmanın açık çakışmaları (admin ana ekran listesi için).</summary>
@@ -801,15 +831,15 @@ public sealed class BusinessSyncService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at " +
+            "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at, " +
+            "       winner_json, loser_json, resolution, status " +
             "FROM data_conflicts WHERE company_id=@c " + (onlyOpen ? "AND status='open' " : "") +
             "ORDER BY created_at DESC LIMIT 200;";
         cmd.AddWithValue("@c", companyId);
         var list = new List<ConflictRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add(new ConflictRow(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5), r.GetInt64(6), r.GetInt64(7) == 1, r.GetInt64(8)));
+            list.Add(Oku(r));
         return list;
     }
 
@@ -819,7 +849,8 @@ public sealed class BusinessSyncService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at " +
+            "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at, " +
+            "       winner_json, loser_json, resolution, status " +
             "FROM data_conflicts WHERE company_id=@c AND status='open' AND personnel_seen=0 " +
             (branchId is null ? "" : "AND (branch_id=@b OR branch_id IS NULL) ") +
             "ORDER BY created_at DESC LIMIT 100;";
@@ -828,8 +859,7 @@ public sealed class BusinessSyncService
         var list = new List<ConflictRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add(new ConflictRow(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5), r.GetInt64(6), r.GetInt64(7) == 1, r.GetInt64(8)));
+            list.Add(Oku(r));
         return list;
     }
 
@@ -847,17 +877,140 @@ public sealed class BusinessSyncService
         return cmd.ExecuteNonQuery();
     }
 
+    /// <summary>Tek satır okuma (iki listede de AYNI sütun sırası kullanılır).</summary>
+    private static ConflictRow Oku(DbDataReader r)
+        => new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+            r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5), r.GetInt64(6), r.GetInt64(7) == 1, r.GetInt64(8),
+            r.IsDBNull(9) ? null : r.GetString(9), r.IsDBNull(10) ? null : r.GetString(10),
+            r.IsDBNull(11) ? null : r.GetString(11), r.IsDBNull(12) ? "open" : r.GetString(12));
+
+    /// <summary>⭐ FAZ 4.4 — TEK ÇAKIŞMANIN AYRINTISI (çakışma ekranı buradan beslenir).
+    /// Firma sınırı zorunludur: başka firmanın çakışma kimliği bilinse bile açılmaz.</summary>
+    public ConflictRow? ConflictDetail(string companyId, string conflictId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at, " +
+            "       winner_json, loser_json, resolution, status " +
+            "FROM data_conflicts WHERE company_id=@c AND id=@id LIMIT 1;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@id", conflictId);
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? Oku(r) : null;
+    }
+
     /// <summary>Admin çakışmayı çözümledi (listeden kaldırır).</summary>
-    public void ResolveConflict(string companyId, string conflictId)
+    public void ResolveConflict(string companyId, string conflictId, string? resolvedBy = null,
+        string resolution = "hidden")
     {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE data_conflicts SET status='resolved', updated_at=@n WHERE company_id=@c AND id=@id;";
+        cmd.CommandText = "UPDATE data_conflicts SET status='resolved', updated_at=@n, " +
+                          "resolution=@r, resolved_by=@rb, resolved_at=@n WHERE company_id=@c AND id=@id;";
         cmd.AddWithValue("@n", now);
+        cmd.AddWithValue("@r", resolution);
+        cmd.AddWithValue("@rb", (object?)resolvedBy ?? DBNull.Value);
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@id", conflictId);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — <b>KAYBEDEN SÜRÜMÜ KAZANAN YAPMA.</b>
+    ///
+    /// <i>"Üzerine yazılan kaydı iptal edip istenen kaydı kazanan yapabilmeli. Kayıtlar doğru
+    /// güncellenmeli."</i>
+    ///
+    /// <b>Ne yapar.</b> Çakışma anında saklanan KAYBEDEN görüntüyü kayda geri yazar; <c>version</c>
+    /// bir artırılır ve <c>updated_at</c> şimdiye çekilir → değişiklik normal senkron akışıyla tüm
+    /// cihazlara YAYILIR (özel bir yol açılmaz). İşlem <c>audit_logs</c>'a yazılır, böylece kaydın
+    /// kendi log ekranında (FAZ 4.3) "hangi alan neye döndü" görünür.
+    ///
+    /// <b>Neden veri silinmez.</b> Kayıt SİLİNMEZ, ters kayıt açılmaz: yalnız alan değerleri eski
+    /// sürüme döner. Kaybeden görüntü de <c>data_conflicts</c>'te durmaya devam eder → işlem
+    /// geri izlenebilir.
+    ///
+    /// <b>Güvenlik kapıları.</b> (1) <c>btn-conflict-resolve</c> yetkisi — listeyi görmek yetmez;
+    /// (2) firma sınırı hem çakışmada hem güncellemede zorlanır; (3) yalnız AÇIK çakışma ve yalnız
+    /// senkron çakışması izlenen tablolar; (4) kimlik/firma/sürüm sütunları görüntüden yazılmaz —
+    /// aksi hâlde eski bir <c>version</c> geri yazılıp senkron kararlarını bozardı.
+    /// </summary>
+    /// <returns>Geri yazılan alan sayısı.</returns>
+    public int PromoteLoser(SessionContext session, string conflictId)
+    {
+        // İKİ kapı (deny-by-default): ekranı görebilmek + kazananı değiştirme yetkisi.
+        // Tek başına düğme yetkisi yetmez; göremediğiniz ekranın kaydını değiştiremezsiniz.
+        AccessControl.Require(session, "sync_conflicts", PermissionAction.View);
+        AccessControl.RequireButton(session, SpecialButtons.ConflictResolve);
+
+        var cakisma = ConflictDetail(session.CompanyId, conflictId)
+            ?? throw new InvalidOperationException("Çakışma kaydı bulunamadı.");
+        if (cakisma.Status != "open")
+            throw new InvalidOperationException("Bu çakışma zaten kapatılmış.");
+        if (string.IsNullOrWhiteSpace(cakisma.LoserJson))
+            throw new InvalidOperationException(
+                "Bu çakışma eski sürümde oluştu; üzerine yazılan kaydın verisi saklanmamış. Kaydı elle düzeltmeniz gerekir.");
+        if (!ConflictTracked.Contains(cakisma.EntityType))
+            throw new InvalidOperationException("Bu kayıt türünde çakışma çözümü desteklenmiyor.");
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        // Yazılabilir sütunlar: tabloda GERÇEKTEN var olanlar eksi kimlik/sürüm/firma sütunları.
+        // ⚠️ Tür de okunur: görüntü her değeri METİN tutar; PostgreSQL bir bigint kolona metin
+        // yazılmasına izin VERMEZ (SQLite verir). Bu yüzden hedef kolonun gerçek türüne göre bağlanır.
+        var turler = DbIntrospect.ColumnTypes(conn, cakisma.EntityType);
+        var yasak = new HashSet<string>(StringComparer.Ordinal)
+        { "id", "company_id", "version", "created_at", "updated_at" };
+
+        using var doc = JsonDocument.Parse(cakisma.LoserJson!);
+        var setler = new List<string>();
+        var degerler = new List<(string Ad, object Deger)>();
+        int i = 0;
+        foreach (var p in doc.RootElement.EnumerateObject())
+        {
+            if (yasak.Contains(p.Name) || !turler.TryGetValue(p.Name, out var tur)) continue;
+            var par = "@v" + i++;
+            setler.Add($"{p.Name} = {par}");
+            degerler.Add((par, TureGoreDeger(p.Value, tur)));
+        }
+        if (setler.Count == 0) throw new InvalidOperationException("Geri yazılabilir alan bulunamadı.");
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $"UPDATE {cakisma.EntityType} SET {string.Join(", ", setler)}, " +
+                              "version = version + 1, updated_at = @now WHERE id = @id AND company_id = @c;";
+            foreach (var (ad, deger) in degerler) cmd.AddWithValue(ad, deger);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", cakisma.EntityId);
+            cmd.AddWithValue("@c", session.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0)
+                throw new InvalidOperationException("Kayıt bulunamadı (silinmiş olabilir).");
+        }
+
+        // Kaydın KENDİ geçmişine düşsün (FAZ 4.3): "hangi alan neye döndü" orada görünür.
+        AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId,
+            AuditFields.TipTablodan(cakisma.EntityType) ?? cakisma.EntityType, cakisma.EntityId,
+            AuditActions.Restore, session.UserId), _clock);
+
+        using (var kapat = conn.CreateCommand())
+        {
+            kapat.Transaction = tx;
+            kapat.CommandText = "UPDATE data_conflicts SET status='resolved', resolution='loser_promoted', " +
+                                "resolved_by=@u, resolved_at=@now, updated_at=@now WHERE company_id=@c AND id=@id;";
+            kapat.AddWithValue("@u", session.UserId);
+            kapat.AddWithValue("@now", now);
+            kapat.AddWithValue("@c", session.CompanyId);
+            kapat.AddWithValue("@id", conflictId);
+            kapat.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+        return setler.Count;
     }
 
     /// <summary>Sunucu: gelen snapshot'ı firmaya uygular. company_id oturumdan zorlanır (tenant güvenliği).
@@ -1194,15 +1347,25 @@ public sealed class BusinessSyncService
         var winner = incomingUpdated >= serverUpdated ? "device" : "admin";
         var (adminUserId, adminName) = LastServerEditor(conn, companyId, id);
 
+        // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — İKİ SÜRÜMÜN DE ANLIK GÖRÜNTÜSÜ SAKLANIR.
+        // "Üzerine yazılan kaydı iptal edip istenen kaydı kazanan yapabilmeli" isteği, kaybeden
+        // sürümün verisi olmadan karşılanamaz. Bu satır UpsertRow'dan ÖNCE çalışır → sunucudaki
+        // görüntü henüz üzerine YAZILMAMIŞ hâlidir. Hassas sütunlar AuditSnapshot'ta elenir.
+        var sunucuGoruntu = Database.AuditSnapshot.AlTablodan(conn, null, table, id);
+        var cihazGoruntu = GelenGoruntu(row);
+        var kazananJson = winner == "device" ? cihazGoruntu : sunucuGoruntu;
+        var kaybedenJson = winner == "device" ? sunucuGoruntu : cihazGoruntu;
+
         // Aynı kayıt için açık çakışma varsa güncelle; yoksa ekle (unique index: company+entity WHERE open)
         using var up = conn.CreateCommand();
         up.CommandText = @"
 INSERT INTO data_conflicts(id, company_id, branch_id, entity_type, entity_id, winner, admin_user_id, admin_name,
-    server_updated_at, device_updated_at, personnel_seen, status, created_at, updated_at)
-VALUES(@id,@c,@b,@et,@eid,@w,@au,@an,@su,@du,0,'open',@now,@now)
+    server_updated_at, device_updated_at, personnel_seen, status, created_at, updated_at, winner_json, loser_json)
+VALUES(@id,@c,@b,@et,@eid,@w,@au,@an,@su,@du,0,'open',@now,@now,@wj,@lj)
 ON CONFLICT(company_id, entity_id) WHERE status='open' DO UPDATE SET
     winner=excluded.winner, admin_user_id=excluded.admin_user_id, admin_name=excluded.admin_name,
     server_updated_at=excluded.server_updated_at, device_updated_at=excluded.device_updated_at,
+    winner_json=excluded.winner_json, loser_json=excluded.loser_json,
     personnel_seen=0, updated_at=excluded.updated_at;";
         up.AddWithValue("@id", Guid.NewGuid().ToString("N"));
         up.AddWithValue("@c", companyId);
@@ -1215,7 +1378,59 @@ ON CONFLICT(company_id, entity_id) WHERE status='open' DO UPDATE SET
         up.AddWithValue("@su", serverUpdated);
         up.AddWithValue("@du", incomingUpdated);
         up.AddWithValue("@now", now);
+        up.AddWithValue("@wj", (object?)kazananJson ?? DBNull.Value);
+        up.AddWithValue("@lj", (object?)kaybedenJson ?? DBNull.Value);
         up.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// ⭐ FAZ 4.4 — görüntüdeki METİN değeri, hedef kolonun GERÇEK türüne göre parametreye çevirir.
+    ///
+    /// SQLite tür konusunda esnek olduğu için burada bir fark yaratmaz; <b>PostgreSQL'de zorunludur</b>:
+    /// <c>bigint</c>/<c>numeric</c> kolona metin yazmak hata verir ve tüm işlem geri alınırdı.
+    /// Sayıya çevrilemeyen bir değer metin olarak bağlanır — sessizce 0 yazmak, kaydı BOZARDI.
+    /// </summary>
+    private static object TureGoreDeger(JsonElement v, string tur)
+    {
+        if (v.ValueKind == JsonValueKind.Null) return DBNull.Value;
+        var ham = v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString();
+        if (ham.Length == 0) return DBNull.Value;
+
+        bool tamsayi = tur.Contains("int");
+        bool ondalik = tur.Contains("numeric") || tur.Contains("decimal") || tur.Contains("real")
+                    || tur.Contains("double") || tur.Contains("float");
+        bool mantiksal = tur.Contains("bool");
+
+        if (mantiksal) return ham is "1" or "true" or "True";
+        if (tamsayi && long.TryParse(ham, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var l)) return l;
+        if (ondalik && decimal.TryParse(ham, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d)) return d;
+        return ham;
+    }
+
+    /// <summary>⭐ FAZ 4.4 — cihazdan gelen satırın anlık görüntüsü (hassas sütunlar elenir).</summary>
+    private static string GelenGoruntu(JsonElement row)
+    {
+        var sb = new System.Text.StringBuilder("{");
+        bool ilk = true;
+        foreach (var p in row.EnumerateObject())
+        {
+            if (Application.Common.AuditFields.Gizli(p.Name)) continue;
+            string? deger = p.Value.ValueKind switch
+            {
+                JsonValueKind.Null => null,
+                JsonValueKind.String => p.Value.GetString(),
+                JsonValueKind.True => "1",
+                JsonValueKind.False => "0",
+                _ => p.Value.ToString(),
+            };
+            if (!ilk) sb.Append(',');
+            ilk = false;
+            sb.Append(JsonSerializer.Serialize(p.Name)).Append(':')
+              .Append(deger is null ? "null" : JsonSerializer.Serialize(deger));
+        }
+        return sb.Append('}').ToString();
     }
 
     private static (string? UserId, string? Name) LastServerEditor(DbConnection conn, string companyId, string entityId)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
@@ -54,6 +55,22 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Add("Ekipman — Türler", "equipment_types", s => L.List(s, "equipment_types"), (s, n) => L.AddEquipmentType(s, n));   // EKP-01
         Add("Araç — Kategoriler", "vehicle_categories", s => L.List(s, "vehicle_categories"), (s, n) => L.AddVehicleCategory(s, n));
         Add("Araç — Markalar", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
+        // ⭐ FAZ 4.5 (kullanıcı isteği 2026-09-06): Personel formunda "+" ile unvan eklenebiliyordu ama
+        // bu tanım "Tanımlar" ekranında YOKTU — yani yanlış eklenen bir unvan hiçbir yerden düzeltilemiyordu.
+        // Unvanlar ortak LookupService'te değil kendi servisindedir (yetki: personnel), bu yüzden
+        // işlemler delege olarak geçilir. Kilit (sabit tanım) bu tabloda YOKTUR → düğme çizilmez.
+        LookupSections.Add(new LookupSectionViewModel(_session, "Personel — Unvanlar", "personnel_titles",
+            s => DesktopServices.PersonnelTitles.List(s)
+                  .Select(t => new DepoWise.Infrastructure.Materials.LookupItem(t.Id, t.Name, false)).ToList(),
+            (s, n) => DesktopServices.PersonnelTitles.Create(s, n),
+            delete: (s, id) => DesktopServices.PersonnelTitles.Delete(s, id),
+            // ⚠️ UNVAN YENİDEN ADLANDIRILMAZ: personel kaydı unvanı METİN olarak saklar (personnel.title),
+            // yani tanımın adını değiştirmek mevcut personelin unvanını GÜNCELLEMEZ — sessiz tutarsızlık olurdu.
+            // Doğru akış: yeni unvanı ekle, personeli güncelle, eskisini sil.
+            rename: (s, id, ad) => throw new System.InvalidOperationException(
+                "Unvan adı değiştirilemez (personel kayıtları unvanı metin olarak saklar). Yeni unvan ekleyip personeli güncelleyin."),
+            kilitDestekli: false));
+
         // NOT: "Genel — Şube / Şantiye" girdisi KALDIRILDI (2026-08-09). Şube/Şantiye tanımları
         // admin-kısıtlı "branches" modülüne aittir ve yalnız Şube / Şantiye Tanımları ekranından
         // yönetilir; "Tanımlar" (definitions) yetkisiyle eklenip silinemez.

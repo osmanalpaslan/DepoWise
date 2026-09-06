@@ -55,6 +55,45 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
     public ObservableCollection<FieldSettingGroup> Groups { get; } = new();
     [ObservableProperty] private string? _status;
 
+    // ═══ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" YÖNETİMİ ══════════════════════════
+    // Kullanıcı: "Sadece sabit tanımlı olan alanların yanına '+' butonu ekleme yapabileceğim bir
+    // ekran… veya uygun olan bir ekranda konumlandırırız." → Alan Ayarları ekranına yerleştirildi
+    // (aynı aile: firma bazında form davranışı). Yeni ekran açılmadı.
+    //
+    // ⚠️ Kapatmak YALNIZ satır içi "+" yolunu kapatır; tanım "Tanım Düzenle" ekranından her zaman
+    // eklenebilir. Ayar firmaya özeldir ve MIGRATION GEREKTİRMEZ (app_settings anahtarı).
+    public ObservableCollection<ArtiAyarSatiri> ArtiAyarlari { get; } = new();
+
+    /// <summary>"+" ayarını yalnız firma yöneticisi değiştirebilir (yetki ağacı kalemi değil, firma tercihi).</summary>
+    public bool ArtiDuzenlenebilir => AccessControl.IsAdmin(_session);
+
+    private void ArtiAyarlariniYukle()
+    {
+        ArtiAyarlari.Clear();
+        foreach (var (tablo, etiket, ekran) in DepoWise.Application.Ui.LookupPlusCatalog.All)
+        {
+            bool acik;
+            try { acik = DesktopServices.Lookups.QuickAddEnabled(_session, tablo); }
+            catch { acik = true; }
+            var satir = new ArtiAyarSatiri(tablo, etiket, ekran, acik);
+            satir.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName != nameof(ArtiAyarSatiri.Acik) || _yukleniyor) return;
+                try
+                {
+                    DesktopServices.Settings.Set(_session.CompanyId,
+                        DepoWise.Application.Ui.LookupPlusCatalog.Key(satir.Tablo),
+                        satir.Acik ? "1" : DepoWise.Application.Ui.LookupPlusCatalog.Kapali, _session.UserId);
+                    Status = satir.Acik
+                        ? $"«{satir.Etiket}» için satır içi \"+\" açıldı."
+                        : $"«{satir.Etiket}» için satır içi \"+\" kapatıldı (tanım, Tanım Düzenle ekranından eklenebilir).";
+                }
+                catch (System.Exception ex) { Status = "Ayar kaydedilemedi: " + ex.Message; }
+            };
+            ArtiAyarlari.Add(satir);
+        }
+    }
+
     public bool CanEdit => AccessControl.Can(_session, FieldRequirementService.Module, PermissionAction.Edit);
 
     public FieldSettingsViewModel(SessionContext session)
@@ -67,6 +106,7 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
     private void Load()
     {
         _yukleniyor = true;
+        ArtiAyarlariniYukle();   // FAZ 4.6
         try
         {
             Groups.Clear();
@@ -99,4 +139,19 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
             _yukleniyor = false;
         }
     }
+}
+
+/// <summary>
+/// ⭐ FAZ 4.6 — Alan Ayarları ekranındaki "satır içi + " anahtarı satırı.
+/// Kapatılırsa o tanımın yanındaki "+" hiç çizilmez ve hızlı ekleme SERVİSTE de reddedilir.
+/// </summary>
+public sealed partial class ArtiAyarSatiri : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public string Tablo { get; }
+    public string Etiket { get; }
+    public string Ekran { get; }
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _acik;
+
+    public ArtiAyarSatiri(string tablo, string etiket, string ekran, bool acik)
+    { Tablo = tablo; Etiket = etiket; Ekran = ekran; Acik = acik; }
 }

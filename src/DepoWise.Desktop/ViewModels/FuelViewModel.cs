@@ -19,8 +19,16 @@ namespace DepoWise.Desktop.ViewModels;
 /// Yakıt — sekmeli (Dağıtımlar / Depo Girişleri / Özet). Dağıtımda araç→önceki sayaç otomatik + canlı toplam.
 /// Hesaplama/iş kuralları (snapshot fiyat, sayaç ileri, bakiye, negatif/yetersiz guard) serviste korunur.
 /// </summary>
-public sealed partial class FuelViewModel : ViewModelBase
+public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "fuel_distribution";
+    public string? LogEntityId => SelectedDistribution?.Id;
+    public string? LogKayitAdi => SelectedDistribution?.VehicleCode;
+
     private readonly SessionContext _session;
 
     public ObservableCollection<FuelRow> Distributions { get; } = new();
@@ -257,12 +265,14 @@ public sealed partial class FuelViewModel : ViewModelBase
     public bool CanEditFuel => CanWrite && CanCancelFuel;
 
     [RelayCommand]
-    private void BeginEditDistribution()
+    private async System.Threading.Tasks.Task BeginEditDistribution()
     {
         if (!CanEditFuel) { Status = "Yetki yok."; return; }
         if (SelectedDistribution is not { } row) { Status = "Düzeltilecek kaydı seçin."; return; }
         if (row.IsCancelled) { Status = "İptal edilmiş kayıt düzeltilemez."; return; }
 
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EnsurePickers();
         DistEditId = row.Id;
         DistVehicle = Vehicles.FirstOrDefault(v => v.Id == row.VehicleId);
@@ -298,7 +308,7 @@ public sealed partial class FuelViewModel : ViewModelBase
         var reason = await ConfirmService.AskReasonAsync(
                 $"Bu yakıt kaydı iptal edilecek ({row.LitersText} L · {row.VehicleCode}).\n\n" +
                 "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
-                "Araç sayacı geri alınmaz. İşlem geri alınamaz.",
+                "Araç sayacı, kalan geçerli kayıtlardan yeniden hesaplanır. İşlem geri alınamaz.",
                 "Yakıt Kaydı İptali");
         if (reason is null) return;
         try
@@ -424,8 +434,22 @@ public sealed partial class FuelViewModel : ViewModelBase
 
     partial void OnDistVehicleChanged(VehicleListRow? value)
     {
-        DistPrevMeter = value?.CurrentMeter ?? 0;
-        if (value is not null && DistMeter < value.CurrentMeter) DistMeter = value.CurrentMeter;
+        // ⭐ FAZ 4.1 — SEÇİLEN ARACIN SAYACI ÖNCE GERÇEK KAYITLARDAN TAZELENİR.
+        // Geçmişte hatalı-yüksek bir sayaç araca yazılmış olabilir (KAM-ME 059 olayı). Kullanıcı
+        // aracı seçtiği anda tek araçlık ucuz bir yeniden hesap yapılır; başlangıç sayacı artık
+        // zehirlenmiş değeri değil GERÇEĞİ gösterir. Sayaç zaten doğruysa hiçbir yazma olmaz.
+        var sayac = value?.CurrentMeter ?? 0;
+        if (value is not null)
+        {
+            try
+            {
+                if (DesktopServices.Vehicles.RecalculateMeter(_session, value.Id, "fuel_form"))
+                    sayac = DesktopServices.Vehicles.GetMeter(_session, value.Id);
+            }
+            catch { /* yetki yoksa/çevrimdışıysa eski davranış sürer — form açılmaya devam eder */ }
+        }
+        DistPrevMeter = sayac;
+        if (value is not null && DistMeter < sayac) DistMeter = sayac;
     }
 
     [RelayCommand]
@@ -482,14 +506,22 @@ public sealed partial class FuelViewModel : ViewModelBase
         { Status = "Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksikAlanlar) + "."; return; }
         if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(DistLiters)
             && !await ConfirmService.AskAsync($"Litre değeri çok büyük görünüyor ({DistLiters:0.##}). Emin misiniz?", "Litre Uyarısı", "Evet, Doğru")) return; // madde 7
+        // ⭐ FAZ 4.1 — ŞÜPHELİ SAYAÇ SIÇRAMASI (önleme). Gerçek olay: fişe fazladan basamak yazıldı
+        // (155.000 yerine 1.555.000) ve değer araca işlendi. Kaydı ENGELLEMEZ, kullanıcıya sorar.
+        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(DistPrevMeter, DistMeter)
+            && !await ConfirmService.AskAsync(
+                DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(
+                    DistPrevMeter, DistMeter, DepoWise.Application.Ui.MeterUnitOptions.Label(DistVehicle.MeterUnit)),
+                "Sayaç Uyarısı", "Evet, Doğru")) return;
+
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
         string? duzeltmeGerekcesi = null;
         if (DistEditId is not null)
         {
             duzeltmeGerekcesi = await ConfirmService.AskReasonAsync(
                 $"Bu yakıt kaydı düzeltilecek ({DistLiters:0.##} L · Toplam {DistTotalText}).\n\n" +
-                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar " +
-                "buna göre güncellenir. Araç sayacı geri alınmaz.",
+                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi, raporlar " +
+                "ve ARAÇ SAYACI buna göre güncellenir.",
                 "Yakıt Kaydı Düzeltme");
             if (duzeltmeGerekcesi is null) return;
         }
@@ -538,7 +570,7 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
         try
         {
-            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim(), quick: true);
             var item = new LookupItem(id, NewSupplierName.Trim());
             Suppliers.Add(item); DepotSupplier = item;
             IsAddingSupplier = false; NewSupplierName = "";

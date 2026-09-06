@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService DialogService
 
 @if (!Auth.CanView("audit"))
 {
@@ -42,13 +43,35 @@ else
         @if (filtered.Count == 0) { <MudText Class="mud-text-secondary">Henüz sistem log kaydı yok.</MudText> }
         else
         {
-            <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh" T="JsonElement">
-                <HeaderContent><MudTh>TARİH</MudTh><MudTh>KULLANICI</MudTh><MudTh>KAYIT</MudTh><MudTh>İŞLEM</MudTh></HeaderContent>
+            @* ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — GÜNLERE AYRILMIŞ + NE DEĞİŞTİĞİ YAZAN LOG.
+               Eskiden yalnız "kim / ne zaman / hangi tip / hangi işlem" vardı; hangi alanın neye
+               döndüğü hiç görünmüyordu. "Geçmiş" düğmesi o kaydın KENDİ log ekranını açar. *@
+            <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh" T="JsonElement"
+                      GroupBy="_gunGrubu" GroupHeaderStyle="background-color:var(--mud-palette-background-grey)">
+                <HeaderContent>
+                    <MudTh>SAAT</MudTh><MudTh>KULLANICI</MudTh><MudTh>KAYIT</MudTh><MudTh>İŞLEM</MudTh>
+                    <MudTh>NE DEĞİŞTİ</MudTh><MudTh></MudTh>
+                </HeaderContent>
+                <GroupHeaderTemplate>
+                    <MudTh Class="mud-table-cell-custom-group" colspan="6"><b>@GunBasligi(context.Key?.ToString() ?? "")</b>
+                        <span class="mud-text-secondary" style="margin-left:10px">@context.Items.Count() işlem</span></MudTh>
+                </GroupHeaderTemplate>
                 <RowTemplate>
-                    <MudTd>@Str(context, "dateText")</MudTd>
+                    <MudTd>@Str(context, "timeText")</MudTd>
                     <MudTd>@Str(context, "userText")</MudTd>
-                    <MudTd>@Str(context, "entityType")</MudTd>
+                    <MudTd>@Str(context, "entityLabel")</MudTd>
                     <MudTd>@Str(context, "actionText")</MudTd>
+                    <MudTd>
+                        @if (Str(context, "changeSummary") is { Length: > 0 } ozet) { @ozet }
+                        else { <span class="mud-text-secondary">—</span> }
+                    </MudTd>
+                    <MudTd>
+                        @if (Str(context, "entityId").Length > 0)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                       OnClick="@(() => KayitGecmisi(context))">Geçmiş</MudButton>
+                        }
+                    </MudTd>
                 </RowTemplate>
             </MudTable>
             <MudText Typo="Typo.caption" Class="mud-text-secondary">@filtered.Count / @_rows.Length kayıt</MudText>
@@ -91,6 +114,41 @@ else
         if (!string.IsNullOrEmpty(_entity)) q = q.Where(r => Str(r, "entityType") == _entity);
         if (!string.IsNullOrEmpty(_user)) q = q.Where(r => Str(r, "userText") == _user);
         return q.ToList();
+    }
+
+    // ⭐ FAZ 4.3 — gün gruplaması ("bugün bunu, ertesi gün şunu yapmış").
+    private readonly TableGroupDefinition<JsonElement> _gunGrubu = new()
+    {
+        Indentation = false, Expandable = false,
+        Selector = r => Str(r, "dayText"),
+    };
+
+    private static string GunBasligi(string gun)
+    {
+        if (!DateTime.TryParseExact(gun, "dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var t)) return gun;
+        if (t.Date == DateTime.Today) return "Bugün · " + gun;
+        if (t.Date == DateTime.Today.AddDays(-1)) return "Dün · " + gun;
+        return t.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "Pazartesi", DayOfWeek.Tuesday => "Salı", DayOfWeek.Wednesday => "Çarşamba",
+            DayOfWeek.Thursday => "Perşembe", DayOfWeek.Friday => "Cuma", DayOfWeek.Saturday => "Cumartesi",
+            _ => "Pazar",
+        } + " · " + gun;
+    }
+
+    /// <summary>⭐ FAZ 4.3 — seçilen satırdaki kaydın KENDİ log ekranı.</summary>
+    private async Task KayitGecmisi(JsonElement r)
+    {
+        var parms = new DialogParameters
+        {
+            ["Title"] = "Kayıt Geçmişi — " + Str(r, "entityLabel"),
+            ["EntityType"] = Str(r, "entityType"),
+            ["EntityId"] = Str(r, "entityId"),
+            ["KayitBaglantisi"] = false,
+        };
+        await DialogService.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
     }
 
     private static string Str(JsonElement row, string key)

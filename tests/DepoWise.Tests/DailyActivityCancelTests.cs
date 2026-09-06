@@ -347,8 +347,17 @@ public class DailyActivityCancelTests : IDisposable
         Assert.NotNull(mv);
     }
 
+    /// <summary>
+    /// ⭐ KARAR DEĞİŞTİ — FAZ 4.1 (kullanıcı talimatı 2026-09-06).
+    ///
+    /// Bu test eskiden <c>Iptal_ARAC_SAYACINI_GERI_ALMAZ</c> adıyla, iptalden sonra sayacın AYNI
+    /// KALMASINI kilitliyordu (kural Y2). Gerçek kullanımda bu bir hataya dönüştü: yanlış-yüksek
+    /// sayaç girilen kayıt iptal edilse bile araçta kalıyor ve hiçbir ekrandan düzeltilemiyordu
+    /// (KAM-ME 059 olayı). Yeni kural: sayaç GEÇERLİ kayıtlardan türetilir; iptal onu aşağı çeker.
+    /// Elle beyan edilen taban (araç kartı) korunduğu için 0'a değil 1000'e iner.
+    /// </summary>
     [Fact]
-    public void Iptal_ARAC_SAYACINI_GERI_ALMAZ()
+    public void Iptal_ARAC_SAYACINI_GECERLI_KAYITLARA_GERI_CEKER()
     {
         var (v, m, d) = Seed(100m);
         var act = MaintenanceActivity(v, d, m, 10m);
@@ -356,7 +365,8 @@ public class DailyActivityCancelTests : IDisposable
 
         _daily.Delete(_admin, act);
 
-        Assert.Equal(1100m, _vehicles.GetMeter(_admin, v));          // ❗ sayaç geri alınmadı
+        // ❗ Artık geri iner: geçerli bakım kalmadı → araç kartındaki beyan (1000).
+        Assert.Equal(1000m, _vehicles.GetMeter(_admin, v));
     }
 
     public void Dispose()

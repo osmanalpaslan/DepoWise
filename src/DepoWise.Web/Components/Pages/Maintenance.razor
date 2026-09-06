@@ -385,6 +385,21 @@
                             </MudSelect>
                         </MudStack>
                     }
+                    @* ⭐ FAZ 4.8 (kullanıcı isteği 2026-09-06) — TARİH ARALIĞI + ARAMA.
+                       Servis ve /api/maintenance/grid ucu bu süzgeçleri ZATEN destekliyordu; ekranda
+                       alan/buton yoktu. Ağır sorgu Filtrele'ye basılmadan çalışmaz (CLAUDE.md §5). *@
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-2">
+                        <MudDatePicker @bind-Date="_bkmFrom" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" Style="max-width:150px" />
+                        <MudDatePicker @bind-Date="_bkmTo" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" Style="max-width:150px" />
+                        <MudTextField @bind-Value="_bkmQuery" Label="Ara (araç kodu / plaka / bakım / belge no)"
+                                      Placeholder="Örn. 06 FZ 4146" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                      Style="min-width:260px" OnKeyDown="@(e => { if (e.Key == "Enter") { _ = BkmFiltrele(); } })" />
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="BkmFiltrele">Filtrele</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="BkmSuzgecTemizle">Temizle</MudButton>
+                    </MudStack>
+
                     @if (_maint is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
                     @* ⭐ FAZ K §13: yüklenemeyen listeye "kayıt girilmedi" demek YANLIŞ bilgidir. *@
                     else if (_bkmError is not null)
@@ -394,13 +409,15 @@
                             <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadMaint" Class="ml-2">Tekrar dene</MudButton>
                         </MudAlert>
                     }
-                    else if (_maint.Length == 0) { <MudText Class="mud-text-secondary">Henüz bakım kaydı girilmedi.</MudText> }
+                    else if (_maint.Length == 0) { <MudText Class="mud-text-secondary">@(_bkmSuzgecVar ? "Bu ölçütlerle bakım kaydı bulunamadı." : "Henüz bakım kaydı girilmedi.")</MudText> }
                     else
                     {
                         <MudTable Items="_maint" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => OpenMaint(e.Item))" T="JsonElement">
-                            <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>BAKIM</MudTh><MudTh>YAPILMA</MudTh><MudTh>SONRAKİ</MudTh><MudTh>DURUM</MudTh></HeaderContent>
+                            @* ⭐ FAZ 4.8: PLAKA kolonu eklendi (masaüstüyle aynı). *@
+                            <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>PLAKA</MudTh><MudTh>BAKIM</MudTh><MudTh>YAPILMA</MudTh><MudTh>SONRAKİ</MudTh><MudTh>DURUM</MudTh></HeaderContent>
                             <RowTemplate>
                                 <MudTd>@Str(context, "vehicleCode")</MudTd>
+                                <MudTd>@Str(context, "plateDisplay")</MudTd>
                                 <MudTd>@Str(context, "definitionName")</MudTd>
                                 <MudTd>@Str(context, "performedDisplay")</MudTd>
                                 <MudTd>@Str(context, "nextDueDisplay")</MudTd>
@@ -703,6 +720,8 @@
     private async Task BeginEditDef()
     {
         if (_defDetail is null) return;
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         var d = _defDetail.Value;
         _defEditId = Str(d, "id"); _defName = Str(d, "name"); _defDesc = Str(d, "description");
         _defVersion = d.TryGetProperty("version", out var dv) && dv.ValueKind == JsonValueKind.Number ? dv.GetInt64() : 0L;
@@ -743,6 +762,38 @@
     // Eski /api/maintenance ucu sabit 200 satır döndürüyordu; 200. kaydın ötesindeki bakımlar
     // SESSİZCE düşüyordu ve kesildiğine dair uyarı yoktu.
     private int _bkmPage = 1, _bkmPageSize = 50, _bkmTotal, _bkmTotalPages = 1;
+
+    // ═══ FAZ 4.8 (kullanıcı isteği 2026-09-06) — BAKIM LİSTESİ SÜZGEÇLERİ ════════════════════
+    // Kullanıcı: "tarih, araç kodu ve plakasını sorgulayabileceğim alan ve butonlar görünmüyor."
+    // Süzme SUNUCUDA yapılır (mevcut /api/maintenance/grid); istemcide kesme/ikinci filtre yoktur.
+    private DateTime? _bkmFrom, _bkmTo;
+    private string _bkmQuery = "";
+
+    /// <summary>Filtrele ile ONAYLANMIŞ ölçütler — her tuşta ağır sorgu çalışmaz.</summary>
+    private string? _bkmQueryAktif;
+    private long? _bkmFromMs, _bkmToMs;
+
+    /// <summary>Aktif süzgeç var mı — "kayıt yok" mesajını doğru yazmak için (boş liste ≠ hiç kayıt yok).</summary>
+    private bool _bkmSuzgecVar => _bkmQueryAktif is not null || _bkmFromMs is not null || _bkmToMs is not null;
+
+    private async Task BkmFiltrele()
+    {
+        var q = (_bkmQuery ?? "").Trim();
+        _bkmQueryAktif = q.Length == 0 ? null : q;
+        // Bitiş günü DAHİL (kullanıcı 1–5 diyorsa 5'i de görmeli).
+        _bkmFromMs = _bkmFrom is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        _bkmToMs = _bkmTo is { } t ? new DateTimeOffset(t.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999 : null;
+        _bkmPage = 1;
+        await LoadMaint();
+    }
+
+    private async Task BkmSuzgecTemizle()
+    {
+        _bkmQuery = ""; _bkmFrom = null; _bkmTo = null;
+        _bkmQueryAktif = null; _bkmFromMs = null; _bkmToMs = null;
+        _bkmPage = 1;
+        await LoadMaint();
+    }
     private static readonly int[] BkmPageSizes = { 25, 50, 100, 200 };
     /// <summary>FAZ K §13: liste yüklenemediğinde sebebi. null = hata yok (boş liste GERÇEKTEN boş).</summary>
     private string? _bkmError;
@@ -757,7 +808,12 @@
         _bkmError = null;
         try
         {
-            var res = await Api.GetObjectAsync($"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}");
+            // ⭐ FAZ 4.8: süzgeçler sorguya gider (sunucu tarafı filtreleme — istemcide kesme yok).
+            var qs = $"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}";
+            if (!string.IsNullOrWhiteSpace(_bkmQueryAktif)) qs += "&q=" + Uri.EscapeDataString(_bkmQueryAktif!);
+            if (_bkmFromMs is { } bf) qs += "&fromDate=" + bf;
+            if (_bkmToMs is { } bt) qs += "&toDate=" + bt;
+            var res = await Api.GetObjectAsync(qs);
             _maint = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
                 ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
             _bkmTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _maint.Length;

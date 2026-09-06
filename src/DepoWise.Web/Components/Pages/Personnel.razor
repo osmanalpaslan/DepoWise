@@ -67,7 +67,7 @@
         </MudGrid>
 
         @* ── Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok — hesaplar "Kullanıcılar" ekranında açılır) ── *@
-        @if (Auth.IsAdmin)
+        @if (Auth.CanLinkUser)
         {
             @if (_hasAccount)
             {
@@ -226,7 +226,7 @@
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
             await LoadTitles();
         }
-        if (Auth.IsAdmin) await LoadLinkableUsers();
+        if (Auth.CanLinkUser) await LoadLinkableUsers();
         await LoadList();
     }
 
@@ -343,8 +343,8 @@
         }
 
         // Bu kayıtta mevcut kullanıcı bağlanıyor mu? (admin + hesabı yok + saha değil + anahtar açık + kullanıcı seçili)
-        bool wantLink = Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess && !string.IsNullOrEmpty(_linkUserId);
-        if (Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess && string.IsNullOrEmpty(_linkUserId))
+        bool wantLink = Auth.CanLinkUser && !_hasAccount && !_fieldStaff && _grantAccess && !string.IsNullOrEmpty(_linkUserId);
+        if (Auth.CanLinkUser && !_hasAccount && !_fieldStaff && _grantAccess && string.IsNullOrEmpty(_linkUserId))
         { _msg = "Bağlanacak kullanıcıyı seçin (veya anahtarı kapatın)."; _ok = false; return; }
 
         // KOŞUL (değişmedi): hesap YOKSA ve bağlanMIYORSA ve "Saha personeli" işaretli DEĞİLSE uyar.
@@ -386,7 +386,7 @@
                 if (linkErr is not null) { _ok = false; _msg = "Personel kaydedildi ama kullanıcı bağlanamadı: " + linkErr; await LoadList(); return; }
             }
             _ok = true; _msg = _editId is null ? (wantLink ? "Personel eklendi + kullanıcı bağlandı." : "Eklendi.") : "Güncellendi.";
-            Clear(); if (Auth.IsAdmin) await LoadLinkableUsers(); await LoadList();
+            Clear(); if (Auth.CanLinkUser) await LoadLinkableUsers(); await LoadList();
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
@@ -399,7 +399,7 @@
         if (!await Dialog.Confirm($"'{_accountUsername}' hesabının bu personele bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Evet, Kaldır", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/personnel/{_editId}/account");
         _ok = err is null; _msg = err ?? "Hesap bağı kaldırıldı.";
-        if (_ok) { _hasAccount = false; _accountUsername = ""; if (Auth.IsAdmin) await LoadLinkableUsers(); await LoadList(); }
+        if (_ok) { _hasAccount = false; _accountUsername = ""; if (Auth.CanLinkUser) await LoadLinkableUsers(); await LoadList(); }
     }
 
     private async Task Delete(string id)

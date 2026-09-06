@@ -162,6 +162,17 @@
             <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
                 @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
             </MudSelect>
+            @* ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): TARİH ARALIĞI + ÇOKLU ARAÇ (masaüstüyle aynı).
+               Süzme SUNUCUDA yapılır; tablo üstündeki kolon filtreleri bu aralığın İÇİNDE çalışır. *@
+            <MudDatePicker @bind-Date="_gunFrom" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy" Style="max-width:145px" />
+            <MudDatePicker @bind-Date="_gunTo" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy" Style="max-width:145px" />
+            <MudSelect T="string" MultiSelection="true" @bind-SelectedValues="_seciliAraclar" Label="Araç (çoklu)"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="min-width:200px"
+                       MultiSelectionTextFunc="@(secilenler => secilenler.Count == 0 ? "Tümü" : $"{secilenler.Count} araç seçili")">
+                @foreach (var a in _aracSecenekleri) { <MudSelectItem T="string" Value="@a.Id">@a.Name</MudSelectItem> }
+            </MudSelect>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
             <MudTooltip Text="Aktif filtrelerle eşleşen TÜM faaliyetleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir">
@@ -414,6 +425,7 @@
         var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
         qs.AddRange(BuildFilterSortQs());
         if (_showCancelled) qs.Add("includeCancelled=true");
+        qs.AddRange(TarihVeAracQs());   // FAZ 4.9
         var grid = await Api.GetGridAsync("/api/daily/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
     }
@@ -458,6 +470,8 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadKindOptions();   // 2026-09-03: kayıt tipi seçenekleri yetkiye göre
+        // FAZ 4.9: çoklu araç süzgeci seçenekleri (liste boşsa süzgeç görünür ama seçenek yoktur).
+        try { _aracSecenekleri = await Api.OptionsAsync("/api/vehicles", "id", "display"); } catch { }
         if (Auth.CanCreate("daily_activity"))
         {
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
@@ -601,9 +615,11 @@
     private int? _editDuration;
     private long _editVersion;
 
-    private void BeginEdit(JsonElement row)
+    private async Task BeginEdit(JsonElement row)
     {
         if (Bool(row, "isCancelled")) { _msg = "İptal edilmiş kayıt düzenlenemez."; _ok = false; return; }
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         _editId = Str(row, "id");
         _editVersion = row.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0L;
         _editDescription = Str(row, "description");
@@ -642,7 +658,7 @@
                 var qty = Dec(imp, "totalQuantity");
                 msg = "Bu faaliyet kaydına bağlı bakım kaydı" + (qty > 0 ? $" ve {qty:0.##} adet malzeme çıkışı" : "") +
                       " bulunmaktadır.\n\nFaaliyeti iptal ederseniz bağlı kayıtlar da iptal edilecek ve malzemeler " +
-                      "stoğa geri eklenecektir. Araç sayacı geri alınmaz. İşlem geri alınamaz.";
+                      "stoğa geri eklenecektir. Araç sayacı, kalan geçerli kayıtlardan yeniden hesaplanır. İşlem geri alınamaz.";
             }
         }
         catch { /* etki okunamadıysa sade metinle devam */ }
@@ -671,6 +687,24 @@
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
     /// <summary>K3: iptal edilen faaliyetler varsayılan GİZLİ; kutu işaretlenince görünür (masaüstüyle aynı).</summary>
+    // ═══ FAZ 4.9 (kullanıcı isteği 2026-09-06) — TARİH ARALIĞI + ÇOKLU ARAÇ ═════════════════════
+    // Süzme SUNUCUDA yapılır (mevcut /api/daily/grid ucu genişletildi); istemcide kesme yoktur.
+    private DateTime? _gunFrom, _gunTo;
+    private IReadOnlyCollection<string> _seciliAraclar = new HashSet<string>();
+    private List<ApiClient.Opt> _aracSecenekleri = new();
+
+    /// <summary>Tarih aralığı + seçili araçlar → sorgu parçaları. Seçim yoksa hiçbir şey eklenmez.</summary>
+    private List<string> TarihVeAracQs()
+    {
+        var qs = new List<string>();
+        // Bitiş günü DAHİL (kullanıcı 1–5 diyorsa 5'i de görmeli).
+        if (_gunFrom is { } f) qs.Add("fromDate=" + new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds());
+        if (_gunTo is { } t) qs.Add("toDate=" + (new DateTimeOffset(t.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999));
+        var araclar = _seciliAraclar?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new List<string>();
+        if (araclar.Count > 0) qs.Add("vehicleIds=" + Uri.EscapeDataString(string.Join(",", araclar)));
+        return qs;
+    }
+
     private bool _showCancelled;
     private async Task ToggleCancelled(bool v) { _showCancelled = v; await Load(); }
 

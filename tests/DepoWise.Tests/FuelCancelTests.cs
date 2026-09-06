@@ -88,8 +88,21 @@ public class FuelCancelTests : IDisposable
         Assert.Equal(1000m, _fuel.GetDepotBalance(_admin));      // çıkış geri sayılmaz
     }
 
-    [Fact]  // T7 + T8 — EN KRİTİK KURAL
-    public void Dagitim_iptali_ARAC_SAYACINI_GERI_ALMAZ()
+    /// <summary>
+    /// ⭐ KARAR DEĞİŞTİ — FAZ 4.1 (kullanıcı talimatı 2026-09-06).
+    ///
+    /// Bu test eskiden <c>Dagitim_iptali_ARAC_SAYACINI_GERI_ALMAZ</c> adıyla, iptal sonrası sayacın
+    /// AYNI KALMASINI kilitliyordu (kural Y2). Gerçek kullanımda bu kural bir hataya dönüştü:
+    /// yanlış-yüksek sayaç girilen kayıt düzeltilse/iptal edilse bile araçta kalıyor ve kullanıcı
+    /// hiçbir ekrandan düzeltemiyordu (KAM-ME 059 olayı). Kullanıcı kuralı tersine çevirdi:
+    /// <i>"en yüksek sayaç bilgisi hangi kayıtta ise ondan al"</i>.
+    ///
+    /// Yeni kural: sayaç GEÇERLİ kayıtlardan türetilir; iptal onu aşağı çekebilir. Elle beyan edilen
+    /// taban (araç kartı) korunur — bu yüzden 0'a değil 10.000'e iner.
+    /// <b>İz kaydı hâlâ silinmez</b> (denetim izi korunur) — o şart değişmedi.
+    /// </summary>
+    [Fact]  // T7 + T8 — KARAR DEĞİŞİKLİĞİ (eski: sayaç geri alınmaz)
+    public void Dagitim_iptali_ARAC_SAYACINI_GECERLI_KAYITLARA_GERI_CEKER()
     {
         Depot(1000m);
         var v = Vehicle(10_000m);
@@ -100,8 +113,10 @@ public class FuelCancelTests : IDisposable
 
         _fuel.CancelDistribution(_admin, d, "hatalı kayıt");
 
-        Assert.Equal(10_500m, _vehicles.GetMeter(_admin, v));    // ❗ GERİ ALINMADI
-        Assert.Equal(logsBefore, MeterLogCount());               // ❗ iz kaydı da silinmedi
+        // ❗ Artık geri iner: geçerli kayıt kalmadı → araç kartındaki beyan (10.000).
+        Assert.Equal(10_000m, _vehicles.GetMeter(_admin, v));
+        // ❗ Eski iz kaydı SİLİNMEDİ; üstüne düzeltme izi eklendi (denetim izi bozulmaz).
+        Assert.True(MeterLogCount() > logsBefore, "Sayaç düzeltmesi iz bırakmalı.");
     }
 
     [Fact]  // T4

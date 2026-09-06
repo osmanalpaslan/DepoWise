@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        x:Class="DepoWise.Desktop.Views.RecordHistoryWindow"
+        Width="880" Height="660" MinWidth="520" MinHeight="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="Kayıt Geçmişi" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <!-- ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — ANLAŞILIR LOG EKRANI.
+         Günlere ayrılmış liste: gün başlığı → o günün işlemleri → her işlemin ALAN BAZLI farkı
+         ("Sayaç: 10.000 → 155.000"). Eski düz metin dökümü kullanıcı için okunmuyordu. -->
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <Grid Margin="18" RowDefinitions="Auto,Auto,*,Auto">
+            <SelectableTextBlock Grid.Row="0" x:Name="TitleText" Classes="PageTitle"/>
+            <SelectableTextBlock Grid.Row="1" x:Name="SubText" Classes="Helper" Margin="0,4,0,12"
+                                 TextWrapping="Wrap"/>
+
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="8" Padding="10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="0">
+                        <SelectableTextBlock x:Name="EmptyText" Classes="Helper" IsVisible="False"
+                                             TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="DaysList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LogGunu">
+                                    <StackPanel Margin="0,0,0,16">
+                                        <Border Background="{DynamicResource OverlaySelectedBrush}"
+                                                CornerRadius="6" Padding="10,5">
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <SelectableTextBlock Text="{Binding Gun}" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper"
+                                                                     VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <ItemsControl ItemsSource="{Binding Satirlar}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:LogSatiri">
+                                                    <Border Margin="0,8,0,0" Padding="12,9" CornerRadius="8"
+                                                            Background="{DynamicResource SurfaceBrush}"
+                                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                            BorderThickness="1">
+                                                        <StackPanel Spacing="5">
+                                                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                                                <SelectableTextBlock Text="{Binding Saat}" FontWeight="SemiBold"/>
+                                                                <SelectableTextBlock Text="{Binding Islem}"/>
+                                                                <SelectableTextBlock Text="{Binding Kayit}" Classes="Helper"/>
+                                                                <SelectableTextBlock Text="{Binding Kullanici}" Classes="Helper"/>
+                                                                <Button Classes="Ghost" Content="Bu kaydın geçmişi"
+                                                                        IsVisible="{Binding KayitBaglantisiVar}"
+                                                                        Command="{Binding KayitGecmisiCommand}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </StackPanel>
+                                                            <ItemsControl ItemsSource="{Binding Degisiklikler}" x:CompileBindings="False"
+                                                                          IsVisible="{Binding DegisiklikVar}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <SelectableTextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                                                             Margin="8,1,0,0"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <SelectableTextBlock Text="{Binding Not}" Classes="Helper"
+                                                                                 IsVisible="{Binding NotVar}" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <SelectableTextBlock x:Name="CopiedText" Text="Kopyalandı ✓" Classes="Helper"
+                                     VerticalAlignment="Center" IsVisible="False"/>
+                <Button x:Name="CopyBtn" Classes="Secondary" Content="Tümünü Kopyala"/>
+                <Button x:Name="CloseBtn" Classes="Primary" Content="Kapat" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -18,6 +18,33 @@
             Text="{Binding Status}"/>
 
         <ScrollViewer Grid.Row="2" Margin="0,12,0,0">
+          <StackPanel>
+            <!-- ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06): hangi sabit tanımın yanında "+" (satır içi
+                 hızlı ekleme) çıkacağı firma bazında seçilir. Kapatmak tanımı SİLMEZ ve "Tanım
+                 Düzenle" ekranından eklemeyi engellemez — yalnız formlardaki kısayolu kaldırır. -->
+            <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" CornerRadius="6"
+                    MaxWidth="640" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="SATIR İÇİ &quot;+&quot; (HIZLI TANIM EKLEME)" Classes="SectionTitle"/>
+            </Border>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,4,0,6"
+                Text="Kapatılan tanımın yanında &quot;+&quot; görünmez; kullanıcı o tanımı formdan ekleyemez. Tanım, &quot;Tanım Düzenle&quot; ekranından her zaman eklenebilir. Bu ayar yalnız sizin firmanızı etkiler."/>
+            <Border Classes="Table" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,0,16">
+                <ItemsControl ItemsSource="{Binding ArtiAyarlari}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ArtiAyarSatiri">
+                            <Grid ColumnDefinitions="220,120,*" Height="36" Margin="12,0">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding Etiket}" VerticalAlignment="Center"/>
+                                <CheckBox Grid.Column="1" Content="&quot;+&quot; açık" VerticalAlignment="Center"
+                                          IsChecked="{Binding Acik}"
+                                          IsEnabled="{Binding $parent[ItemsControl].((vm:FieldSettingsViewModel)DataContext).ArtiDuzenlenebilir}"
+                                          ToolTip.Tip="Kapatılırsa bu tanımın yanındaki + düğmesi hiç çizilmez ve hızlı ekleme sunucuda da reddedilir."/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Ekran}" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
             <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:FieldSettingGroup">
@@ -45,6 +72,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

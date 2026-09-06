@@ -71,7 +71,8 @@ else
                 <HeaderContent>
                     <MudTh>FATURA NO</MudTh><MudTh>TÜR</MudTh><MudTh>CARİ</MudTh>
                     <MudTh>TARİH</MudTh><MudTh>VADE</MudTh>
-                    <MudTh Style="text-align:right">TUTAR</MudTh><MudTh>DURUM</MudTh>
+                    @if (_tutarGorunur) { <MudTh Style="text-align:right">TUTAR</MudTh> }
+                    <MudTh>DURUM</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.InvoiceNo</MudTd>
@@ -79,7 +80,8 @@ else
                     <MudTd>@context.PartyTitle</MudTd>
                     <MudTd>@context.DateText</MudTd>
                     <MudTd>@context.DueText</MudTd>
-                    <MudTd Style="text-align:right">@context.GrandTotal.ToString("0.00")</MudTd>
+                    @* FAZ 3b-5: tutar kapalıysa kolon HİÇ çizilmez ("0,00" yanlış bilgi olurdu). *@
+                    @if (_tutarGorunur) { <MudTd Style="text-align:right">@context.GrandTotal.ToString("0.00")</MudTd> }
                     <MudTd>
                         <MudChip T="string" Size="Size.Small" Color="@(context.IsCancelled ? Color.Error : Color.Success)">
                             @context.StatusText
@@ -388,8 +390,15 @@ else
     /// <summary>Kayıt tamamlanana kadar SABİT idempotency anahtarı (çift tıklama / ağ tekrarı koruması).</summary>
     private string _operationId = "";
 
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar SUNUCUDAN gelir (/api/field-access → FieldAccess). Ekran yetki HESAPLAMAZ; masaüstü
+    // aynı fonksiyonu doğrudan çağırdığı için iki platform kaçınılmaz olarak aynı sonucu gösterir.
+    // Varsayılan true = korumasız (bugünkü görünüm); sunucuya ulaşılamazsa da bu değer korunur.
+    private bool _tutarGorunur = true;
+
     protected override async Task OnInitializedAsync()
     {
+        _tutarGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Invoices, DepoWise.Application.Security.FieldProtectionCatalog.GrandTotal);   // FAZ 3b-5
         try
         {
             var m = await Api.GetObjectAsync("/api/invoices/meta");

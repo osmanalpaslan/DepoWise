@@ -122,9 +122,12 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
         }
 
         // Toplam tutar: satırlardan C# decimal (Money kuralı — SQL SUM yok). Tek sorgu, bellek içi eşleme.
+        // ⭐ FAZ 3c-2: toplam da birim fiyattan TÜRER (miktar biliniyorken fiyat geri hesaplanabilir),
+        // bu yüzden fiyat gizliyse toplam HİÇ hesaplanmaz → 0 kalır, ekranda "—" görünür.
         var toplamlar = new Dictionary<string, (decimal Amt, string Cur)>(StringComparer.Ordinal);
-        using (var cmd = conn.CreateCommand())
+        if (MaterialService.FiyatGorunur(s))
         {
+            using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT order_id, quantity, unit_price, COALESCE(currency_code,'TRY') " +
                               "FROM purchase_order_lines WHERE company_id=@c AND is_deleted=0;";
             cmd.AddWithValue("@c", s.CompanyId);
@@ -168,6 +171,10 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         EnsureOrderVisible(s, conn, null, orderId);
+        // ⭐ FAZ 3c-2 — ALAN KAPISI (okuma). Sipariş satırı fiyatı, malzeme birim fiyatının bir
+        // taşıyıcısıdır: malzeme kartında gizlenip burada açık kalsaydı koruma delinirdi.
+        // Karar SORGU BAŞINA BİR KEZ (satır döngüsünün dışında) — ADR-223 performans sözleşmesi.
+        var fiyatGorunur = MaterialService.FiyatGorunur(s);
         var list = new List<PurchaseOrderLineRow>();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT l.id, l.order_id, l.material_id, m.name, l.quantity, l.unit_price, " +
@@ -179,7 +186,7 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new PurchaseOrderLineRow(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                D(r.GetString(4)), r.IsDBNull(5) ? null : D(r.GetString(5)), r.GetString(6),
+                D(r.GetString(4)), !fiyatGorunur || r.IsDBNull(5) ? null : D(r.GetString(5)), r.GetString(6),
                 D(r.GetString(7)), N(r, 8)));
         return list;
     }
@@ -193,6 +200,10 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
         if (dto.Lines is not { Count: > 0 }) throw new ArgumentException("En az bir sipariş satırı girin.");
         foreach (var l in dto.Lines)
             if (l.Quantity <= 0) throw new ArgumentException("Satır miktarı pozitif olmalı.");
+        // ⭐ FAZ 3c-2 — YAZMA KAPISI (kanonik kural): fiyatı GÖREMEYEN kullanıcının gönderdiği fiyat
+        // yazılmaz. Sipariş satırı YENİ kayıttır → korunacak eski değer yoktur; kolon NULL kabul eder
+        // ("fiyat belirtilmedi" zaten geçerli bir durumdur), bu yüzden 403 değil NULL yazılır.
+        var fiyatYazilabilir = MaterialService.FiyatGorunur(s);
         var isGunu = DateEntryPolicy.Uygula(s, dto.OrderDate) ?? _clock.UtcNow.ToUnixTimeMilliseconds();
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
@@ -233,7 +244,7 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@m", l.MaterialId);
             cmd.AddWithValue("@q", S(l.Quantity));
-            cmd.AddWithValue("@p", l.UnitPrice is { } p ? S(p) : DBNull.Value);
+            cmd.AddWithValue("@p", fiyatYazilabilir && l.UnitPrice is { } p ? S(p) : (object)DBNull.Value);
             cmd.AddWithValue("@cur", Nv(l.Currency));
             cmd.AddWithValue("@n", Nv(l.Note));
             cmd.AddWithValue("@now", now);
@@ -383,8 +394,12 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
         }
 
         // 1) MEVCUT stok girişi (aynı transaction; stok yetki kapısı + TRH-01 burada çalışır).
+        // ⭐ FAZ 3c-2: fiyat SİPARİŞ SATIRINDAN okundu (kullanıcı girdisi değil) → alan kapısı
+        // uygulanmaz; aksi hâlde fiyatı göremeyen depo görevlisinin mal kabulü, siparişte yazılı
+        // fiyatı hareketten silerdi (sessiz veri kaybı).
         var doc = _stock.ReceiveInTx(conn, tx, s, stockLines, stockOp, branchId,
-            note: string.IsNullOrWhiteSpace(note) ? "Mal kabul" : note, docDate: docDate);
+            note: string.IsNullOrWhiteSpace(note) ? "Mal kabul" : note, docDate: docDate,
+            fiyatSunucuKaynakli: true);
 
         // 2) received_qty artışı (aynı tx — defterle birlikte).
         foreach (var l in lines)

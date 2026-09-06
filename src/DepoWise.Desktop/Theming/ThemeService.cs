@@ -143,6 +143,11 @@ public static class ThemeService
                 _ => ThemeVariant.Default, // Sistem: OS'a uyar
             };
 
+        // ⭐ FAZ 2 (ADR-221): menü renk ailesi fırçaları önbelleklenir (her menü kurulumunda kaynak
+        // sözlüğü taramamak için). Tema değişince o fırçalar ESKİ temaya aittir → düşürülmeli.
+        // Unutulsaydı koyu temanın renkleri açık temada kalır ve kontrast bozulurdu.
+        DesktopMenuColors.Temizle();
+
         if (persist)
             try { DesktopServices.Settings.Set(DesktopServices.DefaultCompanyId, Key, mode); } catch { }
     }

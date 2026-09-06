@@ -23,8 +23,16 @@ namespace DepoWise.Desktop.ViewModels;
 /// Bakım Takibi — sekmeli: (1) Bakım Tanımları (tanım CRUD + ilişkili araç + alt bakım), (2) Uyarılar (GetAlerts).
 /// "Araç Bakımları" sekmesi sonraki fazda. İş kuralları servis katmanında.
 /// </summary>
-public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarget
+public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarget, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "vehicle_maintenance";
+    public string? LogEntityId => SelectedMaint?.Id;
+    public string? LogKayitAdi => SelectedMaint is null ? null : SelectedMaint.VehicleCode + " · " + SelectedMaint.DefinitionName;
+
     private readonly SessionContext _session;
 
     [ObservableProperty] private string? _status;
@@ -539,7 +547,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             MaintError = null;
             Maintenances.Clear();
             // ⭐ LST-01: sabit 200 tavanı KALDIRILDI (ötesi sessizce düşüyordu).
-            var grid = DesktopServices.Maintenance.SearchMaintenancesGrid(_session, BakimSayfa, BakimSayfaBoyutu);
+            var grid = DesktopServices.Maintenance.SearchMaintenancesGrid(_session, BakimSayfa, BakimSayfaBoyutu,
+                freeText: BakimAramaAktif, fromMs: BakimBasMs, toMs: BakimBitMs);
             foreach (var r in grid.Items) Maintenances.Add(r);
             BakimToplam = grid.TotalCount; BakimToplamSayfa = grid.TotalPages;
             BakimSayfalamaTazele();
@@ -549,6 +558,53 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         OnPropertyChanged(nameof(MaintEmpty));
         OnPropertyChanged(nameof(HasMaint));
         OnPropertyChanged(nameof(HasMaintError));
+    }
+
+    // ═══ FAZ 4.8 (kullanıcı isteği 2026-09-06) — BAKIM LİSTESİ SORGULAMA ════════════════════════
+    // Bulunan eksik: servis TARİH ARALIĞI ve SERBEST METİN (araç kodu · plaka · bakım adı · açıklama ·
+    // belge no) süzmesini zaten destekliyordu, ama ekranda ne alan ne buton vardı — kullanıcı
+    // sorgulayamıyordu. Yeni sorgu altyapısı KURULMADI; mevcut SearchMaintenancesGrid'e bağlanıldı.
+
+    /// <summary>Arama kutusundaki metin (Filtrele'ye basılana kadar sorguya girmez).</summary>
+    [ObservableProperty] private string _bakimArama = "";
+
+    /// <summary>Filtrele ile onaylanmış arama metni — ağır sorgu her tuşta çalışmaz (CLAUDE.md §5).</summary>
+    private string? _bakimAramaAktif;
+    public string? BakimAramaAktif => _bakimAramaAktif;
+
+    [ObservableProperty] private System.DateTimeOffset? _bakimBaslangic;
+    [ObservableProperty] private System.DateTimeOffset? _bakimBitis;
+
+    private long? _bakimBasMs, _bakimBitMs;
+    public long? BakimBasMs => _bakimBasMs;
+    public long? BakimBitMs => _bakimBitMs;
+
+    /// <summary>Aktif bir süzgeç var mı (arayüzde "Temizle" bunu gösterir).</summary>
+    public bool BakimSuzgecVar => _bakimAramaAktif is not null || _bakimBasMs is not null || _bakimBitMs is not null;
+
+    /// <summary>Filtrele — girilen ölçütleri uygular ve ilk sayfaya döner.</summary>
+    [RelayCommand]
+    private void BakimFiltrele()
+    {
+        var q = (BakimArama ?? "").Trim();
+        _bakimAramaAktif = q.Length == 0 ? null : q;
+        // Tarih aralığı GÜN sınırlarına çekilir: bitiş günü dahil olmalı (kullanıcı 1–5 diyorsa 5 dahildir).
+        _bakimBasMs = BakimBaslangic is { } b ? new System.DateTimeOffset(b.Date, System.TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        _bakimBitMs = BakimBitis is { } t ? new System.DateTimeOffset(t.Date, System.TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999 : null;
+        BakimSayfa = 1;
+        OnPropertyChanged(nameof(BakimSuzgecVar));
+        LoadMaint();
+    }
+
+    /// <summary>Süzgeçleri temizler ve tüm listeye döner.</summary>
+    [RelayCommand]
+    private void BakimTemizle()
+    {
+        BakimArama = ""; BakimBaslangic = null; BakimBitis = null;
+        _bakimAramaAktif = null; _bakimBasMs = null; _bakimBitMs = null;
+        BakimSayfa = 1;
+        OnPropertyChanged(nameof(BakimSuzgecVar));
+        LoadMaint();
     }
 
     partial void OnSelectedMaintChanged(MaintenanceRow? value)
@@ -940,10 +996,13 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     }
 
     [RelayCommand]
-    private void CancelEquipmentMaintenance()
+    private async Task CancelEquipmentMaintenance()
     {
         if (EqmSelectedRow is null) { Status = "Kayıt seçin."; return; }
         if (string.IsNullOrWhiteSpace(EqmCancelReason)) { Status = "İptal gerekçesi zorunlu."; return; }
+        // ⭐ FAZ 4.2: standart iptal onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmCancelAsync(
+                "Ekipman bakımı iptal edilecek; kullanılan malzemeler stoğa geri döner.")) return;
         try
         {
             DesktopServices.EquipmentMaintenance.Cancel(_session, EqmSelectedRow.Id, EqmCancelReason.Trim());

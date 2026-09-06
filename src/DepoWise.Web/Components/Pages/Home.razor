@@ -159,25 +159,34 @@
                     <MudIcon Icon="@Icons.Material.Filled.SyncProblem" Color="Color.Error" Class="mr-2" />
                     <MudText Typo="Typo.h6">Senkron Çakışmaları</MudText>
                 </div>
+                @* ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06): uyarıya tıklandığında SENKRON ÇAKIŞMA EKRANI açılır;
+                   orada kim kazandı/kim kaybetti, alan bazlı fark ve "üzerine yazılanı kazanan yap" bulunur. *@
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">
-                    Bu kayıtlar aynı anda hem web'de (siz) hem masaüstünde değiştirildi. En son düzenleyen geçerli oldu;
-                    kayıt tekrar düzenlenene kadar bu geçerlidir.
+                    Bu kayıtlar aynı anda hem web'de (siz) hem masaüstünde değiştirildi. En son düzenleyen geçerli oldu.
+                    Ayrıntı ve "üzerine yazılanı geri getirme" için satıra tıklayın.
                 </MudText>
                 <MudStack Spacing="2">
                     @foreach (var cf in _conflicts)
                     {
-                        <MudPaper Elevation="0" Class="dw-alert crit">
+                        <MudPaper Elevation="0" Class="dw-alert crit" Style="cursor:pointer;"
+                                  @onclick="@(() => Nav.NavigateTo("/sync-conflicts"))">
                             <div class="dw-alert-ico"><MudIcon Icon="@Icons.Material.Filled.SyncProblem" Size="Size.Small" /></div>
                             <div class="flex-grow-1" style="min-width:0;">
                                 <MudText Typo="Typo.body1" Style="font-weight:600;">@Str(cf, "entityLabel") — @Str(cf, "winnerText")</MudText>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    Web'de düzenleyen: @(string.IsNullOrEmpty(Str(cf, "adminName")) ? "—" : Str(cf, "adminName"))
+                                    Kaybeden: @Str(cf, "loserWho") — @Str(cf, "loserText")
                                 </MudText>
                             </div>
-                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" OnClick="@(() => ResolveConflict(Str(cf, "id")))">Gizle</MudButton>
+                            @* Gizle, kartın tıklamasını TETİKLEMEZ (aksi hâlde gizlerken ekran değişirdi). *@
+                            <span @onclick:stopPropagation="true">
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                                           OnClick="@(() => ResolveConflict(Str(cf, "id")))">Gizle</MudButton>
+                            </span>
                         </MudPaper>
                     }
                 </MudStack>
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="mt-1"
+                           OnClick="@(() => Nav.NavigateTo("/sync-conflicts"))">Senkron Çakışma Ekranını Aç</MudButton>
             }
         </MudItem>
 

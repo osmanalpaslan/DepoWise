@@ -61,7 +61,8 @@ else
                 <HeaderContent>
                     <MudTh>KOD</MudTh><MudTh>ÜNVAN</MudTh><MudTh>TİP</MudTh>
                     <MudTh>VERGİ/TCKN</MudTh><MudTh>TELEFON</MudTh>
-                    <MudTh Style="text-align:right">BAKİYE</MudTh><MudTh>DURUM</MudTh>
+                    @if (_bakiyeGorunur) { <MudTh Style="text-align:right">BAKİYE</MudTh> }
+                    <MudTh>DURUM</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Kod">@context.Code</MudTd>
@@ -69,7 +70,8 @@ else
                     <MudTd DataLabel="Tip">@context.TypeText</MudTd>
                     <MudTd DataLabel="Vergi/TCKN">@context.TaxIdText</MudTd>
                     <MudTd DataLabel="Telefon">@context.Phone</MudTd>
-                    <MudTd DataLabel="Bakiye" Style="text-align:right">@context.BalanceText</MudTd>
+                    @* FAZ 3b-5: bakiye kapalıysa hücre BOŞ BIRAKILMAZ, kolon HİÇ ÇİZİLMEZ. *@
+                    @if (_bakiyeGorunur) { <MudTd DataLabel="Bakiye" Style="text-align:right">@context.BalanceText</MudTd> }
                     <MudTd DataLabel="Durum">@context.StatusText</MudTd>
                 </RowTemplate>
             </MudTable>
@@ -176,9 +178,14 @@ else
                     <MudText Typo="Typo.subtitle2" Class="mb-1"><b>FİNANSAL ÖZET</b></MudText>
                     <MudSimpleTable Dense="true">
                         <tbody>
-                            <tr><td>Borç</td><td>@_card.Debit.ToString("0.##")</td></tr>
-                            <tr><td>Alacak</td><td>@_card.Credit.ToString("0.##")</td></tr>
-                            <tr><td><b>Bakiye</b></td><td><b>@_card.BalanceText</b></td></tr>
+                            @* FAZ 3b-5: tutar satırları kapalıysa HİÇ oluşturulmaz. Hareket sayısı ve
+                               son hareket tarihi TUTAR DEĞİLDİR → kalır (varlık bilgisi sızıntı değil). *@
+                            @if (_bakiyeGorunur)
+                            {
+                                <tr><td>Borç</td><td>@_card.Debit.ToString("0.##")</td></tr>
+                                <tr><td>Alacak</td><td>@_card.Credit.ToString("0.##")</td></tr>
+                                <tr><td><b>Bakiye</b></td><td><b>@_card.BalanceText</b></td></tr>
+                            }
                             <tr><td>Hareket sayısı</td><td>@_card.EntryCount</td></tr>
                             <tr><td>Son hareket</td><td>@_card.LastEntryText</td></tr>
                         </tbody>
@@ -235,15 +242,23 @@ else
             else
             {
                 <MudSimpleTable Dense="true" Striped="true" Style="max-height:360px;overflow:auto;">
-                    <thead><tr><th>TARİH</th><th>TÜR</th><th>AÇIKLAMA</th><th style="text-align:right">BORÇ</th><th style="text-align:right">ALACAK</th><th style="text-align:right">BAKİYE</th><th></th></tr></thead>
+                    <thead><tr><th>TARİH</th><th>TÜR</th><th>AÇIKLAMA</th>
+                        @if (_bakiyeGorunur)
+                        {
+                            <th style="text-align:right">BORÇ</th><th style="text-align:right">ALACAK</th><th style="text-align:right">BAKİYE</th>
+                        }
+                        <th></th></tr></thead>
                     <tbody>
                         @foreach (var e in _ledger)
                         {
                             <tr style="@(e.IsReversed ? "opacity:.55;text-decoration:line-through;" : "")">
                                 <td>@e.DateText</td><td>@e.TypeText</td><td>@e.Description</td>
-                                <td style="text-align:right">@(e.Debit == 0 ? "" : e.Debit.ToString("0.##"))</td>
-                                <td style="text-align:right">@(e.Credit == 0 ? "" : e.Credit.ToString("0.##"))</td>
-                                <td style="text-align:right">@e.RunningBalance.ToString("0.##")</td>
+                                @if (_bakiyeGorunur)
+                                {
+                                    <td style="text-align:right">@(e.Debit == 0 ? "" : e.Debit.ToString("0.##"))</td>
+                                    <td style="text-align:right">@(e.Credit == 0 ? "" : e.Credit.ToString("0.##"))</td>
+                                    <td style="text-align:right">@e.RunningBalance.ToString("0.##")</td>
+                                }
                                 <td style="text-align:right">
                                     @* G4-1c: düzeltme SİLMEYLE DEĞİL ters kayıtla. Masaüstüyle parite. *@
                                     @if (!e.IsReversed && Auth.CanEdit("parties"))
@@ -346,6 +361,15 @@ else
     private List<Row>? _rows;
     private Card? _card;
     private List<LedgerRow>? _ledger;
+
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar SUNUCUDAN gelir (/api/field-access → FieldAccess). Ekran yetki HESAPLAMAZ; masaüstü
+    // aynı fonksiyonu doğrudan çağırdığı için iki platform kaçınılmaz olarak aynı sonucu gösterir.
+    // Varsayılan true = korumasız (bugünkü görünüm); sunucuya ulaşılamazsa da bu değer korunur.
+    private bool _bakiyeGorunur = true;
+
+    private async Task AlanGorunurlugunuYukle()
+        => _bakiyeGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Parties, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
     private List<(string Key, string Label)> _types = new();
     private string _search = "", _type = "";
     private bool _onlyActive = true, _busy, _ok;
@@ -356,6 +380,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.CanView("parties")) return;
+        await AlanGorunurlugunuYukle();   // FAZ 3b-5: kolon çizmeden ÖNCE
         try
         {
             var m = await Api.GetObjectAsync("/api/parties/meta");
@@ -473,9 +498,11 @@ else
         _formOpen = true; _card = null; _msg = null;
     }
 
-    private void EditParty()
+    private async Task EditParty()
     {
         if (_card is null) return;
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         _editId = _card.Id;
         _f = new Form
         {

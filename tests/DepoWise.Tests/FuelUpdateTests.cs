@@ -89,9 +89,19 @@ public class FuelUpdateTests : IDisposable
         Assert.Single(_fuel.ListDistributions(_admin, 500).Where(x => x.VehicleId == v));
     }
 
-    /// <summary>YD2 — Sayaç geri alınmaz; başlangıç sayacı yeni kayda taşınır (rapor km'si bozulmaz).</summary>
+    /// <summary>
+    /// YD2 — Düzeltmede başlangıç sayacı yeni kayda TAŞINIR; araç sayacı ise GEÇERLİ kayda çekilir.
+    ///
+    /// ⭐ <b>KARAR DEĞİŞTİ — FAZ 4.1 (kullanıcı talimatı 2026-09-06).</b> Bu test eskiden "araç sayacı
+    /// GERİ ALINMAZ" diyordu (10.500 kalırdı). Kullanıcının canlı veride yaşadığı hata tam olarak buydu:
+    /// <i>"yanlış sayaç girildi, kayıt düzeltildi ama yanlış sayaç kalmaya devam ediyor"</i>. Sayaç artık
+    /// <c>VehicleMeterService</c> ile GEÇERLİ kayıtlardan türetilir → iptal edilen 10.500 sayılmaz,
+    /// geçerli düzeltme 10.200 geçerli olur (elle bildirilen 10.000 tabandır).
+    ///
+    /// Başlangıç sayacının taşınması DEĞİŞMEDİ: rapor km'si (10.000 → 10.200) bozulmaz.
+    /// </summary>
     [Fact]
-    public void YD2_Sayac_Geri_Gitmez_BaslangicSayaci_Tasinir()
+    public void YD2_Duzeltmede_Sayac_Gecerli_Kayda_Cekilir()
     {
         Depot(500m);
         var v = Vehicle(10_000m);
@@ -105,7 +115,8 @@ public class FuelUpdateTests : IDisposable
 
         Assert.Equal(10_000m, Row(yeni)!.PrevMeter);          // başlangıç TAŞINDI (araçtan yeniden okunmadı)
         Assert.Equal(10_200m, Row(yeni)!.CurrentMeter);
-        Assert.Equal(10_500m, VehicleMeter(v));               // araç sayacı GERİ ALINMADI
+        // ⭐ FAZ 4.1: iptal edilen kayıt artık sayılmaz → araç sayacı GEÇERLİ kayda çekilir.
+        Assert.Equal(10_200m, VehicleMeter(v));
     }
 
     /// <summary>YD3 — Aynı operation_id ile ikinci çağrı yeni kayıt oluşturmaz (ağ yeniden denemesi).</summary>

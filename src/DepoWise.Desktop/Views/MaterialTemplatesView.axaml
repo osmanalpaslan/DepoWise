@@ -78,7 +78,8 @@
                         <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Birim Fiyat" Width="150">
+                    <!-- FAZ 3c: alan kapalıysa hiç oluşturulmaz. -->
+                    <ctrl:FormField Label="Birim Fiyat" Width="150" IsVisible="{Binding FiyatGorunur}">
                         <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>

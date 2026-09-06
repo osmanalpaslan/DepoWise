@@ -57,8 +57,17 @@ public sealed record MaintenanceRow(
     /// <summary>⭐ MUH-01b: dış servis faturası / servis fişi numarası (opsiyonel).</summary>
     string? InvoiceNo = null,
     /// <summary>⭐ MUH-01c: dış servis sağlayıcısı (cari) kimliği (opsiyonel).</summary>
-    string? PartyId = null)
+    string? PartyId = null,
+    /// <summary>⭐ FAZ 4.8 (kullanıcı isteği 2026-09-06): listede PLAKA da görünür. Araç iç kodu
+    /// tek başına yetmiyordu — kullanıcı aracı sahada plakasıyla tanıyor.</summary>
+    string? VehiclePlate = null)
 {
+    /// <summary>Listede gösterim — plakası olmayan araçta tire.</summary>
+    public string PlateDisplay => string.IsNullOrWhiteSpace(VehiclePlate) ? "—" : VehiclePlate!;
+
+    /// <summary>Detay panelinde araç kodu + plaka birlikte (FAZ 4.8).</summary>
+    public string VehicleWithPlate => string.IsNullOrWhiteSpace(VehiclePlate) ? VehicleCode : $"{VehicleCode} ({VehiclePlate})";
+
     /// <summary>Listede gösterim — boşsa tire (yakıt depo girişindeki desenle aynı).</summary>
     public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
 
@@ -252,6 +261,25 @@ public sealed class MaintenanceService
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", maintenanceId, AuditActions.Reverse, s.UserId,
             AfterJson: $"{{\"reason\":\"{reason}\"}}"), _clock);
+
+        // ⭐ FAZ 4.1 — İPTAL EDİLEN BAKIM SAYACI DA GERİ ALIR (yakıt tarafıyla aynı kural).
+        // Eskiden iptal sayaca dokunmuyordu; hatalı-yüksek bir bakım km'si araçta kalıcı oluyordu.
+        // Sayaç artık GEÇERLİ kayıtlardan yeniden hesaplanır — bkz. VehicleMeterService.
+        var iptalArac = ReadMaintenanceVehicle(conn, tx, s.CompanyId, maintenanceId);
+        if (iptalArac is not null)
+            DepoWise.Infrastructure.Vehicles.VehicleMeterService.Tazele(
+                conn, tx, s.CompanyId, iptalArac, "maintenance_cancel", now);
+    }
+
+    /// <summary>Bakım kaydının aracı (iptal sonrası sayaç yeniden hesabı için).</summary>
+    private static string? ReadMaintenanceVehicle(DbConnection conn, DbTransaction tx, string companyId, string id)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT vehicle_id FROM vehicle_maintenances WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string;
     }
 
     /// <summary>Her (araç,tanım) için EN SON iptal edilmemiş bakımdan ilerleme + uyarı seviyesi.</summary>
@@ -472,7 +500,8 @@ LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
 SELECT vm.id, v.internal_code, d.name, sd.name,
        vm.performed_km, vm.performed_hour, vm.performed_date,
        vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id,
-       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no, vm.party_id
+       vm.version, vm.description, vm.sub_definition_note, vm.technician_id, vm.invoice_no, vm.party_id,
+       v.plate
 " + FromSql + where + " ORDER BY vm.created_at DESC LIMIT @lim OFFSET @off;";
             Baglan(cmd);
             cmd.AddWithValue("@lim", pageSize);
@@ -488,7 +517,8 @@ SELECT vm.id, v.internal_code, d.name, sd.name,
                     rr.IsDBNull(14) ? null : rr.GetString(14),
                     rr.IsDBNull(15) ? null : rr.GetString(15),
                     rr.IsDBNull(16) ? null : rr.GetString(16),
-                    rr.IsDBNull(17) ? null : rr.GetString(17)));
+                    rr.IsDBNull(17) ? null : rr.GetString(17),
+                    rr.IsDBNull(18) ? null : rr.GetString(18)));   // FAZ 4.8: plaka
         }
         return new GridResult<MaintenanceRow>(list, total, page, pageSize);
     }

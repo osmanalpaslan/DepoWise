@@ -80,17 +80,21 @@
             <!-- ── SOL: CARİ LİSTESİ ────────────────────────────────────────────────────── -->
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <!-- FAZ 3b-6: başlık, satırlarla AYNI genişlik ve AYNI yatay kaydırma bağlamını
+                         kullanır. Aksi hâlde kolonlar panele sığmadığında satırlar doğal genişliğini
+                         alıp kayar, başlık ise sıkışır ve kolonlar hizasız kalırdı (ölçülen kayma: 100 px). -->
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" ctrl:TableHeaderSync.Source="{Binding #CariListe}">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                             <SelectableTextBlock Grid.Column="1" Text="ÜNVAN" MinWidth="200"/>
                             <SelectableTextBlock Grid.Column="2" Text="TİP" MinWidth="150" MaxWidth="150"/>
                             <SelectableTextBlock Grid.Column="3" Text="VERGİ/TCKN" MinWidth="120" MaxWidth="120"/>
-                            <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="130" MaxWidth="130"/>
+                            <!-- FAZ 3b-5: alan kapalıysa kolon BAŞLIĞIYLA BİRLİKTE hiç çizilmez. -->
+                            <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="130" MaxWidth="130" IsVisible="{Binding BakiyeGorunur}"/>
                             <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                    <ListBox x:Name="CariListe" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:PartyListRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
@@ -99,7 +103,7 @@
                                                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.Title}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Party.TypeText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.TypeText}" />
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding Party.TaxIdText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.TaxIdText}" />
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BalanceText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BalanceText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" IsVisible="{Binding $parent[ListBox].((vm:PartiesViewModel)DataContext).BakiyeGorunur}" />
                                     <SelectableTextBlock Grid.Column="5" Text="{Binding Party.StatusText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
@@ -257,15 +261,17 @@
                     <Border Classes="Panel">
                         <StackPanel Spacing="6">
                             <SelectableTextBlock Text="FİNANSAL ÖZET" Classes="CardLabel"/>
-                            <Grid ColumnDefinitions="Auto,*">
+                            <!-- FAZ 3b-5: tutar satırları kapalıysa HİÇ oluşturulmaz. Hareket sayısı ve
+                                 son hareket tarihi TUTAR DEĞİLDİR → kalır (varlık bilgisi sızıntı değil). -->
+                            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding BakiyeGorunur}">
                                 <SelectableTextBlock Grid.Column="0" Text="Borç" MinWidth="110" Classes="Helper"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Debit, StringFormat={}{0:0.##}}"/>
                             </Grid>
-                            <Grid ColumnDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding BakiyeGorunur}">
                                 <SelectableTextBlock Grid.Column="0" Text="Alacak" MinWidth="110" Classes="Helper"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Credit, StringFormat={}{0:0.##}}"/>
                             </Grid>
-                            <Grid ColumnDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding BakiyeGorunur}">
                                 <SelectableTextBlock Grid.Column="0" Text="Bakiye" MinWidth="110" Classes="Helper"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding BalanceText}" FontWeight="SemiBold"/>
                             </Grid>
@@ -290,17 +296,17 @@
 
                     <Border Classes="Table" MinHeight="220">
                         <DockPanel>
-                            <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Border Classes="TableHeader" DockPanel.Dock="Top" ctrl:TableHeaderSync.Source="{Binding #CariEkstresi}">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90" MaxWidth="90"/>
                                     <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80" MaxWidth="80"/>
                                     <SelectableTextBlock Grid.Column="2" Text="AÇIKLAMA" MinWidth="120"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="BORÇ" MinWidth="80" MaxWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="ALACAK" MinWidth="80" MaxWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="BAKİYE" MinWidth="90" MaxWidth="90"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="BORÇ" MinWidth="80" MaxWidth="80" IsVisible="{Binding BakiyeGorunur}"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="ALACAK" MinWidth="80" MaxWidth="80" IsVisible="{Binding BakiyeGorunur}"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="BAKİYE" MinWidth="90" MaxWidth="90" IsVisible="{Binding BakiyeGorunur}"/>
                                 </Grid>
                             </Border>
-                            <ListBox Classes="Table" ItemsSource="{Binding Ledger}" SelectedItem="{Binding SelectedEntry}">
+                            <ListBox x:Name="CariEkstresi" Classes="Table" ItemsSource="{Binding Ledger}" SelectedItem="{Binding SelectedEntry}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="acc:PartyStatementRow">
                                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
@@ -308,9 +314,9 @@
                                             <SelectableTextBlock Grid.Column="1" Text="{Binding Entry.TypeText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Entry.TypeText}" />
                                             <SelectableTextBlock Grid.Column="2" Text="{Binding Entry.Description}" MinWidth="120" VerticalAlignment="Center"
                                                                  TextTrimming="CharacterEllipsis"/>
-                                            <SelectableTextBlock Grid.Column="3" Text="{Binding Entry.Debit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="4" Text="{Binding Entry.Credit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="5" Text="{Binding RunningBalance, StringFormat={}{0:0.##}}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="{Binding Entry.Debit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:PartiesViewModel)DataContext).BakiyeGorunur}"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="{Binding Entry.Credit, StringFormat={}{0:0.##}}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:PartiesViewModel)DataContext).BakiyeGorunur}"/>
+                                            <SelectableTextBlock Grid.Column="5" Text="{Binding RunningBalance, StringFormat={}{0:0.##}}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:PartiesViewModel)DataContext).BakiyeGorunur}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>

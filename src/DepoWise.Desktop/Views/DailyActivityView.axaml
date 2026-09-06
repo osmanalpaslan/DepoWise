@@ -21,6 +21,34 @@
                       PrimaryActionText="Yeni Kayıt Oluştur" PrimaryActionCommand="{Binding NewRecordCommand}">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): TARİH ARALIĞI + ÇOKLU ARAÇ.
+                         Tarih aralığı servis tarafında zaten destekleniyordu; ekranda alanı yoktu.
+                         Ağır sorgu "Filtrele"ye basılmadan çalışmaz; tablo üstündeki kolon filtreleri
+                         bu aralığın İÇİNDE çalışmaya devam eder. -->
+                    <SelectableTextBlock Text="Tarih:" Classes="Caption" VerticalAlignment="Center"/>
+                    <DatePicker SelectedDate="{Binding GunBaslangic}" Width="145"/>
+                    <SelectableTextBlock Text="—" Classes="Caption" VerticalAlignment="Center"/>
+                    <DatePicker SelectedDate="{Binding GunBitis}" Width="145"/>
+                    <Button Classes="Primary" Content="Tarihe Göre Getir" Command="{Binding TarihUygulaCommand}"
+                            ToolTip.Tip="Seçilen tarih aralığındaki faaliyetleri getirir (bitiş günü dahildir). Seçili araç varsa yalnız o araçlar listelenir."/>
+                    <Button Classes="Secondary" Content="Tarihi Temizle" Command="{Binding TarihTemizleCommand}"/>
+
+                    <!-- Çoklu araç: seçim aramada korunur; boş bırakılırsa tüm araçlar gelir. -->
+                    <ComboBox Width="200" PlaceholderText="Araç seç (çoklu)"
+                              ToolTip.Tip="Birden fazla araç seçebilirsiniz. Hiçbiri seçili değilse tüm araçlar listelenir.">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AracSecim">
+                                <CheckBox Content="{Binding Etiket}" IsChecked="{Binding Secili}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                        <ComboBox.ItemsSource>
+                            <Binding Path="AracSecenekleri"/>
+                        </ComboBox.ItemsSource>
+                    </ComboBox>
+                    <SelectableTextBlock Text="{Binding SeciliAracSayisi, StringFormat='{}{0} araç seçili'}"
+                                         Classes="Caption" VerticalAlignment="Center"
+                                         IsVisible="{Binding AracSecimiVar}"/>
+
                     <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
                     <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>

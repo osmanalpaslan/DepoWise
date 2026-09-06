@@ -121,10 +121,12 @@ public sealed partial class CustomReportsViewModel : ViewModelBase
         Message = "";
     }
 
-    private void Duzenle(CustomReportDefinition def)
+    private async System.Threading.Tasks.Task Duzenle(CustomReportDefinition def)
     {
         var src = CustomReportSources.ByKey(def.SourceKey);
         if (src is null) { Message = "Bu tanımın kaynağı tanınmıyor."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         if (SelectedSource.Key != src.Key) SelectedSource = src;   // kolonları da yeniler
         EditingId = def.Id;
         Name = def.Name;
@@ -168,10 +170,13 @@ public sealed partial class CustomReportsViewModel : ViewModelBase
     }
 
     /// <summary>Yumuşak siler (kayıt fiziksel olarak durur — proje standardı).</summary>
+    /// <remarks>⭐ FAZ 4.2 (kullanıcı isteği 2026-09-06): silme ONAY SORMADAN çalışıyordu —
+    /// yanlış tıklama kaydı sessizce siliyordu. Artık önce onay istenir.</remarks>
     [RelayCommand]
-    private void Sil()
+    private async System.Threading.Tasks.Task Sil()
     {
         if (EditingId is not { } id) { Message = "Önce listeden bir rapor seçin."; return; }
+        if (!await ConfirmService.AskAsync("Kaydı silmek istediğinize emin misiniz?", "Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {
             DesktopServices.CustomReports.Delete(_session, id);

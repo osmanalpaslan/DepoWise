@@ -27,8 +27,16 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed record MovementDisplay(long DateRaw, string DateText, string Kind, string Description, bool CanOpenRecord = false);
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
-public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
+public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "vehicle";
+    public string? LogEntityId => Selected?.Id;
+    public string? LogKayitAdi => Selected is null ? null : (string.IsNullOrWhiteSpace(Selected.Plate) ? Selected.Code : Selected.Plate);
+
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
     /// <summary>
     /// Eşitleme yeni veri getirince açık ekranı yenile (2026-07-19) — ANCAK kullanıcı ekranda çalışıyorsa
@@ -251,7 +259,10 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
         if (chosen is null) return;
         VisibleColumns = chosen;
+        // ⭐ FAZ 4.14: tercih hem YERELE hem SUNUCUYA yazılır → kullanıcı hangi makinede/web'de
+        // giriş yaparsa yapsın aynı kolonları görür (eskiden yalnız o makinede kalıyordu).
         DesktopServices.ListPrefs.SaveColumns(_session, "vehicles", chosen);
+        _ = ServerListPrefsClient.SaveColumnsAsync("vehicles", chosen);
         Load();
     }
 
@@ -359,6 +370,28 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public bool HasCodeError => CodeError != null;
 
     public bool CanWrite => AccessControl.Can(_session, "vehicles", PermissionAction.Create);
+
+    // ═══ FAZ 4.1 (2026-09-06) — ARAÇ SAYAÇLARINI GERÇEK KAYITLARDAN ONAR ════════════════════════
+    // Gerçek olay: yakıt fişine yanlış-yüksek sayaç girildi, kayıt düzeltildi ama araçta eski değer
+    // kaldı ve hiçbir ekrandan düzeltilemedi. Artık düzeltme/iptal sayacı kendiliğinden toparlıyor;
+    // bu komut GEÇMİŞTE bozulmuş kayıtları tek seferde onarır. Hiçbir yakıt/bakım kaydı silinmez.
+    [RelayCommand]
+    private async Task RecalcMeters()
+    {
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                "Tüm araçların sayacı, GEÇERLİ yakıt ve bakım kayıtlarından yeniden hesaplansın mı?\n\n" +
+                "Yanlış girilip sonradan düzeltilen/iptal edilen sayaçlar bu işlemle toparlanır.\n" +
+                "Hiçbir kayıt silinmez; araç kartında elle girilen sayaç korunur.",
+                "Sayaçları Onar", "Evet, Onar")) return;
+        try
+        {
+            var duzelen = DesktopServices.Vehicles.RecalculateAllMeters(_session);
+            Load();
+            Status = duzelen == 0 ? "Tüm sayaçlar zaten doğru — değişiklik yapılmadı." : $"{duzelen} aracın sayacı düzeltildi.";
+        }
+        catch (Exception ex) { Status = "Onarılamadı: " + ex.Message; }
+    }
     public string? AddButtonText => CanWrite ? "Yeni Araç" : null;
 
     public VehiclesViewModel(SessionContext session)
@@ -369,6 +402,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
         VisibleColumns = VehicleListColumns.Sanitize(saved).ToList();
+        // ⭐ FAZ 4.14: çevrimiçiyse SUNUCUDAKİ tercih otorite kabul edilir ve yerele aynalanır.
+        _ = SunucudanKolonAynalaAsync("vehicles", k => VisibleColumns = VehicleListColumns.Sanitize(k).ToList());
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
         finally { _suppressPageSizeReload = false; }
@@ -630,19 +665,19 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     // ── Inline "+" komutları ──
     [RelayCommand] private void StartAddType() { IsAddingType = true; NewTypeName = ""; }
     [RelayCommand] private void CancelAddType() { IsAddingType = false; NewTypeName = ""; }
-    [RelayCommand] private void ConfirmAddType() => AddLookup(NewTypeName, () => DesktopServices.Lookups.AddVehicleType(_session, NewTypeName.Trim()), VehicleTypes, x => SelVehicleType = x, () => { IsAddingType = false; NewTypeName = ""; });
+    [RelayCommand] private void ConfirmAddType() => AddLookup(NewTypeName, () => DesktopServices.Lookups.AddVehicleType(_session, NewTypeName.Trim(), quick: true), VehicleTypes, x => SelVehicleType = x, () => { IsAddingType = false; NewTypeName = ""; });
 
     [RelayCommand] private void StartAddCat() { IsAddingCat = true; NewCatName = ""; }
     [RelayCommand] private void CancelAddCat() { IsAddingCat = false; NewCatName = ""; }
-    [RelayCommand] private void ConfirmAddCat() => AddLookup(NewCatName, () => DesktopServices.Lookups.AddVehicleCategory(_session, NewCatName.Trim()), VehicleCategories, x => SelCategory = x, () => { IsAddingCat = false; NewCatName = ""; });
+    [RelayCommand] private void ConfirmAddCat() => AddLookup(NewCatName, () => DesktopServices.Lookups.AddVehicleCategory(_session, NewCatName.Trim(), quick: true), VehicleCategories, x => SelCategory = x, () => { IsAddingCat = false; NewCatName = ""; });
 
     [RelayCommand] private void StartAddBrand() { IsAddingBrand = true; NewBrandName = ""; }
     [RelayCommand] private void CancelAddBrand() { IsAddingBrand = false; NewBrandName = ""; }
-    [RelayCommand] private void ConfirmAddBrand() => AddLookup(NewBrandName, () => DesktopServices.Lookups.AddVehicleBrand(_session, NewBrandName.Trim()), VehicleBrands, x => SelBrand = x, () => { IsAddingBrand = false; NewBrandName = ""; });
+    [RelayCommand] private void ConfirmAddBrand() => AddLookup(NewBrandName, () => DesktopServices.Lookups.AddVehicleBrand(_session, NewBrandName.Trim(), quick: true), VehicleBrands, x => SelBrand = x, () => { IsAddingBrand = false; NewBrandName = ""; });
 
     [RelayCommand] private void StartAddModel() { if (SelBrand is null) { Status = "Önce marka seçin."; return; } IsAddingModel = true; NewModelName = ""; }
     [RelayCommand] private void CancelAddModel() { IsAddingModel = false; NewModelName = ""; }
-    [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim()), VehicleModels, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
+    [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim(), quick: true), VehicleModels, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
     [RelayCommand] private void StartAddDriver() { IsAddingDriver = true; NewDriverName = ""; }
     [RelayCommand] private void CancelAddDriver() { IsAddingDriver = false; NewDriverName = ""; }
     [RelayCommand] private void ConfirmAddDriver() => AddLookup(NewDriverName, () => DesktopServices.Lookups.AddPersonnel(_session, NewDriverName.Trim(), "Şoför"), Drivers, x => SelDriver = x, () => { IsAddingDriver = false; NewDriverName = ""; });

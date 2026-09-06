@@ -109,7 +109,12 @@
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fiyat &amp; Stok</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (TRY)" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+            @* FAZ 3b: alan kullanıcıya kapalıysa form alanı HİÇ oluşturulmaz. Kaydetmede gönderilen
+               değer sunucuda zaten yok sayılır (kayıttaki fiyat korunur) — veri kaybı olmaz. *@
+            @if (_fiyatGorunur)
+            {
+                <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (TRY)" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+            }
             <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_min" Label="Min Stok" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
             @if (_editId is null)
             {
@@ -285,10 +290,14 @@
                 <span class="dw-summary-num">@_summary.CategoryCount</span>
                 <span class="dw-summary-cap">kategori</span>
             </div>
-            <div class="dw-summary-box">
-                <span class="dw-summary-num">₺@FormatCompact(_summary.StockValue)</span>
-                <span class="dw-summary-cap">stok<br />değeri</span>
-            </div>
+            @* FAZ 3b: fiyat kapalıysa sunucu stockValue göndermez → kutu HİÇ oluşturulmaz. *@
+            @if (_summary.StockValue is not null)
+            {
+                <div class="dw-summary-box">
+                    <span class="dw-summary-num">₺@FormatCompact(_summary.StockValue.Value)</span>
+                    <span class="dw-summary-cap">stok<br />değeri</span>
+                </div>
+            }
         </div>
     }
 <MudGrid Spacing="2">
@@ -330,13 +339,13 @@
                     @* Sütun genişliği <col>'dan gelir (düzeltme 2026-08-26). Hücreye "width" yazmak İŞE YARAMIYORDU:
                        hücrelerde metni "…" ile kesmek için gereken max-width:0, o genişliği sıfıra kırpıyordu. *@
                     <colgroup>
-                        @foreach (var key in _visibleColumns)
+                        @foreach (var key in CizilecekKolonlar)
                         {
                             <col data-key="@key" style="width:140px" />
                         }
                     </colgroup>
                     <thead><tr>
-                        @foreach (var key in _visibleColumns)
+                        @foreach (var key in CizilecekKolonlar)
                         {
                             @* ⠿ tutamağı sürükle = kolonu taşı; başlık metnine tıkla = sırala; sağ kenar = genişlik (CSS). *@
                             <th data-key="@key" style="@ThStyle(key)"
@@ -357,7 +366,7 @@
                          hizalama mekanizması gerekmez. Filtreleme mantığı (GetFilter/SetFilter/OnFilterKey)
                          AYNEN korunur; yalnız konumu değişti. -->
                     <tr>
-                        @foreach (var key in _visibleColumns)
+                        @foreach (var key in CizilecekKolonlar)
                         {
                             <th style="@ThStyle(key)" class="dw-filter-th">
                                 <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
@@ -380,7 +389,7 @@
                                Eşik ekrandaki "Yalnız kritik" filtresiyle AYNI (min>0 ve stok≤min) — yeni eşik yok. *@
                             <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;"
                                 class="@(IsCriticalRow(row) ? "dw-row-crit" : "")">
-                                @foreach (var key in _visibleColumns)
+                                @foreach (var key in CizilecekKolonlar)
                                 {
                                     @if (key == MaterialListColumns.Stock)
                                     {
@@ -496,6 +505,25 @@
 
     /// <summary>W4-B2: liste üstündeki özet şeridi. Sunucu göndermiyorsa null → şerit çizilmez.</summary>
     private ApiClient.GridSummary? _summary;
+
+    /// <summary>
+    /// FAZ 3b-5: birim fiyat bu kullanıcıya açık mı? <b>Karar SUNUCUDAN gelir</b>
+    /// (<c>/api/field-access</c> → <c>FieldAccess</c>); ekran yetki HESAPLAMAZ. Masaüstü aynı
+    /// fonksiyonu doğrudan çağırdığı için iki platform kaçınılmaz olarak aynı sonucu gösterir.
+    ///
+    /// ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR — gerçek kapı serviste ve API'dadır. Burası yalnız boş kolon
+    /// ya da "0,00" gibi YANLIŞ BİLGİ göstermemek içindir.
+    ///
+    /// Varsayılan <c>true</c>: sunucuya ulaşılamazsa ekran bugünkü gibi görünür (korumasız).
+    /// </summary>
+    private bool _fiyatGorunur = true;
+
+    private async Task AlanGorunurluguYukle()
+        => _fiyatGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Materials, DepoWise.Application.Security.FieldProtectionCatalog.UnitPrice);
+
+    /// <summary>Ekranda çizilecek kolonlar: kullanıcı tercihi ∩ sunucunun gönderdiği alanlar.</summary>
+    private IEnumerable<string> CizilecekKolonlar =>
+        _visibleColumns.Where(k => _fiyatGorunur || k != MaterialListColumns.UnitPrice);
     private readonly Dictionary<string, string> _filters = new();
     private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;   // varsayılan 25 (kullanıcı isteği)
     private string? _sortColumn; private bool _sortDesc;                    // başlığa tıklama sıralaması (madde 5)
@@ -526,7 +554,12 @@
 
     private async Task OpenColumnPicker()
     {
-        var parameters = new DialogParameters { ["Available"] = MaterialListColumns.All.ToList(), ["Selected"] = _visibleColumns };
+        // FAZ 3b: kapalı alan seçiciye konmaz — kullanıcı boş kolonu geri açamasın.
+        var parameters = new DialogParameters
+        {
+            ["Available"] = MaterialListColumns.All.Where(c => _fiyatGorunur || c.Key != MaterialListColumns.UnitPrice).ToList(),
+            ["Selected"] = _visibleColumns,
+        };
         var dlg = await Dialog.ShowAsync<ColumnPickerDialog>("Kolonları Ayarla", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
         var result = await dlg.Result;
         if (result is null || result.Canceled || result.Data is not List<string> chosen) return;
@@ -569,6 +602,9 @@
                 try { _detail = await Api.GetObjectAsync($"/api/materials/{e0}"); await BeginEdit(); } catch { }
             }
         }
+        // FAZ 3b-5: alan görünürlüğü HER yolda okunur — "/materials/new" ızgarayı yüklemez.
+        await AlanGorunurluguYukle();
+
         if (!_isNew)
         {
             var saved = await Api.GetListColumnsAsync("materials");
@@ -616,6 +652,10 @@
         var grid = await Api.GetGridAsync("/api/materials/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
         _summary = grid.Summary;   // W4-B2: null ise şerit gizli (eski sunucuya karşı savunmacı)
+
+        // FAZ 3b-5: görünürlük ARTIK /api/field-access'ten gelir (bkz. AlanGorunurluguYukle).
+        // Eskiden yanıt şekline bakılıyordu; GERÇEK GUI TESTİ bunun "/materials/new" gibi ızgara
+        // yüklenmeyen yollarda ÇALIŞMADIĞINI gösterdi (form alanı açık kalıyordu).
     }
 
     /// <summary>Sıralama + kolon filtreleri — sayfalamasız (Load VE ExportExcel PAYLAŞIR; ikisi de AYNI
@@ -762,6 +802,8 @@
     private async Task BeginEdit()
     {
         if (_detail is null) return;
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
         _v = Long(d, "version");   // G2-02: düzenleme kilidi — formun açıldığı andaki sürüm

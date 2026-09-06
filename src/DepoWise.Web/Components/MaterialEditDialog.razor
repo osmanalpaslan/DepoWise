@@ -131,6 +131,12 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Close">Kapat</MudButton>
+        @* ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+           Yetki kapısı SUNUCUDADIR (btn-screen-log + kaydın ekranında View); burası yalnız giriş yolu. *@
+        @if (!_loading && !_notFound && Auth.CanButton("btn-screen-log"))
+        {
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.History" OnClick="KayitGecmisi">Geçmiş</MudButton>
+        }
         @if (!_loading && !_notFound)
         {
             @if (Auth.CanDelete("materials"))
@@ -157,6 +163,20 @@
 </MudDialog>
 
 @code {
+    /// <summary>⭐ FAZ 4.3 — bu kaydın KENDİ log ekranı (alan bazlı geçmiş).</summary>
+    private async Task KayitGecmisi()
+    {
+        var parms = new DialogParameters
+        {
+            ["Title"] = "Kayıt Geçmişi — " + (string.IsNullOrWhiteSpace(_name) ? _code : _name),
+            ["EntityType"] = "material",
+            ["EntityId"] = Id,
+            ["KayitBaglantisi"] = false,
+        };
+        await Dialog.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    }
+
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string Id { get; set; } = "";
 

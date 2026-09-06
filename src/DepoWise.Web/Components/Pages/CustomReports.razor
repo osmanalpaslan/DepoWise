@@ -1,6 +1,7 @@
 @page "/reports/designer"
 @using System.Text.Json
 @inject ApiClient Api
+@inject IDialogService Dialog
 @inject NavigationManager Nav
 
 @*
@@ -206,8 +207,10 @@ else
             .Select(c => new Kolon { Key = c.Key, Label = c.Label })
             .ToList();
 
-    private void Duzenle(Tanim t)
+    private async Task Duzenle(Tanim t)
     {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         _duzenlenenId = t.Id;
         _ad = t.Name;
         _kaynakKey = t.SourceKey;
@@ -253,6 +256,8 @@ else
 
     private async Task Sil(string id)
     {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmDelete()) return;
         var hata = await Api.DeleteAsync($"/api/custom-reports/{id}");
         _hata = hata is not null;
         _mesaj = hata ?? "Rapor silindi.";

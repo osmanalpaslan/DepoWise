@@ -69,7 +69,9 @@
                     <ctrl:FormField Label="{Binding QuantityLabel}" IsRequired="True" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Birim Fiyat" Width="140" IsVisible="{Binding ShowPrice}">
+                    <!-- FAZ 3c: fiyatı göremeyen kullanıcıya giriş alanı da açılmaz. ShowPrice
+                         (hareket türüne göre) ile alan yetkisi BİRLİKTE değerlendirilir. -->
+                    <ctrl:FormField Label="Birim Fiyat" Width="140" IsVisible="{Binding FiyatAlaniGorunur}">
                         <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
                     <!-- İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06).
@@ -194,7 +196,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
                                                     PlaceholderText="Birim seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni birim"
                                             Command="{Binding StartAddUnitCommand}"/>
                                 </Grid>
@@ -213,7 +215,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
                                                     PlaceholderText="Kategori seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni kategori"
                                             Command="{Binding StartAddCategoryCommand}"/>
                                 </Grid>
@@ -232,7 +234,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
                                                     PlaceholderText="Alt kategori seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt kategori"
                                             Command="{Binding StartAddSubCategoryCommand}"/>
                                 </Grid>
@@ -249,7 +251,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
                                                     PlaceholderText="Marka seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni marka"
                                             Command="{Binding StartAddBrandCommand}"/>
                                 </Grid>
@@ -272,7 +274,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
                                                     PlaceholderText="Tedarikçi seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}"
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni tedarikçi"
                                             Command="{Binding StartAddSupplierCommand}"/>
                                 </Grid>
@@ -338,7 +340,9 @@
                             <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="160"/>
                             <SelectableTextBlock Grid.Column="3" Text="YÖN" MinWidth="60" MaxWidth="60"/>
                             <SelectableTextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
-                            <SelectableTextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80" MaxWidth="80"/>
+                            <!-- FAZ 3c: kapalıysa kolon BAŞLIĞIYLA birlikte hiç çizilmez. -->
+                            <SelectableTextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80" MaxWidth="80"
+                                                 IsVisible="{Binding FiyatGorunur}"/>
                             <SelectableTextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
                             <SelectableTextBlock Grid.Column="7" Text="" MinWidth="80" MaxWidth="80"/>
                         </Grid>
@@ -352,7 +356,7 @@
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
                                     <SelectableTextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" IsVisible="{Binding $parent[ListBox].((vm:StockEntryViewModel)DataContext).FiyatGorunur}" />
                                     <SelectableTextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <StackPanel Grid.Column="7" MinWidth="80" VerticalAlignment="Center">
                                         <Button Classes="Ghost" Content="İptal" IsVisible="{Binding CanReverse}"

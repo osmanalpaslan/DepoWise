@@ -91,10 +91,18 @@
             @if (ImportSifreGerekli)
             {
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_branchPassword" Label="Şube şifresi" InputType="InputType.Password"
+                    @* ⭐ FAZ 4.15: şifre değişince "hatalı" işareti düşer; buton yeniden denenebilir olur. *@
+                    <MudTextField Value="_branchPassword" ValueChanged="@((string v) => { _branchPassword = v; _branchPasswordRejected = false; })"
+                                  Immediate="true" Label="Şube şifresi" InputType="InputType.Password"
                                   Margin="Margin.Dense" Variant="Variant.Outlined"
                                   HelperText="Giriş yaptığınız şubeden farklı bir şube seçtiniz; o şubenin şifresi gerekir (şifresi olmayan şube serbesttir)." />
                 </MudItem>
+                @if (ImportEngeli is { } engelMetni)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Warning" Dense="true">@engelMetni</MudAlert>
+                    </MudItem>
+                }
             }
 
             <MudItem xs="12">
@@ -125,9 +133,9 @@
                 </MudText>
                 <div class="d-flex flex-wrap" style="gap:8px;">
                     <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.FactCheck"
-                               OnClick="Preview" Disabled="@(_busy || _file is null)">Ön Kontrol (yazmaz)</MudButton>
+                               OnClick="Preview" Disabled="@(_busy || _file is null || ImportEngeli is not null)">Ön Kontrol (yazmaz)</MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
-                               OnClick="Commit" Disabled="@(_busy || _file is null)">İçe Aktar</MudButton>
+                               OnClick="Commit" Disabled="@(_busy || _file is null || ImportEngeli is not null)">İçe Aktar</MudButton>
                 </div>
             </MudItem>
         </MudGrid>
@@ -263,6 +271,38 @@
     /// <summary>Şifre alanı yalnız GİRİŞ ŞUBESİNDEN farklı gerçek bir şube seçilince görünür
     /// ("Tüm Şubeler" şube değildir; kendi şubesinde alan görünmez — kullanıcı kuralı).</summary>
     private bool ImportSifreGerekli => !string.IsNullOrEmpty(_branchId) && _branchId != AllBranches && _branchId != Auth.BranchId;
+
+    // ═══ FAZ 4.15 (kullanıcı isteği 2026-09-06) — ŞUBE ŞİFRESİ KAPISI (web) ═════════════════════
+    // Kullanıcı: "farklı şube seçtiğimde şifreyi hiç girmemişsem ya da yanlış girmişsem, içe aktar
+    // butonu AKTİF OLMADAN ÖNCE şifre uyarılarını vermeli ve işleme devam etmemeli."
+    //
+    // ⚠️ Web şifreyi YERELDE doğrulayamaz (şube tablosu istemcide yok) ve doğrulamamalıdır — asıl
+    // kapı SUNUCUDADIR. Burada yapılan: (a) şifre boşken buton kilitli, (b) sunucu şifreyi
+    // reddettiyse buton yeniden kilitlenir ve sebep yazılır. Şifre değişince kilit açılır.
+    private bool _branchPasswordRejected;
+
+    /// <summary>İçe aktarımı engelleyen sebep (null = engel yok).</summary>
+    private string? ImportEngeli
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_branchId)) return "Önce içe aktarılacak ŞUBEYİ seçin (zorunlu).";
+            if (!ImportSifreGerekli) return null;
+            if (string.IsNullOrWhiteSpace(_branchPassword))
+                return "Giriş yaptığınız şubeden farklı bir şube seçtiniz — devam etmek için o şubenin ŞİFRESİNİ girin.";
+            if (_branchPasswordRejected)
+                return "Şube şifresi hatalı. Doğru şifreyi girin; aksi hâlde içe aktarım yapılamaz.";
+            return null;
+        }
+    }
+
+    /// <summary>Sunucu yanıtı şube şifresi hatası mı — öyleyse buton yeniden kilitlenir.</summary>
+    private bool SifreHatasiMi(string? hata)
+    {
+        if (string.IsNullOrEmpty(hata)) return false;
+        var h = hata.ToLowerInvariant();
+        return h.Contains("şube şifresi") || h.Contains("sube sifresi");
+    }
     private bool ExportSifreGerekli => !string.IsNullOrEmpty(_exportBranchId) && _exportBranchId != AllBranches && _exportBranchId != Auth.BranchId;
 
     private async Task ExportRun()
@@ -334,7 +374,8 @@
         try
         {
             var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
-            if (err is not null) { _ok = false; _msg = err; return; }
+            // ⭐ FAZ 4.15: sunucu şube şifresini reddettiyse buton yeniden kilitlenir.
+            if (err is not null) { _ok = false; _msg = err; _branchPasswordRejected = SifreHatasiMi(err); return; }
             _result = Parse(data!.Value); _resultIsPreview = true;
             _ok = _result.Failed == 0;
             _msg = _result.Failed == 0
@@ -355,7 +396,7 @@
         try
         {
             var (preErr, preData) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
-            if (preErr is not null) { _ok = false; _msg = preErr; return; }
+            if (preErr is not null) { _ok = false; _msg = preErr; _branchPasswordRejected = SifreHatasiMi(preErr); return; }
             pre = Parse(preData!.Value);
         }
         catch (Exception ex) { _ok = false; _msg = "Ön kontrol yapılamadı: " + ex.Message; return; }
@@ -376,7 +417,8 @@
         try
         {
             var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/commit", _file!.Name, _fileBytes!, _branchId!, ImportSifreGerekli ? _branchPassword : null);
-            if (err is not null) { _ok = false; _msg = err; return; }
+            // ⭐ FAZ 4.15: sunucu şube şifresini reddettiyse buton yeniden kilitlenir.
+            if (err is not null) { _ok = false; _msg = err; _branchPasswordRejected = SifreHatasiMi(err); return; }
             _result = Parse(data!.Value); _resultIsPreview = false;
             _ok = true;
             // PK-M5: hiçbir import mevcut kaydı GÜNCELLEMEZ — "Updated" alanı atlanan sayıyı taşır (R17 düzeltmesi).

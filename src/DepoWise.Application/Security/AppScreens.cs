@@ -254,6 +254,13 @@ public static class AppScreens
         // ── Denetim ─────────────────────────────────────────────────────────────────────────
         new AppScreen("audit", "audit", "Denetim", "Sistem Logu", Both, "audit", "audit"),
         new AppScreen("stock_change_log", "stock_change_log", "Denetim", "Stok Değişiklik Kaydı", Both, "stock-change-log", "stock_change_log"),
+        // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMALARI.
+        // Yalnız WEB rotası vardır: masaüstünde karşılığı bir NAV EKRANI değil, senkron uyarısından ve
+        // kabuk menüsünden açılan bir PENCEREdir (SyncConflictsWindow) — bu yüzden DesktopNavKey yok.
+        // WebPermOverride "" : liste HERKESE açıktır, çünkü çakışma uyarısı zaten herkese gösteriliyor
+        // ve kullanıcının kendi kaydının üzerine yazıldığını görmesi gerekir ("alerts" ile aynı desen).
+        // Veriyi DEĞİŞTİREN eylem (kazananı değiştirme) ayrı bir yetkiye bağlıdır: btn-conflict-resolve.
+        new AppScreen("sync_conflicts", "sync_conflicts", "Denetim", "Senkron Çakışmaları", W, "sync-conflicts", null),
 
         // ═══ SİSTEM YÖNETİMİ ════════════════════════════════════════════════════════════════
         // ── Web Yönetimi (süper admin) ──────────────────────────────────────────────────────

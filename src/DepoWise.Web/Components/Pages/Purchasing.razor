@@ -63,7 +63,12 @@
                     @foreach (var m in _materials) { <MudSelectItem T="string" Value="@m.Id">@m.Name</MudSelectItem> }
                 </MudSelect>
                 <MudNumericField T="decimal" @bind-Value="l.Quantity" Label="Miktar" Min="0.0001m" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:120px;" />
-                <MudNumericField T="decimal" @bind-Value="l.UnitPrice" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px;" />
+                @* FAZ 3c-2: sipariş satırı fiyatı malzeme birim fiyatının taşıyıcısıdır — aynı karara bağlı.
+                   Gönderilse bile servis yok sayar (PurchaseOrderService yazma kapısı). *@
+                @if (_fiyatGorunur)
+                {
+                    <MudNumericField T="decimal" @bind-Value="l.UnitPrice" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px;" />
+                }
                 <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" />
             </MudStack>
         }
@@ -103,7 +108,7 @@
             else
             {
                 <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement" OnRowClick="@(e => OpenDetail(e.Item))">
-                    <HeaderContent><MudTh>NO</MudTh><MudTh>TARİH</MudTh><MudTh>TEDARİKÇİ</MudTh><MudTh>TALEP</MudTh><MudTh>DEPO</MudTh><MudTh>DURUM</MudTh><MudTh>TOPLAM</MudTh></HeaderContent>
+                    <HeaderContent><MudTh>NO</MudTh><MudTh>TARİH</MudTh><MudTh>TEDARİKÇİ</MudTh><MudTh>TALEP</MudTh><MudTh>DEPO</MudTh><MudTh>DURUM</MudTh>@if (_fiyatGorunur) { <MudTh>TOPLAM</MudTh> }</HeaderContent>
                     <RowTemplate>
                         <MudTd><b>@Str(context, "orderNo")</b></MudTd>
                         <MudTd>@DateText(context, "orderDate")</MudTd>
@@ -111,7 +116,8 @@
                         <MudTd>@Str(context, "requestNo")</MudTd>
                         <MudTd>@Str(context, "branchName")</MudTd>
                         <MudTd><span class="dw-badge @StatusBadge(Str(context, "status"))">@Str(context, "statusDisplay")</span></MudTd>
-                        <MudTd>@Str(context, "total")</MudTd>
+                        @* FAZ 3c-2: toplam da fiyattan türer → kolon başlığıyla birlikte çizilmez. *@
+                        @if (_fiyatGorunur) { <MudTd>@Str(context, "total")</MudTd> }
                     </RowTemplate>
                 </MudTable>
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Satırlar ve mal kabul için siparişe tıklayın.</MudText>
@@ -188,8 +194,12 @@
     /// <summary>Mal kabul = sipariş düzenleme + STOK girişi: iki yetki de aranır (stok yan kapısı yok).</summary>
     private bool CanReceive => Auth.CanEdit("purchasing") && Auth.CanCreate("stock");
 
+    // FAZ 3c-2 — karar SUNUCUDAN gelir (/api/field-access → FieldAccess); ekran yetki hesaplamaz.
+    private bool _fiyatGorunur = true;
+
     protected override async Task OnInitializedAsync()
     {
+        _fiyatGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Materials, DepoWise.Application.Security.FieldProtectionCatalog.UnitPrice);   // FAZ 3c-2
         await ReloadSuppliers("");
         try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
         try

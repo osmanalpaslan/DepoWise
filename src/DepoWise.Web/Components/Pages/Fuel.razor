@@ -289,6 +289,10 @@
         if (!ReferenceEquals(_vehicle, _lastVehicle) && _vehicle is not null)
         {
             _lastVehicle = _vehicle;
+            // ⭐ FAZ 4.1 — SEÇİLEN ARACIN SAYACI ÖNCE GERÇEK KAYITLARDAN TAZELENİR (masaüstüyle aynı).
+            // Geçmişte hatalı-yüksek bir sayaç araca yazılmış olabilir; başlangıç sayacı zehirlenmiş
+            // değeri değil gerçeği göstermeli. Sayaç zaten doğruysa sunucu hiçbir şey yazmaz.
+            try { await Api.PostAsync($"/api/vehicles/{_vehicle.Id}/meter/recalc", new { }); } catch { }
             try { var d = await Api.GetObjectAsync($"/api/vehicles/{_vehicle.Id}"); _prevMeter = d.TryGetProperty("currentMeter", out var m) && m.ValueKind == JsonValueKind.Number ? m.GetDecimal() : 0; StateHasChanged(); }
             catch { }
         }
@@ -408,14 +412,20 @@
         if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_liters)
             && !await Dialog.Confirm($"Litre değeri çok büyük görünüyor ({_liters:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
+        // ⭐ FAZ 4.1 — ŞÜPHELİ SAYAÇ SIÇRAMASI (önleme; masaüstüyle aynı eşik ve metin).
+        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(_prevMeter, _meter)
+            && !await Dialog.Confirm(
+                DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(_prevMeter, _meter),
+                "Evet, Doğru")) return;
+
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
         string? duzeltmeGerekcesi = null;
         if (_editDistId is not null)
         {
             duzeltmeGerekcesi = await Dialog.AskReason(
                 $"Bu yakıt kaydı düzeltilecek ({_liters:0.##} L · Toplam {(_liters * _price):0.##} ₺). " +
-                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar " +
-                "buna göre güncellenir. Araç sayacı geri alınmaz.");
+                "Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi, raporlar " +
+                "ve ARAÇ SAYACI buna göre güncellenir.");
             if (duzeltmeGerekcesi is null) return;
         }
         // Masaüstüyle parite: onayda litre + TOPLAM TUTAR (₺) gösterilir — para ile ilgili son kontrol.
@@ -528,8 +538,10 @@
     /// <summary>Düzeltme, ters kayıt (iptal) + yeni kayıt içerir → her iki yetki de aranır.</summary>
     private bool CanEditFuel => Auth.CanCreate("fuel") && Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse");
 
-    private void BeginEditDist(JsonElement row)
+    private async Task BeginEditDist(JsonElement row)
     {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
         _msg = null;
         _editDistId = Str(row, "id");
         // Araç alanı Autocomplete: listeden değil, satırın kendi kimlik+kodundan kurulur.
@@ -557,7 +569,7 @@
 
     private async Task CancelDist(string id) => await CancelFuel($"/api/fuel/{id}/cancel", LoadDist,
         "Bu yakıt kaydı iptal edilecek. İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
-        "Araç sayacı geri alınmaz. İşlem geri alınamaz. Devam etmek istiyor musunuz?");
+        "Araç sayacı, kalan geçerli kayıtlardan yeniden hesaplanır. İşlem geri alınamaz. Devam etmek istiyor musunuz?");
 
     private async Task CancelDepot(string id) => await CancelFuel($"/api/fuel/depot/{id}/cancel", LoadDepot,
         "Bu depo girişi iptal edilecek. İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +

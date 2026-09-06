@@ -85,7 +85,15 @@ public sealed class VehicleService
     public string Create(SessionContext s, NewVehicle dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
+        // ⭐ FAZ 4.10: şablon SEÇİLMEDEN kayıt açmak ayrı bir yetkidir (malzemeyle AYNI kural/metin).
+        DepoWise.Infrastructure.Materials.MaterialService.SablonKapisi(s, dto.TemplateId, "araç", _factory, "vehicle_templates");
         if (string.IsNullOrWhiteSpace(dto.InternalCode)) throw new ArgumentException("İç kod zorunlu.");
+        // ⭐ FAZ 4 FINAL QA (2026-09-06) — NEGATİF SAYAÇ REDDEDİLİR.
+        // QA sırasında ölçüldü: kayıt açarken sayaç eksi verilebiliyordu (ör. −5000) ve sessizce
+        // yazılıyordu. Sayaç yakıt tüketimi ve bakım periyodu hesaplarının GİRDİSİDİR; eksi bir
+        // başlangıç bu hesapları ve raporları bozar. Doğrudan sayaç değiştirme yolunda (SetMeter)
+        // aynı koruma zaten "geriye gitmez" kuralıyla vardı; kayıt AÇILIŞINDA yoktu.
+        if (dto.CurrentMeter < 0) throw new ArgumentException("Sayaç eksi olamaz.");
 
         var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -175,6 +183,7 @@ VALUES(@id,@c,@ic,@plate,@yr,@meter,@mu,@br,@drv,@ch,@en,@st,@note,@vt,@cat,@bra
     public void SetMeter(SessionContext s, string vehicleId, decimal value, string source = "vehicle_form")
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (value < 0) throw new ArgumentException("Sayaç eksi olamaz.");   // FAZ 4 FINAL QA (2026-09-06)
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
@@ -193,6 +202,50 @@ VALUES(@id,@c,@ic,@plate,@yr,@meter,@mu,@br,@drv,@ch,@en,@st,@note,@vt,@cat,@bra
     {
         using var conn = _factory.Create();
         return ReadMeter(conn, null, s.CompanyId, vehicleId);
+    }
+
+    // ═══ FAZ 4.1 (2026-09-06) — SAYACI GERÇEK KAYITLARDAN YENİDEN HESAPLA ═══════════════════════
+    // Gerçek olay: yanlış-yüksek sayaç girilen kayıt düzeltildi ama araçta ESKİ (hatalı) değer kaldı;
+    // kullanıcı hiçbir ekrandan düzeltemedi (sayaç geriye alınamıyordu). Artık sayaç, GEÇERLİ
+    // kayıtlardan türetilir; iptal/düzeltme onu aşağı da çekebilir. Ayrıntı: VehicleMeterService.
+
+    /// <summary>
+    /// TEK aracın sayacını yeniden hesaplar. Değişiklik <c>vehicle_meter_logs</c>'a
+    /// <c>recalc:*</c> kaynağıyla yazılır — iz kaybolmaz.
+    /// </summary>
+    /// <returns>Sayaç değiştiyse true.</returns>
+    public bool RecalculateMeter(SessionContext s, string vehicleId, string kaynak = "manual")
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        return VehicleMeterService.Tazele(_factory, s.CompanyId, vehicleId, kaynak, _clock.UtcNow.ToUnixTimeMilliseconds());
+    }
+
+    /// <summary>
+    /// TÜM araçların sayacını yeniden hesaplar (geçmişte zehirlenmiş kayıtların toplu onarımı).
+    /// Kullanıcı bildirdi: <i>"bu sorun başka araçlarda da bulunmakta."</i>
+    ///
+    /// ⚠️ Yalnız <c>vehicles.current_meter</c> özetini düzeltir; hiçbir yakıt/bakım kaydına
+    /// dokunmaz, hiçbir kayıt silmez. Elle beyan edilen taban korunur.
+    /// </summary>
+    /// <returns>Sayacı düzelen araç sayısı.</returns>
+    public int RecalculateAllMeters(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var idler = new List<string>();
+        using (var conn = _factory.Create())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id FROM vehicles WHERE company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) idler.Add(r.GetString(0));
+        }
+
+        int duzelen = 0;
+        foreach (var id in idler)
+            if (VehicleMeterService.Tazele(_factory, s.CompanyId, id, "bulk", now)) duzelen++;
+        return duzelen;
     }
 
     /// <summary>

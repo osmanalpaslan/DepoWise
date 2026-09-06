@@ -29,6 +29,10 @@
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                    <!-- ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı. -->
+                    <Button Classes="Secondary" Content="Sayaçları Onar" Command="{Binding RecalcMetersCommand}"
+                            IsVisible="{Binding CanWrite}"
+                            ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
                 </StackPanel>
@@ -110,7 +114,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}"
                                       PlaceholderText="Makine tipi seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_types]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewTypeName}" PlaceholderText="Yeni makine tipi"/>
@@ -126,7 +130,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}"
                                       PlaceholderText="Kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_categories]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCatName}" PlaceholderText="Yeni kategori"/>
@@ -142,7 +146,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}"
                                       PlaceholderText="Marka seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_brands]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka"/>
@@ -158,7 +162,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}"
                                       PlaceholderText="Model seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_models]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewModelName}" PlaceholderText="Yeni model (önce marka seç)"/>

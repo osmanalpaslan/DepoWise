@@ -76,17 +76,23 @@
                                         <ToggleButton Classes="NavGroup" IsVisible="{Binding IsSection}"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
-                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                                <!-- ⭐ FAZ 2 (ADR-221): ÜST GRUP renk çubuğu — hiyerarşinin EN GÜÇLÜ tonu
+                                                     (3px, tam opaklık). Alt seviyeler aynı aileyi giderek inceltir:
+                                                     üst grup 3px → üst menü 2px/0.85 → ekran 2px/0.55.
+                                                     Renk TEK BAŞINA anlam taşımaz; ikon ve girinti de aynı bilgiyi verir. -->
+                                                <Border Grid.Column="0" Width="3" CornerRadius="2" Margin="0,1,10,1"
+                                                        Background="{Binding FamilyBrush}" IsVisible="{Binding HasFamily}"/>
                                                 <!-- M6: üst grup ikonu. Alt gruplarınkinden farklı geometri (hiyerarşi okunsun). -->
-                                                <PathIcon Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0"
+                                                <PathIcon Grid.Column="1" Width="16" Height="16" Margin="0,0,10,0"
                                                           VerticalAlignment="Center"
                                                           Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Title}"
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding Title}"
                                                            FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <SelectableTextBlock Grid.Column="2" Classes="chev" Text="›" FontSize="16"
+                                                <SelectableTextBlock Grid.Column="3" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
@@ -100,21 +106,26 @@
                                         <ToggleButton Classes="NavGroup" Classes.active="{Binding IsActive}"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
-                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                                <!-- ⭐ FAZ 2 (ADR-221): ÜST MENÜ renk çubuğu — üst grubun ailesini MİRAS alır,
+                                                     ondan bir kademe yumuşaktır (2px, 0.85 opaklık). -->
+                                                <Border Grid.Column="0" Width="2" CornerRadius="1" Margin="0,2,10,2"
+                                                        Background="{Binding FamilyBrush}" IsVisible="{Binding HasFamily}"
+                                                        Opacity="0.85"/>
                                                 <!-- M6: vektör grup ikonu. Kaynak bulunamazsa HasIcon=false → sütun boş kalır, çökme yok.
                                                      Panel genişliği değişmez: 16px ikon + 10px boşluk, başlık sütunu "*" olduğu için kısalır. -->
-                                                <PathIcon Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0"
+                                                <PathIcon Grid.Column="1" Width="16" Height="16" Margin="0,0,10,0"
                                                           VerticalAlignment="Center"
                                                           Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <!-- Menü metni VARYANT-DUYARLI (TextPrimaryBrush): açık modda koyu,
                                                      koyu modda açık. Kenar menü zemini de varyantla değişir (açık
                                                      modda beyaz), sabit renk açık modda görünmez oluyordu (2026-07-19). -->
-                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Title}"
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding Title}"
                                                            FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <SelectableTextBlock Grid.Column="2" Classes="chev" Text="›" FontSize="16"
+                                                <SelectableTextBlock Grid.Column="3" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
@@ -135,12 +146,19 @@
                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NavigateCommand}"
                                                             CommandParameter="{Binding Key}">
-                                                        <Grid ColumnDefinitions="Auto,*">
-                                                            <PathIcon Grid.Column="0" Width="14" Height="14" Margin="0,0,8,0"
+                                                        <Grid ColumnDefinitions="Auto,Auto,*">
+                                                            <!-- ⭐ FAZ 2 (ADR-221): EKRAN renk çubuğu — hiyerarşinin EN YUMUŞAK tonu
+                                                                 (2px, 0.55 opaklık). Ekranın kendi rengi yoktur; üst menüsünün
+                                                                 ailesini miras alır. Üç kademe birlikte "üst grup > üst menü >
+                                                                 ekran" derinliğini renkle de anlatır. -->
+                                                            <Border Grid.Column="0" Width="2" CornerRadius="1" Margin="0,3,8,3"
+                                                                    Background="{Binding FamilyBrush}" IsVisible="{Binding HasFamily}"
+                                                                    Opacity="0.55"/>
+                                                            <PathIcon Grid.Column="1" Width="14" Height="14" Margin="0,0,8,0"
                                                                       VerticalAlignment="Center"
                                                                       Data="{Binding IconGeometry}" IsVisible="{Binding HasIcon}"
                                                                       Opacity="0.75"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                                            <TextBlock Grid.Column="2" Text="{Binding Title}"
                                                                        VerticalAlignment="Center"
                                                                        TextTrimming="CharacterEllipsis"/>
                                                         </Grid>
@@ -223,6 +241,30 @@
                             ToolTip.Tip="Senkron durumu: son gönderim/çekme zamanı, bekleyen ve gönderilemeyen kayıtlar">
                         <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
                             <Ellipse Width="9" Height="9" Fill="{Binding ConnectionBrush}" VerticalAlignment="Center"/>
+
+                            <!-- ⭐ FAZ 4.12 (kullanıcı isteği 2026-09-06) — SENKRON HALKASI.
+                                 BOŞTA: halka bir sonraki eşitlemeye kadar yavaşça dolar (SANİYE YAZMAZ).
+                                 EŞİTLERKEN: aynı halka yüzde ilerlemesini gösterir, ortasında % yazar.
+                                 Tek görselin iki hâli olduğu için geçişte yer değiştirme/sıçrama olmaz. -->
+                            <Panel Width="26" Height="26" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding SyncRingTooltip}">
+                                <Ellipse Width="26" Height="26" StrokeThickness="2"
+                                         Stroke="{DynamicResource OverlaySelectedBrush}"/>
+                                <!-- Boşta: geri sayım yayı (soluk) -->
+                                <Path Stretch="None" StrokeThickness="2" StrokeLineCap="Round"
+                                      Stroke="{DynamicResource TextSecondaryBrush}" Opacity="0.75"
+                                      IsVisible="{Binding !IsSyncing}"
+                                      Data="{Binding SyncCountdown, Converter={x:Static vm:ArcProgressConverter.Instance}, ConverterParameter=26}"/>
+                                <!-- Eşitlerken: ilerleme yayı (vurgu rengi) -->
+                                <Path Stretch="None" StrokeThickness="3" StrokeLineCap="Round"
+                                      Stroke="{DynamicResource AccentBrush}"
+                                      IsVisible="{Binding IsSyncing}"
+                                      Data="{Binding SyncProgress, Converter={x:Static vm:ArcProgressConverter.Instance}, ConverterParameter=26}"/>
+                                <SelectableTextBlock Text="{Binding SyncRingText}" FontSize="9" FontWeight="SemiBold"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </Panel>
+
                             <StackPanel VerticalAlignment="Center">
                                 <SelectableTextBlock Text="{Binding SyncStatusChip}" Classes="Body"
                                                      FontSize="12" FontWeight="SemiBold"
@@ -343,6 +385,12 @@
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                 <MenuItem Header="{Binding ScreenLogHeader}" Command="{Binding ShowScreenLogCommand}"
                                           IsVisible="{Binding CanShowScreenLog}"/>
+                                <!-- ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06): "her kaydın kendine ait log ekranı" -->
+                                <MenuItem Header="Seçili Kaydın Geçmişi" Command="{Binding ShowRecordLogCommand}"
+                                          IsVisible="{Binding CanShowRecordLog}"/>
+                                <!-- ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06): senkron çakışma ekranı -->
+                                <MenuItem Header="Senkron Çakışmaları" Command="{Binding ShowSyncConflictsCommand}"
+                                          IsVisible="{Binding CanShowSyncConflicts}"/>
                                 <Separator IsVisible="{Binding CanShowScreenLog}"/>
                                 <MenuItem Header="Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
                                           IsVisible="{Binding IsSuperAdmin}"/>

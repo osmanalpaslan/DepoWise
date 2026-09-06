@@ -114,9 +114,20 @@ public sealed class ExcelCenterService
         switch (Find(key).Key)
         {
             case "materials":
+            {
+                // ⭐ FAZ 3b: birim fiyat korumalı ve kullanıcıya kapalıysa kolon BAŞLIĞIYLA BİRLİKTE
+                // düşer. (Servis değeri zaten 0'lıyor; boş kolon bırakmak "gizleme" sayılmaz.)
+                var fiyatGorunur = Materials.MaterialService.FiyatGorunur(s);
                 foreach (var m in AllPages(c => _materials.List(s, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = c })))
-                    rows.Add(new object?[] { m.Code, m.Name, m.Type, m.MinStock, m.UnitPrice, m.Currency });
-                return new TableModel("Malzemeler", new[] { "Kod", "Ad", "Tür", "Min Stok", "Birim Fiyat", "Para Birimi" }, rows);
+                    rows.Add(fiyatGorunur
+                        ? new object?[] { m.Code, m.Name, m.Type, m.MinStock, m.UnitPrice, m.Currency }
+                        : new object?[] { m.Code, m.Name, m.Type, m.MinStock, m.Currency });
+                return new TableModel("Malzemeler",
+                    fiyatGorunur
+                        ? new[] { "Kod", "Ad", "Tür", "Min Stok", "Birim Fiyat", "Para Birimi" }
+                        : new[] { "Kod", "Ad", "Tür", "Min Stok", "Para Birimi" },
+                    rows);
+            }
 
             case "vehicles":
                 foreach (var v in _vehicles.List(s))

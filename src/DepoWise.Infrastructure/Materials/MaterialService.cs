@@ -34,7 +34,11 @@ public sealed record MaterialRefRow(string Id, string Code, string Name)
 
 /// <summary>Malzeme listesi ÖZET ŞERİDİ (web v4, 2026-08-27) — sayfalamadan bağımsız, aktif filtrelerle
 /// tutarlı üç sayı. Web'de listenin üstündeki kutuları besler; masaüstü bu alanı okumaz.</summary>
-public sealed record MaterialGridSummary(int CriticalCount, int CategoryCount, decimal StockValue);
+/// <param name="StockValueVisible">FAZ 3b: birim fiyat bu kullanıcıdan gizliyse <c>false</c> ve
+/// <paramref name="StockValue"/> 0'dır. Arayüz bu bayrakla "Stok Değeri" kutusunu <b>hiç oluşturmaz</b>
+/// — "0 TL" göstermek yanlış bilgi olurdu. Varsayılan <c>true</c> = bugünkü davranış.</param>
+public sealed record MaterialGridSummary(int CriticalCount, int CategoryCount, decimal StockValue,
+    bool StockValueVisible = true);
 
 /// <summary>Malzeme listesi (kolon-bazlı filtre + sayfalama) satırı — <see cref="MaterialListColumns"/>'taki
 /// HER kolonun görüntü değerini taşır; ekran hangi kolonları göstereceğine kendi tercihine göre karar verir.</summary>
@@ -83,15 +87,56 @@ public sealed class MaterialService
         _clock = clock ?? new SystemClock();
     }
 
+    /// <summary>
+    /// ⭐ FAZ 4.10 — ŞABLON DIŞI KAYIT KAPISI. Şablon seçilmeden kayıt açmak firmanın tanım düzenini
+    /// bozar (aynı şey farklı adlarla çoğalır). Yetki yoksa şablon ZORUNLUDUR; admin bypass sürer.
+    /// Şablon seçilmişse bu kapı hiçbir şey yapmaz → bugünkü davranış korunur.
+    /// </summary>
+    internal static void SablonKapisi(SessionContext s, string? templateId, string neyin,
+        IDbConnectionFactory? factory = null, string? sablonTablosu = null)
+    {
+        if (!string.IsNullOrWhiteSpace(templateId)) return;                       // şablonlu kayıt: serbest
+        if (AccessControl.CanUseButton(s, SpecialButtons.TemplateFreeCreate)) return;
+
+        // ⚠️ ÇÖZÜMSÜZLÜK KORUMASI: firmanın HİÇ şablonu yoksa "şablon seç" demek kullanıcıyı
+        // kilitler (seçecek bir şey yok). Böyle firmalarda davranış eskisi gibi serbest kalır.
+        if (factory is not null && sablonTablosu is not null && !SablonVar(factory, s.CompanyId, sablonTablosu)) return;
+
+        throw new ForbiddenException(
+            $"Şablon seçmeden {neyin} ekleme yetkiniz yok. Listeden bir şablon seçin ya da yöneticinizden "
+            + "«Şablon Dışı Araç / Malzeme Ekleme» yetkisini isteyin.");
+    }
+
+    /// <summary>Firmanın en az bir (silinmemiş) şablonu var mı? Tablo adı YALNIZ sabit çağrılardan gelir.</summary>
+    private static bool SablonVar(IDbConnectionFactory factory, string companyId, string tablo)
+    {
+        try
+        {
+            using var conn = factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM {tablo} WHERE company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@c", companyId);
+            return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+        }
+        catch { return false; }   // tablo okunamıyorsa kullanıcıyı kilitleme
+    }
+
     public string Create(SessionContext s, NewMaterial dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
+        // ⭐ FAZ 4.10: şablon SEÇİLMEDEN kayıt açmak ayrı bir yetkidir (kullanıcı isteği 2026-09-06).
+        SablonKapisi(s, dto.TemplateId, "malzeme", _factory, "material_templates");
         if (string.IsNullOrWhiteSpace(dto.Code)) throw new ArgumentException("Kod zorunlu.");
         if (!Money.IsSupported(dto.Currency)) throw new ArgumentException($"Desteklenmeyen para birimi: {dto.Currency}");
         // ADR-086: min stok / birim fiyat negatif OLAMAZ (yalnız AÇILIŞ stoğu negatif olabilir — o ayrı,
         // RecordOpening'de). Arayüz de engeller; bu sunucu-tarafı kalkanı (savunma derinliği).
         if (dto.MinStock < 0) throw new ArgumentException("Minimum stok negatif olamaz.");
         if (dto.UnitPrice < 0) throw new ArgumentException("Birim fiyat negatif olamaz.");
+        // FAZ 3b: alan korumalıysa ve kullanıcı düzenleyemiyorsa gönderilen fiyat yazılmaz.
+        // Yeni kayıtta "mevcut değer" 0’dır → görmeyen kullanıcı 0 ile açar, gören ama
+        // düzenleyemeyen 0 dışında bir değer gönderirse 403 alır (FieldAccess.YazmaDegeri).
+        var etkinFiyat = Application.Security.FieldAccess.YazmaDegeri(
+            s, Ekran, FiyatAlani, dto.UnitPrice, 0m, "Birim Fiyat");
 
         var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -121,7 +166,7 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
             cmd.AddWithValue("@brand", (object?)dto.BrandId ?? DBNull.Value);
             cmd.AddWithValue("@sup", (object?)dto.SupplierId ?? DBNull.Value);
             cmd.AddWithValue("@min", Money.Serialize(dto.MinStock));
-            cmd.AddWithValue("@price", Money.Serialize(dto.UnitPrice));
+            cmd.AddWithValue("@price", Money.Serialize(etkinFiyat));
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
             cmd.AddWithValue("@eqnote", (object?)dto.ExternalEquivalentNote ?? DBNull.Value);
@@ -406,6 +451,12 @@ WHERE mcv.material_id=@m AND v.company_id=@c AND v.is_deleted=0 ORDER BY v.inter
             while (r.Read()) vehicles.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         }
 
+        // ⭐ FAZ 3b: alan korumalı ve kullanıcı göremiyorsa değer KARTA TAŞINMAZ.
+        // C# kaydından alanı fiziksel olarak çıkarmak mümkün değildir (ADR-223 · D5) — bu yüzden
+        // değer 0'lanır, arayüz alanı hiç oluşturmaz ve API yanıtına alan hiç konmaz.
+        // Kaydetme yolu fiyatı VERİTABANINDAN okuduğu için bu 0 asla kayda yazılmaz (veri kaybı yok).
+        if (!FiyatGorunur(s)) unitPrice = 0m;
+
         return new MaterialDetail(materialId, code!, name!, type, catId, unitId, brandId, supId,
             catName, unitName, brandName, supName,
             minStock, unitPrice, cur!, desc, stock, equivalents, vehicles, version, tplId);
@@ -428,6 +479,11 @@ WHERE mcv.material_id=@m AND v.company_id=@c AND v.is_deleted=0 ORDER BY v.inter
         if (CodeExists(conn, tx, s.CompanyId, dto.Code, excludeId: materialId))
             throw new InvalidOperationException($"Bu kod zaten kullanılıyor: {dto.Code}");
 
+        // FAZ 3b: KAYITTAKİ fiyat AYNI transaction içinde okunur. Alanı göremeyen kullanıcı
+        // malzeme adını değiştirdiğinde fiyatın sıfırlanması (sessiz veri kaybı) böyle önlenir.
+        var etkinFiyat = Application.Security.FieldAccess.YazmaDegeri(
+            s, Ekran, FiyatAlani, dto.UnitPrice, MevcutFiyat(conn, tx, s.CompanyId, materialId), "Birim Fiyat");
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -445,7 +501,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@brand", (object?)dto.BrandId ?? DBNull.Value);
             cmd.AddWithValue("@sup", (object?)dto.SupplierId ?? DBNull.Value);
             cmd.AddWithValue("@min", Money.Serialize(dto.MinStock));
-            cmd.AddWithValue("@price", Money.Serialize(dto.UnitPrice));
+            cmd.AddWithValue("@price", Money.Serialize(etkinFiyat));
             cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
             cmd.AddWithValue("@tpl", (object?)dto.TemplateId ?? DBNull.Value);   // düzenlemede şablona bağla/koru
             cmd.AddWithValue("@now", now);
@@ -597,9 +653,12 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         var items = new List<MaterialRecord>();
         using (var r = cmd.ExecuteReader())
         {
+            // FAZ 3b: karar döngüden ÖNCE bir kez (satır başına değil).
+            var fiyatGorunur = FiyatGorunur(s);
             while (r.Read())
                 items.Add(new MaterialRecord(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                    r.IsDBNull(4) ? null : r.GetString(4), Money.Parse(r.GetString(5)), Money.Parse(r.GetString(6)),
+                    r.IsDBNull(4) ? null : r.GetString(4), Money.Parse(r.GetString(5)),
+                    fiyatGorunur ? Money.Parse(r.GetString(6)) : 0m,
                     r.GetString(7), r.GetInt64(8)));
         }
         string? next = null;
@@ -651,8 +710,18 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// içinden AYNEN taşındı; davranış değişmedi.
     /// </summary>
     private (string Inner, string Where, string Order, List<(string Name, object Value)> Ps) GridSorgusu(
-        System.Data.Common.DbConnection conn, MaterialGridFilter filter, string? sortColumn, bool sortDesc, bool criticalOnly)
+        System.Data.Common.DbConnection conn, MaterialGridFilter filter, string? sortColumn, bool sortDesc, bool criticalOnly,
+        bool fiyatGorunur = true)
     {
+        // ⭐ FAZ 3b — ÇIKARIM KANALINI DA KAPAT. Değeri gizleyip filtreyi/sıralamayı açık bırakmak
+        // gizlemek DEĞİLDİR: "birim fiyat > 1000" filtresiyle ya da fiyata göre sıralayarak gizli
+        // değer satır satır daraltılabilir. Bu yüzden alan görünmüyorken filtre YOK SAYILIR ve
+        // fiyata göre sıralama isteği DÜŞÜRÜLÜR (varsayılan sıralamaya, koda, düşer).
+        if (!fiyatGorunur)
+        {
+            filter = filter with { UnitPrice = null };
+            if (sortColumn == MaterialListColumns.UnitPrice) sortColumn = null;
+        }
         // Kolon anahtarı → (alias/tür/ham). Hem filtre hem sıralama BUNDAN çözülür (madde 5 sıralama).
         var byKey = new (string Key, GridQuery.ColumnFilter Col)[]
         {
@@ -698,8 +767,11 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
 
+        // ⭐ SORGU BAŞINA BİR KEZ (satır başına DEĞİL) — 10.000 satırda da tek karar (talimat §37).
+        var fiyatGorunur = FiyatGorunur(s);
+
         using var conn = _factory.Create();
-        var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly);
+        var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly, fiyatGorunur);
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -723,7 +795,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
                 items.Add(new MaterialGridRow(
                     r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
                     r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
-                    Money.Parse(r.GetString(8)), r.GetString(10),
+                    fiyatGorunur ? Money.Parse(r.GetString(8)) : 0m, r.GetString(10),
                     Money.Parse(r.GetString(11)), Money.Parse(r.GetString(13)),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
         }
@@ -747,8 +819,10 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     public MaterialGridSummary SearchGridSummary(SessionContext s, MaterialGridFilter filter, bool criticalOnly = false)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        var fiyatGorunur = FiyatGorunur(s);
+
         using var conn = _factory.Create();
-        var (inner, whereSql, _, ps) = GridSorgusu(conn, filter, null, false, criticalOnly);
+        var (inner, whereSql, _, ps) = GridSorgusu(conn, filter, null, false, criticalOnly, fiyatGorunur);
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT t.category, t.stock_raw, t.min_stock_raw, t.unit_price_raw FROM ({inner}) t {whereSql};";
@@ -771,10 +845,12 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
                 // "Kritik" tanımı ekrandaki "Yalnız kritik" filtresiyle ve DashboardService.LowStock ile AYNI:
                 // min stok TANIMLI (>0) ve stok onun altına inmiş. Yeni eşik uydurulmadı.
                 if (min > 0m && stok <= min) kritik++;
-                deger += stok * fiyat;
+                // ⭐ FAZ 3b: "stok değeri" = stok × BİRİM FİYAT. Fiyat gizliyken bu toplam da
+                // fiyatın türevidir (tek kalemlik filtrede birebir fiyatı verir) → hesaplanmaz.
+                if (fiyatGorunur) deger += stok * fiyat;
             }
 
-        return new MaterialGridSummary(kritik, kategoriler.Count, deger);
+        return new MaterialGridSummary(kritik, kategoriler.Count, deger, fiyatGorunur);
     }
 
     /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu
@@ -797,17 +873,59 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="MaterialListColumns.All"/>
     /// ile AYNIDIR. Görünür kolon seçimi (kişiye özel) buraya YANSITILMAZ — dışa aktarım DAİMA tam alan seti
     /// verir (kullanıcının o an ekranda gizlediği bir kolon export'ta eksik kalmasın).</summary>
-    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<MaterialGridRow> rows)
+    /// <param name="unitPriceVisible">FAZ 3b: <c>false</c> ise <b>Birim Fiyat kolonu başlığıyla
+    /// birlikte tabloya hiç konmaz</b> — boş/0 hücre bırakmak "gizlendi" sayılmaz. Varsayılan
+    /// <c>true</c> = bugünkü davranış (bu parametreyi geçmeyen çağrılar etkilenmez).</param>
+    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<MaterialGridRow> rows,
+        bool unitPriceVisible = true)
     {
-        var headers = MaterialListColumns.All.Select(c => c.Label).ToList();
-        var body = rows.Select(r => (IReadOnlyList<object?>)new object?[]
+        var kolonlar = MaterialListColumns.All
+            .Where(c => unitPriceVisible || c.Key != MaterialListColumns.UnitPrice)
+            .ToList();
+        var headers = kolonlar.Select(c => c.Label).ToList();
+
+        var body = rows.Select(r =>
         {
-            r.Code, r.Name, r.Type, r.Category, r.Unit, r.Brand, r.Supplier,
-            r.UnitPrice, r.Currency, r.MinStock, r.Stock, r.Status, r.Description,
-            r.CompatibleVehicles, r.Equivalents,
+            var hucreler = new List<object?>
+            {
+                r.Code, r.Name, r.Type, r.Category, r.Unit, r.Brand, r.Supplier,
+                r.UnitPrice, r.Currency, r.MinStock, r.Stock, r.Status, r.Description,
+                r.CompatibleVehicles, r.Equivalents,
+            };
+            if (!unitPriceVisible)
+            {
+                // Kolon listesi ile hücre listesi AYNI kaynaktan sıralı olduğu için indeks eşleşir;
+                // testi (MaterialListColumns sırası ile hücre sırası) doğrular.
+                var i = MaterialListColumns.All.ToList().FindIndex(c => c.Key == MaterialListColumns.UnitPrice);
+                if (i >= 0) hucreler.RemoveAt(i);
+            }
+            return (IReadOnlyList<object?>)hucreler;
         }).ToList();
+
         return new Application.Reports.TableModel("Malzemeler", headers, body);
     }
+
+    // ═══ FAZ 3b (ADR-223) — BİRİM FİYAT ALAN KAPISI ═══
+    // Karar TEK yerde verilir; SearchGrid, özet, kart, dışa aktarım ve yazma yolları bunu çağırır.
+    // Alan korumalı DEĞİLSE (varsayılan) ikisi de true döner → davranış bugünküyle birebir aynıdır.
+    private const string Ekran = Application.Security.FieldProtectionCatalog.Materials;
+    private const string FiyatAlani = Application.Security.FieldProtectionCatalog.UnitPrice;
+
+    /// <summary>Kayıtta duran birim fiyat — yazma kararı için AYNI transaction içinde okunur.
+    /// Kayıt bulunamazsa 0: sonraki UPDATE zaten 0 satır etkileyip hata üretir.</summary>
+    private static decimal MevcutFiyat(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT unit_price FROM materials WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", materialId);
+        cmd.AddWithValue("@c", companyId);
+        return Money.Parse(cmd.ExecuteScalar() as string);
+    }
+
+    /// <summary>Bu oturum birim fiyatı görebilir mi? (O(1), sorgusuz — snapshot'tan.)</summary>
+    public static bool FiyatGorunur(SessionContext s)
+        => Application.Security.FieldAccess.Gorunur(s, Ekran, FiyatAlani);
 
     private static bool CodeExists(DbConnection conn, DbTransaction? tx, string companyId, string code, string? excludeId)
     {

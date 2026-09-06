@@ -731,19 +731,16 @@
     private async Task ShowScreenLog()
     {
         if (!LogModules.TryGetValue(CurrentSegment, out var modul)) return;
-        var satirlar = await Api.GetArrayAsync($"/api/audit/screen?module={Uri.EscapeDataString(modul)}&limit=200");
+        // ⭐ FAZ 4.3 (2026-09-06): eskiden tek satırlık düz metin dökümü gösterilirdi ("anlaşılır değil").
+        // Artık günlere ayrılmış, alan bazlı farkları olan gerçek bir log penceresi açılır; satırdaki
+        // bağlantı o kaydın KENDİ geçmişini açar ("her kaydın kendine ait log ekranı").
         var parms = new DialogParameters
         {
-            ["ScreenName"] = "Kayıt Geçmişi — " + CurrentScreenName,
-            ["ScreenCode"] = satirlar.Length == 0
-                ? "Bu ekran için henüz kayıt geçmişi yok."
-                : string.Join("\n", satirlar.Select(x =>
-                    $"{DateTimeOffset.FromUnixTimeMilliseconds(x.TryGetProperty("createdAt", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.Number ? t.GetInt64() : 0).LocalDateTime:dd.MM.yyyy HH:mm}" +
-                    $"  ·  {(x.TryGetProperty("userText", out var u) ? u.GetString() : "")}" +
-                    $"  ·  {(x.TryGetProperty("actionText", out var a) ? a.GetString() : "")}" +
-                    $"  ·  {(x.TryGetProperty("entityType", out var e) ? e.GetString() : "")}")),
+            ["Title"] = "Kayıt Geçmişi — " + CurrentScreenName,
+            ["Module"] = modul,
+            ["KayitBaglantisi"] = true,
         };
-        await DialogService.ShowAsync<ScreenInfoDialog>("Kayıt Geçmişi", parms,
+        await DialogService.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
     }
 

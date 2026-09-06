@@ -99,6 +99,9 @@ public partial class App : Avalonia.Application
             }
 
             var main = new MainWindow { DataContext = new ShellViewModel(session) };
+            // ⭐ FAZ 4.11 (kullanıcı isteği 2026-09-06): giriş sonrası ilk açılış TAM EKRAN.
+            // Kullanıcı pencereyi küçültürse Width/Height değerleri (1180x720) devreye girer.
+            main.WindowState = Avalonia.Controls.WindowState.Maximized;
             _desktop.MainWindow = main;
             main.Show();
             sync.Close();

@@ -25,6 +25,8 @@
   -->
   <ItemGroup>
     <Compile Include="..\DepoWise.Application\Ui\ListColumns.cs" Link="Services\ListColumns.cs" />
+    <!-- FAZ 4.1: sayaç kuralları (şüpheli sıçrama uyarısı) web'de de AYNI eşikle uygulanır. -->
+    <Compile Include="..\DepoWise.Application\Common\Meter.cs" Link="Services\Meter.cs" />
     <!--
       B-2 (PRT-01 Grup 4, 2026-08-10): talep ÖNCELİĞİ kataloğu (RequestPriorityInfo) — yukarıdaki
       ListColumns ile AYNI gerekçe. Öncelik seçicisinin web ve masaüstünde aynı seçenekleri, aynı
@@ -61,10 +63,18 @@
          bağımlı DEĞİLDİR (kavramlar düz string) → web'in "her şeyi API'den al" sınırını gevşetmez.
          Kavram → MudBlazor sabiti çevirisi NavMenu.razor içinde kalır. -->
     <Compile Include="..\DepoWise.Application\Security\MenuIcons.cs" Link="Services\MenuIcons.cs" />
+    <!-- FAZ 2 (ADR-221, 2026-09-05): MENÜ RENK AİLELERİ — MenuIcons ile AYNI gerekçe ve desen.
+         "Hangi menü hangi renk ailesini kullanır" bilgisi tek dosyada durur; iki platform aynı
+         hiyerarşik anlamı taşır. Dosya SAF katalogdur (yalnız string sözlükleri + saf fonksiyon),
+         ne MudBlazor'a ne Avalonia'ya bağımlıdır → web'in "her şeyi API'den al" sınırını gevşetmez.
+         Aile → CSS sınıfı çevirisi NavMenu.razor'da, aile → fırça çevirisi DesktopMenuColors'ta. -->
+    <Compile Include="..\DepoWise.Application\Security\MenuPalette.cs" Link="Services\MenuPalette.cs" />
     <!-- MNU (2026-08-18): menü DÜZENİ çözümleyicisi (ad · üst menü · sıra). Aynı gerekçe: sıralama
          kuralı TEK yerde kalsın, web kendi kopyasını tutmasın — masaüstü menüsü de aynı kodu çağırır.
          Saf mantıktır: veri erişimi yok, MudBlazor bağımlılığı yok, erişim kararı vermez. -->
     <Compile Include="..\DepoWise.Application\Security\MenuLayout.cs" Link="Services\MenuLayout.cs" />
+    <!-- FAZ 3b-5: alan yetkisi anahtar/etiket katalogu - web ve masaustu AYNI dosyayi derler. -->
+    <Compile Include="..\DepoWise.Application\Security\FieldProtectionCatalog.cs" Link="Services\FieldProtectionCatalog.cs" />
     <!-- BAG-01 (2026-08-26): "sunucuya ulaşılamıyor" KARARI (ağ hatası ↔ yetki hatası ayrımı).
          Saf mantıktır: veri erişimi yok, MudBlazor bağımlılığı yok. Web projesine referans
          verilemediği (ortak dosyaların aynası derlendiği) için burada da AYNI dosya derlenir →

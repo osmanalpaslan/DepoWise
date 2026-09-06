@@ -285,6 +285,16 @@ WHERE id=@i AND company_id=@c AND is_deleted=0;";
         var src = CustomReportSources.ByKey(def.SourceKey)!;
         var tavan = maxRows <= 0 ? CustomReportRules.MaxRows : Math.Min(maxRows, CustomReportRules.MaxRows);
 
+        // ⭐ FAZ 3b (ADR-223): korumalı alan bu kullanıcıya kapalıysa kolon RAPORDAN ÇIKARILIR —
+        // başlık, sayısallık bayrağı ve hücre birlikte. Değeri 0'lamak "gizleme" değildir; ayrıca
+        // filtre de düşer (aşağıda MalzemeSatirlari), yoksa fiyat filtresiyle değer daraltılabilirdi.
+        if (src.Key == CustomReportSources.Materials
+            && !Materials.MaterialService.FiyatGorunur(s)
+            && def.Columns.Contains(MaterialListColumns.UnitPrice))
+        {
+            def = def with { Columns = def.Columns.Where(k => k != MaterialListColumns.UnitPrice).ToList() };
+        }
+
         var basliklar = def.Columns.Select(k => src.LabelOf(k) ?? k).ToList();
         var sayisal = def.Columns.Select(src.IsNumeric).ToList();
         var satirlar = src.Key switch
@@ -309,7 +319,10 @@ WHERE id=@i AND company_id=@c AND is_deleted=0;";
             Code: F(def, MaterialListColumns.Code), Name: F(def, MaterialListColumns.Name),
             Type: F(def, MaterialListColumns.Type), Category: F(def, MaterialListColumns.Category),
             Unit: F(def, MaterialListColumns.Unit), Brand: F(def, MaterialListColumns.Brand),
-            Supplier: F(def, MaterialListColumns.Supplier), UnitPrice: F(def, MaterialListColumns.UnitPrice),
+            Supplier: F(def, MaterialListColumns.Supplier),
+            // FAZ 3b: fiyat gizliyken fiyat FİLTRESİ de uygulanmaz (SearchGrid ayrıca düşürür;
+            // burada da düşürülmesi niyeti açık bırakır).
+            UnitPrice: Materials.MaterialService.FiyatGorunur(s) ? F(def, MaterialListColumns.UnitPrice) : null,
             Currency: F(def, MaterialListColumns.Currency), MinStock: F(def, MaterialListColumns.MinStock),
             Stock: F(def, MaterialListColumns.Stock), Status: F(def, MaterialListColumns.Status),
             Description: F(def, MaterialListColumns.Description),

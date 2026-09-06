@@ -328,20 +328,44 @@
                         <Panel Grid.Column="0">
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasMaint}">
                                 <DockPanel>
+                                    <!-- ⭐ FAZ 4.8 (kullanıcı isteği 2026-09-06): TARİH ARALIĞI + ARAMA.
+                                         Servis (SearchMaintenancesGrid) bu süzgeçleri zaten destekliyordu;
+                                         ekranda alan/buton YOKTU. Ağır sorgu Filtrele'ye basılmadan çalışmaz. -->
+                                    <Border Classes="Panel" DockPanel.Dock="Top" Margin="0,0,0,8">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <ctrl:FormField Label="Başlangıç" Width="150">
+                                                <DatePicker SelectedDate="{Binding BakimBaslangic}"/>
+                                            </ctrl:FormField>
+                                            <ctrl:FormField Label="Bitiş" Width="150">
+                                                <DatePicker SelectedDate="{Binding BakimBitis}"/>
+                                            </ctrl:FormField>
+                                            <ctrl:FormField Label="Ara (araç kodu / plaka / bakım / belge no)" Width="320">
+                                                <TextBox Classes="Search" Text="{Binding BakimArama}"
+                                                         PlaceholderText="Örn. 06 FZ 4146"/>
+                                            </ctrl:FormField>
+                                            <Button Classes="Primary" Content="Filtrele" VerticalAlignment="Bottom"
+                                                    Command="{Binding BakimFiltreleCommand}"/>
+                                            <Button Classes="Secondary" Content="Temizle" VerticalAlignment="Bottom"
+                                                    Command="{Binding BakimTemizleCommand}"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                                         <Grid ctrl:ColumnRules.Enabled="True">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m1"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="m2"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m3"/>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
                                             </Grid.ColumnDefinitions>
                                             <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="90"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="BAKIM" MinWidth="140"/>
-                                            <SelectableTextBlock Grid.Column="2" Text="YAPILMA" MinWidth="100"/>
-                                            <SelectableTextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
-                                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
+                                            <!-- FAZ 4.8: kullanıcı aracı sahada PLAKASIYLA tanıyor. -->
+                                            <SelectableTextBlock Grid.Column="1" Text="PLAKA" MinWidth="110"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="BAKIM" MinWidth="140"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="YAPILMA" MinWidth="100"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="SONRAKİ" MinWidth="100"/>
+                                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="70"/>
                                         </Grid>
                                     </Border>
                                     <!-- ⭐ LST-01: SAYFALAMA. Liste eskiden sabit 200 kayıtla kesiliyor ve
@@ -365,16 +389,19 @@
                                                 <Grid ctrl:ColumnRules.Enabled="True">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m1"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="m2"/>
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m3"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
                                                     </Grid.ColumnDefinitions>
                                                     <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="90" VerticalAlignment="Center"/>
-                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DefinitionName}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding PerformedDisplay}" MinWidth="100" VerticalAlignment="Center"/>
-                                                    <SelectableTextBlock Grid.Column="3" Text="{Binding NextDueDisplay}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
+                                                    <!-- FAZ 4.8: PLAKA kolonu (başlıkla birlikte eklendi). -->
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlateDisplay}"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DefinitionName}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="3" Text="{Binding PerformedDisplay}" MinWidth="100" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NextDueDisplay}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -393,7 +420,7 @@
                                     <SelectableTextBlock Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap"/>
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" DataContext="{Binding SelectedMaint}">
                                         <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Araç" Classes="Helper" Margin="0,2,12,2"/>
-                                        <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleCode}" Classes="Body"/>
+                                        <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleWithPlate}" Classes="Body"/>
                                         <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Alt Bakım" Classes="Helper" Margin="0,2,12,2"/>
                                         <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SubDisplay}" Classes="Body"/>
                                         <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Yapılma" Classes="Helper" Margin="0,2,12,2"/>

@@ -263,19 +263,19 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
 
     [RelayCommand] private void StartAddType() { IsAddingType = true; NewTypeName = ""; }
     [RelayCommand] private void CancelAddType() { IsAddingType = false; NewTypeName = ""; }
-    [RelayCommand] private void ConfirmAddType() => AddLookup(NewTypeName, () => DesktopServices.Lookups.AddVehicleType(_session, NewTypeName.Trim()), Types, x => SelType = x, () => { IsAddingType = false; NewTypeName = ""; });
+    [RelayCommand] private void ConfirmAddType() => AddLookup(NewTypeName, () => DesktopServices.Lookups.AddVehicleType(_session, NewTypeName.Trim(), quick: true), Types, x => SelType = x, () => { IsAddingType = false; NewTypeName = ""; });
 
     [RelayCommand] private void StartAddCat() { IsAddingCat = true; NewCatName = ""; }
     [RelayCommand] private void CancelAddCat() { IsAddingCat = false; NewCatName = ""; }
-    [RelayCommand] private void ConfirmAddCat() => AddLookup(NewCatName, () => DesktopServices.Lookups.AddVehicleCategory(_session, NewCatName.Trim()), Categories, x => SelCategory = x, () => { IsAddingCat = false; NewCatName = ""; });
+    [RelayCommand] private void ConfirmAddCat() => AddLookup(NewCatName, () => DesktopServices.Lookups.AddVehicleCategory(_session, NewCatName.Trim(), quick: true), Categories, x => SelCategory = x, () => { IsAddingCat = false; NewCatName = ""; });
 
     [RelayCommand] private void StartAddBrand() { IsAddingBrand = true; NewBrandName = ""; }
     [RelayCommand] private void CancelAddBrand() { IsAddingBrand = false; NewBrandName = ""; }
-    [RelayCommand] private void ConfirmAddBrand() => AddLookup(NewBrandName, () => DesktopServices.Lookups.AddVehicleBrand(_session, NewBrandName.Trim()), Brands, x => SelBrand = x, () => { IsAddingBrand = false; NewBrandName = ""; });
+    [RelayCommand] private void ConfirmAddBrand() => AddLookup(NewBrandName, () => DesktopServices.Lookups.AddVehicleBrand(_session, NewBrandName.Trim(), quick: true), Brands, x => SelBrand = x, () => { IsAddingBrand = false; NewBrandName = ""; });
 
     [RelayCommand] private void StartAddModel() { if (SelBrand is null) { Status = "Önce marka seçin."; return; } IsAddingModel = true; NewModelName = ""; }
     [RelayCommand] private void CancelAddModel() { IsAddingModel = false; NewModelName = ""; }
-    [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim()), Models, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
+    [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim(), quick: true), Models, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
 }
 
 public sealed partial class TplMaterialPick : ObservableObject

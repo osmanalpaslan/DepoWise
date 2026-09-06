@@ -427,7 +427,8 @@ public class AppScreensParityTests
             ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("users", "teams"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Evrak", new[] { ("files", "documents") }),   // EVR-01
             ("Duyurular", new[] { ("announcements", "announcements") }),   // DYR-01
-            ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
+            // 2026-09-06 (FAZ 4.4): Senkron Çakışmaları ekranı — yalnız web (masaüstünde pencere).
+            ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log"), ("sync_conflicts", "sync-conflicts") }),
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
             ("Yedekleme", new[] { ("@superr", "backup") }),
             ("Çöp Kutusu", new[] { ("trash", "trash") }),
@@ -451,7 +452,8 @@ public class AppScreensParityTests
         // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
         // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186),
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler → 65, + ALT FAZ 3 Onaylamalarım → 66 (ADR-187/189).
-        Assert.Equal(67, gercek.Sum(x => x.Item2.Length));   // 66 → 67: Alan Ayarları (2026-09-03, ADR-198)
+        // 67 → 68: Senkron Çakışmaları (2026-09-06, FAZ 4.4 — kullanıcı isteği).
+        Assert.Equal(68, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>
@@ -531,7 +533,9 @@ public class AppScreensParityTests
             // "local_reset": YET (2026-08-18) — Kalıcı Silme / Firma İş Verisini Sıfırla ile aynı gruptaki
             // yönetim ekranı; kardeşleri gibi YALNIZ WEB'de sunulur (masaüstünde karşılığı yoktur).
             "backup", "company_permissions", "import", "local_reset", "machine_backups", "purge_company",
-            "quota_monitor", "reset_company_business", "screen_visibility", "server_status",
+            // "sync_conflicts": FAZ 4.4 (2026-09-06) — masaüstünde karşılığı bir NAV EKRANI değil,
+            // senkron uyarısından ve kabuk menüsünden açılan bir PENCEREdir (SyncConflictsWindow).
+            "quota_monitor", "reset_company_business", "screen_visibility", "server_status", "sync_conflicts",
         }, yalnizWeb);
 
         // Geri kalanların hepsi iki platformda.

@@ -82,8 +82,11 @@ public class TedarikciHizliEklemeTests : IDisposable
         Assert.Contains("StartAddSupplierCommand", blok);
         Assert.Contains("ConfirmAddSupplierCommand", blok);
         Assert.Contains("CancelAddSupplierCommand", blok);
-        // ⭐ Görünürlük yetkiye bağlı — masaüstünün baştan beri uyguladığı kural.
-        Assert.Contains("IsVisible=\"{Binding CanAddLookup}\"", blok);
+        // ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06): görünürlük artık TABLO BAZLI bağlanır
+        // ({Binding [suppliers]}). Bu, yetki kapısını GEVŞETMEZ — indeksleyici önce CanAddLookup
+        // yetkisine bakar, sonra firmanın "+" ayarına. Yani yetki kuralı aynen sürüyor, üstüne
+        // firma bazlı bir kapatma imkânı eklendi (ViewModelBase.this[string]).
+        Assert.Contains("IsVisible=\"{Binding [suppliers]}\"", blok);
         // Ekleme kutusu yalnız "+" tıklanınca açılır (form kalabalıklaşmasın).
         Assert.Contains("IsVisible=\"{Binding IsAddingSupplier}\"", blok);
     }
@@ -138,9 +141,12 @@ public class TedarikciHizliEklemeTests : IDisposable
                 $"Masaüstünde '{alan}' alanının \"+\" komutu ({komut}) bağlanmamış.");
         }
 
-        // Masaüstünde beş "+" düğmesinin hepsi yetkiye bağlı.
+        // Masaüstünde beş "+" düğmesinin hepsi görünürlük kapısına bağlı.
+        // ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06): kapı artık TABLO BAZLI ({Binding [units]} gibi).
+        // Yetki GEVŞEMEDİ — indeksleyici (ViewModelBase.this[string]) önce CanAddLookup yetkisine
+        // bakar, sonra firmanın "+" ayarına; ayar yoksa eski davranış aynen sürer.
         Assert.Equal(5, System.Text.RegularExpressions.Regex.Matches(
-            masaustu, "Content=\"\\+\" IsVisible=\"\\{Binding CanAddLookup\\}\"").Count);
+            masaustu, "Content=\"\\+\" IsVisible=\"\\{Binding \\[[a-z_]+\\]\\}\"").Count);
 
         // Web: beş kutunun beşi de aynı süslemeyi kullanıyor (Alt Kategori bu turda eklendi).
         var web = Oku("src", "DepoWise.Web", "Components", "Pages", "Stock.razor");

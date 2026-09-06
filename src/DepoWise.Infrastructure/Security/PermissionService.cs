@@ -148,6 +148,7 @@ public sealed class PermissionService
         long? expectedVersion = null)
     {
         AccessControl.Require(actor, Module, PermissionAction.Edit);
+        AlanKalemleriniDogrula(modules);   // FAZ 3b-5: EDIT ⇒ VIEW (hiçbir yazma yapılmadan önce)
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
@@ -205,7 +206,7 @@ public sealed class PermissionService
 
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
-        var (clampMods, clampBtns) = GrantableLimit(conn, tx, actor);
+        var (clampMods, clampBtns, clampOwn) = GrantableLimit(conn, tx, actor);
 
         // ── KLT-01c: DÜZENLEME KİLİDİ ────────────────────────────────────────────────────────────
         // Sürüm ARTIRMA + kontrol, silme/yazmadan HEMEN ÖNCE ve AYNI transaction içinde yapılır:
@@ -242,7 +243,7 @@ public sealed class PermissionService
 
         foreach (var mIn in modules)
         {
-            var m = ClampModule(mIn, clampMods);
+            var m = ClampModule(mIn, clampMods, actor, clampOwn);
             // Boş satır yazma (hiçbir bayrak yoksa atla → deny-by-default)
             if (!(m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)) continue;
             Exec(conn, tx,
@@ -305,10 +306,11 @@ public sealed class PermissionService
     ///
     /// Açık satırlar veritabanından AYNI transaction içinde okunur (oturum anlık görüntüsü bayat olabilir).
     /// </summary>
-    private static (Dictionary<string, ModulePermission>? Mods, HashSet<string>? Btns) GrantableLimit(
+    private static (Dictionary<string, ModulePermission>? Mods, HashSet<string>? Btns,
+        Dictionary<string, ModulePermission>? Own) GrantableLimit(
         DbConnection conn, DbTransaction tx, SessionContext actor)
     {
-        if (actor.IsSuperAdmin) return (null, null); // sınırsız
+        if (actor.IsSuperAdmin) return (null, null, null); // sınırsız
 
         // Aktörün AÇIK satırları (taze) — tavan hesabında "kendi izni" girdisi olarak kullanılır.
         var own = new Dictionary<string, ModulePermission>(StringComparer.Ordinal);
@@ -338,7 +340,9 @@ public sealed class PermissionService
             if (AccessControl.CanGrantButtonKey(actor, key))
                 btns.Add(key);
 
-        return (mods, btns);
+        // ⭐ own DA döner: sözlükte olmayan (önekli) anahtarların tavanı istek anında hesaplanırken
+        // aktörün AÇIK satırı girdi olarak gerekir (bkz. ClampModule hata düzeltmesi).
+        return (mods, btns, own);
     }
 
     /// <summary>
@@ -459,10 +463,59 @@ public sealed class PermissionService
         return list;
     }
 
-    private static ModulePermission ClampModule(ModulePermission incoming, Dictionary<string, ModulePermission>? limit)
+    /// <summary>
+    /// ⭐ FAZ 3b-5 (ADR-223 · D3) — ALAN KALEMLERİNDE <b>EDIT ⇒ VIEW</b> SUNUCU KAPISI.
+    ///
+    /// Arayüz bu kombinasyonu zaten oluşturamıyor; ama arayüz güvenlik değildir. Doğrudan HTTP ile
+    /// "görme kapalı, düzenleme açık" gönderilirse <b>reddedilir</b> — sessizce düzeltilmez, çünkü
+    /// yöneticinin niyeti belirsizdir ve sessiz düzeltme yanlış bir güven yaratırdı.
+    ///
+    /// Çalışma anında ayrıca <c>FieldAccess.Duzenlenebilir</c> görünürlüğü şart koşar (savunma
+    /// derinliği): doğrudan veritabanına yazılmış bozuk bir satır bile yazma yetkisi ÜRETMEZ.
+    /// Alan olmayan modüller bu kuraldan ETKİLENMEZ (ör. "sil" yetkisi "oku" istemez — mevcut davranış).
+    /// </summary>
+    private static void AlanKalemleriniDogrula(IEnumerable<ModulePermission> modules)
     {
-        if (limit is null) return incoming; // sınırsız
-        limit.TryGetValue(incoming.ModuleKey, out var o);
+        foreach (var m in modules)
+        {
+            if (!AppModules.IsFieldItem(m.ModuleKey)) continue;
+            if (!FieldAccess.GecerliMi(m.CanView, m.CanEdit))
+                throw new ArgumentException(
+                    $"«{AppModules.Label(m.ModuleKey)}»: bir alanı düzenleyebilen kullanıcı onu görebilmelidir. " +
+                    "Önce 'Oku' yetkisini verin.");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 HATA DÜZELTMESİ (FAZ 3b-5'te bulundu, 2026-09-05) — ÖNEK'Lİ ANAHTARLAR SESSİZCE DÜŞÜYORDU.
+    ///
+    /// <b>Belirti:</b> süper admin OLMAYAN bir yönetici (ör. firma admini) rapor (<c>rpt_</c>),
+    /// kayıt tipi (<c>datype_</c>) ya da alan (<c>fld_</c>) yetkisi verdiğinde <b>hata almıyor ama
+    /// izin de kaydolmuyordu</b>. Kaydet başarıyla dönüyor, ekran yeniden açıldığında kutu boş.
+    ///
+    /// <b>Kök neden:</b> devretme tavanı sözlüğü YALNIZ <c>AppModules.All</c> üzerinde kuruluyordu.
+    /// Önekli anahtarlar bilinçli olarak <c>All</c>'da DEĞİLDİR (menü maddesi değiller) → sözlükte
+    /// bulunamıyor, <c>o</c> null kalıyor, dört bayrak da <c>&amp;&amp; false</c> ile siliniyor ve
+    /// satır "boş" sayılıp hiç yazılmıyordu. Süper adminde tavan <c>null</c> (sınırsız) olduğu için
+    /// sorun görünmüyordu — bu yüzden bugüne kadar fark edilmedi.
+    ///
+    /// <b>Düzeltme:</b> sözlükte olmayan anahtar için tavan, aynı kaynaktan
+    /// (<see cref="AccessControl.GrantCeiling"/>) İSTEK ANINDA hesaplanır. Kural DEĞİŞMEDİ; yalnız
+    /// eksik anahtarlar da aynı kuraldan geçiyor. Bilinen modüllerin davranışı birebir aynıdır.
+    /// </summary>
+    private static ModulePermission ClampModule(ModulePermission incoming, Dictionary<string, ModulePermission>? limit,
+        SessionContext? actor = null, Dictionary<string, ModulePermission>? own = null)
+    {
+        if (limit is null) return incoming; // sınırsız (süper admin)
+
+        if (!limit.TryGetValue(incoming.ModuleKey, out var o) && actor is not null)
+        {
+            ModulePermission? kendi = null;
+            own?.TryGetValue(incoming.ModuleKey, out kendi);
+            o = AccessControl.GrantCeiling(actor, incoming.ModuleKey, kendi);
+            limit[incoming.ModuleKey] = o;   // aynı istekte tekrar hesaplanmasın
+        }
+
         return new ModulePermission(incoming.ModuleKey,
             incoming.CanView && (o?.CanView ?? false),
             incoming.CanCreate && (o?.CanCreate ?? false),
@@ -703,5 +756,283 @@ public sealed class PermissionService
 
         // Yetki fotoğrafı önbelleği: kapsam değiştiği için hedef kullanıcının oturumu tazelenmeli.
         _snapshots?.InvalidateUser(userId);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    // FAZ 3a (ADR-222, kullanıcı onayı 2026-09-05) — ROL BAZLI YETKİ
+    //
+    // Rol izinleri kullanıcı izinlerinin ÜSTÜNE EKLENİR (K1: yalnız ALLOW, birleşim).
+    // Okuma/birleştirme AuthService.LoadPermissions'tadır; burası YAZMA yoludur.
+    //
+    // ⚠️ Yazma, SaveForUser ile AYNI kapılardan geçer — ayrı bir "kısa yol" YOKTUR:
+    //   yetki (permissions/Edit) · firma sahipliği · süper-admin-only kilidi · admin-kısıtlı kilidi
+    //   · rol kilidi (role_grant_limits) · DEVRETME TAVANI · audit (öncesi/sonrası) · önbellek.
+    // Aksi hâlde rol yolu, kullanıcı yolundaki korumaları atlayan ikinci bir kapı olurdu.
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Bir rolün mevcut izinleri (yetki ekranı için). Aktör yetkisi olmadan okunamaz.</summary>
+    public (IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons) LoadForRole(
+        SessionContext actor, string roleId)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        EnsureRoleUsable(conn, null, actor.CompanyId, roleId);
+
+        var mods = new List<ModulePermission>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT module_key, can_view, can_create, can_edit, can_delete " +
+                              "FROM role_permissions WHERE role_id=@r AND company_id=@c;";
+            cmd.AddWithValue("@r", roleId);
+            cmd.AddWithValue("@c", actor.CompanyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                mods.Add(new ModulePermission(r.GetString(0),
+                    r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1));
+        }
+
+        var btns = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT button_key FROM role_button_permissions WHERE role_id=@r AND company_id=@c;";
+            cmd.AddWithValue("@r", roleId);
+            cmd.AddWithValue("@c", actor.CompanyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) btns.Add(r.GetString(0));
+        }
+        return (mods, btns);
+    }
+
+    /// <summary>
+    /// Bir ROLE izin yazar. Sonuç: o role sahip HERKES bu izinleri EK OLARAK kazanır
+    /// (kimse hiçbir şey kaybetmez — K1).
+    ///
+    /// <b>🔴 DEVRETME TAVANI ROL YOLUNDA DA UYGULANIR</b> (kullanıcı şartı §7): aktör kendi
+    /// sahip olmadığı yetkiyi bir role vererek DOLAYLI olarak başkasına kazandıramaz. Tavan
+    /// <see cref="AccessControl.GrantCeiling"/>'den gelir — <see cref="AccessControl.Can"/> ile
+    /// aynı kurallar. Bu kontrol BACKEND'dedir; arayüzde kutu gizlemek yeterli sayılmaz.
+    ///
+    /// <b>Rol kilidi:</b> <c>role_grant_limits</c> ile o role kapatılmış modül, role de VERİLEMEZ.
+    /// Aksi hâlde "kapalı" ekran rol üzerinden geri açılır ve Faz 1'in 1. basamağı delinirdi.
+    ///
+    /// <b>Önbellek:</b> rol izni değişince o role sahip HERKES etkilenir; kimlerin etkilendiğini
+    /// ayrıca sorgulamak yerine tüm fotoğraflar düşürülür (<c>InvalidateAll</c>) — rol kilidinin
+    /// bugün zaten yaptığı şey. Yeniden giriş GEREKMEZ, etki bir sonraki istekte görünür.
+    /// </summary>
+    public void SaveForRole(SessionContext actor, string roleId,
+        IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.Edit);
+        AlanKalemleriniDogrula(modules);   // FAZ 3b-5: EDIT ⇒ VIEW (rol yolunda da aynı kapı)
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var companyId = actor.CompanyId;
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        var roleKey = EnsureRoleUsable(conn, tx, companyId, roleId);
+        var gelen = modules.ToList();
+
+        // ── Süper-admin düzeyi ekranlar: YALNIZ "Kısıtlı Süper Admin" rolüne verilebilir ───────
+        // Kullanıcı yolundaki kuralın rol karşılığı: orada hedef KULLANICININ rolüne bakılır,
+        // burada hedefin KENDİSİ bir roldür.
+        var superOnly = gelen.Where(m => Dolu(m)
+                && (AppModules.IsSuperAdminOnly(m.ModuleKey)
+                    || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanySuperRestricted(conn, tx, companyId, m.ModuleKey)))
+            .Select(m => m.ModuleKey).ToList();
+        if (superOnly.Count > 0
+            && !actor.IsSuperAdmin
+            && roleKey != RoleKeys.RestrictedSuperAdmin && roleKey != RoleKeys.SuperAdmin)
+        {
+            throw new InvalidOperationException(
+                "Bu ekranlar yalnız 'Kısıtlı Süper Admin' rolüne verilebilir: " +
+                string.Join(", ", superOnly.Select(ModuleLabel)));
+        }
+
+        // ── "Admin düzeyi" ekranlar alt role verilemez (kullanıcı yolundaki #3 kuralının aynısı) ──
+        if (!actor.IsSuperAdmin)
+        {
+            var adminOnly = gelen.Where(m => Dolu(m)
+                    && !superOnly.Contains(m.ModuleKey)
+                    && (AppModules.IsAdminRestricted(m.ModuleKey)
+                        || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanyRestricted(conn, tx, companyId, m.ModuleKey)))
+                .Select(m => m.ModuleKey).ToList();
+            if (adminOnly.Count > 0 && roleKey != RoleKeys.CompanyAdmin && roleKey != RoleKeys.SuperAdmin
+                                    && roleKey != RoleKeys.RestrictedSuperAdmin)
+            {
+                throw new InvalidOperationException(
+                    "Bu ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin rolüne verilebilir: " +
+                    string.Join(", ", adminOnly.Select(ModuleLabel)));
+            }
+        }
+
+        // ── Rol kilidi: bu ROLE kapatılmış modül, role de verilemez ────────────────────────────
+        var kapali = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForRoles(
+            conn, tx, companyId, new[] { roleKey });
+        if (kapali.Count > 0)
+        {
+            var carpanlar = gelen.Where(m => Dolu(m) && kapali.Contains(m.ModuleKey))
+                                 .Select(m => ModuleLabel(m.ModuleKey)).ToList();
+            if (carpanlar.Count > 0)
+                throw new InvalidOperationException(
+                    "Bu ekranlar bu role kapatılmıştır ve verilemez: " + string.Join(", ", carpanlar) +
+                    ". Açmak için 'Rol Yetki Kontrol' ekranını kullanın.");
+        }
+
+        // ── DEVRETME TAVANI (aktör kendinde olmayanı veremez) ─────────────────────────────────
+        var (clampMods, clampBtns, clampOwn) = GrantableLimit(conn, tx, actor);
+
+        var oncesi = RolePermSnapshot(conn, tx, roleId, companyId);
+
+        Exec(conn, tx, "DELETE FROM role_permissions WHERE role_id=@r AND company_id=@c;",
+            c => { c.AddWithValue("@r", roleId); c.AddWithValue("@c", companyId); });
+        Exec(conn, tx, "DELETE FROM role_button_permissions WHERE role_id=@r AND company_id=@c;",
+            c => { c.AddWithValue("@r", roleId); c.AddWithValue("@c", companyId); });
+
+        foreach (var mIn in gelen)
+        {
+            var m = ClampModule(mIn, clampMods, actor, clampOwn);
+            if (!Dolu(m)) continue;   // boş satır yazma → deny-by-default
+            Exec(conn, tx,
+                "INSERT INTO role_permissions(id, company_id, role_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version) " +
+                "VALUES(@id,@c,@r,@m,@v,@cr,@e,@d,@now,@now,1);",
+                c =>
+                {
+                    c.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+                    c.AddWithValue("@c", companyId);
+                    c.AddWithValue("@r", roleId);
+                    c.AddWithValue("@m", m.ModuleKey);
+                    c.AddWithValue("@v", m.CanView ? 1 : 0);
+                    c.AddWithValue("@cr", m.CanCreate ? 1 : 0);
+                    c.AddWithValue("@e", m.CanEdit ? 1 : 0);
+                    c.AddWithValue("@d", m.CanDelete ? 1 : 0);
+                    c.AddWithValue("@now", now);
+                });
+        }
+
+        foreach (var b in buttons.Distinct())
+        {
+            if (clampBtns is not null && !clampBtns.Contains(b)) continue;   // tavan
+            Exec(conn, tx,
+                "INSERT INTO role_button_permissions(id, company_id, role_id, button_key, created_at) VALUES(@id,@c,@r,@b,@now);",
+                c =>
+                {
+                    c.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+                    c.AddWithValue("@c", companyId);
+                    c.AddWithValue("@r", roleId);
+                    c.AddWithValue("@b", b);
+                    c.AddWithValue("@now", now);
+                });
+        }
+
+        var sonrasi = RolePermSnapshot(conn, tx, roleId, companyId);
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "role_permission", roleId, AuditActions.Update,
+            actor.UserId, BeforeJson: oncesi, AfterJson: sonrasi), _clock);
+        tx.Commit();
+
+        // Rol izni DEĞİŞTİ → o role sahip HERKESİN fotoğrafı bayat. Kimlerin etkilendiğini ayrıca
+        // sorgulamak yerine tamamı düşürülür (güvenli taraf; rol kilidi de böyle yapıyor).
+        _snapshots?.InvalidateAll();
+    }
+
+    // ── ROL ANAHTARIYLA ÇALIŞAN İNCE KATMAN ───────────────────────────────────────────────────
+    //
+    // Depolama role_id ile yapılır (user_permissions ile aynı şekil + doğrudan join → sıcak yol hızlı).
+    // Ama arayüz ve mevcut "Rol Yetki Kontrol" ekranı ROL ANAHTARI ile konuşur (role_grant_limits de
+    // role_key kullanır). İki sözlüğü tek yerde birleştiriyoruz ki çağıranlar id aramak zorunda kalmasın.
+
+    /// <summary>Rol anahtarı → bu firmada kullanılabilir rol kimliği. Yoksa hata (fail-closed).</summary>
+    public string ResolveRoleId(SessionContext actor, string roleKey)
+    {
+        using var conn = _factory.Create();
+        return RoleIdByKey(conn, null, actor.CompanyId, roleKey);
+    }
+
+    /// <inheritdoc cref="LoadForRole"/>
+    public (IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons) LoadForRoleKey(
+        SessionContext actor, string roleKey)
+        => LoadForRole(actor, ResolveRoleId(actor, roleKey));
+
+    /// <inheritdoc cref="SaveForRole"/>
+    public void SaveForRoleKey(SessionContext actor, string roleKey,
+        IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
+        => SaveForRole(actor, ResolveRoleId(actor, roleKey), modules, buttons);
+
+    /// <summary>Firmanın KENDİ rolü öncelikli; yoksa SİSTEM rolü (company_id NULL).</summary>
+    private static string RoleIdByKey(DbConnection conn, DbTransaction? tx, string companyId, string roleKey)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "SELECT id FROM roles WHERE role_key=@k AND is_deleted=0 " +
+            "AND (company_id=@c OR company_id IS NULL) " +
+            "ORDER BY CASE WHEN company_id IS NULL THEN 1 ELSE 0 END LIMIT 1;";
+        cmd.AddWithValue("@k", roleKey);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string
+               ?? throw new ForbiddenException("Rol bulunamadı: " + roleKey);
+    }
+
+    private static bool Dolu(ModulePermission m) => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete;
+
+    /// <summary>
+    /// Rol bu firmada kullanılabilir mi? Rol ya firmaya aittir ya da SİSTEM rolüdür
+    /// (<c>roles.company_id IS NULL</c> — Süper Admin/Admin/Personel gibi). Aksi hâlde bir firma
+    /// başka firmanın rolüne izin yazabilirdi. Rol anahtarını döndürür (kilit kontrolleri için).
+    /// </summary>
+    private static string EnsureRoleUsable(DbConnection conn, DbTransaction? tx, string companyId, string roleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT role_key, company_id FROM roles WHERE id=@r AND is_deleted=0;";
+        cmd.AddWithValue("@r", roleId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new ForbiddenException("Rol bulunamadı.");
+        var key = r.GetString(0);
+        var rolFirma = r.IsDBNull(1) ? null : r.GetString(1);
+        if (rolFirma is not null && !string.Equals(rolFirma, companyId, StringComparison.Ordinal))
+            throw new ForbiddenException("Tenant ihlali: rol başka firmaya ait.");
+        return key;
+    }
+
+    /// <summary>Audit için rolün izin fotoğrafı (öncesi/sonrası karşılaştırması).</summary>
+    private static string RolePermSnapshot(DbConnection conn, DbTransaction tx, string roleId, string companyId)
+    {
+        var sb = new System.Text.StringBuilder("{\"modules\":[");
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT module_key, can_view, can_create, can_edit, can_delete " +
+                              "FROM role_permissions WHERE role_id=@r AND company_id=@c ORDER BY module_key;";
+            cmd.AddWithValue("@r", roleId);
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            var ilk = true;
+            while (r.Read())
+            {
+                if (!ilk) sb.Append(',');
+                ilk = false;
+                sb.Append("{\"k\":\"").Append(r.GetString(0)).Append("\",\"v\":")
+                  .Append(r.GetInt64(1)).Append(",\"c\":").Append(r.GetInt64(2))
+                  .Append(",\"e\":").Append(r.GetInt64(3)).Append(",\"d\":").Append(r.GetInt64(4)).Append('}');
+            }
+        }
+        sb.Append("],\"buttons\":[");
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT button_key FROM role_button_permissions WHERE role_id=@r AND company_id=@c ORDER BY button_key;";
+            cmd.AddWithValue("@r", roleId);
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            var ilk = true;
+            while (r.Read())
+            {
+                if (!ilk) sb.Append(',');
+                ilk = false;
+                sb.Append('"').Append(r.GetString(0)).Append('"');
+            }
+        }
+        return sb.Append("]}").ToString();
     }
 }

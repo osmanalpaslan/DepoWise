@@ -169,10 +169,12 @@ public sealed partial class DocumentsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "Belge seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = Selected.Id;
         FormTitle2 = Selected.Title; FormDocType = Selected.DocType ?? "";
         FormDescription = Selected.Description ?? ""; FormFilePath = null;

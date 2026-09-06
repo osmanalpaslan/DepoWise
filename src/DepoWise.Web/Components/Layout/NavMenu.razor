@@ -32,7 +32,7 @@
             {
                 if (node.IsSection)
                 {
-                    <MudNavGroup Title="@node.Title" Icon="@BolumIkonu(node.Title)">
+                    <MudNavGroup Title="@node.Title" Icon="@BolumIkonu(node.Title)" Class="@BolumAilesi(node.Title)">
                         @foreach (var g in node.Groups) { @GrupCiz(g) }
                     </MudNavGroup>
                 }
@@ -99,14 +99,48 @@
     /// <summary>Tek bir üst menüyü çizer. Hem en üst seviyede hem de bir ÜST GRUBUN içinde
     /// kullanılır → çizim kuralı tek yerde kalır, iki dal ayrışamaz.</summary>
     private RenderFragment GrupCiz(MenuGroupView g) => @<MudNavGroup Title="@g.Title" Icon="@WebIcon(g.Key)"
+                                                                    Class="@GrupAilesi(g.Key)"
                                                                     Expanded="@(g.Key == "Web Yönetimi")">
         @* ⭐ MNU-IKON (2026-09-05): alt menülerde ikon EKLENDİ. Eskiden hiçbirinde ikon yoktu —
-           eksik kalmış değil, hiç tanımlanmamıştı. Kullanıcı şartı: simgesiz menü kalmayacak. *@
+           eksik kalmış değil, hiç tanımlanmamıştı. Kullanıcı şartı: simgesiz menü kalmayacak.
+           ⭐ FAZ 2 (ADR-221): ekran, üst menüsünün RENK AİLESİNİ miras alır — burada renk YAZILMAZ. *@
         @foreach (var e in g.Entries)
         {
-            <MudNavLink Href="@e.Screen.WebRoute" Icon="@EkranIkonu(e.Screen.Key)">@e.Label</MudNavLink>
+            <MudNavLink Href="@e.Screen.WebRoute" Icon="@EkranIkonu(e.Screen.Key)"
+                        Class="@EkranAilesi(e.Screen.Key)">@e.Label</MudNavLink>
         }
     </MudNavGroup>;
+
+    // ═══ FAZ 2 (ADR-221) — RENK AİLESİ SINIFLARI ═══════════════════════════════════════════
+    //
+    // Hangi menünün hangi aileyi kullandığı ORTAK katmandadır (MenuPalette); burada yalnız
+    // "aile → CSS sınıfı" çevirisi var. Masaüstündeki karşılığı DesktopMenuColors'tır.
+    //
+    // ⚠️ Renk YETKİDEN BAĞIMSIZDIR: bu sınıflar hiçbir görünürlük kararı vermez. Menüde ne
+    // görüneceğini yalnız yetki belirler (BuildGroups/Agac içindeki Visible süzgeci).
+    //
+    // ⚠️ Performans: MenuPalette çözümü sözlük araması + katalog taramasıdır; menü zaten her
+    // çizimde yeniden kuruluyor ve sonuç saf string olduğu için ek maliyet ölçülebilir değildir.
+
+    private static string SinifAdi(string aile, DepoWise.Application.Security.MenuPalette.Level seviye)
+        => "dw-fam dw-fam-" + aile + " dw-fam-" + seviye switch
+        {
+            DepoWise.Application.Security.MenuPalette.Level.Section => "section",
+            DepoWise.Application.Security.MenuPalette.Level.Group => "group",
+            _ => "screen",
+        };
+
+    /// <summary>Üst grup (section) — ailenin en güçlü tonu.</summary>
+    private static string BolumAilesi(string sectionTitle)
+        => SinifAdi(DepoWise.Application.Security.MenuPalette.ForSection(sectionTitle), DepoWise.Application.Security.MenuPalette.Level.Section);
+
+    /// <summary>Üst menü — üst grubundan MİRAS.</summary>
+    private static string GrupAilesi(string groupKey)
+        => SinifAdi(DepoWise.Application.Security.MenuPalette.ForGroup(groupKey), DepoWise.Application.Security.MenuPalette.Level.Group);
+
+    /// <summary>Ekran — üst menüsünden MİRAS. Ekranın kendi rengi yoktur.</summary>
+    private static string EkranAilesi(string screenKey)
+        => SinifAdi(DepoWise.Application.Security.MenuPalette.ForScreen(screenKey), DepoWise.Application.Security.MenuPalette.Level.Screen);
 
     private IEnumerable<(MenuGroupView G, MenuEntry E)> Filtered(IReadOnlyList<MenuGroupView> gruplar)
     {

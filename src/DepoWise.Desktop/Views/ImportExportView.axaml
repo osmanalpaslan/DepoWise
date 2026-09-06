@@ -68,13 +68,18 @@
                             <TextBlock Text="Örnek Excel İndir" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="Primary"  Command="{Binding ImportCommand}">
+                    <!-- ⭐ FAZ 4.15: şube şifresi girilip doğrulanmadan buton AKTİF OLMAZ. -->
+                    <Button Classes="Primary" Command="{Binding ImportCommand}" IsEnabled="{Binding CanImport}"
+                            ToolTip.Tip="{Binding ImportEngeli}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconImportExcel}"/>
                             <TextBlock Text="Excel'den İçe Aktar" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
+                <!-- ⭐ FAZ 4.15: engelin SEBEBİ ekranda yazar (buton neden pasif belli olsun). -->
+                <SelectableTextBlock Text="{Binding ImportEngeli}" IsVisible="{Binding HasImportEngeli}"
+                                     Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 <SelectableTextBlock Text="Önce ŞUBE seçin (zorunlu): kayıtlar bu şubeye yazılır; tüm şubelerde görünmesi için 'Tüm Şubeler' seçin. Sonra 'Örnek Excel İndir' ile şablonu alın, doldurun, içe aktarın. Farklı şubeye aktarımda uyarı çıkar."
                            Classes="Helper" TextWrapping="Wrap"/>
             </StackPanel>

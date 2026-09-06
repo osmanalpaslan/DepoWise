@@ -61,7 +61,7 @@
             </MudAlert>
         }
         <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" Groups="_moduleGroups"
-                    ReadOnlyAllAccess="_targetIsAdmin" Locked="@(!_edit)" />
+                    FieldRows="_fieldRows" ReadOnlyAllAccess="_targetIsAdmin" Locked="@(!_edit)" />
         @* G1a (2026-08-12): Kaydet'in yanına ÖZET ve SIFIRLA. Sıfırlama yıkıcıdır → ayrı renk + onay. *@
         <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             @if (!_targetIsAdmin && !_edit)
@@ -193,6 +193,113 @@
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
 </MudPaper>
 
+@* ═══ FAZ 3b-5 (ADR-223, 2026-09-05) — KORUMALI ALANLAR ══════════════════════════════════════
+   FİRMA ayarıdır, kişiye özel değildir: "bu alan bizim için hassastır" der. Korumalı yapılan alan
+   yukarıdaki yetki ağacında AYRI BİR SATIR olarak belirir ve oradan kişi/rol bazında açılır.
+
+   ⚠️ Korumasız alan ağaçta GÖRÜNMEZ — bilerek: korumasız alanı zaten herkes görür, ağaçta boş bir
+   kutu göstermek "kapalı" izlenimi verirdi. Liste boşken uygulama bugünküyle birebir aynı çalışır. *@
+<MudPaper Class="pa-4 mt-4" Elevation="2" Style="max-width:760px;">
+    <MudText Typo="Typo.h6" Class="mb-1">Korumalı Alanlar</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+        Bir alanı korumalı yaparsanız o alanı <b>yalnız yetkisi olan kişiler</b> görür.
+        Yetkiyi yukarıdaki <b>yetki ağacından</b> (alanın kendi ekranının altında) verirsiniz.
+        Hiçbir alan korumalı değilken uygulama <b>bugünkü gibi</b> çalışır.
+    </MudText>
+
+    @if (_korumaSatirlari.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">Korunabilir alan listesi yüklenemedi ya da boş.</MudAlert>
+    }
+    else
+    {
+        string? _sonEkran = null;
+        <MudSimpleTable Dense="true" Bordered="true" Style="max-width:700px;">
+            <thead><tr><th>Alan</th><th style="width:120px;">Korumalı</th><th>Ne olur?</th></tr></thead>
+            <tbody>
+            @foreach (var k in _korumaSatirlari)
+            {
+                @if (k.ScreenLabel != _sonEkran)
+                {
+                    _sonEkran = k.ScreenLabel;
+                    <tr><td colspan="3" style="background:var(--mud-palette-background);"><b>@k.ScreenLabel</b></td></tr>
+                }
+                var satir = k;
+                <tr>
+                    <td>@satir.Label</td>
+                    <td>
+                        <MudCheckBox T="bool" Dense="true" Value="@satir.IsProtected" Disabled="_korumaBusy"
+                                     ValueChanged="@(async (bool v) => await KorumaDegistir(satir, v))" />
+                    </td>
+                    <td><MudText Typo="Typo.caption" Class="mud-text-secondary">@satir.Note</MudText></td>
+                </tr>
+            }
+            </tbody>
+        </MudSimpleTable>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">
+            Değişiklik anında kaydedilir ve yetki ağacı yenilenir.
+        </MudText>
+    }
+    @if (_korumaMsg is not null)
+    {
+        <MudAlert Severity="@(_korumaOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_korumaMsg</MudAlert>
+    }
+</MudPaper>
+
+@* ═══ FAZ 3a (ADR-222, 2026-09-05) — ROL YETKİLERİ ═══════════════════════════════════════════
+   AYRI bir bölüm olarak eklendi; yukarıdaki KULLANICI akışına HİÇ dokunulmadı (çalışan yapıyı
+   bozmama şartı). Rol yetkisi, o role sahip HERKESE aynı izinleri EKLER — hiçbir şey kaldırmaz.
+
+   ⚠️ Bu ekranda DENY yoktur ve bilerek gösterilmez: model yalnız ALLOW üretir (K1). "Globalde ver,
+   ekranda engelle" gibi desteklenmeyen bir davranış kullanıcıya sunulmaz — aksi hâlde arayüz
+   tutmayacağı bir söz vermiş olurdu. *@
+<MudPaper Class="pa-4 mt-4" Elevation="2" Style="max-width:760px;">
+    <MudText Typo="Typo.h6" Class="mb-1">Rol Yetkileri</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+        Bir role verilen yetkiler, o role sahip <b>tüm kullanıcılara EKLENİR</b>. Kişiye özel yetkiler
+        yukarıdan verilmeye devam eder; ikisi birleşir ve <b>kimse bir şey kaybetmez</b>.
+    </MudText>
+
+    <MudSelect T="string" Value="_rolYetkiId" ValueChanged="OnRolYetkiSecildi" Label="Rol"
+               Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+               HelperText="Yetkilerini düzenlemek istediğiniz rolü seçin.">
+        @foreach (var r in _roles) { <MudSelectItem T="string" Value="@r.Key">@r.Name</MudSelectItem> }
+    </MudSelect>
+
+    @if (!string.IsNullOrEmpty(_rolYetkiId))
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="my-2">
+            Bu rolün yetkileri <b>@(_roles.FirstOrDefault(r => r.Key == _rolYetkiId)?.Name ?? "")</b> rolüne sahip
+            her kullanıcıya uygulanır. Kaydettiğinizde etki <b>anında</b> geçerli olur; yeniden giriş gerekmez.
+        </MudAlert>
+
+        <PermMatrix @ref="_rolMatrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons"
+                    Groups="_moduleGroups" FieldRows="_fieldRows" Locked="@(!_rolEdit)" />
+
+        <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            @if (!_rolEdit)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="@(() => _rolEdit = true)" Disabled="_rolBusy">Düzenle</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RolYetkileriniKaydet"
+                           Disabled="_rolBusy">@(_rolBusy ? "…" : "Kaydet")</MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ClearAll"
+                           OnClick="RolYetkileriniTemizle" Disabled="_rolBusy"
+                           Title="Ekrandaki tüm işaretleri kaldırır. Kaydet'e basmazsanız sunucuda hiçbir şey değişmez.">Tümünü Temizle</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="RolDuzenlemeIptal" Disabled="_rolBusy">Vazgeç</MudButton>
+            }
+        </MudStack>
+
+        @if (_rolMsg is not null)
+        {
+            <MudAlert Severity="@(_rolOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_rolMsg</MudAlert>
+        }
+    }
+</MudPaper>
+
 @code {
     private List<ApiClient.Opt> _users = new(), _modules = new(), _buttons = new();
 
@@ -262,6 +369,58 @@
     private Dictionary<string, string> _moduleGroups = new();
     private HashSet<string> _adminOnly = new();
     private readonly HashSet<string> _restricted = new();   // #3: alt role verilemeyen modüller
+
+    // ── FAZ 3b-5: alan yetkisi ──────────────────────────────────────────────────────────────
+    /// <summary>Yetki ağacında ALAN satırı olan anahtarlar (fld_*) — sunucudan gelir.</summary>
+    private HashSet<string> _fieldRows = new(StringComparer.Ordinal);
+
+    private sealed record KorumaSatiri(string ScreenKey, string ScreenLabel, string FieldKey,
+        string Label, string Note, bool IsProtected);
+
+    private List<KorumaSatiri> _korumaSatirlari = new();
+    private bool _korumaBusy, _korumaOk;
+    private string? _korumaMsg;
+
+    private async Task KorumaYukle()
+    {
+        try
+        {
+            var liste = new List<KorumaSatiri>();
+            foreach (var e in await Api.GetArrayAsync("/api/field-protections"))
+                liste.Add(new KorumaSatiri(S(e, "screenKey"), S(e, "screenLabel"), S(e, "fieldKey"),
+                    S(e, "label"), S(e, "note"), Bo(e, "isProtected")));
+            _korumaSatirlari = liste;
+        }
+        catch (Exception ex) { _korumaOk = false; _korumaMsg = "Korumalı alanlar yüklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// Korumayı açar/kapatır. Değişiklik ANINDA kaydedilir (tek kutu = tek karar; "kaydet" beklemek
+    /// yetki ağacının bayat kalmasına yol açardı) ve ardından AĞAÇ YENİLENİR — yeni alan satırı
+    /// hemen görünür/kaybolur.
+    /// </summary>
+    private async Task KorumaDegistir(KorumaSatiri satir, bool korumali)
+    {
+        _korumaBusy = true; _korumaMsg = null;
+        try
+        {
+            var err = await Api.PostAsync("/api/field-protections",
+                new { screenKey = satir.ScreenKey, fieldKey = satir.FieldKey, isProtected = korumali });
+            if (err is not null) { _korumaOk = false; _korumaMsg = err; return; }
+
+            _korumaOk = true;
+            _korumaMsg = korumali
+                ? $"«{satir.Label}» korumalı yapıldı. Yetki ağacından kimlerin göreceğini seçin."
+                : $"«{satir.Label}» koruması kaldırıldı; alanı herkes görür.";
+
+            await KorumaYukle();
+            // Ağaç yeniden kurulur: korumalı alan satırı belirir/kaybolur.
+            await LoadModules(string.IsNullOrEmpty(_userId) ? null : _userId);
+            if (!string.IsNullOrEmpty(_userId)) _loadPending = true;   // yetkiler render sonrası tazelenir
+        }
+        catch (Exception ex) { _korumaOk = false; _korumaMsg = "Kaydedilemedi: " + ex.Message; }
+        finally { _korumaBusy = false; }
+    }
     private readonly HashSet<string> _adminUserIds = new();  // hedef Admin/Süper mi
     private string? _userId;
     private bool _targetIsAdmin;   // hedef Admin/Süper Admin → matris tam işaretli + salt-okunur
@@ -284,7 +443,12 @@
                                  && !string.Equals(_roleKey, _loadedRoleKey, StringComparison.Ordinal);
 
     /// <summary>Düzenleme moduna geç. ⭐ Yüklenmiş yetkilere DOKUNMAZ — yalnız kilidi açar.</summary>
-    private void BeginEdit() { _edit = true; _msg = null; }
+    private async Task BeginEdit()
+    {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
+        _edit = true; _msg = null;
+    }
 
     /// <summary>Vazgeç — sunucudan taze yükleyip salt-okunur moda döner (yarım değişiklik kalmaz).</summary>
     private async Task CancelEdit()
@@ -347,6 +511,7 @@
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
         try { _roles = await Api.GetRolesAsync(); } catch { }
         try { _templates = await Api.OptionsAsync("/api/permission-templates/for-user", "id", "name"); } catch { }
+        await KorumaYukle();   // FAZ 3b-5
     }
 
     /// <summary>Kullanıcı seçilince ağaç yeni render edilir; matrix hazır olunca (ilk seçimde ref henüz null
@@ -357,6 +522,14 @@
         {
             _loadPending = false;
             await LoadUserPerms();
+        }
+        // FAZ 3a: rol matrisi de render OLDUKTAN SONRA doldurulur (kullanıcı akışıyla aynı desen —
+        // bileşen referansı ilk render'da henüz yoktur).
+        if (_rolYuklemeBekliyor && _rolMatrix is not null)
+        {
+            _rolYuklemeBekliyor = false;
+            await RolYetkileriniYukle();
+            StateHasChanged();
         }
     }
 
@@ -399,7 +572,7 @@
 
     private async Task LoadModules(string? userId = null)
     {
-        _modules = new(); _adminOnly = new(); _moduleGroups = new();
+        _modules = new(); _adminOnly = new(); _moduleGroups = new(); _fieldRows = new();
         var url = string.IsNullOrEmpty(userId) ? "/api/modules" : $"/api/modules?userId={Uri.EscapeDataString(userId)}";
         foreach (var e in await Api.GetArrayAsync(url))
         {
@@ -409,6 +582,8 @@
             _moduleGroups[key] = S(e, "group");
             if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
             if (e.TryGetProperty("restricted", out var r) && r.ValueKind == JsonValueKind.True) _restricted.Add(key);
+            // FAZ 3b-5: alan kalemi mi? (yalnız Oku/Düzelt çizilir + EDIT ⇒ VIEW bağlaması)
+            if (e.TryGetProperty("fieldItem", out var fi) && fi.ValueKind == JsonValueKind.True) _fieldRows.Add(key);
         }
     }
 
@@ -475,6 +650,98 @@
     /// ⚠️ <see cref="ResetPerms"/>'ten FARKI: bu işlem sunucuya <b>hiçbir şey yazmaz</b> — yalnız
     /// ekrandaki kutuları boşaltır. Kaydet'e basılmazsa değişiklik olmaz, Vazgeç eski hâli getirir.
     /// </summary>
+    // ═══ FAZ 3a (ADR-222, 2026-09-05) — ROL YETKİLERİ ═══════════════════════════════════════
+    //
+    // Ayrı durum değişkenleri kullanılır; yukarıdaki KULLANICI akışının hiçbir alanı paylaşılmaz
+    // → mevcut ekran davranışı hiç değişmez (çalışanı bozmama şartı).
+    //
+    // ⚠️ Rol yetkisi YALNIZ EKLER (K1). Bu yüzden burada "kaldır/engelle" kavramı yoktur; kutunun
+    // boş olması "o izni bu rol VERMİYOR" demektir, "yasaklıyor" demek DEĞİLDİR.
+
+    private PermMatrix? _rolMatrix;
+    private string? _rolYetkiId;      // rol ANAHTARI (API ve Rol Yetki Kontrol ekranı da anahtarla konuşur)
+    private bool _rolEdit, _rolBusy, _rolOk;
+    private string? _rolMsg;
+    private bool _rolYuklemeBekliyor;
+
+    private async Task OnRolYetkiSecildi(string? roleKey)
+    {
+        _rolYetkiId = roleKey;
+        _rolEdit = false;
+        _rolMsg = null;
+        if (string.IsNullOrEmpty(roleKey)) return;
+
+        // Modül listesi AKTÖRÜN verebilecekleriyle kırpılmış gelir (mevcut /api/modules davranışı).
+        if (_modules.Count == 0)
+            try { await LoadModules(); } catch (Exception ex) { _rolOk = false; _rolMsg = "Ekran listesi yüklenemedi: " + ex.Message; return; }
+
+        _rolYuklemeBekliyor = true;   // matris render olduktan SONRA doldurulur (kullanıcı akışıyla aynı desen)
+    }
+
+    private async Task RolYetkileriniYukle()
+    {
+        if (string.IsNullOrEmpty(_rolYetkiId) || _rolMatrix is null) return;
+        try
+        {
+            var doc = await Api.GetObjectAsync($"/api/permissions/role/{Uri.EscapeDataString(_rolYetkiId)}");
+            var list = new List<(string, bool, bool, bool, bool)>();
+            if (doc.TryGetProperty("modules", out var mods) && mods.ValueKind == JsonValueKind.Array)
+                foreach (var m in mods.EnumerateArray())
+                    list.Add((S(m, "moduleKey"), B(m, "canView"), B(m, "canCreate"), B(m, "canEdit"), B(m, "canDelete")));
+            _rolMatrix.LoadFrom(list);
+
+            var btnKeys = new List<string>();
+            if (doc.TryGetProperty("buttons", out var btns) && btns.ValueKind == JsonValueKind.Array)
+                foreach (var b in btns.EnumerateArray())
+                    if (b.ValueKind == JsonValueKind.String) btnKeys.Add(b.GetString() ?? "");
+            _rolMatrix.LoadButtons(btnKeys);
+        }
+        catch (Exception ex) { _rolOk = false; _rolMsg = "Rol yetkileri yüklenemedi: " + ex.Message; }
+    }
+
+    private async Task RolYetkileriniTemizle()
+    {
+        if (_rolMatrix is null || !_rolEdit) return;
+        if (!await Dialog.Confirm(
+            "Bu ROLE ait tüm yetki işaretleri kaldırılsın mı?\n\n" +
+            "Sunucuya hiçbir şey yazmaz — Kaydet'e basmazsanız hiçbir değişiklik olmaz.",
+            "Evet, Temizle")) return;
+        _rolMatrix.Clear();
+    }
+
+    private void RolDuzenlemeIptal()
+    {
+        _rolEdit = false;
+        _rolMsg = null;
+        _rolYuklemeBekliyor = true;   // sunucudaki gerçek durumu geri yükle
+    }
+
+    private async Task RolYetkileriniKaydet()
+    {
+        if (string.IsNullOrEmpty(_rolYetkiId) || _rolMatrix is null) return;
+        var rolAdi = _roles.FirstOrDefault(r => r.Key == _rolYetkiId)?.Name ?? _rolYetkiId;
+
+        if (!await Dialog.Confirm(
+                $"\"{rolAdi}\" rolünün yetkileri kaydedilecek.\n\n" +
+                "Bu yetkiler, bu role sahip TÜM kullanıcılara EKLENİR. Kimsenin mevcut yetkisi kaldırılmaz.\n\n" +
+                "Etki anında geçerli olur; kullanıcıların yeniden giriş yapması gerekmez.",
+                "Evet, Kaydet")) return;
+
+        _rolBusy = true; _rolMsg = null;
+        try
+        {
+            var err = await Api.PostAsync($"/api/permissions/role/{Uri.EscapeDataString(_rolYetkiId)}",
+                new { modules = _rolMatrix.Collect(), buttons = _rolMatrix.CollectButtons() });
+            if (err is not null) { _rolOk = false; _rolMsg = err; return; }
+            _rolOk = true;
+            _rolMsg = $"\"{rolAdi}\" rolünün yetkileri kaydedildi.";
+            _rolEdit = false;
+            _rolYuklemeBekliyor = true;   // sunucunun GERÇEKTE yazdığını göster (tavan kırpmış olabilir)
+        }
+        catch (Exception ex) { _rolOk = false; _rolMsg = "Kaydedilemedi: " + ex.Message; }
+        finally { _rolBusy = false; }
+    }
+
     private async Task ClearAllPerms()
     {
         if (_matrix is null || !_edit) return;

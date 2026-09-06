@@ -23,6 +23,39 @@ else if (_rows is null)
 }
 else
 {
+    @* ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" YÖNETİMİ (masaüstüyle aynı yer/aynı kural).
+       Kapatılan tanımın yanında "+" görünmez; hızlı ekleme sunucuda da reddedilir. Tanım, "Tanım Düzenle"
+       ekranından her zaman eklenebilir → firma kendi tanımını ekleyemez duruma DÜŞMEZ. *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
+        <MudText Typo="Typo.h6" Class="mb-1">Satır içi "+" (hızlı tanım ekleme)</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Kapatılan tanımın yanında "+" görünmez; kullanıcı o tanımı formdan ekleyemez.
+            Tanım, "Tanım Düzenle" ekranından her zaman eklenebilir. Bu ayar yalnız sizin firmanızı etkiler.
+        </MudText>
+        @if (_artiSatirlar is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else
+        {
+            <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
+                <tbody>
+                @foreach (var a in _artiSatirlar)
+                {
+                    <tr>
+                        <td style="width:240px">@a.Label</td>
+                        <td style="width:150px">
+                            <MudCheckBox T="bool" Dense="true" Label="&quot;+&quot; açık" Value="@a.Enabled"
+                                         ReadOnly="@(!Auth.IsAdmin)"
+                                         ValueChanged="@(async (bool v) => await ArtiDegistir(a, v))" />
+                        </td>
+                        <td class="mud-text-secondary">@a.Screen</td>
+                    </tr>
+                }
+                </tbody>
+            </MudSimpleTable>
+            @if (!Auth.IsAdmin) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Bu ayarı yalnız firma yöneticisi değiştirebilir.</MudText> }
+            @if (_artiMesaj is not null) { <MudText Typo="Typo.caption" Color="@(_artiOk ? Color.Success : Color.Error)">@_artiMesaj</MudText> }
+        }
+    </MudPaper>
+
     @foreach (var ekran in _rows.GroupBy(r => Str(r, "screenLabel")))
     {
         <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
@@ -55,7 +88,43 @@ else
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok;
 
-    protected override async Task OnInitializedAsync() => await Load();
+    protected override async Task OnInitializedAsync() { await Load(); await ArtiYukle(); }
+
+    // ═══ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" AYARI ════════════════════════════
+    private sealed class ArtiSatir { public string Table = ""; public string Label = ""; public string Screen = ""; public bool Enabled = true; }
+
+    private List<ArtiSatir>? _artiSatirlar;
+    private string? _artiMesaj;
+    private bool _artiOk;
+
+    private async Task ArtiYukle()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/lookup-plus");
+            _artiSatirlar = arr.Select(x => new ArtiSatir
+            {
+                Table = Str(x, "table"), Label = Str(x, "label"), Screen = Str(x, "screen"),
+                Enabled = !x.TryGetProperty("enabled", out var e) || e.ValueKind != JsonValueKind.False,
+            }).ToList();
+        }
+        catch { _artiSatirlar = new(); }
+    }
+
+    private async Task ArtiDegistir(ArtiSatir satir, bool acik)
+    {
+        if (!Auth.IsAdmin) return;
+        var hata = await Api.PostAsync($"/api/lookup-plus/{satir.Table}", new { enabled = acik });
+        _artiOk = hata is null;
+        if (_artiOk)
+        {
+            satir.Enabled = acik;
+            _artiMesaj = acik
+                ? $"«{satir.Label}» için satır içi \"+\" açıldı."
+                : $"«{satir.Label}» için satır içi \"+\" kapatıldı (tanım, Tanım Düzenle ekranından eklenebilir).";
+        }
+        else _artiMesaj = hata;
+    }
 
     private async Task Load()
     {

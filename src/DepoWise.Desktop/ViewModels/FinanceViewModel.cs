@@ -32,6 +32,18 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed partial class FinanceViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar servisin kendisinden (FieldAccess) gelir — web de AYNI fonksiyonun sonucunu
+    // /api/field-access üzerinden okur. İki platformda ikinci bir yetki mantığı YOKTUR.
+    // ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR: gerçek kapı serviste. Burası "0,00 gösterme" içindir.
+    /// <summary>Kasa/banka hareket tutarı açık mı?</summary>
+    public bool TutarGorunur => DepoWise.Application.Security.FieldAccess.Gorunur(_session, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Amount);
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar servisin kendisinden (FieldAccess) gelir — web de AYNI fonksiyonun sonucunu
+    // /api/field-access üzerinden okur. İki platformda ikinci bir yetki mantığı YOKTUR.
+    // ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR: gerçek kapı serviste. Burası "0,00 gösterme" içindir.
+    /// <summary>Kasa/banka hesap bakiyesi açık mı?</summary>
+    public bool BakiyeGorunur => DepoWise.Application.Security.FieldAccess.Gorunur(_session, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
 
     /// <summary>G4-3d — ORTAK ŞUBE KAPSAMI. Seçim OKUMA filtresidir; yazmada tekil
     /// <see cref="BranchScopeSelector.ActiveWriteBranchId"/> kullanılır.</summary>
@@ -109,7 +121,11 @@ public sealed partial class FinanceViewModel : ViewModelBase
                     Rows.Clear();
                     foreach (var r in rows) Rows.Add(r);
                     var toplam = rows.Sum(x => x.Balance);
-                    TotalText = rows.Count == 0 ? "—" : $"Toplam: {toplam:0.00} TL · {rows.Count} hesap";
+                    // ⭐ FAZ 3b-5 TÜREV SIZINTI: bakiye toplamı da bakiyedir. Bakiye kapalıyken
+                    // toplam gösterilmez; hesap SAYISI tutar değildir → kalır. (Web ile aynı karar.)
+                    TotalText = rows.Count == 0 ? "—"
+                        : BakiyeGorunur ? $"Toplam: {toplam:0.00} TL · {rows.Count} hesap"
+                        : $"{rows.Count} hesap";
                     Status = rows.Count == 0 ? "Hesap bulunamadı." : $"{rows.Count} hesap";
                 });
             });
@@ -187,6 +203,8 @@ public sealed partial class FinanceViewModel : ViewModelBase
     private async Task EditAccount()
     {
         if (Selected is null || !CanEdit) return;
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         var a = DesktopServices.FinanceQueries.Account(_session, Selected.Account.Id);
         _editId = a.Id; _editVersion = a.Version;
         FormTitle = "Hesabı Düzenle";

@@ -227,10 +227,12 @@ public sealed partial class CalendarViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (SelectedAgenda is not { IsEvent: true } e) { Status = "Düzenlemek için el ile eklenmiş (★) bir takvim kaydı seçin."; return; }
         if (!CanEditEvents) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = e.Id; _editVersion = e.Version;
         FormTitle2 = e.Title; FormNote = e.Note ?? "";
         FormStart = DateTimeOffset.FromUnixTimeMilliseconds(e.StartDate);

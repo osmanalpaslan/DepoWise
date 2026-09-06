@@ -84,16 +84,19 @@
             <!-- ── SOL: HESAP LİSTESİ ───────────────────────────────────────────────────── -->
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" ctrl:TableHeaderSync.Source="{Binding #HesapListesi}">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                             <SelectableTextBlock Grid.Column="1" Text="HESAP ADI" MinWidth="200"/>
                             <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90" MaxWidth="90"/>
-                            <SelectableTextBlock Grid.Column="3" Text="BAKİYE" MinWidth="150" MaxWidth="150"/>
+                            <!-- FAZ 3b-6 (gerçek GUI testinde bulundu): satır hücresi gizlenirken bu
+                                 BAŞLIK gizlenmiyordu → boş "BAKİYE" başlığı kalıyor ve kolonlar kayıyordu. -->
+                            <SelectableTextBlock Grid.Column="3" Text="BAKİYE" MinWidth="150" MaxWidth="150"
+                                                 IsVisible="{Binding BakiyeGorunur}"/>
                             <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                    <ListBox x:Name="HesapListesi" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:FinanceAccountRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
@@ -101,7 +104,7 @@
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Account.Name}" MinWidth="200" VerticalAlignment="Center"
                                                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.Name}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Account.KindText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.KindText}" />
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BalanceText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BalanceText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BalanceText}" IsVisible="{Binding $parent[ListBox].((vm:FinanceViewModel)DataContext).BakiyeGorunur}" />
                                     <SelectableTextBlock Grid.Column="4" Text="{Binding Account.StatusText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
@@ -263,7 +266,7 @@
                 <Border Grid.Row="0" Classes="Panel">
                     <StackPanel Spacing="4">
                         <SelectableTextBlock Text="{Binding Selected.Account.Name}" Classes="SectionTitle"/>
-                        <SelectableTextBlock Text="{Binding Selected.BalanceText}"/>
+                        <SelectableTextBlock Text="{Binding Selected.BalanceText}" IsVisible="{Binding BakiyeGorunur}"/>
                         <SelectableTextBlock Classes="Helper"
                                              Text="Bakiye hareketlerden hesaplanır; saklanmaz. İptal edilen hareketler listede görünür ama bakiyeye girmez."/>
                         <Button Classes="Danger" Content="Ters Kayıt" Command="{Binding OpenReversePanelCommand}"
@@ -274,16 +277,20 @@
 
                 <Border Grid.Row="1" Classes="Table" Margin="0,12,0,0">
                     <DockPanel>
-                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Border Classes="TableHeader" DockPanel.Dock="Top" ctrl:TableHeaderSync.Source="{Binding #EkstreListesi}">
                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90" MaxWidth="90"/>
                                 <SelectableTextBlock Grid.Column="1" Text="TÜR / AÇIKLAMA" MinWidth="140"/>
-                                <SelectableTextBlock Grid.Column="2" Text="GİRİŞ" MinWidth="90" MaxWidth="90"/>
-                                <SelectableTextBlock Grid.Column="3" Text="ÇIKIŞ" MinWidth="90" MaxWidth="90"/>
-                                <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="100" MaxWidth="100"/>
+                                <!-- FAZ 3b-5: tutar kapalıysa kolonlar BAŞLIĞIYLA BİRLİKTE çizilmez. -->
+                                <SelectableTextBlock Grid.Column="2" Text="GİRİŞ" MinWidth="90" MaxWidth="90" IsVisible="{Binding TutarGorunur}"/>
+                                <SelectableTextBlock Grid.Column="3" Text="ÇIKIŞ" MinWidth="90" MaxWidth="90" IsVisible="{Binding TutarGorunur}"/>
+                                <!-- FAZ 3b-6: ekstredeki yürüyen bakiye başlığı da satır hücresiyle
+                                     BİRLİKTE gizlenir (tutar VE bakiye açıkken görünür). -->
+                                <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="100" MaxWidth="100"
+                                                     IsVisible="{Binding BakiyeGorunur}"/>
                             </Grid>
                         </Border>
-                        <ListBox Classes="Table" ItemsSource="{Binding Statement}" SelectedItem="{Binding SelectedTxn}">
+                        <ListBox x:Name="EkstreListesi" Classes="Table" ItemsSource="{Binding Statement}" SelectedItem="{Binding SelectedTxn}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="acc:FinanceStatementRow">
                                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
@@ -295,9 +302,9 @@
                                             <SelectableTextBlock Text="İPTAL EDİLDİ" Classes="Error"
                                                                  IsVisible="{Binding Txn.IsReversed}"/>
                                         </StackPanel>
-                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Txn.In, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="{Binding Txn.Out, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="{Binding RunningBalance, StringFormat='{}{0:0.00}'}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Txn.In, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:FinanceViewModel)DataContext).TutarGorunur}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding Txn.Out, StringFormat='{}{0:0.00}'}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:FinanceViewModel)DataContext).TutarGorunur}"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding RunningBalance, StringFormat='{}{0:0.00}'}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" IsVisible="{Binding $parent[ListBox].((vm:FinanceViewModel)DataContext).BakiyeGorunur}"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

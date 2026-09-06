@@ -27,6 +27,20 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public void RefreshData() => Load();
     private readonly SessionContext _session;
 
+    // ═══ FAZ 3c — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════════════════
+    // ⭐ Karar servisin kendisinden gelir (MaterialService.FiyatGorunur → FieldAccess); web aynı
+    // sonucu /api/field-access üzerinden okur. İki platformda ikinci bir yetki mantığı YOKTUR.
+    //
+    // Neden STOK ekranı: hareket birim fiyatı, malzeme birim fiyatının başka bir taşıyıcısıdır.
+    // Malzeme kartında gizlenip burada açık kalsaydı koruma delinmiş olurdu (kaçak kanal).
+    //
+    // ⚠️ Bu bayrak GÜVENLİK DEĞİLDİR: gerçek kapı StockService'tedir (okuma maskeler, yazma yok sayar).
+    /// <summary>Birim fiyat bu kullanıcıya açık mı?</summary>
+    public bool FiyatGorunur => DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(_session);
+
+    /// <summary>Giriş formundaki fiyat alanı: hareket türü fiyat istiyorsa VE kullanıcı görebiliyorsa.</summary>
+    public bool FiyatAlaniGorunur => ShowPrice && FiyatGorunur;
+
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
 
     /// <summary>
@@ -274,7 +288,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
         try
         {
-            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim(), quick: true);
             Yerlestir(Suppliers, id, NewSupplierName, x => SelectedSupplier = x);
             IsAddingSupplier = false; NewSupplierName = "";
         }
@@ -308,7 +322,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         if (string.IsNullOrWhiteSpace(NewCategoryName)) return;
         try
         {
-            var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim());
+            var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim(), quick: true);
             Yerlestir(Categories, id, NewCategoryName, x => SelectedCategory = x);
             IsAddingCategory = false; NewCategoryName = "";
         }
@@ -345,7 +359,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         if (string.IsNullOrWhiteSpace(NewUnitName)) return;
         try
         {
-            var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim());
+            var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim(), quick: true);
             Yerlestir(Units, id, NewUnitName, x => SelectedUnit = x);
             IsAddingUnit = false; NewUnitName = "";
         }
@@ -361,7 +375,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         try
         {
             // "material" ayırt edicisi ŞART: markalar araç ve malzeme için ayrı listelerdir.
-            var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material");
+            var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material", quick: true);
             Yerlestir(Brands, id, NewBrandName, x => SelectedBrand = x);
             IsAddingBrand = false; NewBrandName = "";
         }

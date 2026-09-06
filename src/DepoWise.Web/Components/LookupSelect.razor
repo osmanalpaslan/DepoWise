@@ -60,7 +60,9 @@
     /// gelen listeye dâhildir (<c>AuthState.CanButton</c>) → yetkili kullanıcı düğmeyi KAYBETMEZ.
     /// </summary>
     private bool CanAdd => (AddTable is not null || CreatePath is not null)
-                           && Auth.CanButton("btn-add-lookup");
+                           && Auth.CanButton("btn-add-lookup")
+                           // ⭐ FAZ 4.6: firma bu tanım için satır içi "+"yı kapattıysa düğme çizilmez.
+                           && (AddTable is null || Auth.LookupPlusAcik(AddTable));
 
     private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
 
@@ -139,7 +141,7 @@
             }
             else
             {
-                err = await Api.PostAsync($"/api/lookups/{AddTable}", new { name });
+                err = await Api.PostAsync($"/api/lookups/{AddTable}?quick=true", new { name });   // FAZ 4.6: satır içi yol
             }
             if (err is null) await OnAdded.InvokeAsync(name);
             else await Dialog.Confirm("Eklenemedi: " + err, okText: "Tamam", cancelText: "");

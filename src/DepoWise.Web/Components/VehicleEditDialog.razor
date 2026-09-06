@@ -24,6 +24,11 @@
         else if (_notFound) { <MudAlert Severity="Severity.Error" Dense="true">Kayıt bulunamadı.</MudAlert> }
         else
         {
+        @* ⭐ FAZ 4.7 (kullanıcı isteği 2026-09-06): pencere SEKMELİ. İlk sekme mevcut bilgi/düzenleme
+           formudur (davranış değişmedi); diğer sekmeler araç listesindeki sağ panelin verileridir.
+           Masaüstündeki VehicleQuickEditWindow ile aynı sekme düzeni. *@
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pt-3">
+        <MudTabPanel Text="Bilgi">
             <MudGrid Spacing="2" Style="min-width:min(560px,80vw)">
                 <MudItem xs="6"><MudField Label="İç Kod" Variant="Variant.Text">@_code</MudField></MudItem>
                 <MudItem xs="6">
@@ -135,10 +140,48 @@
             }
             @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">İç kod ve sayaç bu pencerede değişmez; fotoğraf eklemek/silmek için “Tam Düzenleme”yi kullanın.</MudText> }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Uyumlu Malzemeler">
+            @if (_sekmeYukleniyor) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_malzemeler.Count == 0) { <MudText Class="mud-text-secondary">Bu araca uyumlu malzeme tanımlanmamış.</MudText> }
+            else
+            {
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <thead><tr><th>KOD</th><th>MALZEME</th><th>STOK</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in _malzemeler)
+                        { <tr><td>@Str(m, "code")</td><td>@Str(m, "name")</td><td>@Str(m, "quantity")</td></tr> }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Bakımlar">
+            @if (_sekmeYukleniyor) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_bakimlar.Count == 0) { <MudText Class="mud-text-secondary">Bu araca ait bakım kaydı yok.</MudText> }
+            else
+            {
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <thead><tr><th>YAPILMA</th><th>BAKIM</th><th>DURUM</th></tr></thead>
+                    <tbody>
+                        @foreach (var b in _bakimlar)
+                        { <tr><td>@Str(b, "performedDisplay")</td><td>@Str(b, "definitionName")</td><td>@Str(b, "statusText")</td></tr> }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudTabPanel>
+        </MudTabs>
         }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Close">Kapat</MudButton>
+        @* ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+           Yetki kapısı SUNUCUDADIR (btn-screen-log + kaydın ekranında View); burası yalnız giriş yolu. *@
+        @if (!_loading && !_notFound && Auth.CanButton("btn-screen-log"))
+        {
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.History" OnClick="KayitGecmisi">Geçmiş</MudButton>
+        }
         @if (!_loading && !_notFound)
         {
             @if (Auth.CanDelete("vehicles"))
@@ -171,10 +214,39 @@
 </MudDialog>
 
 @code {
+    /// <summary>⭐ FAZ 4.3 — bu kaydın KENDİ log ekranı (alan bazlı geçmiş).</summary>
+    private async Task KayitGecmisi()
+    {
+        var parms = new DialogParameters
+        {
+            ["Title"] = "Kayıt Geçmişi — " + (string.IsNullOrWhiteSpace(_plate) ? _code : _plate),
+            ["EntityType"] = "vehicle",
+            ["EntityId"] = Id,
+            ["KayitBaglantisi"] = false,
+        };
+        await Dialog.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    }
+
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string Id { get; set; } = "";
 
     private bool _loading = true, _notFound, _edit, _busy, _ok;
+
+    // ═══ FAZ 4.7 (kullanıcı isteği 2026-09-06) — SEKME VERİLERİ ═════════════════════════════════
+    // Araç listesindeki sağ panelin verileri bu pencerede de sekme olarak görünür (masaüstü paritesi).
+    // Veriler MEVCUT uçlardan gelir; yeni bir veri yolu kurulmadı. Hata olursa sekme boş görünür,
+    // pencere yine açılır (kullanıcı bilgi formunu kaybetmez).
+    private bool _sekmeYukleniyor = true;
+    private List<JsonElement> _malzemeler = new(), _bakimlar = new();
+
+    private async Task SekmeVerileriniYukle()
+    {
+        try { _malzemeler = (await Api.GetArrayAsync($"/api/vehicles/{Id}/materials")).ToList(); } catch { }
+        try { _bakimlar = (await Api.GetArrayAsync($"/api/vehicles/{Id}/maintenance")).ToList(); } catch { }
+        _sekmeYukleniyor = false;
+        await InvokeAsync(StateHasChanged);
+    }
     private string? _msg;
     private string _code = "", _plate = "", _status = "active", _statusNote = "", _chassis = "", _engine = "", _meterUnit = "km";
     private long _version; // düzenleme kilidi (bkz. SaveRecord)
@@ -226,6 +298,7 @@
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
             _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
             await LoadPhotos();   // kullanıcı isteği 2026-09-02: fotoğraflar bu pencerede de görünsün
+            _ = SekmeVerileriniYukle();   // FAZ 4.7: sekme verileri (arka planda; pencere hemen açılır)
         }
         catch { _notFound = true; }
         finally { _loading = false; }

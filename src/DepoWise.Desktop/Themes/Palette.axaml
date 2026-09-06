@@ -53,6 +53,20 @@
                  amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
             <SolidColorBrush x:Key="DateFieldBackgroundBrush" Color="#1E2436"/>
             <SolidColorBrush x:Key="DateFieldBorderBrush"     Color="#6A5220"/>
+
+            <!-- ═══ FAZ 2 (ADR-221) — MENÜ HİYERARŞİ RENK AİLELERİ ═══
+                 Aile ÜST GRUPTAN gelir, ekrana hardcode EDİLMEZ (bkz. MenuPalette).
+                 Kenar menüsü zemini #0F1524 → bu tonlar 3:1 kontrast şartını sağlar
+                 (MenuRenkTests kontrastı ÖLÇER, göz kararı değildir).
+                 ⚠️ Marka aksanı (AccentBrush, kehribar) BİLEREK aile olarak kullanılmadı:
+                 o renk "seçili" durumunu anlatır; aile rengiyle karışmamalı. -->
+            <SolidColorBrush x:Key="MenuFamilyStockBrush"      Color="#2DD4BF"/>
+            <SolidColorBrush x:Key="MenuFamilyOperationsBrush" Color="#60A5FA"/>
+            <SolidColorBrush x:Key="MenuFamilyFinanceBrush"    Color="#4ADE80"/>
+            <SolidColorBrush x:Key="MenuFamilyReportsBrush"    Color="#A78BFA"/>
+            <SolidColorBrush x:Key="MenuFamilyCorporateBrush"  Color="#F472B6"/>
+            <SolidColorBrush x:Key="MenuFamilySystemBrush"     Color="#FB923C"/>
+            <SolidColorBrush x:Key="MenuFamilyNeutralBrush"    Color="#94A3B8"/>
         </ResourceDictionary>
 
         <!-- ============ AÇIK (Aurora) ============ -->
@@ -96,6 +110,17 @@
                  amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
             <SolidColorBrush x:Key="DateFieldBackgroundBrush" Color="#FFF8EC"/>
             <SolidColorBrush x:Key="DateFieldBorderBrush"     Color="#E0B96A"/>
+
+            <!-- ═══ FAZ 2 (ADR-221) — MENÜ HİYERARŞİ RENK AİLELERİ (AÇIK TEMA) ═══
+                 Aynı aileler, açık zeminde (#F1F3F8) okunacak koyulukta. Anahtar adları
+                 koyu temayla AYNI → çizim kodu tema bilmez, yalnız aileyi bilir. -->
+            <SolidColorBrush x:Key="MenuFamilyStockBrush"      Color="#0F766E"/>
+            <SolidColorBrush x:Key="MenuFamilyOperationsBrush" Color="#1D4ED8"/>
+            <SolidColorBrush x:Key="MenuFamilyFinanceBrush"    Color="#15803D"/>
+            <SolidColorBrush x:Key="MenuFamilyReportsBrush"    Color="#6D28D9"/>
+            <SolidColorBrush x:Key="MenuFamilyCorporateBrush"  Color="#BE185D"/>
+            <SolidColorBrush x:Key="MenuFamilySystemBrush"     Color="#C2410C"/>
+            <SolidColorBrush x:Key="MenuFamilyNeutralBrush"    Color="#475569"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

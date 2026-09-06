@@ -45,6 +45,20 @@ public sealed class SessionContext : ITenantContext
     public string? HomeBranchId { get; set; }
 
     /// <summary>
+    /// FAZ 3b (ADR-223) — Bu FİRMADA "korumalı" işaretlenmiş alanlar (<c>field_protections</c>),
+    /// <c>ekran|alan</c> biçiminde. Tek yorumlayıcısı <see cref="FieldAccess"/>'tir.
+    ///
+    /// <b>BOŞ = bugünkü davranış.</b> Küme boşken hiçbir alan korunmaz, hiçbir yetki sorusu sorulmaz
+    /// ve her kullanıcı bugün gördüğü/düzenlediği alanların hepsini görmeye devam eder. Bu, geri
+    /// uyumluluğun tek noktadaki güvencesidir (fail-safe: kümeyi dolduramayan bir kod yolu kazara
+    /// alan GİZLEMEZ, yalnız korumasız davranır).
+    ///
+    /// Firma bazlı olduğu için oturum kurulurken bir kez okunur ve snapshot ile önbelleklenir —
+    /// istek başına ya da satır başına sorgu YOKTUR.
+    /// </summary>
+    public IReadOnlySet<string> ProtectedFields { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// ŞB-04 — ŞUBE AĞACI: <c>üst şube → tüm alt şubeleri</c> (geçişli kapanış). Oturum kurulurken
     /// bir kez yüklenir (<c>BranchTree.LoadDescendants</c>); tek yorumlayıcısı BranchAccess'tir.
     ///

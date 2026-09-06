@@ -386,10 +386,14 @@ FROM parties p";
         // Bakiyeler: YALNIZ bu sayfadaki cariler için TEK sorgu. Toplama C#'ta decimal ile yapılır
         // (amount TEXT'tir; SQL SUM'ı SQLite'ta kayan noktaya düşer — Money kuralı).
         var totals = LedgerTotals(conn, s.CompanyId, records.Select(x => x.Id).ToList(), s, branchIds);
+        // ⭐ FAZ 3b: karar SORGU başına bir kez — satır döngüsünün içinde değil.
+        // Bakiye gizliyse borç ve alacak da gizlenir: Bakiye = Borç − Alacak olduğu için ikisinden
+        // biri görünür kalırsa bakiye fiilen açıkta olur.
+        var bakiyeGorunur = AccountingFieldGate.CariBakiye(s);
         var rows = records.Select(p =>
         {
             totals.TryGetValue(p.Id, out var t);
-            return new PartyListRow(p, t.Debit, t.Credit);
+            return bakiyeGorunur ? new PartyListRow(p, t.Debit, t.Credit) : new PartyListRow(p, 0m, 0m);
         }).ToList();
         return new GridResult<PartyListRow>(rows, total, page, pageSize);
     }

@@ -191,11 +191,13 @@ public sealed partial class WorkOrdersViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "İş emri seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
         if (!SelectedOpen) { Status = "Kapanmış iş emri düzenlenemez — yeni iş emri açın (PK-F2)."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = Selected.Id; _editVersion = Selected.Version;
         FormWoNo = Selected.WoNo; FormTitle2 = Selected.Title; FormDescription = Selected.Description ?? "";
         FormPriority = WorkOrderService.PriorityLabel(Selected.Priority);

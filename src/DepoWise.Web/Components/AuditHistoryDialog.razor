@@ -1,0 +1,168 @@
+@using System.Text.Json
+@inject ApiClient Api
+@inject IDialogService DialogService
+
+@* ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — ANLAŞILIR LOG (web karşılığı, masaüstüyle AYNI biçim).
+   Günlere ayrılmış liste: gün başlığı → o günün işlemleri → her işlemin ALAN BAZLI farkı
+   ("Sayaç: 10.000 → 155.000"). Eski düz metin dökümü kullanıcı için okunmuyordu.
+   İki kipte çalışır: EKRAN geçmişi (Module) ve TEK KAYIT geçmişi (EntityType+EntityId). *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Outlined.History" Class="mr-2" />@Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">@Aciklama</MudText>
+
+        @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_hata is not null) { <MudAlert Severity="Severity.Error" Dense="true">@_hata</MudAlert> }
+        else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Bu seçim için henüz kayıt geçmişi yok.</MudText> }
+        else
+        {
+            @foreach (var gun in Gunler())
+            {
+                <MudPaper Class="pa-2 mb-1 mt-3" Elevation="0"
+                          Style="background:var(--mud-palette-background-grey);border-radius:6px;">
+                    <MudText Typo="Typo.subtitle2"><b>@gun.Baslik</b>
+                        <span class="mud-text-secondary" style="font-weight:400;margin-left:10px">@gun.Ozet</span></MudText>
+                </MudPaper>
+
+                @foreach (var r in gun.Satirlar)
+                {
+                    <MudPaper Class="pa-3 mb-2" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default);border-radius:8px;">
+                        <div class="d-flex align-center flex-wrap" style="gap:12px;">
+                            <b>@Str(r, "timeText")</b>
+                            <span>@Str(r, "actionText")</span>
+                            <span class="mud-text-secondary">@Str(r, "entityLabel")</span>
+                            <span class="mud-text-secondary">@Str(r, "userText")</span>
+                            @if (KayitBaglantisi && Str(r, "entityId").Length > 0)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                           OnClick="@(() => KaydiAc(r))">Bu kaydın geçmişi</MudButton>
+                            }
+                        </div>
+                        @{ var degisiklikler = Degisiklikler(r); }
+                        @if (degisiklikler.Count > 0)
+                        {
+                            <div class="mt-1">
+                                @foreach (var d in degisiklikler)
+                                {
+                                    <MudText Typo="Typo.body2" Style="margin-left:8px">• @d</MudText>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @(Bool(r, "beforeUnknown")
+                                    ? "Bu işlemden önceki hâl kayıtlı değil (alan farkı gösterilemiyor)."
+                                    : "Bu işlemde izlenen alanlarda değişiklik olmadı.")
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Kapat">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter] public string Title { get; set; } = "Kayıt Geçmişi";
+    /// <summary>Ekran kipi: bu modülün tüm kayıt geçmişi.</summary>
+    [Parameter] public string? Module { get; set; }
+    /// <summary>Kayıt kipi: tek kaydın tüm geçmişi.</summary>
+    [Parameter] public string? EntityType { get; set; }
+    [Parameter] public string? EntityId { get; set; }
+    /// <summary>Satırlardan tek kaydın geçmişine inilebilsin mi (ekran kipinde açıktır).</summary>
+    [Parameter] public bool KayitBaglantisi { get; set; }
+
+    private JsonElement[]? _rows;
+    private string? _hata;
+
+    private string Aciklama => Module is not null
+        ? "İşlemler güne göre gruplanır; her satırın altında hangi alanın neye döndüğü yazar. Gösterilen zaman, kaydın sisteme GİRİLDİĞİ andır."
+        : "Bu kaydın tüm geçmişi. Her satırın altında o işlemde hangi alanın neye döndüğü yazar.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var url = Module is not null
+                ? $"/api/audit/screen?module={Uri.EscapeDataString(Module)}&limit=300"
+                : $"/api/audit/record?entityType={Uri.EscapeDataString(EntityType ?? "")}&entityId={Uri.EscapeDataString(EntityId ?? "")}";
+            _rows = await Api.GetArrayAsync(url);
+        }
+        catch (Exception ex) { _hata = "Geçmiş okunamadı: " + ex.Message; _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private void Kapat() => Dialog.Close();
+
+    /// <summary>Satırdaki bağlantı: o kaydın KENDİ geçmişini yeni bir pencerede açar.</summary>
+    private async Task KaydiAc(JsonElement r)
+    {
+        var parms = new DialogParameters
+        {
+            ["Title"] = "Kayıt Geçmişi — " + Str(r, "entityLabel"),
+            ["EntityType"] = Str(r, "entityType"),
+            ["EntityId"] = Str(r, "entityId"),
+            ["KayitBaglantisi"] = false,
+        };
+        await DialogService.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    }
+
+    private sealed record Gun(string Baslik, string Ozet, List<JsonElement> Satirlar);
+
+    /// <summary>Satırları GÜNE göre gruplar (sunucu sırası korunur: en yeni üstte).</summary>
+    private List<Gun> Gunler()
+    {
+        var sonuc = new List<Gun>();
+        foreach (var g in (_rows ?? Array.Empty<JsonElement>()).GroupBy(r => Str(r, "dayText")))
+        {
+            var liste = g.ToList();
+            sonuc.Add(new Gun(GunBasligi(g.Key), liste.Count == 1 ? "1 işlem" : $"{liste.Count} işlem", liste));
+        }
+        return sonuc;
+    }
+
+    private static string GunBasligi(string gun)
+    {
+        if (!DateTime.TryParseExact(gun, "dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var t)) return gun;
+        if (t.Date == DateTime.Today) return "Bugün · " + gun;
+        if (t.Date == DateTime.Today.AddDays(-1)) return "Dün · " + gun;
+        return t.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "Pazartesi", DayOfWeek.Tuesday => "Salı", DayOfWeek.Wednesday => "Çarşamba",
+            DayOfWeek.Thursday => "Perşembe", DayOfWeek.Friday => "Cuma", DayOfWeek.Saturday => "Cumartesi",
+            _ => "Pazar",
+        } + " · " + gun;
+    }
+
+    /// <summary>Sunucunun hazırladığı alan farkları ("Sayaç: 10.000 → 155.000").</summary>
+    private static List<string> Degisiklikler(JsonElement r)
+    {
+        var liste = new List<string>();
+        if (r.ValueKind == JsonValueKind.Object && r.TryGetProperty("changes", out var c)
+            && c.ValueKind == JsonValueKind.Array)
+            foreach (var d in c.EnumerateArray())
+                if (d.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+                    liste.Add(t.GetString() ?? "");
+        return liste;
+    }
+
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+           && v.ValueKind == JsonValueKind.True;
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

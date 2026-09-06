@@ -95,7 +95,11 @@ public sealed record DailyActivityGridFilter(
     string? Duration = null, string? Description = null,
     // 2026-09-04 (kullanıcı isteği): kullanılan malzeme miktarı — SAYISAL filtre
     // ("=5", ">10" gibi karşılaştırma yazılabilir; "içerir" araması değil).
-    string? MaterialQty = null);
+    string? MaterialQty = null,
+    /// <summary>⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): ÇOKLU araç seçimi. Boş/null → süzme yok
+    /// (bugünkü davranış). Metin bazlı <see cref="Vehicle"/> filtresinden AYRIDIR: bu, araç
+    /// KİMLİKLERİYLE kesin süzer (Araçlar ekranındaki çoklu seçim deseninin aynısı).</summary>
+    IReadOnlyList<string>? VehicleIds = null);
 
 /// <summary>
 /// Günlük faaliyet — bakım tipi ORTAK MaintenanceService'i kullanır: TEK bakım kaydı + TEK stok düşümü;
@@ -389,6 +393,26 @@ WHERE da.company_id = @c";
     /// (<c>da.activity_date</c> — gerçek iş günü alanı; <c>created_at</c> ASLA kullanılmaz).
     /// Varsayılan <c>null</c> → mevcut tüm çağrılar ve API sözleşmesi BİREBİR AYNI çalışır.</param>
     /// <param name="toDateMs">İş günü aralığının bitişi (dahil).</param>
+    // ═══ FAZ 4.9 (kullanıcı isteği 2026-09-06) — ÇOKLU ARAÇ SÜZGECİ ═════════════════════════════
+    // Araç KİMLİKLERİYLE kesin süzme. SQL metni listeden ÜRETİLMEZ: yalnız parametre ADLARI üretilir
+    // (@dav0, @dav1 …) ve değerler bağlanır → enjeksiyon yüzeyi yoktur. Boş liste = süzme yok.
+
+    /// <summary>Seçilen araçlar için WHERE parçası; seçim yoksa boş metin (bugünkü davranış).</summary>
+    private static string AracIdSql(IReadOnlyList<string>? ids)
+    {
+        if (ids is not { Count: > 0 }) return "";
+        var adlar = new List<string>(ids.Count);
+        for (int i = 0; i < ids.Count; i++) adlar.Add("@dav" + i);
+        return " AND da.vehicle_id IN (" + string.Join(",", adlar) + ")";
+    }
+
+    /// <summary>Araç kimliklerini parametre olarak bağlar (SQL metnine ASLA gömülmez).</summary>
+    private static void AracIdBagla(System.Data.Common.DbCommand cmd, IReadOnlyList<string>? ids)
+    {
+        if (ids is not { Count: > 0 }) return;
+        for (int i = 0; i < ids.Count; i++) cmd.AddWithValue("@dav" + i, ids[i]);
+    }
+
     public GridResult<DailyActivityGridRow> SearchGrid(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
         string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false,
         long? fromDateMs = null, long? toDateMs = null)
@@ -423,7 +447,10 @@ WHERE da.company_id = @c";
             + TipYetkisiSql(s)   // 2026-09-03: kayıt tipi yetkisi — kısıtlı kullanıcı yalnız izinli tipleri görür
             // ⭐ ARA İŞ 4 / PK-CR-10=A: iş günü aralığı SQL'de süzülür (bellekte kesme YOK).
             + (fromDateMs is not null ? " AND da.activity_date >= @crFrom" : "")
-            + (toDateMs is not null ? " AND da.activity_date <= @crTo" : "");
+            + (toDateMs is not null ? " AND da.activity_date <= @crTo" : "")
+            // ⭐ FAZ 4.9: çoklu araç — parametreler ADLA bağlanır, listeden SQL metni ÜRETİLMEZ
+            // (enjeksiyon yüzeyi yok; Araçlar ekranındaki InList deseniyle aynı mantık).
+            + AracIdSql(filter.VehicleIds);
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -433,6 +460,7 @@ WHERE da.company_id = @c";
             if (BranchScope.Active(s) is { } b0) cnt.AddWithValue("@opb", b0);
             if (fromDateMs is { } cf0) cnt.AddWithValue("@crFrom", cf0);
             if (toDateMs is { } ct0) cnt.AddWithValue("@crTo", ct0);
+            AracIdBagla(cnt, filter.VehicleIds);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -445,6 +473,7 @@ WHERE da.company_id = @c";
             if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             if (fromDateMs is { } cf1) cmd.AddWithValue("@crFrom", cf1);
             if (toDateMs is { } ct1) cmd.AddWithValue("@crTo", ct1);
+            AracIdBagla(cmd, filter.VehicleIds);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);

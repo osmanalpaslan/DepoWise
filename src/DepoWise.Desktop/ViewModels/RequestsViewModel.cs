@@ -23,8 +23,16 @@ namespace DepoWise.Desktop.ViewModels;
 /// kaydedildikten sonra düzenleme/silme YOK; yalnız onay/ret akışı kalır. Onay/ret RequestService
 /// durum makinesi + buton yetkisiyle (master/yetkili) korunur.
 /// </summary>
-public sealed partial class RequestsViewModel : ViewModelBase
+public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "material_request";
+    public string? LogEntityId => Selected?.Id;
+    public string? LogKayitAdi => Selected?.DocNo;
+
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "requests", PermissionAction.Create);
@@ -238,11 +246,13 @@ public sealed partial class RequestsViewModel : ViewModelBase
 
     /// <summary>Seçili talebi forma yükler (onaylı değilse). Belge no/durum korunur, kalemler tam değiştirilir.</summary>
     [RelayCommand]
-    private void BeginEditRequest()
+    private async System.Threading.Tasks.Task BeginEditRequest()
     {
         if (Selected is null) { Status = "Talep seçin."; return; }
         if (Selected.Status == RequestStatus.Approved) { Status = "Onaylanmış talep düzenlenemez."; return; }
         if (!CanWrite) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         try
         {
             var d = DesktopServices.Requests.GetForEdit(_session, Selected.Id);

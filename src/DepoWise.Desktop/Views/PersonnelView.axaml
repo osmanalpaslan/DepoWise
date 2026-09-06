@@ -103,7 +103,7 @@
                         </ComboBox>
                     </ctrl:FormField>
                     <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasLinkableUsers}"
-                                         Text="Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcı yok. Önce 'Kullanıcılar' ekranından hesap açın."/>
+                                         Text="{Binding LinkableEmptyReason}"/>
                     <SelectableTextBlock Text="Yalnız henüz bir personele bağlı olmayan kullanıcılar listelenir. Ekran yetkileri 'Yetkiler' ekranından ayarlanır."
                                          Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasLinkableUsers}"/>
                 </StackPanel>

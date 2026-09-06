@@ -282,6 +282,69 @@ public static class BusinessSyncPushService
     /// Kullanıcıya "eşitleniyor" sanılan sessiz başarısızlığı görünür kılmak amacıyla eklendi (2026-07-19).</summary>
     public static bool LastPushFailed { get; private set; }
 
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMA EKRANI (masaüstü)
+    //
+    // Çakışma kayıtları SUNUCUDA tutulur (data_conflicts); masaüstü onları HTTP ile okur. Yerel
+    // kopya TUTULMAZ — iki gerçeklik oluşmasın ve çevrimdışıyken eski bilgiyle karar verilmesin.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Firmanın AÇIK çakışmaları (çakışma ekranı). Çevrimdışıysa boş liste.</summary>
+    public static async Task<System.Collections.Generic.List<JsonElement>> GetConflictsAsync()
+    {
+        var result = new System.Collections.Generic.List<JsonElement>();
+        var url = ResolveServerUrl();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(token)) return result;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/conflicts");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return result;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            foreach (var e in doc.RootElement.EnumerateArray()) result.Add(e.Clone());
+        }
+        catch { }
+        return result;
+    }
+
+    /// <summary>Üzerine yazılan (kaybeden) sürümü KAZANAN yapar. Yetki kapısı sunucudadır
+    /// (btn-conflict-resolve). Hata mesajı kullanıcıya olduğu gibi gösterilir — sessiz başarısızlık YOK.</summary>
+    public static async Task<(bool Ok, string Mesaj)> PromoteLoserAsync(string conflictId)
+        => await CakismaIslemAsync($"/api/sync/conflicts/{Uri.EscapeDataString(conflictId)}/promote-loser");
+
+    /// <summary>Çakışmayı listeden kaldırır (veri DEĞİŞMEZ — yalnız uyarı kapatılır).</summary>
+    public static async Task<(bool Ok, string Mesaj)> HideConflictAsync(string conflictId)
+        => await CakismaIslemAsync($"/api/sync/conflicts/{Uri.EscapeDataString(conflictId)}/resolve");
+
+    private static async Task<(bool Ok, string Mesaj)> CakismaIslemAsync(string yol)
+    {
+        var url = ResolveServerUrl();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(token))
+            return (false, "Sunucuya bağlı değilsiniz. Çakışma çözümü çevrimiçi yapılır.");
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, url!.TrimEnd('/') + yol)
+            { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            var govde = await resp.Content.ReadAsStringAsync();
+            if (resp.IsSuccessStatusCode) return (true, "");
+            // Sunucu ortak hata modeli: {"error":"..."}
+            try
+            {
+                using var doc = JsonDocument.Parse(govde);
+                if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String)
+                    return (false, e.GetString() ?? "İşlem yapılamadı.");
+            }
+            catch { }
+            return (false, $"İşlem yapılamadı (sunucu {(int)resp.StatusCode}).");
+        }
+        catch (Exception ex) { return (false, "İşlem yapılamadı: " + ex.Message); }
+    }
+
     /// <summary>Personelin görmediği açık çakışmaları çeker (şube kapsamında). Gösterildikten sonra
     /// <see cref="MarkSeenAsync"/> çağrılmalı. Çevrimdışıysa boş liste.</summary>
     public static async Task<System.Collections.Generic.List<string>> GetUnseenConflictsAsync()

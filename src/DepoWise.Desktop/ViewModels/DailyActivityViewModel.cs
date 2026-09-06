@@ -212,7 +212,74 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         return new DailyActivityGridFilter(
             V(DailyActivityListColumns.Type), V(DailyActivityListColumns.Vehicle), V(DailyActivityListColumns.Route),
             V(DailyActivityListColumns.Operator), V(DailyActivityListColumns.Duration), V(DailyActivityListColumns.Description),
-            V(DailyActivityListColumns.MaterialQty));
+            V(DailyActivityListColumns.MaterialQty),
+            // ⭐ FAZ 4.9: çoklu araç seçimi (boşsa süzme yok → bugünkü davranış).
+            SecilenAracIdleri());
+    }
+
+    // ═══ FAZ 4.9 (kullanıcı isteği 2026-09-06) — TARİH ARALIĞI + ÇOKLU ARAÇ ═════════════════════
+    // Kullanıcı: "Günlük faaliyet ekranında tarih aralığı sorgulayabileceğim alan olmalı; sonrasında
+    // tablo üzerindeki filtre kısımlarından kendim sorgu yapabileyim. Birden fazla araç seçebileceğim
+    // yapıyı buraya da ekleyebilirsin."
+    //
+    // Tarih aralığı SERVİSTE zaten destekleniyordu (SearchGrid fromDateMs/toDateMs) — eksik olan
+    // ekrandı. Çoklu araç için servise araç KİMLİĞİ süzgeci eklendi (metin araması yerine kesin süzme).
+
+    [ObservableProperty] private System.DateTimeOffset? _gunBaslangic;
+    [ObservableProperty] private System.DateTimeOffset? _gunBitis;
+
+    private long? _gunBasMs, _gunBitMs;
+
+    /// <summary>Çoklu araç seçimi (Araçlar ekranındaki aranabilir çoklu seçim deseniyle aynı).</summary>
+    public ObservableCollection<AracSecim> AracSecenekleri { get; } = new();
+
+    /// <summary>Seçili araç sayısı — arayüzde "3 araç seçili" bilgisi için.</summary>
+    public int SeciliAracSayisi => AracSecenekleri.Count(x => x.Secili);
+    public bool AracSecimiVar => SeciliAracSayisi > 0;
+
+    private IReadOnlyList<string>? SecilenAracIdleri()
+    {
+        var ids = AracSecenekleri.Where(x => x.Secili).Select(x => x.Id).ToList();
+        return ids.Count > 0 ? ids : null;
+    }
+
+    /// <summary>Araç listesini (kod + plaka) süzgeç kutusuna doldurur — seçimler KORUNUR.</summary>
+    private void AracSecenekleriniYukle()
+    {
+        try
+        {
+            var secililer = AracSecenekleri.Where(x => x.Secili).Select(x => x.Id).ToHashSet(System.StringComparer.Ordinal);
+            AracSecenekleri.Clear();
+            foreach (var v in DesktopServices.Vehicles.List(_session, null))
+                AracSecenekleri.Add(new AracSecim(v.Id,
+                    string.IsNullOrWhiteSpace(v.Plate) ? v.InternalCode : $"{v.InternalCode} — {v.Plate}",
+                    secililer.Contains(v.Id)));
+        }
+        catch { /* araç listesi alınamazsa süzgeç boş kalır; ekran çalışmaya devam eder */ }
+        OnPropertyChanged(nameof(SeciliAracSayisi));
+        OnPropertyChanged(nameof(AracSecimiVar));
+    }
+
+    /// <summary>Tarih aralığını uygular (bitiş günü DAHİL) ve ilk sayfaya döner.</summary>
+    [RelayCommand]
+    private void TarihUygula()
+    {
+        _gunBasMs = GunBaslangic is { } b ? new System.DateTimeOffset(b.Date, System.TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        _gunBitMs = GunBitis is { } t ? new System.DateTimeOffset(t.Date, System.TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999 : null;
+        OnPropertyChanged(nameof(SeciliAracSayisi));
+        OnPropertyChanged(nameof(AracSecimiVar));
+        Page = 1; Load();
+    }
+
+    /// <summary>Tarih aralığını ve araç seçimini temizler.</summary>
+    [RelayCommand]
+    private void TarihTemizle()
+    {
+        GunBaslangic = null; GunBitis = null; _gunBasMs = null; _gunBitMs = null;
+        foreach (var a in AracSecenekleri) a.Secili = false;
+        OnPropertyChanged(nameof(SeciliAracSayisi));
+        OnPropertyChanged(nameof(AracSecimiVar));
+        Page = 1; Load();
     }
 
     [RelayCommand]
@@ -242,6 +309,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         if (chosen is null) return;
         VisibleColumns = chosen;
         DesktopServices.ListPrefs.SaveColumns(_session, "daily_activity", chosen);
+        _ = ServerListPrefsClient.SaveColumnsAsync("daily_activity", chosen);   // FAZ 4.14
         Load();
     }
 
@@ -323,6 +391,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public DailyActivityViewModel(SessionContext session)
     {
         _session = session;
+        AracSecenekleriniYukle();   // FAZ 4.9: çoklu araç süzgeci seçenekleri
         // 2026-09-03 (kullanıcı isteği): KAYIT TİPİ seçenekleri YETKİYE göre kurulur (DailyActivityTypeGate,
         // geçiş güvenli: hiç tip anahtarı verilmemiş kullanıcı hepsini görür). "Depo Çıkışı" günlük
         // faaliyet TİPİ değildir (stok işlemi) → daima listelenir, stok yetkisiyle yönetilir.
@@ -339,6 +408,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         if (!KindOptions.Contains(FormKind)) FormKind = KindOptions[0];   // varsayılan tip kısıtlıysa ilk izinliye düş
 
         var saved = DesktopServices.ListPrefs.GetColumns(session, "daily_activity");
+        // ⭐ FAZ 4.14: çevrimiçiyse SUNUCUDAKİ tercih otoritedir (makineden bağımsız kalıcılık).
+        _ = SunucudanKolonAynalaAsync("daily_activity", k => VisibleColumns = DailyActivityListColumns.Sanitize(k).ToList());
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür. Sürüm yükseltmesinde kaldırılan/yeniden
         // adlandırılan bir kolon kullanıcının kaydında kalmışsa hayalet kolon çizilirdi (başlık = ham anahtar,
         // veri yok). Sanitize kataloğun dışındaki anahtarları atar; hiçbiri kalmazsa varsayılana düşer.
@@ -357,7 +428,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         {
             LoadError = null;
             Items.Clear();
-            var grid = DesktopServices.DailyActivity.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc, ShowCancelled);
+            var grid = DesktopServices.DailyActivity.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc, ShowCancelled,
+                _gunBasMs, _gunBitMs);   // FAZ 4.9: tarih aralığı
             foreach (var a in grid.Items) Items.Add(a);
             TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
             Page = grid.Page;
@@ -678,7 +750,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                 msg = $"Bu faaliyet kaydına bağlı bakım kaydı" +
                       (lines > 0 ? $" ve {qty:0.##} adet malzeme çıkışı" : "") +
                       " bulunmaktadır.\n\nFaaliyeti iptal ederseniz bağlı kayıtlar da iptal edilecek ve " +
-                      "malzemeler stoğa geri eklenecektir. Araç sayacı geri alınmaz. İşlem geri alınamaz.";
+                      "malzemeler stoğa geri eklenecektir. Araç sayacı, kalan geçerli kayıtlardan yeniden hesaplanır. İşlem geri alınamaz.";
         }
         catch { /* etki okunamadıysa sade metinle devam */ }
 
@@ -692,4 +764,16 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         }
         catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
     }
+}
+
+/// <summary>
+/// ⭐ FAZ 4.9 — Günlük Faaliyet çoklu araç süzgeci satırı. Araçlar ekranındaki çoklu seçim
+/// deseniyle aynı mantık: seçim aramada KORUNUR (CLAUDE.md §5).
+/// </summary>
+public sealed partial class AracSecim : ObservableObject
+{
+    public string Id { get; }
+    public string Etiket { get; }
+    [ObservableProperty] private bool _secili;
+    public AracSecim(string id, string etiket, bool secili = false) { Id = id; Etiket = etiket; Secili = secili; }
 }

@@ -1412,6 +1412,65 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .dw-sekme-arti { font-size: 1rem !important; }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   20) MENÜ HİYERARŞİ RENK AİLELERİ — FAZ 2 (ADR-221, 2026-09-05)
+
+   ⚠️ KONUM ÖNEMLİ: bu blok MOBİL KATMANDAN (bölüm 18) ÖNCE durur. İlk yazılışta
+   dosyanın sonuna eklenmişti ve mobil katmanın İÇİNE düşüyordu; MobilWebTests.MOB3
+   bunu yakaladı (o katmandaki her kural medya sorgusu içinde olmalı, aksi hâlde geniş
+   ekranı da etkiler). Bu kurallar TÜM genişliklerde geçerlidir → mobil katmandan önce.
+
+   Aile ÜST GRUPTAN gelir ve aşağıya MİRAS kalır; ekrana hardcode EDİLMEZ.
+   Hangi menünün hangi aileyi kullandığı ortak katmandadır (MenuPalette);
+   burada yalnız "aile → renk" çevirisi vardır. Masaüstü karşılığı
+   Themes/Palette.axaml + DesktopMenuColors'tır.
+
+   ⚠️ TEK DEĞER, İKİ TEMA: bu dosyada koyu/açık ayrı kapsam YOKTUR (tüm renkler
+   --mud-palette-* üzerinden gelir ve MudBlazor onları temaya göre değiştirir).
+   Bu yüzden aile renkleri, HEM açık HEM koyu çekmece zemininde 3:1 kontrast
+   verecek ORTA tonlardan seçildi. Değerler göz kararı değildir —
+   MenuRenkTests ışıklılığı hesaplayıp pencerede olduklarını doğrular.
+
+   ⚠️ Renk TEK BAŞINA anlam taşımaz: aynı hiyerarşiyi ikon, girinti ve
+   tipografi de anlatır (renk körlüğünde menü tam okunur).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+    --dw-menu-stock:      #0D9488;
+    --dw-menu-operations: #2563EB;
+    --dw-menu-finance:    #15803D;   /* canlı ölçümde #16A34A açık temada 2.97:1 kaldı — 3:1 altı */
+    --dw-menu-reports:    #7C3AED;
+    --dw-menu-corporate:  #DB2777;
+    --dw-menu-system:     #EA580C;
+    --dw-menu-neutral:    #64748B;
+}
+
+/* Aile çubuğu — üç seviyede aynı aile, GİDEREK YUMUŞAYAN ton.
+   Genişlik ve opaklık birlikte azalır: üst grup > üst menü > ekran. */
+.dw-fam { position: relative; }
+.dw-fam::before {
+    content: "";
+    position: absolute;
+    left: 2px; top: 6px; bottom: 6px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--dw-fam-color, var(--dw-menu-neutral));
+    /* Yalnız görsel ipucu — ekran okuyucuya bilgi taşımaz (aria yok, içerik yok). */
+}
+.dw-fam-section::before { width: 3px; opacity: 1;    }
+.dw-fam-group::before   { width: 2px; opacity: .85;  }
+.dw-fam-screen::before  { width: 2px; opacity: .55;  }
+
+/* Çubuk metne girmesin: MudBlazor'ın kendi iç boşluğuna ekleme yapılır. */
+.mud-navmenu .dw-fam > .mud-nav-link,
+.mud-navmenu .dw-fam.mud-nav-link { padding-left: 14px; }
+
+.dw-fam-stock      { --dw-fam-color: var(--dw-menu-stock); }
+.dw-fam-operations { --dw-fam-color: var(--dw-menu-operations); }
+.dw-fam-finance    { --dw-fam-color: var(--dw-menu-finance); }
+.dw-fam-reports    { --dw-fam-color: var(--dw-menu-reports); }
+.dw-fam-corporate  { --dw-fam-color: var(--dw-menu-corporate); }
+.dw-fam-system     { --dw-fam-color: var(--dw-menu-system); }
+.dw-fam-neutral    { --dw-fam-color: var(--dw-menu-neutral); }
+/* ══════════════════════════════════════════════════════════════════════════
    18) MOB-W — MOBİL TARAYICI KATMANI (kullanıcı kararı 2026-09-04)
 
    AYRI MOBİL UYGULAMA YAPILMAYACAK. Kullanıcı telefonun tarayıcısından girip işi
@@ -1601,3 +1660,4 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
         box-shadow: -8px 0 8px -6px rgba(0,0,0,.45);
     }
 }
+

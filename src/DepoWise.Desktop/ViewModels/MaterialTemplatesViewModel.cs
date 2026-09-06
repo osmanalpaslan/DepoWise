@@ -22,6 +22,11 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
+    // FAZ 3c — şablon fiyatı, malzeme birim fiyatının kaynağıdır; aynı karardan (FieldAccess) geçer.
+    // Gerçek kapı MaterialTemplateService'tedir; bu bayrak yalnız alanı hiç çizmemek içindir.
+    /// <summary>Şablon birim fiyatı bu kullanıcıya açık mı?</summary>
+    public bool FiyatGorunur => DepoWise.Infrastructure.Materials.MaterialService.FiyatGorunur(_session);
+
     public ObservableCollection<MaterialTemplateRow> Items { get; } = new();
 
     [ObservableProperty] private string _search = "";

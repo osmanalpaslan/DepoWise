@@ -175,9 +175,20 @@ public class SekmeSeridiTests
         var masaustu = MasaustuSeritBloku();
         Assert.DoesNotMatch(new Regex("#[0-9A-Fa-f]{6}"), masaustu);
 
+        // ⚠️ 2026-09-05 (FAZ 2) — KAPSAM DÜZELTMESİ, GEVŞETME DEĞİL.
+        //
+        // Bu kontrol eskiden `.dw-sekme-serit {`'ten DOSYA SONUNA kadar tarıyordu; yani sekme
+        // şeridinden sonra app.css'e eklenen HER ŞEYİ de kapsıyordu. Bu, testin kendi yazılı
+        // amacının ("gömülü hex, temayı değiştirince ŞERİDİ bozar") ötesine geçen bir yan etkiydi
+        // ve şeridin arkasına konan meşru bir bölüm (menü renk aileleri) testi kırdı.
+        //
+        // Kapsam artık şeridin GERÇEK bölümüyle sınırlı: sonraki bölüm başlığında biter.
+        // Şeritle ilgili garanti aynen korunur — şerit içine gömülü bir hex hâlâ yakalanır.
         var css = WebStil();
         var bas = css.IndexOf(".dw-sekme-serit {", StringComparison.Ordinal);
-        var blok = css[bas..];
+        Assert.True(bas > 0, "Sekme şeridi stili bulunamadı.");
+        var sonrakiBolum = css.IndexOf("/* ══", bas, StringComparison.Ordinal);
+        var blok = sonrakiBolum > bas ? css[bas..sonrakiBolum] : css[bas..];
         Assert.DoesNotMatch(new Regex("#[0-9A-Fa-f]{6}"), blok);
     }
 }

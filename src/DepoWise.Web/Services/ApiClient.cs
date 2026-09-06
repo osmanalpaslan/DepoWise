@@ -141,6 +141,22 @@ public sealed class ApiClient
         }
         catch { }
 
+        // ⭐ FAZ 4.6 (2026-09-06): satır içi "+" firma ayarı menüyle AYNI anda tazelenir (ayrı yenileme
+        // yolu açılmadı). Alınamazsa harita boş kalır → tüm "+" düğmeleri AÇIK sayılır (bugünkü davranış).
+        try
+        {
+            var arr = await GetArrayAsync("/api/lookup-plus");
+            var harita = new Dictionary<string, bool>(StringComparer.Ordinal);
+            foreach (var x in arr)
+            {
+                var t = x.TryGetProperty("table", out var tv) ? tv.GetString() : null;
+                if (string.IsNullOrEmpty(t)) continue;
+                harita[t!] = !x.TryGetProperty("enabled", out var ev) || ev.ValueKind != System.Text.Json.JsonValueKind.False;
+            }
+            _auth.SetLookupPlus(harita);
+        }
+        catch { }
+
         // G5 — platform görünürlüğü menüyle AYNI anda tazelenir (ayrı bir yenileme yolu açılmadı).
         // Böylece yönetici bir ekranı web'de kapattığında, kullanıcının bir sonraki menü tazelemesinde
         // (giriş / sayfa yenileme / oturum tazeleme) etkili olur; bayat veri kalıcı olmaz.
@@ -543,29 +559,83 @@ public sealed class ApiClient
         catch { return new(); }
     }
 
+    /// <summary>
+    /// 🔴 FAZ 3b-6 (gerçek GUI testinde bulundu): burada <c>EnsureSuccessStatusCode</c> kullanılıyordu
+    /// ve kullanıcı, sunucunun ürettiği açık Türkçe mesaj yerine ham teknik metni görüyordu:
+    /// <i>"Response status code does not indicate success: 403 (Forbidden)."</i>
+    ///
+    /// Sunucu zaten <c>{"error":"..."}</c> gövdesi döndürüyor (Program.cs ortak middleware) ve
+    /// <see cref="ErrorMessageAsync"/> tam bu iş için yazılmıştı — GET yollarında uygulanmamıştı.
+    /// Davranış DEĞİŞMEZ (yine istisna fırlar); yalnız MESAJ anlaşılır olur.
+    /// </summary>
     public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
     {
         var resp = await Gonder(Req(HttpMethod.Get, path));
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode) throw new HttpRequestException(await ErrorMessageAsync(resp, path));
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement[]>();
         return doc ?? Array.Empty<System.Text.Json.JsonElement>();
     }
 
-    /// <summary>Tek JSON nesne dönen uçlar için (özet vb.).</summary>
+    /// <summary>Tek JSON nesne dönen uçlar için (özet vb.).
+    /// FAZ 3b-6: hata mesajı sunucunun <c>error</c> alanından okunur (bkz. <see cref="GetArrayAsync"/>).</summary>
     public async Task<System.Text.Json.JsonElement> GetObjectAsync(string path)
     {
         var resp = await Gonder(Req(HttpMethod.Get, path));
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode) throw new HttpRequestException(await ErrorMessageAsync(resp, path));
         return await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama sonucu (Malzeme/Araç Listesi — kullanıcı isteği
     /// 2026-07-17). Hata olursa boş sayfa döner (ekran "kayıt yok" gösterir, çökmez).</summary>
     /// <summary>Liste üstündeki özet şeridi (web v4, 2026-08-27) — yalnız Malzeme Listesi doldurur.</summary>
-    public sealed record GridSummary(int CriticalCount, int CategoryCount, decimal StockValue);
+    /// <param name="StockValue">⭐ FAZ 3b (ADR-223): birim fiyat kullanıcıya kapalıysa sunucu bu
+    /// alanı yanıta HİÇ KOYMAZ (0 göndermez) → burada <c>null</c> olur ve ekran kutuyu ÇİZMEZ.
+    /// "₺0" göstermek yanlış bilgi olurdu.</param>
+    public sealed record GridSummary(int CriticalCount, int CategoryCount, decimal? StockValue);
 
     public sealed record GridPage(System.Text.Json.JsonElement[] Items, int TotalCount, int Page, int PageSize, int TotalPages,
         GridSummary? Summary = null);
+
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    //
+    // ⭐ KARARI SUNUCU VERİR. Web burada yetki HESAPLAMAZ; sunucunun FieldAccess sonucunu okur.
+    // Masaüstü aynı fonksiyonu doğrudan çağırdığı için iki platform KAÇINILMAZ olarak aynı sonucu
+    // gösterir (kullanıcı şartı §9: karar iki yerde yeniden üretilmesin).
+    //
+    // ⚠️ Bu bilgi GÜVENLİK DEĞİLDİR — gerçek kapı serviste ve API uçlarındadır. Burası yalnız
+    // "boş kolon / 0,00 gösterme" içindir.
+    private Dictionary<string, (bool View, bool Edit)>? _alanErisimi;
+
+    /// <summary>Alan görünürlük haritasını (bir kez) yükler. Hata olursa TÜM alanlar görünür kabul
+    /// edilir — mevcut (korumasız) davranış; ekran hata yüzünden boşalmaz.</summary>
+    public async Task<Dictionary<string, (bool View, bool Edit)>> FieldAccessAsync(bool yenile = false)
+    {
+        if (_alanErisimi is not null && !yenile) return _alanErisimi;
+        var map = new Dictionary<string, (bool, bool)>(StringComparer.Ordinal);
+        try
+        {
+            foreach (var e in await GetArrayAsync("/api/field-access"))
+            {
+                var k = e.TryGetProperty("key", out var kk) ? kk.GetString() ?? "" : "";
+                if (k.Length == 0) continue;
+                map[k] = (e.TryGetProperty("canView", out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True,
+                          e.TryGetProperty("canEdit", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.True);
+            }
+        }
+        catch { /* sunucuya ulaşılamadı → koruma yokmuş gibi davran (bugünkü görünüm) */ }
+        _alanErisimi = map;
+        return map;
+    }
+
+    /// <summary>Kısayol: alan görünür mü? Haritada yoksa (eski sunucu / korunmayan alan) GÖRÜNÜR.</summary>
+    public async Task<bool> AlanGorunurAsync(string screenKey, string fieldKey)
+    {
+        var map = await FieldAccessAsync();
+        return !map.TryGetValue(screenKey + "." + fieldKey, out var x) || x.View;
+    }
+
+    /// <summary>Koruma değişince (Yetkiler ekranı) harita bayatlar → düşür.</summary>
+    public void FieldAccessTemizle() => _alanErisimi = null;
     public async Task<GridPage> GetGridAsync(string path)
     {
         try
@@ -581,7 +651,12 @@ public sealed class ApiClient
             if (obj.TryGetProperty("summary", out var sEl) && sEl.ValueKind == System.Text.Json.JsonValueKind.Object)
             {
                 int SI(string k) => sEl.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetInt32() : 0;
-                decimal SD(string k) => sEl.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetDecimal() : 0m;
+                // ⭐ FAZ 3b-5 (GERÇEK GUI TESTİNDE BULUNDU): alan YOKSA null döner — 0m DEĞİL.
+                // "Gizli" ile "sıfır" ayırt edilebilmelidir; aksi hâlde ekran "₺0" yazar ve bu
+                // YANLIŞ BİLGİDİR. (Kayıt tipini decimal? yapmak tek başına yetmiyordu; eşleme
+                // burada elle yapılıyor.)
+                decimal? SD(string k) => sEl.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number
+                    ? v.GetDecimal() : (decimal?)null;
                 ozet = new GridSummary(SI("criticalCount"), SI("categoryCount"), SD("stockValue"));
             }
 

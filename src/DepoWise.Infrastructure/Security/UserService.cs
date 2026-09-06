@@ -523,12 +523,31 @@ ORDER BY u.username;");
             throw new InvalidOperationException("Bu personele zaten bir kullanıcı hesabı bağlı. Bir personele yalnız bir hesap bağlanabilir.");
     }
 
+    /// <summary>
+    /// ⭐ FAZ 4.16 — PERSONELE KULLANICI BAĞLAMA KAPISI.
+    ///
+    /// Eskiden sabit <c>IsAdmin</c> idi. Artık: <b>admin bypass'ı VEYA açıkça verilmiş
+    /// "Personele Kullanıcı Bağlama" yetkisi</b>. Deny-by-default korunur; yeni yetki motoru yok
+    /// (mevcut özel buton mekanizması) → migration gerekmez.
+    ///
+    /// ⚠️ Hata mesajı BİLEREK açık yazılır: eski davranışta yetkisiz kullanıcı sessizce BOŞ liste
+    /// görüyordu ve ekran "bağlanabilir kullanıcı yok, önce hesap açın" diyordu — yani kullanıcı
+    /// yetki sorununu VERİ sorunu sanıyordu (kullanıcının bildirdiği kafa karışıklığının kaynağı).
+    /// </summary>
+    private static void RequireLinkPermission(SessionContext actor, string islem)
+    {
+        if (AccessControl.IsAdmin(actor)) return;
+        if (AccessControl.CanUseButton(actor, SpecialButtons.LinkUser)) return;
+        throw new ForbiddenException(
+            $"{islem} için «Personele Kullanıcı Bağlama» yetkisi gerekir. Yöneticiniz bu yetkiyi Yetkiler ekranından verebilir.");
+    }
+
     /// <summary>Bir personele BAĞLANABİLİR kullanıcılar: firmanın henüz hiçbir personele bağlı OLMAYAN
     /// (personnel_id NULL), silinmemiş kullanıcıları (süper admin kullanıcıları hariç). Personel ekranındaki
     /// "mevcut kullanıcıyı bağla" açılır listesi bunu kullanır. YALNIZ Admin / Süper Admin.</summary>
     public IReadOnlyList<LinkableUser> ListLinkableUsers(SessionContext actor)
     {
-        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Bağlanabilir kullanıcı listesi yalnız Admin / Süper Admin.");
+        RequireLinkPermission(actor, "Bağlanabilir kullanıcı listesini görmek");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -554,7 +573,7 @@ ORDER BY u.full_name, u.username;";
     /// <summary>Var olan bir kullanıcıyı bir personele bağlar (yanlış bağı düzeltme). YALNIZ Admin / Süper Admin.</summary>
     public void LinkPersonnel(SessionContext actor, string userId, string? personnelId)
     {
-        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Personel bağı yalnız Admin / Süper Admin tarafından değiştirilir.");
+        RequireLinkPermission(actor, "Personel bağını değiştirmek");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();

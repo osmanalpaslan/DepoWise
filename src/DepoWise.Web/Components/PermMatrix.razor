@@ -1,5 +1,18 @@
 @* Modül × (Oku/Yaz/Düzelt/Sil) yetki matrisi — Yetkiler ve Yetki Şablonları ekranlarında ortak.
    Özel işlem yetkileri (özel butonlar) de AYNI ağacın içinde tek-onaylı satır olarak listelenir. *@
+@* ⭐ FAZ 3d — ARAMA · SÜZGEÇ · DEĞİŞİKLİK ROZETİ (masaüstü Yetkiler ekranıyla AYNI davranış).
+   Yalnız GÖRÜNÜRLÜK süzer; hiçbir yetki kararı burada verilmez. *@
+<div style="max-width:640px;">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1" Wrap="Wrap.Wrap">
+        <MudTextField T="string" @bind-Value="_arama" Immediate="true"
+                      Placeholder="Ekran / alan ara…" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Style="min-width:220px;" />
+        <MudCheckBox T="bool" Dense="true" Label="Yalnız verilenler" @bind-Value="_yalnizVerilenler" />
+        <MudCheckBox T="bool" Dense="true" Label="Yalnız değişenler" @bind-Value="_yalnizDegisenler" />
+    </MudStack>
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">@DegisiklikRozeti</MudText>
+</div>
 <MudSimpleTable Dense="true" Bordered="true" Style="max-width:640px;">
     <thead>
         <tr><th>Modül / İşlem</th><th>Oku</th><th>Yaz</th><th>Düzelt</th><th>Sil</th></tr>
@@ -11,6 +24,9 @@
             @* ⭐ 2026-09-03 (kullanıcı isteği): ağaç MENÜ GİBİ KATEGORİZE — grup başlığı + grup başına
                "Tümünü Seç"/"Temizle". Liste sunucudan zaten gruplu sırayla gelir. *@
             var grup = Groups is not null && Groups.TryGetValue(m.Id, out var g) ? g : null;
+            @* FAZ 3d: süzgeçten geçmeyen satır hiç çizilmez; grup başlığı da yalnız görünen
+               satırı varsa çizilir (boş başlık kalmaz). *@
+            if (!Gecer(m)) { continue; }
             @if (!string.IsNullOrEmpty(grup) && grup != _sonGrup)
             {
                 _sonGrup = grup;
@@ -18,7 +34,12 @@
                 <tr>
                     <td colspan="5" style="background:var(--mud-palette-background);">
                         <div class="d-flex align-center justify-space-between">
-                            <b>@grupAdi</b>
+                            <span class="d-flex align-center">
+                                @* ⭐ FAZ 3d: ÜÇ DURUMLU grup kutusu — hepsi / hiçbiri / KISMEN. *@
+                                <MudCheckBox T="bool?" Dense="true" TriState="true" ReadOnly="@(ReadOnlyAllAccess || Locked)"
+                                             Value="@GrupDurumu(grupAdi)" ValueChanged="@(v => GrupKutusu(grupAdi, v))" />
+                                <b>@grupAdi</b>
+                            </span>
                             @if (!(ReadOnlyAllAccess || Locked))
                             {
                                 <span>
@@ -31,13 +52,33 @@
                     </td>
                 </tr>
             }
+            @* ⭐ FAZ 3b-5: ALAN kalemleri (fld_*) — bir ALANDA "Yaz" ve "Sil" anlamsızdır; yalnız
+               "Oku" (görebilir) ve "Düzelt" (değiştirebilir) çizilir. Anlamsız kutuyu gri
+               göstermek yerine HİÇ ÇİZMİYORUZ: var olmayan seçenek yanlış soru sordurmaz. *@
+            var alanKalemi = FieldRows is not null && FieldRows.Contains(m.Id);
             <tr>
                 @* Yetki ağacında kilit/kısıt gösterilmez: verilemeyecek kalemler zaten hiç listelenmez (hedef bazlı filtre). *@
-                <td>@m.Name</td>
-                @for (int i = 0; i < 4; i++)
+                <td>
+                    @if (Degisti(m.Id)) { <span title="Bu satır değişti — henüz kaydedilmedi." style="color:var(--mud-palette-warning);">●</span> }
+                    @m.Name
+                </td>
+                @if (alanKalemi)
                 {
-                    var idx = i; var key = m.Id;
-                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="@(ReadOnlyAllAccess || Locked)" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
+                    var akey = m.Id;
+                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="@(ReadOnlyAllAccess || Locked)"
+                                     Value="@Get(akey, 0)" ValueChanged="@(v => AlanSet(akey, 0, v))" /></td>
+                    <td class="mud-text-disabled" style="text-align:center;">—</td>
+                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="@(ReadOnlyAllAccess || Locked)"
+                                     Value="@Get(akey, 2)" ValueChanged="@(v => AlanSet(akey, 2, v))" /></td>
+                    <td class="mud-text-disabled" style="text-align:center;">—</td>
+                }
+                else
+                {
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        var idx = i; var key = m.Id;
+                        <td><MudCheckBox T="bool" Dense="true" ReadOnly="@(ReadOnlyAllAccess || Locked)" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
+                    }
                 }
             </tr>
         }
@@ -79,6 +120,92 @@
     private readonly Dictionary<string, bool[]> _state = new();
     private readonly HashSet<string> _btn = new();
 
+    // ═══ FAZ 3d — ARAMA · SÜZGEÇ · DEĞİŞİKLİK İZİ ════════════════════════════════════════════
+    // Kaydetme yolu (Collect/CollectButtons) HİÇ DEĞİŞMEZ: süzgeç yalnız GÖRÜNÜRLÜKTÜR.
+    // Gizli satırın işaretleri korunur ve aynen kaydedilir — süzgeç veri kaybettirmez.
+    private string _arama = "";
+    private bool _yalnizVerilenler, _yalnizDegisenler;
+
+    /// <summary>Yüklenen (kaydedilmiş) durum — "değişti" bununla karşılaştırılır.</summary>
+    private readonly Dictionary<string, bool[]> _temel = new();
+    private readonly HashSet<string> _temelBtn = new();
+
+    private static bool Herhangi(bool[]? a) => a is not null && (a[0] || a[1] || a[2] || a[3]);
+    private bool[] Temel(string key) => _temel.TryGetValue(key, out var a) ? a : new bool[4];
+
+    /// <summary>Bu satır yüklendiğinden beri değişti mi?</summary>
+    private bool Degisti(string key)
+    {
+        var c = _state.TryGetValue(key, out var a) ? a : new bool[4];
+        var t = Temel(key);
+        for (int i = 0; i < 4; i++) if (c[i] != t[i]) return true;
+        return false;
+    }
+
+    /// <summary>Arama + süzgeçlerden geçiyor mu?</summary>
+    private bool Gecer(ApiClient.Opt m)
+    {
+        var q = (_arama ?? "").Trim();
+        var grup = Groups is not null && Groups.TryGetValue(m.Id, out var g) ? g : null;
+        bool metin = q.Length == 0
+                     || m.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || m.Id.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || (grup is not null && grup.Contains(q, StringComparison.OrdinalIgnoreCase));
+        bool verilen = !_yalnizVerilenler || Herhangi(_state.TryGetValue(m.Id, out var s2) ? s2 : null);
+        bool degisen = !_yalnizDegisenler || Degisti(m.Id);
+        return metin && verilen && degisen;
+    }
+
+    /// <summary>Grup üç-durumu: true = görünenlerin hepsi tam · null = kısmen · false = hiçbiri.</summary>
+    private bool? GrupDurumu(string grupAdi)
+    {
+        var uyeler = Modules.Where(x => Groups is not null && Groups.TryGetValue(x.Id, out var g) && g == grupAdi && Gecer(x)).ToList();
+        if (uyeler.Count == 0) return false;
+        if (uyeler.All(x => TamSecili(x.Id))) return true;
+        return uyeler.Any(x => Herhangi(_state.TryGetValue(x.Id, out var a) ? a : null)) ? (bool?)null : false;
+    }
+
+    private bool TamSecili(string key)
+    {
+        var a = _state.TryGetValue(key, out var v) ? v : new bool[4];
+        var alan = FieldRows is not null && FieldRows.Contains(key);
+        return alan ? (a[0] && a[2]) : (a[0] && a[1] && a[2] && a[3]);
+    }
+
+    /// <summary>Üç durumlu kutu tıklandı: null (hesaplanmış kısmi durum) komut değildir → yok sayılır.</summary>
+    private void GrupKutusu(string grupAdi, bool? v)
+    {
+        if (v is null) return;
+        GrupSec(grupAdi, v.Value);
+    }
+
+    /// <summary>Kaydedilmemiş değişikliğin tek satırlık özeti (masaüstündeki rozetin aynısı).</summary>
+    private string DegisiklikRozeti
+    {
+        get
+        {
+            int satir = 0, eklenen = 0, kaldirilan = 0;
+            foreach (var kv in _state)
+            {
+                var t = Temel(kv.Key);
+                bool d = false;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (kv.Value[i] == t[i]) continue;
+                    d = true;
+                    if (kv.Value[i]) eklenen++; else kaldirilan++;
+                }
+                if (d) satir++;
+            }
+            foreach (var k in _temel.Keys)
+                if (!_state.ContainsKey(k) && Herhangi(_temel[k])) { satir++; kaldirilan += _temel[k].Count(b => b); }
+            foreach (var b in _btn) if (!_temelBtn.Contains(b)) { satir++; eklenen++; }
+            foreach (var b in _temelBtn) if (!_btn.Contains(b)) { satir++; kaldirilan++; }
+            if (satir == 0) return "Kaydedilmemiş değişiklik yok.";
+            return $"{satir} satır değişti · {eklenen} yetki eklenecek · {kaldirilan} yetki kaldırılacak (henüz kaydedilmedi).";
+        }
+    }
+
     private bool Get(string key, int idx) => ReadOnlyAllAccess || (_state.TryGetValue(key, out var a) && a[idx]);
     private void Set(string key, int idx, bool v)
     {
@@ -93,14 +220,42 @@
     /// başlıksız düz liste (eski görünüm) sürer — geriye uyumlu.</summary>
     [Parameter] public Dictionary<string, string>? Groups { get; set; }
 
+    /// <summary>⭐ FAZ 3b-5: ALAN yetkisi satırları (<c>fld_*</c>). Bu satırlarda yalnız Oku/Düzelt
+    /// çizilir ve <b>EDIT ⇒ VIEW</b> bağlaması uygulanır. Verilmezse (null) davranış eskisiyle
+    /// birebir aynıdır — mevcut ekranlar etkilenmez.</summary>
+    [Parameter] public HashSet<string>? FieldRows { get; set; }
+
+    /// <summary>
+    /// ⭐ ALAN kalemi kutusu — kanonik <b>EDIT ⇒ VIEW</b> kuralını arayüzde uygular:
+    /// <list type="bullet">
+    ///   <item>"Düzelt" işaretlenince "Oku" da işaretlenir.</item>
+    ///   <item>"Oku" kaldırılınca "Düzelt" de kalkar.</item>
+    /// </list>
+    /// Böylece yönetici "göremez ama düzenleyebilir" gibi anlamsız bir kombinasyonu HİÇ
+    /// oluşturamaz. Sunucu da aynı kuralı ayrıca uygular (arayüz güvenlik değildir).
+    /// </summary>
+    private void AlanSet(string key, int idx, bool v)
+    {
+        Set(key, idx, v);
+        if (idx == 2 && v) Set(key, 0, true);        // Düzelt açıldı → Oku da açılır
+        if (idx == 0 && !v) Set(key, 2, false);      // Oku kapandı  → Düzelt de kapanır
+        Set(key, 1, false); Set(key, 3, false);      // Yaz/Sil bir alanda anlamsız — daima kapalı
+        StateHasChanged();
+    }
+
     /// <summary>"Tümünü Seç"/"Temizle" (kullanıcı isteği 2026-09-03): gruptaki TÜM kutuları işaretler/
     /// temizler; kullanıcı uygun olmayanları elle düzeltip kaydeder. Kaydedene kadar hiçbir şey yazılmaz.</summary>
     private void GrupSec(string grup, bool ver)
     {
         if (Groups is null) return;
+        // ⭐ FAZ 3d: arama/süzgeç açıkken yalnız GÖRÜNEN satırlara uygulanır (masaüstüyle aynı) —
+        // yönetici ekranda görmediği bir satırı yanlışlıkla yetkilendirmiş/silmiş olmaz.
         foreach (var m in Modules)
-            if (Groups.TryGetValue(m.Id, out var g) && g == grup)
-                _state[m.Id] = new[] { ver, ver, ver, ver };
+            if (Groups.TryGetValue(m.Id, out var g) && g == grup && Gecer(m))
+                // FAZ 3b-5: alan satırında "Tümünü Seç" yalnız Oku+Düzelt açar; Yaz/Sil hiç dokunulmaz.
+                _state[m.Id] = FieldRows is not null && FieldRows.Contains(m.Id)
+                    ? new[] { ver, false, ver, false }
+                    : new[] { ver, ver, ver, ver };
         StateHasChanged();
     }
 
@@ -108,7 +263,12 @@
     public void LoadFrom(IEnumerable<(string Key, bool V, bool C, bool E, bool D)> data)
     {
         _state.Clear();
-        foreach (var (k, v, c, e, d) in data) _state[k] = new[] { v, c, e, d };
+        _temel.Clear();
+        foreach (var (k, v, c, e, d) in data)
+        {
+            _state[k] = new[] { v, c, e, d };
+            _temel[k] = new[] { v, c, e, d };   // FAZ 3d: "değişti" karşılaştırmasının sıfır noktası
+        }
         StateHasChanged();
     }
 
@@ -116,7 +276,8 @@
     public void LoadButtons(IEnumerable<string> keys)
     {
         _btn.Clear();
-        foreach (var k in keys) _btn.Add(k);
+        _temelBtn.Clear();
+        foreach (var k in keys) { _btn.Add(k); _temelBtn.Add(k); }   // FAZ 3d: temel
         StateHasChanged();
     }
 
@@ -132,6 +293,20 @@
     /// <summary>Sunucuya gönderilecek satırlar (en az bir bayrak açık olanlar).</summary>
     public List<object> Collect()
         => _state.Where(kv => kv.Value.Any(b => b))
-            .Select(kv => (object)new { moduleKey = kv.Key, canView = kv.Value[0], canCreate = kv.Value[1], canEdit = kv.Value[2], canDelete = kv.Value[3] })
+            .Select(kv =>
+            {
+                var alan = FieldRows is not null && FieldRows.Contains(kv.Key);
+                // FAZ 3b-5: alan satırında Yaz/Sil gönderilmez ve EDIT ⇒ VIEW burada da garanti edilir
+                // (kutular zaten bunu sağlıyor; bu ikinci kemer — sunucu üçüncüsü).
+                var view = kv.Value[0] || (alan && kv.Value[2]);
+                return (object)new
+                {
+                    moduleKey = kv.Key,
+                    canView = view,
+                    canCreate = !alan && kv.Value[1],
+                    canEdit = kv.Value[2],
+                    canDelete = !alan && kv.Value[3],
+                };
+            })
             .ToList();
 }

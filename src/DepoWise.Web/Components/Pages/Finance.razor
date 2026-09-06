@@ -67,14 +67,15 @@ else
                       OnRowClick="@(e => Select(e.Item))" RowClass="cursor-pointer">
                 <HeaderContent>
                     <MudTh>KOD</MudTh><MudTh>HESAP ADI</MudTh><MudTh>TÜR</MudTh><MudTh>ŞUBE</MudTh>
-                    <MudTh Style="text-align:right">BAKİYE</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh>
+                    @if (_bakiyeGorunur) { <MudTh Style="text-align:right">BAKİYE</MudTh> }
+                    <MudTh>DURUM</MudTh><MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.Code</MudTd>
                     <MudTd>@context.Name</MudTd>
                     <MudTd>@context.KindText</MudTd>
                     <MudTd>@(context.BranchName ?? "Firma geneli")</MudTd>
-                    <MudTd Style="text-align:right">@context.Balance.ToString("0.00")</MudTd>
+                    @if (_bakiyeGorunur) { <MudTd Style="text-align:right">@context.Balance.ToString("0.00")</MudTd> }
                     <MudTd>
                         <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
                             @(context.IsActive ? "Aktif" : "Pasif")
@@ -100,11 +101,20 @@ else
                 <MudText Typo="Typo.h6">@_selected.Name</MudText>
                 <MudChip T="string" Size="Size.Small">@_selected.KindText</MudChip>
                 <MudSpacer />
-                <MudText Typo="Typo.h6">@_selected.Balance.ToString("0.00") @_selected.Currency</MudText>
+                @* 🔴 FAZ 3b-6 (gerçek GUI testinde bulundu): bakiye gizliyken burada "0.00 TRY"
+                   yazıyordu — yani gizli değer SIFIR olarak sızıyordu. Alan kapalıysa kart
+                   başlığında tutar HİÇ oluşturulmaz. *@
+                @if (_bakiyeGorunur)
+                {
+                    <MudText Typo="Typo.h6">@_selected.Balance.ToString("0.00") @_selected.Currency</MudText>
+                }
             </MudStack>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-                Bakiye hareketlerden hesaplanır; saklanmaz. İptal edilen hareketler listede görünür ama bakiyeye girmez.
-            </MudText>
+            @if (_bakiyeGorunur)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Bakiye hareketlerden hesaplanır; saklanmaz. İptal edilen hareketler listede görünür ama bakiyeye girmez.
+                </MudText>
+            }
 
             @if (_statement is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
             else if (_statement.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Hareket yok.</MudAlert> }
@@ -113,9 +123,12 @@ else
                 <MudTable Items="_statement" Dense="true" Hover="true" T="StatementRow" Elevation="0">
                     <HeaderContent>
                         <MudTh>TARİH</MudTh><MudTh>TÜR</MudTh><MudTh>AÇIKLAMA</MudTh><MudTh>CARİ</MudTh>
-                        <MudTh Style="text-align:right">GİRİŞ</MudTh>
-                        <MudTh Style="text-align:right">ÇIKIŞ</MudTh>
-                        <MudTh Style="text-align:right">BAKİYE</MudTh>
+                        @if (_tutarGorunur)
+                        {
+                            <MudTh Style="text-align:right">GİRİŞ</MudTh>
+                            <MudTh Style="text-align:right">ÇIKIŞ</MudTh>
+                        }
+                        @if (_tutarGorunur && _bakiyeGorunur) { <MudTh Style="text-align:right">BAKİYE</MudTh> }
                         <MudTh></MudTh>
                     </HeaderContent>
                     <RowTemplate>
@@ -129,9 +142,12 @@ else
                             }
                         </MudTd>
                         <MudTd>@context.PartyTitle</MudTd>
-                        <MudTd Style="text-align:right">@(context.InAmount > 0 ? context.InAmount.ToString("0.00") : "")</MudTd>
-                        <MudTd Style="text-align:right">@(context.OutAmount > 0 ? context.OutAmount.ToString("0.00") : "")</MudTd>
-                        <MudTd Style="text-align:right">@context.RunningBalance.ToString("0.00")</MudTd>
+                        @if (_tutarGorunur)
+                        {
+                            <MudTd Style="text-align:right">@(context.InAmount > 0 ? context.InAmount.ToString("0.00") : "")</MudTd>
+                            <MudTd Style="text-align:right">@(context.OutAmount > 0 ? context.OutAmount.ToString("0.00") : "")</MudTd>
+                        }
+                        @if (_tutarGorunur && _bakiyeGorunur) { <MudTd Style="text-align:right">@context.RunningBalance.ToString("0.00")</MudTd> }
                         <MudTd>
                             @if (!context.IsReversed && !context.IsReversalEntry && Auth.CanEdit("finance"))
                             {
@@ -325,8 +341,17 @@ else
     private DateTime? _tDate = DateTime.Today;
     private string _transferOp = "";
 
+    // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
+    // ⭐ Karar SUNUCUDAN gelir (/api/field-access → FieldAccess). Ekran yetki HESAPLAMAZ; masaüstü
+    // aynı fonksiyonu doğrudan çağırdığı için iki platform kaçınılmaz olarak aynı sonucu gösterir.
+    // Varsayılan true = korumasız (bugünkü görünüm); sunucuya ulaşılamazsa da bu değer korunur.
+    private bool _tutarGorunur = true, _bakiyeGorunur = true;
+
     protected override async Task OnInitializedAsync()
     {
+        // FAZ 3b-5: kasa/bankada İKİ ayrı alan var — hareket tutarı ve hesap bakiyesi.
+        _tutarGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Amount);
+        _bakiyeGorunur = await Api.AlanGorunurAsync(DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
         try
         {
             var m = await Api.GetObjectAsync("/api/finance/meta");
@@ -356,8 +381,12 @@ else
                 Currency = Str(e, "currency"), BranchName = Nz(Str(e, "branchName")),
                 Balance = Dec(e, "balance"), IsActive = Bool(e, "isActive"),
             }).ToList();
+            // ⭐ FAZ 3b-5 TÜREV SIZINTI: hesapların bakiye TOPLAMI da bakiyedir. Bakiye kapalıyken
+            // toplam gösterilmez; hesap SAYISI tutar değildir → kalır.
             var toplam = _rows.Sum(x => x.Balance);
-            _totalText = _rows.Count == 0 ? "" : $"Toplam: {toplam:0.00} TL · {_rows.Count} hesap";
+            _totalText = _rows.Count == 0 ? ""
+                : _bakiyeGorunur ? $"Toplam: {toplam:0.00} TL · {_rows.Count} hesap"
+                : $"{_rows.Count} hesap";
         }
         catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
         finally { _busy = false; }

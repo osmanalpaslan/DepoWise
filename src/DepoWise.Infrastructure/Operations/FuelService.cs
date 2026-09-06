@@ -243,8 +243,24 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_distribution", yeniId, AuditActions.Update,
             s.UserId, AfterJson: $"{{\"corrects\":\"{Escape(id)}\",\"reason\":\"{Escape(reason)}\"}}"), _clock);
 
+        // ⭐ FAZ 4.1 — DÜZELTME SAYACI DA DÜZELTİR. Kullanıcının bildirdiği gerçek olay buydu:
+        // yanlış sayaç düzeltiliyordu ama araç hâlâ eski (hatalı) sayacı gösteriyordu.
+        DepoWise.Infrastructure.Vehicles.VehicleMeterService.Tazele(
+            conn, tx, s.CompanyId, dto.VehicleId, "fuel_update", now);
+
         tx.Commit();
         return yeniId;
+    }
+
+    /// <summary>Kaydın aracı (iptal sonrası sayaç yeniden hesabı için). Bulunamazsa null.</summary>
+    private static string? ReadVehicleId(DbConnection conn, DbTransaction tx, string companyId, string id)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT vehicle_id FROM fuel_distributions WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string;
     }
 
     /// <summary>Kaydın başlangıç sayacı (düzeltmede yeni kayda taşınır). Bulunamazsa null.</summary>
@@ -338,9 +354,18 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
         var (_, cancelled) = LoadForCancel(conn, tx, "fuel_distributions", "liters", s.CompanyId, id);
         if (cancelled) throw new InvalidOperationException("Bu yakıt kaydı zaten iptal edilmiş.");
 
+        var iptalEdilenArac = ReadVehicleId(conn, tx, s.CompanyId, id);
         MarkCancelled(conn, tx, "fuel_distributions", s.CompanyId, id, now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_distribution", id, AuditActions.Reverse,
             s.UserId, AfterJson: $"{{\"reason\":\"{Escape(reason)}\"}}"), _clock);
+
+        // ⭐ FAZ 4.1 — İPTAL EDİLEN KAYIT SAYACI DA GERİ ALIR.
+        // Eskiden "sayaç geri alınmaz" (Y2) kuralı yüzünden hatalı-yüksek bir sayaç iptalden sonra
+        // araçta KALIYORDU; kullanıcı bunu hiçbir yerden düzeltemiyordu. Artık sayaç, GEÇERLİ
+        // kayıtlardan yeniden hesaplanır (elle beyan tabanı korunur) — bkz. VehicleMeterService.
+        if (iptalEdilenArac is not null)
+            DepoWise.Infrastructure.Vehicles.VehicleMeterService.Tazele(
+                conn, tx, s.CompanyId, iptalEdilenArac, "fuel_cancel", now);
         tx.Commit();
     }
 

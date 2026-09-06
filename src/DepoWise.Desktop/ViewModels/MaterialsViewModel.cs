@@ -18,8 +18,16 @@ using DepoWise.Infrastructure.Materials;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>Malzemeler ekranı — liste + kolon bazlı filtre + sayfalama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
-public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
+public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "material";
+    public string? LogEntityId => Selected?.Id;
+    public string? LogKayitAdi => Selected?.Name;
+
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
     /// <summary>
     /// Eşitleme yeni veri getirince açık ekranı yenile (2026-07-19) — ANCAK kullanıcı ekranda çalışıyorsa
@@ -52,6 +60,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     // ── Malzeme Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17) ──
     public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
     [ObservableProperty] private List<string> _visibleColumns = MaterialListColumns.DefaultVisible.ToList();
+
+    /// <summary>⭐ FAZ 3b (ADR-223): birim fiyat bu kullanıcıya açık mı? Karar SERVİSTEDİR
+    /// (<see cref="MaterialService.FiyatGorunur"/>); burası yalnız arayüzün alanı/kolonu hiç
+    /// oluşturmaması için bayrağı taşır. Bu bayrak GÜVENLİK DEĞİLDİR — güvenlik servis ve API
+    /// katmanındadır; burası "yanlış bilgi göstermeme" içindir.</summary>
+    [ObservableProperty] private bool _fiyatGorunur = true;
     public ObservableCollection<ColumnFilterItem> FilterFields { get; } = new();
     /// <summary>Başlık-altı filtre satırı (madde 4, 2026-08-06): anahtara göre HIZLI erişim — filtre kutusu
     /// sabit Grid.Column konumunda, tablo başlığıyla AYNI SharedSizeGroup'ta durur (bkz. XAML filtre satırı).</summary>
@@ -166,7 +180,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             var rows = DesktopServices.Materials.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, CriticalOnly);
             var path = await FilePickerService.SaveExcelAsync("Malzemeler.xlsx");
             if (path is null) return;
-            var bytes = DesktopServices.Excel.Export(MaterialService.ToTableModel(rows));
+            var bytes = DesktopServices.Excel.Export(MaterialService.ToTableModel(rows, FiyatGorunur));
             await File.WriteAllBytesAsync(path, bytes);
         }
         catch (Exception ex) { Status = "Excel'e aktarılamadı: " + ex.Message; }
@@ -242,11 +256,15 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [RelayCommand]
     private async Task OpenColumnPicker()
     {
-        var available = MaterialListColumns.All.Select(c => (c.Key, c.Label)).ToList();
+        // FAZ 3b: kapalı alan seçiciye de konmaz — aksi hâlde kullanıcı boş kolonu geri açardı.
+        var available = MaterialListColumns.All
+            .Where(c => FiyatGorunur || c.Key != MaterialListColumns.UnitPrice)
+            .Select(c => (c.Key, c.Label)).ToList();
         var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
         if (chosen is null) return;
         VisibleColumns = chosen;
         DesktopServices.ListPrefs.SaveColumns(_session, "materials", chosen);
+        _ = ServerListPrefsClient.SaveColumnsAsync("materials", chosen);   // FAZ 4.14: makineden bağımsız
         Load();
     }
 
@@ -415,9 +433,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     public MaterialsViewModel(SessionContext session, bool openAdd = false)
     {
         _session = session;
+        FiyatGorunur = MaterialService.FiyatGorunur(session);
         var saved = DesktopServices.ListPrefs.GetColumns(session, "materials");
+        // ⭐ FAZ 4.14: çevrimiçiyse SUNUCUDAKİ tercih otoritedir (makineden bağımsız kalıcılık).
+        _ = SunucudanKolonAynalaAsync("materials", k => VisibleColumns = MaterialListColumns.Sanitize(k).ToList());
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
-        VisibleColumns = MaterialListColumns.Sanitize(saved).ToList();
+        // ⭐ FAZ 3b (ADR-223): birim fiyat bu kullanıcıya kapalıysa kolon HİÇ OLUŞTURULMAZ.
+        // Servis değeri zaten 0 döndürüyor; "0,00" göstermek yanlış bilgi olurdu. Kullanıcının
+        // kayıtlı tercihi SİLİNMEZ — yalnız bu oturumda çizilmez (yetki geri verilirse geri gelir).
+        VisibleColumns = MaterialListColumns.Sanitize(saved)
+            .Where(k => FiyatGorunur || k != MaterialListColumns.UnitPrice)
+            .ToList();
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "materials") ?? 25; }   // değiştirmediyse 25
         finally { _suppressPageSizeReload = false; }
@@ -648,7 +674,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     private void ConfirmAddCategory()
     {
         if (string.IsNullOrWhiteSpace(NewCategoryName)) return;
-        try { var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim());
+        try { var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim(), quick: true);
             var item = new LookupItem(id, NewCategoryName.Trim()); Categories.Add(item); SelectedCategory = item;
             IsAddingCategory = false; NewCategoryName = ""; }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
@@ -672,7 +698,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     private void ConfirmAddUnit()
     {
         if (string.IsNullOrWhiteSpace(NewUnitName)) return;
-        try { var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim());
+        try { var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim(), quick: true);
             var item = new LookupItem(id, NewUnitName.Trim()); Units.Add(item); SelectedUnit = item;
             IsAddingUnit = false; NewUnitName = ""; }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
@@ -684,7 +710,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     private void ConfirmAddBrand()
     {
         if (string.IsNullOrWhiteSpace(NewBrandName)) return;
-        try { var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material");
+        try { var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material", quick: true);
             var item = new LookupItem(id, NewBrandName.Trim()); Brands.Add(item); SelectedBrand = item;
             IsAddingBrand = false; NewBrandName = ""; }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
@@ -696,7 +722,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     private void ConfirmAddSupplier()
     {
         if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
-        try { var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+        try { var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim(), quick: true);
             var item = new LookupItem(id, NewSupplierName.Trim()); Suppliers.Add(item); SelectedSupplier = item;
             IsAddingSupplier = false; NewSupplierName = ""; }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }

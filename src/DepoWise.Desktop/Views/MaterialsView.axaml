@@ -89,7 +89,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
                                       PlaceholderText="Kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
@@ -106,7 +106,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
                                       PlaceholderText="Alt kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
@@ -124,7 +124,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
                                       PlaceholderText="Birim seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
@@ -141,7 +141,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
                                       PlaceholderText="Marka seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
@@ -158,7 +158,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
                                       PlaceholderText="Tedarikçi seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
@@ -278,7 +278,7 @@
                 <!-- Grup 3: Fiyat & Stok -->
                 <SelectableTextBlock Text="Fiyat &amp; Stok" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Birim Fiyat (TRY)" Width="160">
+                    <ctrl:FormField Label="Birim Fiyat (TRY)" Width="160" IsVisible="{Binding FiyatGorunur}">
                         <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="2"/>
                     </ctrl:FormField>

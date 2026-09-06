@@ -1,5 +1,262 @@
 # AKTİF DURUM
 
+## 🟦 ÇALIŞMA — 2026-09-06: FAZ 4.1–4.16 (kullanıcının 16 isteği) — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı.
+> Sıradaki tek iş: kullanıcının kaydettiği kapsamlı test promptu (`FAZ_4_TEST_PROMPTU.md`) ile
+> uçtan uca test → başarılıysa **otomatik yayın**.
+
+İsteklerin tam metni ve uygulama durumu tablosu: `docs/project-control/FAZ_4_KULLANICI_ISTEKLERI.md`.
+
+### En kritik üç iş
+
+- **FAZ 4.1 — araç sayacı düzeltilemiyor (canlı veri hatası).** Kök neden ölçüldü:
+  `vehicles.current_meter` yalnız İLERİ gidiyordu (`MeterRule.ShouldAdvance` + "sayaç geri alınmaz"
+  kuralı), bu yüzden yanlış girilen yüksek sayaç kalıcı hâle geliyordu; düzeltme (iptal+yeni kayıt),
+  iptal ve elle değişiklik üçü de sonucu geri alamıyordu. Sayaç artık **geçerli kayıtlardan türetilir**
+  (yakıt dağıtımı + bakım), elle bildirilen değer taban kabul edilir.
+  ⭐ **KARAR DEĞİŞTİ:** "iptal sayacı geri almaz" kuralı kullanıcı talimatıyla tersine çevrildi; bunu
+  kilitleyen iki eski test güncellendi (`FuelCancelTests`, `DailyActivityCancelTests`).
+  🔴 Bu iş sırasında **FAZ 3c'de üretilmiş bir regresyon** da bulundu ve düzeltildi: mal kabulde
+  siparişteki fiyat, fiyatı göremeyen kullanıcıda `null`'lanıyordu (sessiz veri kaybı).
+- **FAZ 4.3 — anlaşılır log + her kaydın kendi log ekranı.** Ayrıntı: ADR-224.
+- **FAZ 4.4 — senkron çakışma ekranı + kazananın değiştirilebilmesi.** Ayrıntı: ADR-225.
+
+### Yönetici dikkatine — üç YENİ yetki (deny-by-default, kimseye otomatik verilmez)
+
+| Yetki | Nerede | Verilmezse ne olur |
+|---|---|---|
+| Şablon Dışı Araç / Malzeme Ekleme (`btn-template-free-create`) | Araç / Malzeme yeni kayıt | Şablon seçmek zorunlu olur (yalnız firmada şablon varsa) |
+| Personele Kullanıcı Bağlama (`btn-link-user`) | Personel · Kullanıcılar | Bağlama düğmesi çalışmaz |
+| Senkron Çakışmasını Çözme (`btn-conflict-resolve`) | Senkron Çakışmaları ekranı | Liste görünür, kazanan DEĞİŞTİRİLEMEZ |
+
+### Şema
+
+- **Migration094 `conflict_snapshots`** — yalnız `ADD COLUMN` (`data_conflicts`: `winner_json`,
+  `loser_json`, `resolution`, `resolved_by`, `resolved_at`). Backfill / UPDATE / DELETE **yok**.
+- FAZ 4.3 için migration **gerekmedi** (`before_json` / `after_json` şemada zaten vardı, doldurulmuyordu).
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| FAZ 4 yeni testleri | `AracSayaciDuzeltme` 12 · `AnlasilirLog` 10 · `SenkronCakismaEkrani` 11 · `PersonelKullaniciBaglama` 5 · `OnayPenceresi` 3 · `BakimListesiSorgulama` 5 · `IslemOnaylari` 3 · `KolonTercihiKalici` 6 · `SablonDisiEklemeYetkisi` 7 · `GunlukFaaliyetSuzgec` 6 · `TanimlarKapsami` 9 · `ArtiButonuYonetimi` 6 |
+| Build: Application · Infrastructure · Api · Web · Desktop | 0 hata |
+| Geniş regresyon | FAZ 4 test promptu aşamasında (tam suite) |
+
+---
+
+## 🟦 ÇALIŞMA — 2026-09-05: FAZ 3c-2 + FAZ 3d — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı. **Yeni migration gerekmedi.**
+> Bundan sonrası **FAZ 3e = kapsamlı final test** — kullanıcının ayrı promptuyla yapılacak.
+
+### FAZ 3c-2 — kalan kaçak kanallar
+
+Malzeme **birim fiyatı** korumalıyken kullanıcı aynı fiyatı **Satın Alma siparişinden** ve
+**fatura satırından** okumaya devam ediyordu; ayrıca bazı raporlar `miktar × fiyat` toplamıyla
+fiyatı geri hesaplanabilir kılıyordu. Üçü de kapatıldı. **Yeni alan eklenmedi** — aynı alanın
+diğer taşıyıcıları aynı karara bağlandı.
+
+🔴 **FAZ 3c'de üretilmiş bir hata bulundu ve düzeltildi:** fiyatı göremeyen depo görevlisi
+**mal kabul** yaptığında, siparişte YAZILI olan fiyat stok hareketine geçmiyordu (sessiz veri
+kaybı). Kapı artık yalnız **kullanıcının gönderdiği** fiyata uygulanır; sunucunun kendi kaydından
+okuduğu fiyat korunur. Regresyon testi eklendi (KL5).
+
+### FAZ 3d — yetki ekranı UX (ADR-222 §12'de planlı)
+
+Yetkiler ekranına **arama · "yalnız verilenler" · "yalnız değişenler" · üç durumlu (kısmi) grup
+kutusu · kaydedilmemiş değişiklik izi** eklendi (web + masaüstü, aynı davranış). Yetki mimarisi,
+precedence, EDIT⇒VIEW ve kaydetme yolu **değişmedi**; süzgeç yalnız görünürlüktür ve gizli satırın
+işaretleri aynen kaydedilir (testle kilitlendi). Kaydetme özeti artık **işlem haklarını da** sayar —
+eskiden "değişmiş olabilir" diyordu.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Yeni testler: `AlanKacakKanali2Tests` (8) + `YetkiEkraniUxTests` (10) | 18 ✅ |
+| Komşu süitler (satın alma · ön muhasebe · rapor · yetki · alan) | **179 geçti / 0 başarısız** |
+| Build: Infrastructure · Api · Web · Desktop | 0 hata |
+| Web GUI | Satın Alma fiyat alanı A/B ✅ · Yetkiler arama 22→2 satır, rozet ve ● işareti ✅ |
+| Masaüstü GUI | Yetkiler arama 342→16→342 kutu, rozet canlı, grup kutusu `Indeterminate` ✅ |
+| Geniş regresyon | **çalıştırılmadı** (kullanıcı talimatı: final test fazına bırakıldı) |
+
+### Kalan / kapsam dışı
+
+- **FAZ 3e (final E2E + 10.000 kayıt + görsel karşılaştırma)** — kullanıcının ayrı promptu.
+- Yakıt `unit_price` (farklı alan), maliyet merkezi özeti ve iş emri maliyeti (karışık toplamlar).
+- `fx_rate` · `withholding_amount` · `cost_center_id` kataloğa **eklenmedi** — D4 kapsam kararı gerektirir.
+
+---
+
+## 🟦 ÇALIŞMA — 2026-09-05: FAZ 3c (kaçak kanalların kapatılması) — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı. **Yeni migration gerekmedi.**
+
+**Sorun:** Faz 3b'de malzeme **birim fiyatı** kapatılmıştı; ama kullanıcı aynı fiyatı **Stok
+Hareketleri** ve **Malzeme Şablonu** ekranlarından okumaya devam ediyordu (ölçüldü, varsayılmadı).
+Kilidi taktık, pencereyi açık bıraktık durumuydu.
+
+**Ne yapıldı:** Aynı bilginin bu iki taşıyıcısı da **aynı karara** bağlandı. Kataloğa yeni alan
+eklenmedi, **yeni yetki motoru kurulmadı**; `AccessControl`, yetki sırası, tenant/şube sınırı,
+`fld_` düzeni ve EDIT⇒VIEW **değişmedi**. Ayrıntı: `docs/ADR-223-…md` "FAZ 3c" bölümü.
+
+- Okuma: fiyat maskelenir (karar **sorgu başına bir kez**, satır başına değil).
+- Yazma: fiyatı göremeyen kullanıcının gönderdiği fiyat yok sayılır; şablonda **saklı değer korunur**.
+- Arayüz: kolon **başlığıyla birlikte** çizilmez, giriş alanı açılmaz (web + masaüstü).
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| İlgili testler (`AlanKacakKanali` + `AlanYetkiApi` + `AlanYetkisi`) | **43 geçti / 0 başarısız** (46 sn) ✅ |
+| Build: Infrastructure · Api · Web · Desktop | 0 hata ✅ |
+| Web GUI A/B (`/stock`, `/material-templates`) | koruma AÇIK'ta kolon+alan yok, `777` sayfada yok ✅ |
+| Masaüstü GUI A/B (gerçek pencere) | `B.FİYAT` kolonu kayboluyor, **başlık/hücre birebir hizalı** ✅ |
+| Ham veri | `777.55` yerinde — koruma yalnız görünümü etkiliyor ✅ |
+| Geniş regresyon | **çalıştırılmadı** (kullanıcı talimatı: son kapsamlı test fazına bırakıldı) |
+
+### Hâlâ açık (sonraki faz — bilerek kapsam dışı)
+
+`unit_price`'ın diğer taşıyıcıları: bakım · yakıt · fatura satırı · satın alma · ekipman bakımı.
+Kataloğa hiç girmemiş hassas alanlar: `fx_rate`, `withholding_amount`, `cost_center_id`.
+
+---
+
+## 🟦 ÇALIŞMA — 2026-09-05: FAZ 3b-6 (görsel borç + tablo hizası) — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı. **Yeni migration gerekmedi.**
+
+**Ne yapıldı:** 3b-5'te "yapılmadı" diye yazılan görsel doğrulamalar gerçekten yapıldı (Fatura +
+Kasa/Banka, açık/koyu tema, mobil) ve **ölçülen 100 px'lik başlık hizası hatası düzeltildi**.
+Ayrıntı: `docs/ADR-223-FAZ3B-ALAN-YETKISI-TASARIM.md` "FAZ 3b-6" bölümü.
+
+### Bulunan GERÇEK ürün hataları (dördü de kapatıldı)
+
+1. **Başlık/gövde 100 px kayması** (tüm ön muhasebe tabloları) — başlık dar `DockPanel` genişliğine
+   sıkışırken satırlar doğal genişlikte kayıyordu. Çözüm: `TableHeaderSync` (salt görsel).
+   **Alan gizlemeden bağımsızdı** — koruma kapalıyken de vardı.
+2. **Kasa/Banka'da gizli kolonun BAŞLIĞI kalıyordu** — satır gizleniyor, başlık duruyordu.
+3. **Web'de gizli bakiye "0.00 TRY" olarak sızıyordu** (hesap kartı başlığı).
+4. **Fail-closed mesajı anlaşılmıyordu** — kullanıcı ham `403 (Forbidden)` metni görüyordu; artık
+   sunucunun Türkçe açıklaması görünüyor (tüm GET uçlarını iyileştirir).
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3571 geçti / 0 başarısız / 48 atlandı** (30 dk 29 sn) ✅ |
+| Yeni testler | `MasaustuTabloHizaTests` **7** ✅ (biri **mutasyonla** doğrulandı) |
+| Regresyon: Faz 1 · 2 · 3a · 3b-4 · 3b-5 | başarısız yok ✅ |
+| Build: 5 proje | 0 hata ✅ |
+| Hizalama: 900 · 1000 · 1180 · 1500 · 1800 px | **hepsinde birebir hizalı** ✅ |
+| 10.000 kayıt (201 sayfa) | hizalı, sayfalama sağlam ✅ |
+| Gerçek GUI | masaüstü + web · koyu + açık tema · mobil · yetkili + kısıtlı ✅ |
+
+### Açık kalanlar
+
+- Masaüstü **Yetkiler** ekranı açık temada ayrıca açılmadı (koyu temada; web'de iki temada da ✅).
+- **Kapsam dışı bulgular** (değiştirilmedi): mobilde Kasa/Banka kartlarında alan etiketi yok ·
+  masaüstünde seçili satır 3 px kayıyor (seçim kenarlığı) · Yetkiler mobilde sıkışık (taşma yok).
+- Senkron süzme yok (D1) · DENY yok (K1) — bilinçli ve yazılı.
+
+---
+
+
+## 🟦 ÇALIŞMA — 2026-09-05: FAZ 3b-5 (alan yetkisi yönetimi + gerçek GUI) — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı, migration üretimde
+> çalıştırılmadı. Yeni migration da GEREKMEDİ.
+
+**Ne yapıldı:** korumalı alanlar mevcut **yetki ağacına** `fld_` satırı olarak girdi (yeni ekran
+açılmadı), firma "Korumalı Alanlar" yönetimi web+masaüstüne eklendi, ön muhasebe ekranlarında kolon
+gizleme tamamlandı ve **her şey gerçek tarayıcı + gerçek masaüstü uygulaması üzerinde doğrulandı.**
+Ayrıntı: `docs/ADR-223-FAZ3B-ALAN-YETKISI-TASARIM.md` "FAZ 3b-5" bölümü.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3564 geçti / 0 başarısız / 48 atlandı** (30 dk 51 sn) ✅ |
+| Yeni testler | `AlanYetkiEkraniTests` 16 · `AlanYetkiApiTests` 12 · `AlanYetkiPerformansTests` 4 = **32** ✅ |
+| Regresyon: Faz 1 (31) · Faz 2 (13) · Faz 3a (20) · 3b-4 (23) | başarısız yok ✅ |
+| Build: Application · Infrastructure · API · Web · Masaüstü | **5/5 hatasız** ✅ |
+| GERÇEK web GUI (izole sunucu, kendi oluşturduğumuz test kullanıcısı) | ✅ — 3 hata bulundu ve düzeltildi |
+| GERÇEK masaüstü GUI (izole veri dizini, UI Automation) | ✅ — Malzemeler ve Cari Hesaplar |
+| Karşı kontrol (yöneticide alan GÖRÜNÜYOR) | ✅ web + masaüstü |
+| 10.000 kayıt: cari · ekstre · kasa hareketi | ✅ korumalı/korumasız **sorgu sayısı aynı** |
+
+### Bulunan GERÇEK ürün hatası (kapatıldı)
+
+Süper admin OLMAYAN yönetici **rapor (`rpt_`) / kayıt tipi (`datype_`) / alan (`fld_`)** yetkisi
+verdiğinde işlem başarılı dönüyor ama **izin kaydolmuyordu** (sessiz kusur). Kök neden: devretme
+tavanı sözlüğü yalnız `AppModules.All` üzerinde kuruluyordu; önekli anahtarlar orada olmadığı için
+dört bayrak da siliniyordu. Düzeltildi (`ClampModule` tavanı istek anında aynı kaynaktan hesaplar),
+regresyon testi `YK16` eklendi. **Hiçbir mevcut izin değişmez.**
+
+### Faz 2'den devreden görsel borç — KAPATILDI
+
+Masaüstünde açılmış alt menü görüntüsü doğrulandı: "Malzeme ve Stok → Malzemeler → Malzeme Listesi"
+zinciri gerçek uygulamada açılıp ekran görüntüsüyle kaydedildi.
+
+### Açık kalanlar
+
+- **Fatura ve Kasa/Banka ekranlarının GÖRSEL doğrulaması yapılmadı** (kod yolu Malzemeler/Cari ile
+  aynı desende ve servis+API testleriyle kanıtlı, ama ekran görüntüsü alınmadı).
+- Açık/koyu tema karşılaştırması ve mobil/responsive kontrolü bu turda yapılmadı.
+- **Kapsam dışı bulgu:** `PartiesView` başlık ızgarası ile satır ızgarası 100 px kayık
+  (başlıklar üst üste biniyor). **Ölçüldü: bu fazdan gelmiyor** — koruma kapalıyken de var.
+  Kozmetik; değiştirilmedi.
+- Senkron süzme yok (D1) · DENY yok (K1) — bilinçli ve yazılı.
+
+---
+
+
+## 🟦 ÇALIŞMA — 2026-09-05: FAZ 3b-3 + 3b-4 (alan bazlı yetki) — ✅ TAMAM · **YAYINLANMADI**
+
+> **Bu bir yayın DEĞİLDİR.** Commit yok, push yok, üretime dokunulmadı, migration üretimde
+> çalıştırılmadı. Kullanıcının onayı yalnız **3b-3 + 3b-4** içindi; 3b-5 ve sonrası yapılmadı.
+
+**Ne yapıldı:** merkezi alan bazlı yetki modeli (`FieldAccess`) + yalnız **Malzemeler** ve
+**Ön Muhasebe** servislerinde entegrasyon. Ayrıntı: `docs/ADR-223-FAZ3B-ALAN-YETKISI-TASARIM.md`
+"UYGULAMA KAYDI" bölümü.
+
+### Geriye uyumluluk — en önemli şart
+
+`field_protections` tablosu **boş doğar** → hiçbir alan korumalı değil → **hiçbir kullanıcının
+gördüğü/düzenlediği alan değişmez.** Test `AL1` bunu doğrudan kilitler. Geri dönüş: koruma
+satırlarını silmek yeterli.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Tam süit | **3532 geçti / 0 başarısız / 48 atlandı** (33 dk 54 sn) ✅ |
+| Yeni testler `AlanYetkisiTests` (AL1–AL23) | **23/23** ✅ |
+| Regresyon: Faz 1 (31) · Faz 2 (13) · Faz 3a (20) | tam süit içinde, **başarısız yok** ✅ |
+| Build: API · Web · Masaüstü · Infrastructure | 0 hata ✅ |
+
+### Şema
+
+**Migration 093** (`field_protections`) eklendi ve kataloğa kaydedildi → yerel/test şema **91 → 93**
+(092 rol izinleri, 093 alan koruması; ikisi de Faz 3a/3b'de eklendi, **yalnız CREATE TABLE**).
+**Üretimde çalıştırılmadı** — üretim şeması son yayınla **91**'de kaldı.
+
+### Açık kalanlar (3b-5 ve sonrası)
+
+- **Ön muhasebe ARAYÜZLERİ** kolon gizlemiyor (veri korunuyor ama ekran "0,00" gösterir)
+  → **ön muhasebe alan koruması bir firmada AÇILMAMALI** (3b-5 tamamlanana kadar).
+- **Alan yetkisi yönetim ekranı yok**; koruma yalnız `FieldProtectionService` üzerinden açılabilir,
+  yetki ağacına `fld_` satırları eklenmedi.
+- **Korumalı hâlin görsel doğrulaması yapılmadı** (koruma satırı olmadan ekranlar bugünküyle
+  aynı görünüyor; korumalı görünüm 3b-5'te doğrulanacak).
+- Faz 2'den devreden görsel borç: masaüstü açık alt menü ekran görüntüsü.
+- Senkron süzme YOK (D1 kararı) · DENY YOK (K1) — ikisi de bilinçli ve yazılı.
+
+---
+
+
 ## ⭐ YAYIN — 2026-09-05: FAZ I + J + K — ✅ BAŞARILI · **MIGRATION VAR, şema 88 → 91**
 
 **Yayınlanan commit:** `ed9d166` → **API v188** · **Web v215** · **Masaüstü 1.0.177**

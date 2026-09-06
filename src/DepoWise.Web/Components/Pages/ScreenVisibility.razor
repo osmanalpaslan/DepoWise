@@ -522,7 +522,12 @@ else
           r.OrigDesktop = r.EffectiveDesktop; r.OrigWeb = r.EffectiveWeb; }
     }
 
-    private void BeginEdit() { _edit = true; _msg = null; }
+    private async Task BeginEdit()
+    {
+        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
+        if (!await Dialog.ConfirmEdit()) return;
+        _edit = true; _msg = null;
+    }
 
     private async Task CancelEdit()
     {

@@ -1,0 +1,180 @@
+@page "/sync-conflicts"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject NavigationManager Nav
+
+@* ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMA EKRANI (web karşılığı, masaüstüyle AYNI içerik).
+   "Kimin kazandığı kimin kaybettiği belirtilmeli… Üzerine yazılan kaydı iptal edip istenen kaydı kazanan
+   yapabilmeli." Listeyi görmek yetki gerektirmez (uyarı zaten ana ekranda); KAZANANI DEĞİŞTİRMEK
+   ⭐ Ekranı GÖRMEK sync_conflicts modülü View yetkisine, KAZANANI DEĞİŞTİRMEK ayrıca
+   btn-conflict-resolve yetkisine bağlıdır. Her iki kapı da SUNUCUDA uygulanır. *@
+
+@if (!Auth.CanView("sync_conflicts"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Senkron Çakışmaları).</MudAlert>
+}
+else
+{
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Senkron Çakışmaları</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+            Bu kayıtlar aynı anda hem web'de hem masaüstünde değiştirildi. En son düzenleyen geçerli oldu;
+            isterseniz üzerine yazılan sürümü geri getirip kazanan yapabilirsiniz.
+        </MudText>
+    </div>
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="Yukle">Yenile</MudButton>
+</div>
+
+@if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+else if (_rows.Count == 0)
+{
+    <MudAlert Severity="Severity.Success" Dense="true">Açık senkron çakışması yok.</MudAlert>
+}
+else
+{
+    <MudStack Spacing="3">
+        @foreach (var cf in _rows)
+        {
+            <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid var(--mud-palette-lines-default);border-radius:12px;">
+                <div class="d-flex align-center flex-wrap mb-1" style="gap:12px;">
+                    <MudIcon Icon="@Icons.Material.Filled.SyncProblem" Color="Color.Error" />
+                    <MudText Typo="Typo.subtitle1"><b>@Str(cf, "entityLabel")</b></MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(cf, "dateText")</MudText>
+                </div>
+                <MudText Typo="Typo.body2"><b>Kazanan:</b> @Str(cf, "winnerWho") — @Str(cf, "winnerText")</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary"><b>Kaybeden:</b> @Str(cf, "loserWho") — @Str(cf, "loserText")</MudText>
+
+                @{ var farklar = Farklar(cf); }
+                @if (farklar.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Üzerine yazılan sürümden farklar:</MudText>
+                    @foreach (var d in farklar) { <MudText Typo="Typo.body2" Style="margin-left:8px">• @d</MudText> }
+                }
+
+                @if (!Bool(cf, "canPromoteLoser"))
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">
+                        Bu çakışma eski sürümde oluştuğu için üzerine yazılan kaydın verisi saklanmamış; kazananı değiştirme yapılamaz.
+                    </MudText>
+                }
+                else if (!Auth.CanButton("btn-conflict-resolve"))
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">
+                        Kazananı değiştirmek için "Senkron Çakışmasını Çözme" yetkisi gerekir.
+                    </MudText>
+                }
+
+                <div class="d-flex flex-wrap mt-3" style="gap:8px;">
+                    @if (Bool(cf, "canPromoteLoser") && Auth.CanButton("btn-conflict-resolve"))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   Disabled="_busy" OnClick="@(() => KazananYap(cf))">Üzerine Yazılanı Kazanan Yap</MudButton>
+                    }
+                    @if (Str(cf, "auditEntityType").Length > 0 && Auth.CanButton("btn-screen-log"))
+                    {
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => Gecmis(cf))">Kaydın Geçmişi</MudButton>
+                    }
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_busy" OnClick="@(() => Gizle(cf))">Gizle</MudButton>
+                </div>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@if (_mesaj is not null)
+{
+    <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-3">@_mesaj</MudAlert>
+}
+
+}
+
+@code {
+    private List<JsonElement>? _rows;
+    private bool _busy, _ok;
+    private string? _mesaj;
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    private async Task Yukle()
+    {
+        _rows = null; _mesaj = null;
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/sync/conflicts");
+            _rows = arr.Where(r => Str(r, "status") != "resolved").ToList();
+        }
+        catch (Exception ex) { _rows = new(); _ok = false; _mesaj = "Çakışmalar okunamadı: " + ex.Message; }
+    }
+
+    /// <summary>Üzerine yazılan (kaybeden) sürümü geri getirir. Onay ZORUNLUDUR — gerçek veri değişikliğidir.</summary>
+    private async Task KazananYap(JsonElement cf)
+    {
+        // ⚠️ Bu işlem kaydı İPTAL ETMEZ; üzerine yazılan sürümü geri getirir. Bu yüzden standart
+        // "kaydı iptal et" onayı KULLANILMAZ — kullanıcı yanlış işlem yaptığını sanabilirdi.
+        // (FAZ 4 final QA bulgusu, 2026-09-06 — masaüstündeki metinle aynı hâle getirildi.)
+        var onay = await Dialog.Confirm(
+            $"\"{Str(cf, "entityLabel")}\" kaydında ÜZERİNE YAZILAN sürüm geri getirilecek ve kazanan olacak.\n\n" +
+            "Kayıt silinmez; yalnız alan değerleri o sürüme döner ve değişiklik tüm cihazlara yayılır.\n" +
+            "Devam edilsin mi?", "Evet, kazanan yap", "Vazgeç", danger: true);
+        if (!onay) return;
+
+        _busy = true; _mesaj = null;
+        try
+        {
+            await Api.PostAsync($"/api/sync/conflicts/{Str(cf, "id")}/promote-loser", new { });
+            _ok = true;
+            _mesaj = "Üzerine yazılan sürüm geri getirildi ve kazanan yapıldı. Değişiklik bir sonraki eşitlemede cihazlara ulaşır.";
+            await Yukle();
+        }
+        catch (Exception ex) { _ok = false; _mesaj = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Gizle(JsonElement cf)
+    {
+        // "Gizle" de kaydı iptal etmez → standart iptal onayı yerine kendi metni kullanılır.
+        var onay = await Dialog.Confirm(
+            "Bu çakışma uyarısı listeden kaldırılacak.\n\nKAYIT DEĞİŞMEZ — yalnız uyarı kapanır. Devam edilsin mi?",
+            "Evet, gizle", "Vazgeç");
+        if (!onay) return;
+        _busy = true;
+        try { await Api.PostAsync($"/api/sync/conflicts/{Str(cf, "id")}/resolve", new { }); await Yukle(); }
+        catch (Exception ex) { _ok = false; _mesaj = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Kaydın FAZ 4.3 log ekranı — çakışan kayıtta gerçekte ne değiştiği oradan izlenir.</summary>
+    private async Task Gecmis(JsonElement cf)
+    {
+        var parms = new DialogParameters
+        {
+            ["Title"] = "Kayıt Geçmişi — " + Str(cf, "entityLabel"),
+            ["EntityType"] = Str(cf, "auditEntityType"),
+            ["EntityId"] = Str(cf, "entityId"),
+            ["KayitBaglantisi"] = false,
+        };
+        await Dialog.ShowAsync<AuditHistoryDialog>("Kayıt Geçmişi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    }
+
+    private static List<string> Farklar(JsonElement e)
+    {
+        var liste = new List<string>();
+        if (e.ValueKind == JsonValueKind.Object && e.TryGetProperty("differences", out var d)
+            && d.ValueKind == JsonValueKind.Array)
+            foreach (var x in d.EnumerateArray())
+                if (x.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+                    liste.Add(t.GetString() ?? "");
+        return liste;
+    }
+
+    private static bool Bool(JsonElement e, string key)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

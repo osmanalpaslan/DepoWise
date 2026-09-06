@@ -2184,6 +2184,11 @@ ORDER BY br.name, p.full_name;";
 
         if (desc is null) throw new ArgumentException("Bilinmeyen rapor tipi: " + key);
 
+        // ⭐ FAZ 3b-5: ALAN KAPISI, filtre doğrulamasından ÖNCE. Yetki kararı geçerli tarih/filtre
+        // gönderilmiş olmasına BAĞLI OLMAMALIDIR; aksi hâlde yetkisiz kullanıcı eksik filtreyle
+        // 400 alır ve reddin GERÇEK nedenini (yetki) hiç öğrenemezdi.
+        AlanKapisi(s, key);
+
         // ⭐ RPR-07 (denetim 2026-08-25) — YÖNETİCİ RAPORU KAPISI (tek nokta: hem masaüstü hem API buradan geçer).
         //
         // Katalog raporları ikiye ayırıyordu (Standard / Manager) ve bu ayrım MENÜDE ("Yönetici Raporları",
@@ -2278,13 +2283,99 @@ ORDER BY br.name, p.full_name;";
         // sorgusunda yapar (LIMIT @lim) ve buradaki kesme onun için ikinci bir emniyet ağıdır.
         if (maxRows > 0 && table.Rows.Count > maxRows)
             table = table with { Rows = table.Rows.Take(maxRows).ToList() };
+
+        // ⭐ FAZ 3c-2 — MALZEME MALİYETİ KOLONLARI (kaçak kanal). Karar RAPOR BAŞINA BİR KEZ.
+        table = MalzemeMaliyetiniSuz(s, key, table);
         return table;
+    }
+
+    /// <summary>
+    /// ⭐ FAZ 3c-2 — TÜRETİLMİŞ MALİYET KOLONLARININ KALDIRILMASI.
+    ///
+    /// Bu raporlardaki maliyet kolonları <c>miktar × birim_fiyat</c> ile hesaplanır. Miktar zaten aynı
+    /// satırda göründüğü için tutar, birim fiyatı GERİ HESAPLANABİLİR kılar → malzeme birim fiyatı
+    /// gizliyken bu kolonlar açık kalırsa koruma delinir (ADR-223 çıkarım kanalı kuralı).
+    ///
+    /// <b>Neden kolonu SİLİYORUZ, sıfırlamıyoruz:</b> "0 ₺" yanlış bilgidir (§7 "null ile saklama"
+    /// yasağının aynısı). Toplam kolonu da silinir; aksi hâlde <c>toplam − yakıt</c> ile malzeme
+    /// maliyeti geri elde edilirdi.
+    ///
+    /// Alan korumalı DEĞİLSE (varsayılan) bu metot tabloya DOKUNMAZ → bugünkü rapor birebir aynıdır.
+    /// </summary>
+    private static TableModel MalzemeMaliyetiniSuz(SessionContext s, string key, TableModel table)
+    {
+        string[] kolonlar = key switch
+        {
+            "vehicle" => new[] { "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Araç Maliyeti", "Birim Başına Maliyet" },
+            "vehicle-daily" => new[] { "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Maliyet", "Birim Başına Maliyet" },
+            "maintenance" => new[] { "Malzeme Maliyeti" },
+            "daily-activity" or "daily-activity-summary" => new[] { "Parça Maliyeti" },
+            _ => Array.Empty<string>(),
+        };
+        if (kolonlar.Length == 0) return table;
+        if (FieldAccess.Gorunur(s, FieldProtectionCatalog.Materials, FieldProtectionCatalog.UnitPrice)) return table;
+        return KolonlariCikar(table, kolonlar);
+    }
+
+    /// <summary>Başlık adına göre kolon(ları) tablodan çıkarır: başlık · satırlar · sayısal bayraklar ·
+    /// toplam satırı birlikte kaydırılır (biri unutulursa tablo kayar — tek yerde yapılmasının nedeni).</summary>
+    private static TableModel KolonlariCikar(TableModel table, IReadOnlyList<string> basliklar)
+    {
+        var kalan = new List<int>();
+        for (int i = 0; i < table.Headers.Count; i++)
+            if (!basliklar.Contains(table.Headers[i])) kalan.Add(i);
+        if (kalan.Count == table.Headers.Count) return table;   // eşleşen kolon yok → dokunma
+
+        static IReadOnlyList<T> Sec<T>(IReadOnlyList<T> kaynak, List<int> idx)
+            => idx.Where(i => i < kaynak.Count).Select(i => kaynak[i]).ToList();
+
+        return table with
+        {
+            Headers = Sec(table.Headers, kalan),
+            Rows = table.Rows.Select(r => Sec(r, kalan)).ToList(),
+            Numeric = table.Numeric is null ? null : Sec(table.Numeric, kalan),
+            TotalRow = table.TotalRow is null ? null : Sec(table.TotalRow, kalan),
+        };
     }
 
     /// <summary>Katalog anahtarı → hesaplama metodu (tek switch — hem masaüstü hem API aynı eşleme).
     /// <paramref name="maxRows"/> yalnız tavanı SQL'e indiren raporlara geçirilir (bkz. StockMovements);
     /// diğerlerinin davranışı DEĞİŞMEDİ.</summary>
-    private TableModel Dispatch(SessionContext s, string key, ReportRequest req, int maxRows) => key switch
+    private TableModel Dispatch(SessionContext s, string key, ReportRequest req, int maxRows)
+        => DispatchIc(s, key, req, maxRows);   // alan kapısı Run() başında uygulanır (bkz. AlanKapisi)
+
+    /// <summary>
+    /// ⭐ FAZ 3b (ADR-223) — RAPOR ALAN KAPISI.
+    ///
+    /// Ön muhasebe raporları tutarları SERVİSLERDEN değil doğrudan SQL'den okur. Bu bilinçli bir
+    /// tasarımdır (tek sorguda toplama) ama alan yetkisi açısından bir BOŞLUK yaratır: cari bakiyesi
+    /// ekranda gizlenirken aynı sayı "Cari Bakiye Raporu"ndan alınabilirdi.
+    ///
+    /// <b>Neden süzme değil, kapatma:</b> bu raporların TAMAMI tutardır (bakiye listesi, ekstre,
+    /// fatura listesi, tahsilat, kasa). Tutar kolonlarını sıfırlamak boş bir rapor üretir ve
+    /// kullanıcı nedenini anlamaz. Bu yüzden rapor <b>açılmaz</b> ve nedeni açıkça söylenir —
+    /// fatura detayı ile aynı fail-closed kararı (bkz. InvoiceQueryService.Get).
+    ///
+    /// Alan korumalı DEĞİLSE (varsayılan) bu metot hiçbir şey yapmaz → bugünkü davranış.
+    /// </summary>
+    private static void AlanKapisi(SessionContext s, string key)
+    {
+        var (ekran, alan, adi) = key switch
+        {
+            "acc-statement" or "acc-balances" =>
+                (FieldProtectionCatalog.Parties, FieldProtectionCatalog.Balance, "cari bakiyelerini"),
+            "acc-invoices" or "acc-open-invoices" =>
+                (FieldProtectionCatalog.Invoices, FieldProtectionCatalog.GrandTotal, "fatura tutarlarını"),
+            "acc-payments" or "acc-cash" =>
+                (FieldProtectionCatalog.Finance, FieldProtectionCatalog.Amount, "kasa/banka tutarlarını"),
+            _ => (null!, null!, null!),
+        };
+        if (ekran is null) return;
+        if (!FieldAccess.Gorunur(s, ekran, alan))
+            throw new ForbiddenException($"Bu rapor tamamen tutarlardan oluşuyor; {adi} görme yetkiniz yok.");
+    }
+
+    private TableModel DispatchIc(SessionContext s, string key, ReportRequest req, int maxRows) => key switch
     {
         // ═══ G4-4 — ÖN MUHASEBE RAPORLARI ═══ (hesaplama AccountingReports'ta; ikinci framework YOK)
         "acc-statement" => AccountingReports.Statement(_factory, s, req),

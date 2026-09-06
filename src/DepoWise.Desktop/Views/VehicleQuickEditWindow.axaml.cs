@@ -187,6 +187,75 @@ public partial class VehicleQuickEditWindow : Window
 
         // Fotoğraflar sunucudan ASENKRON gelir (pencere açılışı bloklanmaz). Hata olursa bölüm gizli kalır.
         _ = FotograflariYukleAsync(session, vehicleId);
+
+        // ⭐ FAZ 4.7: sağ bilgi panelindeki veriler EK SEKMELER olarak yüklenir (yerel; anında).
+        SekmeVerileriniYukle(session, vehicleId, codeText.Text ?? "");
+    }
+
+    /// <summary>
+    /// ⭐ FAZ 4.7 (kullanıcı isteği 2026-09-06) — SEKME VERİLERİ.
+    ///
+    /// Kullanıcı: <i>"…tabloda 1 kez sol tık yaptığımda sağda bulunan bilgi panelindeki verilerin
+    /// EK OLARAK sekmeler hâlinde bu pencerede görüntülenmesini istiyorum."</i>
+    ///
+    /// Sağ paneldeki dört liste (uyumlu malzemeler · muayene/sigorta · bakımlar · işlem geçmişi)
+    /// burada da gösterilir. Veriler AYNI servislerden okunur — ikinci bir veri yolu kurulmadı.
+    /// Salt-okunurdur; ekleme/silme kendi ekranlarındadır.
+    ///
+    /// ⚠️ Her liste ayrı try/catch: biri (ör. çevrimdışı bir uç) hata verse bile pencere açılır ve
+    /// diğer sekmeler çalışır — kullanıcı boş bir pencereyle kalmaz.
+    /// </summary>
+    private void SekmeVerileriniYukle(SessionContext session, string vehicleId, string vehicleCode)
+    {
+        void Doldur<T>(string listeAdi, string bosAdi, System.Func<System.Collections.Generic.IEnumerable<T>> getir,
+            System.Func<T, string> metin)
+        {
+            var liste = this.FindControl<ListBox>(listeAdi);
+            var bos = this.FindControl<SelectableTextBlock>(bosAdi);
+            if (liste is null) return;
+            var satirlar = new System.Collections.Generic.List<string>();
+            try { foreach (var x in getir()) satirlar.Add(metin(x)); }
+            catch { satirlar.Clear(); }
+            liste.ItemsSource = satirlar;
+            if (bos is not null) bos.IsVisible = satirlar.Count == 0;
+        }
+
+        Doldur("MaterialsList", "MaterialsEmpty",
+            () => DesktopServices.Materials.MaterialsForVehicle(session, vehicleId),
+            m => $"{m.Code} — {m.Name}  ·  stok: {m.Quantity:0.##}");
+
+        Doldur("InspectionsList", "InspectionsEmpty",
+            () => DesktopServices.Inspection.List(session).Where(x => x.VehicleCode == vehicleCode),
+            i => $"{i.DocTypeText}: son {i.LastText} · sonraki {i.NextText}");
+
+        Doldur("MaintenancesList", "MaintenancesEmpty",
+            () => DesktopServices.Maintenance.ListMaintenances(session, vehicleId),
+            b => $"{b.PerformedDisplay} — {b.DefinitionName} ({b.StatusText})");
+
+        // İşlem geçmişi = Günlük Faaliyet hareketleri + sistem olayları (araç ekranındaki panelle AYNI kaynak).
+        var gecmis = new System.Collections.Generic.List<(long Tarih, string Metin)>();
+        try
+        {
+            foreach (var mv in DesktopServices.DailyActivity.GetForVehicle(session, vehicleId, "movement"))
+                gecmis.Add((mv.ActivityDate,
+                    $"{System.DateTimeOffset.FromUnixTimeMilliseconds(mv.ActivityDate).LocalDateTime:dd.MM.yyyy} · " +
+                    (mv.MovementKind == "transfer" ? "Transfer" : "Hareket") + " — " + (mv.Description ?? "")));
+        }
+        catch { }
+        try
+        {
+            foreach (var h in DesktopServices.Vehicles.RecentHistory(session, vehicleId, 100))
+                gecmis.Add((h.Date, $"{h.DateText} · Sistem — {(h.Detail is null ? h.Label : h.Label + " (" + h.Detail + ")")}"));
+        }
+        catch { }
+        var gecmisListe = this.FindControl<ListBox>("HistoryList");
+        var gecmisBos = this.FindControl<SelectableTextBlock>("HistoryEmpty");
+        if (gecmisListe is not null)
+        {
+            var satirlar = gecmis.OrderByDescending(x => x.Tarih).Select(x => x.Metin).ToList();
+            gecmisListe.ItemsSource = satirlar;
+            if (gecmisBos is not null) gecmisBos.IsVisible = satirlar.Count == 0;
+        }
     }
 
     /// <summary>Kullanıcı isteği (2026-09-02): çift-tık penceresinde de fotoğraflar görünür.
@@ -214,9 +283,13 @@ public partial class VehicleQuickEditWindow : Window
                 }
                 catch { /* bozuk görsel atlanır */ }
             }
-            note.Text = "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor.";
-            note.IsVisible = cevrimdisi;
-            section.IsVisible = panel.Children.Count > 0 || cevrimdisi;
+            // ⭐ FAZ 4.7: fotoğraflar artık kendi SEKMESİNDE. Sekme daima durur; boşsa bilgi yazılır
+            // (eskiden bölüm tamamen gizleniyordu ve kullanıcı "fotoğraf yok mu, yüklenmedi mi" bilemiyordu).
+            note.Text = cevrimdisi
+                ? "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor."
+                : (panel.Children.Count == 0 ? "Bu araca ait fotoğraf yok." : "");
+            note.IsVisible = note.Text.Length > 0;
+            section.IsVisible = true;
         }
         catch { /* fotoğraf yüklenemedi → bölüm gizli kalır, düzenleme akışı etkilenmez */ }
     }

@@ -41,14 +41,25 @@ public sealed class PersonnelRowVm
 /// "Saha personeli" işaretli değilse kaydederken uyarı çıkar (kutucuk işaretliyse çıkmaz). Mükerrer kişi uyarısı.
 /// Unvan sabit tanım listesinden seçilir ("+" ile yeni tanım eklenir).
 /// </summary>
-public sealed partial class PersonnelViewModel : ViewModelBase
+public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynagi
 {
+
+    // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
+    // Kabuktaki "Seçili Kaydın Geçmişi" menüsü bu üç bilgiyi okur; log okuma/yetki tek yerdedir
+    // (AuditLogService.ForEntity + btn-screen-log). Seçim yoksa null → kullanıcıya "kayıt seçin" denir.
+    public string? LogEntityType => "personnel";
+    public string? LogEntityId => Selected?.Id;
+    public string? LogKayitAdi => Selected?.FullName;
+
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "personnel", PermissionAction.Create);
     public bool CanEdit => AccessControl.Can(_session, "personnel", PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, "personnel", PermissionAction.Delete);
-    public bool CanManageAccounts => AccessControl.IsAdmin(_session);
+    // ⭐ FAZ 4.16 (2026-09-06) — bağlama artık AYRI bir yetki; admin bypass'ı korunur.
+    // Sunucudaki UserService.RequireLinkPermission ile AYNI kural (ikinci yetki mantığı yok).
+    public bool CanManageAccounts => AccessControl.IsAdmin(_session)
+                                     || AccessControl.CanUseButton(_session, SpecialButtons.LinkUser);
 
     public ObservableCollection<PersonnelRowVm> Items { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
@@ -134,6 +145,14 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     /// <summary>Bağlanabilir kullanıcı var mı (yoksa uyarı gösterilir).</summary>
     public bool HasLinkableUsers => LinkableUsers.Count > 0;
 
+    /// <summary>
+    /// ⭐ FAZ 4.16 — LİSTE NEDEN BOŞ? Eskiden yetki hatası SESSİZCE yutuluyordu (<c>catch { }</c>) ve
+    /// ekran her durumda <i>"bağlanabilir kullanıcı yok, önce hesap açın"</i> diyordu. Kullanıcı bu
+    /// yüzden yetki sorununu VERİ sorunu sanıyordu (bildirilen hata buydu). Artık gerçek neden yazılır.
+    /// </summary>
+    [ObservableProperty] private string _linkableEmptyReason =
+        "Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcı yok. Önce 'Kullanıcılar' ekranından hesap açın.";
+
     partial void OnFGrantAccessChanged(bool value) => OnPropertyChanged(nameof(ShowAccountFields));
     partial void OnFHasAccountChanged(bool value) { OnPropertyChanged(nameof(ShowGrantToggle)); OnPropertyChanged(nameof(ShowAccountFields)); }
     /// <summary>"Saha personeli" işaretlenirse kullanıcı bağlama kapanır (kişi uygulamaya girmeyecek).</summary>
@@ -213,8 +232,17 @@ public sealed partial class PersonnelViewModel : ViewModelBase
             LinkableUsers.Clear();
             if (CanManageAccounts)
                 foreach (var u in DesktopServices.Users.ListLinkableUsers(_session)) LinkableUsers.Add(u);
+            LinkableEmptyReason = "Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcı yok. Önce 'Kullanıcılar' ekranından hesap açın.";
         }
-        catch { }
+        catch (ForbiddenException ex)
+        {
+            // ⭐ FAZ 4.16: yetki hatası artık yutulmuyor — kullanıcı gerçek nedeni görür.
+            LinkableEmptyReason = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            LinkableEmptyReason = "Kullanıcı listesi alınamadı: " + ex.Message;
+        }
         OnPropertyChanged(nameof(HasLinkableUsers));
         if (CanManageAccounts) _ = RefreshLinkableUsersFromServerAsync();
     }
@@ -274,10 +302,12 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void BeginEdit()
+    private async System.Threading.Tasks.Task BeginEdit()
     {
         if (Selected is null) { Status = "Personel seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        // ⭐ FAZ 4.2: standart düzenleme onayı (kullanıcı isteği 2026-09-06).
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         EditId = Selected.Id; _editVersion = Selected.Record.Version; // düzenleme kilidi
         FFullName = Selected.FullName; FTitle = Selected.Title;
         FPhone = Selected.Phone ?? ""; FBranch = Branches.FirstOrDefault(b => b.Id == Selected.BranchId);
