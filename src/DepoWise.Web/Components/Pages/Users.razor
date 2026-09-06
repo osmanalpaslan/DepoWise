@@ -397,9 +397,11 @@
     private bool _editProfile;
     private string _eFull = "", _eEmail = "", _ePhone = "", _eTitle = "", _eNotes = "";
 
-    private void BeginEditProfile()
+    private async Task BeginEditProfile()
     {
         if (_selUser is null) return;
+        // FAZ 4.2 kuralı: her "Düzenle" düğmesi işlemden ÖNCE onay sorar — masaüstüyle AYNI cümle.
+        if (!await Dialog.ConfirmEdit()) return;
         var u = _selUser.Value;
         _eFull = Str(u, "fullName");
         _eEmail = Str(u, "email");

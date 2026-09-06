@@ -17,10 +17,10 @@ namespace DepoWise.Tests;
 /// Avalonia bu ortamda render edilemediği için (bkz. <c>MasaustuTasarimPaketiTests</c>) görüntü değil
 /// <b>görüntüyü üreten kaynağın değişmezleri</b> doğrulanır.
 ///
-///  SEK1 — Masaüstü şeridi ALTTA ve dört parçayı da taşıyor (ikon · etiket · ✕ · Yeni Sekme)
+///  SEK1 — Masaüstü şeridi ALTTA ve üç parçayı da taşıyor (ikon · etiket · ✕) + sağ uçta SOHBET
 ///  SEK2 — Web şeridi ÜSTTE: MudMainContent'in İLK çocuğu ve artık `bottom:0` ile sabitlenmiyor
 ///  SEK3 — Web şeridi kaydırınca görünür kalır (sticky) ve üst barın ALTINA girmez
-///  SEK4 — İki platform da AYNI dört parçayı taşır (parite: biri eklenip diğeri unutulamaz)
+///  SEK4 — İki platform da AYNI üç parçayı taşır (parite: biri eklenip diğeri unutulamaz)
 ///  SEK5 — Sekme ikonu ekranın GRUBUNDAN gelir; her masaüstü ekranının bir grubu vardır
 ///  SEK6 — Renkler token'dan gelir: şeritte gömülü hex renk YOK (tema değişince şerit bozulmaz)
 /// </summary>
@@ -61,13 +61,25 @@ public class SekmeSeridiTests
 
         // Şerit ALTTA (kullanıcı tasarımı) — üste taşınırsa web ile konum farkı kaybolur.
         Assert.Contains("DockPanel.Dock=\"Bottom\"", blok);
-        Assert.Contains("IsVisible=\"{Binding HasOpenTabs}\"", blok);   // sekme yoksa şerit yer kaplamaz
+
+        // ⭐ 2026-09-06 (kullanıcı isteği): şerit artık SOHBET düğmesini de taşıyor ve bu düğme
+        // sekme olmasa da görünmelidir → görünürlük koşulu HasOpenTabs değil AltBarGorunur.
+        // (AltBarGorunur = HasOpenTabs || sohbet yetkisi. Sekme de sohbet de yoksa şerit yine yer kaplamaz.)
+        Assert.Contains("IsVisible=\"{Binding AltBarGorunur}\"", blok);
 
         Assert.Contains("Classes=\"sekme\"", blok);                     // sekme gövdesi
         Assert.Contains("Data=\"{Binding Icon}\"", blok);               // ① ikon
         Assert.Contains("Text=\"{Binding Label}\"", blok);              // ② etiket
         Assert.Contains("CloseTabCommand", blok);                       // ③ ✕ kapatma
-        Assert.Contains("YeniSekme_Click", blok);                       // ④ Yeni Sekme
+
+        // ⭐ "Yeni Sekme" KALDIRILDI (kullanıcı isteği 2026-09-06: "yeni sekme alanını tamamen
+        // kaldıralım"). Sessizce geri gelmemeli — kullanıcının açık kararıdır.
+        Assert.DoesNotContain("YeniSekme_Click", blok);
+        Assert.DoesNotContain("Yeni Sekme", blok);
+
+        // ⭐ Sohbet düğmesi şeridin EN SAĞINDA sabit durmalı (kullanıcı tasarımı).
+        Assert.Contains("DockPanel.Dock=\"Right\"", blok);
+        Assert.Contains("Chat.PaneliAcKapaCommand", blok);
 
         // Vurgu çizgisi HER sekmede vardır, yalnız rengi değişir → aktiflik değişince yükseklik oynamaz.
         Assert.Contains("Classes=\"sekmeCizgi\"", blok);
@@ -120,7 +132,11 @@ public class SekmeSeridiTests
         Assert.Contains("Data=\"{Binding Icon}\"", masaustu);   Assert.Contains("SekmeIkon(", web);
         Assert.Contains("Text=\"{Binding Label}\"", masaustu);  Assert.Contains("dw-sekme-yazi", web);
         Assert.Contains("CloseTabCommand", masaustu);           Assert.Contains("dw-sekme-kapat", web);
-        Assert.Contains("YeniSekme_Click", masaustu);           Assert.Contains("dw-sekme-yeni", web);
+
+        // ⭐ "Yeni Sekme" İKİ PLATFORMDAN DA kaldırıldı (kullanıcı isteği 2026-09-06).
+        // Bu satır paritenin ta kendisidir: biri kaldırılıp diğeri unutulursa test kırılır.
+        // (Bu test gerçekten işe yaradı: düğme önce yalnız masaüstünden kaldırılmış, web'de kalmıştı.)
+        Assert.DoesNotContain("YeniSekme_Click", masaustu);     Assert.DoesNotContain("dw-sekme-yeni", web);
     }
 
     /// <summary>

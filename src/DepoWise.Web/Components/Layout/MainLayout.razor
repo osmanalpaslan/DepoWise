@@ -198,13 +198,10 @@
                                 @onclick="@(() => SekmeKapat(yerel))">✕</button>
                     </div>
                 }
-                @* "Yeni Sekme": sekme ancak bir EKRAN açılınca oluşur, o yüzden boş sekme yaratmaz —
-                   kullanıcıyı ekran seçebileceği tek yere, sol menüdeki "Ekran ara…" kutusuna götürür. *@
-                <button type="button" class="dw-sekme-yeni" @onclick="YeniSekme"
-                        title="Yeni sekme: soldaki ekran aramasına geçer, ekranı seçince sekme açılır">
-                    <span>Yeni Sekme</span>
-                    <MudIcon Icon="@Icons.Material.Filled.Add" Class="dw-sekme-arti" />
-                </button>
+                @* ⭐ "Yeni Sekme" düğmesi KALDIRILDI (kullanıcı isteği 2026-09-06):
+                   "yeni sekme alanını tamamen kaldıralım". Masaüstünde de kaldırıldı — iki şerit
+                   AYNI parçaları taşımak zorundadır (bkz. SekmeSeridiTests SEK4). Yaptığı tek iş
+                   soldaki ekran aramasına odaklanmaktı; o kutu menüde zaten duruyor. *@
             </div>
         }
 
@@ -592,14 +589,6 @@
     /// yoksa nötr klasör ikonu gelir (sekme ikonsuz kalmaz).</summary>
     private static string SekmeIkon(EkranSekmesi sekme)
         => NavMenu.WebIcon(DepoWise.Application.Security.AppScreens.ByWebRoute(sekme.Route)?.Group ?? "");
-
-    /// <summary>"Yeni Sekme": boş sekme yaratılamaz — sekme ancak bir EKRAN açılınca oluşur — bu yüzden
-    /// kullanıcı ekran seçebileceği tek yere götürülür. Menü kapalıysa önce açılır.</summary>
-    private async Task YeniSekme()
-    {
-        if (!_drawerOpen) { _drawerOpen = true; StateHasChanged(); }
-        if (_navMenu is not null) await _navMenu.AramayaOdaklanAsync();
-    }
 
     private sealed record EkranSekmesi(string Route, string Label);
     private List<EkranSekmesi> _ekranSekmeleri = new();

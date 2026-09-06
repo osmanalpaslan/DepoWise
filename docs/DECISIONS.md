@@ -5345,3 +5345,76 @@ sarar. Kapsayıcıda `HorizontalAlignment="Left"` varsa çocuğa sınırsız gen
 **Yönteme eklenen ders.** `dotnet build` çıktısında "0 Hata" görmek YETMEZ: bir XAML dosyası bozuk
 bırakıldığında (yorum, öznitelik listesinin içine yazılmıştı) derleme başarısız olur ama akıştaki
 süzgeç bunu gizleyebilir. Her derlemeden sonra **`DepoWise.Desktop.dll` zaman damgası** doğrulanır.
+
+---
+
+## ADR-230 — Kompakt tarih alanı: Avalonia DatePicker yerine tek kutulu TarihKutusu (2026-09-06)
+
+**Bağlam.** Kullanıcı: *"tarih alanları çok çirkin ve büyük. daha modern ve daha az yer kaplayacak
+tarih alanı istiyorum."* Avalonia'nın kutusu tarihi ÜÇ bölmeye böler (gün|ay|yıl) ve dar kalınca
+**yıl bölmesini sessizce düşürür** — 150/200 px'te yıl hiç görünmüyor, 250'de kırpık, 280'de tam.
+Bir önceki turda alanları 280 px'e çıkarmak yılı kurtarmış ama formları şişirmişti.
+
+**Karar.** Tek kutulu `GG.AA.YYYY` maskeli giriş + küçük takvim ikonu (`ctrl:TarihKutusu`).
+Ölçülen genişlik **112 px** (önceki ~305 px). 25 ekranda 43 alan dönüştürüldü; `SelectedDate`
+sözleşmesi `DateTimeOffset?` olarak AYNI kaldı → görünüm modellerinde tek satır değişmedi.
+
+**Mantık UI'da DEĞİL** (`Application/Ui/TarihMetni`): test projesi masaüstüne başvurmaz, bu yüzden
+maskeleme/biçimleme/**gerçek takvim doğrulaması** orada durur ve 35 testle korunur (31.02 reddedilir).
+
+**Sonuç.** Yeni bir tarih alanı `DatePicker` ile değil `ctrl:TarihKutusu` ile eklenir.
+
+---
+
+## ADR-231 — Liste yazdırma (PDF) ekran başına değil ORTAK TableModel üzerinden (2026-09-06)
+
+**Bağlam.** PDF yalnız Talep Formu için vardı; zimmet tutanağı, malzeme listesi, stok hareketleri,
+iş emri, bakım, personel yazdırılamıyordu. Şantiyede ıslak imzalı kâğıt gerekiyor.
+
+**Karar.** `TablePdfService`, Excel çıktısının kullandığı **aynı `TableModel`**'i alır. Böylece
+Excel'i olan her ekran dört satırlık eklemeyle yazdırılabilir olur ve iki çıktı ayrışamaz.
+Web'de ayrı bir uç açılmadı: mevcut 13 export ucu `?format=pdf` kabul eder.
+
+**Kararın iki ayrıntısı gerekçelidir:**
+- Başlığa **uygulanan süzgeçler** yazılır — filtrelenmiş bir çıktının "tam liste" sanılması
+  yazdırmada en sık yapılan hatadır.
+- Toplam satırı **yalnız gerçek sayı tiplerinden** hesaplanır; metin biçimli sayılar
+  ("1.234,56 TRY") toplanmaya çalışılmaz — yanlış toplam, toplam olmamasından kötüdür.
+
+---
+
+## ADR-232 — Uygulama içi sohbet: senkron DIŞI, yalnız çevrimiçi (2026-09-06)
+
+**Bağlam.** Kullanıcı isteği: çevrimiçi kullanıcıları görmek ve birebir mesajlaşmak; ana sohbet
+düğmesi alt barın en sağında sabit, konuşmalar ayrı pencerelerde açılır/kapanır, ekranda fazladan
+yer kaplamaz. Projede hiçbir mesajlaşma altyapısı yoktu.
+
+**Karar.** `Migration096`: `chat_messages` + `users.last_seen_at`. Ayrı bir presence tablosu
+AÇILMADI — tek sütun aynı işi görür, senkron ve yedek yüzeyini büyütmez.
+
+**En önemli karar: sohbet senkron kataloğuna EKLENMEZ** (kullanıcının açık şartı). Masaüstü
+mesajları yerel SQLite'a yazmaz; doğrudan sunucudan okur/yazar. Sonuç: çevrimdışı kuyruk yok,
+çakışma yok, LWW tartışması yok. Çevrimdışı makinede sohbet **sadece çalışmaz** — sessizce yanlış
+veri üretmez.
+
+**Yoklama:** pencere açıkken **3 sn** (kullanıcı kararı, **GEÇİCİ** — gerçek sunucuya geçilince
+yeniden ele alınacak), kapalıyken 20 sn, çevrimdışıyken hiç. Değer koda gömülü değil, tek sabitte.
+
+**Yetki:** yeni `chat` modülü, deny-by-default. Bir EKRAN değil, her ekranın üstünde duran bir
+katman olduğu için menüde maddesi yoktur (yetki ağacı paritesi testinde gerekçeli istisna).
+
+**Firma sınırı** her sorguda uygulanır ve alıcının aynı firmada olduğu yazmadan önce doğrulanır;
+22 testin en kritik dördü bunu sınar.
+
+---
+
+## ADR-233 — Web stil dosyaları sürümlenir (önbellek kırıcı) (2026-09-06)
+
+**Bağlam (gerçek olay).** Sohbet bileşeni eklendiğinde tarayıcı ESKİ `DepoWise.Web.styles.css`
+dosyasını önbellekten sunmayı sürdürdü. Bileşen doğru çizildi ama **stilsiz** kaldı: `position:fixed`
+uygulanmadığı için pencere sayfanın en altına düştü. Yayında bu, "yeni özellik bozuk göründü"
+olarak yaşanırdı ve nedeni bulunması zor bir kusurdur.
+
+**Karar.** `app.css` ve `DepoWise.Web.styles.css` derleme damgasından türeyen bir `?v=` etiketiyle
+istenir. Her yayın yeni değer üretir; aynı yayın içinde sabit kalır (önbellek işini yapmayı sürdürür).
+Elle güncellenecek bir sürüm numarası değildir — unutulamaz.

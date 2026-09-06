@@ -243,6 +243,10 @@ public class ScreenTreeParityTests
             "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
             "report_requests", "report_management", "report_material", "report_accounting",
             "report_daily_activity",   // ADR-182 (PK-D1=A): 9. kategori — aynı gerekçe (menüde madde değil)
+            // ⭐ SOHBET (kullanıcı isteği 2026-09-06): bir EKRAN değil, her ekranın üstünde duran bir
+            // KATMANDIR — alt bardaki düğmeden açılır, menüde maddesi yoktur. Yetki gerçektir ve iki
+            // platformda da uygulanır (masaüstü: ChatViewModel.Kullanilabilir · web: ChatDock).
+            "chat",
         };
 
         var oksuz = ModuleKeys()

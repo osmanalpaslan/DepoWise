@@ -295,10 +295,13 @@ public sealed partial class UsersViewModel : ViewModelBase
     /// işlemleri ve kendi yetki kapıları var), yalnız ad-soyad ve iletişim alanları açılır.
     /// </summary>
     [RelayCommand]
-    private void EditSelected()
+    private async Task EditSelected()
     {
         if (Selected is null) { Status = "Önce listeden bir kullanıcı seçin."; return; }
         if (!CanManageSelected) { Status = "Bu kullanıcıyı düzenleme yetkiniz yok."; return; }
+        // FAZ 4.2 kuralı (kullanıcı isteği): her "Düzenle" düğmesi işlemden ÖNCE onay sorar.
+        // Bu ekran da istisna değildir — kural tek tip olmalı ki kullanıcı ne bekleyeceğini bilsin.
+        if (!await ConfirmService.ConfirmEditAsync()) return;
         _editingUserId = Selected.Id;
         IsEditing = true;
         FormError = null;

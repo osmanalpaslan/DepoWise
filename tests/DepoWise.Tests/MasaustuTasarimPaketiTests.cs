@@ -98,7 +98,10 @@ public class MasaustuTasarimPaketiTests
         // 2026-09-06 (FAZ 4.8): 19 → 20. Kullanıcı isteği: "Araç bakımlarında tarih / araç kodu /
         // plaka sorgulama alanı ve butonları yok." Bakım listesine serbest arama kutusu eklendi.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
-        Assert.Equal(20, Say($"Classes={T}Search{T}"));       // serbest arama kutuları — hap köşeli KALIR
+        // 2026-09-06 (SOHBET): 20 → 21. Uygulama içi sohbetin kişi listesine "Kullanıcı ara…" kutusu
+        // eklendi. Bu bir SERBEST arama kutusudur (kolon filtresi değil) → hap köşeli kalmalıdır.
+        // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
+        Assert.Equal(21, Say($"Classes={T}Search{T}"));       // serbest arama kutuları — hap köşeli KALIR
     }
 
     /// <summary>Filtre kutusunun üçlü imzası (Value + Label + Hint) korunmalı: filtre MANTIĞI

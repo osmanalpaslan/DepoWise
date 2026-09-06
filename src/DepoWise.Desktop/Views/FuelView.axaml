@@ -115,7 +115,7 @@
                                      buton ve enter tuşu ile" idi. Kutulardaki Enter ve Sorgula düğmesi
                                      AYNI komuta bağlıdır; kutular değişince hiçbir şey tetiklenmez. -->
                                 <Border Classes="TableFilterRow" DockPanel.Dock="Top">
-                                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,8">
+                                    <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center" Margin="10,8">
                                         <ctrl:FormField Label="Araç (kod / plaka)" Width="170">
                                             <TextBox Classes="Field" Text="{Binding AramaArac}" Watermark="ör. EKS-001">
                                                 <TextBox.KeyBindings>
@@ -142,7 +142,7 @@
                                         <Button Classes="Secondary" Content="Temizle" VerticalAlignment="Bottom"
                                                 Command="{Binding AramayiTemizleCommand}"
                                                 ToolTip.Tip="Filtreleri temizler ve tüm kayıtlara döner."/>
-                                    </StackPanel>
+                                    </WrapPanel>
                                 </Border>
 
                                 <!-- Sayfalama: liste artık TÜM kayıtları basmaz; seçilen sayfa boyutu kadar

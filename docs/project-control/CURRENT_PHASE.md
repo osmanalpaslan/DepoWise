@@ -1,5 +1,46 @@
 # AKTİF DURUM
 
+## ✅ YAYIN — 2026-09-06 (2. tur): FAZ 1–5 — yakıt hatası · tarih alanı · kullanıcı alanları · yazdırma · SOHBET
+
+Kullanıcının bu turdaki istekleri ve benim önerip onayladığı "A grubu"nun ilk maddesi.
+
+| Faz | İstek (kullanıcının cümlesi) | Kök neden / yapılan |
+|---|---|---|
+| 1 | "yakıt dağıtımları ekranında litre kısmı boş geliyor" | DURUM hücresi satır bazında gizleniyor, o kolonun **ortak boyut grubu yoktu** → gövde o genişliği yıldız kolona geri veriyor, LİTRE'den sonraki her değer **bir kolon sağa kayıyordu** |
+| 2 | "tarih alanları çok çirkin ve büyük" | Avalonia kutusu 3 bölmeli ve dar kalınca **yılı düşürüyor**. Tek kutulu `GG.AA.YYYY` denetimi yazıldı: **305 px → 112 px**, 25 ekranda 43 alan |
+| 2 | "yeni sekme alanını tamamen kaldıralım" | İki platformdan da kaldırıldı; boşalan sağ uç sohbet düğmesine ayrıldı |
+| 3 | "cep telefonu ve mail eksik, fazlası varsa onları da ekle" | `users` tablosunda ikisi de **yoktu** → Migration095 (e-posta · telefon · unvan · not). Ayrıca bu ekranda **düzenleme yolu hiç yoktu**; eklendi |
+| 4 | (A grubu) yazdırma | PDF yalnız Talep Formunda vardı → ortak `TableModel` üzerinden 11 masaüstü ekranı, 13 API ucu (`?format=pdf`), 6 web sayfası |
+| 5 | "uygulama içi chat bölümü olsun" | Sıfırdan: Migration096 + servis + 4 API ucu + masaüstü + web. **Senkron dışı, yalnız çevrimiçi** (kullanıcı şartı) |
+
+### Sohbet — kullanıcının tasarımı birebir
+Ana düğme alt barın **en sağında sabit**; kişi listesi çevrimiçi/çevrimdışı ayrımıyla; kişiye
+tıklayınca konuşma **ayrı pencerede** açılır ve alt barda kendi sekmesini alır; sekme tıklaması
+pencereyi açar/kapatır, ✕ sekmeyi kaldırır. Pencereler üst katmanda çizilir → **ekranda fazladan
+yer kaplamaz**. Yoklama: açıkken **3 sn**, kapalıyken 20 sn, çevrimdışıyken hiç.
+
+⚠️ **Yeni yetki — deny-by-default:** "Sohbet (Uygulama İçi Mesajlaşma)". Yetki verilmeyen kullanıcı
+alt bardaki düğmeyi görmez. Yetkiler ekranından ilgili rollere verilmelidir.
+
+### Tam süitin yakaladığı üç gerçek kusur (testler zayıflatılmadı)
+1. **Parite:** "Yeni Sekme" yalnız masaüstünden kaldırılmış, web'de kalmıştı → `SekmeSeridiTests` yakaladı.
+2. **Onay kuralı:** yeni "Bilgileri Düzenle" düğmeleri "her Düzenle onay sorar" kuralına uymuyordu → iki platforma da onay eklendi.
+3. **Yetki ağacı paritesi:** `chat` hiçbir menüde yok → bir ekran değil katman olduğu için gerekçeli istisna.
+
+Ayrıca: web'de yetki paketi girişten sonra geldiği için sohbet ancak sayfa yenilenince görünüyordu
+(`AuthState.Changed` aboneliği eklendi) ve yeni CSS tarayıcı önbelleğiyle eziliyordu
+(stil dosyaları artık derleme damgasıyla sürümleniyor — ADR-233).
+
+**Rapor:** `docs/tests/FAZ_1_5_TEST_RAPORU.md` · **Kararlar:** ADR-230 · 231 · 232 · 233
+
+### Sırada (bu turda YAPILMADI, bir sonraki tur)
+**A grubu kalanı:** ekran içi liste toplamları · cari yaşlandırma (vade) · toplu işlem · favori ekranlar.
+**B grubu:** çek/senet portföyü · e-posta uyarısı · trafik cezası + HGS/OGS · araç zimmeti geçmişi ·
+lastik yaşam döngüsü · puantaj.
+
+---
+
+
 ## ✅ YAYIN — 2026-09-06: görsel QA 2. tur, ölçeklendirme (masaüstü 1.0.182)
 
 **Kullanıcı talebi:** "ekran, tablo ve buton ölçeklendirmesi… pencere boyutuna göre", "her ekran için

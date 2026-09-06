@@ -1372,7 +1372,7 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .dw-sekme-aktif { background: var(--dw-surface-2); border-bottom-color: var(--mud-palette-primary); }
 
 /* Sekme içindeki düğmeler ÇERÇEVESİZDİR: çerçeveyi sekmenin kendisi taşır → iç içe iki kutu olmaz. */
-.dw-sekme-ana, .dw-sekme-kapat, .dw-sekme-yeni {
+.dw-sekme-ana, .dw-sekme-kapat {
     display: inline-flex;
     align-items: center;
     background: none;
@@ -1399,17 +1399,8 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 }
 .dw-sekme-kapat:hover { color: var(--mud-palette-error); opacity: 1; }
 
-/* "Yeni Sekme" sağ uçta: sekmeler kaydırılırken de görünür kalması için sola itilir. */
-.dw-sekme-yeni {
-    gap: 6px;
-    margin-left: auto;
-    padding: 0 4px 0 12px;
-    font-size: .8rem;
-    color: var(--mud-palette-text-secondary);
-    opacity: .7;
-}
-.dw-sekme-yeni:hover { color: var(--mud-palette-primary); opacity: 1; }
-.dw-sekme-arti { font-size: 1rem !important; }
+/* .dw-sekme-yeni KALDIRILDI (kullanıcı isteği 2026-09-06) — düğme her iki platformdan da çıkarıldı. */
+
 
 /* ══════════════════════════════════════════════════════════════════════════
    20) MENÜ HİYERARŞİ RENK AİLELERİ — FAZ 2 (ADR-221, 2026-09-05)
@@ -1651,13 +1642,5 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     .dw-sekme-yazi { font-size: .74rem; max-width: 140px; overflow: hidden;
                      text-overflow: ellipsis; white-space: nowrap; }
     .dw-sekme-kapat { padding: 0 8px 0 4px; }
-    .dw-sekme-yeni span { display: none; }   /* yalnız + kalır */
-    /* Çok sekme açıkken şerit kayar ve "+" ekran dışında kalırdı. Sağ kenara yapıştırılır:
-       kaç sekme olursa olsun yeni sekme düğmesi hep aynı yerde ve erişilebilir. */
-    .dw-sekme-yeni {
-        padding: 0 10px; position: sticky; right: 0;
-        background: var(--mud-palette-surface);
-        box-shadow: -8px 0 8px -6px rgba(0,0,0,.45);
-    }
 }
 
