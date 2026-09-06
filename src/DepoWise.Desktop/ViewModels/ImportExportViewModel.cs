@@ -72,7 +72,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             if (!ShowImportBranchPassword) return null;                      // kendi şubesi / Tüm Şubeler
             if (string.IsNullOrWhiteSpace(ImportBranchPassword))
                 return $"«{SelectedImportBranch.Name}» şubesine aktarım için o şubenin ŞİFRESİNİ girin.";
-            return SubeSifreKontrol(SelectedImportBranch, ImportBranchPassword);   // hatalıysa metni döner
+            // ⭐ H6: doğrulama SUNUCUDA yapılır. Sonuç gelene kadar buton KAPALI kalır (fail-closed).
+            if (SifreDogrulaniyor) return "Şube şifresi doğrulanıyor…";
+            return SifreSunucuHatasi;
         }
     }
 
@@ -91,6 +93,109 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     public bool ShowExportBranchPassword =>
         SelectedExportBranch is { Id: not null } b && b.Id != _session.OperatingBranchId;
 
+    // ═══ H6 GÜVENLİK DÜZELTMESİ (kullanıcı bildirimi 2026-09-06) ════════════════════════════════
+    //
+    // KULLANICI: "başka şubenin YANLIŞ şifresini girdiğim hâlde dosya yükleme ekranı açıldı;
+    //             şifre yanlış uyarısı verip durdurmalıydı."
+    //
+    // KÖK NEDEN — masaüstünde şube şifresi HİÇ doğrulanamıyordu:
+    //   • Masaüstü, şube listesini sunucudan AYNALAR (BranchMirrorApply). Ayna şube şifresinin
+    //     karmasını (password_hash) BİLİNÇLİ OLARAK YAZMAZ — şifre karmalarının istemci
+    //     makinelere kopyalanması başlı başına bir güvenlik açığı olurdu (çevrimdışı kırma).
+    //   • Bu yüzden yerel tabloda password_hash her şube için BOŞTUR.
+    //   • BranchService.VerifyBranchPassword ise "karma boşsa şifre tanımlı değil → serbest"
+    //     diyerek TRUE döner. Sunucuda doğrudur; masaüstünde ise sonuç şudur:
+    //     GİRİLEN HER ŞİFRE (yanlış olanlar dâhil) KABUL EDİLİYORDU.
+    //
+    // DÜZELTME — doğrulama YETKİLİ KAYNAĞA (sunucuya) taşındı; gerçek karma yalnız orada.
+    // Girişteki şube şifresi kontrolüyle AYNI uç kullanılır (/api/public/verify-branch, deneme
+    // sınırlı). Sunucuya ulaşılamıyorsa KAPALI TARAFA düşülür: doğrulanamayan şifre kabul edilmez.
+    //
+    // ⚠️ DAVRANIŞ DEĞİŞİKLİĞİ (bilinçli, tek): çevrimdışıyken BAŞKA bir şubeye aktarım artık
+    // yapılamaz. Kendi çalışma şubesi ve "Tüm Şubeler" şifre sormaz → günlük kullanım etkilenmez.
+    // Web/API zaten doğruydu (gerçek karma sunucuda), orada değişiklik YOK.
+
+    /// <summary>Sunucu doğrulamasının sonucu (null = sorun yok). Arayüzdeki engel metni bunu kullanır.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(HasImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    private string? _sifreSunucuHatasi;
+
+    /// <summary>Doğrulama sürüyor mu? Sürerken buton KAPALI kalır (fail-closed).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(HasImportEngeli))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    private bool _sifreDogrulaniyor;
+
+    private System.Threading.CancellationTokenSource? _sifreIptal;
+
+    partial void OnImportBranchPasswordChanged(string value) => SifreDogrulamaBaslat();
+    partial void OnSelectedImportBranchChanged(BranchOption? value) => SifreDogrulamaBaslat();
+
+    /// <summary>
+    /// Şifre/şube değişince sunucu doğrulamasını (gecikmeli) başlatır. Gecikme, her tuş vuruşunda
+    /// sunucuya istek gitmesini önler; önceki bekleyen doğrulama iptal edilir.
+    /// </summary>
+    private void SifreDogrulamaBaslat()
+    {
+        _sifreIptal?.Cancel();
+        SifreSunucuHatasi = null;
+
+        if (!ShowImportBranchPassword || string.IsNullOrWhiteSpace(ImportBranchPassword))
+        { SifreDogrulaniyor = false; return; }   // zaten ImportEngeli metniyle engelli
+
+        var cts = new System.Threading.CancellationTokenSource();
+        _sifreIptal = cts;
+        SifreDogrulaniyor = true;
+        _ = DogrulaAsync(cts);
+    }
+
+    private async Task DogrulaAsync(System.Threading.CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(400, cts.Token);
+            var secim = SelectedImportBranch;
+            var sifre = ImportBranchPassword;
+            var hata = await SubeSifreKontrolSunucuAsync(secim, sifre);
+            if (cts.Token.IsCancellationRequested) return;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (cts.Token.IsCancellationRequested) return;
+                SifreSunucuHatasi = hata;
+                SifreDogrulaniyor = false;
+            });
+        }
+        catch (OperationCanceledException) { /* yeni doğrulama başladı */ }
+        catch
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                SifreSunucuHatasi = "Şube şifresi doğrulanamadı. Lütfen tekrar deneyin.";
+                SifreDogrulaniyor = false;
+            });
+        }
+    }
+
+    /// <summary>
+    /// ⭐ YETKİLİ ŞUBE ŞİFRESİ DOĞRULAMASI — sunucudan. Sorun yoksa <c>null</c> döner.
+    /// Çevrimdışıysa (sunucu yanıtı yok) KABUL ETMEZ: doğrulanamayan şifre geçerli sayılamaz.
+    /// </summary>
+    private async Task<string?> SubeSifreKontrolSunucuAsync(BranchOption? secim, string sifre)
+    {
+        if (secim is not { Id: not null } b || b.Id == _session.OperatingBranchId) return null;   // kendi şubesi / Tüm Şubeler
+
+        var sonuc = await ServerAuthClient.VerifyBranchAsync(_session.CompanyId, b.Id!, sifre);
+        return sonuc switch
+        {
+            true => null,
+            false => $"«{b.Name}» şube şifresi hatalı. Farklı bir şubeyle çalışmak için o şubenin şifresi gerekir.",
+            _ => $"«{b.Name}» şube şifresi doğrulanamıyor: sunucuya ulaşılamıyor. " +
+                 "Farklı bir şubeye aktarım için çevrimiçi olmanız gerekir.",
+        };
+    }
     public ImportExportViewModel(SessionContext session)
     {
         _session = session;
@@ -102,14 +207,12 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         SelectedExportBranch = ExportBranches.FirstOrDefault(x => x.Id == _session.OperatingBranchId) ?? ExportBranches[0];
     }
 
-    /// <summary>Farklı şube seçildiyse ŞİFRE doğrulaması (yerel, çevrimdışı çalışır). Sorun yoksa null döner.</summary>
-    private string? SubeSifreKontrol(BranchOption? secim, string sifre)
-    {
-        if (secim is not { Id: not null } b || b.Id == _session.OperatingBranchId) return null;   // kendi şubesi/Tüm Şubeler
-        return DesktopServices.Branches.VerifyBranchPassword(_session.CompanyId, b.Id!, sifre)
-            ? null
-            : $"«{b.Name}» şube şifresi hatalı. Farklı bir şubeyle çalışmak için o şubenin şifresi gerekir.";
-    }
+    // ⛔ ESKİ YEREL KONTROL KALDIRILDI (H6, 2026-09-06).
+    // Burada bir "SubeSifreKontrol(...)" metodu vardı ve DesktopServices.Branches.VerifyBranchPassword
+    // ile YEREL veritabanına soruyordu. Masaüstündeki şube aynası şifre karmasını taşımadığı için
+    // yerel karma DAİMA boştu → servis "şifre tanımlı değil, serbest" deyip TRUE dönüyordu, yani
+    // YANLIŞ ŞİFRELER KABUL EDİLİYORDU. Yerine SubeSifreKontrolSunucuAsync (yukarıda) kullanılır.
+    // Geri eklenmemeli: yerelde doğrulanabilecek bir sır YOK.
 
     /// <summary>Oturumun ÇALIŞMA şubesi adı (uyarı metni için).</summary>
     private string CurrentBranchDisplay =>
@@ -141,7 +244,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             // Kaynak listesi/kolonlar ORTAK servisten (EXL-01) — kaynak modül yetkisi/tenant/BranchAccess
             // servis içinde uygulanır; yetkisiz kaynakta buradaki catch kullanıcıya nedeni gösterir.
             // 2026-09-03 (kullanıcı isteği): dışa aktarımda da şube seçilir; farklı şubede ŞİFRE doğrulanır.
-            if (SubeSifreKontrol(SelectedExportBranch, ExportBranchPassword) is { } sifreHatasi)
+            if (await SubeSifreKontrolSunucuAsync(SelectedExportBranch, ExportBranchPassword) is { } sifreHatasi)
             { Status = sifreHatasi; return; }
             var exportSession = SelectedExportBranch is null ? _session : ImportSession(SelectedExportBranch.Id);
 
@@ -194,7 +297,8 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             if (ImportEngeli is { } engel) { ImportResult = engel; return; }
 
             // 2026-09-03 (kullanıcı isteği): farklı şubeye aktarım o şubenin ŞİFRESİYLE doğrulanır.
-            if (SubeSifreKontrol(SelectedImportBranch, ImportBranchPassword) is { } sifreHatasi)
+            // ⭐ H6: arayüz kilidine GÜVENİLMEZ — dosya seçme ekranı açılmadan ÖNCE sunucuya sorulur.
+            if (await SubeSifreKontrolSunucuAsync(SelectedImportBranch, ImportBranchPassword) is { } sifreHatasi)
             { ImportResult = sifreHatasi; return; }
 
             // Farklı şube uyarısı: seçilen hedef, oturumun çalışma şubesinden farklıysa kullanıcı bilinçli onaylasın.
