@@ -225,16 +225,38 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
         PanelAcik = false;      // kişi listesi kapanır, konuşma penceresi açılır
         AraligiAyarla();
 
-        var gecmis = await OrgServerClient.ChatKonusmaAsync(mevcut.UserId);
-        if (gecmis is not null)
+        // ⭐ 2026-09-07 — AĞ HATASI SESSİZCE YUTULMAZ, KULLANICIYA SÖYLENİR.
+        // Eskiden bu blok korumasızdı: sunucuya ulaşılamadığında komut ortada kesiliyor, konuşma
+        // penceresi BOŞ açılıyordu ve kullanıcı "gelen mesajlar görünmüyor" diyordu — üstelik
+        // sebebini gösteren hiçbir şey yoktu.
+        try
         {
-            mevcut.Mesajlar.Clear();
-            foreach (var m in gecmis) mevcut.Mesajlar.Add(m);
-            mevcut.SonZaman = gecmis.Count > 0 ? gecmis[^1].CreatedAt : null;
+            var gecmis = await OrgServerClient.ChatKonusmaAsync(mevcut.UserId);
+            if (gecmis is not null)
+            {
+                mevcut.Mesajlar.Clear();
+                foreach (var m in gecmis) mevcut.Mesajlar.Add(m);
+                mevcut.SonZaman = gecmis.Count > 0 ? gecmis[^1].CreatedAt : null;
+                mevcut.Hata = null;
+            }
+            else mevcut.Hata = ErisimHatasi;
+
+            await OrgServerClient.ChatOkunduAsync(mevcut.UserId);
+            mevcut.Okunmamis = 0;
+            ToplamOkunmamis = Kisiler.Sum(x => x.Unread) - (Kisiler.FirstOrDefault(x => x.UserId == mevcut.UserId)?.Unread ?? 0);
         }
-        await OrgServerClient.ChatOkunduAsync(mevcut.UserId);
-        mevcut.Okunmamis = 0;
-        ToplamOkunmamis = Kisiler.Sum(x => x.Unread) - (Kisiler.FirstOrDefault(x => x.UserId == mevcut.UserId)?.Unread ?? 0);
+        catch { mevcut.Hata = ErisimHatasi; }
+    }
+
+    /// <summary>Sunucuya ulaşılamadığında konuşma penceresinde gösterilen tek metin.</summary>
+    private const string ErisimHatasi =
+        "Sohbet sunucuya ulaşamadı. Bağlantı gelince mesajlar kendiliğinden yenilenir.";
+
+    /// <summary>Konuşmayı yeniler; hata DIŞARI SIZMAZ, pencerede gösterilir.</summary>
+    private async Task TazeleGuvenli(KonusmaVm kon)
+    {
+        try { await KonusmayiTazele(kon); kon.Hata = null; }
+        catch { kon.Hata = ErisimHatasi; }
     }
 
     /// <summary>Alt bardaki konuşma sekmesi: pencereyi aç/kapat (sekme kalır).</summary>
@@ -242,8 +264,9 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     private void KonusmaAcKapa(KonusmaVm? kon)
     {
         if (kon is null) return;
+        // Kapatma HER ZAMAN çalışır: durum önce değiştirilir, ağ işi sonra ve hatasız yapılır.
         kon.Acik = !kon.Acik;
-        if (kon.Acik) { kon.Okunmamis = 0; _ = KonusmayiTazele(kon); }
+        if (kon.Acik) { kon.Okunmamis = 0; _ = TazeleGuvenli(kon); }
         AraligiAyarla();
     }
 
@@ -265,12 +288,16 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
         if (metin.Length == 0) return;
 
         kon.Hata = null;
-        var res = await OrgServerClient.ChatGonderAsync(kon.UserId, metin);
-        if (res.Offline) { kon.Hata = "Mesaj gönderilemedi: bağlantı yok. Sohbet yalnız çevrimiçiyken çalışır."; return; }
-        if (!res.Ok) { kon.Hata = res.Error ?? "Mesaj gönderilemedi."; return; }
+        try
+        {
+            var res = await OrgServerClient.ChatGonderAsync(kon.UserId, metin);
+            if (res.Offline) { kon.Hata = "Mesaj gönderilemedi: bağlantı yok. Sohbet yalnız çevrimiçiyken çalışır."; return; }
+            if (!res.Ok) { kon.Hata = res.Error ?? "Mesaj gönderilemedi."; return; }
 
-        kon.Taslak = "";
-        await KonusmayiTazele(kon);   // kendi mesajımız da sunucudan gelsin (tek doğruluk kaynağı)
+            kon.Taslak = "";
+            await KonusmayiTazele(kon);   // kendi mesajımız da sunucudan gelsin (tek doğruluk kaynağı)
+        }
+        catch { kon.Hata = ErisimHatasi; }
     }
 
     public void Dispose()

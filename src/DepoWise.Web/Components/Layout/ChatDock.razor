@@ -196,14 +196,21 @@
     private void YetkiDegisti()
     {
         ZamanlayiciyiKurGerekirse();
-        InvokeAsync(StateHasChanged);
+        // AuthState olayı BAŞKA bir devreden de tetiklenebilir; bu devre kapanmışsa StateHasChanged
+        // fırlatır ve olay yayıcısına sızarak zincirdeki diğer aboneleri de düşürürdü.
+        _ = InvokeAsync(StateHasChanged).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     /// <summary>Yetki varsa yoklamayı başlatır. Yetkisiz kullanıcıda tek istek bile atılmaz.</summary>
     private void ZamanlayiciyiKurGerekirse()
     {
         if (_zamanlayici is not null || !Auth.CanView("chat")) return;
-        _zamanlayici = new Timer(async _ => await Yokla(), null,
+        // ⭐ 2026-09-07 — ZAMANLAYICI GERI CAGRISI HATA SIZDIRMAZ.
+        // Timer geri cagrisi async void'dir; buradan kacan bir hata YAKALANAMAZ ve Blazor
+        // devresini (circuit) oldurur. Devre olunce SAYFADAKI HICBIR DUGME calismaz:
+        // kullanici mesaj gonderemez, geleni goremez, pencereyi KAPATAMAZ. Kullanicinin
+        // bildirdigi uc belirti de tam olarak budur. Bu yuzden geri cagri komple sarilir.
+        _zamanlayici = new Timer(async _ => { try { await Yokla(); } catch { } }, null,
             TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(KapaliSaniye));
     }
 
@@ -279,7 +286,9 @@
         finally
         {
             _yoklamaCalisiyor = false;
-            await InvokeAsync(StateHasChanged);
+            // Devre kapandiysa StateHasChanged FIRLATIR; bu hata catch'in DISINDAYDI ve disari
+            // sizip devreyi olduruyordu. Artik burada da yutulur (yenileme yapilamamasi olumcul degil).
+            try { await InvokeAsync(StateHasChanged); } catch { }
         }
     }
 
@@ -320,17 +329,43 @@
 
         kon.Mesajlar.Clear();
         kon.SonZaman = null;
-        await KonusmayiTazele(kon);
-        await Api.PostAsync("/api/chat/seen", new { withUserId = kon.UserId });
-        kon.Okunmamis = 0;
-        await Yokla();
+        // ⭐ 2026-09-07 — AĞ HATASI DEVREYİ ÖLDÜRMEZ.
+        // Blazor Server'da bileşen kodundan KAÇAN her hata devreyi (circuit) kapatır ve sayfadaki
+        // HİÇBİR düğme çalışmaz: mesaj gönderilemez, gelen görünmez, pencere KAPANMAZ. Kullanıcının
+        // bildirdiği üç belirti de budur. Sohbetin hiçbir işlemi bu riski taşımamalı.
+        try
+        {
+            await KonusmayiTazele(kon);
+            await Api.PostAsync("/api/chat/seen", new { withUserId = kon.UserId });
+            kon.Okunmamis = 0;
+            await Yokla();
+        }
+        catch { kon.Hata = ErisimHatasi; }
     }
+
+    /// <summary>Ağ/sunucu erişilemediğinde konuşma penceresinde gösterilen tek metin.</summary>
+    private const string ErisimHatasi = "Sohbet sunucuya ulaşamadı. Bağlantı gelince kendiliğinden yenilenir.";
 
     private void PencereAcKapa(Konusma kon)
     {
+        // KAPATMA HER ZAMAN ÇALIŞIR: durum önce değiştirilir, ağ işi sonra ve HATASIZ yapılır.
         kon.Acik = !kon.Acik;
-        if (kon.Acik) { kon.Okunmamis = 0; _ = KonusmayiTazele(kon); }
+        if (kon.Acik)
+        {
+            kon.Okunmamis = 0;
+            // Eskiden beklenmeyen (fire-and-forget) çağrıydı; içinden kaçan hata yakalanamıyor ve
+            // devreyi öldürüyordu → pencere bir daha kapanmıyordu.
+            _ = TazeleGuvenli(kon);
+        }
         AraligiAyarla();
+    }
+
+    /// <summary>Konuşmayı yeniler; hata DIŞARI SIZMAZ (devre korunur), kullanıcıya pencerede söylenir.</summary>
+    private async Task TazeleGuvenli(Konusma kon)
+    {
+        try { await KonusmayiTazele(kon); }
+        catch { kon.Hata = ErisimHatasi; }
+        finally { try { await InvokeAsync(StateHasChanged); } catch { } }
     }
 
     private async Task EnterIleGonder(KeyboardEventArgs e, Konusma kon)
@@ -343,10 +378,14 @@
         var metin = (kon.Taslak ?? "").Trim();
         if (metin.Length == 0) return;
         kon.Hata = "";
-        var err = await Api.PostAsync("/api/chat/messages", new { toUserId = kon.UserId, body = metin });
-        if (err is not null) { kon.Hata = err; return; }
-        kon.Taslak = "";
-        await KonusmayiTazele(kon);
+        try
+        {
+            var err = await Api.PostAsync("/api/chat/messages", new { toUserId = kon.UserId, body = metin });
+            if (err is not null) { kon.Hata = err; return; }
+            kon.Taslak = "";
+            await KonusmayiTazele(kon);
+        }
+        catch { kon.Hata = ErisimHatasi; }
     }
 
     private static string S(JsonElement o, string k)
@@ -360,7 +399,8 @@
 
     public async ValueTask DisposeAsync()
     {
-        Auth.Changed -= YetkiDegisti;
-        if (_zamanlayici is not null) await _zamanlayici.DisposeAsync();
+        // Kapanış da hata sızdırmamalı: burada fırlayan bir hata sayfadan çıkışı bozar.
+        try { Auth.Changed -= YetkiDegisti; } catch { }
+        try { if (_zamanlayici is not null) await _zamanlayici.DisposeAsync(); } catch { }
     }
 }
