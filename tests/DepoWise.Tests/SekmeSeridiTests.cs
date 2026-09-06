@@ -74,8 +74,9 @@ public class SekmeSeridiTests
 
         // ⭐ "Yeni Sekme" KALDIRILDI (kullanıcı isteği 2026-09-06: "yeni sekme alanını tamamen
         // kaldıralım"). Sessizce geri gelmemeli — kullanıcının açık kararıdır.
+        // Kanıt, tıklama işleyicisinin YOKLUĞUdur — düğme onsuz çalışamaz.
+        // (Metnin kendisi aranmaz: kaldırmayı AÇIKLAYAN yorum da bu sözcükleri içerir ve kalmalıdır.)
         Assert.DoesNotContain("YeniSekme_Click", blok);
-        Assert.DoesNotContain("Yeni Sekme", blok);
 
         // ⭐ Sohbet düğmesi şeridin EN SAĞINDA sabit durmalı (kullanıcı tasarımı).
         Assert.Contains("DockPanel.Dock=\"Right\"", blok);
