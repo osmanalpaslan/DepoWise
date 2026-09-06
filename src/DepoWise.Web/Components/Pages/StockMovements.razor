@@ -12,7 +12,7 @@
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
         <MudText Typo="Typo.h5" Class="dw-pagetitle">Stok Hareketleri</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(Filtered.Any() ? $" · {Filtered.Count()} hareket" : "")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(Filtered.Any() ? $" · {(_gercekToplam > 0 ? _gercekToplam : Filtered.Count())} hareket" : "")</MudText>
     </div>
 </div>
 
@@ -55,7 +55,7 @@
 {
     <div class="dw-summary">
         <div class="dw-summary-box">
-            <span class="dw-summary-num">@Filtered.Count().ToString("N0")</span>
+            <span class="dw-summary-num">@((_gercekToplam > 0 ? _gercekToplam : Filtered.Count()).ToString("N0"))</span>
             <span class="dw-summary-cap">hareket<br />(filtreyle)</span>
         </div>
         <div class="dw-summary-box">
@@ -76,6 +76,15 @@
     else if (!Filtered.Any()) { <MudText Class="mud-text-secondary">Seçilen ölçütlerde hareket yok.</MudText> }
     else
     {
+        @* Tavana takildiysa kullaniciya ACIKCA soyle: sessizce kesip "1000 hareket" yazmak yanlisti. *@
+        @if (_gercekToplam > Filtered.Count())
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                Toplam <b>@_gercekToplam.ToString("N0")</b> hareket var; en yenisinden
+                <b>@Filtered.Count().ToString("N0")</b> tanesi gösteriliyor.
+                Tümünü görmek için tarih aralığı veya arama ile daraltın.
+            </MudAlert>
+        }
         <MudTable Items="Filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh">
             <HeaderContent>
                 <MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Kod</MudTh><MudTh>Malzeme</MudTh>
@@ -120,6 +129,16 @@
     private bool _busy;
     /// <summary>G1-07: yükleme hatası mesajı. null = hata yok (boş liste gerçekten boş demektir).</summary>
     private string? _error;
+
+    /// <summary>
+    /// SESSIZ KESME DUZELTMESI (10.000 kayitlik yuk testinde bulundu, 2026-09-06).
+    /// Bu ekran /api/stock/movements ucunu kullanir ve o uc EN FAZLA 1000 satir doner.
+    /// Eskiden ekran okudugu satir sayisini yaziyordu: 10.000 hareketi olan firmada
+    /// "1000 hareket" goruluyor, kalan 9.000 kayit SESSIZCE dusuyordu.
+    /// Artik gercek toplam ayrica sorulur (sayfalanmis ucun sayim kismi) ve tavana
+    /// takilindiysa kullaniciya acikca soylenir. Masaustunde de ayni duzeltme yapildi.
+    /// </summary>
+    private int _gercekToplam;
 
     // İşlem Geçmişi "Kaydı Görüntüle" köprüsü (madde 5, 2026-08-06): /stock/movements?q=<kod> ile gelince
     // arama kutusu otomatik doldurulur.
@@ -181,6 +200,13 @@
             if (_location != LocationOptions.AllId) qs.Add($"location={Uri.EscapeDataString(_location)}");
             var url = "/api/stock/movements" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
             _rows = await Api.GetArrayAsync(url);
+
+            // Gerçek toplam: AYNI filtreyle sayfalanmış uç, tek satır ister (ucuz sayım).
+            var sayimUrl = "/api/stock/movements/grid?page=1&pageSize=1" + (qs.Count > 0 ? "&" + string.Join("&", qs) : "");
+            var sayim = await Api.GetObjectAsync(sayimUrl);
+            _gercekToplam = sayim.ValueKind == JsonValueKind.Object
+                            && sayim.TryGetProperty("totalCount", out var tc) && tc.TryGetInt32(out var ti)
+                ? ti : _rows.Length;
             _error = null;
         }
         // G1-07: hata SESSİZCE boş listeye dönüşmez — kullanıcı "hareket yok" ile "yüklenemedi"yi ayırt edebilmeli.

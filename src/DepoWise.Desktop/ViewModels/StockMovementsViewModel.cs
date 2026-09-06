@@ -66,6 +66,9 @@ public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTa
         SelectedLocation = Locations[0];
     }
 
+    /// <summary>Ekranda tek seferde çizilen azami hareket sayısı (10.000 satırı çizmek ekranı kilitler).</summary>
+    private const int Tavan = 1000;
+
     [RelayCommand]
     private void Load()
     {
@@ -77,11 +80,28 @@ public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTa
             SelectedLocation is null || SelectedLocation.Id == AllLocationsId ? null : new[] { SelectedLocation.Id };
         try
         {
+            var arama = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim();
             foreach (var m in DesktopServices.Stock.SearchMovements(
-                         _session, from, to, string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(),
-                         locations, null, null, 1000))
+                         _session, from, to, arama, locations, null, null, Tavan))
                 Movements.Add(m);
-            Status = Movements.Count == 0 ? "Seçilen ölçütlerde hareket yok." : $"{Movements.Count} hareket";
+
+            // ⭐ SESSİZ KESME KALDIRILDI (10.000 kayıtlık yük testinde bulundu, 2026-09-06).
+            //
+            // Bu ekran en fazla 1000 hareket okur ve eskiden okuduğu satır sayısını "N hareket"
+            // diye yazıyordu. 10.000 hareketi olan bir firmada ekran "1000 hareket" diyordu:
+            // kullanıcı toplamının bu olduğunu sanıyor, geri kalan 9.000 kayıt SESSİZCE düşüyordu.
+            //
+            // Artık GERÇEK toplam ayrıca sorulur (aynı filtreyle, sayfalanmış sorgunun sayım
+            // kısmı — tek satır ister, ucuzdur) ve tavana takıldıysa kullanıcıya açıkça söylenir.
+            // Tavan bilinçli olarak korunur: 10.000 satırı tek seferde çizmek ekranı kilitler.
+            var toplam = DesktopServices.Stock.SearchMovementsGrid(
+                _session, from, to, arama, locations, null, null, page: 1, pageSize: 1).TotalCount;
+
+            Status = toplam == 0 ? "Seçilen ölçütlerde hareket yok."
+                : toplam > Movements.Count
+                    ? $"{toplam} hareket — en yenisinden {Movements.Count} tanesi gösteriliyor. " +
+                      "Tümünü görmek için tarih aralığı veya arama ile daraltın."
+                    : $"{toplam} hareket";
         }
         catch (Exception ex) { Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(HasRows));

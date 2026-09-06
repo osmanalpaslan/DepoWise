@@ -66,7 +66,7 @@ koşulacak (hem kod testleri hem **ekrana bağlanan** QA testleri).
 | **6H** | İ2 — 10.000 kayıt üretimi + yük altında kod ve QA testleri |
 | **6I** | Tam kapsamlı test + otomatik yayın |
 
-**Durum:** 6G bitti (masaüstü + web) → sıradaki **6H** (10.000 kayıtla ekrana bağlı QA).
+**Durum:** 6H bitti → sıradaki **6I** (tam kapsamlı test + otomatik yayın).
 
 ---
 
@@ -187,3 +187,34 @@ o yalnız tarayıcıda JS ile ölçülebilir ve şerit zaten kaydığı için ku
 
 **Test:** `tests/DepoWise.Tests/AltBarTasmaTests.cs` — masaüstü 10 test + web 2 test, **12/12 geçti**;
 ilgili küme (şerit · tasarım paketi) **36/36**. Masaüstü ve web derlemeleri **0 hata**.
+
+---
+
+## 6H — 10.000 kayıtla yük ve ekran QA'si (2026-09-06)
+
+**Veri:** kayıt girilebilen 12 tabloya **10.000'er kayıt** (toplam 120.000) üretildi ve ayrı bir test
+sunucusuna yüklendi. Masaüstü bu veriyi **10 saniyede** çekti (10.000/tablo yerelde doğrulandı).
+
+| Ölçüm | Sonuç |
+|---|---|
+| API: 139 listeleme/rapor ucu | **500 hatası YOK** · en yavaş uç 1,15 sn (senkron çekimi) · dışa aktarımlar 0,3–0,9 sn |
+| Masaüstü: **54 ekran** tek tek açıldı | **hatalı ekran 0** · hiçbiri 2 sn üzeri değil |
+| Web: **61 rota** | hepsi **200** · hata izi yok |
+| Ağır ekranlar (araç/malzeme/stok/yakıt) | 10.000 kayıtla doğru sayfalanıyor (ör. "10000 kayıt — sayfa 1 / 400") |
+
+### Yük altında bulunan ve düzeltilen gerçek hatalar
+
+1. **Yakıt listesi çökmesi.** Boş sayaç alanı olan tek bir kayıt `/api/fuel/grid` ve
+   `/api/fuel/summary` uçlarını komple çökertiyordu ("The data is NULL at ordinal 3").
+   Eksik sayaç artık 0 gösterilir, kayıt görünür kalır.
+2. **Bilgi penceresinde iki "Tamam" düğmesi.** Ekran görüntüsüyle yakalandı. Bunun için daha önce
+   `InfoAsync` yardımcısı yazılmış ama **çağrı yerleri dönüştürülmemişti**; altısı da düzeltildi.
+   Web temizdi.
+3. **Stok Hareketleri sessizce kesiyordu.** Ekran en fazla 1000 satır okuyor ama **okuduğu satır
+   sayısını "toplam" diye yazıyordu**: 10.000 hareketi olan firmada ekran "1000 hareket" diyor,
+   kalan 9.000 kayıt sessizce düşüyordu. **İki ortamda da** vardı. Tavan korundu (10.000 satırı tek
+   seferde çizmek ekranı kilitler) ama artık gerçek toplam ayrıca sorulur ve kullanıcıya açıkça
+   söylenir: *"10000 hareket — en yenisinden 1000 tanesi gösteriliyor…"* (canlı doğrulandı).
+
+**Test:** `StokHareketleriTavanTests` (3), `BilgiPenceresiTekDugmeTests` (3) · ilgili küme
+(stok/büyük veri) **466 geçti / 10 atlandı** · masaüstü ve web derlemeleri **0 hata**.
