@@ -25,7 +25,16 @@ public static class ServerAuthClient
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 
     public enum AuthState { Ok, WrongPassword, Offline }
-    public readonly record struct AuthResult(AuthState State, string? CompanyId);
+    /// <summary>
+    /// Sunucu kimlik doğrulama sonucu.
+    ///
+    /// ⭐ <paramref name="BranchId"/> DÜZELTME (kullanıcı bildirimi 2026-09-06): kullanıcının şubesi
+    /// SUNUCUNUN söylediği değerdir. Giriş ekranı bunu eskiden yalnız YEREL aynadan okuyordu; ayna
+    /// bir sebeple tazelenmemişse (aynalama adımlarından biri sessizce düşerse) ekran ESKİ şubeyi
+    /// öneriyordu. Çevrimiçi girişte artık otorite doğrudan buradan gelir.
+    /// </summary>
+    public readonly record struct AuthResult(AuthState State, string? CompanyId,
+        string? BranchId = null, IReadOnlyList<string>? ScopeBranchIds = null);
 
     public sealed record LoginCompany(string Id, string Name) { public override string ToString() => Name; }
     /// <summary>ŞB-01: <paramref name="Kind"/> ve <paramref name="ParentId"/> sona EKLENDİ (geriye uyumlu —
@@ -309,7 +318,7 @@ public static class ServerAuthClient
                 }
                 catch { /* yerel ayna eksik kalabilir; oturum yine de ÇEVRİMİÇİ kurulur */ }
                 await StoreTokenAsync(baseUrl, username, password); // Eşitle için JWT sakla
-                return new(AuthState.Ok, bundle.CompanyId);
+                return new(AuthState.Ok, bundle.CompanyId, bundle.BranchId, bundle.ScopeBranchIds);
             }
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 return new(AuthState.WrongPassword, null); // web'de parola değişmiş/yanlış → yerel de reddedilir

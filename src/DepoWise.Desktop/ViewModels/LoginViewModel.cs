@@ -57,6 +57,10 @@ public sealed partial class LoginViewModel : ViewModelBase
     // İlk kurulum mu (makinenin şubesi henüz yok): seçilen şube, onay sonrası makineye tanımlanır.
     private bool _firstMachineSetup;
 
+    /// <summary>⭐ 2026-09-06: sunucunun bildirdiği EV ŞUBESİ (kullanıcının atandığı şube).
+    /// Kapsam kırpması bunu listeden atmaz; varsayılan seçim budur.</summary>
+    private string? _evSubesiId;
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool MessageBeep(uint uType);
 
@@ -242,7 +246,17 @@ public sealed partial class LoginViewModel : ViewModelBase
             }
 
             // #5b: Kullanıcıya şube tanımlı değilse (ve Tüm Şubeler yetkisi yoksa) giriş YOK.
-            var (userBranchId, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
+            // ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): "kullanıcıyı ve makineyi Düzce'ye
+            // atadım ama giriş hâlâ Karaman getiriyor."
+            //
+            // Kök neden sınıfı: şube YEREL aynadan okunuyordu. Çevrimiçi girişte sunucu paketi
+            // yerele yazılır (ImportRemoteUser + BranchMirror + ImportUserScopes) ama bu üç adım TEK
+            // try/catch içindedir; biri düşerse oturum yine kurulur ve ekran ESKİ şubeyi önerir.
+            // Artık ÇEVRİMİÇİ girişte otorite doğrudan SUNUCUNUN yanıtıdır; yerel ayna yalnız
+            // çevrimdışı yedektir. (Sunucu atamayı zaten doğru tutuyordu — ölçüldü.)
+            var (yerelSube, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
+            var userBranchId = _online && !string.IsNullOrEmpty(srv.BranchId) ? srv.BranchId : yerelSube;
+            _evSubesiId = userBranchId;
             if (string.IsNullOrEmpty(userBranchId) && !canAll)
             {
                 Error = "Kullanıcınıza şube tanımlanmamış. Web'den yöneticinizin size şube ataması gerekir.";
@@ -768,11 +782,17 @@ public sealed partial class LoginViewModel : ViewModelBase
     private void FilterBranchesByScope()
     {
         if (_authedSession is null) return;
+        // ⭐ DÜZELTME (2026-09-06): kullanıcının KENDİ şubesi kırpmaya takılmaz. Kapsam aynası eskiyse
+        // (yeni atanan şube henüz yerele inmediyse) kullanıcı kendi şubesini listede GÖREMİYOR ve
+        // makinenin eski şubesine düşüyordu. Bu bir yetki gevşetmesi DEĞİLDİR: asıl kapı serviste
+        // (BranchAccess) ve sunucu tarafındadır; burada yalnız kendi ev şubesi listede tutulur.
+        var evSubesi = _evSubesiId;
         var izinli = BranchAccess.Allowed(_authedSession);
         if (izinli is null) return;   // kısıtsız → kırpma yok
         var set = new HashSet<string>(izinli, StringComparer.Ordinal);
         var kalan = Branches
-            .Where(b => b.Id == BranchConstants.AllBranchesId || set.Contains(b.Id))
+            .Where(b => b.Id == BranchConstants.AllBranchesId || set.Contains(b.Id)
+                        || (evSubesi is not null && b.Id == evSubesi))
             .ToList();
         if (kalan.Count == Branches.Count) return;
         Branches.Clear();
