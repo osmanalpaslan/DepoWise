@@ -25,7 +25,7 @@
 | H4 | "webten mesaj yollayamadım… gönder butonuna tıkladığım halde sohbet penceresinde görünmedi. ama karşıdaki kullanıcıya bildirim düştü" | web + masaüstü | ⏳ |
 | H5 | Cari Hesaplar: `Liste yüklenemedi: "Object reference not set to an instance of an object."` | masaüstü (web temiz) | ✅ **6D bitti** |
 | H6 | Excel Merkezi: başka şubenin **yanlış şifresi** girildiği hâlde dosya yükleme ekranı açılıyor 🔴 güvenlik | masaüstü (web zaten doğruydu) | ✅ **6E bitti** |
-| H7 | "webte ekip tanımı yaptım ama masaüstüne kayıt atmadı. oluşturduğum kaydı görüntüleyemedim" | web → masaüstü senkron | ⏳ |
+| H7 | "webte ekip tanımı yaptım ama masaüstüne kayıt atmadı" | web → masaüstü senkron | ✅ **6F bitti** |
 
 ---
 
@@ -66,7 +66,7 @@ koşulacak (hem kod testleri hem **ekrana bağlanan** QA testleri).
 | **6H** | İ2 — 10.000 kayıt üretimi + yük altında kod ve QA testleri |
 | **6I** | Tam kapsamlı test + otomatik yayın |
 
-**Durum:** 6E bitti → sıradaki **6F** (web-masaüstü ekip senkronu).
+**Durum:** 6F bitti → sıradaki **6G** (İ1: alt bar taşma menüsü + sabit Sohbet, iki ortam).
 
 ---
 
@@ -127,3 +127,34 @@ reddedildiğini, **aynalamadan sonra yerel doğrulamanın her şifreyi kabul ett
 mekanizması gerçekten kurularak) ve masaüstünün artık yerel doğrulamaya dönmediğini doğrular.
 İlgili küme (Import · Excel · Branch · şube şifresi · şube kapsamı): **400/400 geçti** ·
 masaüstü derleme **0 hata**.
+
+---
+
+## 6F — H7 çözümü (2026-09-06)
+
+**Önce ölçüldü, sonra düzeltildi.** Yerel bir sunucu örneği açıldı, web'in kullandığı uçla
+(`POST /api/teams`) ekip oluşturuldu ve masaüstü gerçekten çalıştırılıp giriş yapıldı:
+
+- `GET /api/lookups/sync` yanıtında ekip **vardı** (sunucu doğru),
+- masaüstünün yerel veritabanında ekip **kimliğiyle birebir aynı** şekilde bulundu (ayna doğru).
+
+**Gerçek kök neden — zamanlama.** Tanımlar (ekipler, birimler, markalar, kategoriler, araç modelleri,
+ekran ayarları, hiyerarşi) iş senkronunda taşınmaz; **yalnız girişte ve elle "Eşitle"de** çekiliyordu.
+Program açıkken web'de açılan ekip, kullanıcı çıkıp girene ya da Eşitle'ye basana kadar görünmüyordu.
+Aynı sorun **şubeler** için daha önce SNK-12 ile çözülmüştü (otomatik tura eklenerek); tanımlar
+o düzeltmenin dışında kalmıştı.
+
+**Düzeltme (aynı kanıtlanmış desen):**
+1. `LookupSyncService.RefreshAsync()` — otomatik senkron turundan çağrılır, **en fazla 2 dakikada bir**
+   çalışır ve sunucu yanıtı bir öncekiyle **aynıysa yerele hiç dokunmaz** (imza karşılaştırması) →
+   15 saniyelik kadans sunucuyu yormaz, gereksiz yazma olmaz.
+2. Yalnız gerçekten **yeni tanım indiyse** açık ekran yenilenir.
+3. `TeamsViewModel` artık `IRefreshable` — Ekipler ekranı açıkken de güncellenir ve **seçili ekip korunur**.
+
+**Web ayrıca analiz edildi — doğru, dokunulmadı.** `Teams.razor` ekip oluşturduktan sonra listeyi
+yeniden yüklüyor; web'de kayıt anında görünüyor.
+
+**Test:** `tests/DepoWise.Tests/EkipSenkronuTests.cs` (3 test) — web'de açılan ekibin ve üyesinin
+masaüstünün çektiği pakette geldiğini **gerçek API üzerinden** doğrular, ayrıca masaüstü sözleşmesini
+(otomatik tazeleme + yenilenebilir ekran) korur.
+İlgili küme (senkron · ekip · tanım): **348 geçti / 1 atlandı** · masaüstü derleme **0 hata**.

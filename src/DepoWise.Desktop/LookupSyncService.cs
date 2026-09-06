@@ -68,9 +68,44 @@ public static class LookupSyncService
         catch { /* senkron başarısızsa giriş akışı etkilenmez */ }
     }
 
+    // ═══ H7 DÜZELTMESİ (kullanıcı bildirimi 2026-09-06) ═══════════════════════════════════════════
+    //
+    // KULLANICI: "webte ekip tanımı yaptım ama masaüstüne kayıt atmadı."
+    //
+    // ÖLÇÜM: sunucu ucu (/api/lookups/sync) ekibi DOĞRU gönderiyordu ve masaüstü aynası da onu
+    // DOĞRU yazıyordu — giriş yapıldığında ekip yerele iniyor (uçtan uca doğrulandı). Eksik olan
+    // ZAMANLAMAYDI: tanımlar YALNIZ girişte ve elle "Eşitle"de çekiliyordu. Program açıkken web'de
+    // açılan ekip/tanım, kullanıcı çıkıp girene ya da Eşitle'ye basana kadar görünmüyordu.
+    //
+    // Şubeler için aynı sorun daha önce SNK-12'de çözülmüştü (BranchMirror.RefreshAsync senkron
+    // turuna eklenmişti). Burada AYNI kanıtlanmış desen tanımların tamamına uygulanır:
+    // senkron turu <see cref="RefreshAsync"/> çağırır, <see cref="MinInterval"/> ile kısılır ve
+    // yanıt DEĞİŞMEDİYSE yerele hiç dokunulmaz (gereksiz yazma ve ekran yenilemesi olmaz).
+
+    /// <summary>Otomatik turda en fazla bu sıklıkta çekilir (tanımlar küçük ve seyrek değişir).</summary>
+    public static readonly TimeSpan MinInterval = TimeSpan.FromMinutes(2);
+    private static DateTimeOffset _sonYenileme = DateTimeOffset.MinValue;
+    /// <summary>Son uygulanan yanıtın imzası — aynısı geldiyse yerele YAZILMAZ.</summary>
+    private static string? _sonImza;
+
+    /// <summary>
+    /// Senkron turundan çağrılır. <b>true</b> yalnızca yerele GERÇEKTEN yeni tanım yazıldığında döner
+    /// (çağıran o zaman açık ekranı yeniler). Çevrimdışıysa/değişiklik yoksa false — sessiz.
+    /// </summary>
+    public static async Task<bool> RefreshAsync(bool force = false)
+    {
+        if (!force && DateTimeOffset.UtcNow - _sonYenileme < MinInterval) return false;
+        _sonYenileme = DateTimeOffset.UtcNow;
+        return await CekVeUygulaAsync(null, yalnizDegistiyse: true);
+    }
+
     /// <summary>ELLE Eşitle: saklı JWT ile sunucudan tanımları çekip yerele yazar; % ilerleme bildirir.
-    /// Başarılıysa true. Token yoksa/çevrimdışıysa false.</summary>
-    public static async Task<bool> SyncNowAsync(Action<int>? progress = null)
+    /// Başarılıysa true. Token yoksa/çevrimdışıysa false.
+    /// (Elle eşitlemede imza kontrolü YAPILMAZ: kullanıcı "yenile" dediyse yerel bozulmuş olabilir.)</summary>
+    public static Task<bool> SyncNowAsync(Action<int>? progress = null)
+        => CekVeUygulaAsync(progress, yalnizDegistiyse: false);
+
+    private static async Task<bool> CekVeUygulaAsync(Action<int>? progress, bool yalnizDegistiyse)
     {
         var token = ServerAuthClient.Token;
         var baseUrl = ServerAuthClient.BaseUrl;
@@ -83,7 +118,15 @@ public static class LookupSyncService
             using var resp = await _http.SendAsync(req);
             if (!resp.IsSuccessStatusCode) return false;
             progress?.Invoke(35);
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var govde = await resp.Content.ReadAsStringAsync();
+
+            // H7: otomatik turda yanıt bir öncekiyle AYNIYSA yerele hiç dokunma. Böylece tanımlar
+            // 2 dakikada bir kontrol edilir ama yalnız GERÇEKTEN değiştiğinde yazılır ve ekran yenilenir.
+            var imza = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(govde)));
+            if (yalnizDegistiyse && imza == _sonImza) return false;
+
+            using var doc = JsonDocument.Parse(govde);
             var root = doc.RootElement;
             var companyId = root.TryGetProperty("companyId", out var cid) ? cid.GetString() : null;
             if (string.IsNullOrWhiteSpace(companyId)) return false;
@@ -104,6 +147,7 @@ public static class LookupSyncService
             ApplyTeams(conn, tx, root, companyId!, now);        // ARA IS 5 / ALT FAZ 1: ekip aynasi
             ApplyHierarchy(conn, tx, root, companyId!, now);    // ARA IS 5 / ALT FAZ 2: hiyerarsi aynasi
             tx.Commit();
+            _sonImza = imza;   // H7: ancak BAŞARIYLA yazıldıktan sonra imzalanır (yarım kalan tur tekrar denenir)
             progress?.Invoke(100);
             return true;
         }

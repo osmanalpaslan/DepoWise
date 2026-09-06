@@ -508,6 +508,15 @@ public sealed partial class ShellViewModel : ViewModelBase
             // force:false → BranchMirror.MinInterval ile kısılır; 15 sn'lik senkron kadansı sunucuyu yormaz.
             // Çevrimdışıysa çağrı sessizce döner; yerelde inmiş depolarla çalışma sürer.
             if (companyId is not null) await BranchMirror.RefreshAsync(companyId, force: false);
+            // ⭐ H7 (kullanıcı bildirimi 2026-09-06): TANIMLARI da tazele — ekipler, birimler, markalar,
+            // kategoriler, araç modelleri, ekran ayarları, hiyerarşi. Bunlar iş-senkronunda TAŞINMAZ
+            // (web-otoriteli) ve eskiden yalnız girişte/elle "Eşitle"de iniyordu; bu yüzden program
+            // açıkken web'de açılan ekip masaüstünde GÖRÜNMÜYORDU. Şubelerde SNK-12 ile çözülen sorunun
+            // tanımlar için karşılığıdır. RefreshAsync kendi içinde kısıtlanır (MinInterval = 2 dk) ve
+            // sunucu yanıtı değişmediyse yerele HİÇ dokunmaz → 15 sn'lik kadans sunucuyu yormaz.
+            // Yalnız gerçekten yeni tanım indiyse açık ekran yenilenir.
+            if (await LookupSyncService.RefreshAsync())
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
             // Z2: push sonucunda sunucu kayıt atladıysa uyarı rozetini güncelle (UI thread).
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
             // SNK-03: turun GEÇİCİ hata gördüğü an. (Z3'ün "skipped satır" durumu buraya GİRMEZ —

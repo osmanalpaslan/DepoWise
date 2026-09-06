@@ -26,7 +26,7 @@ public sealed record TeamMemberRow(string UserId, string Display, bool IsLead);
 ///
 /// <b>Yetki (PK-EK-07=B):</b> yeni modül yok — mevcut <c>users</c> modülü. Asıl kapı serviste.
 /// </summary>
-public sealed partial class TeamsViewModel : ViewModelBase
+public sealed partial class TeamsViewModel : ViewModelBase, IRefreshable
 {
     private readonly SessionContext _session;
 
@@ -48,6 +48,23 @@ public sealed partial class TeamsViewModel : ViewModelBase
     public bool CanView => AccessControl.Can(_session, "users", PermissionAction.View);
 
     partial void OnSelectedTeamChanged(Team? value) => UyeleriYukle(value);
+
+    /// <summary>
+    /// H7 (kullanici bildirimi 2026-09-06): senkron turu YENI TANIM indirdiginde acik ekran yenilenir.
+    /// Onceden bu ekran IRefreshable degildi; web'de acilan ekip yerele inse bile ekranda gorunmuyor,
+    /// kullanici ekrandan cikip tekrar girmek zorunda kaliyordu. Secim KORUNUR: yenileme, kullanicinin
+    /// bakmakta oldugu ekibi altindan cekmez.
+    /// </summary>
+    public void RefreshData()
+    {
+        var secili = SelectedTeam?.Id;
+        Yenile();
+        if (secili is not null)
+        {
+            var ayni = Teams.FirstOrDefault(t => t.Id == secili);
+            if (ayni is not null) SelectedTeam = ayni;
+        }
+    }
 
     [RelayCommand]
     public void Yenile()
