@@ -1,5 +1,40 @@
 # AKTİF DURUM
 
+## 🔴 ACİL DÜZELTME — 2026-09-07: güncelleme sonrası uygulama açılmıyordu (masaüstü 1.0.185)
+
+**Kullanıcı bildirimi:** "login olurken güncelleme paketi iniyor, kur ve yeniden başlat dediğimde
+uygulama açılmıyor; her girişte tekrar iniyor."
+
+### Teşhis — sorun yayınlanan pakette DEĞİLDİ
+Paket uçtan uca sınandı: checksum tutuyor · zip açılıyor · kurulum yardımcısı izole ortamda 271 dosyayı
+doğru kuruyor (`current.txt` yazılıyor, staging temizleniyor) · kurulu uygulama tek başına çalışıyor.
+Kurulum zaten **başarılı olmuştu** (`current.txt` = 1.0.184).
+
+**Gerçek sebep, açılış günlüğünün tek satırındaydı:**
+`ok=False … wrong # of entries in index ix_audit_company_time` — yerel veritabanının bir **indeksi**
+bozulmuştu ve açılış sağlık kontrolü, bozulmanın türüne bakmadan uygulamayı tümden durduruyordu.
+
+### Düzeltmeler
+1. **Kendiliğinden onarım:** indeks TÜRETİLMİŞ veridir (tablodan yeniden üretilir, kayıt değişmez).
+   Yalnız indeks kaynaklı bozulmada `REINDEX` denenir, kontrol tekrarlanır; düzelirse uygulama normal
+   açılır ve olay günlüğe yazılır. **Tablo** bozulmasında eski koruma aynen durur.
+2. **Güncelleme kurulumu artık hata fırlatmıyor:** `InstallPendingNow` hata fırlatıyordu ve iki çağıranı
+   `async void` olduğu için (pencere kapanışı, giriş akışı) hata yakalanamıyor, uygulama sessizce
+   ölüyordu. Artık `bool` döner, sebep kullanıcıya söylenir, uygulama çalışmaya devam eder; bozuk paket
+   elde tutulmaz (sonsuz döngü olmaz).
+
+### Kullanıcının veritabanı onarıldı
+Yedek alındı → `REINDEX` → `integrity_check = ok`. **Sayımlar birebir aynı:** denetim 2012 · malzeme 75 ·
+araç 75 · kullanıcı 3 · gönderilmemiş kayıt 0. Kurulu uygulama çalıştırıldı: **açılıyor**, `ok=True`.
+
+**Muhtemel sebep (dürüst kayıt):** gece boyunca derleme kilitlerini açmak için çalışan uygulama
+defalarca **zorla kapatıldı**; bozulmanın en olası açıklaması budur.
+
+**Yayın:** masaüstü **1.0.185** (253 dosya · 86,6 MB · checksum `905798ea4795…`) · migration YOK ·
+API/web değişmedi. Test: `AcilisBozukIndeksOnarimiTests` (4) · ilgili küme 78 geçti / 1 atlandı.
+
+---
+
 ## ✅ YAYIN — 2026-09-07: FAZ 6 — kullanıcı hataları (H1–H7) + alt bar tasarımı + 10.000 kayıt QA (masaüstü 1.0.184)
 
 **Kullanıcının bildirdiği 7 hatanın tamamı kapatıldı, 2 isteği yapıldı, yük testinde 3 yeni hata bulunup düzeltildi.**
