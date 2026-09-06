@@ -31,8 +31,8 @@
             <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsız, daima gerçek saat.
                      Geri/ileri tarih YETKİYE bağlı (btn-backdate): yetki yoksa alan kilitli. -->
-                <ctrl:FormField Label="İşlem Tarihi" Width="280">
-                    <DatePicker Classes="Field" SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
+                <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                    <ctrl:TarihKutusu SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
                                 ToolTip.Tip="{Binding DocDateHint}"/>
                 </ctrl:FormField>
                 <ctrl:FormField Label="Hedef Depo / Şantiye" IsRequired="True" Width="260">

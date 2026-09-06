@@ -55,11 +55,11 @@
                                         PlaceholderText="Merkez... (boş olabilir)"/>
                     </ctrl:FormField>
                     <!-- Plan tarihleri KEHRİBAR temadan; plan bilgisi olduğundan geri-tarih kapısına girmez -->
-                    <ctrl:FormField Label="Plan Başlangıç" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormPlannedStart}"/>
+                    <ctrl:FormField Label="Plan Başlangıç" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Plan Bitiş" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormPlannedEnd}"/>
+                    <ctrl:FormField Label="Plan Bitiş" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedEnd}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Açıklama" Width="320">
                         <TextBox Classes="Field" Text="{Binding FormDescription}"/>

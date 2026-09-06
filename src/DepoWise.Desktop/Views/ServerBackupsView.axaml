@@ -16,11 +16,11 @@
                 <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
                     Text="Bu ekran nasıl dolar? Yedekler masaüstünde günde 1 kez otomatik + elle 'Yedek Al' ile alınır. Ayarlar › Sunucu Yedek altında sunucu adresi tanımlıysa her yedek buluta yüklenir ve burada görünür. Sunucu yüklenen yedekleri hiçbir zaman silmez; yerelde 30 günlük döngü işler. Liste boşsa henüz hiçbir makine sunucuya yükleme yapmamıştır (sunucu adresi tanımsız olabilir)."/>
                 <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                    <ctrl:FormField Label="Başlangıç" Width="280">
-                        <DatePicker SelectedDate="{Binding From}"/>
+                    <ctrl:FormField Label="Başlangıç" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding From}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="280">
-                        <DatePicker SelectedDate="{Binding To}"/>
+                    <ctrl:FormField Label="Bitiş" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding To}"/>
                     </ctrl:FormField>
                     <Button Classes="Primary" Content="Listele" VerticalAlignment="Bottom"
                             Command="{Binding LoadCommand}" IsEnabled="{Binding !Busy}"/>

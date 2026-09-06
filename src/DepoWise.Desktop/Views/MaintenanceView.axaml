@@ -212,8 +212,8 @@
                                 <ctrl:FormField Label="Yapılma Saat" Width="130">
                                     <NumericUpDown Classes="Field" Value="{Binding MntHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Tarih" Width="280">
-                                    <DatePicker Classes="Field" SelectedDate="{Binding MntDate}"/>
+                                <ctrl:FormField Label="Tarih" Width="150">
+                                    <ctrl:TarihKutusu SelectedDate="{Binding MntDate}"/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
                                                 HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
@@ -333,11 +333,11 @@
                                          ekranda alan/buton YOKTU. Ağır sorgu Filtrele'ye basılmadan çalışmaz. -->
                                     <Border Classes="Panel" DockPanel.Dock="Top" Margin="0,0,0,8">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <ctrl:FormField Label="Başlangıç" Width="280">
-                                                <DatePicker SelectedDate="{Binding BakimBaslangic}"/>
+                                            <ctrl:FormField Label="Başlangıç" Width="150">
+                                                <ctrl:TarihKutusu SelectedDate="{Binding BakimBaslangic}"/>
                                             </ctrl:FormField>
-                                            <ctrl:FormField Label="Bitiş" Width="280">
-                                                <DatePicker SelectedDate="{Binding BakimBitis}"/>
+                                            <ctrl:FormField Label="Bitiş" Width="150">
+                                                <ctrl:TarihKutusu SelectedDate="{Binding BakimBitis}"/>
                                             </ctrl:FormField>
                                             <ctrl:FormField Label="Ara (araç kodu / plaka / bakım / belge no)" Width="320">
                                                 <TextBox Classes="Search" Text="{Binding BakimArama}"

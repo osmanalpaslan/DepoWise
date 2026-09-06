@@ -58,8 +58,8 @@
                          Varsayılan bugün; GEÇMİŞ ve GELECEK tarih serbesttir (üst sınır yok — ileri
                          tarihli planlanmış hareket bilinçli olarak mümkün). Kaydın sisteme girildiği
                          gerçek zaman (created_at + audit) sunucu saatinden yazılır, buradan değişmez. -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding DocDate}"/>
+                    <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding DocDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
                                     HelpText="Opsiyonel — maliyet bu merkeze yazılır.">

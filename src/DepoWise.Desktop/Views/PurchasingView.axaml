@@ -45,8 +45,8 @@
                                         PlaceholderText="Depo seç / ara..."/>
                     </ctrl:FormField>
                     <!-- Tarih KEHRİBAR temadan; yetki yoksa bugüne kilitli -->
-                    <ctrl:FormField Label="Sipariş Tarihi" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
+                    <ctrl:FormField Label="Sipariş Tarihi" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"
                                     HelpText="Kabulde oluşan stok belgesine bağlanır.">

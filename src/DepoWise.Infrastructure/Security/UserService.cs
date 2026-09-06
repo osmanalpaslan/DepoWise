@@ -14,11 +14,19 @@ public sealed record NewUser(
     IReadOnlyList<ModulePermission>? Permissions = null,
     string? BranchId = null,
     bool CanViewAllBranches = false,
-    string? PersonnelId = null);   // #6: hesabın bağlı olduğu personel (opsiyonel; bir personele tek kullanıcı)
+    string? PersonnelId = null,   // #6: hesabın bağlı olduğu personel (opsiyonel; bir personele tek kullanıcı)
+    // ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları. SONA eklendi ve varsayılanlıdır →
+    // mevcut çağıranların sözleşmesi DEĞİŞMEZ.
+    string? Email = null,
+    string? Phone = null,
+    string? Title = null,
+    string? Notes = null);
 
 public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles, string? BranchId, string? BranchName,
     bool CanViewAllBranches = false, bool IsAdmin = false,
-    string? PersonnelId = null, string? PersonnelName = null)   // Fikir B: hesabın bağlı olduğu personel
+    string? PersonnelId = null, string? PersonnelName = null,   // Fikir B: hesabın bağlı olduğu personel
+    // ⭐ 2026-09-06: iletişim alanları (Migration095)
+    string? Email = null, string? Phone = null, string? Title = null, string? Notes = null)
 {
     public string BranchDisplay => CanViewAllBranches ? "Tüm Şubeler" : (string.IsNullOrEmpty(BranchName) ? "—" : BranchName!);
     public string StatusText => IsActive ? "Aktif" : "Pasif";
@@ -89,7 +97,8 @@ SELECT u.id, u.username, u.full_name, u.is_active,
   u.branch_id, b.name, COALESCE(u.can_view_all_branches,0),
   (SELECT COUNT(*) FROM user_roles ur2 JOIN roles r2 ON r2.id = ur2.role_id
      WHERE ur2.user_id = u.id AND r2.role_key IN (@ca,@sa)),
-  u.personnel_id, p.full_name          -- Fikir B: bağlı personel (varsa)
+  u.personnel_id, p.full_name,         -- Fikir B: bağlı personel (varsa)
+  u.email, u.phone, u.title, u.notes   -- ⭐ 2026-09-06 iletişim alanları (Migration095)
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id
 LEFT JOIN personnel p ON p.id = u.personnel_id AND p.is_deleted = 0
@@ -115,7 +124,11 @@ ORDER BY u.username;");
                 r.GetInt64(7) == 1,
                 r.GetInt64(8) > 0,
                 r.IsDBNull(9) ? null : r.GetString(9),
-                r.IsDBNull(10) ? null : r.GetString(10)));
+                r.IsDBNull(10) ? null : r.GetString(10),
+                r.IsDBNull(11) ? null : r.GetString(11),
+                r.IsDBNull(12) ? null : r.GetString(12),
+                r.IsDBNull(13) ? null : r.GetString(13),
+                r.IsDBNull(14) ? null : r.GetString(14)));
         return list;
     }
 
@@ -252,6 +265,61 @@ ORDER BY u.username;");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "user", actor.UserId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+    }
+
+    /// <summary>Boş/boşluk metni <c>null</c>'a çevirir — veritabanında "" ile NULL karışmasın.</summary>
+    private static string? Kirp(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>
+    /// ⭐ KULLANICI PROFİLİ GÜNCELLEME (kullanıcı isteği 2026-09-06).
+    ///
+    /// <para><b>Neden eklendi.</b> Bu servis bugüne kadar kullanıcı OLUŞTURABİLİYOR ama
+    /// düzenleyemiyordu; yalnız aktif/pasif, şifre, rol, şube ve personel bağı değiştirilebiliyordu.
+    /// Yeni iletişim alanları (e-posta · telefon · unvan · not) sonradan düzeltilemeseydi bir harf
+    /// hatası kalıcı olurdu. Bu yüzden alanlarla birlikte düzenleme yolu da açıldı.</para>
+    ///
+    /// <para><b>Kapsamı bilerek dar:</b> yalnız ad-soyad ve dört iletişim alanı. Kullanıcı adı,
+    /// şifre, rol, şube ve firma BURADAN DEĞİŞTİRİLEMEZ — onların kendi uçları ve kendi yetki
+    /// kapıları var; yetki yükseltmeye açılan yeni bir kapı oluşmaz.</para>
+    ///
+    /// <para><b>Yetki:</b> <see cref="EnsureManageableTarget"/> ile aynı kural — admin başka bir
+    /// admini/süper admini düzenleyemez, firma admini yalnız kendi firmasının personelini (+kendini)
+    /// düzenler. Tenant kapısı <see cref="AffectUser"/> içindedir (başka firmanın kullanıcısına
+    /// dokunulamaz).</para>
+    /// </summary>
+    public void UpdateProfile(SessionContext actor, string userId, string? fullName,
+        string? email, string? phone, string? title, string? notes)
+    {
+        if (!AccessControl.IsAdmin(actor) && actor.UserId != userId)
+            throw new ForbiddenException("Kullanıcı bilgilerini düzenleme yalnız Admin / Süper Admin yetkisindedir.");
+
+        email = Kirp(email);
+        phone = Kirp(phone);
+        // Kural ORTAK sınıftadır (DepoWise.Application.Ui.IletisimDogrulama): masaüstü ve web de aynı
+        // işlevi çağırır → "arayüz kabul etti, sunucu reddetti" çelişkisi oluşmaz. Gerçek kapı burasıdır.
+        if (DepoWise.Application.Ui.IletisimDogrulama.EpostaHatasi(email) is { } epostaHata)
+            throw new InvalidOperationException(epostaHata);
+        if (DepoWise.Application.Ui.IletisimDogrulama.TelefonHatasi(phone) is { } telefonHata)
+            throw new InvalidOperationException(telefonHata);
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureManageableTarget(conn, tx, actor, userId);
+        var companyId = AffectUser(conn, tx, actor, userId,
+            "UPDATE users SET full_name=@f, email=@em, phone=@ph, title=@ti, notes=@no, updated_at=@now " +
+            "WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
+            now, cmd =>
+            {
+                cmd.AddWithValue("@f", (object?)Kirp(fullName) ?? DBNull.Value);
+                cmd.AddWithValue("@em", (object?)email ?? DBNull.Value);
+                cmd.AddWithValue("@ph", (object?)phone ?? DBNull.Value);
+                cmd.AddWithValue("@ti", (object?)Kirp(title) ?? DBNull.Value);
+                cmd.AddWithValue("@no", (object?)Kirp(notes) ?? DBNull.Value);
+            });
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+        _snapshots?.InvalidateUser(userId);
     }
 
     /// <summary>Kullanıcıyı aktif/pasif yapar. Süper admin kullanıcıyı YALNIZ süper admin aktif/pasif edebilir
@@ -453,8 +521,8 @@ ORDER BY u.username;");
 
         Insert(conn, tx,
             // Güvenlik: yeni kullanıcı ilk giriş(ler)inde kendi şifresini belirlemek zorunda (must_change_password=1).
-            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
-            "VALUES(@id,@c,@u,@h,@f,@b,@va,@pid,1,1,@now,@now,1,0);",
+            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, email, phone, title, notes, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
+            "VALUES(@id,@c,@u,@h,@f,@b,@va,@pid,@em,@ph,@ti,@no,1,1,@now,@now,1,0);",
             cmd =>
             {
                 cmd.AddWithValue("@id", userId);
@@ -465,6 +533,10 @@ ORDER BY u.username;");
                 cmd.AddWithValue("@b", (object?)dto.BranchId ?? DBNull.Value);
                 cmd.AddWithValue("@va", viewAll);
                 cmd.AddWithValue("@pid", (object?)personnelId ?? DBNull.Value);
+                cmd.AddWithValue("@em", (object?)Kirp(dto.Email) ?? DBNull.Value);
+                cmd.AddWithValue("@ph", (object?)Kirp(dto.Phone) ?? DBNull.Value);
+                cmd.AddWithValue("@ti", (object?)Kirp(dto.Title) ?? DBNull.Value);
+                cmd.AddWithValue("@no", (object?)Kirp(dto.Notes) ?? DBNull.Value);
                 cmd.AddWithValue("@now", now);
             });
 

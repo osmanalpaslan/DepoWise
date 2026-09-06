@@ -31,11 +31,11 @@
                     </ComboBox>
                 </ctrl:FormField>
                 <!-- Tarih yalnız rapor tarih kullanıyorsa (RequiresDate → Bu Ay ön-dolu). -->
-                <ctrl:FormField Label="Başlangıç" Width="280" IsVisible="{Binding ShowDate}">
-                    <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                <ctrl:FormField Label="Başlangıç" Width="150" IsVisible="{Binding ShowDate}">
+                    <ctrl:TarihKutusu SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="280" IsVisible="{Binding ShowDate}">
-                    <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                <ctrl:FormField Label="Bitiş" Width="150" IsVisible="{Binding ShowDate}">
+                    <ctrl:TarihKutusu SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <!-- Şube seçici (çoklu) yalnız rapor şube kullanıyorsa VE kullanıcı yetkiliyse (btn-branch-select).
                      İşaretsiz = oturum (login) şubesi (non-breaking). -->

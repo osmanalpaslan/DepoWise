@@ -59,8 +59,8 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
-                                <ctrl:FormField Label="İşlem Tarihi" Width="280">
-                                    <DatePicker Classes="Field" SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
+                                <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                                    <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
@@ -123,11 +123,11 @@
                                                 </TextBox.KeyBindings>
                                             </TextBox>
                                         </ctrl:FormField>
-                                        <ctrl:FormField Label="Başlangıç Tarihi" Width="280">
-                                            <DatePicker Classes="Field" SelectedDate="{Binding AramaBaslangic}"/>
+                                        <ctrl:FormField Label="Başlangıç Tarihi" Width="150">
+                                            <ctrl:TarihKutusu SelectedDate="{Binding AramaBaslangic}"/>
                                         </ctrl:FormField>
-                                        <ctrl:FormField Label="Bitiş Tarihi" Width="280">
-                                            <DatePicker Classes="Field" SelectedDate="{Binding AramaBitis}"/>
+                                        <ctrl:FormField Label="Bitiş Tarihi" Width="150">
+                                            <ctrl:TarihKutusu SelectedDate="{Binding AramaBitis}"/>
                                         </ctrl:FormField>
                                         <ctrl:FormField Label="Ara (kod / plaka / açıklama)" Width="220">
                                             <TextBox Classes="Field" Text="{Binding AramaMetni}" Watermark="Enter ile ara">
@@ -186,7 +186,14 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                             <!-- ⭐ MUH-01b: BELGE NO kolonu -->
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
-                                            <ColumnDefinition Width="Auto"/>
+                                            <!-- ⭐ DÜZELTME (kullanıcı bildirimi 2026-09-06): DURUM kolonunun ORTAK BOYUT
+                                                 GRUBU YOKTU. Gövdedeki hücre yalnız iptal edilmiş kayıtta görünür
+                                                 (IsVisible=IsCancelled); görünmeyince istediği genişlik 0 olur ve satır
+                                                 ızgarası o ~102 px'i YILDIZ kolona geri verir. Sonuç: LİTRE'den sonraki
+                                                 tüm değerler başlığa göre bir kolon SAĞA kayıyor, LİTRE başlığının altı
+                                                 BOŞ görünüyordu. Ortak grup verilince iki ızgara da aynı genişliği
+                                                 ayırır — hücre görünsün ya da görünmesin hizalama bozulmaz. -->
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
                                         <SelectableTextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
@@ -194,7 +201,7 @@
                                         <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
                                         <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="6" Text="BELGE NO" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="6" Text="BELGE NO" MinWidth="110" Margin="14,0,0,0"/>
                                         <SelectableTextBlock Grid.Column="7" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
@@ -210,15 +217,15 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
-                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
                                                 </Grid.ColumnDefinitions>
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding VehicleCode}"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <SelectableTextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="6" Text="{Binding InvoiceDisplay}" MinWidth="110" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="6" Text="{Binding InvoiceDisplay}" MinWidth="110" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <SelectableTextBlock Grid.Column="7" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
@@ -254,8 +261,8 @@
                             <SelectableTextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
-                                <ctrl:FormField Label="İşlem Tarihi" Width="280">
-                                    <DatePicker Classes="Field" SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
+                                <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                                    <ctrl:TarihKutusu SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
                                                 ToolTip.Tip="{Binding DocDateHint}"/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
@@ -327,7 +334,9 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
-                                            <ColumnDefinition Width="Auto"/>
+                                            <!-- DURUM: gövdedeki hücre IsVisible ile gizleniyor; ortak grup olmazsa
+                                                 satır o genişliği yıldız kolona verir ve hizalama kayar (bkz. c8). -->
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="d5"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
                                         <SelectableTextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
@@ -345,7 +354,7 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
-                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="d5"/>
                                                 </Grid.ColumnDefinitions>
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>

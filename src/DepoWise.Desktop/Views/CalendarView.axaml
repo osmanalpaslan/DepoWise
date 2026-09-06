@@ -61,11 +61,11 @@
                         <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
                     </ctrl:FormField>
                     <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez; kayıt anı audit'te korunur. -->
-                    <ctrl:FormField Label="Başlangıç" IsRequired="True" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
+                    <ctrl:FormField Label="Başlangıç" IsRequired="True" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="280" HelpText="Boşsa tek gün.">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
+                    <ctrl:FormField Label="Bitiş" Width="150" HelpText="Boşsa tek gün.">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şantiye / Saha" Width="190">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"

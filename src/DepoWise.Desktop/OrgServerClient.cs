@@ -284,8 +284,14 @@ public static class OrgServerClient
 
     // ── Kullanıcılar ──
     public static Task<Result> CreateUserAsync(string username, string password, string? fullName, List<string> roleKeys,
-        string? companyId, string? branchId, bool canViewAllBranches, string? personnelId)
-        => PostIdAsync("/api/users", new { username, password, fullName, roleKeys, companyId, branchId, canViewAllBranches, personnelId });
+        string? companyId, string? branchId, bool canViewAllBranches, string? personnelId,
+        // ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları
+        string? email = null, string? phone = null, string? title = null, string? notes = null)
+        => PostIdAsync("/api/users", new { username, password, fullName, roleKeys, companyId, branchId, canViewAllBranches, personnelId, email, phone, title, notes });
+
+    /// <summary>⭐ Kullanıcı profilini SUNUCUDA günceller (ad-soyad + iletişim alanları). 2026-09-06.</summary>
+    public static Task<Result> UpdateUserProfileAsync(string userId, string? fullName, string? email, string? phone, string? title, string? notes)
+        => SendOkAsync(HttpMethod.Put, $"/api/users/{userId}/profile", new { fullName, email, phone, title, notes });
 
     // ── Kullanıcı LİSTE + yetki (masaüstü çevrimiçiyken sunucu-otoriteli görünürlük/düzenleme, 2026-07-25) ──
     // null döndürenler = çevrimdışı/erişilemedi → çağıran YEREL veriye düşer (salt-okuma).
@@ -302,7 +308,8 @@ public static class OrgServerClient
             if (e.ValueKind != JsonValueKind.Object) continue;
             list.Add(new UserRow(Str(e, "id"), Str(e, "username"), NullS(e, "fullName"), Bool(e, "isActive"),
                 Str(e, "roles"), NullS(e, "branchId"), NullS(e, "branchName"),
-                Bool(e, "canViewAllBranches"), Bool(e, "isAdmin"), NullS(e, "personnelId"), NullS(e, "personnelName")));
+                Bool(e, "canViewAllBranches"), Bool(e, "isAdmin"), NullS(e, "personnelId"), NullS(e, "personnelName"),
+                NullS(e, "email"), NullS(e, "phone"), NullS(e, "title"), NullS(e, "notes")));
         }
         return list;
     }

@@ -33,11 +33,11 @@
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
                     </ctrl:FormField>
                     <!-- Tarih alanları KEHRİBAR temadan gelir (DatePicker Field stili, TRH-01 standardı) -->
-                    <ctrl:FormField Label="Başlangıç" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
+                    <ctrl:FormField Label="Başlangıç" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
+                    <ctrl:FormField Label="Bitiş" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">

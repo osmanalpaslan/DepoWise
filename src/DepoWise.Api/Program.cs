@@ -1743,7 +1743,8 @@ app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
     svc.Users.ValidateBranchForNewUser(s, d.CompanyId, d.RoleKeys ?? new List<string>(), d.BranchId);
     var id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
         d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId, d.CanViewAllBranches,
-        string.IsNullOrWhiteSpace(d.PersonnelId) ? null : d.PersonnelId));   // Fikir B: "Personel seç" ile bağla
+        string.IsNullOrWhiteSpace(d.PersonnelId) ? null : d.PersonnelId,   // Fikir B: "Personel seç" ile bağla
+        d.Email, d.Phone, d.Title, d.Notes));                              // ⭐ 2026-09-06 iletişim alanları
     return Results.Ok(new { id });
 }).RequireAuthorization();
 app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
@@ -4492,6 +4493,11 @@ app.MapGet("/api/users/{id}/roles", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Users.GetRoleKeys(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/roles", (HttpContext c, string id, RolesDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetRoles(s, id, d.Roles ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ 2026-09-06 (kullanıcı isteği): kullanıcı profili düzenleme. Bu uç YALNIZ ad-soyad + iletişim
+// alanlarını değiştirir; kullanıcı adı, şifre, rol, şube ve firma kendi uçlarında kalır (yetki
+// yükseltmeye yeni kapı açılmaz). Yetki ve tenant kontrolü servistedir.
+app.MapPut("/api/users/{id}/profile", (HttpContext c, string id, UserProfileDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.UpdateProfile(s, id, d.FullName, d.Email, d.Phone, d.Title, d.Notes)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/active", (HttpContext c, string id, ActiveDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetActive(s, id, d.Active)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/password", (HttpContext c, string id, PasswordDto d) =>
@@ -4966,7 +4972,11 @@ record PersonnelDto(string FullName, string? Title, string? Phone, string? Branc
 record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
 record LinkUserDto(string? UserId);
-record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false, string? PersonnelId = null);
+record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false, string? PersonnelId = null,
+    // ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları — sona eklendi, varsayılanlı → eski istemciler bozulmaz.
+    string? Email = null, string? Phone = null, string? Title = null, string? Notes = null);
+/// <summary>⭐ Kullanıcı profili düzenleme (2026-09-06). Kullanıcı adı/şifre/rol/şube BURADAN değişmez.</summary>
+record UserProfileDto(string? FullName, string? Email, string? Phone, string? Title, string? Notes);
 record MachineRegisterDto(string? CompanyId, string? MachineName, string? BranchId = null);
 record QuotaDto(int Quota);
 record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPassword);

@@ -562,17 +562,11 @@
                 </Border.Styles>
 
                 <DockPanel LastChildFill="True">
-                    <!-- "Yeni Sekme": sağ uçta sabit kalır, sekme listesi kayarken kaybolmaz.
-                         Görevi ekran seçtirmektir → sol menüdeki ekran aramasına odaklanır. -->
-                    <Button DockPanel.Dock="Right" Classes="sekmeDugme yeniSekme" Padding="12,0"
-                            Click="YeniSekme_Click" VerticalAlignment="Stretch"
-                            ToolTip.Tip="Yeni sekme: soldaki ekran aramasına geçer, ekranı seçince sekme açılır">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="Yeni Sekme" FontSize="12.5" VerticalAlignment="Center"/>
-                            <PathIcon Width="11" Height="11" VerticalAlignment="Center"
-                                      Data="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/>
-                        </StackPanel>
-                    </Button>
+                    <!-- ⭐ "Yeni Sekme" düğmesi KALDIRILDI (kullanıcı isteği 2026-09-06):
+                         "yeni sekme alanını tamamen kaldıralım". Yaptığı tek iş soldaki ekran
+                         aramasına odaklanmaktı; o arama kutusu menüde zaten duruyor, yani hiçbir
+                         işlev kaybolmadı. Boşalan sağ uç, alt barın en sağında SABİT duracak olan
+                         SOHBET düğmesine ayrıldı (aşağıda). -->
 
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding OpenTabs}">

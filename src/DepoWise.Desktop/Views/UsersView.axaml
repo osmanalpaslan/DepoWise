@@ -21,20 +21,39 @@
 
         <!-- Yeni kullanıcı formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="YENİ KULLANICI" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+            <StackPanel Spacing="14" MaxWidth="700">
+                <!-- Başlık ve düğme metni DÜZENLEME kipinde değişir: aynı form iki iş görür. -->
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <!-- Kullanıcı adı ve şifre YALNIZ oluştururken belirlenir; düzenlemede gizlenir
+                     (şifre değiştirme ve rol atama kendi düğmeleriyle, kendi yetki kapılarından yapılır). -->
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14" IsVisible="{Binding ShowCreateOnlyFields}">
                     <ctrl:FormField Label="Kullanıcı Adı" IsRequired="True" Width="220">
                         <TextBox Classes="Field" Text="{Binding NewUsername}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şifre" IsRequired="True" Width="220">
                         <TextBox Classes="Field" Text="{Binding NewPassword}" PasswordChar="●"/>
                     </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Ad Soyad" Width="220">
                         <TextBox Classes="Field" Text="{Binding NewFullName}"/>
                     </ctrl:FormField>
+                    <!-- ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları. E-posta ileride uyarıların
+                         e-postayla gönderilebilmesinin de ön koşuludur. -->
+                    <ctrl:FormField Label="E-posta" Width="240" HelpText="Örn. ad@firma.com — boş bırakılabilir.">
+                        <TextBox Classes="Field" Text="{Binding NewEmail}" Watermark="ad@firma.com"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Cep Telefonu" Width="200" HelpText="Örn. 0500 111 22 33 — boş bırakılabilir.">
+                        <TextBox Classes="Field" Text="{Binding NewPhone}" Watermark="0500 111 22 33"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Unvan / Görev" Width="200" HelpText="Örn. Depo Sorumlusu, Şantiye Şefi.">
+                        <TextBox Classes="Field" Text="{Binding NewTitle}"/>
+                    </ctrl:FormField>
+                </WrapPanel>
+                <ctrl:FormField Label="Not" Width="480" HelpText="Serbest not — ör. 'şantiye tableti', 'muhasebe ortak hesabı'.">
+                    <TextBox Classes="Field" Text="{Binding NewNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
+                </ctrl:FormField>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14" IsVisible="{Binding ShowCreateOnlyFields}">
                     <!-- Firma seçimi YALNIZ süper adminde görünür; kullanıcı seçilen firmaya bağlı oluşturulur -->
                     <ctrl:FormField Label="Firma" IsRequired="True" Width="220" IsVisible="{Binding IsSuperAdmin}"
                                     HelpText="Kullanıcı bu firmaya bağlı oluşturulur. Firma değişince şube listesi yenilenir.">
@@ -42,8 +61,8 @@
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:CompanyPick"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14" IsVisible="{Binding ShowCreateOnlyFields}">
                     <ctrl:FormField Label="Şube / Şantiye" Width="220" HelpText="Seçili firmanın şubeleri. Boş = şubesiz.">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding FormBranches}" SelectedItem="{Binding FormBranch}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
@@ -59,8 +78,8 @@
                                          IsVisible="{Binding ShowOtherCompanyPersonnelNote}"
                                          Foreground="{DynamicResource TextSecondaryBrush}"
                                          Text="Başka firma seçili: personel bağlama burada yapılamaz. Kullanıcı oluşturulduktan sonra o firmanın Personel ekranından bağlanabilir."/>
-                </StackPanel>
-                <ctrl:FormField Label="Rol" HelpText="Tek rol seçilir. Rol verilmezse kullanıcı hiçbir ekran görmez (yetkiler ayrıca verilir).">
+                </WrapPanel>
+                <ctrl:FormField Label="Rol" IsVisible="{Binding ShowCreateOnlyFields}" HelpText="Tek rol seçilir. Rol verilmezse kullanıcı hiçbir ekran görmez (yetkiler ayrıca verilir).">
                     <ItemsControl ItemsSource="{Binding AssignableRoles}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:RolePick">
@@ -69,9 +88,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ctrl:FormField>
-                <CheckBox IsChecked="{Binding NewViewAllBranches}" IsVisible="{Binding IsSuperAdmin}" Margin="0,4"
+                <CheckBox IsChecked="{Binding NewViewAllBranches}" Margin="0,4"
+                          IsVisible="{Binding ShowAllBranchesOption}"
                           Content="Tüm Şubeler yetkisi (yalnız Süper Admin — tüm şube verisiyle çalışır)"/>
-                <ctrl:FormField Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding CanUseTemplates}"
+                <ctrl:FormField Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding ShowTemplateOption}"
                                 HelpText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
                         <ComboBox.ItemTemplate>
@@ -83,7 +103,7 @@
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
-                    <Button Classes="Primary" Content="Oluştur" Command="{Binding SaveCommand}"/>
+                    <Button Classes="Primary" Content="{Binding FormActionText}" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -106,12 +126,16 @@
                     <SelectableTextBlock Text="🔒 Bu kullanıcı bir admin — yalnız süper admin düzenleyebilir."
                                          Classes="Body" Foreground="{DynamicResource WarningBrush}"/>
                 </Border>
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageSelected}">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageSelected}">
+                    <!-- ⭐ 2026-09-06: kullanıcı bilgilerini DÜZENLE. Bu ekranda düzenleme yolu hiç yoktu;
+                         yeni iletişim alanlarındaki bir yazım hatası kalıcı olurdu. -->
+                    <Button Classes="Secondary" Content="Bilgileri Düzenle" Command="{Binding EditSelectedCommand}"
+                            ToolTip.Tip="Ad soyad, e-posta, telefon, unvan ve notu düzenler. Kullanıcı adı, şifre, rol ve şube kendi düğmeleriyle değişir."/>
                     <Button Classes="Secondary" Content="Şifre Sıfırla" Command="{Binding ResetPasswordCommand}"
                             ToolTip.Tip="Şifreyi kullanıcı adına sıfırlar. Kullanıcı ilk girişte kendi şifresini belirler."/>
                     <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
-                </StackPanel>
+                </WrapPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageSelected}">
                     <SelectableTextBlock Text="Rol:" Classes="Helper" VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding EditRoles}">

@@ -197,6 +197,10 @@ public static class AuditFields
             ["name"] = "Ad", ["full_name"] = "Ad Soyad", ["username"] = "Kullanıcı Adı",
             ["code"] = "Kod", ["internal_code"] = "İç Kod", ["material_code"] = "Malzeme Kodu",
             ["material_name"] = "Malzeme Adı", ["description"] = "Açıklama", ["note"] = "Not",
+            // ⭐ 2026-09-06: kullanıcı iletişim alanları (Migration095). "title" zaten "Başlık" olarak
+            // eşleniyor; kullanıcı kaydında anlamı UNVAN olduğu için denetim kaydında karışmasın diye
+            // ayrı bir anahtar YOKTUR — varlık türü zaten "user" olarak yazılır ve bağlam oradan okunur.
+            ["notes"] = "Not",
             ["title"] = "Başlık", ["body"] = "İçerik", ["reason"] = "Gerekçe",
             ["status"] = "Durum", ["status_note"] = "Durum Notu", ["kind"] = "Tür",
             ["type"] = "Tür", ["direction"] = "Yön", ["result"] = "Sonuç",

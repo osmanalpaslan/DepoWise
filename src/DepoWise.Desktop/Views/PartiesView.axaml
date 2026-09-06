@@ -216,10 +216,10 @@
                                            FormatString="0.##" ShowButtonSpinner="False"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Tarih">
-                            <DatePicker SelectedDate="{Binding EDate}"/>
+                            <ctrl:TarihKutusu SelectedDate="{Binding EDate}"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Vade">
-                            <DatePicker SelectedDate="{Binding EDueDate}"/>
+                            <ctrl:TarihKutusu SelectedDate="{Binding EDueDate}"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Belge No">
                             <TextBox Classes="Field" Text="{Binding EDocNo}"/>

@@ -62,8 +62,8 @@
                         <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
                     </ctrl:FormField>
                     <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
+                    <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Açıklama" Width="300">
                         <TextBox Classes="Field" Text="{Binding FormNote}"/>

@@ -19,6 +19,11 @@
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_u" Label="Kullanıcı Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_p" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_f" Label="Ad Soyad" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            @* ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları — masaüstüyle BİREBİR aynı dört alan. *@
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_email" Label="E-posta" Placeholder="ad@firma.com" HelperText="Boş bırakılabilir." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_phone" Label="Cep Telefonu" Placeholder="0500 111 22 33" HelperText="Boş bırakılabilir." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_title" Label="Unvan / Görev" HelperText="Örn. Depo Sorumlusu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_notes" Label="Not" Lines="2" HelperText="Serbest not." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             @* Firma seçimi YALNIZ süper adminde görünür; seçilen firmaya ait kullanıcı oluşturulur.
                Firma değişince şube listesi o firmaya göre yeniden yüklenir (yanlış firmaya şube atanmasın). *@
             @if (Auth.IsSuperAdmin)
@@ -130,9 +135,31 @@
                 <MudTooltip Text="Şifreyi kullanıcı adına sıfırlar. Kullanıcı ilk girişte kendi şifresini belirler.">
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.LockReset" OnClick="ResetPassword">Şifre Sıfırla</MudButton>
                 </MudTooltip>
+                @* ⭐ 2026-09-06 (kullanıcı isteği): kullanıcı bilgilerini düzenleme. Bu ekranda düzenleme
+                   yolu hiç yoktu; yeni iletişim alanlarındaki yazım hatası kalıcı olurdu. *@
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit" OnClick="BeginEditProfile">Bilgileri Düzenle</MudButton>
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ToggleActive">Aktif / Pasif</MudButton>
                 @if (Auth.CanDelete("users")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteUser">Kullanıcıyı Sil</MudButton> }
             </MudStack>
+            @if (_editProfile)
+            {
+                @* Kullanıcı adı, şifre, rol ve şube burada DEĞİŞMEZ — her birinin kendi işlemi ve kendi
+                   yetki kapısı var; bu panel yalnız ad-soyad + iletişim alanlarını düzenler. *@
+                <MudPaper Class="pa-3 mt-2" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default);">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">KULLANICI BİLGİLERİNİ DÜZENLE</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_eFull" Label="Ad Soyad" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_eEmail" Label="E-posta" Placeholder="ad@firma.com" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_ePhone" Label="Cep Telefonu" Placeholder="0500 111 22 33" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_eTitle" Label="Unvan / Görev" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12"><MudTextField @bind-Value="_eNotes" Label="Not" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    </MudGrid>
+                    <MudStack Row="true" Spacing="2" Class="mt-2" Justify="Justify.FlexEnd">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _editProfile = false)">İptal</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveProfile">Kaydet</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-2" Wrap="Wrap.Wrap">
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">Rol:</MudText>
                 <MudRadioGroup T="string" @bind-Value="_editRole">
@@ -172,6 +199,8 @@
     private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
 
     private string _u = "", _p = "", _f = "";
+    // ⭐ 2026-09-06: iletişim alanları (Migration095)
+    private string _email = "", _phone = "", _title = "", _notes = "";
     private bool _viewAll;
     private string? _companyId, _branch, _templateId;
     private string? _personnelId;                       // Fikir B: hesabın bağlanacağı personel
@@ -311,7 +340,8 @@
                 roleKeys,
                 companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch,
                 canViewAllBranches = Auth.IsSuperAdmin && _viewAll,
-                personnelId = _personnelId          // Fikir B: hesabı personele bağla
+                personnelId = _personnelId,         // Fikir B: hesabı personele bağla
+                email = _email, phone = _phone, title = _title, notes = _notes   // ⭐ 2026-09-06
             });
             if (err is not null || id is null) { _ok = false; _msg = err ?? "Kullanıcı oluşturulamadı."; return; }
 
@@ -346,7 +376,7 @@
     // Form temizlenince firma KENDİ firmasına döner; şube/personel listeleri buna göre tazelenir.
     private async Task ClearForm()
     {
-        _u = _p = _f = ""; _viewAll = false; _branch = _templateId = _role = _personnelId = null;
+        _u = _p = _f = ""; _email = _phone = _title = _notes = ""; _viewAll = false; _branch = _templateId = _role = _personnelId = null;
         var back = Auth.IsSuperAdmin ? Auth.CompanyId : null;
         if (_companyId != back) { _companyId = back; await LoadBranches(); await LoadPersonnel(); }
     }
@@ -362,6 +392,32 @@
     }
 
     private string SelId => _selUser is null ? "" : Str(_selUser.Value, "id");
+
+    // ⭐ 2026-09-06: kullanıcı profili düzenleme (ad-soyad + iletişim alanları).
+    private bool _editProfile;
+    private string _eFull = "", _eEmail = "", _ePhone = "", _eTitle = "", _eNotes = "";
+
+    private void BeginEditProfile()
+    {
+        if (_selUser is null) return;
+        var u = _selUser.Value;
+        _eFull = Str(u, "fullName");
+        _eEmail = Str(u, "email");
+        _ePhone = Str(u, "phone");
+        _eTitle = Str(u, "title");
+        _eNotes = Str(u, "notes");
+        _editProfile = true;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (_selUser is null) return;
+        var err = await Api.PutAsync($"/api/users/{SelId}/profile",
+            new { fullName = _eFull, email = _eEmail, phone = _ePhone, title = _eTitle, notes = _eNotes });
+        _ok = err is null;
+        _msg = err ?? "Kullanıcı bilgileri güncellendi.";
+        if (err is null) { _editProfile = false; await Load(); }
+    }
 
     private async Task AssignBranch()
     {

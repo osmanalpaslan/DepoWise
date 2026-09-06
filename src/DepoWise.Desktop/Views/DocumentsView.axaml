@@ -43,11 +43,11 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <!-- Tarih alanları KEHRİBAR temadan gelir (TRH-01 standardı) -->
-                    <ctrl:FormField Label="Geçerlilik Başlangıcı" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormValidFrom}"/>
+                    <ctrl:FormField Label="Geçerlilik Başlangıcı" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormValidFrom}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Geçerlilik Bitişi" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormValidUntil}"/>
+                    <ctrl:FormField Label="Geçerlilik Bitişi" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormValidUntil}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Dosya (en çok 7 MB)" Width="300" IsVisible="{Binding IsNew}">
                         <StackPanel Orientation="Horizontal" Spacing="8">

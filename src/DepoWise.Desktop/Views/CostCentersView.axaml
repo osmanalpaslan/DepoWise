@@ -88,11 +88,11 @@
                              WrapPanel dar pencerede alt satıra sarar; geniş pencerede görünüm aynıdır. -->
                         <!-- Tarih alanları KEHRİBAR temadan -->
                         <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                            <ctrl:FormField Label="Başlangıç" Width="280">
-                                <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                            <ctrl:FormField Label="Başlangıç" Width="150">
+                                <ctrl:TarihKutusu SelectedDate="{Binding FromDate}"/>
                             </ctrl:FormField>
-                            <ctrl:FormField Label="Bitiş" Width="280">
-                                <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                            <ctrl:FormField Label="Bitiş" Width="150">
+                                <ctrl:TarihKutusu SelectedDate="{Binding ToDate}"/>
                             </ctrl:FormField>
                         </WrapPanel>
                         <!-- Düğmeler AYRI satırda: bu panel ekranın YARISI kadar genişliktedir; dar

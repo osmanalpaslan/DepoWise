@@ -19,11 +19,11 @@
                  kalıyordu (UI Automation ile ölçüldü) — yani filtreyi temizlemek imkânsızdı.
                  WrapPanel dar pencerede alt satıra sarar; geniş pencerede görünüm aynıdır. -->
             <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" VerticalAlignment="Center">
-                <ctrl:FormField Label="Başlangıç" Width="280">
-                    <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                <ctrl:FormField Label="Başlangıç" Width="150">
+                    <ctrl:TarihKutusu SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="280">
-                    <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                <ctrl:FormField Label="Bitiş" Width="150">
+                    <ctrl:TarihKutusu SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <ctrl:FormField Label="Ara (kod, malzeme, not, belge no)" Width="280">
                     <TextBox Classes="Search" Text="{Binding Search}" PlaceholderText="Ara...">

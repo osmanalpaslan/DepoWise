@@ -158,6 +158,31 @@ public sealed partial class UsersViewModel : ViewModelBase
     [ObservableProperty] private string _newPassword = "";
     [ObservableProperty] private string _newFullName = "";
     [ObservableProperty] private string? _formError;
+    // ⭐ 2026-09-06 (kullanıcı isteği): kullanıcı iletişim alanları (Migration095).
+    [ObservableProperty] private string _newEmail = "";
+    [ObservableProperty] private string _newPhone = "";
+    [ObservableProperty] private string _newTitle = "";
+    [ObservableProperty] private string _newNotes = "";
+    /// <summary>Form DÜZENLEME kipinde mi? Kip, formu yeniden kullanır; başlık ve düğme metni buna göre değişir.</summary>
+    [ObservableProperty] private bool _isEditing;
+    /// <summary>Düzenlenen kullanıcının kimliği (yalnız düzenleme kipinde dolu).</summary>
+    private string? _editingUserId;
+    public string FormTitle => IsEditing ? "KULLANICI BİLGİLERİNİ DÜZENLE" : "YENİ KULLANICI";
+    public string FormActionText => IsEditing ? "Kaydet" : "Oluştur";
+    /// <summary>Kullanıcı adı, şifre, firma, rol ve şube YALNIZ oluştururken belirlenir (yetki yükseltme kapısı açılmaz).</summary>
+    public bool ShowCreateOnlyFields => !IsEditing;
+    /// <summary>"Tüm Şubeler" yetkisi yalnız süper admin ve yalnız OLUŞTURMA sırasında belirlenir.</summary>
+    public bool ShowAllBranchesOption => IsSuperAdmin && !IsEditing;
+    /// <summary>Yetki şablonu yalnız OLUŞTURMA sırasında uygulanır (düzenlemede yetkilere dokunulmaz).</summary>
+    public bool ShowTemplateOption => CanUseTemplates && !IsEditing;
+    partial void OnIsEditingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(FormTitle));
+        OnPropertyChanged(nameof(FormActionText));
+        OnPropertyChanged(nameof(ShowCreateOnlyFields));
+        OnPropertyChanged(nameof(ShowAllBranchesOption));
+        OnPropertyChanged(nameof(ShowTemplateOption));
+    }
 
     // Fikir B — "Personel seç": hesabı hangi personele bağlayacağız (hesabı olmayan personeller listelenir).
     public ObservableCollection<PersonnelRecord> LinkablePersonnel { get; } = new();
@@ -226,7 +251,9 @@ public sealed partial class UsersViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         LoadAssignableRoles();
+        IsEditing = false; _editingUserId = null;
         NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null; FormBranch = null;
+        NewEmail = ""; NewPhone = ""; NewTitle = ""; NewNotes = "";
         // Firma seçici (yalnız süper admin) — varsayılan KENDİ firması, böylece şube listesiyle uyumlu başlar.
         if (IsSuperAdmin)
         {
@@ -257,13 +284,54 @@ public sealed partial class UsersViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CancelAdd() => ShowAdd = false;
+    private void CancelAdd() { ShowAdd = false; IsEditing = false; _editingUserId = null; }
+
+    /// <summary>
+    /// ⭐ SEÇİLİ KULLANICIYI DÜZENLE (kullanıcı isteği 2026-09-06).
+    ///
+    /// Bu ekranda bugüne kadar kullanıcı OLUŞTURULABİLİYOR ama düzenlenemiyordu; yeni eklenen
+    /// iletişim alanlarında bir yazım hatası kalıcı olurdu. Aynı form düzenleme kipinde yeniden
+    /// kullanılır: kullanıcı adı · şifre · rol · firma · şube alanları GİZLENİR (onların kendi
+    /// işlemleri ve kendi yetki kapıları var), yalnız ad-soyad ve iletişim alanları açılır.
+    /// </summary>
+    [RelayCommand]
+    private void EditSelected()
+    {
+        if (Selected is null) { Status = "Önce listeden bir kullanıcı seçin."; return; }
+        if (!CanManageSelected) { Status = "Bu kullanıcıyı düzenleme yetkiniz yok."; return; }
+        _editingUserId = Selected.Id;
+        IsEditing = true;
+        FormError = null;
+        NewFullName = Selected.FullName ?? "";
+        NewEmail = Selected.Email ?? "";
+        NewPhone = Selected.Phone ?? "";
+        NewTitle = Selected.Title ?? "";
+        NewNotes = Selected.Notes ?? "";
+        ShowAdd = true;
+    }
 
     [RelayCommand]
     private async Task Save()
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+
+        // ⭐ DÜZENLEME KİPİ (2026-09-06): yalnız ad-soyad + iletişim alanları güncellenir. Kullanıcı adı,
+        // şifre, rol, firma ve şube burada DEĞİŞMEZ — onların kendi işlemleri ve kendi yetki kapıları var.
+        if (IsEditing)
+        {
+            if (_editingUserId is null) { FormError = "Düzenlenecek kullanıcı bulunamadı."; return; }
+            var guncelle = await OrgServerClient.UpdateUserProfileAsync(_editingUserId,
+                string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
+                NewEmail, NewPhone, NewTitle, NewNotes);
+            if (guncelle.Offline) { FormError = "Kullanıcı düzenleme çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!guncelle.Ok) { FormError = guncelle.Error ?? "Sunucu işlemi başarısız."; return; }
+            ShowAdd = false; IsEditing = false; _editingUserId = null;
+            await Load();
+            Status = "Kullanıcı bilgileri güncellendi.";
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(NewUsername)) { FormError = "Kullanıcı adı zorunlu."; return; }
         if (string.IsNullOrWhiteSpace(NewPassword) || NewPassword.Length < 4) { FormError = "Şifre en az 4 karakter olmalı."; return; }
         if (IsSuperAdmin && FormCompany is null) { FormError = "Firma seçin."; return; }
@@ -300,7 +368,8 @@ public sealed partial class UsersViewModel : ViewModelBase
             // web/diğer makineler görmez ve tek-otorite bozulur (veri kaybı bulgusu). Çevrimdışı → uyar.
             var fullName = string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim();
             var res = await OrgServerClient.CreateUserAsync(NewUsername.Trim(), NewPassword, fullName, roles,
-                TargetCompanyId, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, FormPersonnel?.Id);
+                TargetCompanyId, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, FormPersonnel?.Id,
+                NewEmail, NewPhone, NewTitle, NewNotes);   // ⭐ 2026-09-06 iletişim alanları
             if (res.Offline) { FormError = "Kullanıcı oluşturma çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
             if (!res.Ok || res.Id is null) { FormError = res.Error ?? "Sunucu işlemi başarısız."; return; }
             var newUserId = res.Id;

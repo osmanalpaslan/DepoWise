@@ -32,9 +32,9 @@
                      Ağır sorgu "Filtrele"ye basılmadan çalışmaz; tablo üstündeki kolon filtreleri
                      bu aralığın İÇİNDE çalışmaya devam eder. -->
                 <SelectableTextBlock Text="Tarih:" Classes="Caption" VerticalAlignment="Center"/>
-                <DatePicker SelectedDate="{Binding GunBaslangic}" Width="145"/>
+                <ctrl:TarihKutusu SelectedDate="{Binding GunBaslangic}" Width="145"/>
                 <SelectableTextBlock Text="—" Classes="Caption" VerticalAlignment="Center"/>
-                <DatePicker SelectedDate="{Binding GunBitis}" Width="145"/>
+                <ctrl:TarihKutusu SelectedDate="{Binding GunBitis}" Width="145"/>
                 <Button Classes="Primary" Content="Tarihe Göre Getir" Command="{Binding TarihUygulaCommand}"
                         ToolTip.Tip="Seçilen tarih aralığındaki faaliyetleri getirir (bitiş günü dahildir). Seçili araç varsa yalnız o araçlar listelenir."/>
                 <Button Classes="Secondary" Content="Tarihi Temizle" Command="{Binding TarihTemizleCommand}"/>
@@ -107,8 +107,8 @@
                         <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
                                         DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Tarih" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
+                    <ctrl:FormField Label="Tarih" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormDate}"/>
                     </ctrl:FormField>
                 </StackPanel>
 

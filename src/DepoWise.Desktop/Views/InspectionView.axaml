@@ -37,11 +37,11 @@
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Son Tarih" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FLastDate}"/>
+                    <ctrl:FormField Label="Son Tarih" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FLastDate}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Sonraki Tarih" Width="280">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FNextDate}"/>
+                    <ctrl:FormField Label="Sonraki Tarih" Width="150">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FNextDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Yer / Kurum" Width="200">
                         <TextBox Classes="Field" Text="{Binding FPlace}"/>
@@ -49,8 +49,8 @@
                     <ctrl:FormField Label="Sonuç" Width="150" IsVisible="{Binding IsInspectionType}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Erteleme Tarihi" Width="280" IsRequired="True" IsVisible="{Binding IsPostponed}">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FPostponeDate}"/>
+                    <ctrl:FormField Label="Erteleme Tarihi" Width="150" IsRequired="True" IsVisible="{Binding IsPostponed}">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FPostponeDate}"/>
                     </ctrl:FormField>
                 </StackPanel>
                 <ctrl:FormField Label="Açıklama">

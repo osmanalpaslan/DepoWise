@@ -19,11 +19,11 @@
         <!-- Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06) -->
         <Border Grid.Row="1" Classes="Panel" Padding="14,12" Margin="0,16,0,0">
             <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" VerticalAlignment="Center">
-                <ctrl:FormField Label="Başlangıç" Width="280">
-                    <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                <ctrl:FormField Label="Başlangıç" Width="150">
+                    <ctrl:TarihKutusu SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="280">
-                    <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                <ctrl:FormField Label="Bitiş" Width="150">
+                    <ctrl:TarihKutusu SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <ctrl:FormField Label="Kayıt Sayısı" Width="120">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LimitOptions}" SelectedItem="{Binding Limit}"/>

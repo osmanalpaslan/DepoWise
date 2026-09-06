@@ -40,11 +40,11 @@
                                         PlaceholderText="Şube... (boş olabilir)"/>
                     </ctrl:FormField>
                     <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
-                    <ctrl:FormField Label="Yayın Başlangıcı" Width="280" HelpText="Boş = hemen.">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormStart}"/>
+                    <ctrl:FormField Label="Yayın Başlangıcı" Width="150" HelpText="Boş = hemen.">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Yayın Bitişi" Width="280" HelpText="Boş = süresiz.">
-                        <DatePicker Classes="Field" SelectedDate="{Binding FormEnd}"/>
+                    <ctrl:FormField Label="Yayın Bitişi" Width="150" HelpText="Boş = süresiz.">
+                        <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                 </StackPanel>
                 <ctrl:FormField Label="Duyuru Metni" Width="700">
