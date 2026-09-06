@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-## ✅ GÖRSEL QA 2. TUR — ölçeklendirme (masaüstü)
+## ✅ YAYIN — 2026-09-06: görsel QA 2. tur, ölçeklendirme (masaüstü 1.0.182)
 
 **Kullanıcı talebi:** "ekran, tablo ve buton ölçeklendirmesi… pencere boyutuna göre", "her ekran için
 çalışmayan/hatalı çalışan alan, buton ve çalışma mantığı hatası", "kendi maddelerini de ekle",
@@ -35,7 +35,23 @@ girmemişti. **Yönteme eklendi:** her derlemeden sonra `DepoWise.Desktop.dll` z
 **Rapor:** `docs/tests/FINAL_QA_GORSEL_RAPORU_2.md` · **Kararlar:** ADR-227 · ADR-228 · ADR-229
 **Web'de karşılık iş YOK:** iki tarih kusuru da Avalonia'ya özgü; web `MudDatePicker` + `tr-TR` kullanır.
 
+### Yayın (2026-09-06)
+
+| Bileşen | Sürüm | Not |
+|---|---|---|
+| Masaüstü | **1.0.182** | self-contained, 253 dosya, 86.5 MB · checksum `8765972b1c97…` |
+| Web | **DEĞİŞMEDİ** | web kaynağında tek satır değişiklik yok |
+| API | **DEĞİŞMEDİ** | `Api` / `Application` / `Infrastructure` / `Domain` bu turda hiç değişmedi (0 dosya) |
+| Migration | **YOK** | şemaya dokunulmadı |
+| Yedek | alınmadı — **gerekçe:** şema, API ve veri yapısı değişmedi; yalnız masaüstü görünüm katmanı |
+
+**Yayın sonrası doğrulama:** `/api/releases/latest` → **1.0.182**, checksum yerel zip ile birebir aynı ·
+web `/` ve `/login` → 200 · API → 200.
+
+⚠️ Düzeltmeler babanın makinesine **masaüstü güncellemesi kurulunca** geçer.
+
 ---
+
 
 
 ## ✅ YAYIN — 2026-09-06: kullanıcı bildirimli 4 düzeltme (masaüstü 1.0.181, Web v218)
