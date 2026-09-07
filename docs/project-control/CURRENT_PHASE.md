@@ -89,6 +89,30 @@ sessiz değil, fazla uzun değil, **web ve masaüstü dosyaları bayt bayt aynı
 **Ses yüklenemezse artık SESSİZ KALMAZ:** sebep açılış günlüğüne yazılır. Sessiz başarısızlık,
 teşhisi imkânsız hata türüdür.
 
+### 🚀 YAYIN — 1.0.189 (2026-09-07 akşam) — sesli bildirim
+
+| Bileşen | Sonuç |
+|---|---|
+| Web | yeniden yayınlandı · `/login` **200** · `dwSes` yayında · `/sounds/bildirim.wav` **200** |
+| Masaüstü | **1.0.189** · 271 dosya · 86,7 MB · checksum `cd7a92e98e82…` |
+| İndirme kontrolü | paket indirildi, **SHA256 eşleşti**, boyut doğru |
+| API | **DEĞİŞMEDİ** → yayınlanmadı (ses tamamen istemci tarafı; gereksiz yeniden başlatma yapılmadı) |
+| Migration | **YOK** — şema **96**'da kaldı |
+| Yedek | `depowise_prod_20260907_174852.dump` (885 KB), yayından önce |
+
+**Tam süit (PostgreSQL dahil):** **3944 geçti / 0 başarısız / 0 atlandı** (1 s 2 dk).
+
+**🔴 CANLI VERİ (yayından sonra):** şema 96 · araç **169** · malzeme **2566** · aktif kullanıcı **3** ·
+stok hareketi **832** · denetim **4331** · sohbet mesajı **11**. Kayıp/değişiklik yok.
+
+> **Masaüstü sesi hakkında dürüst not:** ses dosyalarının uygulamadan yüklendiği **geliştirme
+> yapısında** çalıştırılarak kanıtlandı (açılış günlüğü: *"4 sesin tamamı yüklendi"*) ve dört sesin
+> dördü de Windows ses API'siyle **çalındı**. Yayın (Release) paketinde kaynak yolları doğrulandı,
+> ama paket **kullanıcının bilgisayarı aktif kullanılırken çalıştırılmadı** (bir önceki denemede
+> otomasyon kullanıcının ekranını yakalamış ve odağını çalmıştı — tekrarlanmadı).
+> Bir ses yüklenemezse uygulama **sessiz kalmaz**: sebebi açılış günlüğüne
+> (`%LOCALAPPDATA%\Alpnex\Logs\startup.log`, `ses` satırı) yazar.
+
 ### ⚠️ Dürüst kayıt — kullanıcının ekranına müdahale
 
 Masaüstünü otomasyonla sürerken **tam ekran görüntüsü** aldım ve gelen kare test uygulaması
@@ -3357,6 +3381,7 @@ tutulmasıydı — artık ortak katmanda (`MenuIcons`). Masaüstü için **41 ye
 formuna parola yazılmadığı için 10 "+" düğmesi ve 41 yeni simge **ekranda görülmedi**. Kanıt kaynak
 sözleşmesi + testlerdir. Kullanıcının bir kez gözle bakması gerekir — özellikle yeni simgelerin
 görsel uyumu bir tasarım kararıdır.
+
 
 
 
