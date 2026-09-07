@@ -547,7 +547,8 @@ public class CustomRaporTests : IDisposable
     public void CR28_Mevcut_Sabit_Raporlar_Bozulmadi()
     {
         // 26 → 27: MUH-04 / FAZ H (2026-09-04) — acc-costcenters (Maliyet Merkezi Özeti).
-        Assert.Equal(27, ReportCatalog.All.Count);
+        // 27 → 28: A2 (2026-09-07) — acc-aging (Cari Yaşlandırma), bilinçli ekleme.
+        Assert.Equal(28, ReportCatalog.All.Count);
         Assert.DoesNotContain(ReportCatalog.All, d => d.Key.StartsWith(CustomReportDefinition.KeyPrefix, StringComparison.Ordinal));
         foreach (var d in ReportCatalog.All)
             Assert.Null(CustomReportDefinition.IdFromKey(d.Key));

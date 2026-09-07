@@ -168,7 +168,10 @@ public class PostgresGunlukRaporlarTests
         var ikili = reports.Run(s, "daily-activity",
             new ReportRequest(true, Day(1), Day(3) + G - 1, ActivityTypes: new[] { "maintenance", "transfer" }));
         Assert.Equal(2, ikili.Rows.Count);
-        Assert.Equal(3.0, Deger(ikili.TotalRow![6]), 3);                            // süre toplamı 2 + 1
+        // ⭐ 2026-09-07: indeks 6'da KALMIŞTI. "Plaka" sütunu 2026-09-02'de araya girince süre
+        // toplamı 6 → 7'ye kaydı; SQLite karşılığı (GunlukFaaliyetRaporuTests:240) o gün
+        // düzeltilmiş, buradaki ise ATLANAN test olduğu için görülmemişti. İkinci kez aynı sebep.
+        Assert.Equal(3.0, Deger(ikili.TotalRow![7]), 3);                            // süre toplamı 2 + 1
     }
 
     private static double Deger(object? v) => v switch

@@ -56,7 +56,9 @@ public class ReportArchitectureTests : IDisposable
         // 25 → 26: 2026-09-02 kullanıcı isteği (daily-activity-summary — Günlük Faaliyet dönem/toplam).
         // 26 → 27: MUH-04 / FAZ H (2026-09-04) — acc-costcenters (Maliyet Merkezi Özeti). Özet EKRANDA
         // vardı ama katalogta yoktu: süzülüp dışa aktarılamıyor, rapor yetkisiyle yönetilemiyordu.
-        Assert.Equal(27, ReportCatalog.All.Count);
+        // 27 → 28: A2 (2026-09-07) — acc-aging (Cari Yaşlandırma). Migration/yeni yetki GEREKMEDİ;
+        // "Açık Faturalar / Vade" ile AYNI kaynaktan cari bazlı gecikme dağılımı üretir.
+        Assert.Equal(28, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));
