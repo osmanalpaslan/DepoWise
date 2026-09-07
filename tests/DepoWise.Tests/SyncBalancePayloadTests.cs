@@ -247,7 +247,6 @@ public class SyncBalancePayloadTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         try { File.Delete(_localPath); } catch { }
         try { File.Delete(_serverPath); } catch { }
     }

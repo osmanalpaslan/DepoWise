@@ -53,7 +53,6 @@ public class SenkronCakismaEkraniTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         try { File.Delete(_srcPath); } catch { }
         try { File.Delete(_dstPath); } catch { }
     }

@@ -163,7 +163,6 @@ public class UpdateComodoTests : IDisposable
         var id = materials.Create(admin, new NewMaterial("M-1", "Kalıcı"));
 
         // Uygulamayı kapat (bağlantı havuzunu boşalt) + yeni factory ile aç (gerçek aynı DB dosyası)
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         var reopened = new SqliteConnectionFactory(_dbPath);
         var materials2 = new MaterialService(reopened, _clock);
         Assert.Contains(materials2.List(admin, new PageRequest { Limit = 50 }).Items, m => m.Id == id);

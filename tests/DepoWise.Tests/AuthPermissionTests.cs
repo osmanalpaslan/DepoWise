@@ -210,7 +210,7 @@ public class AuthPermissionTests : IDisposable
             cmd.AddWithValue("@id", bundle.UserId);
             Assert.Equal(branchId, cmd.ExecuteScalar() as string);
         }
-        finally { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(localPath); } catch { } }
+        finally { try { File.Delete(localPath); } catch { } }
     }
 
     // ---- Yetki yükseltme ----

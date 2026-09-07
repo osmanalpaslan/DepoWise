@@ -81,7 +81,7 @@ public class AlanYetkiPerformansTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 
     // ── veri üretimi (servis üzerinden 10.000 kayıt açmak testin KENDİSİNİ yavaşlatırdı;

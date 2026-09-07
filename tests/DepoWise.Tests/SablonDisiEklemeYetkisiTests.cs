@@ -102,7 +102,7 @@ public class SablonDisiEklemeYetkisiTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 
     // ══════════════════ SD1 ══════════════════

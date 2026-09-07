@@ -501,7 +501,6 @@ public class NewReportsTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
 }

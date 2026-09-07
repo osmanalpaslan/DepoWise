@@ -116,7 +116,6 @@ public class EndToEndTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var ext in new[] { "", "-wal", "-shm" })
         {
             var p = _dbPath + ext;

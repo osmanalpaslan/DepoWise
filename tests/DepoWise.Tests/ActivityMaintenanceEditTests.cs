@@ -73,7 +73,6 @@ public class ActivityMaintenanceEditTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
         GC.SuppressFinalize(this);
     }

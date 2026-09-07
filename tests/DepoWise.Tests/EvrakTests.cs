@@ -58,7 +58,6 @@ public class EvrakTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
         try { Directory.Delete(_storeRoot, recursive: true); } catch { }
     }
@@ -291,7 +290,6 @@ INSERT INTO file_records(id,company_id,entity_type,entity_id,kind,storage_provid
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

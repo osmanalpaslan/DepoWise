@@ -223,13 +223,13 @@ public class BranchDefinitionLockTests : IDisposable
         }
         finally
         {
-            try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(serverPath); } catch { }
+            try { File.Delete(serverPath); } catch { }
         }
     }
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 }

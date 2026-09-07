@@ -221,7 +221,6 @@ public class PermissionConcurrencyTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { if (File.Exists(_dbPath)) File.Delete(_dbPath); } catch { }
     }
 }

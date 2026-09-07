@@ -233,7 +233,6 @@ public class BranchMirrorTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 }

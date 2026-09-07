@@ -67,7 +67,6 @@ public class FinalStabilizasyonTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 
@@ -507,7 +506,6 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }
@@ -541,7 +539,6 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

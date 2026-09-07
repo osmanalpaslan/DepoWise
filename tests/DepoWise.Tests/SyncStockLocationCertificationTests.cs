@@ -83,7 +83,6 @@ public class SyncStockLocationCertificationTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        SqliteConnection.ClearAllPools();
         try { File.Delete(_localPath); } catch { }
         await ((IAsyncLifetime)_host).DisposeAsync();
     }

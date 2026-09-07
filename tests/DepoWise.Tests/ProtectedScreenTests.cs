@@ -133,7 +133,6 @@ public class ProtectedScreenTests : IDisposable
     public void Dispose()
     {
         ScreenVisibilityService.InvalidateAll();
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
 }

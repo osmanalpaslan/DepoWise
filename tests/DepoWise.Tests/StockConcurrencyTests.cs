@@ -306,6 +306,6 @@ public class StockConcurrencyTests : IDisposable
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 }

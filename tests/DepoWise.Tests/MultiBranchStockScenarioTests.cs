@@ -850,7 +850,6 @@ FROM stock_movements WHERE company_id='A' AND material_id=@m;";
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
         GC.SuppressFinalize(this);
     }

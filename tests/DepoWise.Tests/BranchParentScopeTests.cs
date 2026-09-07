@@ -111,7 +111,6 @@ public class BranchParentScopeTests : IDisposable
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(db); } catch { }
         }
     }
@@ -236,7 +235,6 @@ public class BranchParentScopeTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
 }

@@ -53,7 +53,6 @@ public class RaporVeriGorunurlukTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var f in _dosyalar) { try { File.Delete(f); } catch { } }
     }
 

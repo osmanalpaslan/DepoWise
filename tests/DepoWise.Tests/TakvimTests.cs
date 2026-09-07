@@ -70,7 +70,6 @@ public class TakvimTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
         try { Directory.Delete(_storeRoot, recursive: true); } catch { }
     }
@@ -382,7 +381,6 @@ public class TakvimTests : IDisposable
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(dstPath); } catch { }
         }
     }
@@ -438,7 +436,6 @@ INSERT INTO stock_movements(id,company_id,material_id,branch_id,movement_type,di
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

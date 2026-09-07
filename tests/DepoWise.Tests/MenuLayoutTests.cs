@@ -468,7 +468,6 @@ public class MenuLayoutTests : IDisposable
     public void Dispose()
     {
         MenuLayoutService.InvalidateAll();
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
 }

@@ -103,5 +103,5 @@ public class UserResetVisibilityTests : IDisposable
         Assert.True(login.MustChangePassword);
     }
 
-    public void Dispose() { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_db); } catch { } }
+    public void Dispose() { try { File.Delete(_db); } catch { } }
 }

@@ -73,6 +73,6 @@ public class Migration035Tests : IDisposable
 
     public void Dispose()
     {
-        try { SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 }

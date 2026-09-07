@@ -146,7 +146,6 @@ public class RoleGrantCompanyTests : IDisposable
         }
         finally
         {
-            try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
             try { File.Delete(yol); } catch { }
         }
     }
@@ -218,7 +217,6 @@ public class RoleGrantCompanyTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
 }

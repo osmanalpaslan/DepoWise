@@ -275,6 +275,6 @@ public class CompanyPurgeTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }
+        try { System.IO.File.Delete(_dbPath); } catch { }
     }
 }

@@ -409,7 +409,6 @@ public class StockDistributeTests : IDisposable
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             try { File.Delete(srvPath); } catch { }
         }
     }
@@ -433,7 +432,6 @@ public class StockDistributeTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 }

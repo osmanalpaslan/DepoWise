@@ -61,7 +61,6 @@ public class DuyuruTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 
@@ -266,7 +265,6 @@ public class DuyuruTests : IDisposable
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(dstPath); } catch { }
         }
     }
@@ -319,7 +317,6 @@ INSERT INTO calendar_events(id,company_id,title,start_date,created_by,created_at
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

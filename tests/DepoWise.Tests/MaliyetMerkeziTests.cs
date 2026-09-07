@@ -65,7 +65,6 @@ public class MaliyetMerkeziTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 
@@ -285,7 +284,6 @@ INSERT INTO fuel_depot_entries(id,company_id,liters,unit_price,currency_code,ent
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

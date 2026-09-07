@@ -220,7 +220,7 @@ public class BusinessSyncTests : IDisposable
 
             Assert.Equal("Ahmet (A makinesi)", Scalar(bFactory, "SELECT full_name FROM personnel WHERE id='pA';"));
         }
-        finally { try { SqliteConnection.ClearAllPools(); File.Delete(bPath); } catch { } }
+        finally { try { File.Delete(bPath); } catch { } }
     }
 
     /// <summary>
@@ -616,6 +616,6 @@ public class BusinessSyncTests : IDisposable
 
     public void Dispose()
     {
-        try { SqliteConnection.ClearAllPools(); File.Delete(_srcPath); File.Delete(_dstPath); } catch { }
+        try { File.Delete(_srcPath); File.Delete(_dstPath); } catch { }
     }
 }

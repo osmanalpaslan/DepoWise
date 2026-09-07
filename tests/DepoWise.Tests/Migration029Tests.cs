@@ -79,6 +79,6 @@ VALUES(@u,@c,'depocu','x','Depo',1,@n,@n,1,0);", ("@u", userId), ("@c", companyI
 
     public void Dispose()
     {
-        try { SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 }

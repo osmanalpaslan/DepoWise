@@ -61,7 +61,6 @@ public class SatinAlmaTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 
@@ -311,7 +310,6 @@ public class SatinAlmaTests : IDisposable
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(dstPath); } catch { }
         }
     }
@@ -365,7 +363,6 @@ INSERT INTO material_requests(id,company_id,doc_no,request_date,status,created_a
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

@@ -240,7 +240,6 @@ public class BranchScopeDesktopTransferTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var p in new[] { _sunucuDb, _yerelDb })
             try { File.Delete(p); } catch { }
     }

@@ -134,7 +134,7 @@ public class AlanKacakKanali2Tests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 
     // ══════════════════ KL1 — GERİYE UYUMLULUK ══════════════════

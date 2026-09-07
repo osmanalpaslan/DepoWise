@@ -70,7 +70,6 @@ public class BildirimTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
         try { Directory.Delete(_storeRoot, recursive: true); } catch { }
     }

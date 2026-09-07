@@ -255,7 +255,6 @@ public class EkipmanMigrationVeIsEmriTests
 
     private static void Temizle(string yol)
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(yol); } catch { }
     }
 }

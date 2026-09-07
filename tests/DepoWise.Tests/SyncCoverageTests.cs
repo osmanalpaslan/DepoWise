@@ -189,7 +189,6 @@ public class SyncCoverageTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_kaynakDb); } catch { }
         try { File.Delete(_hedefDb); } catch { }
     }

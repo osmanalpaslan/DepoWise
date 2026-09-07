@@ -132,6 +132,6 @@ public class PostgresDataCopyTests : IDisposable
 
     public void Dispose()
     {
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_sqlitePath); } catch { }
+        try { File.Delete(_sqlitePath); } catch { }
     }
 }

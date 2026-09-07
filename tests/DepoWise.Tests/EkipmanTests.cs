@@ -55,7 +55,6 @@ public class EkipmanTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_dbPath); } catch { }
     }
 
@@ -245,7 +244,6 @@ public class EkipmanTests : IDisposable
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(dstPath); } catch { }
         }
     }
@@ -301,7 +299,6 @@ INSERT INTO fuel_distributions(id,company_id,vehicle_id,liters,unit_price,curren
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(yol); } catch { }
         }
     }

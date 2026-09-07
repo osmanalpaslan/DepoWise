@@ -113,6 +113,6 @@ public class AlanZorunluluguTests : IDisposable
     {
         FieldRequirementService.InvalidateAll();
         GC.SuppressFinalize(this);
-        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }
+        try { File.Delete(_dbPath); } catch { }
     }
 }
