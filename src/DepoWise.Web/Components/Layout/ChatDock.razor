@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IJSRuntime JS
 
 @*
     ═══ UYGULAMA İÇİ SOHBET — WEB ═══ (kullanıcı isteği 2026-09-06)
@@ -41,7 +42,7 @@
                                    OnClick="@(() => PencereAcKapa(k))" Title="Pencereyi kapat (sekme kalır)" />
                 </div>
 
-                <div class="dw-chat-body">
+                <div class="dw-chat-body" id="@KaydirmaKimligi(k)">
                     @foreach (var m in k.Mesajlar)
                     {
                         <div class="dw-msg @(m.Mine ? "mine" : "theirs")">
@@ -304,6 +305,7 @@
             if (kon.Mesajlar.Any(m => m.Id == id)) continue;
             var m = new Mesaj { Id = id, Body = S(e, "body"), Mine = B(e, "mine"), CreatedAt = L(e, "createdAt") };
             kon.Mesajlar.Add(m);
+            _kaydirilacak.Add(KaydirmaKimligi(kon));   // yeni mesaj eklendi → dibe kaydır
             if (m.CreatedAt > (kon.SonZaman ?? 0)) kon.SonZaman = m.CreatedAt;
             if (!m.Mine) yeniGeldi = true;
         }
@@ -368,6 +370,12 @@
         finally { try { await InvokeAsync(StateHasChanged); } catch { } }
     }
 
+    /// <summary>
+    /// Enter ile gönderme. NOT (2026-09-07): tarayıcı otomasyonuyla yapılan denemede Enter
+    /// çalışmıyor GÖRÜNDÜ; ölçünce sebebin uygulamada değil ARAÇTA olduğu anlaşıldı — aracın
+    /// ürettiği tuş olayında <c>key</c> alanı BOŞ geliyordu. <c>key='Enter'</c> taşıyan gerçek bir
+    /// olayla mesaj sorunsuz gönderildi. Bu yüzden burada değişiklik YAPILMADI.
+    /// </summary>
     private async Task EnterIleGonder(KeyboardEventArgs e, Konusma kon)
     {
         if (e.Key == "Enter") await Gonder(kon);
@@ -386,6 +394,24 @@
             await KonusmayiTazele(kon);
         }
         catch { kon.Hata = ErisimHatasi; }
+    }
+
+    // ═══ YENİ MESAJA OTOMATİK KAYDIRMA (kullanıcı isteği 2026-09-07) ═══
+    // Konuşma uzayınca yeni mesaj görünmeyen alana düşüyordu; kullanıcı "mesaj gelmedi" sanıyordu.
+    // Kaydırma, mesaj EKLENDİĞİ turda ve YALNIZ bir kez yapılır (her çizimde değil).
+    private readonly HashSet<string> _kaydirilacak = new();
+
+    private static string KaydirmaKimligi(Konusma k) => "dwchat-" + k.UserId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_kaydirilacak.Count == 0) return;
+        var kimlikler = _kaydirilacak.ToArray();
+        _kaydirilacak.Clear();
+        // JS çağrısı da hata sızdırmamalı: devre kapanırken InvokeVoidAsync fırlatır ve buradan
+        // kaçan hata TÜM SAYFAYI öldürür (sohbetin asıl hastalığı buydu).
+        foreach (var id in kimlikler)
+            try { await JS.InvokeVoidAsync("dwChatScroll", id); } catch { }
     }
 
     private static string S(JsonElement o, string k)

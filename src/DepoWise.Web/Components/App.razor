@@ -85,6 +85,33 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        // ═══ SOHBET — YENİ MESAJA OTOMATİK KAYDIRMA (kullanıcı isteği 2026-09-07) ═══
+        // Mesaj listesi uzayınca yeni mesaj görünmeyen alana düşüyor ve kullanıcı "mesaj gelmedi"
+        // sanıyordu. Kullanıcı GEÇMİŞİ OKUMAK için yukarı kaydırmışsa zorla aşağı çekilmez.
+        // Bu çağrı mesaj ÇİZİLDİKTEN SONRA gelir; o an "dipte miydi" ölçülemez (liste çoktan uzadı).
+        // Ölçüldü: 15 mesaj birden gelince mesafe 715 px oluyor ve sabit toleranslı bir kontrol
+        // "kullanıcı geçmişi okuyor" sanıp kaydırmayı ATLIYOR. Doğrusu: dipte olma durumu KULLANICI
+        // KAYDIRDIKÇA anlık tutulur; burada yalnız o bayrağa bakılır.
+        window.dwChatScroll = (id) => {
+            try {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (!el.dataset.dwHooked) {
+                    el.dataset.dwHooked = '1';
+                    el.dataset.dwAtBottom = '1';           // yeni açılan pencere en yeni mesajı gösterir
+                    el.addEventListener('scroll', () => {
+                        const dip = el.scrollHeight - el.scrollTop - el.clientHeight <= 24;
+                        el.dataset.dwAtBottom = dip ? '1' : '0';
+                    }, { passive: true });
+                }
+                // Kullanıcı geçmişi okumak için yukarı kaydırdıysa ('0') zorla aşağı çekilmez.
+                if (el.dataset.dwAtBottom !== '0') {
+                    el.scrollTop = el.scrollHeight;
+                    el.dataset.dwAtBottom = '1';
+                }
+            } catch (e) { }
+        };
+
         // Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılsın.
         // true → yeni sekme açıldı · false → engellendi (çağıran aynı sekmede açarak geri düşer).
         window.dwOpenInNewTab = (url) => {

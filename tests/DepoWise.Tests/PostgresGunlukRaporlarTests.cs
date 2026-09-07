@@ -149,7 +149,14 @@ public class PostgresGunlukRaporlarTests
         Faaliyet("d3", "movement", "transfer", Day(3), "Transfer", 1);
 
         var hepsi = reports.Run(s, "daily-activity", istek);                       // tip seçilmedi → TÜM tipler
-        Assert.Equal(14, hepsi.Headers.Count);   // 2026-09-02: kod/plaka ayrı + bakım maliyet sütunları
+        // 15 sütun: Tarih · Kayıt Tipi · Şube · Araç Kodu · Plaka · Nereden→Nereye · Operatör ·
+        // Süre · Bakım Tanımı · Teknisyen · Yapılma · Malzeme Kalemi · Malzeme Miktarı ·
+        // Parça Maliyeti · Açıklama.
+        // ⭐ 2026-09-07: bu iddia 14'te KALMIŞTI. "Malzeme Miktarı" sütunu 2026-09-04'te eklendi ama
+        // burası güncellenmedi ve KİMSE FARK ETMEDİ — çünkü PostgreSQL testleri koşularda ATLANIYORDU
+        // (DEPOWISE_PG_URL ayarlı değildi). Aynı boşluk, sohbetin PG'de tamamen bozuk olmasını da
+        // aylarca gizledi. Betik artık PG testlerini kendiliğinden açıyor (scripts/run_tests.ps1).
+        Assert.Equal(15, hepsi.Headers.Count);
         Assert.Equal(3, hepsi.Rows.Count);
         Assert.Equal("Transfer", (string)hepsi.Rows[0][1]!);                       // en yeni gün üstte
 

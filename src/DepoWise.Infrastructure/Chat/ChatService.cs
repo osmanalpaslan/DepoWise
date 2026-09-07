@@ -119,19 +119,39 @@ ORDER BY u.full_name, u.username;");
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+
+        // ⭐ 2026-09-07 — POSTGRESQL'DE SOHBETİ TAMAMEN BOZAN HATA (kullanıcı: "gönder düğmesine
+        // basıyorum ama pencere boş").
+        //
+        // Eskiden koşul tek satırdı: «AND (@since IS NULL OR created_at > @since)». SQLite bunu
+        // sorunsuz çalıştırır; PostgreSQL ise TİPİ ÇIKARAMAZ ve sorguyu REDDEDER:
+        //     42P08: could not determine data type of parameter $4
+        // Çünkü parametre NULL geldiğinde tipini belirleyecek hiçbir bağlam yoktur (@since IS NULL
+        // tip bilgisi vermez). Sonuç: ÜRETİMDE (PostgreSQL) /api/chat/messages HER ÇAĞRIDA 500
+        // döndü → konuşma penceresi hep boş kaldı, gelen mesaj hiç görünmedi, gönderilen mesaj
+        // sunucuya YAZILDIĞI HÂLDE ekrana düşmedi.
+        //
+        // Neden testler yeşildi: sohbet testleri SQLite üzerinde koşuyordu (bkz. SohbetPostgresTests
+        // — bu boşluğu kapatan test). CLAUDE.md §4 "iki lehçe de test edilir" kuralı sohbette
+        // uygulanmamıştı.
+        //
+        // Çözüm: koşul YALNIZ değer varken eklenir; NULL parametre hiç gönderilmez. Böylece tip
+        // belirsizliği ORTADAN KALKAR ve davranış iki lehçede birebir aynı olur.
+        var sinceKosulu = sinceMs is null ? "" : "  AND created_at > @since\n";
         cmd.CommandText = SqlDialect.PortableSql(conn, @"
 SELECT id, sender_id, recipient_id, body, created_at, read_at
 FROM chat_messages
 WHERE company_id = @c AND is_deleted = 0
   AND ((sender_id = @me AND recipient_id = @o) OR (sender_id = @o AND recipient_id = @me))
-  AND (@since IS NULL OR created_at > @since)
-ORDER BY created_at DESC
-LIMIT @lim;");
+" + sinceKosulu + @"ORDER BY created_at DESC
+LIMIT " + limit.ToString(System.Globalization.CultureInfo.InvariantCulture) + ";");
+        // LIMIT değeri metne gömülür: dışarıdan gelmez ve yukarıda 1..500 aralığına KISILIR
+        // (int'tir, metin değildir) → enjeksiyon yüzeyi yoktur. PostgreSQL LIMIT'te bigint bekler;
+        // int parametresi lehçeler arasında tip uyuşmazlığı riski taşır, sabit sayı taşımaz.
         cmd.AddWithValue("@c", actor.CompanyId);
         cmd.AddWithValue("@me", actor.UserId);
         cmd.AddWithValue("@o", karsiUserId);
-        cmd.AddWithValue("@since", (object?)sinceMs ?? DBNull.Value);
-        cmd.AddWithValue("@lim", limit);
+        if (sinceMs is { } sv) cmd.AddWithValue("@since", sv);
 
         var ters = new List<ChatMesaj>();
         using (var r = cmd.ExecuteReader())

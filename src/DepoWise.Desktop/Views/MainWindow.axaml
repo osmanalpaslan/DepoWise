@@ -809,8 +809,10 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Mesajlar (eskiden yeniye) -->
-                                    <ScrollViewer Padding="8">
+                                    <!-- Mesajlar (eskiden yeniye).
+                                         AltaKilitli: yeni mesaj gelince liste dibe kayar; kullanıcı
+                                         geçmişi okumak için yukarı kaydırmışsa dokunulmaz. -->
+                                    <ScrollViewer Padding="8" ctrl:SohbetKaydirma.AltaKilitli="True">
                                         <ItemsControl ItemsSource="{Binding Mesajlar}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="chat:ChatMesaj">

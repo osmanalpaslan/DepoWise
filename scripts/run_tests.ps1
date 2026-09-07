@@ -25,10 +25,44 @@
 param(
   [string]$Filter = "",
   [switch]$Bekle,
-  [int]$BeklemeDakika = 45
+  [int]$BeklemeDakika = 45,
+  [switch]$PostgresAtla
 )
 
 $ErrorActionPreference = "Stop"
+
+# ═══ POSTGRESQL TESTLERI KENDILIGINDEN ACILIR (2026-09-07) ═══
+#
+# NEDEN: uretim PostgreSQL'de calisiyor; masaustu SQLite'ta. Ama PG testleri
+# DEPOWISE_PG_URL tanimli DEGILSE sessizce ATLANIYORDU. Sonuc: "3855 gecti / 48 atlandi"
+# gibi yesil bir rapor, kullanicinin GERCEKTEN kullandigi veritabanini hic denemiyordu.
+#
+# Bu boşluk iki gercek hatayi gizledi:
+#   1) Sohbet konusma sorgusu PG'de HER ZAMAN patliyordu (42P08) -> mesaj penceresi hep bostu.
+#   2) Gunluk Faaliyet raporunun sutun sozlesmesi 3 gundur eskimisti.
+#
+# Adres YALNIZ .env.pgtest.local'dan okunur (icinde tek bir BOS DENEME veritabani vardir;
+# .env.test.local'daki CANLI adres bilerek KULLANILMAZ). Yikici islemlerin onundeki
+# PostgresTestGuard kapisi (ad "test" icermeli, sema bos olmali, boyut < 50 MB, salt-okunur
+# olmamali) AYNEN yururluktedir -> canli veritabani bu kapidan gecemez.
+if (-not $PostgresAtla) {
+  $pgEnv = Join-Path $PSScriptRoot "..\.env.pgtest.local"
+  if ((Test-Path $pgEnv) -and [string]::IsNullOrWhiteSpace($env:DEPOWISE_PG_URL)) {
+    foreach ($satir in Get-Content $pgEnv) {
+      $i = $satir.IndexOf('=')
+      if ($i -gt 0 -and -not $satir.TrimStart().StartsWith('#')) {
+        $ad = $satir.Substring(0, $i).Trim().TrimStart([char]0xFEFF)
+        if ($ad -eq 'DEPOWISE_PG_URL') { $env:DEPOWISE_PG_URL = $satir.Substring($i + 1).Trim() }
+      }
+    }
+  }
+  if (-not [string]::IsNullOrWhiteSpace($env:DEPOWISE_PG_URL)) {
+    $env:DEPOWISE_PG_TEST_CONFIRM = 'EVET-BU-BOS-TEST-VERITABANI'
+    Write-Output "[0/2] PostgreSQL testleri ACIK (deneme veritabani)."
+  } else {
+    Write-Output "[0/2] UYARI: PostgreSQL adresi yok -> PG testleri ATLANACAK. Uretim PG'dir; bu kosu onu KAPSAMAZ."
+  }
+}
 $proje = Join-Path $PSScriptRoot "..\tests\DepoWise.Tests\DepoWise.Tests.csproj"
 $kilitAdi = "Local\AlpnexTestKosusu"
 
