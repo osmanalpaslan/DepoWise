@@ -174,15 +174,23 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
         var yeni = await OrgServerClient.ChatKonusmaAsync(kon.UserId, kon.SonZaman);
         if (yeni is null || yeni.Count == 0) return;
 
+        var gercektenEklendi = false;
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             foreach (var m in yeni)
             {
                 if (kon.Mesajlar.Any(x => x.Id == m.Id)) continue;   // mükerrer eklemeyi önle
                 kon.Mesajlar.Add(m);
+                if (!m.Mine) gercektenEklendi = true;
                 if (m.CreatedAt > (kon.SonZaman ?? 0)) kon.SonZaman = m.CreatedAt;
             }
         });
+
+        // ⭐ SES: YENİ gelen mesaj için — turda kaç mesaj gelirse gelsin TEK ses. Kullanıcı
+        // "mevcut olanlar için değil" dedi: geçmişi yükleyen KisiyiAc bu yoldan geçmez, bu
+        // yüzden konuşmayı açmak ses çıkarmaz. Kendi mesajım (Mine) da burada ses çıkarmaz —
+        // onun sesi gönderim anında çalar.
+        if (gercektenEklendi) SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.MesajGelen);
 
         // Pencere açıkken gelen mesaj OKUNMUŞ sayılır — kullanıcı ekrana bakıyor.
         if (yeni.Any(m => !m.Mine))
@@ -295,6 +303,9 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
             if (!res.Ok) { kon.Hata = res.Error ?? "Mesaj gönderilemedi."; return; }
 
             kon.Taslak = "";
+            // ⭐ SES: gönderim ONAYLANDIKTAN sonra çalar — "gitti" geri bildirimi. Hata dönerse
+            // ses çıkmaz (yukarıdaki iki koşul zaten çıkmış olurdu).
+            SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.MesajGiden);
             await KonusmayiTazele(kon);   // kendi mesajımız da sunucudan gelsin (tek doğruluk kaynağı)
         }
         catch { kon.Hata = ErisimHatasi; }

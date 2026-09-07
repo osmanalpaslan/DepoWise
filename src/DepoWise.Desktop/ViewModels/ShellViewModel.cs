@@ -795,7 +795,11 @@ public sealed partial class ShellViewModel : ViewModelBase
         StartConnectionMonitor();
         StartUpdateWatcher();
         _ = RegisterMachineAsync();
+        // ⭐ SES: ses tercihi ve BİR ÖNCEKİ OTURUMUN okunmamış tabanı yüklenir. Taban olmadan
+        // "önceki login'den sonra gelenler" ayırt edilemezdi (kullanıcının açık şartı).
+        SesServisi.Baslat(session.UserId);
         RefreshAlertBadge();   // BLD-01: çan sayacı giriş sonrası bir kez yüklenir
+        StartAlertWatcher();   // ⭐ SES: dakikada bir tazele → yeni uyarı/duyuru duyulsun
 
         ServerAuthClient.SessionExpiredRaised += OnSessionExpired; // oturum düşünce tekrar giriş
     }
@@ -1702,11 +1706,38 @@ public sealed partial class ShellViewModel : ViewModelBase
             try
             {
                 var n = await AlertFeed.UnreadCountAsync(_session);
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => UnreadAlerts = n);
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    UnreadAlerts = n;
+                    // ⭐ SES (kullanıcı isteği 2026-09-07): uyarı/duyuru sesi YALNIZ buradan çalar.
+                    // Karar (yeni mi? spam kalkanı izin veriyor mu?) SesServisi'ndedir; bu yüzden
+                    // sayacın tazelendiği her yerde davranış aynıdır ve mükerrer ses oluşamaz.
+                    SesServisi.BildirimGeldi(_session.UserId, n);
+                });
             }
             catch { }
         });
     }
+
+    /// <summary>
+    /// ⭐ SES (2026-09-07): uyarı/duyuru sayacı DAKİKADA BİR tazelenir.
+    ///
+    /// <para>Eskiden sayaç yalnız girişte ve Uyarılar/Duyurular ekranı değişince yenileniyordu;
+    /// uygulama açıkken gelen yeni bir uyarı fark edilmiyordu. Sesin anlamlı olması için düzenli
+    /// bir yoklama gerekir.</para>
+    ///
+    /// <para><b>15 saniyelik senkron turuna BİLEREK bağlanmadı:</b> o tur zaten yoğundur ve
+    /// dakikada dört kez fazladan sorgu, kazancı olmayan bir maliyet olurdu. Uyarı bildirimi için
+    /// bir dakika fazlasıyla yeterlidir.</para>
+    /// </summary>
+    private void StartAlertWatcher()
+    {
+        _alertTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _alertTimer.Tick += (_, _) => RefreshAlertBadge();
+        _alertTimer.Start();
+    }
+
+    private Avalonia.Threading.DispatcherTimer? _alertTimer;
 
     /// <summary>Aktif ekranın gerçek kod bilgisini (View/ViewModel + kaynak) kopyalanabilir pencerede gösterir.</summary>
     [RelayCommand]

@@ -64,6 +64,14 @@ public static class ConfirmService
     public static async Task<bool> AskAsync(Window owner, string message, string title = "Onay",
         string okText = "Evet", string cancelText = "Vazgeç", bool danger = false)
     {
+        // ⭐ SES (kullanıcı isteği 2026-09-07): buton uyarı/onay penceresi açılırken ses çalar.
+        // BURASI masaüstündeki TÜM onay ve bilgi pencerelerinin tek geçidi olduğu için tek satır
+        // yeter; hiçbir ekranda ayrıca ses çağrısı yazılmaz (30+ yerde unutulma riski kalmaz).
+        //
+        // ⚠️ Kullanıcının açık şartı: buton uyarılarına SPAM KALKANI UYGULANMAZ. Bu pencereler
+        // kullanıcının kendi tıklamasıyla ve teker teker açılır; bastırmak yanlış olurdu.
+        DepoWise.Desktop.SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.DugmeUyarisi);
+
         var win = new ConfirmWindow(title, message, okText, cancelText, danger);
         return await win.ShowDialog<bool>(owner);
     }

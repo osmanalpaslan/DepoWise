@@ -9,6 +9,28 @@ public sealed partial class ThemeSettingsViewModel : ViewModelBase
 {
     [ObservableProperty] private string _status = "";
 
+    /// <summary>
+    /// ⭐ SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07) — aç/kapat. Tercih bu bilgisayarda saklanır
+    /// (<c>%LOCALAPPDATA%\Alpnex\ses.json</c>); firma ayarı değildir, kimseyi etkilemez.
+    /// </summary>
+    public bool SesAcik
+    {
+        get => SesServisi.Acik;
+        set
+        {
+            if (SesServisi.Acik == value) return;
+            SesServisi.AcikYap(value);
+            OnPropertyChanged();
+            SesiDeneCommand.NotifyCanExecuteChanged();
+            Status = value ? "Bildirim sesleri açıldı." : "Bildirim sesleri kapatıldı.";
+            if (value) SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.Bildirim);
+        }
+    }
+
+    /// <summary>Kullanıcı sesi duymadan karar veremez; tek örnek çalar.</summary>
+    [RelayCommand]
+    private void SesiDene() => SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.Bildirim);
+
     public bool IsDark => ThemeService.CurrentMode == ThemeService.Dark;
     public bool IsLight => ThemeService.CurrentMode == ThemeService.Light;
     public bool IsSystem => ThemeService.CurrentMode == ThemeService.System;

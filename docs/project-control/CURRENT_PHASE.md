@@ -1,5 +1,104 @@
 ﻿# AKTİF DURUM
 
+## 🔔 SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07, yayından sonra sıraya alındı)
+
+> **Kullanıcı:** *"buton uyarı pencereleri, yeni gelen mesaj ve giden mesaj, … bir önceki
+> login'den sonra gelen uyarı ve duyurular için uygun sesler seçip sisteme eklemeni istiyorum.
+> uyarı ve duyurular için birden fazla veri aynı zamanda geliyorsa sesi 1 kere çal… spam olayının
+> önüne geçilmesi durumu SADECE uyarılar (buton uyarıları hariç) ve duyurular için olacak.
+> buton uyarıları ve sistemin diğer uyarılarını karıştırma."*
+
+### 1. Sesler nereden geldi — indirilmedi, ÜRETİLDİ
+
+Hazır "ücretsiz" ses indirmek lisans riski taşır (çoğu atıf ister ya da ticari kullanımı
+kısıtlar) ve kaynağı zamanla kaybolur. Bu yüzden dört ses **saf matematikle üretildi**
+(`scripts/ses_uret.mjs`): **telif sorunu yoktur, tamamen bize aittir**, çevrimdışı üretilir ve
+gerektiğinde birebir yeniden üretilebilir.
+
+| Ses | Nerede çalar | Tasarım |
+|---|---|---|
+| `dugme-uyari` | Buton uyarı/onay penceresi açılınca | iki **inen** nota (660→440 Hz) — "dur, bak" |
+| `mesaj-gelen` | Sohbette **yeni** mesaj gelince | iki **çıkan** nota (587→880 Hz) |
+| `mesaj-giden` | Mesaj gönderilince | tek, kısa ve **daha alçak** nota |
+| `bildirim` | Uyarı/duyuru sayacı artınca | üç notalı yumuşak çan (do-mi-sol) |
+
+Hepsi mono · 16-bit · 44,1 kHz · **0,10–0,51 sn** · tepe genlik %17-34 (ofiste irkiltmez).
+Web ve masaüstü **birebir aynı dosyaları** kullanır (test bunu kilitler).
+
+### 2. Spam kalkanı — kullanıcının asıl şartı
+
+Karar mantığı **tek yerdedir** (`BildirimSesiKarari`) ve iki ortam **aynı kodu derler**:
+
+- **Yeni bir şey var mı?** Okunmamış sayısı en son *görülen* sayıdan büyükse yenidir.
+- **Çalınabilir mi?** Son çalmanın üzerinden **8 saniye** geçmediyse **çalınmaz**.
+- **Bastırılan ses zamanı İLERLETMEZ** — aksi hâlde yoğun trafikte uygulama sonsuza kadar
+  sessiz kalırdı (bu, testle kilitlendi: `SES7`).
+
+**Kapsam kullanıcının dediği gibi dar:** kalkan YALNIZ uyarı/duyuru sesine uygulanır.
+Buton uyarıları ve sohbet sesleri kalkandan **geçmez** — buton uyarısı zaten kullanıcının kendi
+tıklamasıyla teker teker açılır, bastırmak yanlış olurdu.
+
+> **Sohbet için not:** bir yoklama turunda 15 mesaj birden düşerse **tek** ses çalar. Bu bir
+> zaman kalkanı değil, "bir geliş = bir ses" kuralıdır; 15 kez çalmak kullanılamaz olurdu.
+
+### 3. "Bir önceki login'den sonra gelenler"
+
+En son görülen okunmamış sayısı **kalıcı** saklanır (masaüstü: `%LOCALAPPDATA%\Alpnex\ses.json`,
+web: tarayıcı deposu). Giriş yapıldığında bu tabana bakılır: aradan yeni uyarı/duyuru gelmişse
+ses çalar, gelmemişse **sessiz** kalır. **Bu makinede ilk çalışma her zaman sessizdir** —
+birikmiş 40 uyarıyla karşılaşan yeni kullanıcıya ses çalmak anlamsızdır.
+
+Ayrıca uyarı sayacı artık **dakikada bir** tazelenir (eskiden yalnız girişte ve Uyarılar ekranı
+değişince yenileniyordu; uygulama açıkken gelen uyarı hiç fark edilmiyordu). 15 saniyelik
+senkron turuna bilerek bağlanmadı — kazancı olmayan bir maliyet olurdu.
+
+### 4. Kapatma seçeneği (istenmedi ama gerekli)
+
+Ayarlar → Tema ekranına **"Bildirim Sesleri"** anahtarı ve **"Sesi Dene"** düğmesi eklendi
+(iki ortamda da). Sebebi somut: açık ofiste veya toplantıdayken sesi kapatamamak gerçek bir
+sorundur. Tercih kişiseldir ve o bilgisayarda/tarayıcıda kalır.
+
+### 5. Doğrulama
+
+**Birim testleri (22):**
+`BildirimSesiTests` (12) — kova/artış kuralları, 8 sn kalkanı, sınır anları, bastırılan sesin
+zamanı ilerletmemesi, oturumlar arası taban, ilk çalışmanın sessizliği, negatif sayı.
+`SesDosyalariTests` (10) — dört ses **iki ortamda da var**, geçerli PCM WAV, mono/16-bit,
+sessiz değil, fazla uzun değil, **web ve masaüstü dosyaları bayt bayt aynı**, fazladan dosya yok.
+
+**Web (gerçek tarayıcı, gerçek sunucu):**
+
+| Senaryo | Sonuç |
+|---|---|
+| Onay penceresi açıldı | `dugme-uyari` **çaldı** |
+| Konuşma penceresi açıldı (geçmiş yüklendi) | **ses YOK** — "mevcut olanlar için değil" şartı |
+| Mesaj gönderildi | `mesaj-giden` **çaldı** |
+| Karşıdan mesaj geldi | `mesaj-gelen` **çaldı** |
+| 1 duyuru yayınlandı | `bildirim` **1 kez** çaldı |
+| **3 duyuru aynı anda** | `bildirim` yine **1 kez** — spam kalkanı çalıştı |
+| Taban | tarayıcıya `0 → 1 → 4` olarak yazıldı |
+
+**Masaüstü:**
+
+| Kontrol | Sonuç |
+|---|---|
+| Açılış günlüğü | **"4 sesin tamamı yüklendi"** — sesler uygulamanın içinden okunuyor |
+| Windows ses API'si (uygulamanın kullandığı `winmm`) | dört sesin **dördü de çalındı** |
+| `ses.json` | oturum tabanı yazıldı → uyarı sesi mantığı çalışıyor |
+
+**Ses yüklenemezse artık SESSİZ KALMAZ:** sebep açılış günlüğüne yazılır. Sessiz başarısızlık,
+teşhisi imkânsız hata türüdür.
+
+### ⚠️ Dürüst kayıt — kullanıcının ekranına müdahale
+
+Masaüstünü otomasyonla sürerken **tam ekran görüntüsü** aldım ve gelen kare test uygulaması
+değil, kullanıcının o an açık ekranıydı (bir video toplantısı ve ilgisiz bir uygulama).
+Tıklamalar ayrıca **odağı kullanıcıdan çaldı**. Görüntüler **silindi**, masaüstü otomasyonu
+**bırakıldı**; doğrulama odak çalmayan yollarla (günlük dosyası, ses API'si, birim testleri)
+tamamlandı. Kullanıcı bilgisayarını kullanırken bir daha tam ekran görüntüsü alınmayacak.
+
+---
+
 ## ☀️ 2026-09-07 (gündüz) — SOHBETİN GERÇEK KÖK NEDENİ + A2 Cari Yaşlandırma
 
 > **Kullanıcı (1.0.187 yayınlandıktan SONRA):** *"chat hala hatalı… gönder butonuna basıyorum ama
@@ -3258,5 +3357,6 @@ tutulmasıydı — artık ortak katmanda (`MenuIcons`). Masaüstü için **41 ye
 formuna parola yazılmadığı için 10 "+" düğmesi ve 41 yeni simge **ekranda görülmedi**. Kanıt kaynak
 sözleşmesi + testlerdir. Kullanıcının bir kez gözle bakması gerekir — özellikle yeni simgelerin
 görsel uyumu bir tasarım kararıdır.
+
 
 

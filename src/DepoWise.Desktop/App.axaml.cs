@@ -32,6 +32,9 @@ public partial class App : Avalonia.Application
             // Tarih alanlarının boş hâlindeki İngilizce yer tutucularını ("day/month/year") Türkçeleştirir.
             // Sınıf düzeyinde tek kurulum; hiçbir görünüm dosyası değişmez (bkz. TarihYerTutucu).
             DepoWise.Desktop.Theming.TarihYerTutucu.Kur();
+            // ⭐ SES (2026-09-07): bildirim sesleri gömülü kaynaktan belleğe alınır. Sonuç açılış
+            // günlüğüne yazılır — bir ses yüklenemiyorsa kullanıcı fark etmeden ÖNCE görülür.
+            SesServisi.Onyukle();
 
             // Kullanıcı isteği: uygulama kapatılınca oturum biter → her açılışta LOGIN ekranı gelir.
             // "Beni Hatırla" artık yalnız kullanıcı ADINI ön-doldurur (otomatik giriş YAPILMAZ). Kapanışta

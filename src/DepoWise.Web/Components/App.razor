@@ -85,6 +85,54 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        // ═══ SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07) ═══
+        //
+        // Sesler wwwroot/sounds altındaki WAV dosyalarıdır; scripts/ses_uret.mjs ile matematiksel
+        // olarak üretilmiştir (telif sorunu yoktur) ve masaüstüyle AYNI dosyalardır.
+        //
+        // ⚠️ TARAYICI KURALI: sayfa, kullanıcı ETKİLEŞİMDE BULUNMADAN ses çalamaz. Kullanıcı zaten
+        // giriş yapmak için tıkladığından bu koşul sağlanır; yine de her çalma try/catch içindedir —
+        // ses çalmaması bir rahatsızlık, hata fırlatması ise Blazor devresini öldürebilirdi.
+        window.dwSes = (function () {
+            const onbellek = {};
+            let acik = true;
+            try { acik = localStorage.getItem('dwSesAcik') !== '0'; } catch (e) { }
+
+            function ses(ad) {
+                if (!onbellek[ad]) {
+                    const a = new Audio('/sounds/' + ad + '.wav');
+                    a.preload = 'auto';
+                    onbellek[ad] = a;
+                }
+                return onbellek[ad];
+            }
+
+            return {
+                acikMi: function () { return acik; },
+                acikYap: function (deger) {
+                    acik = !!deger;
+                    try { localStorage.setItem('dwSesAcik', acik ? '1' : '0'); } catch (e) { }
+                },
+                cal: function (ad) {
+                    if (!acik) return;
+                    try {
+                        const a = ses(ad);
+                        a.currentTime = 0;                       // arka arkaya çalınabilsin
+                        const p = a.play();
+                        if (p && p.catch) p.catch(function () { });   // otomatik-çalma engeli: sessizce geç
+                    } catch (e) { }
+                },
+                // Uyarı/duyuru tabanı: "bir önceki login'den sonra gelenler" bunun sayesinde bilinir.
+                tabanOku: function (anahtar) {
+                    try { const v = localStorage.getItem('dwSesTaban_' + anahtar); return v === null ? null : parseInt(v, 10); }
+                    catch (e) { return null; }
+                },
+                tabanYaz: function (anahtar, deger) {
+                    try { localStorage.setItem('dwSesTaban_' + anahtar, String(deger)); } catch (e) { }
+                }
+            };
+        })();
+
         // ═══ SOHBET — YENİ MESAJA OTOMATİK KAYDIRMA (kullanıcı isteği 2026-09-07) ═══
         // Mesaj listesi uzayınca yeni mesaj görünmeyen alana düşüyor ve kullanıcı "mesaj gelmedi"
         // sanıyordu. Kullanıcı GEÇMİŞİ OKUMAK için yukarı kaydırmışsa zorla aşağı çekilmez.

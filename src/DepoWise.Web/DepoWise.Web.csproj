@@ -94,6 +94,10 @@
     <Compile Include="..\DepoWise.Application\Ui\ReportSortOptions.cs" Link="Services\ReportSortOptions.cs" />
     <!-- 2026-09-03: sayaç birimi etiketi ("hour" → "saat") — iki platform aynı sabit listeyi derler. -->
     <Compile Include="..\DepoWise.Application\Ui\MeterUnitOptions.cs" Link="Services\MeterUnitOptions.cs" />
+    <!-- ⭐ 2026-09-07: sesli bildirimin KARAR mantığı (yeni mi? spam kalkanı izin veriyor mu?).
+         Web ve masaüstü AYNI kodu derler → iki ortamda ses davranışı ayrışamaz. Dosya saftır:
+         ses çalmaz, dosya okumaz, saat sormaz — bağımlılık getirmez. -->
+    <Compile Include="..\DepoWise.Application\Notifications\BildirimSesi.cs" Link="Services\BildirimSesi.cs" />
   </ItemGroup>
 
 </Project>

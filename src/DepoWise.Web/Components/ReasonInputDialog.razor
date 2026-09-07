@@ -3,6 +3,7 @@
    uyarı metni gösteremez. İptal geri alınamaz bir işlem olduğu için kullanıcı HEM uyarıyı görmeli HEM de
    gerekçeyi tek adımda yazmalı — bu yüzden ikisi tek pencerede birleştirildi.
    Gerekçe denetim kaydına (audit) yazılır; boş bırakılamaz. *@
+@inject DepoWise.Web.Services.WebSesServisi Ses
 <MudDialog>
     <DialogContent>
         <MudText Style="white-space:pre-line" Class="mb-3">@Message</MudText>
@@ -27,6 +28,13 @@
 
     private string _reason = "";
     private bool _error;
+
+    /// <summary>⭐ SES: bu da bir BUTON UYARI penceresidir (geri alınamaz iptal) → aynı ses çalar.
+    /// ConfirmDialog ile aynı davranış: kalkan uygulanmaz, teker teker açılır.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await Ses.CalAsync(DepoWise.Application.Notifications.SesTuru.DugmeUyarisi);
+    }
 
     private void Ok()
     {

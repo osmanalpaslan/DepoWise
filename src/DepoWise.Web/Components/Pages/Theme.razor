@@ -1,5 +1,7 @@
 @page "/theme"
 @inject DepoWise.Web.Services.ThemeState ThemeSvc
+@inject IJSRuntime JS
+@inject DepoWise.Web.Services.WebSesServisi Ses
 
 <PageTitle>Tema — Alpnex</PageTitle>
 
@@ -55,7 +57,39 @@
     }
 </div>
 
+@* ⭐ SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07) — kapatma seçeneği.
+   Neden burada: tema gibi KİŞİSEL ve bu tarayıcıya ait bir tercihtir; firma ayarı değildir.
+   Neden gerekli: toplantıda/açık ofiste sesi kapatamamak gerçek bir sorundur. *@
+<MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-8">Bildirim Sesleri</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    Uyarı/duyuru, sohbet mesajı ve onay pencerelerinde kısa bir ses çalar.
+    Tercih bu tarayıcıda saklanır; diğer kullanıcıları etkilemez.
+</MudText>
+<div style="max-width:620px;">
+    <MudSwitch T="bool" Value="_sesAcik" ValueChanged="SesDegisti" Color="Color.Primary"
+               Label="@(_sesAcik ? "Sesler açık" : "Sesler kapalı")" />
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="ml-2"
+               StartIcon="@Icons.Material.Filled.VolumeUp" Disabled="@(!_sesAcik)"
+               OnClick="@(() => Ses.CalAsync(DepoWise.Application.Notifications.SesTuru.Bildirim))">Sesi Dene</MudButton>
+</div>
+
 @code {
+    private bool _sesAcik = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { _sesAcik = await JS.InvokeAsync<bool>("dwSes.acikMi"); StateHasChanged(); } catch { }
+    }
+
+    private async Task SesDegisti(bool acik)
+    {
+        _sesAcik = acik;
+        try { await JS.InvokeVoidAsync("dwSes.acikYap", acik); } catch { }
+        // Açarken tek örnek çal: kullanıcı ne duyacağını hemen bilsin.
+        if (acik) await Ses.CalAsync(DepoWise.Application.Notifications.SesTuru.Bildirim);
+    }
+
     private sealed record Opt(string Mode, string Title, string Desc, string Icon);
 
     private static readonly Opt[] Options =

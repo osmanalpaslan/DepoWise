@@ -124,6 +124,18 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- ⭐ SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07) — kapatma seçeneği.
+                     Neden burada: tema gibi KİŞİSEL ve BU BİLGİSAYARA ait bir tercihtir.
+                     Neden gerekli: toplantıda/açık ofiste sesi kapatamamak gerçek bir sorundur. -->
+                <SelectableTextBlock Text="Bildirim Sesleri" Classes="SectionTitle" Margin="0,18,0,0"/>
+                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                    Text="Uyarı/duyuru, sohbet mesajı ve onay pencerelerinde kısa bir ses çalar. Tercih bu bilgisayarda saklanır."/>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ToggleSwitch IsChecked="{Binding SesAcik}" OnContent="Sesler açık" OffContent="Sesler kapalı"/>
+                    <Button Classes="Ghost" Content="Sesi Dene" Command="{Binding SesiDeneCommand}"
+                            IsEnabled="{Binding SesAcik}" VerticalAlignment="Center"/>
+                </StackPanel>
+
                 <SelectableTextBlock Text="{Binding Status}" Classes="Helper"
                            Foreground="{DynamicResource SuccessBrush}"/>
             </StackPanel>

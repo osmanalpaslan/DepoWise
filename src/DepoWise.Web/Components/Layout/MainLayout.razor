@@ -7,6 +7,7 @@
 @inject DepoWise.Web.Services.ThemeState Theme
 @inject IJSRuntime JS
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
+@inject DepoWise.Web.Services.WebSesServisi Ses
 @implements IDisposable
 
 <MudThemeProvider @ref="_mud" Theme="_theme" IsDarkMode="Theme.IsDark" />
@@ -523,7 +524,12 @@
         catch { }
 
         Guard();
+        // ⭐ SES (2026-09-07): önce TABAN yüklenir (bu tarayıcıda en son görülen okunmamış sayısı),
+        // sonra sayaç okunur. Sıra önemlidir: taban yüklenmeden okunan ilk sayı yanlışlıkla
+        // "yeni geldi" sanılır ve her girişte ses çalardı.
+        try { await Ses.BaslatAsync(Auth.UserId ?? ""); } catch { }
         await LoadAlertCountAsync();   // BLD-01: oturum hazır → çan sayacı bir kez yüklenir
+        UyariZamanlayiciyiKur();       // ⭐ SES: dakikada bir tazele → yeni uyarı/duyuru duyulsun
         await SekmeleriYukleAsync();   // 2026-09-03: açık ekran sekmeleri (sessionStorage'dan) geri gelir
         StateHasChanged();
     }
@@ -595,6 +601,9 @@
             var d = await Api.GetObjectAsync("/api/alerts/count");
             _unreadAlerts = d.TryGetProperty("unread", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.Number
                 ? u.GetInt32() : 0;
+            // ⭐ SES: uyarı/duyuru sesi YALNIZ buradan çalar. "Yeni mi?" ve "spam kalkanı izin
+            // veriyor mu?" kararı ortak mantıkta (BildirimSesiKarari) — masaüstüyle birebir aynı.
+            await Ses.BildirimGeldiAsync(_unreadAlerts);
         }
         catch { _unreadAlerts = 0; }
     }
@@ -800,6 +809,32 @@
     /// Oturum korunur; çıkış YAPTIRILMAZ.</summary>
     private void TekrarDene() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
 
+    /// <summary>
+    /// ⭐ SES (2026-09-07): uyarı/duyuru sayacı DAKİKADA BİR tazelenir; yoksa uygulama açıkken gelen
+    /// yeni uyarı hiç duyulmazdı (sayaç eskiden yalnız girişte ve Uyarılar ekranından çıkarken
+    /// yenileniyordu).
+    ///
+    /// <para>⚠️ Blazor Server dersi (sohbetin kök nedeni): zamanlayıcı geri çağrısı
+    /// <c>async void</c>'dir; buradan KAÇAN bir hata devreyi öldürür ve sayfadaki hiçbir düğme
+    /// çalışmaz. Bu yüzden gövde komple sarmalanmıştır.</para>
+    /// </summary>
+    private Timer? _uyariZamanlayici;
+
+    private void UyariZamanlayiciyiKur()
+    {
+        if (_uyariZamanlayici is not null) return;
+        _uyariZamanlayici = new Timer(async _ =>
+        {
+            try
+            {
+                if (!Auth.IsAuthenticated) return;
+                await LoadAlertCountAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { }
+        }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
@@ -807,6 +842,7 @@
         // ⭐ MAS-01 dersi (2026-08-26): statik/uzun ömürlü olaya abone olan her yer aboneliği ÇÖZER.
         Api.BaglantiDurumuDegisti -= BaglantiDegisti;
         _idleRef?.Dispose();
+        try { _uyariZamanlayici?.Dispose(); } catch { }
     }
 
     /// <summary>Kullanıcı baş harfleri — üst bardaki avatar rozeti (W2, Aurora Cam v4).

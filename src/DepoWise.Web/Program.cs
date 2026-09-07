@@ -36,6 +36,9 @@ builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<DepoWise.Web.Services.ThemeState>();
 // STK-04: stok lokasyonu seçenekleri — oturumda BİR KEZ indirilir, tüm stok ekranları paylaşır (N+1 yok).
 builder.Services.AddScoped<DepoWise.Web.Services.LocationOptions>();
+// ⭐ SES (kullanıcı isteği 2026-09-07): sesli bildirim. Scoped = DEVRE BAŞINA bir örnek; uyarı/duyuru
+// spam kalkanının durumu (son çalma, son görülen sayı) o kullanıcıya ait kalır.
+builder.Services.AddScoped<DepoWise.Web.Services.WebSesServisi>();
 
 var app = builder.Build();
 
