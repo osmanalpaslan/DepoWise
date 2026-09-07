@@ -372,3 +372,29 @@ Ayrıca **B6 — Puantaj** kapsam dışıdır (`Migration079` kaydındaki `PK-F4
 
 **Önerilen sıra (risk/değer):** A1 (liste toplamları) → A2 (yaşlandırma) → B3 (trafik cezası/HGS) →
 A4 (favoriler) → A3 (toplu işlem) → B2 (e-posta) → B1 (çek/senet) → B5 (lastik).
+
+### ✅ A2 TAMAMLANDI — 2026-09-07
+
+Yeni rapor **`acc-aging` — "Cari Yaşlandırma"**: açık bakiyenin gecikme yaşına göre dağılımı
+(**vadesiz · vadesi gelmemiş · 1-30 · 31-60 · 61-90 · 90+ gün**), cari bazında ve firma toplamında.
+
+- **Migration gerekmedi**, **yeni yetki gerekmedi** (mevcut `report_accounting` + `invoices`).
+- Kaynak, "Açık Faturalar / Vade" ile **birebir aynı** → ikinci finansal gerçeklik yok.
+- **Alış ve satış ayrı satır**; vadesiz faturalar kendi sütununda.
+- Tutar alanı kapalı kullanıcıya **açılmaz**.
+- Katalog tabanlı olduğu için **web ve masaüstünde kendiliğinden** görünür.
+- `CariYaslandirmaTests` — 10 davranış testi (kova sınırları tam günlerde, kapanan fatura, kısmi
+  ödeme, alış/satış ayrımı, cari/şube filtresi, toplam satırı).
+
+### Sıradaki tek iş: **A1 — ekran içi liste toplamları**
+
+**Neden bugün başlanmadı (dürüst kayıt):** A1 **12 ekran × 2 ortam** demek ve toplam **sunucudan**
+gelmeli. Ölçüldü: web'de yalnız **3 sayfa** (Malzeme, Araç, Günlük) sunucudan toplam alıyor; kalan
+60 sayfa listeyi tümüyle istemciye çekiyor. İstemcide sayfa üzerinden toplamak **LST-01'in aynı
+hatasını** üretir ("300 kayıt" derken gerçekte 4299 olması). Kullanıcının bugünkü şartı
+*"işlemleri hatasız tamamlamak istiyorum"* olduğu için yarım bırakılacak bir işe girilmedi.
+
+**Sunucu toplamı ZATEN HAZIR olan ekranlar** (A1'e buradan başlanmalı, ölçüldü):
+`/api/parties` · `/api/invoices` · `/api/finance/transactions` · `/api/personnel` — dördü de
+`PagedResult` döndürüyor. Kalanlar (`equipment`, `work-orders`, `requests` …) düz liste döndürüyor;
+onlarda önce sunucu tarafı sayım/toplam eklenmeli.

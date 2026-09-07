@@ -13,7 +13,7 @@
 | # | İş | Durum (ÖLÇÜLDÜ) | Migration | Risk | Öneri sırası |
 |---|---|---|---|---|---|
 | A1 | Ekran içi liste toplamları | ⚠️ **Çok eksik** — web'de 63 sayfadan yalnız **3'ünde**, masaüstünde **2 ekranda** özet var | Gerekmez | Düşük | **1** |
-| A2 | Cari yaşlandırma (vade) | ❌ Yok — ama `invoices.due_date` **zaten var** ve ekranda gösteriliyor | **Gerekmez** | Düşük | **2** |
+| A2 | Cari yaşlandırma (vade) | ✅ **TAMAMLANDI 2026-09-07** — `acc-aging` raporu, 10 davranış testi | Gerekmedi | — | — |
 | A3 | Toplu işlem | ❌ Yok (hiç eşleşme yok) | Gerekmez | Orta | 5 |
 | A4 | Favori ekranlar | ❌ Yok (hiç eşleşme yok) | **Gerekir** (kullanıcı başına favori) | Düşük | 6 |
 | B1 | Çek/senet portföyü | ❌ Yok | **Gerekir** (yeni tablo) | Yüksek | 7 |
