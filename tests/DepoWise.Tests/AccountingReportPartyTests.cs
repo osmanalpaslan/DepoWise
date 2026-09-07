@@ -132,14 +132,17 @@ public class AccountingReportPartyTests : IDisposable
     [Fact]
     public void P1_Party_Bayragi_Dogru_Raporlarda()
     {
-        foreach (var k in new[] { "acc-statement", "acc-balances", "acc-invoices", "acc-open-invoices", "acc-payments" })
+        // acc-aging (A2, 2026-09-07): yaşlandırma da cari bazlıdır → filtresi AÇIK.
+        foreach (var k in new[] { "acc-statement", "acc-balances", "acc-invoices", "acc-open-invoices",
+                                  "acc-payments", "acc-aging" })
             Assert.True(ReportCatalog.ByKey(k)!.UsesParty, $"{k}: cari filtresi AÇIK olmalı.");
 
         Assert.False(ReportCatalog.ByKey("acc-cash")!.UsesParty);   // hesap özeti cariye bağlı DEĞİL
 
         // Ön muhasebe dışına SIZMADI.
         var partili = ReportCatalog.All.Where(d => d.UsesParty).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "acc-balances", "acc-invoices", "acc-open-invoices", "acc-payments", "acc-statement" }, partili);
+        Assert.Equal(new[] { "acc-aging", "acc-balances", "acc-invoices", "acc-open-invoices",
+                             "acc-payments", "acc-statement" }, partili);
     }
 
     // ═════════════════════════════════════════════════════════════════════════

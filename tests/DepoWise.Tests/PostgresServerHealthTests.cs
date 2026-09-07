@@ -15,7 +15,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]
 public class PostgresServerHealthTests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     [SkippableFact]
     public void Saglik_Kontrolu_PostgreSQLde_Calisir()

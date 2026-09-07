@@ -18,7 +18,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]  // migration + uçtan-uca testleri aynı Neon DB'sini sıfırlar → serileştir.
 public class PostgresMigrationTests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     /// <summary>MigrationRunner'ın beklediği fabrika; Npgsql bağlantısı döndürür (taban DbConnection).</summary>
     internal sealed class NpgsqlTestFactory : IDbConnectionFactory

@@ -368,6 +368,119 @@ WHERE i.company_id=@c AND i.status=@st"
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    //  4b) CARİ YAŞLANDIRMA (VADE ANALİZİ) — A2, kullanıcı isteği · 2026-09-07
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Yaşlandırma kovalarının sınırları (gün). Sıra ÖNEMLİ: küçükten büyüğe.</summary>
+    private static readonly int[] KovaSinirlari = { 30, 60, 90 };
+
+    /// <summary>
+    /// <b>CARİ YAŞLANDIRMA — kim ne kadar, NE KADAR SÜREDİR geciktirdi.</b>
+    ///
+    /// <para>"Açık Faturalar / Vade" raporu FATURA FATURA döküm verir; bu rapor aynı veriyi
+    /// <b>cari bazında</b> ve <b>gecikme yaşına göre</b> toplar. Ön muhasebenin "önce kimi arayayım"
+    /// sorusunun cevabı budur: 90 günü aşmış bakiyesi olan cari, listenin başında görünür.</para>
+    ///
+    /// <para><b>İkinci finansal gerçeklik YOK.</b> Kaynak, Açık Faturalar raporuyla BİREBİR aynıdır:
+    /// yürürlükteki faturalar + <see cref="FinanceQueryService.PaidTotals"/> ile düşülen tahsisler.
+    /// Ayrı bir "yaşlandırma tablosu" tutulmaz; her çalıştırmada hesaplanır.</para>
+    ///
+    /// <para><b>Alış ve satış AYRI satırdır.</b> Bir cariden hem alıp hem ona satıyor olabilirsiniz;
+    /// alacağınızla borcunuzu tek kovada toplamak yanlış bilgi üretirdi.</para>
+    ///
+    /// <para><b>Vadesiz faturalar kendi sütunundadır</b> — "vadesi gelmemiş" sayılıp gecikmeyi
+    /// olduğundan iyi göstermezler.</para>
+    /// </summary>
+    public static TableModel Aging(IDbConnectionFactory factory, SessionContext s, ReportRequest req, IClock clock)
+    {
+        AccessControl.Require(s, InvoiceService.Module, PermissionAction.View);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        using var conn = factory.Create();
+
+        var ids = new List<string>();
+        var ham = new List<(string Id, string Yon, string Kod, string Unvan, decimal Total, long? Due)>();
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT i.id, i.direction, COALESCE(p.code,''), COALESCE(p.title,'—'), i.grand_total, i.due_date
+FROM invoices i
+LEFT JOIN parties p ON p.id = i.party_id
+WHERE i.company_id=@c AND i.status=@st"
+                + PartySql(req, "i.party_id")
+                + ReportScope.BranchSql(s, req, "i.branch_id")
+                + " ORDER BY COALESCE(p.title,''), i.due_date;";
+            cmd.AddWithValue("@c", companyId);
+            cmd.AddWithValue("@st", InvoiceStatuses.Active);
+            BindParty(cmd, req);
+            ReportScope.BindBranch(cmd, s, req);
+
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetString(0);
+                ids.Add(id);
+                ham.Add((id, r.GetString(1), r.GetString(2), r.GetString(3),
+                    Money.Parse(r.GetString(4)), r.IsDBNull(5) ? null : Convert.ToInt64(r.GetValue(5))));
+            }
+        }
+
+        var paid = FinanceQueryService.PaidTotals(conn, companyId, ids);
+        var now = clock.UtcNow.ToUnixTimeMilliseconds();
+
+        // Anahtar: tür + cari. Değer: [vadesiz, gelmemiş, 1-30, 31-60, 61-90, 90+]
+        var kutu = new Dictionary<(string Yon, string Kod, string Unvan), decimal[]>();
+        foreach (var (id, yon, kod, unvan, total, due) in ham)
+        {
+            var kalan = total - (paid.TryGetValue(id, out var v) ? v : 0m);
+            if (kalan <= 0) continue;                    // kapanmış fatura yaşlandırmaya girmez
+
+            var anahtar = (yon, kod, unvan);
+            if (!kutu.TryGetValue(anahtar, out var kovalar)) kutu[anahtar] = kovalar = new decimal[6];
+
+            if (due is null) { kovalar[0] += kalan; continue; }          // vadesiz
+            var gecikme = (now - due.Value) / 86_400_000L;               // gün
+            if (gecikme <= 0) { kovalar[1] += kalan; continue; }         // vadesi gelmemiş
+            var i = 2;
+            foreach (var sinir in KovaSinirlari) { if (gecikme <= sinir) break; i++; }
+            kovalar[i] += kalan;
+        }
+
+        var toplamlar = new decimal[6];
+        var rows = kutu
+            .OrderByDescending(x => x.Value[5])          // en eski gecikmesi olan üstte
+            .ThenByDescending(x => x.Value.Sum())
+            .Select(x =>
+            {
+                for (var i = 0; i < 6; i++) toplamlar[i] += x.Value[i];
+                return (IReadOnlyList<object?>)new object?[]
+                {
+                    InvoiceDirections.Label(x.Key.Yon), x.Key.Kod, x.Key.Unvan,
+                    Bos(x.Value[0]), Bos(x.Value[1]), Bos(x.Value[2]),
+                    Bos(x.Value[3]), Bos(x.Value[4]), Bos(x.Value[5]),
+                    x.Value.Sum(),
+                };
+            })
+            .ToList();
+
+        return new TableModel(
+            "Cari Yaşlandırma (Vade Analizi)",
+            new[] { "TÜR", "CARİ KODU", "CARİ", "VADESİZ", "VADESİ GELMEMİŞ",
+                    "1-30 GÜN", "31-60 GÜN", "61-90 GÜN", "90+ GÜN", "TOPLAM AÇIK" },
+            rows,
+            Numeric: new[] { false, false, false, true, true, true, true, true, true, true },
+            TotalRow: rows.Count == 0 ? null : new object?[]
+            {
+                "TOPLAM", $"{rows.Count} satır", "",
+                toplamlar[0], toplamlar[1], toplamlar[2], toplamlar[3], toplamlar[4], toplamlar[5],
+                toplamlar.Sum(),
+            });
+
+        // Sıfır kova BOŞ gösterilir: "0,00" ile dolu bir tablo, dolu kovaları gözden kaçırtır.
+        static object? Bos(decimal d) => d == 0m ? "" : d;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     //  5) TAHSİLAT / ÖDEME ÖZETİ
     // ═══════════════════════════════════════════════════════════════════════════
 

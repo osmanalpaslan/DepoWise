@@ -24,7 +24,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]   // env-bagimli: guard testleriyle paralel kosarsa ATLANIYORDU.
 public class PostgresConnectionTests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     [SkippableFact]
     public async Task PostgreSQL_Sunucusuna_Baglanip_Surum_Okunabiliyor()

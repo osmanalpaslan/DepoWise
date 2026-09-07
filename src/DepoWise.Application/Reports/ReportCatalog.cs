@@ -353,6 +353,17 @@ public static class ReportCatalog
             InfoNote: "Yalnız YÜRÜRLÜKTEKİ ve kalanı sıfırdan büyük faturalar listelenir. 'Gecikme' vadesi geçmiş gün sayısıdır; vadesiz faturada boştur.",
             RequiredModule: "invoices"),
 
+        // ⭐ A2 (kullanıcı isteği 2026-09-07) — CARİ YAŞLANDIRMA.
+        // "Açık Faturalar / Vade" fatura fatura döküm verir; bu rapor aynı veriyi CARİ bazında ve
+        // GECİKME YAŞINA göre toplar. Migration GEREKMEDİ: vade (due_date) ve tahsis verisi zaten var.
+        // Yeni yetki de gerekmez — mevcut "report_accounting" + "invoices" kapılarını kullanır.
+        new ReportDescriptor("acc-aging", "Cari Yaşlandırma",
+            "Açık bakiyenin gecikme yaşına göre dağılımı: vadesiz · vadesi gelmemiş · 1-30 · 31-60 · 61-90 · 90+ gün",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Branch | ReportFilters.Party, false, ExportStandard,
+            InfoNote: "Kaynak, Açık Faturalar raporuyla AYNIDIR: yürürlükteki faturaların kalan tutarı (tahsis edilmiş tahsilat/ödemeler düşülür). Alış ve satış AYRI satırlardır — alacakla borç tek kovada toplanmaz. Vadesi olmayan faturalar kendi sütununda gösterilir, 'vadesi gelmemiş' sayılmaz. Bir cariye tahsis EDİLMEMİŞ (avans/hesaba) tahsilatlar bu tabloda faturayı küçültmez; onlar Cari Bakiye Özeti'nde görünür.",
+            RequiredModule: "invoices"),
+
         new ReportDescriptor("acc-payments", "Tahsilat / Ödeme Özeti",
             "Cari tahsilat ve ödemeleri, yöntem ve hesap kırılımı (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,

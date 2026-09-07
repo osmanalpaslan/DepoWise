@@ -24,7 +24,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]
 public class PostgresDataCopyTests : IDisposable
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
     private readonly string _sqlitePath = Path.Combine(Path.GetTempPath(), "dw_copy_" + Guid.NewGuid().ToString("N") + ".db");
 
     private sealed class TestClock : IClock

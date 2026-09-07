@@ -1,4 +1,119 @@
-# AKTİF DURUM
+﻿# AKTİF DURUM
+
+## ☀️ 2026-09-07 (gündüz) — SOHBETİN GERÇEK KÖK NEDENİ + A2 Cari Yaşlandırma
+
+> **Kullanıcı (1.0.187 yayınlandıktan SONRA):** *"chat hala hatalı… gönder butonuna basıyorum ama
+> mesaj penceresi hala boş… çevrimdışı bir kullanıcıya hala mesaj atamıyorum."*
+>
+> **Haklıydı ve gece bulduğum sebep yeterli değildi.** Gece yapılanlar (Blazor devresini öldüren
+> korumasız hatalar) gerçek kusurlardı, ama sohbeti bozan ASIL sebep başkaydı.
+
+### 1. 🔴 KÖK NEDEN — PostgreSQL konuşma sorgusunu REDDEDİYORDU
+
+`ChatService.Konusma` içindeki tek satır:
+
+```sql
+AND (@since IS NULL OR created_at > @since)
+```
+
+**SQLite** bunu sorunsuz çalıştırır. **PostgreSQL** ise parametrenin tipini çıkaramaz ve sorguyu
+reddeder:
+
+```
+42P08: could not determine data type of parameter $4
+```
+
+Üretim PostgreSQL olduğu için **`GET /api/chat/messages` canlıda HER ÇAĞRIDA 500 dönüyordu.** Sonuç:
+
+- konuşma penceresi **hep boş** açılıyor,
+- karşıdan gelen mesaj **hiç görünmüyor**,
+- gönderilen mesaj **sunucuya YAZILDIĞI HÂLDE** ekrana düşmüyor → kullanıcı "gönderemiyorum" sanıyor.
+
+Kullanıcının üç şikâyeti de bu tek satırdan geliyordu. **Hiçbir mesaj kaybolmadı** — hepsi
+veritabanındaydı, yalnız okunamıyordu.
+
+**Canlıda kanıtlandı:** yayın öncesi `/api/chat/messages` → **500**; yayın sonrası → **200, 6 mesaj**.
+
+### 2. 🔴 NEDEN TESTLER YEŞİLDİ — asıl ders
+
+Sohbet testleri **SQLite** üzerinde koşuyordu. PostgreSQL testleri `DEPOWISE_PG_URL` tanımlı
+olmadığı için **sessizce ATLANIYORDU** — gece raporundaki *"48 atlandı"* tam olarak buydu.
+
+Yani **"3855 geçti"** diyen yeşil rapor, kullanıcının gerçekten kullandığı veritabanını
+**hiç denemiyordu.** CLAUDE.md §4 "iki lehçe de test edilir" kuralı sohbette uygulanmamıştı.
+
+**Düzeltme:** `scripts/run_tests.ps1` artık `.env.pgtest.local` varsa PostgreSQL testlerini
+**kendiliğinden açar**. `PostgresTestGuard` kapısı aynen yürürlükte (ad "test" içermeli, şema boş,
+< 50 MB) → canlı veritabanı bu kapıdan geçemez.
+
+Bu değişiklik **hemen ikinci bir hatayı da ortaya çıkardı:** Günlük Faaliyet raporunun sütun
+sözleşmesi 14'te kalmıştı; rapor 2026-09-04'te 15. sütunu ("Malzeme Miktarı") kazanmıştı. Atlanan
+test olduğu için üç gündür kimse görmemişti.
+
+### 3. Yeni testler
+
+`SohbetPostgresTests` (YENİ) — aynı akış **PostgreSQL'de** koşar: çevrimdışı alıcıya gönderim ·
+gönderenin kendi mesajını görmesi · `since` ile artımlı yoklama · alıcının birikmiş mesajları
+görmesi · okunmamış sayacı · okundu işaretleme.
+
+### 4. Yeni mesaja otomatik kaydırma (web + masaüstü)
+
+Konuşma uzayınca yeni mesaj görünmeyen alana düşüyordu; kullanıcı "gelmedi" sanıyordu. Artık liste
+dibe kayar. **Kullanıcı geçmişi okumak için yukarı kaydırmışsa zorla aşağı çekilmez** (ölçülerek
+doğrulandı: 15 mesaj birden gelirken kaydırma konumu korundu).
+
+### 5. Uçtan uca doğrulama (gerçek uygulamalarla, PostgreSQL'e bağlı)
+
+| Ortam | Sonuç |
+|---|---|
+| PostgreSQL testleri | `SohbetPostgresTests` + `SohbetUctanUcaTests` + `ChatServiceTests` **31/31** |
+| **Canlı API** | yayın öncesi **500** → sonrası **200** (6 mesaj), `since` ile de çalışıyor |
+| Web (gerçek tarayıcı) | çevrimdışı kullanıcıya gönderim **göründü** · 20 mesaj alındı · Enter · pencere kapanıyor · otomatik kaydırma doğru |
+| Masaüstü (gerçek uygulama) | ana pencere açıldı · okunmamış rozeti **20** · konuşma yüklendi · Enter ile çevrimdışı alıcıya mesaj gitti ve **anında göründü** |
+
+**Not (dürüst kayıt):** tarayıcı otomasyonuyla Enter bir süre "çalışmıyor" göründü; ölçünce sebebin
+**araçta** olduğu anlaşıldı (ürettiği tuş olayında `key` alanı boş geliyordu). `key='Enter'` taşıyan
+gerçek bir olayla sorunsuz çalıştı → **uygulamada değişiklik yapılmadı**, yanlış teşhise dayanan
+geçici düzenleme geri alındı.
+
+### 6. ⭐ A2 — CARİ YAŞLANDIRMA (VADE ANALİZİ) tamamlandı
+
+Yol haritasındaki A2 maddesi. **Migration gerekmedi**, **yeni yetki gerekmedi** (mevcut
+`report_accounting` + `invoices` kapılarını kullanır).
+
+- Yeni rapor: **`acc-aging` — "Cari Yaşlandırma"**. Açık bakiyenin gecikme yaşına göre dağılımı:
+  **vadesiz · vadesi gelmemiş · 1-30 · 31-60 · 61-90 · 90+ gün**, cari bazında ve firma toplamında.
+- **İkinci finansal gerçeklik YOK:** kaynak, "Açık Faturalar / Vade" raporuyla **birebir aynı**
+  (yürürlükteki faturalar − tahsis edilmiş tahsilat/ödemeler).
+- **Alış ve satış AYRI satırdır** — alacakla borç tek kovada toplanmaz.
+- Rapor motoru katalog tabanlı olduğu için **web ve masaüstünde kendiliğinden** görünür.
+- `CariYaslandirmaTests` (YENİ, 10 test): kova sınırları **tam günlerde** (30/31, 60/61, 90/91) ·
+  vadesi bugün dolan gecikmiş sayılmaz · kapanan fatura girmez, kısmi ödeme kalanı küçültür ·
+  alış/satış ayrımı · cari ve şube filtresi · toplam satırı = satırların toplamı.
+
+### 7. Sohbet için MCP araştırıldı — GEREKMİYOR
+
+Kullanıcı istedi diye arandı: **sohbet için kurulabilecek bir MCP yok** ve olması da beklenmez.
+MCP sunucuları *Claude'un* kullandığı araçlardır; uygulamanın kendi sohbet özelliğine bir şey
+eklemezler. Sohbetin sorunu araç eksikliği değil, yukarıdaki SQL hatasıydı.
+
+**İleride değerlendirilebilecek ücretsiz iyileştirme:** 3 saniyelik yoklama yerine **SignalR**
+(zaten .NET içinde, ek maliyet yok) — mesaj anında düşer, sunucu trafiği azalır. Bugün
+YAPILMADI: çalışan bir yapıyı değiştirmek bugünün "hatasız tamamlansın" şartıyla çelişirdi.
+
+### 8. A grubu — sıradaki tek iş: **A1 (ekran içi liste toplamları)**
+
+**Bugün başlanmadı, sebebi açık:** A1 **12 ekran × 2 ortam** demek ve toplamların **sunucudan**
+gelmesi gerekiyor. Ölçüldü: web'de yalnız **3 sayfa** (Malzeme, Araç, Günlük) sunucudan toplam
+sayı alıyor; kalan 60 sayfa listeyi tümüyle istemciye çekiyor. İstemcide sayfa üzerinden toplamak
+**LST-01'in aynı hatasını** üretir ("300 kayıt" derken gerçekte 4299 olması). Yani A1 dikkatli ve
+ekran ekran yapılması gereken bir iş; kullanıcının *"bugün hatasız tamamlansın"* şartı varken
+yarım bırakılacak bir işe başlamak doğru olmazdı.
+
+**Önerilen sıra (değişmedi):** A1 → B3 → A4 → A3 → B2 → B1 → B5. (A2 ✅ tamamlandı, B4 zaten vardı,
+B6 kapsam dışı.)
+
+---
 
 ## 🌙 GECE ÇALIŞMASI — 2026-09-07: sohbet · test kararlılığı · LST-01 (masaüstü 1.0.187)
 
@@ -3117,3 +3232,4 @@ tutulmasıydı — artık ortak katmanda (`MenuIcons`). Masaüstü için **41 ye
 formuna parola yazılmadığı için 10 "+" düğmesi ve 41 yeni simge **ekranda görülmedi**. Kanıt kaynak
 sözleşmesi + testlerdir. Kullanıcının bir kez gözle bakması gerekir — özellikle yeni simgelerin
 görsel uyumu bir tasarım kararıdır.
+

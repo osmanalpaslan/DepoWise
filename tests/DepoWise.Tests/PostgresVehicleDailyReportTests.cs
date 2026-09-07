@@ -22,7 +22,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]
 public class PostgresVehicleDailyReportTests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     private const long G = 86_400_000;
     private static long Day(long i) => (20_000 + i) * G;

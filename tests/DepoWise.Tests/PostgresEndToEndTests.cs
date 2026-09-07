@@ -33,7 +33,7 @@ public sealed class PostgresSchemaCollection { }
 [Collection("PostgresSchema")]
 public class PostgresEndToEndTests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     private sealed class TestClock : IClock
     {

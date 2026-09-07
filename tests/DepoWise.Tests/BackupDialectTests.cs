@@ -58,7 +58,7 @@ public class BackupDialectTests : IDisposable
     }
 
     // ── PostgreSQL: anlaşılır mesajla durur (yalnız gerçek PG varsa koşar) ────────────────────
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     [SkippableFact]
     public void YED01_PostgreSQLde_Yedek_Anlasilir_Mesajla_Durur()

@@ -342,8 +342,10 @@ public class StockReportLocationTests : IDisposable
 
         // G4-4b: CARİ filtresi (8192) BİLİNÇLİ olarak açıldı — yalnız ön muhasebe raporlarında.
         // Nöbetçi KALDIRILMADI: hangi raporlarda açıldığı kilitlenir + sıradaki boş bayrak korunur.
+        // 2026-09-07 (A2): "acc-aging" (Cari Yaşlandırma) BİLİNÇLİ eklendi — cari bazlı bir rapordur.
         var carililer = ReportCatalog.All.Where(d => d.UsesParty).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "acc-balances", "acc-invoices", "acc-open-invoices", "acc-payments", "acc-statement" }, carililer);
+        Assert.Equal(new[] { "acc-aging", "acc-balances", "acc-invoices", "acc-open-invoices",
+                             "acc-payments", "acc-statement" }, carililer);
 
         // ADR-182 (PK-D1=A): KAYIT TİPİ filtresi (16384) yalnız Günlük Faaliyet raporlarında açık.
         // 2026-09-02: dönem (toplam) raporu BİLİNÇLİ eklendi — detayla aynı filtre kümesini kullanır.

@@ -21,7 +21,7 @@ namespace DepoWise.Tests;
 [Collection("PostgresSchema")]
 public class PostgresMigration082Tests
 {
-    private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    private static string? PgUrl => PostgresTestGuard.Url;   // süreç başındaki fotoğraf (bkz. PgTestOrtami)
 
     [SkippableFact]
     public void Migration082_PostgreSQLde_FirmaKapsamli_Indeks_Kurar()

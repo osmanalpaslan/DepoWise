@@ -2364,7 +2364,7 @@ ORDER BY br.name, p.full_name;";
         {
             "acc-statement" or "acc-balances" =>
                 (FieldProtectionCatalog.Parties, FieldProtectionCatalog.Balance, "cari bakiyelerini"),
-            "acc-invoices" or "acc-open-invoices" =>
+            "acc-invoices" or "acc-open-invoices" or "acc-aging" =>
                 (FieldProtectionCatalog.Invoices, FieldProtectionCatalog.GrandTotal, "fatura tutarlarını"),
             "acc-payments" or "acc-cash" =>
                 (FieldProtectionCatalog.Finance, FieldProtectionCatalog.Amount, "kasa/banka tutarlarını"),
@@ -2382,6 +2382,8 @@ ORDER BY br.name, p.full_name;";
         "acc-balances" => AccountingReports.Balances(_factory, s, req),
         "acc-invoices" => AccountingReports.Invoices(_factory, s, req),
         "acc-open-invoices" => AccountingReports.OpenInvoices(_factory, s, req, _clock),
+        // ⭐ A2 (2026-09-07): aynı veriden CARİ bazlı yaşlandırma. Yeni tablo/yetki YOK.
+        "acc-aging" => AccountingReports.Aging(_factory, s, req, _clock),
         "acc-payments" => AccountingReports.Payments(_factory, s, req),
         "acc-cash" => AccountingReports.Cash(_factory, s, req),
         // ⭐ MUH-04 (2026-09-04): maliyet merkezi özeti artık RAPOR. Hesaplama tek kaynaktan

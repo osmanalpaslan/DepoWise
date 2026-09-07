@@ -74,14 +74,27 @@ internal static class PostgresTestGuard
         Xunit.Skip.If(reason is not null, reason ?? "");
     }
 
-    public static string? Url => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+    /// <summary>
+    /// PostgreSQL adresi — <b>süreç başındaki fotoğraftan</b> okunur, canlı ortam değişkeninden DEĞİL.
+    /// Sebep: <see cref="ApiTestHost"/> bu değişkeni süreç genelinde siliyor ve bu, PostgreSQL
+    /// testlerinin tamamını sessizce atlattırıyordu (ayrıntı ve ölçüm: <see cref="PgTestOrtami"/>).
+    /// </summary>
+    public static string? Url => PgTestOrtami.BaslangictakiUrl;
 
     /// <summary>Yıkıcı testler için atlama sebebi (null = koşabilir). Onay yoksa test ATLANIR, patlamaz.</summary>
     public static string? SkipReason()
+        => SkipReason(Url, Environment.GetEnvironmentVariable(ConfirmVar));
+
+    /// <summary>
+    /// Kararın SAF hâli — ortam değişkenine dokunmadan sınanabilir. Kapının kendi testleri bunu
+    /// kullanır; böylece o testler süreç genelindeki değişkeni DEĞİŞTİRMEK zorunda kalmaz
+    /// (değiştirdiklerinde paralel koşan PostgreSQL testlerini atlattırıyorlardı).
+    /// </summary>
+    public static string? SkipReason(string? url, string? confirm)
     {
-        if (string.IsNullOrWhiteSpace(Url))
+        if (string.IsNullOrWhiteSpace(url))
             return "DEPOWISE_PG_URL yok → PostgreSQL testi atlandı.";
-        if (Environment.GetEnvironmentVariable(ConfirmVar) != ConfirmValue)
+        if (confirm != ConfirmValue)
             return $"{ConfirmVar} onayı yok → şema sıfırlayan PostgreSQL testi atlandı (canlı veri koruması).";
         return null;
     }

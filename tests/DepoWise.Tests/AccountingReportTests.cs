@@ -129,7 +129,7 @@ public class AccountingReportTests : IDisposable
     public void R1_Raporlar_Katalogda()
     {
         foreach (var key in new[] { "acc-statement", "acc-balances", "acc-invoices",
-                                    "acc-open-invoices", "acc-payments", "acc-cash" })
+                                    "acc-open-invoices", "acc-payments", "acc-cash", "acc-aging" })
         {
             var d = ReportCatalog.ByKey(key);
             Assert.NotNull(d);

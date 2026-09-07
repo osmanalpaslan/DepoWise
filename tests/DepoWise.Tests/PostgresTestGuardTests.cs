@@ -39,25 +39,48 @@ public class PostgresTestGuardTests
         }
     }
 
+    // ⭐ 2026-09-07: bu dört test eskiden SÜREÇ GENELİNDEKİ ortam değişkenini değiştiriyordu.
+    // Ortam değişkeni tüm süreç için ortaktır; paralel koşan PostgreSQL testleri o anda "adres yok"
+    // görüp ATLANIYORDU. Artık kararın SAF hâli sınanıyor — hiçbir şey değiştirilmiyor.
+    // (Aynı sınıf hata: PgTestOrtami ve TestDbTemizlik açıklamalarına bakınız.)
+
     [Fact]
     public void Baglanti_Adresi_Yoksa_Testler_Atlanir()
-        => WithEnv(confirm: PostgresTestGuard.ConfirmValue, url: null,
-            () => Assert.Contains("DEPOWISE_PG_URL", PostgresTestGuard.SkipReason()));
+        => Assert.Contains("DEPOWISE_PG_URL",
+            PostgresTestGuard.SkipReason(url: null, confirm: PostgresTestGuard.ConfirmValue));
 
     [Fact]
     public void Acik_Onay_Yoksa_Yikici_Testler_ATLANIR()
-        => WithEnv(confirm: null, url: "postgres://sahte/deneme",
-            () => Assert.Contains(PostgresTestGuard.ConfirmVar, PostgresTestGuard.SkipReason()));
+        => Assert.Contains(PostgresTestGuard.ConfirmVar,
+            PostgresTestGuard.SkipReason(url: "postgres://sahte/deneme", confirm: null));
 
     [Fact]
     public void Yanlis_Onay_Degeri_Kabul_Edilmez()
-        => WithEnv(confirm: "evet", url: "postgres://sahte/deneme",
-            () => Assert.NotNull(PostgresTestGuard.SkipReason()));
+        => Assert.NotNull(PostgresTestGuard.SkipReason(url: "postgres://sahte/deneme", confirm: "evet"));
 
     [Fact]
     public void Her_Sey_Tamamsa_Atlama_Sebebi_Kalmaz()
-        => WithEnv(confirm: PostgresTestGuard.ConfirmValue, url: "postgres://sahte/deneme",
-            () => Assert.Null(PostgresTestGuard.SkipReason()));
+        => Assert.Null(PostgresTestGuard.SkipReason(
+            url: "postgres://sahte/deneme", confirm: PostgresTestGuard.ConfirmValue));
+
+    /// <summary>
+    /// ⭐ NÖBETÇİ (2026-09-07): <see cref="ApiTestHost"/> <c>DEPOWISE_PG_URL</c>'i SÜREÇ GENELİNDE
+    /// siler. Bu, PostgreSQL testlerinin TAMAMINI sessizce atlattırıyordu (ölçüldü: 59 testin 47'si).
+    /// Kapı artık süreç başındaki fotoğrafı kullanır; bu test o davranışı KİLİTLER — biri fotoğrafı
+    /// kaldırıp canlı ortam değişkenine dönerse burada yakalanır.
+    /// </summary>
+    [Fact]
+    public void Ortam_Degiskeni_Sonradan_Silinse_Bile_Adres_Kaybolmaz()
+    {
+        var once = PostgresTestGuard.Url;
+        var eski = Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+        try
+        {
+            Environment.SetEnvironmentVariable("DEPOWISE_PG_URL", null);   // ApiTestHost'un yaptığı
+            Assert.Equal(once, PostgresTestGuard.Url);
+        }
+        finally { Environment.SetEnvironmentVariable("DEPOWISE_PG_URL", eski); }
+    }
 
     [Fact]
     public void Onay_Yokken_Kapi_VERITABANINA_BAGLANMADAN_Durdurur()

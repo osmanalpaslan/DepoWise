@@ -700,8 +700,9 @@ VALUES(@id,@c,@code,@name,'0',@p,'TRY',@now,@now,1,0);";
         _koruma.Set(SuperAdmin(), FieldProtectionCatalog.Finance, FieldProtectionCatalog.Amount, true);
 
         var s = Oturum("aln_personel");
+        // acc-aging (A2, 2026-09-07): tamamen tutarlardan oluşur → tutar alanı kapalıysa AÇILMAZ.
         foreach (var anahtar in new[] { "acc-statement", "acc-balances", "acc-invoices",
-                                        "acc-open-invoices", "acc-payments", "acc-cash" })
+                                        "acc-open-invoices", "acc-payments", "acc-cash", "acc-aging" })
         {
             var ex = Assert.Throws<ForbiddenException>(() =>
             {
