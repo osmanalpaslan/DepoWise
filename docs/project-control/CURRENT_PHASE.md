@@ -101,6 +101,32 @@ eklemezler. Sohbetin sorunu araç eksikliği değil, yukarıdaki SQL hatasıydı
 (zaten .NET içinde, ek maliyet yok) — mesaj anında düşer, sunucu trafiği azalır. Bugün
 YAPILMADI: çalışan bir yapıyı değiştirmek bugünün "hatasız tamamlansın" şartıyla çelişirdi.
 
+### 🚀 YAYIN — 1.0.188 (2026-09-07, gündüz)
+
+| Bileşen | Sonuç |
+|---|---|
+| API | yeniden yayınlandı · `/health` **ok** · sohbet **200** · `acc-aging` katalogda |
+| Web | yeniden yayınlandı · `/login` **200** · `dwChatScroll` yayında |
+| Masaüstü | **1.0.188** · 271 dosya · 86,7 MB · checksum `ed0b2fefd987…` |
+| İndirme kontrolü | paket indirildi, **SHA256 eşleşti**, boyut 86,7 MB |
+| Migration | **YOK** — şema **96**'da kaldı |
+| Yedek | `depowise_prod_20260907_155556.dump` (881 KB), yayından önce |
+
+**Tam süit (PostgreSQL GERÇEKTEN açıkken ilk kez):** 3916 geçti / 3 başarısız / **0 atlandı** (1 s 2 dk).
+Üç başarısızın üçü de **eskimiş test iddiasıydı**, ürün hatası değil — düzeltildi, hedefli koşu 57/57.
+
+**🔴 CANLI VERİ (yayından sonra, salt okuma):** şema 96 · araç **169** · malzeme **2566** ·
+stok hareketi **832** · denetim **4329** · sohbet mesajı **8** · fatura 0 · **gerçek aktif
+kullanıcı 3**.
+
+> **Düzeltme (dürüst kayıt):** gece raporunda "aktif kullanıcı 9" yazmıştım; o sayı `users`
+> tablosundaki **tüm satırları** sayıyordu. Gerçekte 9 satırın 6'sı çoktan silinmiş (soft delete)
+> kayıtlardır; **gerçek aktif kullanıcı 3**'tür (superadmin + baba + kullanıcı). Bugün hiçbir
+> kullanıcı silinmedi/pasife alınmadı — son kullanıcı değişikliği 2026-09-06.
+
+Malzeme 2534 → **2566** ve stok hareketi 789 → **832**: babanız gün içinde veri girmeye devam
+etmiş; yayın bunları etkilemedi.
+
 ### 8. A grubu — sıradaki tek iş: **A1 (ekran içi liste toplamları)**
 
 **Bugün başlanmadı, sebebi açık:** A1 **12 ekran × 2 ortam** demek ve toplamların **sunucudan**
@@ -3232,4 +3258,5 @@ tutulmasıydı — artık ortak katmanda (`MenuIcons`). Masaüstü için **41 ye
 formuna parola yazılmadığı için 10 "+" düğmesi ve 41 yeni simge **ekranda görülmedi**. Kanıt kaynak
 sözleşmesi + testlerdir. Kullanıcının bir kez gözle bakması gerekir — özellikle yeni simgelerin
 görsel uyumu bir tasarım kararıdır.
+
 
