@@ -1,5 +1,90 @@
 # AKTİF DURUM
 
+## 🌙 GECE ÇALIŞMASI — 2026-09-07: sohbet · test kararlılığı · LST-01 (masaüstü 1.0.187)
+
+**Kullanıcı isteği (uyumadan önce):** *"chat neredeyse tamamen kusurlu… kusursuz çalışmasını
+istiyorum. chat için testlerin yetersiz… çalışan testlerin hatalarının onarımını yapmayı unutma…
+sabah babam login olurken sorun olsun istemiyorum."*
+
+### 1. Sohbet — kök neden bulundu (tek sebep, üç belirti)
+
+Kullanıcının üç şikâyeti (**mesaj gönderilemiyor · gelen görünmüyor · pencere kapanmıyor**) tek bir
+sebebe çıktı: **Blazor Server'da bileşen kodundan kaçan her hata devreyi (circuit) kapatır ve
+sayfadaki hiçbir düğme çalışmaz.** `ChatDock`'ta hata sızdıran **dört yol** vardı:
+
+1. Zamanlayıcı geri çağrısı `async void` — `Yokla`'dan kaçan hata yakalanamıyordu.
+2. `Yokla`'nın `finally` bloğundaki `InvokeAsync(StateHasChanged)` **catch dışındaydı**; devre
+   kapandığında fırlatıp dışarı sızıyordu.
+3. `PencereAcKapa` içindeki beklenmeyen (fire-and-forget) `KonusmayiTazele`.
+4. `KisiyiAc` ve `Gonder` içindeki ağ çağrıları korumasızdı.
+
+Yani **tek bir ağ dalgalanması** bütün sohbeti (hatta sayfayı) öldürüyor, kullanıcıya hiçbir sebep
+gösterilmiyordu. Masaüstünde de aynı sınıf düzeltildi (ağ hatasında konuşma penceresi **boş**
+açılıyor ve sebep söylenmiyordu).
+
+**Kullanıcının koşulunda doğrulandı:** sohbet açıkken API tamamen kapatıldı → sayfa canlı kaldı,
+**kapatma çalıştı**, çevrimdışı uyarısı göründü; API geri gelince mesaj gönderimi kendiliğinden
+çalıştı. Ayrıca gerçek uygulamalarla: web→masaüstü mesajlar göründü, masaüstünden gönderim ulaştı,
+gelen mesaj **6 saniyede** ekrana düştü, iki ortamda da kapatma çalıştı.
+
+### 2. Sohbet testleri yetersizdi — değiştirildi
+
+Eski testler **kaynak metnini** denetliyordu ("şu satır dosyada var mı"); özellik tamamen bozukken
+bile yeşil kalırlardı. Kullanıcı haklıydı. Yeni `SohbetUctanUcaTests` iki gerçek kullanıcı yaratır,
+gerçek HTTP uçlarını çağırır ve **karşı tarafın mesajı gerçekten görüp görmediğini** doğrular:
+gönder/al · iki yönlü · okundu bilgisi · okunmamış sayacı · `since` ile artımlı yoklama · yetki
+kapısı · firma izolasyonu · boş/çok uzun mesaj · olmayan kullanıcı. **8/8.**
+
+### 3. Test süitinin rastgele kırılması — sistemik hata bulundu
+
+Süit iki koşuda **farklı** testlerde kırıldı. İkisi de ürün hatası değildi ama ikisi de gerçek test
+hatasıydı:
+
+| Bulgu | Ölçüm | Düzeltme |
+|---|---|---|
+| **`ClearAllPools()` 177 dosyada** — süreç genelinde çalışıp **paralel koşan başka testin** bağlantısını kapatıyor | Rastgele `ObjectDisposedException` | 206 çağrı kaldırıldı; koşu **başında** çalışan tek çağrı korundu |
+| **Duvar saati performans eşiği** | Boş makine **5,5 sn** · süit altında **185 sn** (33 kat) | Sınır gürültünün dışına taşındı (6 dk), gerekçesi ölçümle yazıldı |
+
+Testler silinmedi, "tekrar koşturup geçti" denmedi (`.claude/rules/testing.md`).
+**Sonuç: tam süit 3855 geçti / 0 başarısız / 48 atlandı.**
+
+### 4. LST-01 — sessiz tavanlar
+
+**Sistem Logu** ve **Stok Değişiklik Kaydı** 300 kayıtta kesip okuduğu satır sayısını "toplam" diye
+yazıyordu. Canlıda denetim kaydı **4299 satır** — ekran "300 kayıt" diyordu. Artık gerçek toplam
+ayrıca sorulur ve *"N kayıt — en yenisinden 300 tanesi gösteriliyor"* denir. Bakım Takibi ölçüldü:
+zaten sayfalanmış uç kullanıyor. Dört ekranda tavan olmadığı ölçüldü.
+
+### 5. Güncelleme akışı
+
+- Ertelenen paket **her girişte 86 MB yeniden iniyordu** → artık diske saklanıp checksum'la doğrulanıyor.
+- Kurulum hatası uygulamayı sessizce öldürüyordu (`async void`) → artık sebebi söylenir, uygulama açık kalır.
+
+### Yayın (2026-09-07 03:45)
+
+| Bileşen | Sonuç |
+|---|---|
+| Masaüstü | **1.0.187** · 253 dosya · 86,6 MB · checksum `5afa6509da40…` |
+| API + Web | yeniden yayınlandı · `/health` ve `/login` **200** |
+| Migration | **YOK** — şema **96**'da kaldı |
+| Yedek | `depowise_prod_20260907_033910.dump` (858 KB), yayından önce |
+
+**🔴 CANLI VERİ SAĞLAM:** araç 169 · malzeme 2534 satır · aktif kullanıcı 9 · stok hareketi 789 ·
+denetim 4299. Hiçbir kayıt silinmedi/değişmedi.
+
+**Sabah kontrolü (babanın yolu, baştan sona koşuldu):** kurulu 1.0.186 → giriş → *"Güncelleme Hazır
+1.0.187"* → **Kur ve Yeniden Başlat** → kurulum tamamlandı → **uygulama açıldı**, açılış `ok=True`.
+
+### A/B grubu — tam analiz yapıldı, uygulanmadı (gerekçesi)
+
+Ayrıntı: [A_B_GRUBU_ANALIZ.md](A_B_GRUBU_ANALIZ.md). Ölçümle iki kayıt hatası bulundu: **B4 (araç
+zimmeti geçmişi) zaten yapılmış**, **A2 (cari yaşlandırma) migration gerektirmiyor**. Kalan
+maddelerin **beşi şema değişikliği** ister; kullanıcı uyurken canlı veride şema değiştirmek
+*"sabah babam login olurken sorun olmasın"* şartıyla çelişeceği için başlanmadı.
+Önerilen sıra: A1 → A2 → B3 → A4 → A3 → B2 → B1 → B5.
+
+---
+
 ## 🔴 ACİL DÜZELTME — 2026-09-07: güncelleme sonrası uygulama açılmıyordu (masaüstü 1.0.185)
 
 **Kullanıcı bildirimi:** "login olurken güncelleme paketi iniyor, kur ve yeniden başlat dediğimde
