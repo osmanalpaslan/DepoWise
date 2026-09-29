@@ -278,6 +278,8 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `SNK-08` | Yanıt **sıkıştırma** (gzip) |
 | `SNK-09` | Delta ölçütünü **monoton sunucu sırasına** taşı (saat kaymasına karşı) |
 | `SNK-10` | Silinen kayıtların delta ile taşındığını **test et** |
+| `SNK-14` | **Anlık eşitleme — sunucu bildirimli (push)** · ⏸️ bekliyor, acil değil (kullanıcı notu 2026-09-29). Bugün masaüstü 15 sn'de bir yokluyor (`ShellViewModel.cs` `FastTickSeconds`; tek sürüm kontrolü ~22 sorgu). Yoklamayı sıklaştırmak **yapılmayacak** (15× yük: paylaşımlı Fly CPU kısılır, Supabase ücretsiz trafik sınırı zorlanır). Doğru yol: istemci sunucuya açık hat (SignalR — `ChatHub` altyapısı başladı) tutar, kayıt olunca sunucu "değişiklik var" der, istemci yalnız o zaman çeker; hat koparsa ~60 sn yedek yoklama. Senkron protokolüne dokunur → başlamadan onay gerekir. |
+| `SNK-15` | **Supabase trafik ölçümü** — Neon→Supabase geçişinden birkaç gün sonra aylık veri trafiğini (ücretsiz sınır ~5 GB) ölç; sınıra yaklaşıyorsa `SNK-14` öne alınır. Arka plan: 2026-09-29 Neon ücretsiz compute kotası 15 sn yoklama yüzünden doldu, API durdu. |
 
 ## FAZ F — Güncelleme + sürüm uyumu
 
