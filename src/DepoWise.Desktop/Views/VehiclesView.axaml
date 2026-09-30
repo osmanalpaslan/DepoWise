@@ -756,14 +756,23 @@
                   <!-- UYUMLU MALZEMELER -->
                   <TabItem Header="Uyumlu Malzemeler">
                     <ScrollViewer>
+                      <!-- Kategori grupları (kullanıcı isteği 2026-09-30): her kategori açılır başlık; içinde kod/ad/stok. -->
                       <ItemsControl ItemsSource="{Binding VehicleMaterials}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="m:MaterialStock">
-                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3">
-                              <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" Classes="Helper" MinWidth="90" VerticalAlignment="Center"/>
-                              <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
-                              <SelectableTextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat='Stok: {0:0.##}'}" Classes="Helper" VerticalAlignment="Center"/>
-                            </Grid>
+                          <DataTemplate x:DataType="m:MaterialStockGroup">
+                            <Expander Header="{Binding Header}" IsExpanded="True" HorizontalAlignment="Stretch" Margin="0,0,0,6">
+                              <ItemsControl ItemsSource="{Binding Items}">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate x:DataType="m:MaterialStock">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3">
+                                      <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" Classes="Helper" MinWidth="90" VerticalAlignment="Center"/>
+                                      <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                      <SelectableTextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat='Stok: {0:0.##}'}" Classes="Helper" VerticalAlignment="Center"/>
+                                    </Grid>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </Expander>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>

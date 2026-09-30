@@ -221,8 +221,9 @@ public partial class VehicleQuickEditWindow : Window
         }
 
         Doldur("MaterialsList", "MaterialsEmpty",
-            () => DesktopServices.Materials.MaterialsForVehicle(session, vehicleId),
-            m => $"{m.Code} — {m.Name}  ·  stok: {m.Quantity:0.##}");
+            // Kategori sırasıyla (araç panelindeki grupla AYNI sıra) ve satır başında kategori etiketiyle.
+            () => MaterialStockGroups.Group(DesktopServices.Materials.MaterialsForVehicle(session, vehicleId)).SelectMany(g => g.Items),
+            m => $"[{m.CategoryText}]  {m.Code} — {m.Name}  ·  stok: {m.Quantity:0.##}");
 
         Doldur("InspectionsList", "InspectionsEmpty",
             () => DesktopServices.Inspection.List(session).Where(x => x.VehicleCode == vehicleCode),

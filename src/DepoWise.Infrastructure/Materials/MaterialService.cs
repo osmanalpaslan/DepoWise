@@ -19,7 +19,37 @@ public sealed record MaterialRecord(
     string Id, string CompanyId, string Code, string Name, string? Type,
     decimal MinStock, decimal UnitPrice, string Currency, long CreatedAt);
 
-public sealed record MaterialStock(string MaterialId, string Code, string Name, decimal Quantity);
+/// <param name="Category">Kategori yolu ("Üst › Alt"); kategorisizse null. Yalnız araç-uyumlu malzeme
+/// listesinde doldurulur (kullanıcı isteği 2026-09-30: kategorili listeleme). Sona eklendi, varsayılanlı →
+/// diğer çağıranlar etkilenmez.</param>
+public sealed record MaterialStock(string MaterialId, string Code, string Name, decimal Quantity, string? Category = null)
+{
+    /// <summary>Grup başlığı — kategorisiz malzemeler tek "Kategorisiz" grubunda toplanır.</summary>
+    public string CategoryText => string.IsNullOrWhiteSpace(Category) ? MaterialStockGroups.Uncategorized : Category!;
+}
+
+/// <summary>Uyumlu malzemelerin kategori grubu (masaüstü panel + web aynı sıralamayı kullanır).</summary>
+public sealed record MaterialStockGroup(string Category, IReadOnlyList<MaterialStock> Items)
+{
+    public string Header => $"{Category} ({Items.Count})";
+}
+
+public static class MaterialStockGroups
+{
+    public const string Uncategorized = "Kategorisiz";
+
+    /// <summary>Kategoriye göre gruplar: gruplar ada göre (Türkçe) sıralı, "Kategorisiz" en sonda;
+    /// grup içi malzeme koduna göre.</summary>
+    public static IReadOnlyList<MaterialStockGroup> Group(IEnumerable<MaterialStock> items)
+    {
+        var tr = System.StringComparer.Create(new System.Globalization.CultureInfo("tr-TR"), ignoreCase: true);
+        return items
+            .GroupBy(x => x.CategoryText)
+            .OrderBy(g => g.Key == Uncategorized ? 1 : 0).ThenBy(g => g.Key, tr)
+            .Select(g => new MaterialStockGroup(g.Key, g.OrderBy(x => x.Code, tr).ToList()))
+            .ToList();
+    }
+}
 
 public sealed record MaterialRefRow(string Id, string Code, string Name)
 {
@@ -357,17 +387,25 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         // ÇOĞALTIRDI (aracın uyumlu malzemesi her depo için tekrar listelenirdi). Amaç FİRMA GENELİ
         // stok olduğu için lokasyonlar toplayan alt sorguda tek satıra indirilir.
         cmd.CommandText = $@"
-SELECT m.id, m.code, m.name, COALESCE(b.quantity,'0')
+SELECT m.id, m.code, m.name, COALESCE(b.quantity,'0'), c.name, pc.name
 FROM material_compatible_vehicles mcv
 JOIN materials m ON m.id = mcv.material_id AND m.company_id = @c AND m.is_deleted = 0
 LEFT JOIN {SqlDialect.StockTotalSubquery(conn)} b ON b.material_id = m.id AND b.company_id = m.company_id
+LEFT JOIN material_categories c ON c.id = m.category_id AND c.company_id = m.company_id AND c.is_deleted = 0
+LEFT JOIN material_categories pc ON pc.id = c.parent_id AND pc.company_id = m.company_id AND pc.is_deleted = 0
 WHERE mcv.vehicle_id = @v;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@v", vehicleId);
         var list = new List<MaterialStock>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetString(3))));
+        {
+            // Kategori yolu: alt kategoriyse "Üst › Alt", değilse yalnız kendi adı.
+            var kat = r.IsDBNull(4) ? null : r.GetString(4);
+            var ust = r.IsDBNull(5) ? null : r.GetString(5);
+            var yol = kat is null ? null : ust is null ? kat : $"{ust} › {kat}";
+            list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetString(3)), yol));
+        }
         return list;
     }
 

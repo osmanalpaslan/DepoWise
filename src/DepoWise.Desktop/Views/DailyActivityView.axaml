@@ -330,6 +330,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <local:SortHeader Grid.Column="0" Text="TARİH" ColumnKey="date" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=date}"/>
@@ -345,9 +346,12 @@
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=duration}"/>
                             <local:SortHeader Grid.Column="6" Text="MALZEME MİKTARI" ColumnKey="materialQty" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=materialQty}"/>
-                            <local:SortHeader Grid.Column="7" Text="AÇIKLAMA" ColumnKey="description" MinWidth="160"
+                            <!-- 2026-09-30 (kullanıcı isteği): KULLANILAN MALZEMELER — ayrı ayrı "Ad (Kod) Miktar Birim". -->
+                            <local:SortHeader Grid.Column="7" Text="KULLANILAN MALZEMELER" ColumnKey="materials" MinWidth="260"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=materials}"/>
+                            <local:SortHeader Grid.Column="8" Text="AÇIKLAMA" ColumnKey="description" MinWidth="160"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
-                            <SelectableTextBlock Grid.Column="8" Text="" MinWidth="70" MaxWidth="70"/>
+                            <SelectableTextBlock Grid.Column="9" Text="" MinWidth="70" MaxWidth="70"/>
                         </Grid>
                     </Border>
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml
@@ -356,6 +360,7 @@
                     <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -451,6 +456,19 @@
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
                             <ContentControl Grid.Column="7" Padding="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materials}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materials}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=materials}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=materials}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:DailyActivityViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="8" Padding="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                 MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"
@@ -470,6 +488,7 @@
                             <DataTemplate x:DataType="op:DailyActivityGridRow">
                                 <Grid ctrl:ColumnRules.Enabled="True">
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -516,12 +535,17 @@
                                                MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materialQty}"
                                                MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materialQty}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=materialQty}"/>
-                                    <SelectableTextBlock Grid.Column="7" Text="{Binding DescriptionText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding MaterialsText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materials}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=materials}"
+                                               ToolTip.Tip="{Binding MaterialsText}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=materials}"/>
+                                    <SelectableTextBlock Grid.Column="8" Text="{Binding DescriptionText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                                MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                                ToolTip.Tip="{Binding DescriptionText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
-                                    <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                         <!-- İş #5: yalnız YAN ETKİSİZ alanlar (açıklama/operatör/süre).
                                              Stok veya araç durumu değişecekse "İptal Et" + yeniden giriş. -->
                                         <Button Classes="Ghost" Content="Düzenle" MinWidth="70"

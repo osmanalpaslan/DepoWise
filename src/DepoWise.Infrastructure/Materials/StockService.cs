@@ -16,6 +16,22 @@ public sealed record CountLine(string MaterialId, decimal CountedQuantity);
 
 public sealed record StockDocResult(string DocumentId, string DocNo);
 
+/// <summary>Giriş/çıkış DÜZELTME girdisi (2026-09-30) — yeni belgenin tüm alanları. <c>BranchId</c> null ise
+/// orijinal belgenin deposu kullanılır.</summary>
+public sealed record StockCorrection(IReadOnlyList<StockLine> Lines, string? BranchId = null,
+    string? PersonnelId = null, string? VehicleId = null, string? Note = null, long? DocDate = null,
+    string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null);
+
+public sealed record StockDocumentLine(string MaterialId, string Code, string Name, decimal Quantity, decimal? UnitPrice);
+
+/// <summary>Düzeltme formunu ön-doldurma verisi. <see cref="BlockedReason"/> doluysa belge düzeltilemez.</summary>
+public sealed record StockDocumentForEdit(string Id, string DocType, string DocNo, long DocDate, string? BranchId,
+    string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo,
+    IReadOnlyList<StockDocumentLine> Lines, string? CostCenterId, string? BlockedReason)
+{
+    public bool CanEdit => BlockedReason is null;
+}
+
 /// <summary>A3 (Aurora): malzeme kartı "Son Hareketler"/İşlem Geçmişi satırı. Quantity İŞARETLİ (+giriş/−çıkış).</summary>
 public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantity, string Label, string? Reference)
 {
@@ -87,6 +103,9 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     // Transfer geri ALINAMAZ (kullanıcı isteği 2026-08-06): iki şubenin stoğunu etkiler; doğrusu hedeften
     // kaynağa yeni bir ters transfer. Açılış da geri alınmaz. Sunucu ReverseDocument da ayrıca reddeder.
     public bool CanReverse => !IsReversed && DocumentId != null && MovementType != "opening" && MovementType != "transfer";
+    /// <summary>"Düzenle" yalnız aktif giriş/çıkış satırında görünür (2026-09-30). Başka modülden doğan belge
+    /// ise tıklanınca sunucu gerekçesiyle reddedilir (<see cref="StockService.GetDocumentForEdit"/>).</summary>
+    public bool CanEditDoc => !IsReversed && DocumentId != null && MovementType is "in" or "out";
     public string StatusText => IsReversed ? "İptal edildi" : "";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
@@ -436,6 +455,14 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
             throw new ForbiddenException("Transfer geri alınamaz. Hedef şubeden kaynağa yeni bir ters transfer yapın.");
         if (doc.Status == "cancelled") { tx.Commit(); return; } // idempotent
 
+        ReverseInTx(conn, tx, s, documentId, reason, now);
+        tx.Commit();
+    }
+
+    /// <summary>İptal gövdesi (ters kayıtlar + belge 'cancelled' + denetim) — çağıranın transaction'ında.
+    /// <see cref="ReverseDocumentOnce"/> ve <see cref="CorrectDocument"/> AYNI gövdeyi kullanır.</summary>
+    private void ReverseInTx(DbConnection conn, DbTransaction tx, SessionContext s, string documentId, string reason, long now)
+    {
         foreach (var mv in ActiveMovements(conn, tx, documentId))
         {
             // Ters yön uygula (negatif guard ters kayıtta da geçerli).
@@ -449,7 +476,209 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
         SetDocumentStatus(conn, tx, documentId, "cancelled", now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_document", documentId, AuditActions.Reverse, s.UserId,
             AfterJson: $"{{\"reason\":\"{reason}\"}}"), _clock);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════════
+    // GİRİŞ-ÇIKIŞ DÜZELTME (kullanıcı isteği 2026-09-30, karar: "yalnız kendi kayıtları").
+    //
+    // Stok defterinde ÜZERİNE YAZMA YOKTUR (LWW yasak, defter ana kaynak). Düzeltme = TEK transaction'da
+    // eski belgenin iptali (ters kayıt) + düzeltilmiş YENİ belge — yakıt düzeltmesiyle aynı desen. Bakiye,
+    // raporlar ve eşitleme mevcut iptal/kayıt yollarından geçtiği için ikinci bir mantık üretilmez.
+    //
+    // KAPSAM: yalnız Giriş-Çıkış ekranından (ve Günlük Faaliyet "Depo Çıkışı"ndan) doğan giriş/çıkış belgeleri.
+    // Fatura, satın alma mal kabulü, iş emri, zimmet ve talep belgeleri o modüllerin tutarlarını/bağlarını
+    // taşır → burada düzeltilirse modül ile stok çelişir; bu yüzden reddedilir ve kullanıcı o ekrana
+    // yönlendirilir. Transfer/açılış/sayım da reddedilir (iptaldeki kuralla aynı).
+    // ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Düzeltme formunu ön-doldurmak için belge ayrıntısı. Belge düzeltilemezse
+    /// <see cref="StockDocumentForEdit.BlockedReason"/> doludur (ekran mesajı gösterir, form açılmaz).</summary>
+    public StockDocumentForEdit GetDocumentForEdit(SessionContext s, string documentId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        var d = LoadDocumentFull(conn, tx, s.CompanyId, documentId)
+            ?? throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+        var engel = EditBlockedReason(conn, tx, s.CompanyId, d);
+        var fiyatAcik = MaterialService.FiyatGorunur(s);
+        var lines = new List<StockDocumentLine>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"SELECT sm.material_id, m.code, m.name, sm.quantity, sm.unit_price
+FROM stock_movements sm JOIN materials m ON m.id = sm.material_id AND m.company_id = @c
+WHERE sm.document_id=@d AND sm.is_reversed=0 AND sm.movement_type IN ('in','out') ORDER BY sm.created_at, sm.id;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@d", documentId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                lines.Add(new StockDocumentLine(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetString(3)),
+                    fiyatAcik && !r.IsDBNull(4) ? Money.Parse(r.GetString(4)) : null));   // FAZ 3c: fiyat maskesi
+        }
+        string? merkez;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT cost_center_id FROM cost_center_links WHERE company_id=@c AND entity_type='stock_document' AND entity_id=@d AND is_deleted=0;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@d", documentId);
+            merkez = cmd.ExecuteScalar() as string;
+        }
         tx.Commit();
+        return new StockDocumentForEdit(d.Id, d.DocType, d.DocNo, d.DocDate, d.DocType == "in" ? d.ToBranch : d.FromBranch,
+            d.PersonnelId, d.VehicleId, d.Note, d.InvoiceNo, d.OrderSlipNo, d.CreditSlipNo, lines, merkez, engel);
+    }
+
+    /// <summary>
+    /// Giriş/çıkış belgesini DÜZELTİR: eski belge iptal (ters kayıt) + düzeltilmiş yeni belge, TEK transaction.
+    /// Yetki: iptalle aynı (<c>stock.Edit</c> + <c>btn-reverse</c>) + yeni belge için <c>stock.Create</c>.
+    /// Gerekçe zorunludur (denetime yazılır). Maliyet merkezi bağı yeni belgeye taşınır. Fiyatı göremeyen
+    /// kullanıcının düzeltmesinde orijinal satır fiyatları KORUNUR (sessiz fiyat kaybı yok).
+    /// Idempotent: aynı <paramref name="operationId"/> ile tekrar çağrı, oluşan belgeyi döndürür.
+    /// </summary>
+    public StockDocResult CorrectDocument(SessionContext s, string documentId, StockCorrection dto, string operationId, string reason)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        AccessControl.RequireButton(s, SpecialButtons.Reverse);
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Düzeltme gerekçesi zorunlu.");
+        if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+        if (dto.Lines.Count == 0) throw new ArgumentException("En az bir malzeme gerekli.");
+        if (dto.Lines.Any(l => l.Quantity <= 0)) throw new ArgumentException("Miktar pozitif olmalı.");
+        var docDate = DateEntryPolicy.Uygula(s, dto.DocDate);   // TRH-01: geri/ileri tarih yetkisi AYNEN
+        return StockBalanceWriter.Run(() => CorrectDocumentOnce(s, documentId, dto with { DocDate = docDate }, operationId, reason),
+            $"correct:{documentId} op={operationId}");
+    }
+
+    private StockDocResult CorrectDocumentOnce(SessionContext s, string documentId, StockCorrection dto, string operationId, string reason)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate();
+
+        // Idempotency: bu düzeltme daha önce işlendiyse oluşan belgeyi döndür (tekrar denemede çift kayıt yok).
+        if (FindDocumentByOperation(conn, tx, s.CompanyId, operationId) is { } onceki) { tx.Commit(); return onceki; }
+
+        var eski = LoadDocumentFull(conn, tx, s.CompanyId, documentId)
+            ?? throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+        if (EditBlockedReason(conn, tx, s.CompanyId, eski) is { } engel) throw new ForbiddenException(engel);
+
+        // Fiyatı göremeyen kullanıcı: yeni satır fiyatı ORİJİNALDEN taşınır (sunucu kaynaklı → alan kapısı uygulanmaz).
+        var fiyatAcik = MaterialService.FiyatGorunur(s);
+        var satirlar = dto.Lines;
+        if (!fiyatAcik)
+        {
+            var eskiFiyat = new Dictionary<string, decimal?>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "SELECT material_id, unit_price FROM stock_movements WHERE document_id=@d AND is_reversed=0;";
+                cmd.AddWithValue("@d", documentId);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) eskiFiyat[r.GetString(0)] = r.IsDBNull(1) ? null : Money.Parse(r.GetString(1));
+            }
+            satirlar = dto.Lines.Select(l => l with { UnitPrice = eskiFiyat.TryGetValue(l.MaterialId, out var p) ? p : null }).ToList();
+        }
+
+        var lokasyon = dto.BranchId ?? (eski.DocType == "in" ? eski.ToBranch : eski.FromBranch);
+        StockDocResult YeniBelge()
+        {
+            if (eski.DocType == "in")
+                return RunDocumentInTx(conn, tx, s, "in", operationId, lokasyon, null, lokasyon, dto.PersonnelId, dto.VehicleId,
+                    dto.Note, dto.DocDate, (c, t, docId) =>
+                    {
+                        for (int i = 0; i < satirlar.Count; i++)
+                            ApplyLine(c, t, s, docId, satirlar[i], +1, $"{operationId}:{i}", "in", lokasyon, null,
+                                fiyatSunucuKaynakli: !fiyatAcik);
+                    }, invoiceNo: dto.InvoiceNo, orderSlipNo: dto.OrderSlipNo, creditSlipNo: dto.CreditSlipNo);
+            var cikis = EnforceOwnBranch(s, lokasyon, "çıkış");
+            return RunDocumentInTx(conn, tx, s, "out", operationId, cikis, cikis, null, dto.PersonnelId, dto.VehicleId,
+                dto.Note, dto.DocDate, (c, t, docId) =>
+                {
+                    for (int i = 0; i < satirlar.Count; i++)
+                        ApplyLine(c, t, s, docId, satirlar[i], -1, $"{operationId}:{i}", "out", cikis, cikis);
+                }, invoiceNo: dto.InvoiceNo, orderSlipNo: dto.OrderSlipNo, creditSlipNo: dto.CreditSlipNo);
+        }
+
+        // SIRA ÖNEMLİ — stoğu ARTIRAN adım önce: aksi hâlde net sonuç geçerliyken ara adım negatif stok
+        // kalkanına takılırdı (ör. 10'luk çıkışı 12'ye düzeltmek: önce +10 iade, sonra −12).
+        StockDocResult yeni;
+        if (eski.DocType == "in") { yeni = YeniBelge(); ReverseInTx(conn, tx, s, documentId, "Düzeltme: " + reason, now); }
+        else { ReverseInTx(conn, tx, s, documentId, "Düzeltme: " + reason, now); yeni = YeniBelge(); }
+
+        // Maliyet merkezi bağı yeni belgeye TAŞINIR (kayıt özniteliği; kullanıcı formda değiştirdiyse
+        // istemci ayrıca CostCenters.Link çağırır — tek-merkez upsert).
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"INSERT INTO cost_center_links(id, company_id, cost_center_id, entity_type, entity_id, created_at, updated_at, version, is_deleted)
+SELECT @nid, company_id, cost_center_id, entity_type, @yeni, @now, @now, 1, 0 FROM cost_center_links
+WHERE company_id=@c AND entity_type='stock_document' AND entity_id=@eski AND is_deleted=0;";
+            cmd.AddWithValue("@nid", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("@yeni", yeni.DocumentId);
+            cmd.AddWithValue("@eski", documentId);
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_document", documentId, AuditActions.Update, s.UserId,
+            AfterJson: System.Text.Json.JsonSerializer.Serialize(new { correctedBy = yeni.DocumentId, newNo = yeni.DocNo, reason })), _clock);
+        tx.Commit();
+        return yeni;
+    }
+
+    /// <summary>Belge düzeltilebilir mi? Düzeltilemezse kullanıcıya gösterilecek gerekçe, düzeltilebilirse null.
+    /// Modül bağı işlem kimliği önekinden (po:/wo:/assign:/…:stock) ve bağ tablolarından tespit edilir.</summary>
+    private static string? EditBlockedReason(DbConnection conn, DbTransaction tx, string companyId, DocFull d)
+    {
+        if (d.Status == "cancelled") return "Bu kayıt zaten iptal edilmiş; düzeltilemez.";
+        if (d.DocType is not ("in" or "out")) return "Yalnız giriş ve çıkış kayıtları düzeltilebilir (transfer, açılış ve sayım düzeltilemez).";
+        if (d.Note is { } n && n.StartsWith("Talep: ", StringComparison.Ordinal))
+            return "Bu kayıt Malzeme Talebi'nden oluşturuldu; düzeltmeyi Talepler ekranından yapın.";
+
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = @"SELECT
+ (SELECT COUNT(*) FROM invoices WHERE company_id=@c AND stock_document_id=@d),
+ (SELECT COUNT(*) FROM work_order_links WHERE company_id=@c AND entity_type='stock_document' AND entity_id=@d AND is_deleted=0),
+ (SELECT operation_id FROM stock_movements WHERE document_id=@d ORDER BY created_at LIMIT 1);";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@d", d.Id);
+        using var r = cmd.ExecuteReader();
+        r.Read();
+        var fatura = Convert.ToInt64(r.GetValue(0)) > 0;
+        var isEmri = Convert.ToInt64(r.GetValue(1)) > 0;
+        var op = r.IsDBNull(2) ? "" : r.GetString(2);
+        if (fatura || op.Contains(":stock:", StringComparison.Ordinal))
+            return "Bu kayıt bir Faturadan oluşturuldu; düzeltmeyi Faturalar ekranından yapın.";
+        if (isEmri || op.StartsWith("wo:", StringComparison.Ordinal))
+            return "Bu kayıt bir İş Emrinden oluşturuldu; düzeltmeyi İş Emirleri ekranından yapın.";
+        if (op.StartsWith("po:", StringComparison.Ordinal))
+            return "Bu kayıt Satın Alma mal kabulünden oluşturuldu; düzeltmeyi Satın Alma ekranından yapın.";
+        if (op.StartsWith("assign:", StringComparison.Ordinal))
+            return "Bu kayıt Zimmet işleminden oluşturuldu; düzeltmeyi Zimmet ekranından yapın.";
+        return null;
+    }
+
+    private sealed record DocFull(string Id, string Status, string DocType, string DocNo, long DocDate,
+        string? FromBranch, string? ToBranch, string? PersonnelId, string? VehicleId, string? Note,
+        string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+
+    private static DocFull? LoadDocumentFull(DbConnection conn, DbTransaction tx, string companyId, string documentId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = @"SELECT id, status, doc_type, doc_no, doc_date, from_branch_id, to_branch_id, personnel_id,
+vehicle_id, note, invoice_no, order_slip_no, credit_slip_no FROM stock_documents WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", documentId);
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        return new DocFull(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetInt64(4),
+            S(5), S(6), S(7), S(8), S(9), S(10), S(11), S(12));
     }
 
     /// <summary>

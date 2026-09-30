@@ -32,14 +32,22 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
         @* Kayıt tipi (kullanıcı isteği 2026-08-07): üst seviye "Transfer" KALDIRILDI → "Depo Çıkışı" altına
            Şube İçi/Şube Dışı olarak taşındı. Şube İçi = çıkış (issue), Şube Dışı = transfer. *@
-        <MudRadioGroup T="string" @bind-Value="_kind" Class="mb-1">
+        @* 2026-09-30: DÜZELTME modu bandı — masaüstüyle aynı metin. Düzeltmede kayıt tipi/çıkış türü kilitli. *@
+        @if (_editId is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                <b>DÜZELTME: @_editDocNo</b> — Kaydet'e basınca eski kayıt iptal edilir ve düzeltilmiş yeni kayıt oluşur.
+                Stok, raporlar ve maliyet merkezi yeni kayda göre güncellenir.
+            </MudAlert>
+        }
+        <MudRadioGroup T="string" @bind-Value="_kind" Class="mb-1" Disabled="@(_editId is not null)">
             <MudRadio T="string" Value="@("Yeni Kayıt")" Color="Color.Primary">Yeni Kayıt</MudRadio>
             <MudRadio T="string" Value="@("Depo Çıkışı")" Color="Color.Primary">Depo Çıkışı</MudRadio>
         </MudRadioGroup>
         @* Depo Çıkışı alt-türü: yalnız Depo Çıkışı seçilince görünür; seçime göre alanlar dinamik gizlenir. *@
         @if (IsExit)
         {
-            <MudRadioGroup T="string" @bind-Value="_exitScope" Class="mb-3 ml-4">
+            <MudRadioGroup T="string" @bind-Value="_exitScope" Class="mb-3 ml-4" Disabled="@(_editId is not null)">
                 <MudRadio T="string" Value="@("Şube İçi")" Color="Color.Secondary" Dense="true">Şube İçi Çıkış</MudRadio>
                 <MudRadio T="string" Value="@("Şube Dışı")" Color="Color.Secondary" Dense="true">Şube Dışı Çıkış (Transfer)</MudRadio>
             </MudRadioGroup>
@@ -205,7 +213,7 @@
         </MudGrid>
 
         <MudStack Row="true" Class="mt-2" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : _editId is null ? "Kaydet" : "Düzeltmeyi Kaydet")</MudButton>
             <MudButton Variant="Variant.Text" OnClick="ClearForm" Disabled="_busy">Temizle</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -274,6 +282,12 @@
                 <MudTd>
                     @* ⭐ YET-05 (2026-08-26): sunucu stock.Edit + btn-reverse ister; burada Delete soruluyordu →
                        Edit+buton verilen kullanıcı butonu göremiyordu. Masaüstü Stok ekranı da eşitlendi. *@
+                    @* 2026-09-30: Düzenle — iptalle aynı yetki + stock.Create (yeni kayıt oluşur). *@
+                    @if (Auth.CanEdit("stock") && Auth.CanButton("btn-reverse") && Auth.CanCreate("stock") && Bool(context, "canEditDoc"))
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Text" OnClick="@(() => EditRow(docId))"
+                                   title="Kaydı düzelt: eski kayıt iptal edilir, düzeltilmiş yenisi oluşur">Düzenle</MudButton>
+                    }
                     @if (Auth.CanEdit("stock") && Auth.CanButton("btn-reverse") && Bool(context, "canReverse"))
                     {
                         <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Reverse(docId))">İptal</MudButton>
@@ -622,9 +636,101 @@
         }
     };
 
+    // ══════════════ GİRİŞ-ÇIKIŞ DÜZELTME (kullanıcı isteği 2026-09-30) ══════════════
+    // Masaüstüyle (StockEntryViewModel.EditMovement/SaveCorrection) aynı akış: form kaydın değerleriyle
+    // dolar; Kaydet → gerekçe → sunucu TEK transaction'da eski kaydı iptal edip yenisini yazar.
+    // Düzeltilemeyen kaydın gerekçesi SUNUCUDAN gelir (blockedReason) — kural iki yerde yazılmaz.
+    private string? _editId, _editDocType, _editDocNo, _editBranchId, _editCostCenterId;
+
+    private static List<JsonElement> ArrOf(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().ToList() : new List<JsonElement>();
+    private static decimal DecOf(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+
+    private async Task EditRow(string documentId)
+    {
+        _msg = null;
+        if (string.IsNullOrEmpty(documentId)) return;
+        JsonElement d;
+        try { d = await Api.GetObjectAsync($"/api/stock/documents/{documentId}/edit"); }
+        catch (Exception ex) { _msg = "Kayıt açılamadı: " + ex.Message; _ok = false; return; }
+        var engel = Str(d, "blockedReason");
+        if (engel.Length > 0) { _msg = engel; _ok = false; return; }
+        var tur = Str(d, "docType");
+        var satirlar = ArrOf(d, "lines");
+        if (tur == "in" && satirlar.Count != 1) { _msg = "Çok malzemeli giriş belgesi bu ekrandan düzeltilemez."; _ok = false; return; }
+        if (!await Dialog.Confirm($"{Str(d, "docNo")} kaydını düzenlemek istiyor musunuz?", "Evet, Düzenle")) return;
+
+        ClearForm();
+        _kind = tur == "in" ? "Yeni Kayıt" : "Depo Çıkışı";
+        _exitScope = "Şube İçi";
+        if (tur == "in")
+        {
+            var l = satirlar[0];
+            _existingMaterial = new MaterialItem(Str(l, "materialId"), Str(l, "code"), Str(l, "name"));
+            await OnExistingMaterialPicked();
+            _qty = DecOf(l, "quantity");
+            _price = DecOf(l, "unitPrice");
+        }
+        else
+        {
+            foreach (var l in satirlar)
+                _exitLines.Add(new ExitLine(Str(l, "materialId"), $"{Str(l, "code")} - {Str(l, "name")}", DecOf(l, "quantity")));
+        }
+        _docDate = DateTimeOffset.FromUnixTimeMilliseconds((long)DecOf(d, "docDate")).UtcDateTime.Date;
+        _note = Str(d, "note"); _invoiceNo = Str(d, "invoiceNo"); _orderSlipNo = Str(d, "orderSlipNo"); _creditSlipNo = Str(d, "creditSlipNo");
+        _personnel = Str(d, "personnelId"); _vehicle = Str(d, "vehicleId");
+        _costCenterId = NullId(d, "costCenterId");
+        _editId = documentId; _editDocType = tur; _editDocNo = Str(d, "docNo");
+        _editBranchId = NullId(d, "branchId"); _editCostCenterId = _costCenterId;
+        _msg = $"{_editDocNo} düzeltme için forma yüklendi."; _ok = true;
+    }
+
+    private async Task SaveCorrection()
+    {
+        List<object> lines;
+        if (_editDocType == "in")
+        {
+            if (_existingMaterial is null) { _msg = "Düzeltmede mevcut bir malzeme seçin."; _ok = false; return; }
+            if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+            lines = new() { new { materialId = _existingMaterial.Id, quantity = _qty, unitPrice = _price > 0 ? _price : (decimal?)null } };
+        }
+        else
+        {
+            var l = BuildExitLines();
+            if (l.Count == 0) { _msg = "Malzeme seçin (ya da listeye ekleyin)."; _ok = false; return; }
+            lines = l.Select(x => (object)new { materialId = x.MaterialId, quantity = x.Quantity, unitPrice = (decimal?)null }).ToList();
+        }
+        var gerekce = await Dialog.AskReason(
+            $"{_editDocNo} düzeltilecek. Eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; stok bakiyesi, " +
+            "raporlar ve maliyet merkezi buna göre güncellenir. Düzeltme stoğu eksiye düşürecekse kaydedilmez.",
+            "Kayıt Düzeltme", "Düzeltme gerekçesi", "Düzelt");
+        if (gerekce is null) return;
+
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/stock/documents/{_editId}/correct", new
+            {
+                lines, branchId = _editBranchId, personnelId = Empty(_personnel), vehicleId = Empty(_vehicle),
+                note = Empty(_note), docDate = DocDateMs(), invoiceNo = Empty(_invoiceNo),
+                orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
+                operationId = Guid.NewGuid().ToString("N"), reason = gerekce,
+                costCenterId = Empty(_costCenterId), costCenterChanged = Empty(_costCenterId) != _editCostCenterId
+            });
+            _ok = err is null;
+            _msg = err ?? $"Kayıt düzeltildi: {_editDocNo} iptal edildi, düzeltilmiş yeni kayıt oluşturuldu.";
+            if (_ok) { ClearForm(); await LoadMovements(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Düzeltilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
     private async Task Save()
     {
         _msg = null;
+        if (_editId is not null) { await SaveCorrection(); return; }   // 2026-09-30: düzeltme modu
         // STK-04: "Tüm Şubeler" modunda artık işlem YAPILABİLİR — ama yalnız depo AÇIKÇA seçilirse.
         // (Eskiden BranchGuard tümden engelliyordu; belirsiz stok işlemi yine oluşamaz.)
         if (EffectiveLocation is null)
@@ -785,6 +891,8 @@
 
     private void ClearForm()
     {
+        if (_editId is not null) _costCenterId = null;   // yalnız düzeltmeden çıkarken (normal akışın davranışı aynen)
+        _editId = _editDocType = _editDocNo = _editBranchId = _editCostCenterId = null;   // düzeltme modundan çık
         _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = ""; _price = 0;
         _subCat = ""; _subCats = new();   // G1-04
         _exitLines.Clear(); _saveLines = new();   // İş #8: sepet de temizlenir

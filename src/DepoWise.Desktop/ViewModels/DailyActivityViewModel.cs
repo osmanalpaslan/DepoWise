@@ -127,7 +127,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     {
         [DailyActivityListColumns.Date] = 100, [DailyActivityListColumns.Type] = 100, [DailyActivityListColumns.Vehicle] = 150,
         [DailyActivityListColumns.Route] = 170, [DailyActivityListColumns.Operator] = 130, [DailyActivityListColumns.Duration] = 80,
-        [DailyActivityListColumns.MaterialQty] = 110, [DailyActivityListColumns.Description] = 160,
+        [DailyActivityListColumns.MaterialQty] = 110, [DailyActivityListColumns.Materials] = 260, [DailyActivityListColumns.Description] = 160,
     };
 
     [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
@@ -237,7 +237,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
             V(DailyActivityListColumns.Operator), V(DailyActivityListColumns.Duration), V(DailyActivityListColumns.Description),
             V(DailyActivityListColumns.MaterialQty),
             // ⭐ FAZ 4.9: çoklu araç seçimi (boşsa süzme yok → bugünkü davranış).
-            SecilenAracIdleri());
+            SecilenAracIdleri(),
+            V(DailyActivityListColumns.Materials));   // 2026-09-30: kullanılan malzemeler (kod/ad içerir)
     }
 
     // ═══ FAZ 4.9 (kullanıcı isteği 2026-09-06) — TARİH ARALIĞI + ÇOKLU ARAÇ ═════════════════════

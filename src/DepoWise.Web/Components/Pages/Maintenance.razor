@@ -781,8 +781,9 @@
         var q = (_bkmQuery ?? "").Trim();
         _bkmQueryAktif = q.Length == 0 ? null : q;
         // Bitiş günü DAHİL (kullanıcı 1–5 diyorsa 5'i de görmeli).
-        _bkmFromMs = _bkmFrom is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
-        _bkmToMs = _bkmTo is { } t ? new DateTimeOffset(t.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999 : null;
+        // Kind=Local tarihte ArgumentException atmasın diye tek güvenli yardımcı (FieldChecks.ToUnixMs).
+        _bkmFromMs = DepoWise.Web.Services.FieldChecks.ToUnixMs(_bkmFrom);
+        _bkmToMs = DepoWise.Web.Services.FieldChecks.ToUnixMs(_bkmTo, endOfDay: true);
         _bkmPage = 1;
         await LoadMaint();
     }

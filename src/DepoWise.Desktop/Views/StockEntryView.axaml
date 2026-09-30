@@ -45,14 +45,21 @@
                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </Border>
 
+                <!-- 2026-09-30: DÜZELTME modu bandı — hangi kaydın düzeltildiğini ve sonucunu açıkça söyler. -->
+                <Border IsVisible="{Binding IsEditing}" Padding="10,8" CornerRadius="6"
+                        Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1">
+                    <SelectableTextBlock Text="{Binding EditBanner}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                </Border>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"/>
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"
+                                  IsEnabled="{Binding KindSelectable}"/>
                     </ctrl:FormField>
                     <!-- Depo Çıkışı alt-türü (kullanıcı isteği 2026-08-07): Şube İçi (çıkış) / Şube Dışı (transfer).
                          Yalnız Depo Çıkışı seçilince görünür; seçime göre alttaki alanlar dinamik gizlenir/gösterilir. -->
                     <ctrl:FormField Label="Çıkış Türü" Width="150" IsVisible="{Binding ShowExitScope}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"
+                                  IsEnabled="{Binding KindSelectable}"/>
                     </ctrl:FormField>
                     <!-- STK-11 (kullanıcı isteği 2026-08-26): İŞLEM TARİHİ = hareketin ait olduğu iş günü.
                          Varsayılan bugün; GEÇMİŞ ve GELECEK tarih serbesttir (üst sınır yok — ileri
@@ -134,7 +141,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="m:MaterialRefRow">
                                             <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                    Content="{Binding Name}"
+                                                    Content="{Binding Display}"
                                                     Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).PickMaterialCommand}"
                                                     CommandParameter="{Binding}"/>
                                         </DataTemplate>
@@ -307,7 +314,7 @@
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFormCommand}"/>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    <Button Classes="Primary" Content="{Binding SaveText}" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -334,31 +341,38 @@
                                   SelectedItem="{Binding HareketSayfaBoyutu}"/>
                     </StackPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                        <!-- 2026-09-30 (kullanıcı isteği): KOD kolonu + satırda "Düzenle" (işlem kolonu 150 px). -->
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
                             <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="80" MaxWidth="80"/>
-                            <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="3" Text="YÖN" MinWidth="60" MaxWidth="60"/>
-                            <SelectableTextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="100" MaxWidth="100"/>
+                            <SelectableTextBlock Grid.Column="3" Text="MALZEME" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="60" MaxWidth="60"/>
+                            <SelectableTextBlock Grid.Column="5" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
                             <!-- FAZ 3c: kapalıysa kolon BAŞLIĞIYLA birlikte hiç çizilmez. -->
-                            <SelectableTextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80" MaxWidth="80"
+                            <SelectableTextBlock Grid.Column="6" Text="B.FİYAT" MinWidth="80" MaxWidth="80"
                                                  IsVisible="{Binding FiyatGorunur}"/>
-                            <SelectableTextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
-                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="7" Text="AÇIKLAMA" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="8" Text="" MinWidth="150" MaxWidth="150"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Movements}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
-                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}" />
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" IsVisible="{Binding $parent[ListBox].((vm:StockEntryViewModel)DataContext).FiyatGorunur}" />
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <StackPanel Grid.Column="7" MinWidth="80" VerticalAlignment="Center">
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}" />
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" IsVisible="{Binding $parent[ListBox].((vm:StockEntryViewModel)DataContext).FiyatGorunur}" />
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="8" MinWidth="150" MaxWidth="150" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <Button Classes="Ghost" Content="Düzenle" IsVisible="{Binding CanEditDoc}"
+                                                ToolTip.Tip="Kaydı düzelt: eski kayıt iptal edilir, düzeltilmiş yenisi oluşur"
+                                                Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).EditMovementCommand}"
+                                                CommandParameter="{Binding}"/>
                                         <Button Classes="Ghost" Content="İptal" IsVisible="{Binding CanReverse}"
                                                 Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).ReverseMovementCommand}"
                                                 CommandParameter="{Binding}"/>

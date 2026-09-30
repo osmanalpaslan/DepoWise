@@ -774,7 +774,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     }
 
     // ── Araç detay sekmeleri (webteki gibi): Uyumlu Malzemeler / Muayene-Sigorta / Bakım / Hareketler ──
-    public ObservableCollection<MaterialStock> VehicleMaterials { get; } = new();
+    /// <summary>Uyumlu malzemeler KATEGORİ GRUPLARI hâlinde (kullanıcı isteği 2026-09-30).</summary>
+    public ObservableCollection<MaterialStockGroup> VehicleMaterials { get; } = new();
     public ObservableCollection<InspectionRow> VehicleInspections { get; } = new();
     public ObservableCollection<MaintenanceRow> VehicleMaintenances { get; } = new();
     public ObservableCollection<MovementDisplay> VehicleMovements { get; } = new();
@@ -787,7 +788,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     private void LoadVehicleTabs(string vehicleId, string code)
     {
         ClearVehicleTabs();
-        try { foreach (var m in DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId)) VehicleMaterials.Add(m); } catch { }
+        try { foreach (var g in MaterialStockGroups.Group(DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId))) VehicleMaterials.Add(g); } catch { }
         try { foreach (var i in DesktopServices.Inspection.List(_session).Where(x => x.VehicleCode == code)) VehicleInspections.Add(i); } catch { }
         try { foreach (var mt in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) VehicleMaintenances.Add(mt); } catch { }
 

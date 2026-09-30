@@ -52,6 +52,9 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     public string TotalReceivedText => $"{TotalReceived:0.##} L";
     public string TotalDistributedText => $"{TotalDistributed:0.##} L";
 
+    /// <summary>Özet sekmesi — AYLIK gruplu dağıtım (kullanıcı isteği 2026-09-30); en yeni ay üstte.</summary>
+    public ObservableCollection<FuelMonthSummary> MonthlySummary { get; } = new();
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _loadError;
@@ -369,7 +372,7 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             foreach (var d in grid.Items)
                 Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
                     d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled,
-                    d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note, d.InvoiceNo));
+                    d.VehicleId, d.PersonnelId, d.RecipientPersonnelId, d.Note, d.InvoiceNo, d.MeterUnit));
 
             TotalCount = grid.TotalCount;
             TotalPages = grid.TotalPages;
@@ -390,6 +393,9 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             // ama şimdi kullanıcı sayfa boyutunu seçebildiği için bunu ETİKETTE açıkça yazıyoruz.
             TotalDistributed = Distributions.Where(x => !x.IsCancelled).Sum(x => x.Liters);
             TotalReceived = DepotEntries.Where(x => !x.IsCancelled).Sum(x => x.Liters);
+            // Aylık özet TÜM kayıtlardan (sayfadan bağımsız) — hata listeyi düşürmesin.
+            MonthlySummary.Clear();
+            try { foreach (var ay in DesktopServices.Fuel.MonthlySummary(_session).Months) MonthlySummary.Add(ay); } catch { }
             // Kesilmenin SESSİZ olmaması asıl şikayetin özüydü: kaç kayıt var, kaçıncı sayfadayız — yazılır.
             Status = TotalCount == 0
                 ? "Kayıt bulunamadı" + (Filtreli ? " (filtreler etkin)" : "")
@@ -418,11 +424,21 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     // ════════════ DAĞITIM ════════════
     [ObservableProperty] private bool _showDist;
     [ObservableProperty] private VehicleListRow? _distVehicle;
-    [ObservableProperty] private decimal _distPrevMeter;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DistMeterDiffText))]
+    private decimal _distPrevMeter;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DistTotalText))]
     private decimal _distLiters;
-    [ObservableProperty] private decimal _distMeter;
+    /// <summary>Güncel sayaç — kullanıcı isteği 2026-09-30: yeni kayıtta BOŞ başlar ve ZORUNLUDUR
+    /// (eskiden önceki sayaçla ön-doluyordu; dikkatsizce "sayaç değişmedi" kaydı oluşuyordu).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DistMeterDiffText))]
+    private decimal? _distMeter;
+
+    /// <summary>Sayaç farkı (güncel − önceki) — SALT OKUNUR, elle girilmez; güncel sayaç yazıldıkça hesaplanır.</summary>
+    public string DistMeterDiffText => DepoWise.Application.Common.FuelMath.DiffText(
+        DepoWise.Application.Common.FuelMath.MeterDiff(DistPrevMeter, DistMeter), DistVehicle?.MeterUnit);
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DistTotalText))]
     private decimal _distUnitPrice;
@@ -449,7 +465,10 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             catch { /* yetki yoksa/çevrimdışıysa eski davranış sürer — form açılmaya devam eder */ }
         }
         DistPrevMeter = sayac;
-        if (value is not null && DistMeter < sayac) DistMeter = sayac;
+        // 2026-09-30 (kullanıcı isteği): güncel sayaç ÖN-DOLDURULMAZ; araç değişince önceki araca yazılmış
+        // değer de temizlenir. Düzeltme modunda LoadDistForEdit değeri bu çağrıdan SONRA atar (sıra korunur).
+        if (DistEditId is null) DistMeter = null;
+        OnPropertyChanged(nameof(DistMeterDiffText));   // birim (km/saat) araca bağlı
     }
 
     [RelayCommand]
@@ -463,7 +482,7 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     [RelayCommand]
     private void ClearDist()
     {
-        DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
+        DistVehicle = null; DistPrevMeter = 0; DistMeter = null; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
         DistEditId = null; _distNote = null; DistInvoice = "";   // düzeltme modundan çık (kalıntı bırakma)
         ShowDist = false;
     }
@@ -499,6 +518,12 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
         if (DistVehicle is null) { Status = "Araç seçin."; return; }
         if (DistLiters <= 0) { Status = "Litre pozitif olmalı."; return; }
         if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; } // madde 8
+        // 2026-09-30 (kullanıcı isteği): güncel sayaç ZORUNLU; sayaç farkı ondan hesaplanır.
+        if (DistMeter is not { } guncelSayac || guncelSayac <= 0) { Status = "Güncel sayacı girin."; return; }
+        if (guncelSayac < DistPrevMeter
+            && !await ConfirmService.AskAsync(
+                $"Güncel sayaç ({guncelSayac:0.##}) önceki sayaçtan ({DistPrevMeter:0.##}) KÜÇÜK. Sayaç farkı eksi çıkar ve " +
+                "araç sayacı ilerlemez. Yine de kaydedilsin mi?", "Sayaç Uyarısı", "Evet, Kaydet")) return;
         // ⭐ 2026-09-03 — FİRMA ALAN ZORUNLULUKLARI (Alan Ayarları): kayıt yoksa davranış aynen eskisi.
         var eksikAlanlar = DesktopServices.FieldRequirements.EksikAlanlar(_session.CompanyId, "fuel",
             new Dictionary<string, bool> { ["recipient"] = DistRecipient is not null });
@@ -508,10 +533,10 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             && !await ConfirmService.AskAsync($"Litre değeri çok büyük görünüyor ({DistLiters:0.##}). Emin misiniz?", "Litre Uyarısı", "Evet, Doğru")) return; // madde 7
         // ⭐ FAZ 4.1 — ŞÜPHELİ SAYAÇ SIÇRAMASI (önleme). Gerçek olay: fişe fazladan basamak yazıldı
         // (155.000 yerine 1.555.000) ve değer araca işlendi. Kaydı ENGELLEMEZ, kullanıcıya sorar.
-        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(DistPrevMeter, DistMeter)
+        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(DistPrevMeter, guncelSayac)
             && !await ConfirmService.AskAsync(
                 DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(
-                    DistPrevMeter, DistMeter, DepoWise.Application.Ui.MeterUnitOptions.Label(DistVehicle.MeterUnit)),
+                    DistPrevMeter, guncelSayac, DepoWise.Application.Ui.MeterUnitOptions.Label(DistVehicle.MeterUnit)),
                 "Sayaç Uyarısı", "Evet, Doğru")) return;
 
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
@@ -529,7 +554,7 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
         try
         {
             var dto = new NewDistribution(
-                VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
+                VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: guncelSayac,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
                 PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id,
                 DistributionDate: IsGunuMs(DistDate),   // TRH-01: iş günü — UTC gün başı (ADR-182)
@@ -625,10 +650,17 @@ public sealed record FuelRow(string Id, string VehicleCode, decimal PrevMeter, d
     // KODUNU gösterir, düzeltme ise araç KAYDINI seçmek zorundadır.
     string VehicleId = "", string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null,
     /// <summary>⭐ MUH-01b: irsaliye / fiş numarası (opsiyonel).</summary>
-    string? InvoiceNo = null)
+    string? InvoiceNo = null,
+    /// <summary>Aracın sayaç birimi (km | hour) — sayaç farkı/tüketim etiketi (2026-09-30).</summary>
+    string? MeterUnit = null)
 {
     /// <summary>İptal edilen satır listede ayırt edilir (kullanıcı kararı Y3).</summary>
     public string StatusText => IsCancelled ? "İptal edildi" : "";
+    /// <summary>Sayaç farkı + ortalama tüketim (kullanıcı isteği 2026-09-30) — web ile AYNI hesap (FuelMath).</summary>
+    public string MeterDiffText => IsCancelled ? "—"
+        : DepoWise.Application.Common.FuelMath.DiffText(CurrentMeter - PrevMeter is not 0 and var d ? d : null, MeterUnit);
+    public string ConsumptionText => IsCancelled ? "—"
+        : DepoWise.Application.Common.FuelMath.ConsumptionText(Liters, CurrentMeter - PrevMeter, MeterUnit);
     /// <summary>⭐ MUH-01b: listede gösterim — boşsa tire (depo girişindeki desenle aynı).</summary>
     public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
     public string LitersText => $"{Liters:0.##}";

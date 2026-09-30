@@ -31,7 +31,9 @@
                                          ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
                     </MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" Value="_prevMeter" ReadOnly="true" Label="Önceki Sayaç" HelperText="Araçtan otomatik." Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_meter" Label="Güncel Sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    @* 2026-09-30 (kullanıcı isteği): SAYAÇ FARKI salt okunur (güncel sayaçtan hesaplanır); güncel sayaç boş başlar ve zorunlu. *@
+                    <MudItem xs="6" md="3"><MudTextField T="string" Value="@SayacFarkiMetni" ReadOnly="true" Label="Sayaç Farkı" HelperText="Otomatik hesaplanır." Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_meter" Label="Güncel Sayaç *" Placeholder="Sayacı girin" Min="0" Format="0.##" Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3">
                         @* TRH-01: işlem tarihi (iş günü). Kayıt anı ayrıca loglanır. Yetki yoksa kilitli. *@
                         <MudDatePicker @bind-Date="_distDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
@@ -118,11 +120,14 @@
         else
         {
             <MudTable Items="_dist" Dense="true" Hover="true" Striped="true" Class="mt-2">
-                <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>SAYAÇ</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TOPLAM</MudTh><MudTh Style="text-align:right">TARİH</MudTh><MudTh></MudTh></HeaderContent>
+                <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>SAYAÇ</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">SAYAÇ FARKI</MudTh><MudTh Style="text-align:right" title="Litre / sayaç farkı (Yakıt Tüketim raporuyla aynı hesap)">ORT. TÜKETİM</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TOPLAM</MudTh><MudTh Style="text-align:right">TARİH</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd>@Str(context, "vehicleCode")</MudTd>
                     <MudTd>@Str(context, "prevMeter") → @Str(context, "currentMeter")</MudTd>
                     <MudTd Style="text-align:right">@Dec(context, "liters").ToString("0.##")</MudTd>
+                    @* 2026-09-30: sunucu hesaplar (FuelMath) — masaüstüyle aynı metin. *@
+                    <MudTd Style="text-align:right">@Str(context, "meterDiffText")</MudTd>
+                    <MudTd Style="text-align:right">@Str(context, "consumptionText")</MudTd>
                     @* B-5: para birimi masaüstündeki gibi gösterilir — kayıt TRY dışı bir birimde girilmişse
                        rakam yalnız başına yanıltıcıydı. Depo tablosu bunu zaten sunucudan "priceText" ile alıyor. *@
                     <MudTd Style="text-align:right">@Dec(context, "unitPrice").ToString("0.##") @Cur(context)</MudTd>
@@ -236,6 +241,48 @@
             <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_totalDistributed.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Toplam Dağıtılan</MudText></MudPaper></MudItem>
         </MudGrid>
         <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır.</MudText>
+
+        @* 2026-09-30 (kullanıcı isteği): AYLIK GRUPLU DAĞITIM — masaüstüyle aynı içerik (sunucu hesaplar). *@
+        <MudText Typo="Typo.h6" Class="mt-4">Aylık Dağıtım (son 12 ay)</MudText>
+        @if (_months.Count == 0) { <MudText Class="mud-text-secondary">Bu dönemde dağıtım yok.</MudText> }
+        <MudExpansionPanels MultiExpansion="true" Dense="true" Class="mt-2">
+            @foreach (var ay in _months)
+            {
+                <MudExpansionPanel>
+                    <TitleContent>
+                        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center">
+                            <b style="min-width:140px">@Str(ay, "monthText")</b>
+                            <span>Aylık: <b>@Str(ay, "litersText")</b></span>
+                            <span>Haftalık ort.: @Str(ay, "weeklyAverageText")</span>
+                            <span>Günlük ort.: @Str(ay, "dailyAverageText")</span>
+                            <span class="mud-text-secondary">@Str(ay, "countText")</span>
+                        </div>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.subtitle2">Haftalık</MudText>
+                                <MudSimpleTable Dense="true">
+                                    <tbody>
+                                        @foreach (var h in Arr(ay, "weeks"))
+                                        { <tr><td>@Str(h, "rangeText")</td><td style="text-align:right"><b>@Str(h, "litersText")</b></td></tr> }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.subtitle2">Günlük (yalnız dağıtım olan günler)</MudText>
+                                <MudSimpleTable Dense="true">
+                                    <tbody>
+                                        @foreach (var g in Arr(ay, "days"))
+                                        { <tr><td>@Str(g, "dayText")</td><td style="text-align:right"><b>@Str(g, "litersText")</b></td></tr> }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </MudItem>
+                        </MudGrid>
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
     }
 
 
@@ -247,7 +294,13 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private ApiClient.Opt? _vehicle;
-    private decimal _prevMeter, _meter, _liters, _price;
+    private decimal _prevMeter, _liters, _price;
+    /// <summary>Güncel sayaç — yeni kayıtta BOŞ başlar ve zorunludur (2026-09-30, masaüstüyle aynı).</summary>
+    private decimal? _meter;
+    /// <summary>Seçili aracın sayaç birimi (km | hour) — fark metninin etiketi.</summary>
+    private string? _meterUnit;
+    private string SayacFarkiMetni => DepoWise.Application.Common.FuelMath.DiffText(
+        DepoWise.Application.Common.FuelMath.MeterDiff(_prevMeter, _meter), _meterUnit);
     private string? _person;
     private string? _recipient;   // "Yakıtı Alan" (kullanıcı isteği 2026-07-19)
 
@@ -257,6 +310,10 @@
     private List<ApiClient.Opt> _personnel = new(), _suppliers = new();
     private JsonElement[]? _dist, _depot;
     private decimal _depotBalance, _currentPrice, _totalReceived, _totalDistributed;
+    /// <summary>Aylık gruplu dağıtım (2026-09-30) — /api/fuel/summary "months".</summary>
+    private List<JsonElement> _months = new();
+    private static IEnumerable<JsonElement> Arr(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array ? v.EnumerateArray() : Enumerable.Empty<JsonElement>();
     private string? _msg; private bool _ok;
     private string? _dMsg = null; private bool _dOk;
     private bool _busy;
@@ -293,7 +350,7 @@
             // Geçmişte hatalı-yüksek bir sayaç araca yazılmış olabilir; başlangıç sayacı zehirlenmiş
             // değeri değil gerçeği göstermeli. Sayaç zaten doğruysa sunucu hiçbir şey yazmaz.
             try { await Api.PostAsync($"/api/vehicles/{_vehicle.Id}/meter/recalc", new { }); } catch { }
-            try { var d = await Api.GetObjectAsync($"/api/vehicles/{_vehicle.Id}"); _prevMeter = d.TryGetProperty("currentMeter", out var m) && m.ValueKind == JsonValueKind.Number ? m.GetDecimal() : 0; StateHasChanged(); }
+            try { var d = await Api.GetObjectAsync($"/api/vehicles/{_vehicle.Id}"); _prevMeter = d.TryGetProperty("currentMeter", out var m) && m.ValueKind == JsonValueKind.Number ? m.GetDecimal() : 0; _meterUnit = d.TryGetProperty("meterUnit", out var mu) && mu.ValueKind == JsonValueKind.String ? mu.GetString() : null; if (_editDistId is null) _meter = null; StateHasChanged(); }
             catch { }
         }
     }
@@ -393,6 +450,7 @@
             var d = await Api.GetObjectAsync("/api/fuel/summary");
             _depotBalance = D(d, "depotBalance"); _currentPrice = D(d, "currentPrice");
             _totalReceived = D(d, "totalReceived"); _totalDistributed = D(d, "totalDistributed");
+            _months = Arr(d, "months").ToList();
         }
         catch { }
     }
@@ -410,12 +468,16 @@
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         if (_liters <= 0) { _msg = "Litre pozitif olmalı."; _ok = false; return; }
         if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
+        // 2026-09-30 (kullanıcı isteği): güncel sayaç ZORUNLU; sayaç farkı ondan hesaplanır (masaüstüyle aynı).
+        if (_meter is not { } guncel || guncel <= 0) { _msg = "Güncel sayacı girin."; _ok = false; return; }
+        if (guncel < _prevMeter
+            && !await Dialog.Confirm($"Güncel sayaç ({guncel:0.##}) önceki sayaçtan ({_prevMeter:0.##}) KÜÇÜK. Sayaç farkı eksi çıkar ve araç sayacı ilerlemez. Yine de kaydedilsin mi?", "Evet, Kaydet")) return;
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_liters)
             && !await Dialog.Confirm($"Litre değeri çok büyük görünüyor ({_liters:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
         // ⭐ FAZ 4.1 — ŞÜPHELİ SAYAÇ SIÇRAMASI (önleme; masaüstüyle aynı eşik ve metin).
-        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(_prevMeter, _meter)
+        if (DepoWise.Application.Common.MeterRule.SuspiciousJump(_prevMeter, guncel)
             && !await Dialog.Confirm(
-                DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(_prevMeter, _meter),
+                DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(_prevMeter, guncel),
                 "Evet, Doğru")) return;
 
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
@@ -437,7 +499,7 @@
             {
                 ["vehicleId"] = _vehicle.Id,
                 ["liters"] = _liters,
-                ["currentMeter"] = _meter,
+                ["currentMeter"] = guncel,
                 ["unitPrice"] = _price > 0 ? (decimal?)_price : null,
                 ["personnelId"] = _person,
                 ["recipientPersonnelId"] = string.IsNullOrEmpty(_recipient) ? null : _recipient,
@@ -517,7 +579,7 @@
 
     private void ClearDist()
     {
-        _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null;
+        _vehicle = null; _lastVehicle = null; _prevMeter = _liters = 0; _meter = null; _meterUnit = null; _price = _currentPrice; _person = null; _recipient = null;
         _editDistId = null; _editNote = null; _distInvoice = "";   // düzeltme modundan çık (kalıntı bırakma)
     }
 
@@ -549,6 +611,7 @@
         _lastVehicle = _vehicle;
         _prevMeter = Dec(row, "prevMeter");
         _meter = Dec(row, "currentMeter");
+        _meterUnit = Str(row, "meterUnit");
         _liters = Dec(row, "liters");
         _price = Dec(row, "unitPrice");
         _person = NullText(Str(row, "personnelId"));

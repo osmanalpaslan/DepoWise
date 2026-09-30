@@ -28,11 +28,47 @@ public sealed record FuelDistributionRow(string Id, string VehicleId, string? Ve
     // mevcut çağıranların sözleşmesi değişmez.
     string? PersonnelId = null, string? RecipientPersonnelId = null, string? Note = null,
     /// <summary>⭐ MUH-01b: irsaliye / fiş numarası (opsiyonel).</summary>
-    string? InvoiceNo = null)
+    string? InvoiceNo = null,
+    /// <summary>Aracın sayaç birimi (km | hour) — sayaç farkı/tüketim biriminin etiketi (2026-09-30).</summary>
+    string? MeterUnit = null)
 {
     public string StatusText => IsCancelled ? "İptal edildi" : "";
+    /// <summary>Sayaç farkı (güncel − önceki) ve ortalama tüketim — kullanıcı isteği 2026-09-30. Hesap
+    /// <see cref="DepoWise.Application.Common.FuelMath"/>'te (Yakıt Tüketim raporuyla aynı formül); web bu
+    /// alanları JSON'dan okur. İptal edilen kayıtta gösterilmez.</summary>
+    public string MeterDiffText => IsCancelled ? "—"
+        : DepoWise.Application.Common.FuelMath.DiffText(CurrentMeter - PrevMeter is not 0 and var d ? d : null, MeterUnit);
+    public string ConsumptionText => IsCancelled ? "—"
+        : DepoWise.Application.Common.FuelMath.ConsumptionText(Liters, CurrentMeter - PrevMeter, MeterUnit);
     /// <summary>Listede gösterim — boşsa tire (depo girişindeki `InvoiceDisplay` ile aynı desen).</summary>
     public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
+}
+
+/// <summary>Yakıt özeti (2026-09-30): tüm zamanların dağıtılan toplamı + aylık gruplar (en yeni üstte).</summary>
+public sealed record FuelSummary(decimal TotalDistributed, IReadOnlyList<FuelMonthSummary> Months);
+
+public sealed record FuelMonthSummary(int Year, int Month, decimal Liters, int Count,
+    decimal DailyAverage, decimal WeeklyAverage,
+    IReadOnlyList<FuelWeekSummary> Weeks, IReadOnlyList<FuelDaySummary> Days)
+{
+    private static readonly System.Globalization.CultureInfo Tr = new("tr-TR");
+    public string MonthText => new DateTime(Year, Month, 1).ToString("MMMM yyyy", Tr);
+    public string LitersText => $"{Liters.ToString("#,##0.##", Tr)} L";
+    public string DailyAverageText => $"{DailyAverage.ToString("#,##0.##", Tr)} L";
+    public string WeeklyAverageText => $"{WeeklyAverage.ToString("#,##0.##", Tr)} L";
+    public string CountText => $"{Count} işlem";
+}
+
+public sealed record FuelWeekSummary(DateTime Start, DateTime End, decimal Liters, int Count)
+{
+    public string RangeText => $"{Start:dd.MM} – {End:dd.MM.yyyy}";
+    public string LitersText => $"{Liters.ToString("#,##0.##", new System.Globalization.CultureInfo("tr-TR"))} L";
+}
+
+public sealed record FuelDaySummary(DateTime Day, decimal Liters, int Count)
+{
+    public string DayText => Day.ToString("dd.MM.yyyy dddd", new System.Globalization.CultureInfo("tr-TR"));
+    public string LitersText => $"{Liters.ToString("#,##0.##", new System.Globalization.CultureInfo("tr-TR"))} L";
 }
 
 public sealed record FuelDepotRow(string Id, decimal Liters, decimal UnitPrice, string Currency, long EntryDate,
@@ -437,7 +473,7 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
         cmd.CommandText = @"
 SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
        fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
-       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no
+       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no, v.meter_unit
 FROM fuel_distributions fd
 LEFT JOIN vehicles v ON v.id = fd.vehicle_id
 WHERE fd.company_id=@c" + (includeCancelled ? "" : " AND fd.is_deleted=0") + BranchScope.Sql(s, "fd.op_branch_id") + @"
@@ -459,7 +495,8 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
                 r.IsDBNull(10) ? null : r.GetString(10),
                 r.IsDBNull(11) ? null : r.GetString(11),
                 r.IsDBNull(12) ? null : r.GetString(12),
-                r.IsDBNull(13) ? null : r.GetString(13)));
+                r.IsDBNull(13) ? null : r.GetString(13),
+                r.IsDBNull(14) ? null : r.GetString(14)));
         return list;
     }
 
@@ -549,7 +586,7 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
             cmd.CommandText = @"
 SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
        fd.unit_price, fd.currency_code, fd.distribution_date, fd.is_deleted,
-       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no
+       fd.personnel_id, fd.recipient_personnel_id, fd.note, fd.invoice_no, v.meter_unit
 " + fromSql + where + @"
 ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
             Baglan(cmd);
@@ -571,9 +608,75 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
                     r.IsDBNull(10) ? null : r.GetString(10),
                     r.IsDBNull(11) ? null : r.GetString(11),
                     r.IsDBNull(12) ? null : r.GetString(12),
-                    r.IsDBNull(13) ? null : r.GetString(13)));
+                    r.IsDBNull(13) ? null : r.GetString(13),
+                    r.IsDBNull(14) ? null : r.GetString(14)));
         }
         return new GridResult<FuelDistributionRow>(list, total, page, pageSize);
+    }
+
+    /// <summary>
+    /// Yakıt ÖZETİ — AYLIK GRUPLAMA (kullanıcı isteği 2026-09-30): her ay için toplam, günlük ve haftalık
+    /// ortalama; ayın haftalık toplamları ve gün gün dağıtılan miktar.
+    ///
+    /// Kaynak: iptal edilmemiş dağıtımlar, <c>distribution_date</c> (iş günü, UTC gün başı — ADR-182) ile.
+    /// Şube kapsamı listeyle AYNI (<see cref="BranchScope"/>). Toplama C#'ta decimal ile yapılır (SQL SUM
+    /// SQLite'ta float'a düşerdi — Money kuralı). Ortalama paydası TAKVİM günüdür (dağıtım olmayan gün de
+    /// sayılır); içinde bulunulan ay yalnız bugüne kadar sayılır. Haftalar Pazartesi başlar ve ay sınırında
+    /// kesilir.
+    /// </summary>
+    /// <param name="months">Kaç ay geriye (içinde bulunulan ay dahil). 1–36.</param>
+    public FuelSummary MonthlySummary(SessionContext s, int months = 12)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        months = Math.Clamp(months, 1, 36);
+        var bugun = _clock.UtcNow.ToOffset(TimeSpan.FromHours(3)).Date;   // TR iş günü (UTC+3, yaz saati yok)
+        var ilkAy = new DateTime(bugun.Year, bugun.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(months - 1));
+
+        using var conn = _factory.Create();
+        var gunluk = new SortedDictionary<DateTime, (decimal Litre, int Adet)>();
+        decimal toplamHepsi = 0;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT distribution_date, liters FROM fuel_distributions fd WHERE fd.company_id=@c AND fd.is_deleted=0"
+                + BranchScope.Sql(s, "fd.op_branch_id") + ";";
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
+            using var r = cmd.ExecuteReader();
+            var ilkMs = new DateTimeOffset(ilkAy, TimeSpan.Zero).ToUnixTimeMilliseconds();
+            while (r.Read())
+            {
+                var litre = Money.Parse(r.GetString(1));
+                toplamHepsi += litre;                       // tüm zamanların toplamı (limitsiz)
+                var ms = r.GetInt64(0);
+                if (ms < ilkMs) continue;
+                var gun = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime.Date;
+                gunluk[gun] = gunluk.TryGetValue(gun, out var v) ? (v.Litre + litre, v.Adet + 1) : (litre, 1);
+            }
+        }
+
+        var aylar = new List<FuelMonthSummary>();
+        for (var ay = ilkAy; ay <= bugun; ay = ay.AddMonths(1))
+        {
+            var aySonu = ay.AddMonths(1).AddDays(-1);
+            var sayilanSon = aySonu < bugun ? aySonu : bugun;            // içinde bulunulan ay: bugüne kadar
+            var gunler = gunluk.Where(x => x.Key >= ay && x.Key <= aySonu)
+                .Select(x => new FuelDaySummary(x.Key, x.Value.Litre, x.Value.Adet)).ToList();
+            var haftalar = new List<FuelWeekSummary>();
+            for (var h = ay; h <= aySonu;)
+            {
+                var pazar = h.AddDays((7 - (int)h.DayOfWeek) % 7);        // haftanın Pazar'ı
+                var son = pazar < aySonu ? pazar : aySonu;
+                var hg = gunler.Where(x => x.Day >= h && x.Day <= son).ToList();
+                if (h <= bugun) haftalar.Add(new FuelWeekSummary(h, son, hg.Sum(x => x.Liters), hg.Sum(x => x.Count)));
+                h = son.AddDays(1);
+            }
+            var litre = gunler.Sum(x => x.Liters);
+            var gunSayisi = (sayilanSon - ay).Days + 1;
+            aylar.Add(new FuelMonthSummary(ay.Year, ay.Month, litre, gunler.Sum(x => x.Count),
+                Math.Round(litre / gunSayisi, 2), Math.Round(litre / gunSayisi * 7, 2), haftalar, gunler));
+        }
+        aylar.Reverse();                                                  // en yeni ay üstte
+        return new FuelSummary(toplamHepsi, aylar);
     }
 
     /// <summary>Depo girişleri (salt okuma) — en yeni önce.</summary>

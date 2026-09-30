@@ -376,6 +376,7 @@
         DailyActivityListColumns.Operator => "operator",
         DailyActivityListColumns.Duration => "duration",
         DailyActivityListColumns.MaterialQty => "materialQtyText",
+        DailyActivityListColumns.Materials => "materialsText",   // 2026-09-30
         _ => "description",
     });
 
@@ -698,8 +699,9 @@
     {
         var qs = new List<string>();
         // Bitiş günü DAHİL (kullanıcı 1–5 diyorsa 5'i de görmeli).
-        if (_gunFrom is { } f) qs.Add("fromDate=" + new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds());
-        if (_gunTo is { } t) qs.Add("toDate=" + (new DateTimeOffset(t.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() + 86_399_999));
+        // Kind=Local tarihte ArgumentException atmasın diye tek güvenli yardımcı (FieldChecks.ToUnixMs).
+        if (Ms(_gunFrom) is { } f) qs.Add("fromDate=" + f);
+        if (DepoWise.Web.Services.FieldChecks.ToUnixMs(_gunTo, endOfDay: true) is { } t) qs.Add("toDate=" + t);
         var araclar = _seciliAraclar?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new List<string>();
         if (araclar.Count > 0) qs.Add("vehicleIds=" + Uri.EscapeDataString(string.Join(",", araclar)));
         return qs;

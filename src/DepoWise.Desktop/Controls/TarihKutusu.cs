@@ -215,7 +215,10 @@ public class TarihKutusu : UserControl
     private void TakvimdenSecildi(object? gonderen, SelectionChangedEventArgs e)
     {
         if (_takvim.SelectedDate is not { } d) return;
-        SelectedDate = new DateTimeOffset(d.Date, TimeSpan.Zero);
+        // Takvim bugünü Kind=Local verebilir (kutu boşken TakvimiAcKapa DateTime.Today atar). Local bir
+        // DateTime'ı TimeSpan.Zero ile DateTimeOffset'e çevirmek TR'de (UTC+3) ArgumentException atar ve
+        // yakalanmadığı için UYGULAMAYI KAPATIYORDU (2026-09-21 olay günlüğü). Kind nötrlenir; gün aynen kalır.
+        SelectedDate = new DateTimeOffset(DateTime.SpecifyKind(d.Date, DateTimeKind.Unspecified), TimeSpan.Zero);
         MetniTazele();
         _acilir.IsOpen = false;
     }

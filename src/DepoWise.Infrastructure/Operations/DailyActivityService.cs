@@ -71,10 +71,15 @@ public sealed record DailyActivityGridRow(
     string Id, long DateRaw, string Type, string Vehicle, string Route, string Operator, string Duration,
     string Description, string? MaintenanceId, bool IsCancelled = false,
     long Version = 0, string? OperatorId = null, int? DurationDays = null,   // İş #5: metadata düzenleme formu + kilit
-    decimal MaterialQty = 0m)                                               // 2026-09-04: kullanılan malzeme miktarı
+    decimal MaterialQty = 0m,                                               // 2026-09-04: kullanılan malzeme miktarı
+    string? Materials = null)                                               // 2026-09-30: kullanılan malzemeler (ayrıntılı)
 {
     /// <summary>İptal edilen faaliyet listede ayırt edilir (kullanıcı kararı K3).</summary>
     public string StatusText => IsCancelled ? "İptal edildi" : "";
+
+    /// <summary>Kullanılan malzemeler ayrı ayrı — "Yağ Filtresi (F-12) 1 Adet · Motor Yağı (Y-5) 5 Litre"
+    /// (kullanıcı isteği 2026-09-30; <see cref="KullanilanMalzemeler"/>). Malzemesiz kayıtta "—".</summary>
+    public string MaterialsText => string.IsNullOrEmpty(Materials) ? "—" : Materials!;
 
     /// <summary>Kullanılan malzeme miktarı. Hareket/transfer kayıtlarında malzeme olmadığı için "—".</summary>
     public string MaterialQtyText => MaterialQty <= 0 ? "—" : MaterialQty.ToString("0.##");
@@ -99,7 +104,9 @@ public sealed record DailyActivityGridFilter(
     /// <summary>⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): ÇOKLU araç seçimi. Boş/null → süzme yok
     /// (bugünkü davranış). Metin bazlı <see cref="Vehicle"/> filtresinden AYRIDIR: bu, araç
     /// KİMLİKLERİYLE kesin süzer (Araçlar ekranındaki çoklu seçim deseninin aynısı).</summary>
-    IReadOnlyList<string>? VehicleIds = null);
+    IReadOnlyList<string>? VehicleIds = null,
+    /// <summary>2026-09-30: kullanılan malzemeler — malzeme KODU veya ADI içinde "içerir" araması.</summary>
+    string? Materials = null);
 
 /// <summary>
 /// Günlük faaliyet — bakım tipi ORTAK MaintenanceService'i kullanır: TEK bakım kaydı + TEK stok düşümü;
@@ -372,7 +379,11 @@ SELECT da.id AS id,
        -- Bakım/ilave kayıtları maintenance_id ile ortak bakım kaydına bağlıdır; hareket/transferde boş kalır.
        -- Derived-table deseni: alias burada üretilir ki kolon FİLTRELENEBİLSİN (list-screens.md kural 1).
        -- Bilinçli olarak SONA eklendi: mevcut okuyucu indeksleri (0..12) kaymasın.
-       COALESCE(mmq.miktar, 0) AS material_qty
+       COALESCE(mmq.miktar, 0) AS material_qty,
+       -- 2026-09-30 (kullanıcı isteği): kullanılan malzemelerin KOD+AD metni — yalnız FİLTRE içindir
+       -- (ekrandaki Ad (Kod) Miktar Birim metni C# tarafında, decimal ile üretilir: KullanilanMalzemeler).
+       -- GROUP_CONCAT → PostgreSQL'de string_agg (SqlDialect.PortableSql). Sona eklendi: indeksler kaymaz.
+       COALESCE(mmt.ara, '') AS materials_search
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
@@ -382,6 +393,11 @@ LEFT JOIN (
     SELECT maintenance_id, SUM(CAST(quantity AS REAL)) AS miktar
     FROM maintenance_materials GROUP BY maintenance_id
 ) mmq ON mmq.maintenance_id = da.maintenance_id
+LEFT JOIN (
+    SELECT mm2.maintenance_id, GROUP_CONCAT(m2.code || ' ' || m2.name, ' | ') AS ara
+    FROM maintenance_materials mm2 JOIN materials m2 ON m2.id = mm2.material_id
+    GROUP BY mm2.maintenance_id
+) mmt ON mmt.maintenance_id = da.maintenance_id
 WHERE da.company_id = @c";
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama + sıralama + Excel'e aktar (kullanıcı isteği
@@ -430,6 +446,7 @@ WHERE da.company_id = @c";
             (DailyActivityListColumns.Operator, new GridQuery.ColumnFilter("t.operator_text", filter.Operator)),
             (DailyActivityListColumns.Duration, new GridQuery.ColumnFilter("t.duration_text", filter.Duration)),
             (DailyActivityListColumns.MaterialQty, new GridQuery.ColumnFilter("t.material_qty", filter.MaterialQty, GridQuery.ColumnKind.Numeric, "t.material_qty")),
+            (DailyActivityListColumns.Materials, new GridQuery.ColumnFilter("t.materials_search", filter.Materials)),
             (DailyActivityListColumns.Description, new GridQuery.ColumnFilter("t.description", filter.Description)),
         };
         var cols = System.Array.ConvertAll(byKey, x => x.Col);
@@ -443,7 +460,7 @@ WHERE da.company_id = @c";
         // önceliği burada anlamsız — tarih her zaman kazanır).
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
         // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubede işlenen (+ şubesiz eski) faaliyetler; Tüm Şubeler → hepsi.
-        var inner = GridInnerSql + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id")
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql) + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id")
             + TipYetkisiSql(s)   // 2026-09-03: kayıt tipi yetkisi — kısıtlı kullanıcı yalnız izinli tipleri görür
             // ⭐ ARA İŞ 4 / PK-CR-10=A: iş günü aralığı SQL'de süzülür (bellekte kesme YOK).
             + (fromDateMs is not null ? " AND da.activity_date >= @crFrom" : "")
@@ -489,6 +506,12 @@ WHERE da.company_id = @c";
                     r.IsDBNull(12) ? null : (int?)Convert.ToInt32(r.GetValue(12)),
                     r.IsDBNull(13) ? 0m : Convert.ToDecimal(r.GetValue(13))));
         }
+        // 2026-09-30: yalnız BU SAYFANIN bakım kayıtları için tek ek sorgu (N+1 yok) → ayrıntılı malzeme metni.
+        var metinler = KullanilanMalzemeler.BakimlarIcin(conn, s.CompanyId, items.Select(x => x.MaintenanceId));
+        if (metinler.Count > 0)
+            for (int i = 0; i < items.Count; i++)
+                if (items[i].MaintenanceId is { } mid && metinler.TryGetValue(mid, out var metin))
+                    items[i] = items[i] with { Materials = metin };
         return new GridResult<DailyActivityGridRow>(items, total, page, pageSize);
     }
 
@@ -514,7 +537,7 @@ WHERE da.company_id = @c";
         var body = rows.Select(r => (IReadOnlyList<object?>)new object?[]
         {
             // Sıra DailyActivityListColumns.All ile AYNI olmalı (başlıklar oradan geliyor).
-            r.DateText, r.Type, r.Vehicle, r.Route, r.Operator, r.Duration, r.MaterialQtyText, r.Description,
+            r.DateText, r.Type, r.Vehicle, r.Route, r.Operator, r.Duration, r.MaterialQtyText, r.MaterialsText, r.Description,
         }).ToList();
         return new Application.Reports.TableModel("Günlük Faaliyet", headers, body);
     }

@@ -150,8 +150,13 @@
                 <MudSimpleTable Dense="true" Bordered="true">
                     <thead><tr><th>KOD</th><th>MALZEME</th><th>STOK</th></tr></thead>
                     <tbody>
-                        @foreach (var m in _malzemeler)
-                        { <tr><td>@Str(m, "code")</td><td>@Str(m, "name")</td><td>@Str(m, "quantity")</td></tr> }
+                        @* Kategori grupları (kullanıcı isteği 2026-09-30) — masaüstü paneliyle aynı sıra: ada göre, "Kategorisiz" en sonda. *@
+                        @foreach (var g in MalzemeGruplari())
+                        {
+                            <tr><td colspan="3" style="font-weight:600;background:var(--mud-palette-background-gray)">@g.Key (@g.Count())</td></tr>
+                            @foreach (var m in g.OrderBy(x => Str(x, "code"), TrSira))
+                            { <tr><td>@Str(m, "code")</td><td>@Str(m, "name")</td><td>@Str(m, "quantity")</td></tr> }
+                        }
                     </tbody>
                 </MudSimpleTable>
             }
@@ -239,6 +244,13 @@
     // pencere yine açılır (kullanıcı bilgi formunu kaybetmez).
     private bool _sekmeYukleniyor = true;
     private List<JsonElement> _malzemeler = new(), _bakimlar = new();
+
+    private static readonly StringComparer TrSira = StringComparer.Create(new System.Globalization.CultureInfo("tr-TR"), true);
+
+    /// <summary>Uyumlu malzemeler kategoriye göre (API <c>categoryText</c> verir; eski API'de alan yoksa hepsi "Kategorisiz").</summary>
+    private IEnumerable<IGrouping<string, JsonElement>> MalzemeGruplari() => _malzemeler
+        .GroupBy(m => Str(m, "categoryText") is { Length: > 0 } k && k != "—" ? k : "Kategorisiz")
+        .OrderBy(g => g.Key == "Kategorisiz" ? 1 : 0).ThenBy(g => g.Key, TrSira);
 
     private async Task SekmeVerileriniYukle()
     {

@@ -662,6 +662,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 
         try
         {
+            if (IsEditing) { await SaveCorrection(note, inv, ord, crd, op); return; }   // 2026-09-30: düzeltme
             if (IsNew)
             {
                 if (Quantity < 0) { FormError = "Eklenecek stok negatif olamaz."; return; }
@@ -847,9 +848,103 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
     }
 
+    // ══════════════ GİRİŞ-ÇIKIŞ DÜZELTME (kullanıcı isteği 2026-09-30) ══════════════
+    // "Düzenle" formu kaydın değerleriyle doldurur; Kaydet → gerekçe sorulur → sunucu TEK transaction'da eski
+    // kaydı iptal edip düzeltilmiş yenisini yazar (StockService.CorrectDocument). Stok defterine ÜZERİNE YAZMA
+    // yoktur. Yalnız bu ekrandan/Günlük Faaliyet'ten doğan giriş-çıkışlar; diğer modüllerin kayıtları o
+    // modülün ekranına yönlendirilir (gerekçe sunucudan gelir — iki yerde kural yazılmaz).
+
+    /// <summary>Düzeltilen belge — doluysa form DÜZELTME modundadır.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditing))]
+    [NotifyPropertyChangedFor(nameof(KindSelectable))]
+    [NotifyPropertyChangedFor(nameof(EditBanner))]
+    [NotifyPropertyChangedFor(nameof(SaveText))]
+    private StockDocumentForEdit? _editingDoc;
+    public bool IsEditing => EditingDoc is not null;
+    /// <summary>Düzeltmede kayıt tipi/çıkış türü DEĞİŞTİRİLEMEZ (girişi çıkışa çevirmek düzeltme değil yeni kayıttır).</summary>
+    public bool KindSelectable => EditingDoc is null;
+    public string EditBanner => EditingDoc is null ? "" :
+        $"DÜZELTME: {EditingDoc.DocNo} — Kaydet'e basınca eski kayıt iptal edilir ve düzeltilmiş yeni kayıt oluşur. " +
+        "Stok, raporlar ve maliyet merkezi yeni kayda göre güncellenir.";
+    public string SaveText => EditingDoc is null ? "Kaydet" : "Düzeltmeyi Kaydet";
+
+    [RelayCommand]
+    private async Task EditMovement(StockMovementRow? row)
+    {
+        if (row?.DocumentId is null) return;
+        if (!CanReverse || !CanWrite) { Status = "Düzenleme yetkiniz yok."; return; }
+        StockDocumentForEdit doc;
+        try { doc = DesktopServices.Stock.GetDocumentForEdit(_session, row.DocumentId); }
+        catch (Exception ex) { Status = "Kayıt açılamadı: " + ex.Message; return; }
+        if (!doc.CanEdit) { await ConfirmService.AskAsync(doc.BlockedReason!, "Düzenlenemez", "Tamam", "Kapat"); return; }
+        if (doc.DocType == "in" && doc.Lines.Count != 1)
+        { Status = "Çok malzemeli giriş belgesi bu ekrandan düzeltilemez."; return; }
+        if (!await ConfirmService.AskAsync($"{doc.DocNo} kaydını düzenlemek istiyor musunuz?", "Düzenle")) return;
+
+        ClearForm();
+        SelectedKind = doc.DocType == "in" ? "Yeni Kayıt" : "Depo Çıkışı";
+        if (doc.DocType == "out") ExitScope = "Şube İçi";
+        if (doc.DocType == "in")
+        {
+            var l = doc.Lines[0];
+            PickMaterial(new MaterialRefRow(l.MaterialId, l.Code, l.Name));
+            Quantity = l.Quantity;
+            UnitPrice = l.UnitPrice ?? 0;
+        }
+        else
+        {
+            foreach (var l in doc.Lines) ExitLines.Add(new ExitLine(l.MaterialId, l.Code, l.Name, l.Quantity));
+            NotifyExitLines();
+        }
+        DocDate = new DateTimeOffset(DateTimeOffset.FromUnixTimeMilliseconds(doc.DocDate).UtcDateTime.Date, TimeSpan.Zero);
+        Note = doc.Note ?? ""; InvoiceNo = doc.InvoiceNo ?? ""; OrderSlipNo = doc.OrderSlipNo ?? ""; CreditSlipNo = doc.CreditSlipNo ?? "";
+        PersonnelSel = Personnel.FirstOrDefault(p => p.Id == doc.PersonnelId);
+        VehicleSel = Vehicles.FirstOrDefault(v => v.Id == doc.VehicleId);
+        FormCostCenter = CostCenterOptions.FirstOrDefault(c => c.Id == doc.CostCenterId);
+        EditingDoc = doc;
+        Status = $"{doc.DocNo} düzeltme için forma yüklendi.";
+    }
+
+    private async Task SaveCorrection(string? note, string? inv, string? ord, string? crd, string op)
+    {
+        var doc = EditingDoc!;
+        List<StockLine> lines;
+        if (doc.DocType == "in")
+        {
+            if (!HasMaterial) { FormError = "Düzeltmede mevcut bir malzeme seçin."; return; }
+            if (Quantity <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
+            lines = new() { new StockLine(SelectedMaterial!.Id, Quantity, UnitPrice > 0 ? UnitPrice : null) };
+        }
+        else
+        {
+            lines = BuildExitLines();
+            if (lines.Count == 0) { FormError = "Malzeme seçin (ya da listeye ekleyin)."; return; }
+        }
+        var gerekce = await ConfirmService.AskReasonAsync(
+            $"{doc.DocNo} düzeltilecek.\n\nEski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; stok bakiyesi, " +
+            "raporlar ve maliyet merkezi buna göre güncellenir. Düzeltme stoğu eksiye düşürecekse kaydedilmez.",
+            "Kayıt Düzeltme", "Düzeltme gerekçesi", "Evet, Düzelt");
+        if (gerekce is null) return;
+
+        var res = DesktopServices.Stock.CorrectDocument(_session, doc.Id,
+            new StockCorrection(lines, doc.BranchId, PersonnelSel?.Id, VehicleSel?.Id, note,
+                IsGunuTarihi.Ms(DocDate), inv, ord, crd), op, gerekce);
+        // Maliyet merkezi sunucuda yeni kayda TAŞINDI; kullanıcı formda değiştirdiyse güncellenir.
+        if (CanPickCostCenter && FormCostCenter?.Id != doc.CostCenterId)
+        {
+            try { DesktopServices.CostCenters.Link(_session, "stock_document", res.DocumentId, FormCostCenter?.Id); }
+            catch (Exception ex) { Status = "Düzeltme kaydedildi; maliyet merkezi güncellenemedi: " + ex.Message; }
+        }
+        Status = $"Kayıt düzeltildi: {doc.DocNo} iptal edildi, yeni kayıt {res.DocNo}.";
+        ClearForm();
+        Load();
+    }
+
     [RelayCommand]
     private void ClearForm()
     {
+        EditingDoc = null;   // düzeltme modundan çık (kalıntı bırakma)
         SelectedMaterial = null; MaterialSearch = ""; BalanceText = ""; _pickedDetail = null;
         Code = ""; Name = ""; NewType = "Yedek Parça";
         SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;

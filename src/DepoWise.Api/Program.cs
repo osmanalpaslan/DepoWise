@@ -1309,14 +1309,14 @@ app.MapGet("/api/daily/allowed-types", (HttpContext c) =>
 // dokunulmadı. "Tarih" filtre almaz — yalnız sıralanır.
 app.MapGet("/api/daily/grid", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
-    string? materialQty,
+    string? materialQty, string? materials,   // 2026-09-30: kullanılan malzemeler (kod/ad içerir)
     int page, int pageSize, string? sort, bool? desc, bool? includeCancelled,
     // ⭐ FAZ 4.9 (kullanıcı isteği 2026-09-06): tarih aralığı + ÇOKLU araç (virgülle ayrılmış kimlikler).
     long? fromDate, long? toDate, string? vehicleIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty,
-        AracIdListesi(vehicleIds));
+        AracIdListesi(vehicleIds), materials);
     // K3 (2026-08-09): iptal edilen faaliyetler varsayılan GİZLİ; yalnız "İptal edilenleri göster" kutusu ile gelir.
     var res = svc.DailyActivity.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
         string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true, fromDate, toDate);
@@ -1328,12 +1328,12 @@ app.MapGet("/api/daily/grid", (HttpContext c,
 // Günlük Faaliyet Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. materials/grid/export (aynı desen).
 app.MapGet("/api/daily/grid/export", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
-    string? materialQty,
+    string? materialQty, string? materials,
     string? sort, bool? desc, bool? includeCancelled, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
-    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty);
+    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description, materialQty, Materials: materials);
     // Excel ekrandaki AYNI kümeyi verir: "İptal edilenleri göster" işaretliyse iptaller de dışa aktarılır.
     var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true);
     return TabloCikti(c, DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows), format, "GunlukFaaliyet");
@@ -2518,6 +2518,24 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
     if (string.IsNullOrWhiteSpace(d.DocumentId)) throw new ArgumentException("Belge yok.");
     svc.Stock.ReverseDocument(s, d.DocumentId, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason);
     return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ── GİRİŞ-ÇIKIŞ DÜZELTME (2026-09-30): form ön-doldurma + tek transaction'da iptal+yeni kayıt ──
+// Kapılar serviste (StockService.GetDocumentForEdit / CorrectDocument); başka modülden doğan belge reddedilir.
+app.MapGet("/api/stock/documents/{id}/edit", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Stock.GetDocumentForEdit(s, id)) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPost("/api/stock/documents/{id}/correct", (HttpContext c, string id, StockCorrectDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var lines = (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Materials.StockLine(l.MaterialId, l.Quantity, l.UnitPrice)).ToList();
+    var res = svc.Stock.CorrectDocument(s, id,
+        new DepoWise.Infrastructure.Materials.StockCorrection(lines, d.BranchId, d.PersonnelId, d.VehicleId, d.Note, d.DocDate,
+            d.InvoiceNo, d.OrderSlipNo, d.CreditSlipNo),
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.Reason ?? "");
+    // Maliyet merkezi sunucuda yeni kayda taşındı; kullanıcı formda değiştirdiyse güncellenir (MLY-01).
+    if (d.CostCenterChanged) svc.CostCenters.Link(s, "stock_document", res.DocumentId, d.CostCenterId);
+    return Results.Ok(new { documentId = res.DocumentId, docNo = res.DocNo });
 }).RequireAuthorization();
 
 // ── Modül kataloğu (yetki matrisi için) ──
@@ -4199,6 +4217,8 @@ app.MapGet("/api/fuel/summary", (HttpContext c) =>
         currentPrice = svc.Fuel.GetCurrentFuelPrice(s),
         totalReceived = received,
         totalDistributed = distributed,
+        // 2026-09-30 (kullanıcı isteği): aylık gruplu özet — tüm kayıtlardan, sunucuda hesaplanır.
+        months = svc.Fuel.MonthlySummary(s).Months,
     });
 }).RequireAuthorization();
 app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
@@ -5195,6 +5215,10 @@ record StockLineDto(string MaterialId, decimal Quantity);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null, string? CostCenterId = null);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
 record StockReverseDto(string DocumentId, string? Reason);
+record StockCorrectLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null);
+record StockCorrectDto(List<StockCorrectLineDto>? Lines, string? BranchId, string? PersonnelId, string? VehicleId, string? Note,
+    long? DocDate, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, string? OperationId, string? Reason,
+    string? CostCenterId = null, bool CostCenterChanged = false);
 /// <summary>STK-08 — ATANMAMIŞ stok dağıtımı. KAYNAK ALANI YOKTUR: kaynak daima ATANMAMIŞ'tır
 /// (istemcinin kaynak göndermesine izin verilmez — KARAR T-1).</summary>
 record StockDistributeDto(string? ToLocationId, List<StockLineDto>? Lines, string? OperationId, string? Note,

@@ -1486,7 +1486,8 @@ SELECT da.activity_date, da.activity_type, COALESCE(da.movement_kind,'') AS kind
        vm.performed_km, vm.performed_hour, vm.performed_date,
        COALESCE(mm.kalem,0) AS material_count,
        COALESCE(mm.tutar,0) AS material_cost,
-       COALESCE(mm.miktar,0) AS material_qty
+       COALESCE(mm.miktar,0) AS material_qty,
+       da.maintenance_id AS maintenance_id   -- 2026-09-30: ayrıntılı malzeme metni için (sona eklendi)
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
@@ -1525,6 +1526,7 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();
+        var bakimIdleri = new List<string?>();   // 2026-09-30: satır başına bakım kimliği (malzeme metni için)
         double tGun = 0, tTutar = 0, tMiktar = 0;
         int tKalem = 0;
         using (var r = cmd.ExecuteReader())
@@ -1555,6 +1557,7 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
                 var tanim = r.GetString(10);
                 if (altTanim.Length > 0) tanim = tanim.Length > 0 ? $"{tanim} / {altTanim}" : altTanim;
 
+                bakimIdleri.Add(r.IsDBNull(19) ? null : r.GetString(19));   // 2026-09-30
                 rows.Add(new object?[]
                 {
                     DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).UtcDateTime.ToString("dd.MM.yyyy", Tr),
@@ -1565,19 +1568,25 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
                     r.GetString(6), r.GetString(7),
                     Num(gun, x => x.ToString("0.##", Tr)),
                     tanim, r.GetString(12), yapilma,
-                    kalem == 0 ? "" : Num(kalem, x => x.ToString("0", Tr)),
+                    "",   // KULLANILAN MALZEMELER — döngüden sonra doldurulur (KullanilanMalzemeler, tek kaynak)
                     miktar == 0 ? "" : Num(miktar, x => x.ToString("0.##", Tr)),
                     tutar == 0 ? "" : Num(tutar, x => x.ToString("#,##0.##", Tr)),
                     r.GetString(9),
                 });
             }
 
-        var numeric = new[] { false, false, false, false, false, false, false, true, false, false, false, true, true, true, false };
+        // 2026-09-30 (kullanıcı isteği): "Malzeme Kalemi" SAYISI yerine kullanılan malzemeler AYRI AYRI.
+        // Tek ek sorgu (N+1 yok); okuyucu KAPANDIKTAN sonra çalışır (aynı bağlantıda eşzamanlı okuyucu yok).
+        var malzemeMetni = DepoWise.Infrastructure.Operations.KullanilanMalzemeler.BakimlarIcin(conn, companyId, bakimIdleri);
+        for (int i = 0; i < rows.Count; i++)
+            if (bakimIdleri[i] is { } mid && malzemeMetni.TryGetValue(mid, out var metin)) ((object?[])rows[i])[11] = metin;
+
+        var numeric = new[] { false, false, false, false, false, false, false, true, false, false, false, false, true, true, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
             "TOPLAM", $"{rows.Count} kayıt", "", "", "", "", "",
             Num(tGun, x => x.ToString("0.##", Tr)), "", "", "",
-            Num(tKalem, x => x.ToString("0", Tr)),
+            "",
             Num(tMiktar, x => x.ToString("0.##", Tr)),
             Num(tTutar, x => x.ToString("#,##0.##", Tr)), "",
         };
@@ -1585,7 +1594,7 @@ WHERE da.company_id = @c AND da.is_deleted = 0"
         return new TableModel("Günlük Faaliyet — Detay", new[]
         {
             "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)",
-            "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti", "Açıklama",
+            "Bakım Tanımı", "Teknisyen", "Yapılma", "Kullanılan Malzemeler", "Malzeme Miktarı", "Parça Maliyeti", "Açıklama",
         }, rows, numeric, totalRow);
     }
 
@@ -1656,6 +1665,7 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
 
         var rows = new List<IReadOnlyList<object?>>();
         long tKayit = 0, tBakim = 0, tYag = 0, tFiltre = 0, tTamir = 0, tHareket = 0, tTransfer = 0, tKalem = 0;
+        var aracKodlari = new List<string>();   // 2026-09-30: satır → araç kodu (malzeme metni eşlemesi)
         double tGun = 0, tTutar = 0, tMiktar = 0;
 
         string Tarih(object? v) => v is null || v == DBNull.Value
@@ -1665,6 +1675,7 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
             while (r.Read())
             {
                 var kod = r.GetString(0);
+                aracKodlari.Add(kod);
                 var plaka = r.GetString(1);
                 long kayit = Convert.ToInt64(r.GetValue(2)), bakim = Convert.ToInt64(r.GetValue(3));
                 long yag = Convert.ToInt64(r.GetValue(4)), filtre = Convert.ToInt64(r.GetValue(5));
@@ -1691,7 +1702,7 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
                     Num(hareket, x => x.ToString("0", Tr)),
                     Num(transfer, x => x.ToString("0", Tr)),
                     Num(gun, x => x.ToString("0.##", Tr)),
-                    Num(kalem, x => x.ToString("0", Tr)),
+                    "",   // KULLANILAN MALZEMELER — döngüden sonra doldurulur (araç bazında toplam)
                     Num(miktar, x => x.ToString("0.##", Tr)),
                     Num(tutar, x => x.ToString("#,##0.##", Tr)),
                     Tarih(r.IsDBNull(12) ? null : r.GetValue(12)),
@@ -1699,7 +1710,13 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
                 });
             }
 
-        var numeric = new[] { false, false, true, true, true, true, true, true, true, true, true, true, true, false, false };
+        // 2026-09-30 (kullanıcı isteği): "Malzeme Kalemi" SAYISI yerine araç bazında kullanılan malzemeler
+        // AYRI AYRI (dönem toplamı). Filtreler ana sorguyla BİREBİR aynı parçalardan kurulur → iki sorgu tutarlı.
+        var aracMalzeme = DonemMalzemeleri(conn, s, req, companyId);
+        for (int i = 0; i < rows.Count; i++)
+            if (aracMalzeme.TryGetValue(aracKodlari[i], out var metin)) ((object?[])rows[i])[10] = metin;
+
+        var numeric = new[] { false, false, true, true, true, true, true, true, true, true, false, true, true, false, false };
         var totalRow = rows.Count == 0 ? null : new object?[]
         {
             "TOPLAM", $"{rows.Count} araç",
@@ -1707,15 +1724,54 @@ ORDER BY " + DonemSiralama(req.SortKey) + "vehicle_code ASC LIMIT @lim;";
             Num(tYag, x => x.ToString("0", Tr)), Num(tFiltre, x => x.ToString("0", Tr)),
             Num(tTamir, x => x.ToString("0", Tr)), Num(tHareket, x => x.ToString("0", Tr)),
             Num(tTransfer, x => x.ToString("0", Tr)), Num(tGun, x => x.ToString("0.##", Tr)),
-            Num(tKalem, x => x.ToString("0", Tr)), Num(tMiktar, x => x.ToString("0.##", Tr)),
+            "", Num(tMiktar, x => x.ToString("0.##", Tr)),
             Num(tTutar, x => x.ToString("#,##0.##", Tr)), "", "",
         };
 
         return new TableModel("Günlük Faaliyet — Dönem (Toplam)", new[]
         {
             "Araç Kodu", "Plaka", "Kayıt", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Hareket", "Transfer",
-            "Süre (gün)", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt",
+            "Süre (gün)", "Kullanılan Malzemeler", "Malzeme Miktarı", "Parça Maliyeti", "İlk Kayıt", "Son Kayıt",
         }, rows, numeric, totalRow);
+    }
+
+    /// <summary>
+    /// 2026-09-30 — Dönem raporu için ARAÇ BAZINDA kullanılan malzemeler (araç kodu → metin; araçsız = "").
+    /// Filtreler <see cref="DailyActivitySummary"/> ana sorgusuyla AYNI parçalardan kurulur (şube, tarih,
+    /// araç listesi, kayıt tipi, iptal hariç) — iki sorgu aynı kayıt kümesini okur. Metin biçimi ve decimal
+    /// toplama <see cref="DepoWise.Infrastructure.Operations.KullanilanMalzemeler"/>'den (tek kaynak).
+    /// </summary>
+    private static Dictionary<string, string> DonemMalzemeleri(DbConnection conn, SessionContext s, ReportRequest req, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT COALESCE(v.internal_code,'') AS vehicle_code, m.code, m.name, u.name, mm.quantity
+FROM daily_activities da
+LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
+JOIN maintenance_materials mm ON mm.maintenance_id = da.maintenance_id
+JOIN materials m ON m.id = mm.material_id AND m.company_id = da.company_id
+LEFT JOIN units u ON u.id = m.unit_id AND u.company_id = m.company_id
+WHERE da.company_id = @c AND da.is_deleted = 0"
+            + ReportScope.BranchSql(s, req, "da.op_branch_id")
+            + DateFilter(req, "da.activity_date")
+            + InList("da.vehicle_id", "@rv", req.VehicleIds)
+            + ActivityTypeSql(req.ActivityTypes) + ";";
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindActivityTypes(cmd, req.ActivityTypes);
+
+        var kalemler = new Dictionary<string, List<DepoWise.Infrastructure.Operations.KullanilanMalzemeler.Kalem>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var kod = r.GetString(0);
+                if (!kalemler.TryGetValue(kod, out var l)) kalemler[kod] = l = new();
+                l.Add(new DepoWise.Infrastructure.Operations.KullanilanMalzemeler.Kalem(
+                    r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), Money.Parse(r.GetString(4))));
+            }
+        return kalemler.ToDictionary(x => x.Key, x => DepoWise.Infrastructure.Operations.KullanilanMalzemeler.Metin(x.Value)!);
     }
 
     /// <summary>Dönem (toplam) raporu sıralaması — beyaz liste (bkz. <see cref="DetaySiralama"/>).</summary>

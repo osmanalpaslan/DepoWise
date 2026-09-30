@@ -1,5 +1,26 @@
 ﻿# AKTİF DURUM
 
+## ✅ 7 KULLANICI İSTEĞİ — Supabase taşımasından önce (2026-09-30) · masaüstü **1.0.190** (elle kurulum)
+
+> Sunucu kapalı (Neon compute kotası doldu, 2026-09-29) → paket sunucuya YAYINLANMADI; Masaüstü'ne
+> `Alpnex-Guncelleme-1.0.190` klasörü (app + current.txt + KURULUM-OKU.txt) olarak konuldu. API + Web kodu
+> hazır; canlıya çıkışı Supabase taşımasıyla birlikte (1 Ekim+). **Migration YOK.**
+
+| # | İstek | Çözüm |
+|---|---|---|
+| 1 | Günlük Faaliyet takvimine tıklayınca uygulama kapanıyor | Kök neden olay günlüğünden: `TarihKutusu.TakvimdenSecildi` — kutu boşken takvim `DateTime.Today` (Kind=Local) veriyordu, `new DateTimeOffset(local, Zero)` TR'de (UTC+3) `ArgumentException` → yakalanmayan istisna. Kind nötrlendi. Web'deki aynı kalıp (`Daily.razor`, `Maintenance.razor`) `FieldChecks.ToUnixMs`'e bağlandı. |
+| 2 | Uyumlu malzemeler kategorili | `MaterialsForVehicle` kategori yolunu ("Üst › Alt") döndürür; `MaterialStockGroups.Group` (Kategorisiz en sonda). Araç paneli (Expander grupları), hızlı düzenleme, web diyaloğu. |
+| 3 | Yakıt formu: Sayaç Farkı, Güncel Sayaç boş | Sayaç Farkı SALT OKUNUR (güncel − önceki, canlı); Güncel Sayaç boş başlar ve ZORUNLU; küçükse onay. `FuelMath` (Application, web'e link). |
+| 4 | Yakıt listesi: tüketim + sayaç farkı | `FuelDistributionRow.MeterDiffText/ConsumptionText` (+ `MeterUnit`); formül Yakıt Tüketim raporuyla AYNI (litre / fark, L/km · L/Saat). |
+| 5 | Giriş-Çıkış: kod + Düzenle | Listede KOD kolonu, aramada "KOD — AD". **Düzenle = `StockService.CorrectDocument`**: TEK transaction'da eski belge iptal (ters kayıt) + düzeltilmiş yeni belge; gerekçe zorunlu (denetim); stoğu ARTIRAN adım önce (ara adım negatif kalkanına takılmaz); maliyet merkezi bağı taşınır; fiyatı göremeyenin düzeltmesinde orijinal fiyat korunur; idempotent. **Kapsam (kullanıcı kararı): yalnız Giriş-Çıkış/Günlük Faaliyet kayıtları** — fatura (`:stock:`/invoices), satın alma (`po:`), iş emri (`wo:`/work_order_links), zimmet (`assign:`), talep (not "Talep: ") reddedilir, ekranına yönlendirilir. API: `GET /api/stock/documents/{id}/edit`, `POST …/correct`. |
+| 6 | Yakıt Özet: aylık gruplama | `FuelService.MonthlySummary` (son 12 ay, tüm kayıtlar, decimal): aylık toplam, haftalık/günlük ort. (takvim günü paydası), açılır haftalık + günlük döküm. `/api/fuel/summary` → `months`. |
+| 7 | Kullanılan malzemeler ayrı ayrı | `KullanilanMalzemeler` (tek kaynak, "Ad (Kod) Miktar Birim · …"). Günlük Faaliyet listesine "Kullanılan Malzemeler" kolonu (filtrelenebilir: `GROUP_CONCAT`→`string_agg`), Excel; iki Günlük Faaliyet raporunda "Malzeme Kalemi" SAYISI yerine bu metin (dönem raporunda araç bazında toplam). |
+
+**Test:** ilgili mevcut 866 test geçti (10 atlandı — PG) · yeni `KullaniciIstekleri20260930Tests` 11/11 · çözüm derlemesi 0 hata.
+**İlgisiz bulgu (değiştirilmedi):** Yakıt Özet'teki "Toplam Alınan/Dağıtılan" KPI'ları görünen sayfanın/son 200 kaydın
+toplamıdır (masaüstü + `/api/fuel/summary`); aylık tablo ise tüm kayıtlardan hesaplanır.
+**Sıradaki:** 1 Ekim+ Neon → Supabase taşıması → API + Web deploy → masaüstü 1.0.190'ı sunucuya yayınla.
+
 ## 🔔 SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07, yayından sonra sıraya alındı)
 
 > **Kullanıcı:** *"buton uyarı pencereleri, yeni gelen mesaj ve giden mesaj, … bir önceki

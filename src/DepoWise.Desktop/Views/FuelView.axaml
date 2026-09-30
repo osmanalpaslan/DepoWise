@@ -52,9 +52,14 @@
                                     <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"
                                                    FormatString="0.##" ShowButtonSpinner="False"/>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Güncel Sayaç" Width="140">
+                                <!-- 2026-09-30 (kullanıcı isteği): SALT OKUNUR — elle girilmez, güncel sayaçtan hesaplanır. -->
+                                <ctrl:FormField Label="Sayaç Farkı" Width="140" HelpText="Otomatik hesaplanır.">
+                                    <TextBox Classes="Field" Text="{Binding DistMeterDiffText, Mode=OneWay}" IsReadOnly="True"
+                                             Focusable="False" ToolTip.Tip="Güncel sayaç − önceki sayaç"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Güncel Sayaç" Width="140" IsRequired="True">
                                     <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
-                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                                   FormatString="0.##" ShowButtonSpinner="False" PlaceholderText="Sayacı girin"/>
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
@@ -181,6 +186,9 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                            <!-- 2026-09-30 (kullanıcı isteği): SAYAÇ FARKI + ORT. TÜKETİM — LİTRE'nin hemen ardından. -->
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
@@ -198,11 +206,14 @@
                                         <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
                                         <SelectableTextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
                                         <SelectableTextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="6" Text="BELGE NO" MinWidth="110" Margin="14,0,0,0"/>
-                                        <SelectableTextBlock Grid.Column="7" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="SAYAÇ FARKI" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="ORT. TÜKETİM" MinWidth="110" TextAlignment="Right"
+                                                             ToolTip.Tip="Litre / sayaç farkı (Yakıt Tüketim raporuyla aynı hesap)"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="6" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="7" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="8" Text="BELGE NO" MinWidth="110" Margin="14,0,0,0"/>
+                                        <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
@@ -213,6 +224,8 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
@@ -222,11 +235,13 @@
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding VehicleCode}"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <SelectableTextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
-                                                <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
-                                                <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
-                                                <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="6" Text="{Binding InvoiceDisplay}" MinWidth="110" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="7" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding MeterDiffText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding ConsumptionText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="6" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="7" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="8" Text="{Binding InvoiceDisplay}" MinWidth="110" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -374,6 +389,7 @@
 
             <!-- ═══════════ ÖZET ═══════════ -->
             <TabItem Header="Özet">
+                <ScrollViewer>
                 <StackPanel Margin="0,16,0,0" Spacing="16">
                     <WrapPanel>
                         <Border Classes="Kpi"><StackPanel VerticalAlignment="Center" Spacing="2">
@@ -391,7 +407,66 @@
                     </WrapPanel>
                     <SelectableTextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
                                Classes="Helper" TextWrapping="Wrap"/>
+
+                    <!-- 2026-09-30 (kullanıcı isteği): AYLIK GRUPLU DAĞITIM. Ay satırı: toplam + haftalık/günlük
+                         ortalama; açınca o ayın haftalık toplamları ve gün gün dağıtılan miktar. Tüm kayıtlardan. -->
+                    <SelectableTextBlock Text="Aylık Dağıtım (son 12 ay)" Classes="SectionTitle"/>
+                    <Border Classes="TableHeader">
+                        <Grid ColumnDefinitions="180,130,150,150,*">
+                            <SelectableTextBlock Grid.Column="0" Text="AY"/>
+                            <SelectableTextBlock Grid.Column="1" Text="AYLIK TOPLAM" TextAlignment="Right"/>
+                            <SelectableTextBlock Grid.Column="2" Text="HAFTALIK ORT." TextAlignment="Right"/>
+                            <SelectableTextBlock Grid.Column="3" Text="GÜNLÜK ORT." TextAlignment="Right"/>
+                            <SelectableTextBlock Grid.Column="4" Text="İŞLEM" Margin="16,0,0,0"/>
+                        </Grid>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding MonthlySummary}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="op:FuelMonthSummary">
+                                <Expander HorizontalAlignment="Stretch" Margin="0,0,0,4">
+                                    <Expander.Header>
+                                        <Grid ColumnDefinitions="164,130,150,150,*">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding MonthText}" FontWeight="SemiBold"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" TextAlignment="Right" FontWeight="SemiBold"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="{Binding WeeklyAverageText}" TextAlignment="Right"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="{Binding DailyAverageText}" TextAlignment="Right"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="{Binding CountText}" Margin="16,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Grid>
+                                    </Expander.Header>
+                                    <Grid ColumnDefinitions="*,24,*">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <SelectableTextBlock Text="Haftalık" Classes="Helper" FontWeight="SemiBold"/>
+                                            <ItemsControl ItemsSource="{Binding Weeks}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="op:FuelWeekSummary">
+                                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                            <SelectableTextBlock Grid.Column="0" Text="{Binding RangeText}"/>
+                                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" FontWeight="SemiBold"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="2">
+                                            <SelectableTextBlock Text="Günlük (yalnız dağıtım olan günler)" Classes="Helper" FontWeight="SemiBold"/>
+                                            <ItemsControl ItemsSource="{Binding Days}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="op:FuelDaySummary">
+                                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                            <SelectableTextBlock Grid.Column="0" Text="{Binding DayText}"/>
+                                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" FontWeight="SemiBold"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Grid>
+                                </Expander>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 
