@@ -220,10 +220,28 @@ public partial class VehicleQuickEditWindow : Window
             if (bos is not null) bos.IsVisible = satirlar.Count == 0;
         }
 
-        Doldur("MaterialsList", "MaterialsEmpty",
+        // 2026-09-30: bağımlı Ana → Alt kategori filtresi. Veri BİR KEZ okunur; süzme istemcide (MaterialStockGroups).
+        System.Collections.Generic.List<MaterialStock> malzemeler;
+        try { malzemeler = DesktopServices.Materials.MaterialsForVehicle(session, vehicleId).ToList(); }
+        catch { malzemeler = new(); }
+        var top = this.FindControl<ComboBox>("MatTop")!;
+        var sub = this.FindControl<ComboBox>("MatSub")!;
+        void Listele(string? t, string? a) => Doldur("MaterialsList", "MaterialsEmpty",
             // Kategori sırasıyla (araç panelindeki grupla AYNI sıra) ve satır başında kategori etiketiyle.
-            () => MaterialStockGroups.Group(DesktopServices.Materials.MaterialsForVehicle(session, vehicleId)).SelectMany(g => g.Items),
+            () => MaterialStockGroups.Group(MaterialStockGroups.Filter(malzemeler, t, a)).SelectMany(g => g.Items),
             m => $"[{m.CategoryText}]  {m.Code} — {m.Name}  ·  stok: {m.Quantity:0.##}");
+        top.ItemsSource = MaterialStockGroups.TopOptions(malzemeler);
+        top.SelectedIndex = 0;
+        sub.ItemsSource = MaterialStockGroups.SubOptions(malzemeler, null);
+        sub.SelectedIndex = 0;
+        top.SelectionChanged += (_, _) =>   // bağımlı liste: Ana değişince Alt yeniden kurulur, "Tümü"ye döner
+        {
+            sub.ItemsSource = MaterialStockGroups.SubOptions(malzemeler, top.SelectedItem as string);
+            sub.SelectedIndex = 0;
+        };
+        this.FindControl<Button>("MatQuery")!.Click += (_, _) => Listele(top.SelectedItem as string, sub.SelectedItem as string);
+        this.FindControl<Button>("MatClear")!.Click += (_, _) => { top.SelectedIndex = 0; Listele(null, null); };
+        Listele(null, null);
 
         Doldur("InspectionsList", "InspectionsEmpty",
             () => DesktopServices.Inspection.List(session).Where(x => x.VehicleCode == vehicleCode),

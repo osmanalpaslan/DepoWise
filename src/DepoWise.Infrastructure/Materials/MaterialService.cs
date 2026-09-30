@@ -37,6 +37,28 @@ public sealed record MaterialStockGroup(string Category, IReadOnlyList<MaterialS
 public static class MaterialStockGroups
 {
     public const string Uncategorized = "Kategorisiz";
+    public const string All = "Tümü";
+    private const string Sep = " › ";
+
+    // ── Bağımlı (Ana → Alt) kategori filtresi (kullanıcı isteği 2026-09-30) ──
+    // Liste zaten ekranda → filtre İSTEMCİDE uygulanır (sunucu/şema değişmez). Kategori yolu "Üst › Alt".
+    public static string TopOf(MaterialStock m) => m.CategoryText.Split(Sep)[0];
+    public static string? SubOf(MaterialStock m) { var p = m.CategoryText.Split(Sep); return p.Length > 1 ? p[1] : null; }
+
+    /// <summary>Ana kategori seçenekleri: "Tümü" + listedeki ana kategoriler (Kategorisiz en sonda).</summary>
+    public static IReadOnlyList<string> TopOptions(IEnumerable<MaterialStock> items)
+        => new[] { All }.Concat(Group(items).Select(g => g.Category.Split(Sep)[0]).Distinct()).ToList();
+
+    /// <summary>Seçili ana kategorinin alt kategorileri ("Tümü" + adlar). Ana "Tümü" ise yalnız "Tümü".</summary>
+    public static IReadOnlyList<string> SubOptions(IEnumerable<MaterialStock> items, string? top)
+        => string.IsNullOrEmpty(top) || top == All ? new[] { All }
+         : new[] { All }.Concat(items.Where(m => TopOf(m) == top).Select(SubOf).OfType<string>().Distinct()
+             .OrderBy(x => x, System.StringComparer.Create(new System.Globalization.CultureInfo("tr-TR"), true))).ToList();
+
+    /// <summary>Ana/alt kategoriye göre süzer; "Tümü"/boş = süzme yok.</summary>
+    public static IEnumerable<MaterialStock> Filter(IEnumerable<MaterialStock> items, string? top, string? sub)
+        => items.Where(m => (string.IsNullOrEmpty(top) || top == All || TopOf(m) == top)
+                         && (string.IsNullOrEmpty(sub) || sub == All || SubOf(m) == sub));
 
     /// <summary>Kategoriye göre gruplar: gruplar ada göre (Türkçe) sıralı, "Kategorisiz" en sonda;
     /// grup içi malzeme koduna göre.</summary>

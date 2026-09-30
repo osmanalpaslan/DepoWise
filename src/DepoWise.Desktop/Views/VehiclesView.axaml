@@ -756,6 +756,16 @@
                   <!-- UYUMLU MALZEMELER -->
                   <TabItem Header="Uyumlu Malzemeler">
                     <ScrollViewer>
+                      <StackPanel>
+                      <!-- 2026-09-30: bağımlı Ana → Alt kategori filtresi (hızlı düzenleme penceresiyle aynı). -->
+                      <WrapPanel Margin="0,8,0,0" ItemSpacing="10" LineSpacing="8">
+                        <StackPanel Spacing="4"><SelectableTextBlock Text="Ana Kategori" Classes="Helper"/>
+                          <ComboBox Width="200" ItemsSource="{Binding MatTopOptions}" SelectedItem="{Binding SelectedMatTop}"/></StackPanel>
+                        <StackPanel Spacing="4"><SelectableTextBlock Text="Alt Kategori / Tanım" Classes="Helper"/>
+                          <ComboBox Width="200" ItemsSource="{Binding MatSubOptions}" SelectedItem="{Binding SelectedMatSub}"/></StackPanel>
+                        <Button Classes="Primary" Content="Sorgula" Command="{Binding ApplyMatFilterCommand}" VerticalAlignment="Bottom"/>
+                        <Button Classes="Secondary" Content="Filtreleri Temizle" Command="{Binding ClearMatFilterCommand}" VerticalAlignment="Bottom"/>
+                      </WrapPanel>
                       <!-- Kategori grupları (kullanıcı isteği 2026-09-30): her kategori açılır başlık; içinde kod/ad/stok. -->
                       <ItemsControl ItemsSource="{Binding VehicleMaterials}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
@@ -776,6 +786,7 @@
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>
+                      </StackPanel>
                     </ScrollViewer>
                   </TabItem>
                   <!-- MUAYENE / SİGORTA -->

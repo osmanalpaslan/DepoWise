@@ -780,15 +780,44 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public ObservableCollection<MaintenanceRow> VehicleMaintenances { get; } = new();
     public ObservableCollection<MovementDisplay> VehicleMovements { get; } = new();
 
+    // ── 2026-09-30: bağımlı Ana → Alt kategori filtresi (Sorgula / Filtreleri Temizle). Veri araç
+    //    seçilince BİR KEZ okunur; süzme istemcide (MaterialStockGroups — hızlı düzenleme penceresiyle aynı).
+    private List<MaterialStock> _aracMalzemeleri = new();
+    public ObservableCollection<string> MatTopOptions { get; } = new();
+    public ObservableCollection<string> MatSubOptions { get; } = new();
+    [ObservableProperty] private string? _selectedMatTop;
+    [ObservableProperty] private string? _selectedMatSub;
+
+    partial void OnSelectedMatTopChanged(string? value)
+    {
+        MatSubOptions.Clear();
+        foreach (var s in MaterialStockGroups.SubOptions(_aracMalzemeleri, value)) MatSubOptions.Add(s);
+        SelectedMatSub = MaterialStockGroups.All;
+    }
+
+    private void MalzemeleriListele()
+    {
+        VehicleMaterials.Clear();
+        foreach (var g in MaterialStockGroups.Group(MaterialStockGroups.Filter(_aracMalzemeleri, SelectedMatTop, SelectedMatSub)))
+            VehicleMaterials.Add(g);
+    }
+
+    [RelayCommand] private void ApplyMatFilter() => MalzemeleriListele();
+    [RelayCommand] private void ClearMatFilter() { SelectedMatTop = MaterialStockGroups.All; MalzemeleriListele(); }
+
     private void ClearVehicleTabs()
     {
         VehicleMaterials.Clear(); VehicleInspections.Clear(); VehicleMaintenances.Clear(); VehicleMovements.Clear();
+        _aracMalzemeleri = new(); MatTopOptions.Clear(); MatSubOptions.Clear();   // önceki aracın filtre seçenekleri kalmasın
     }
 
     private void LoadVehicleTabs(string vehicleId, string code)
     {
         ClearVehicleTabs();
-        try { foreach (var g in MaterialStockGroups.Group(DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId))) VehicleMaterials.Add(g); } catch { }
+        try { _aracMalzemeleri = DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId).ToList(); } catch { _aracMalzemeleri = new(); }
+        MatTopOptions.Clear(); foreach (var t in MaterialStockGroups.TopOptions(_aracMalzemeleri)) MatTopOptions.Add(t);
+        SelectedMatTop = MaterialStockGroups.All;   // → OnSelectedMatTopChanged alt listeyi kurar
+        MalzemeleriListele();
         try { foreach (var i in DesktopServices.Inspection.List(_session).Where(x => x.VehicleCode == code)) VehicleInspections.Add(i); } catch { }
         try { foreach (var mt in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) VehicleMaintenances.Add(mt); } catch { }
 

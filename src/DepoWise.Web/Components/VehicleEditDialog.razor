@@ -147,11 +147,22 @@
             else if (_malzemeler.Count == 0) { <MudText Class="mud-text-secondary">Bu araca uyumlu malzeme tanımlanmamış.</MudText> }
             else
             {
+                @* 2026-09-30: bağımlı Ana → Alt kategori filtresi (masaüstüyle aynı; süzme istemcide). *@
+                <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" AlignItems="AlignItems.End" Class="mb-2">
+                    <MudSelect T="string" Label="Ana Kategori" Value="_katAna" ValueChanged="AnaDegisti" Dense="true" Style="min-width:200px">
+                        @foreach (var a in AnaSecenekler()) { <MudSelectItem T="string" Value="@a">@a</MudSelectItem> }
+                    </MudSelect>
+                    <MudSelect T="string" Label="Alt Kategori / Tanım" @bind-Value="_katAltSecim" Dense="true" Style="min-width:200px">
+                        @foreach (var a in AltSecenekler()) { <MudSelectItem T="string" Value="@a">@a</MudSelectItem> }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => { _katAnaUyg = _katAna; _katAltUyg = _katAltSecim; })">Sorgula</MudButton>
+                    <MudButton Variant="Variant.Outlined" OnClick="@(() => { _katAna = _katAnaUyg = _katAltSecim = _katAltUyg = "Tümü"; })">Filtreleri Temizle</MudButton>
+                </MudStack>
                 <MudSimpleTable Dense="true" Bordered="true">
                     <thead><tr><th>KOD</th><th>MALZEME</th><th>STOK</th></tr></thead>
                     <tbody>
                         @* Kategori grupları (kullanıcı isteği 2026-09-30) — masaüstü paneliyle aynı sıra: ada göre, "Kategorisiz" en sonda. *@
-                        @foreach (var g in MalzemeGruplari())
+                        @foreach (var g in MalzemeGruplari().Where(g => KatUygun(g.Key)))
                         {
                             <tr><td colspan="3" style="font-weight:600;background:var(--mud-palette-background-gray)">@g.Key (@g.Count())</td></tr>
                             @foreach (var m in g.OrderBy(x => Str(x, "code"), TrSira))
@@ -246,6 +257,17 @@
     private List<JsonElement> _malzemeler = new(), _bakimlar = new();
 
     private static readonly StringComparer TrSira = StringComparer.Create(new System.Globalization.CultureInfo("tr-TR"), true);
+
+    // 2026-09-30: bağımlı kategori filtresi. Grup anahtarı "Üst › Alt" yoludur; seçimler Sorgula'da uygulanır.
+    private string _katAna = "Tümü", _katAltSecim = "Tümü", _katAnaUyg = "Tümü", _katAltUyg = "Tümü";
+    private static string Ust(string yol) => yol.Split(" › ")[0];
+    private static string? Alt(string yol) { var p = yol.Split(" › "); return p.Length > 1 ? p[1] : null; }
+    private IEnumerable<string> AnaSecenekler() => new[] { "Tümü" }.Concat(MalzemeGruplari().Select(g => Ust(g.Key)).Distinct());
+    private IEnumerable<string> AltSecenekler() => _katAna == "Tümü" ? new[] { "Tümü" }
+        : new[] { "Tümü" }.Concat(MalzemeGruplari().Where(g => Ust(g.Key) == _katAna).Select(g => Alt(g.Key)).OfType<string>().Distinct());
+    private void AnaDegisti(string v) { _katAna = v; _katAltSecim = "Tümü"; }   // bağımlı: Ana değişince Alt sıfırlanır
+    private bool KatUygun(string yol) => (_katAnaUyg == "Tümü" || Ust(yol) == _katAnaUyg)
+                                         && (_katAltUyg == "Tümü" || Alt(yol) == _katAltUyg);
 
     /// <summary>Uyumlu malzemeler kategoriye göre (API <c>categoryText</c> verir; eski API'de alan yoksa hepsi "Kategorisiz").</summary>
     private IEnumerable<IGrouping<string, JsonElement>> MalzemeGruplari() => _malzemeler

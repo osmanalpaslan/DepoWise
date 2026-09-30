@@ -234,6 +234,25 @@ public class KullaniciIstekleri20260930Tests : IDisposable
     }
 
     [Fact]
+    public void Bagimli_kategori_filtresi_ana_secilince_alt_listesi_daralir()
+    {
+        var m = new[]
+        {
+            new MaterialStock("1", "S-10", "10 Amper", 1, "Elektrik › Sigorta"),
+            new MaterialStock("2", "R-1", "Röle", 1, "Elektrik › Röle"),
+            new MaterialStock("3", "F-1", "Filtre", 1, "Filtre"),
+            new MaterialStock("4", "V-1", "Vida", 1, null),
+        };
+        Assert.Equal(new[] { "Tümü", "Elektrik", "Filtre", "Kategorisiz" }, MaterialStockGroups.TopOptions(m));
+        Assert.Equal(new[] { "Tümü", "Röle", "Sigorta" }, MaterialStockGroups.SubOptions(m, "Elektrik"));
+        Assert.Equal(new[] { "Tümü" }, MaterialStockGroups.SubOptions(m, "Tümü"));
+        Assert.Equal(new[] { "1", "2" }, MaterialStockGroups.Filter(m, "Elektrik", "Tümü").Select(x => x.MaterialId));
+        Assert.Equal(new[] { "1" }, MaterialStockGroups.Filter(m, "Elektrik", "Sigorta").Select(x => x.MaterialId));
+        Assert.Equal(new[] { "4" }, MaterialStockGroups.Filter(m, "Kategorisiz", null).Select(x => x.MaterialId));
+        Assert.Equal(4, MaterialStockGroups.Filter(m, null, null).Count());
+    }
+
+    [Fact]
     public void Kullanilan_malzemeler_ayri_ayri_ve_ayni_malzeme_toplanir()
     {
         var metin = KullanilanMalzemeler.Metin(new[]

@@ -79,6 +79,15 @@
                  ekleme/silme kendi ekranlarında yapılır (bu pencere bir GÖRÜNTÜLEME penceresidir). -->
             <TabItem Header="Uyumlu Malzemeler">
               <DockPanel>
+                <!-- 2026-09-30: bağımlı kategori filtresi — Ana seçilince Alt listesi yalnız onun alt kategorileri. -->
+                <WrapPanel DockPanel.Dock="Top" Margin="0,8,0,0" ItemSpacing="10" LineSpacing="8">
+                  <StackPanel Spacing="4"><SelectableTextBlock Text="Ana Kategori" Classes="Helper"/>
+                    <ComboBox x:Name="MatTop" Width="220"/></StackPanel>
+                  <StackPanel Spacing="4"><SelectableTextBlock Text="Alt Kategori / Tanım" Classes="Helper"/>
+                    <ComboBox x:Name="MatSub" Width="220"/></StackPanel>
+                  <Button x:Name="MatQuery" Classes="Primary" Content="Sorgula" VerticalAlignment="Bottom"/>
+                  <Button x:Name="MatClear" Classes="Secondary" Content="Filtreleri Temizle" VerticalAlignment="Bottom"/>
+                </WrapPanel>
                 <SelectableTextBlock DockPanel.Dock="Top" x:Name="MaterialsEmpty" Classes="Helper" IsVisible="False"
                                      Text="Bu araca uyumlu malzeme tanımlanmamış." Margin="0,8,0,0"/>
                 <ListBox x:Name="MaterialsList" Classes="Table" Margin="0,8,0,0"/>
