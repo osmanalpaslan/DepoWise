@@ -1,5 +1,14 @@
 ﻿# AKTİF DURUM
 
+## ✅ 2026-10-01 akşam — uyarı düzeltmesi + tablo güncellemeleri YAYINDA (API bf5e20e · masaüstü 1.0.193)
+
+- **Uyarı:** bakım/muayene "en son kayıt" giriş zamanına değil yapıldığı noktaya göre (canlıda 21+1 grup eski uyarı tutuyordu).
+- **Tablolar:** ekran geneli sağ tık, belirgin sütun çizgisi (ColumnRuleBrush), başlık–filtre hizası, tasarım tüm tablolarda, rapor tablosunda kayıtlı genişlik.
+- **DB bağlantısı:** API Supabase **doğrudan** bağlantıya alındı (IPv6, `Maximum Pool Size=25`, DB max_connections 60).
+  Sebep: pooler adresinde 10'luk havuz yoğun eşitlemede tükendi → `/api/dashboard` 500. Yerel araçlar pooler adresini kullanır (PC'de IPv6 yok).
+- **Test:** tam takım 3.885/3.885 (58 dk) + sonraki değişiklikler için ilgili 821 test.
+
+
 ## ✅ ÜRETİM VERİTABANI TAŞINDI: Neon → Supabase (2026-10-01) · API 512 MB · masaüstü 1.0.191 sunucuda
 
 - **Neden:** Neon ücretsiz compute kotası ~17.09'da doldu (masaüstü 15 sn yoklaması DB'yi hiç uyutmuyordu) → API çöktü.
