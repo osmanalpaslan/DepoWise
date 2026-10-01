@@ -273,6 +273,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         // Ortak tablonun kişisel tercih kancaları — kalıcılık DesktopServices.ListPrefs (yerel SQLite, kişiye özel).
         // GridKey rapor bazlı: her rapor kendi kolon sırası/genişliği/gizli/sıralamasını hatırlar. Ekran açılışında
         // TEK yükleme (GetAll — tek sorgu); değişince ilgili alan yazılır (performans kuralı).
+        Grid.KayitAnahtari = GridKey;   // 2026-10-01: yerel kolon genişliği kaydı (sağ tık)
         Grid.LoadPreferences = () => { try { return DesktopServices.ListPrefs.GetAll(_session, GridKey); } catch { return null; } };
         Grid.PersistColumns = cols => { try { DesktopServices.ListPrefs.SaveColumns(_session, GridKey, cols); } catch { } };
         // Kolon GENİŞLİĞİ kalıcı DEĞİL (kullanıcı isteği 2026-08-08): her açılışta standart; oturum içi resize kaydedilmez.

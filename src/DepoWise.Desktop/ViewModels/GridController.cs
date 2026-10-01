@@ -155,6 +155,9 @@ public sealed partial class GridController : ObservableObject
         }
         // Kolon GENİŞLİĞİ tercihi UYGULANMAZ (kullanıcı isteği 2026-08-08): her açılışta standart genişlik;
         // oturum içinde Thumb ile serbestçe resize (kaydedilmez). p.Widths bilinçli olarak yok sayılır.
+        // 2026-10-01: YALNIZ sağ tık "Kolon Ayarlarını Kaydet" ile YEREL dosyaya yazılan genişlikler uygulanır
+        // (sunucu/eşitleme yok — 2026-08-08 sorununun kaynağı otomatik + sunucu kaydıydı).
+        GenislikleriUygula();
         if (p.Sort is not null && _colIndex.ContainsKey(p.Sort.Key)) { _sortKey = p.Sort.Key; _sortDesc = p.Sort.Desc; }
         UpdateSortGlyphs();
     }
@@ -226,6 +229,17 @@ public sealed partial class GridController : ObservableObject
         if (!visible && Columns.Count(c => c.IsVisible) <= 1) return;
         col.IsVisible = visible;   // OnColumnChanged → Recompute
         PersistColumns?.Invoke(Columns.Where(c => c.IsVisible).Select(c => c.Key).ToList());
+    }
+
+    /// <summary>Yerel genişlik kaydının anahtarı (rapor anahtarı) — Reports VM bağlar.</summary>
+    public string? KayitAnahtari { get; set; }
+
+    /// <summary>Sağ tık "Kolon Ayarlarını Kaydet" ile kaydedilmiş genişlikler (yoksa standart genişlik kalır).</summary>
+    private void GenislikleriUygula()
+    {
+        if (DepoWise.Desktop.Controls.KolonGenislik.RaporGenislikleri(KayitAnahtari) is not { } kayit) return;
+        foreach (var c in Columns)
+            if (kayit.TryGetValue(c.Key, out var w) && w >= 50) c.Width = Math.Min(600, w);
     }
 
     public void CommitWidth(GridColumnVm col)

@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
+using System.Linq;
 using DepoWise.Desktop.ViewModels;
 
 namespace DepoWise.Desktop.Controls;
@@ -20,6 +22,24 @@ public partial class DataGridView : UserControl
         InitializeComponent();
         AddHandler(Thumb.DragDeltaEvent, OnThumbDragDelta, RoutingStrategies.Bubble);
         AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted, RoutingStrategies.Bubble);
+        AttachedToVisualTree += (_, _) => SagTikBagla();
+    }
+
+    private bool _sagTikBagli;
+
+    /// <summary>
+    /// 2026-10-01 (kullanıcı isteği): rapor ekranının HER YERİNDE sağ tık → "Kolonları Ayarla" (araç çubuğundaki
+    /// Kolonlar menüsünü açar) + "Kolon Ayarlarını Kaydet" (genişlikler yerel dosyaya; rapor açılınca uygulanır).
+    /// </summary>
+    private void SagTikBagla()
+    {
+        if (_sagTikBagli) return;
+        var ekran = (this.GetVisualParent() as Avalonia.Visual)?.FindAncestorOfType<UserControl>(includeSelf: true) ?? this;
+        _sagTikBagli = true;
+        KolonGenislik.EkranaBagla(ekran,
+            () => { if (DataContext is GridController g) KolonGenislik.RaporKaydet(g.KayitAnahtari, g.Columns.Select(c => (c.Key, c.Width))); },
+            () => this.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Flyout is not null) is { } b
+                ? () => b.Flyout!.ShowAt(b) : null);
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

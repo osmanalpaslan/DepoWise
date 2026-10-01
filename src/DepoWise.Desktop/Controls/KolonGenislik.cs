@@ -121,7 +121,12 @@ public static class KolonGenislik
     {
         var ekran = baslik.FindAncestorOfType<UserControl>();
         if (ekran is null) return;
-        baslik.ContextMenu ??= MenuKur(baslik);
+        BasliklariDuzenle(grid);   // "İÇ KOD" → "İç Kod" (tüm tablolar)
+        var vmEkrani = ekran.DataContext as IListGridViewModel;
+        EkranaBagla(ekran, vmEkrani is not null
+                ? () => Kalici["vm:" + ekran.DataContext!.GetType().Name] = new Dictionary<string, double>(vmEkrani.ColWidths)
+                : () => GenelTabloyuKaydet(baslik),
+            () => SeciciEylemi(ekran.DataContext));
 
         // Filtre satırlı listeler kendi sürükleme mekanizmasını kullanır (SortHeader → VM.ColWidths).
         if (ekran.DataContext is IListGridViewModel) return;
@@ -220,49 +225,112 @@ public static class KolonGenislik
         }
     }
 
-    // ───────────────────────── sağ tık menüsü ─────────────────────────
-
-    private static ContextMenu MenuKur(Border baslik)
+    /// <summary>Genel tablonun (liste başlığı) oturum genişliklerini kalıcı depoya alır.</summary>
+    private static void GenelTabloyuKaydet(Border baslik)
     {
-        var menu = new ContextMenu();
-        var ayarla = new MenuItem { Header = "Kolonları Ayarla" };
-        var kaydet = new MenuItem { Header = "Kolon Ayarlarını Kaydet" };
-
-        ICommand? SeciciKomutu()
-        {
-            var dc = baslik.FindAncestorOfType<UserControl>()?.DataContext;
-            return dc?.GetType().GetProperty("OpenColumnPickerCommand")?.GetValue(dc) as ICommand;
-        }
-
-        ayarla.Click += (_, _) => { var k = SeciciKomutu(); if (k?.CanExecute(null) == true) k.Execute(null); };
-        kaydet.Click += async (_, _) =>
-        {
-            try
-            {
-                TabloyuKaydet(baslik);
-                await ConfirmService.InfoAsync("Kolon ayarları bu bilgisayara kaydedildi. Uygulama yeniden açıldığında da bu genişlikler kullanılır.",
-                    "Kolon Ayarları");
-            }
-            catch (Exception ex) { await ConfirmService.InfoAsync("Kolon ayarları kaydedilemedi: " + ex.Message, "Kolon Ayarları", danger: true); }
-        };
-        // "Kolonları Ayarla" yalnız kolon seçicisi olan ekranlarda görünür.
-        menu.Opening += (_, _) => ayarla.IsVisible = SeciciKomutu() is not null;
-
-        menu.Items.Add(ayarla);
-        menu.Items.Add(kaydet);
-        return menu;
+        if (baslik.GetValue(TabloProperty) is not { } anahtar) return;
+        if (_oturum.TryGetValue(anahtar, out var h) && h.Count > 0) Kalici[anahtar] = new Dictionary<string, double>(h);
+        else Kalici.Remove(anahtar);
     }
 
-    private static void TabloyuKaydet(Border baslik)
+    /// <summary>
+    /// 2026-10-01 (kullanıcı isteği: tablo güncellemeleri her ekranda) — başlık yazıları TAMAMEN BÜYÜK harften
+    /// "İç Kod" biçimine (<see cref="SortHeader.BaslikMetni"/> ile AYNI kural). Yalnız SABİT yazılar çevrilir;
+    /// veriye bağlı (binding) başlığa dokunulmaz — değeri dondurup bağı koparmamak için.
+    /// </summary>
+    private static void BasliklariDuzenle(Grid baslikGrid)
     {
-        var dc = baslik.FindAncestorOfType<UserControl>()?.DataContext;
-        if (dc is IListGridViewModel vm)
-            Kalici["vm:" + dc.GetType().Name] = new Dictionary<string, double>(vm.ColWidths);
-        else if (baslik.GetValue(TabloProperty) is { } anahtar)
+        foreach (var tb in baslikGrid.GetVisualDescendants().OfType<TextBlock>().ToList())
         {
-            if (_oturum.TryGetValue(anahtar, out var h) && h.Count > 0) Kalici[anahtar] = new Dictionary<string, double>(h);
-            else Kalici.Remove(anahtar);
+            if (string.IsNullOrEmpty(tb.Text)) continue;
+            if (Avalonia.Data.BindingOperations.GetBindingExpressionBase(tb, TextBlock.TextProperty) is not null) continue;
+            var yeni = SortHeader.BaslikMetni(tb.Text);
+            if (yeni != tb.Text) tb.Text = yeni;
         }
-        DosyayaYaz();
+    }
+
+    // ───────────────────────── ekran geneli sağ tık menüsü ─────────────────────────
+    // 2026-10-01 (kullanıcı isteği): menü yalnız başlıkta değil, tablo bulunan ekranın HER YERİNDE açılır.
+    // Bir ekrandaki tüm tablolar (liste başlıkları + rapor tablosu) aynı kayda bağlanır: "Kaydet" hepsini yazar.
+    // Metin kutuları kendi menüsünü (kes/kopyala/yapıştır) korur; hücrede yazı SEÇİLİYKEN kopyalama menüsü çıkar.
+
+    private sealed class EkranKaydi
+    {
+        public readonly List<Action> Kaydediciler = new();
+        public readonly List<Func<Action?>> Ayarlayicilar = new();
+    }
+    private static readonly ConditionalWeakTable<UserControl, EkranKaydi> _ekranlar = new();
+
+    /// <summary>Bir tabloyu, bulunduğu ekranın sağ tık menüsüne bağlar.</summary>
+    /// <param name="ekran">Tablonun bulunduğu ekran (görünüm).</param>
+    /// <param name="kaydet">"Kolon Ayarlarını Kaydet" anında bu tablonun genişliklerini <see cref="Kalici"/>'ya yazar.</param>
+    /// <param name="ayarla">"Kolonları Ayarla" eylemi (yoksa null döner → madde gizlenir).</param>
+    public static void EkranaBagla(UserControl ekran, Action kaydet, Func<Action?>? ayarla)
+    {
+        var kayit = _ekranlar.GetValue(ekran, e =>
+        {
+            var k = new EkranKaydi();
+            e.AddHandler(Control.ContextRequestedEvent, (_, a) => MenuAc(e, k, a), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            return k;
+        });
+        kayit.Kaydediciler.Add(kaydet);
+        if (ayarla is not null) kayit.Ayarlayicilar.Add(ayarla);
+    }
+
+    private static void MenuAc(UserControl ekran, EkranKaydi kayit, ContextRequestedEventArgs e)
+    {
+        try
+        {
+            var kaynak = e.Source as Visual;
+            // Metin kutusu kendi menüsünü açar; seçili yazı varsa kopyalama menüsü çıksın.
+            if (kaynak is TextBox || kaynak?.GetVisualAncestors().Any(a => a is TextBox) == true) return;
+            var stb = kaynak as SelectableTextBlock ?? kaynak?.GetVisualAncestors().OfType<SelectableTextBlock>().FirstOrDefault();
+            if (!string.IsNullOrEmpty(stb?.SelectedText)) return;
+
+            var menu = new ContextMenu();
+            var ayarlaEylemi = kayit.Ayarlayicilar.Select(f => f()).FirstOrDefault(a => a is not null);
+            if (ayarlaEylemi is not null)
+            {
+                var ayarla = new MenuItem { Header = "Kolonları Ayarla" };
+                ayarla.Click += (_, _) => ayarlaEylemi();
+                menu.Items.Add(ayarla);
+            }
+            var kaydet = new MenuItem { Header = "Kolon Ayarlarını Kaydet" };
+            kaydet.Click += async (_, _) =>
+            {
+                try
+                {
+                    foreach (var k in kayit.Kaydediciler.ToList()) k();
+                    DosyayaYaz();
+                    await ConfirmService.InfoAsync("Kolon ayarları bu bilgisayara kaydedildi. Uygulama yeniden açıldığında da bu genişlikler kullanılır.",
+                        "Kolon Ayarları");
+                }
+                catch (Exception ex) { await ConfirmService.InfoAsync("Kolon ayarları kaydedilemedi: " + ex.Message, "Kolon Ayarları", danger: true); }
+            };
+            menu.Items.Add(kaydet);
+            menu.Open(ekran);
+            e.Handled = true;
+        }
+        catch { /* menü açılamazsa ekran etkilenmez */ }
+    }
+
+    /// <summary>Filtre satırlı liste VM'inin kolon seçicisi (OpenColumnPickerCommand) — yoksa null.</summary>
+    internal static Action? SeciciEylemi(object? dc)
+        => dc?.GetType().GetProperty("OpenColumnPickerCommand")?.GetValue(dc) is ICommand k ? () => { if (k.CanExecute(null)) k.Execute(null); } : null;
+
+    // ───────────────────────── rapor tablosu (DataGridView) ─────────────────────────
+
+    /// <summary>Rapor tablosunun kayıtlı genişlikleri (kolon anahtarı → px); kayıt yoksa null.</summary>
+    public static IReadOnlyDictionary<string, double>? RaporGenislikleri(string? raporAnahtari)
+    {
+        try { return raporAnahtari is not null && Kalici.TryGetValue("rapor:" + raporAnahtari, out var h) ? h : null; }
+        catch { return null; }
+    }
+
+    /// <summary>Rapor tablosunun ŞU ANKİ genişliklerini kalıcı depoya alır (dosyaya <see cref="DosyayaYaz"/> yazar).</summary>
+    public static void RaporKaydet(string? raporAnahtari, IEnumerable<(string Key, double Width)> kolonlar)
+    {
+        if (string.IsNullOrEmpty(raporAnahtari)) return;
+        Kalici["rapor:" + raporAnahtari] = kolonlar.ToDictionary(k => k.Key, k => Math.Round(k.Width));
     }
 }

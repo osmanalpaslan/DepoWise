@@ -432,42 +432,42 @@
     <!-- 2026-09-30 MODERN tablo (filtre satırlı listeler: Malzemeler/Araçlar/Günlük Faaliyet). RENK DEĞİŞMEZ —
          yalnız biçim: zebra yok (satırları yalnız alt çizgi ayırır), daha ferah satır, Inter yazı.
          Hover/seçili kuralları BUNDAN SONRA geldiği için aynen çalışır. -->
-    <Style Selector=".Modern ListBox.Table ListBoxItem:nth-child(2n) /template/ ContentPresenter">
+    <Style Selector="ListBox.Table ListBoxItem:nth-child(2n) /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector=".Modern ListBox.Table ListBoxItem">
+    <Style Selector="ListBox.Table ListBoxItem">
         <Setter Property="Padding" Value="14,0"/>
         <Setter Property="MinHeight" Value="48"/>
         <Setter Property="FontFamily" Value="fonts:Inter#Inter"/>
     </Style>
-    <Style Selector=".Modern ListBox.Table Border.StatusBadge">
+    <Style Selector="ListBox.Table Border.StatusBadge">
         <Setter Property="Padding" Value="12,3"/>
     </Style>
-    <Style Selector=".Modern Border.TableHeader">
+    <Style Selector="Border.TableHeader">
         <Setter Property="Padding" Value="14,0"/>
         <Setter Property="MinHeight" Value="46"/>
     </Style>
-    <Style Selector=".Modern Border.TableHeader :is(TextBlock)">
+    <Style Selector="Border.TableHeader :is(TextBlock)">
         <Setter Property="FontFamily" Value="fonts:Inter#Inter"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LetterSpacing" Value="0"/>
         <Setter Property="FontSize" Value="12.5"/>
     </Style>
     <!-- Başlık hücrelerinin arkasındaki bağımsız kutucuklar (Ghost buton zemini) kaldırılır: düz zemin. -->
-    <Style Selector=".Modern Border.TableHeader Button.Ghost">
+    <Style Selector="Border.TableHeader Button.Ghost">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
-    <Style Selector=".Modern Border.TableHeader Button.Ghost:pointerover /template/ ContentPresenter">
+    <Style Selector="Border.TableHeader Button.Ghost:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector=".Modern Border.TableHeader Button.Ghost:pressed /template/ ContentPresenter">
+    <Style Selector="Border.TableHeader Button.Ghost:pressed /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector=".Modern Border.TableFilterRow">
+    <Style Selector="Border.TableFilterRow">
         <Setter Property="Padding" Value="14,8"/>
     </Style>
-    <Style Selector=".Modern Border.TableFilterRow :is(TemplatedControl)">
+    <Style Selector="Border.TableFilterRow :is(TemplatedControl)">
         <Setter Property="FontFamily" Value="fonts:Inter#Inter"/>
     </Style>
     <!-- Seçimli filtre kutusu (açılır liste, sağda aşağı ok) — TextBox.CellFilter ile AYNI ölçü/renk dili. -->

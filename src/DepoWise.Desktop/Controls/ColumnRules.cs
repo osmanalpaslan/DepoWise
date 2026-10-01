@@ -92,8 +92,8 @@ public static class ColumnRules
         // 2026-09-30: sütun genişliği ayarı + sağ tık menüsü (tüm tablolar) — çizgiden BAĞIMSIZ.
         KolonGenislik.Bagla(grid);
 
-        // 2026-09-30: MODERN tablolarda (filtre satırlı listeler) dikey ayırıcı YOK — satırları yalnız alt çizgi ayırır.
-        if (grid.GetVisualAncestors().OfType<StyledElement>().Any(a => a.Classes.Contains("Modern"))) return;
+
+
 
         var kolonSayisi = grid.ColumnDefinitions.Count;
         if (kolonSayisi < 2) return;
@@ -113,10 +113,10 @@ public static class ColumnRules
                 Width = 1,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                Background = grid.TryFindResource("BorderSubtleBrush", out var fircaRes) && fircaRes is IBrush firca
-                    ? firca : Brushes.Transparent,
                 IsHitTestVisible = false,   // çizgi tıklamayı yutmaz: satır seçimi ve metin seçimi bozulmaz
             };
+            // 2026-10-01 (kullanıcı isteği: çizgi belirgin olsun): ColumnRuleBrush — dinamik bağ, tema değişince de doğru.
+            cizgi.Bind(Border.BackgroundProperty, grid.GetResourceObservable("ColumnRuleBrush"));
             cizgi.SetValue(IsRuleProperty, true);
             Grid.SetColumn(cizgi, i);
             grid.Children.Add(cizgi);

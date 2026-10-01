@@ -26,6 +26,8 @@
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EAEEF7"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8B98B2"/>
             <SolidColorBrush x:Key="TextMutedBrush" Color="#7B8AA6"/>
+            <!-- 2026-10-01: tablo sütun ayırıcısı — soluk yazı renginin %45 saydam hâli (kullanıcı: çizgi belirgin olsun). -->
+            <SolidColorBrush x:Key="ColumnRuleBrush" Color="#737B8AA6"/>
             <SolidColorBrush x:Key="SuccessBrush" Color="#2CBF6D"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#F5A623"/>
             <SolidColorBrush x:Key="DangerBrush" Color="#E24A3B"/>
@@ -83,6 +85,8 @@
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14171C"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6474"/>
             <SolidColorBrush x:Key="TextMutedBrush" Color="#6B7686"/>
+            <!-- 2026-10-01: tablo sütun ayırıcısı — soluk yazı renginin %45 saydam hâli (kullanıcı: çizgi belirgin olsun). -->
+            <SolidColorBrush x:Key="ColumnRuleBrush" Color="#736B7686"/>
             <SolidColorBrush x:Key="SuccessBrush" Color="#12A85C"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#B4860F"/>
             <SolidColorBrush x:Key="DangerBrush" Color="#D0392B"/>

@@ -75,8 +75,12 @@ public class MasaustuTabloKolonHizasiTests
     public void HZA2_Filtre_Hucresi_Ic_Bosluk_Kullanir(string ekran)
     {
         var x = Gorunum(ekran);
-        var ic = Regex.Matches(x, @"<ContentControl[^>]*\sPadding=""4,0""").Count;
-        Assert.True(ic > 0, $"{ekran}: filtre hücrelerinde Padding=\"4,0\" bulunamadı (boşluk büsbütün kaybolmuş olabilir).");
+        // 2026-10-01 (kullanıcı bildirimi + ekran görüntüsü: başlık ile filtre kutusu hizasız): boşluk YALNIZ
+        // SAĞDA — kutunun sol kenarı kolonun sol kenarına, yani başlık yazısının başladığı noktaya oturur.
+        // Kutular arası nefes payı korunur (genişliğin İÇİNDE, Padding).
+        var ic = Regex.Matches(x, @"<ContentControl[^>]*\sPadding=""0,0,8,0""").Count;
+        Assert.True(ic > 0, $"{ekran}: filtre hücrelerinde Padding=\"0,0,8,0\" bulunamadı (boşluk büsbütün kaybolmuş olabilir).");
+        Assert.DoesNotMatch(@"<ContentControl[^>]*\sPadding=""4,0""", x);   // sola kaydıran eski boşluk dönmedi
     }
 
     /// <summary>
