@@ -364,7 +364,20 @@ FROM (
     SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
            vm.performed_km, vm.performed_hour, vm.performed_date,
            v.current_meter, v.meter_unit, vm.created_at, vm.id AS maintenance_id,
-           ROW_NUMBER() OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS rn
+           -- 2026-10-01 (kullanıcı bildirimi: yeni bakım girsem de eski uyarı silinmiyor): en son bakım
+           -- GİRİŞ zamanına (created_at) göre değil, YAPILDIĞI noktaya göre seçilir. Sonradan girilen/eşitlenen/
+           -- aktarılan ESKİ tarihli bir kayıt, daha yeni yapılmış bakımı gölgeliyor ve süresi geçmiş uyarıyı
+           -- canlı tutuyordu (canlı veride 21 grup). Ölçüt TANIMIN KENDİ BİRİMİDİR (uyarı da onunla hesaplanır):
+           -- km tanımında yapıldığı km, saat tanımında saat, gün tanımında tarih. Tarih her km kaydında
+           -- güvenilir değil (tarihsiz girişte kayıt günü olabilir) → km/saat tanımında ikinci ölçüttür.
+           -- created_at yalnız eşitlik bozucudur.
+           ROW_NUMBER() OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id
+               ORDER BY CASE d.interval_unit
+                            WHEN 'hour' THEN CAST(COALESCE(vm.performed_hour, '0') AS REAL)
+                            WHEN 'day'  THEN CAST(COALESCE(vm.performed_date, 0) AS REAL)
+                            ELSE CAST(COALESCE(vm.performed_km, '0') AS REAL) END DESC,
+                        COALESCE(vm.performed_date, 0) DESC,
+                        vm.created_at DESC) AS rn
     FROM vehicle_maintenances vm
     JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
     JOIN vehicles v ON v.id = vm.vehicle_id

@@ -104,7 +104,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         Assert.Equal("Günlük Faaliyet — Detay", t.Title);
         // 2026-09-02 (kullanıcı isteği): araç KODU ve PLAKA ayrı sütun; bakım kaydına tanım/teknisyen/
         // yapılma/malzeme kalemi/PARÇA MALİYETİ eklendi. Bu satır bilinçli güncellendi (gevşetme değil).
-        Assert.Equal(new[] { "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)", "Bakım Tanımı", "Teknisyen", "Yapılma", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti", "Açıklama" }, t.Headers);
+        Assert.Equal(new[] { "Tarih", "Kayıt Tipi", "Şube", "Araç Kodu", "Plaka", "Nereden → Nereye", "Operatör", "Süre (gün)", "Bakım Tanımı", "Teknisyen", "Yapılma", "Kullanılan Malzemeler", "Malzeme Miktarı", "Parça Maliyeti", "Açıklama" }, t.Headers);
     }
 
     // ══════════════ Kayıt tipi filtresi ══════════════
@@ -253,7 +253,9 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         Assert.Equal("MOTOR BAKIMI", (string)satir[8]!);     // bakım tanımı
         Assert.Equal("Ali Usta", (string)satir[9]!);         // teknisyen
         Assert.Equal("12500 km", (string)satir[10]!);        // yapılma (km öncelikli; 0.## biçimi binlik ayracı KOYMAZ)
-        Assert.Equal(2.0, D(satir[11]), 3);                  // malzeme KALEMİ = satır sayısı (2 satır; adet değil)
+        // 2026-09-30 (kullanıcı isteği): "Malzeme Kalemi" SAYISI yerine kullanılan malzemeler AYRI AYRI;
+        // aynı malzemenin iki satırı TOPLANIR (2 + 1 = 3).
+        Assert.StartsWith("Filtre (FLT-1) 3", (string)satir[11]!);
         // 2026-09-04 (kullanıcı isteği): KALEM sayısından AYRI olarak kullanılan MİKTAR toplamı.
         Assert.Equal(3.0, D(satir[12]), 3);                  // malzeme MİKTARI = 2 + 1 = 3 adet
         Assert.Equal(500.0, D(satir[13]), 3);                // parça maliyeti
@@ -292,7 +294,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         var t = _reports.Run(_admin, "daily-activity-summary", Istek());
         Assert.Equal("Günlük Faaliyet — Dönem (Toplam)", t.Title);
         Assert.Equal(new[] { "Araç Kodu", "Plaka", "Kayıt", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir",
-            "Hareket", "Transfer", "Süre (gün)", "Malzeme Kalemi", "Malzeme Miktarı", "Parça Maliyeti",
+            "Hareket", "Transfer", "Süre (gün)", "Kullanılan Malzemeler", "Malzeme Miktarı", "Parça Maliyeti",
             "İlk Kayıt", "Son Kayıt" }, t.Headers);
 
         var satir = Assert.Single(t.Rows);                    // tek araç (va) → tek satır; gün kırılımı YOK
@@ -303,6 +305,7 @@ public class GunlukFaaliyetRaporuTests : IDisposable
         Assert.Equal(1.0, D(satir[7]), 3);                    // hareket (transfer AYRIŞIR)
         Assert.Equal(1.0, D(satir[8]), 3);                    // transfer
         Assert.Equal(6.0, D(satir[9]), 3);                    // toplam süre
+        Assert.StartsWith("Filtre (FLT-1) 3", (string)satir[10]!);   // 2026-09-30: araç bazında kullanılan malzemeler (sayı değil)
         // 2026-09-04 (kullanıcı isteği): kullanılan MİKTAR sütunu eklendi → maliyet ve tarihler bir sağa kaydı.
         Assert.Equal(3.0, D(satir[11]), 3);                   // malzeme MİKTARI = 2 + 1 = 3 adet
         Assert.Equal(500.0, D(satir[12]), 3);                 // parça maliyeti bakımdan toplanır

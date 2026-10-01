@@ -257,6 +257,41 @@ public class MaintenanceTests : IDisposable
         Assert.Equal(AlertLevel.Normal, after.Level);
     }
 
+    /// <summary>2026-10-01 kullanıcı bildirimi: "yeni bakım girsem de eski uyarı silinmiyor". Sonradan girilen
+    /// (eşitlenen/aktarılan) ESKİ km'li kayıt, daha yeni yapılmış bakımı gölgelememeli.</summary>
+    [Fact]
+    public void Uyari_Sonradan_Girilen_Eski_Kayit_Yeni_Bakimi_Golgelemez()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("Periyodik", 100m, "km"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1000m), "op-1");
+        _vehicles.SetMeter(_admin, v, 1098m);
+        _clock.Advance(60_000);
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1098m), "op-2");   // yeni bakım
+        _clock.Advance(60_000);
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 900m), "op-3");    // ESKİ bakım sonradan girildi
+
+        var a = _maint.GetAlerts(_admin).Single();
+        Assert.Equal(AlertLevel.Normal, a.Level);   // eskiden 900 esas alınıp "Gecikti" kalıyordu
+    }
+
+    /// <summary>Aynı bildirim, muayene tarafı: sonradan girilen eski belge, geçerli yeni belgeyi gölgelememeli.</summary>
+    [Fact]
+    public void Muayene_Uyarisi_Sonradan_Girilen_Eski_Belgeyi_Esas_Almaz()
+    {
+        var insp = new InspectionService(_factory, _clock);
+        var v = _vehicles.Create(_admin, new NewVehicle("MV-9", Plate: "34Y"));
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        const long gun = 86_400_000;
+        insp.Save(_admin, new NewInspection(v, "inspection", now, now + 300 * gun));            // yeni, geçerli
+        _clock.Advance(60_000);
+        insp.Save(_admin, new NewInspection(v, "inspection", now - 400 * gun, now - 30 * gun));  // eski, süresi dolmuş
+
+        var a = insp.GetAlerts(_admin).Single();
+        Assert.Equal(DateAlertLevel.Normal, a.Level);
+        Assert.Equal(now + 300 * gun, a.NextDate);
+    }
+
     [Fact]
     public void Uyari_Gecikti_Yuzde100Ustu()
     {

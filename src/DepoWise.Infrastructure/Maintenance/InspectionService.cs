@@ -131,12 +131,17 @@ ORDER BY (vi.next_date IS NULL), vi.next_date;";
         var now = _clock.UtcNow;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        // Her (araç,tip) için en güncel belge
+        // Her (araç,tip) için en güncel belge = GEÇERLİLİĞİ EN GEÇ biten belge (2026-10-01 kullanıcı bildirimi:
+        // "yeni muayene girsem de eski uyarı silinmiyor"). Eskiden GİRİŞ zamanına (MAX created_at) göre
+        // seçiliyordu: sonradan girilen/eşitlenen eski bir belge, yenisini gölgeleyip süresi dolmuş uyarıyı
+        // canlı tutuyordu. Tarihsiz belge uyarı üretmez (eskisi gibi); created_at yalnız eşitlik bozucudur.
         cmd.CommandText = @"
-SELECT vehicle_id, doc_type, next_date FROM vehicle_inspections vi
-WHERE company_id=@c AND is_deleted=0 AND next_date IS NOT NULL
-AND created_at = (SELECT MAX(created_at) FROM vehicle_inspections x
-                  WHERE x.vehicle_id=vi.vehicle_id AND x.doc_type=vi.doc_type AND x.is_deleted=0);";
+SELECT vehicle_id, doc_type, next_date FROM (
+    SELECT vehicle_id, doc_type, next_date,
+           ROW_NUMBER() OVER (PARTITION BY vehicle_id, doc_type ORDER BY next_date DESC, created_at DESC) AS rn
+    FROM vehicle_inspections
+    WHERE company_id=@c AND is_deleted=0 AND next_date IS NOT NULL
+) t WHERE rn = 1;";
         cmd.AddWithValue("@c", s.CompanyId);
         var list = new List<InspectionAlert>();
         using var r = cmd.ExecuteReader();

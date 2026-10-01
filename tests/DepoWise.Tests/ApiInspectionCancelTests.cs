@@ -256,20 +256,23 @@ public class ApiInspectionCancelTests : IAsyncLifetime
     {
         var now = DateTimeOffset.UtcNow;
 
-        // ESKİ ve AKTİF belge: 200 gün sonra dolacak → uyarı vermez (Normal).
-        var eski = await CreateDocAsync(now.AddDays(200).ToUnixTimeMilliseconds());
-        // YENİ belge: süresi GEÇMİŞ → normalde uyarı üretirdi.
-        var yeni = await CreateDocAsync(now.AddDays(-10).ToUnixTimeMilliseconds());
+        // 2026-10-01: "en güncel belge" artık GEÇERLİLİĞİ EN GEÇ biten belgedir (giriş zamanı değil — kullanıcı
+        // bildirimi: yeni belge girilince eski uyarı kalıyordu). Testin asıl iddiası AYNEN korunur: İPTAL edilen
+        // kayıt uyarı hesabında hiç sayılmaz.
+        // ESKİ ve AKTİF belge: süresi GEÇMİŞ → tek başına uyarı üretir.
+        var eski = await CreateDocAsync(now.AddDays(-10).ToUnixTimeMilliseconds());
+        // YENİ belge: 200 gün geçerli → esas alınır, uyarı yok.
+        var yeni = await CreateDocAsync(now.AddDays(200).ToUnixTimeMilliseconds());
 
         var alertsBefore = _svc.Inspection.GetAlerts(_sa);
-        Assert.Equal(DateAlertLevel.Expired, Assert.Single(alertsBefore).Level);
+        Assert.Equal(DateAlertLevel.Normal, Assert.Single(alertsBefore).Level);
 
-        // Yeni (hatalı) kayıt iptal edilir → uyarı ESKİ AKTİF kayda göre hesaplanmalı.
+        // Yeni kayıt iptal edilir → uyarı ESKİ AKTİF kayda göre hesaplanmalı (iptal edilen sayılmaz).
         (await CancelAsync(_a, yeni, "yanlış tarih")).EnsureSuccessStatusCode();
 
         var alertsAfter = _svc.Inspection.GetAlerts(_sa);
         var alert = Assert.Single(alertsAfter);
-        Assert.Equal(DateAlertLevel.Normal, alert.Level);
+        Assert.Equal(DateAlertLevel.Expired, alert.Level);
         Assert.True(RowExists(eski));
     }
 
