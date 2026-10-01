@@ -1,5 +1,18 @@
 ﻿# AKTİF DURUM
 
+## ✅ ÜRETİM VERİTABANI TAŞINDI: Neon → Supabase (2026-10-01) · API 512 MB · masaüstü 1.0.191 sunucuda
+
+- **Neden:** Neon ücretsiz compute kotası ~17.09'da doldu (masaüstü 15 sn yoklaması DB'yi hiç uyutmuyordu) → API çöktü.
+- **Yapılan:** Neon `depowise_prod` pg_dump (yedek: `Documents/DepoWise_Yedekler/neon_depowise_prod_2026-10-01.dump`, 1,1 MB) →
+  Supabase `Alpnex` / `depowise_prod` (eu-central-1, PG17, session pooler :5432, `Maximum Pool Size=10`; Data API kapalı).
+  Doğrulama: 107/107 tablo satır sayısı birebir (24.419 satır); `updated_at` olan 70 tablonun son güncelleme zamanı birebir;
+  Neon yedekten sonra değişmedi (veri kaybı yok). Fly secret `DEPOWISE_PG_URL` → Supabase; API + Web temiz HEAD (f428464)
+  kopyasından deploy; API `shared-cpu-1x` 512 MB; masaüstü **1.0.191** `publish_release.mjs` ile yayınlandı (otomatik güncelleme).
+- **Ders:** bu Npgsql sürümü `Max Pool Size` takma adını tanımıyor → `Maximum Pool Size` (ilk deploy bu yüzden çöktü, hemen düzeltildi).
+- **Geri dönüş:** Neon `depowise_prod` silinmedi (yedek). Bağlantı bilgisi Neon API'den alınır (.env'deki eski şifre geçersizdi).
+- **Açık:** CLAUDE.md §4 hâlâ "Neon" diyor (dosyada kullanıcının commitlenmemiş değişiklikleri var, dokunulmadı). SNK-15: birkaç gün
+  sonra Supabase aylık trafik ölçümü.
+
 ## ✅ 7 KULLANICI İSTEĞİ — Supabase taşımasından önce (2026-09-30) · masaüstü **1.0.190** (elle kurulum)
 
 > Sunucu kapalı (Neon compute kotası doldu, 2026-09-29) → paket sunucuya YAYINLANMADI; Masaüstü'ne

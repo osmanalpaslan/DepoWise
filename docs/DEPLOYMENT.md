@@ -13,7 +13,7 @@
 
 | Bileşen | Proje | Nerede çalışır | Veritabanı |
 |---|---|---|---|
-| API | `src/DepoWise.Api` | Fly.io — `depowise-erp` | PostgreSQL (Neon) |
+| API | `src/DepoWise.Api` | Fly.io — `depowise-erp` | PostgreSQL (Supabase Alpnex, Frankfurt, session pooler — 2026-10-01; önceki: Neon) |
 | Web (yönetim konsolu) | `src/DepoWise.Web` | Fly.io — `depowise-web` | Yok — yalnız API'yi tüketir |
 | Masaüstü | `src/DepoWise.Desktop` | Kullanıcı bilgisayarı | Yerel SQLite |
 | Kurulum aracı | `src/DepoWise.Setup` | Kullanıcı bilgisayarı | — |
