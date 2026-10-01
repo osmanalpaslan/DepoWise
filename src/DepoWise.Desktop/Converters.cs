@@ -14,6 +14,14 @@ public static class Conv
     public static readonly IValueConverter BoolToOpacity =
         new FuncValueConverter<bool, double>(b => b ? 1d : 0d);
 
+    /// <summary>2026-09-30: boş ATAMA hücresi (sürücü, şube, personel) → "Atanmadı" (yalnız gösterim).</summary>
+    public static readonly IValueConverter Atanmadi =
+        new FuncValueConverter<object?, string>(v => BosMu(v) ? "Atanmadı" : v!.ToString()!);
+    /// <summary>"Atanmadı" görünen hücre soluk (opaklık 0,5) — renk değişmez.</summary>
+    public static readonly IValueConverter AtanmadiOpacity =
+        new FuncValueConverter<object?, double>(v => BosMu(v) ? 0.5 : 1d);
+    private static bool BosMu(object? v) => v is null || v.ToString() is not { Length: > 0 } s || s.Trim() is "" or "—";
+
     /// <summary>Malzeme/Araç Listesi kolon seçimi (kullanıcı isteği 2026-07-17): value = görünür kolon
     /// anahtarları listesi, ConverterParameter = bu hücrenin kolon anahtarı → görünür mü? Sabit XAML
     /// kolonlarının IsVisible'ı buna bağlanır; Auto genişlikli SharedSizeGroup kolonu görünmeyince 0'a çöker.</summary>

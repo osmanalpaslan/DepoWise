@@ -412,7 +412,7 @@
                          ortalama; açınca o ayın haftalık toplamları ve gün gün dağıtılan miktar. Tüm kayıtlardan. -->
                     <SelectableTextBlock Text="Aylık Dağıtım (son 12 ay)" Classes="SectionTitle"/>
                     <Border Classes="TableHeader">
-                        <Grid ColumnDefinitions="180,130,150,150,*">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="180,130,150,150,*">
                             <SelectableTextBlock Grid.Column="0" Text="AY"/>
                             <SelectableTextBlock Grid.Column="1" Text="AYLIK TOPLAM" TextAlignment="Right"/>
                             <SelectableTextBlock Grid.Column="2" Text="HAFTALIK ORT." TextAlignment="Right"/>
@@ -425,7 +425,7 @@
                             <DataTemplate x:DataType="op:FuelMonthSummary">
                                 <Expander HorizontalAlignment="Stretch" Margin="0,0,0,4">
                                     <Expander.Header>
-                                        <Grid ColumnDefinitions="164,130,150,150,*">
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="164,130,150,150,*">
                                             <SelectableTextBlock Grid.Column="0" Text="{Binding MonthText}" FontWeight="SemiBold"/>
                                             <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" TextAlignment="Right" FontWeight="SemiBold"/>
                                             <SelectableTextBlock Grid.Column="2" Text="{Binding WeeklyAverageText}" TextAlignment="Right"/>

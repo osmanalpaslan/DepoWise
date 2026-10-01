@@ -112,7 +112,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         [MaterialListColumns.Description] = 160, [MaterialListColumns.CompatibleVehicles] = 160, [MaterialListColumns.Equivalents] = 160,
     };
 
-    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+    // 2026-09-30: "Kolon Ayarlarını Kaydet" (sağ tık) ile kaydedilen genişlikler açılışta yüklenir (yerel dosya).
+    [ObservableProperty] private Dictionary<string, double> _colWidths = DepoWise.Desktop.Controls.KolonGenislik.VmGenislikleri("MaterialsViewModel", DefaultColWidths);
 
     /// <summary>Sürükleme sırasında ANLIK genişlik (her piksel hareketinde çağrılır — henüz KAYDETMEZ).</summary>
     public void PreviewColumnWidth(string key, double newWidth)
@@ -140,6 +141,9 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         Page = 1; Load();
     }
 
+    /// <summary>Filtresi AÇILIR LİSTE olan kolonlar (kullanıcı isteği 2026-09-30).</summary>
+    private static readonly HashSet<string> SecimKolonlari = new(new[] { MaterialListColumns.Type, MaterialListColumns.Category, MaterialListColumns.Unit, MaterialListColumns.Brand, MaterialListColumns.Supplier, MaterialListColumns.Currency, MaterialListColumns.Status });
+
     private void RebuildFilterFields()
     {
         var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
@@ -147,10 +151,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         foreach (var key in VisibleColumns)
         {
             var col = MaterialListColumns.All.FirstOrDefault(c => c.Key == key);
-            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false)
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false, SecimKolonlari.Contains(key))
             { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
         FilterFieldsByKey = FilterFields.ToDictionary(f => f.Key, f => f);
+        // 2026-09-30: seçim kolonlarının açılır liste seçenekleri — arka planda, ekranın kendi verisinden.
+        DepoWise.Desktop.Controls.HucreFiltre.SecenekleriDoldur(FilterFields, () => MaterialService.ToTableModel(DesktopServices.Materials.SearchGridAll(_session, new MaterialGridFilter(), null, false, false), FiyatGorunur));
     }
 
     private void RebuildPageNumbers()

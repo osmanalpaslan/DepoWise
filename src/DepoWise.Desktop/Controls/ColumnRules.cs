@@ -44,6 +44,10 @@ public static class ColumnRules
     private static readonly AttachedProperty<bool> IsRuleProperty =
         AvaloniaProperty.RegisterAttached<Control, bool>("IsRule", typeof(ColumnRules));
 
+    /// <summary>Süsleme öğesini (ör. sütun genişliği tutamağı) "hücre değil" olarak işaretler.</summary>
+    internal static void KuralIsaretle(Control c) => c.SetValue(IsRuleProperty, true);
+    internal static bool KuralMi(Control c) => c.GetValue(IsRuleProperty);
+
     static ColumnRules()
     {
         // ⚠️ Çizgiler HEMEN eklenemez: XAML çözümlenirken bu özellik, Grid'in hücreleri daha
@@ -84,6 +88,12 @@ public static class ColumnRules
         // Şablon (DataTemplate) içindeki grid'ler her satır için yeniden kurulur; çizgi zaten varsa
         // ikinci kez eklenmemeli.
         if (grid.Children.Any(c => c.GetValue(IsRuleProperty))) return;
+
+        // 2026-09-30: sütun genişliği ayarı + sağ tık menüsü (tüm tablolar) — çizgiden BAĞIMSIZ.
+        KolonGenislik.Bagla(grid);
+
+        // 2026-09-30: MODERN tablolarda (filtre satırlı listeler) dikey ayırıcı YOK — satırları yalnız alt çizgi ayırır.
+        if (grid.GetVisualAncestors().OfType<StyledElement>().Any(a => a.Classes.Contains("Modern"))) return;
 
         var kolonSayisi = grid.ColumnDefinitions.Count;
         if (kolonSayisi < 2) return;

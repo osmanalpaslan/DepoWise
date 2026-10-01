@@ -104,8 +104,27 @@ public sealed class SortHeader : Grid
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.Property == TextProperty) _label.Text = Text;
+        if (e.Property == TextProperty) _label.Text = BaslikMetni(Text);
         else if (e.Property == ColumnKeyProperty) { ApplySavedWidth(); UpdateArrow(); }
+    }
+
+    /// <summary>
+    /// 2026-09-30 (kullanıcı isteği): başlıklar TAMAMEN BÜYÜK harf yerine yalnız kelime başları büyük
+    /// ("İÇ KOD" → "İç Kod", "ŞUBE/ŞANTİYE" → "Şube/Şantiye"). Türkçe kurallarıyla (İ/ı) çevrilir. Zaten
+    /// küçük harf içeren metne dokunulmaz.
+    /// </summary>
+    internal static string BaslikMetni(string? metin)
+    {
+        if (string.IsNullOrEmpty(metin) || System.Linq.Enumerable.Any(metin, char.IsLower)) return metin ?? "";
+        var tr = new System.Globalization.CultureInfo("tr-TR");
+        var sb = new System.Text.StringBuilder(metin.Length);
+        var basla = true;
+        foreach (var ch in metin)
+        {
+            sb.Append(basla ? char.ToUpper(ch, tr) : char.ToLower(ch, tr));
+            basla = !char.IsLetterOrDigit(ch);   // boşluk, "/", ".", "(" sonrası yeni kelime
+        }
+        return sb.ToString();
     }
 
     private void AttachVm()

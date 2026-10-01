@@ -128,7 +128,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         [VehicleListColumns.ChassisNo] = 130, [VehicleListColumns.EngineNo] = 130,
     };
 
-    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+    // 2026-09-30: "Kolon Ayarlarını Kaydet" (sağ tık) ile kaydedilen genişlikler açılışta yüklenir (yerel dosya).
+    [ObservableProperty] private Dictionary<string, double> _colWidths = DepoWise.Desktop.Controls.KolonGenislik.VmGenislikleri("VehiclesViewModel", DefaultColWidths);
 
     public void PreviewColumnWidth(string key, double newWidth)
     {
@@ -156,6 +157,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         Page = 1; Load();
     }
 
+    /// <summary>Filtresi AÇILIR LİSTE olan kolonlar (kullanıcı isteği 2026-09-30).</summary>
+    private static readonly HashSet<string> SecimKolonlari = new(new[] { VehicleListColumns.ProductionYear, VehicleListColumns.Status, VehicleListColumns.VehicleType, VehicleListColumns.Category, VehicleListColumns.Brand, VehicleListColumns.Model, VehicleListColumns.Branch, VehicleListColumns.Driver });
+
     private void RebuildFilterFields()
     {
         var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
@@ -163,10 +167,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         foreach (var key in VisibleColumns)
         {
             var col = VehicleListColumns.All.FirstOrDefault(c => c.Key == key);
-            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false)
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false, SecimKolonlari.Contains(key))
             { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
         FilterFieldsByKey = FilterFields.ToDictionary(f => f.Key, f => f);
+        // 2026-09-30: seçim kolonlarının açılır liste seçenekleri — arka planda, ekranın kendi verisinden.
+        DepoWise.Desktop.Controls.HucreFiltre.SecenekleriDoldur(FilterFields, () => VehicleService.ToTableModel(DesktopServices.Vehicles.SearchGridAll(_session, new VehicleGridFilter(), null, false)));
     }
 
     private void RebuildPageNumbers()

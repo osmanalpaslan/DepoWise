@@ -20,7 +20,6 @@
                       PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
-                    <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
                     <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
                     <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
@@ -341,7 +340,7 @@
                  kaydırma çıkar (kullanıcı isteği 2026-07-18, madde 3). -->
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
               <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <DockPanel HorizontalAlignment="Left">
+                <DockPanel HorizontalAlignment="Left" Classes="Modern">
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
@@ -424,9 +423,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=code}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -437,9 +434,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=name}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -450,9 +445,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=type}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -463,9 +456,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=category}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -476,9 +467,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unit}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -489,9 +478,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=brand}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -502,9 +489,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=supplier}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -515,9 +500,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unitPrice}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -528,9 +511,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=currency}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -541,9 +522,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=minStock}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -554,9 +533,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=stock}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -567,9 +544,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=status}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -580,9 +555,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=description}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -593,9 +566,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=compatibleVehicles}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
@@ -606,9 +577,7 @@
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=equivalents}">
                                 <ContentControl.ContentTemplate>
                                     <DataTemplate x:DataType="vm:ColumnFilterItem">
-                                        <TextBox Classes="CellFilter" Classes.filled="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
-                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
-                                        </TextBox>
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>

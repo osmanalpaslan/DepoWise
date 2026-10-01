@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Windows.Input;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -19,4 +20,6 @@ public interface IListGridViewModel
     void PreviewColumnWidth(string key, double newWidth);
     /// <summary>Sürükleme BİTİNCE çağrılır — bu anda kişiye özel kalıcı hâle gelir.</summary>
     void CommitColumnWidth();
+    /// <summary>Şu anki kolon genişlikleri — sağ tık "Kolon Ayarlarını Kaydet" bunu yerel dosyaya yazar (2026-09-30).</summary>
+    Dictionary<string, double> ColWidths { get; }
 }

@@ -51,6 +51,25 @@ public class MasaustuTasarimPaketiTests
     private static int Say(string metin)
         => TumAxaml().Sum(f => Regex.Matches(File.ReadAllText(f), Regex.Escape(metin)).Count);
 
+    /// <summary>⭐ 2026-09-30 — sütun genişliği kaydı YALNIZ yerel dosyaya ve YALNIZ sağ tık "Kaydet" ile yazılır.
+    /// 2026-08-08'de otomatik kayıt 15 sn'lik eşitlemeyle çakışmıştı: kayıt veritabanına/sunucuya giderse
+    /// (DesktopServices / ListPrefs) ya da sürükleme sırasında dosyaya yazılırsa aynı sorun geri gelir.</summary>
+    [Fact]
+    public void KGN1_Kolon_Genisligi_Yalniz_Yerel_Ve_Yalniz_Kaydet_Ile()
+    {
+        var k = Kaynak("Controls", "KolonGenislik.cs");
+        Assert.DoesNotContain("DesktopServices", k);
+        Assert.DoesNotContain("ListPrefs", k);
+        Assert.Contains("\"kolon-genislikleri.json\"", k);
+        Assert.Single(Regex.Matches(k, @"DosyayaYaz\(\);"));          // tek yazma noktası: TabloyuKaydet
+        Assert.Contains("Header = \"Kolonları Ayarla\"", k);          // sağ tık menüsü — iki madde
+        Assert.Contains("Header = \"Kolon Ayarlarını Kaydet\"", k);
+        Assert.Contains("KolonGenislik.Bagla(grid);", Kaynak("Controls", "ColumnRules.cs"));   // tüm tablolar
+        // Filtre satırlı listelerde araç çubuğu butonu kaldırıldı (sağ tık menüsüne taşındı).
+        foreach (var e in new[] { "MaterialsView", "VehiclesView", "DailyActivityView" })
+            Assert.DoesNotContain("Content=" + T + "Kolonları Ayarla" + T, Kaynak("Views", e + ".axaml"));
+    }
+
     // ══════════════ M7 — FİLTRE SATIRI KAPSAMI ══════════════
 
     /// <summary>⭐ Filtre satırı ile başlık bandı ayrı sınıflar olmalı. Filtre satırı sayısı DÖRT'tür:
@@ -94,7 +113,10 @@ public class MasaustuTasarimPaketiTests
         // 2026-09-04 (ADR-201): 36 → 37. Günlük Faaliyet listesine kullanıcı isteğiyle
         // "Malzeme Miktarı" kolonu eklendi; her kolon gibi kendi filtre kutusunu de getirdi.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
-        Assert.Equal(37, Say($"Classes={T}CellFilter{T}"));   // 36 kolon filtresi + ortak rapor tablosu
+        // 2026-09-30: 37 kolon filtresi XAML'de tek tek TextBox değil, ortak HucreFiltre kontrolüdür
+        // (CellFilter sınıfını kodda ekler). XAML'de yalnız ortak rapor tablosunun kutusu kalır.
+        Assert.Equal(1, Say($"Classes={T}CellFilter{T}"));
+        Assert.Equal(37, Say("<ctrl:HucreFiltre "));          // 15 Malzeme + 14 Araç + 8 Günlük Faaliyet
         // 2026-09-06 (FAZ 4.8): 19 → 20. Kullanıcı isteği: "Araç bakımlarında tarih / araç kodu /
         // plaka sorgulama alanı ve butonları yok." Bakım listesine serbest arama kutusu eklendi.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
@@ -109,16 +131,22 @@ public class MasaustuTasarimPaketiTests
     [Theory]
     [InlineData("VehiclesView", 14)]
     [InlineData("MaterialsView", 15)]
-    [InlineData("DailyActivityView", 7)]   // 2026-09-04 (ADR-201): +1 = "Malzeme Miktarı" kolonu
+    [InlineData("DailyActivityView", 8)]   // 2026-09-04: +1 "Malzeme Miktarı" · 2026-09-30: +1 "Kullanılan Malzemeler"
     public void TSR3_Filtre_Kutusu_Baglari_Korundu(string ekran, int adet)
     {
+        // 2026-09-30 (kullanıcı isteği): filtre kutusu artık ortak HucreFiltre kontrolüdür (metin kolonunda
+        // TextBox.CellFilter, seçim kolonunda açılır liste). Bağlar kontrolün İÇİNDE kurulur → burada her
+        // kutunun kontrole ve Enter/seçim → Filtrele komutuna bağlı olduğu doğrulanır.
         var x = Kaynak("Views", ekran + ".axaml");
-        var imza = $"Text={T}{{Binding Value, Mode=TwoWay}}{T} PlaceholderText={T}{{Binding Label}}{T} ToolTip.Tip={T}{{Binding Hint}}{T}";
+        Assert.Equal(adet, Regex.Matches(x, Regex.Escape("<ctrl:HucreFiltre ApplyCommand=")).Count);
+        Assert.Equal(adet, Regex.Matches(x, @"<ctrl:HucreFiltre ApplyCommand=""\{Binding \$parent\[ContentControl\]\.\(\(vm:[A-Za-z]+ViewModel\)DataContext\)\.ApplyFiltersCommand\}""/>").Count);
+        Assert.DoesNotContain("<TextBox Classes=" + T + "CellFilter" + T, x);   // eski kopyalanmış kutu kalmadı
 
-        Assert.Equal(adet, Regex.Matches(x, Regex.Escape(imza)).Count);
-        Assert.Equal(adet, Regex.Matches(x, Regex.Escape($"<TextBox Classes={T}CellFilter{T}")).Count);
-        // Enter → filtrele kısayolu her kutuda duruyor.
-        Assert.Equal(adet, Regex.Matches(x, "<TextBox.KeyBindings>").Count);
+        var k = Kaynak("Controls", "HucreFiltre.cs");
+        Assert.Contains("nameof(ColumnFilterItem.Value)) { Mode = BindingMode.TwoWay }", k);   // değer iki yönlü
+        Assert.Contains("e.Key == Key.Enter", k);                                               // Enter → filtrele
+        Assert.Contains("tb.Classes.Add(\"CellFilter\")", k);                                   // mevcut stil
+        Assert.Contains("_combo.Classes.Add(\"CellFilter\")", k);
     }
 
     /// <summary>Dolu filtre vurgusu yalnız GÖRSELDİR: <c>HasValue</c> türetilmiş bir alandır ve

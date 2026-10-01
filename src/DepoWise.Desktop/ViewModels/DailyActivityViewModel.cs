@@ -130,7 +130,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         [DailyActivityListColumns.MaterialQty] = 110, [DailyActivityListColumns.Materials] = 260, [DailyActivityListColumns.Description] = 160,
     };
 
-    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+    // 2026-09-30: "Kolon Ayarlarını Kaydet" (sağ tık) ile kaydedilen genişlikler açılışta yüklenir (yerel dosya).
+    [ObservableProperty] private Dictionary<string, double> _colWidths = DepoWise.Desktop.Controls.KolonGenislik.VmGenislikleri("DailyActivityViewModel", DefaultColWidths);
 
     public void PreviewColumnWidth(string key, double newWidth)
     {
@@ -158,6 +159,9 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         Page = 1; Load();
     }
 
+    /// <summary>Filtresi AÇILIR LİSTE olan kolonlar (kullanıcı isteği 2026-09-30).</summary>
+    private static readonly HashSet<string> SecimKolonlari = new(new[] { DailyActivityListColumns.Type, DailyActivityListColumns.Operator });
+
     private void RebuildFilterFields()
     {
         var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
@@ -165,10 +169,12 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         foreach (var key in VisibleColumns.Where(k => k != DailyActivityListColumns.Date))
         {
             var col = DailyActivityListColumns.All.FirstOrDefault(c => c.Key == key);
-            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, false)
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, false, SecimKolonlari.Contains(key))
             { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
         FilterFieldsByKey = FilterFields.ToDictionary(f => f.Key, f => f);
+        // 2026-09-30: seçim kolonlarının açılır liste seçenekleri — arka planda, ekranın kendi verisinden.
+        DepoWise.Desktop.Controls.HucreFiltre.SecenekleriDoldur(FilterFields, () => DailyActivityService.ToTableModel(DesktopServices.DailyActivity.SearchGridAll(_session, new DailyActivityGridFilter(), null, false, false)));
     }
 
     private void RebuildPageNumbers()
