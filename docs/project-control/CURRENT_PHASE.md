@@ -1,5 +1,19 @@
 ﻿# AKTİF DURUM
 
+## 🟡 2026-10-04 — uyarılar 2. tur · fotoğraflar cihaza iner · muadil düzenleme (commit'li, YAYIN BEKLİYOR)
+
+- **Uyarı kök nedenleri (canlı veride doğrulandı, salt-okuma):**
+  - Bakım: 1.0.193 tanımın biriminde sayaca göre seçiyordu; GREY 010'da saat tanımının yeni kaydı sayacı **km alanına** girilmiş → eski kayıt seçildi.
+    Artık: **yapıldığı tarih** önce, sayaç = km ?? saat (89215f7).
+  - Muayene: uyarı doğruydu; **liste ekranı** yenilenmiş eski belgeyi "Süresi geçti" gösteriyordu → artık "Yenilendi".
+  - Bilgilendirme notu (masaüstü + web): sayaçsız son bakım (5 kalem "Kontrol gerekli"), şüpheli araç sayacı (EKS-P 004: 122045 vs 12404),
+    esas alınmayan sonradan girilen kayıt, bitiş tarihsiz / geçmiş bitişli yeni belge.
+  - Evrak modülü canlıda boş (uyarı üretmiyor); diğer kaynaklar (stok/yakıt/iş emri/talep/duyuru) kayıt-bazlı, "eski kayıt" sorunu yok.
+- **Fotoğraflar (8248789):** sunucu diski tam (251 kayıt → hepsinin dosyası var). Taşıma günündeki erişimsizlik havuz tükenmesi (500 → "çevrimdışı" sanıldı).
+  Masaüstü artık fotoğrafları `%LOCALAPPDATA%\DepoWise\FotoOnbellek` altına indirir (30 dk'da bir arka planda, yeni uç `/api/photos/index`); çevrimdışıyken buradan gösterir.
+- **Muadil (b192462):** sağ panelde KOD — Ad; çift tık penceresinde (masaüstü + web) liste + Düzelt modunda ekle/çıkar.
+- **Sıradaki:** tam test takımı → kullanıcı onayıyla API deploy + masaüstü 1.0.194 yayını. Önce API (yeni uç), sonra masaüstü.
+
 ## ✅ 2026-10-01 akşam — uyarı düzeltmesi + tablo güncellemeleri YAYINDA (API bf5e20e · masaüstü 1.0.193)
 
 - **Uyarı:** bakım/muayene "en son kayıt" giriş zamanına değil yapıldığı noktaya göre (canlıda 21+1 grup eski uyarı tutuyordu).
