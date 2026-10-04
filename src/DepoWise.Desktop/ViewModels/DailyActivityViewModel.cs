@@ -412,8 +412,23 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     [ObservableProperty] private MaintenanceDefinitionRow? _mDef;
     [ObservableProperty] private MaintenanceDefinitionRow? _mSubDef;
     [ObservableProperty] private LookupItem? _mTechnician;
-    [ObservableProperty] private decimal _mKm;
-    [ObservableProperty] private decimal _mHour;
+
+    // ⭐ 2026-10-04 (kullanıcı kuralı): TEK sayaç alanı — türü SEÇİLEN ARACIN sayacıdır (km aracında yalnız KM,
+    // saat aracında yalnız Saat). Yanlış türe sayaç girmek artık mümkün değil. Bakımda alan ZORUNLUDUR; güncel
+    // sayaçtan büyük olmak zorunda değildir (arızalı araç km yapmadan bakıma girebilir).
+    [ObservableProperty] private decimal? _mMeter;
+    public bool MMeterIsHour => FormVehicle?.MeterUnit == "hour";
+    public bool MMeterEnabled => FormVehicle is not null;
+    public string MMeterLabel => FormVehicle is null ? "Yapılma Sayacı" : MMeterIsHour ? "Yapılma Saat" : "Yapılma KM";
+    public string MMeterHint => FormVehicle is null ? "Önce araç seçin"
+        : $"Güncel sayaç: {FormVehicle.CurrentMeter:0.##} {(MMeterIsHour ? "saat" : "km")}";
+    partial void OnFormVehicleChanged(VehicleListRow? value) => MMeterAracDegisti();
+    private void MMeterAracDegisti()
+    {
+        MMeter = null;
+        OnPropertyChanged(nameof(MMeterIsHour)); OnPropertyChanged(nameof(MMeterEnabled));
+        OnPropertyChanged(nameof(MMeterLabel)); OnPropertyChanged(nameof(MMeterHint));
+    }
     [ObservableProperty] private string _mntMaterialSearch = "";
     [ObservableProperty] private bool _isAddingSub;
     [ObservableProperty] private string _newSubName = "";
@@ -495,7 +510,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         FormKind = "Hareket";
         FormVehicle = null; FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
         FormFrom = null; FormTo = null; FormOperator = null; FormDuration = 0;
-        MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
+        MDef = null; MSubDef = null; MTechnician = null; MMeter = null;
         MntMaterialSearch = ""; IsAddingSub = false; NewSubName = "";
         MntLines.Clear(); RefreshMntMaterials();
         MntLocation = _mntLocationDefault;   // BKM-04: yeni kayıt varsayılan depoyla açılır
@@ -636,6 +651,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         if (IsRealMaintenance)
         {
             if (MDef is null) { FormError = "Bakım tanımı seçin."; return; }
+            if (MMeter is null) { FormError = $"{MMeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; return; }
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
             if (!await ConfirmService.AskAsync(MntLines.Count == 0 ? "Bakım kaydı eklensin mi?"
                     : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", "Yeni Kayıt")) return;
@@ -646,11 +662,11 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     VehicleId: FormVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
                     TechnicianId: MTechnician?.Id,
                     Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
-                    PerformedKm: MKm > 0 ? MKm : (decimal?)null,
-                    PerformedHour: MHour > 0 ? MHour : (decimal?)null,
+                    PerformedKm: MMeterIsHour ? null : MMeter,
+                    PerformedHour: MMeterIsHour ? MMeter : null,
                     PerformedDate: IsGunuTarihi.Ms(FormDate),   // ADR-184
                     Materials: materials,
-                    StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo
+                    StockLocationId: MntLocation?.Id, RequireMeter: true), Guid.NewGuid().ToString("N"));   // BKM-04 + 2026-10-04 sayaç zorunlu
                 ShowForm = false; Load();
                 Status = "Bakım kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
             }
@@ -676,8 +692,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     VehicleId: FormVehicle.Id, DefinitionId: "", SubDefinitionId: null,
                     TechnicianId: MTechnician?.Id,
                     Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
-                    PerformedKm: MKm > 0 ? MKm : (decimal?)null,
-                    PerformedHour: MHour > 0 ? MHour : (decimal?)null,
+                    PerformedKm: MMeterIsHour ? null : MMeter,
+                    PerformedHour: MMeterIsHour ? MMeter : null,
                     PerformedDate: IsGunuTarihi.Ms(FormDate),   // ADR-184
                     Materials: materials,
                     StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo

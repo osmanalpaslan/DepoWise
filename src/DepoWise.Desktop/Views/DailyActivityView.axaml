@@ -168,11 +168,10 @@
                         </ctrl:FormField>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Yapılma KM" Width="140">
-                            <NumericUpDown Classes="Field" Value="{Binding MKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Yapılma Saat" Width="140">
-                            <NumericUpDown Classes="Field" Value="{Binding MHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                        <!-- 2026-10-04: TEK sayaç alanı — türü seçilen aracın sayacı; Bakımda zorunlu. -->
+                        <ctrl:FormField Label="{Binding MMeterLabel}" HelpText="{Binding MMeterHint}" Width="170">
+                            <NumericUpDown Classes="Field" Value="{Binding MMeter}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
+                                           IsEnabled="{Binding MMeterEnabled}"/>
                         </ctrl:FormField>
                     </StackPanel>
                     <!-- BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan oturum şubesi, kullanıcı

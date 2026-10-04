@@ -442,8 +442,22 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [ObservableProperty] private MaintenanceDefinitionRow? _mntDef;
     [ObservableProperty] private MaintenanceDefinitionRow? _mntSubDef;
     [ObservableProperty] private LookupItem? _mntTechnician;
-    [ObservableProperty] private decimal _mntKm;
-    [ObservableProperty] private decimal _mntHour;
+
+    // ⭐ 2026-10-04 (kullanıcı kuralı): TEK sayaç alanı — türü SEÇİLEN ARACIN sayacıdır (km aracında yalnız KM,
+    // saat aracında yalnız Saat). Yanlış türe sayaç girmek artık mümkün değil. Bakımda alan ZORUNLUDUR; güncel
+    // sayaçtan büyük olmak zorunda değildir (arızalı araç km yapmadan bakıma girebilir).
+    [ObservableProperty] private decimal? _mntMeter;
+    public bool MntMeterIsHour => MntVehicle?.MeterUnit == "hour";
+    public bool MntMeterEnabled => MntVehicle is not null;
+    public string MntMeterLabel => MntVehicle is null ? "Yapılma Sayacı" : MntMeterIsHour ? "Yapılma Saat" : "Yapılma KM";
+    public string MntMeterHint => MntVehicle is null ? "Önce araç seçin"
+        : $"Güncel sayaç: {MntVehicle.CurrentMeter:0.##} {(MntMeterIsHour ? "saat" : "km")}";
+    private void MntMeterAracDegisti()
+    {
+        MntMeter = null;
+        OnPropertyChanged(nameof(MntMeterIsHour)); OnPropertyChanged(nameof(MntMeterEnabled));
+        OnPropertyChanged(nameof(MntMeterLabel)); OnPropertyChanged(nameof(MntMeterHint));
+    }
     [ObservableProperty] private DateTimeOffset? _mntDate;
     [ObservableProperty] private string _mntDescription = "";
 
@@ -515,9 +529,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
 
     partial void OnMntVehicleChanged(VehicleListRow? value)
     {
-        if (value is null) return;
-        if (MntKm < value.CurrentMeter && value.MeterUnit != "hour") MntKm = value.CurrentMeter;
-        if (MntHour < value.CurrentMeter && value.MeterUnit == "hour") MntHour = value.CurrentMeter;
+        MntMeterAracDegisti();
     }
 
     partial void OnMntMaterialSearchChanged(string value) => RefreshMntMaterials();
@@ -727,7 +739,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     private void ClearMnt()
     {
         MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
-        MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
+        MntMeter = null; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
         MntInvoice = ""; MntParty = null;   // ⭐ MUH-01b/c: belge no ve cari sonraki kayda taşınmasın
         MntVehStatus = null; MntVehStatusNote = "";
         IsAddingMntSub = false; NewMntSubName = "";
@@ -757,6 +769,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         if (!await BranchGuard.RequireBranchAsync(_session, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (MntVehicle is null) { Status = "Araç seçin."; return; }
         if (MntDef is null) { Status = "Bakım tanımı seçin."; return; }
+        if (MntMeter is null) { Status = $"{MntMeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; return; }
         if (MntLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }
 
         // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur";
@@ -810,8 +823,9 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 VehicleId: MntVehicle.Id, DefinitionId: MntDef.Id, SubDefinitionId: MntSubDef?.Id,
                 TechnicianId: MntTechnician?.Id,
                 Description: string.IsNullOrWhiteSpace(MntDescription) ? null : MntDescription.Trim(),
-                PerformedKm: MntKm > 0 ? MntKm : (decimal?)null,
-                PerformedHour: MntHour > 0 ? MntHour : (decimal?)null,
+                PerformedKm: MntMeterIsHour ? null : MntMeter,
+                PerformedHour: MntMeterIsHour ? MntMeter : null,
+                RequireMeter: true,
                 PerformedDate: IsGunuTarihi.Ms(MntDate),   // ADR-184: takvim tarihi → UTC gün başı
                 Materials: materials,
                 // BKM-04: KULLANICININ SEÇTİĞİ depo — olduğu gibi gider. Depo yoksa null → ATANMAMIŞ

@@ -251,8 +251,7 @@
                             }
                         </div>
                     </MudItem>
-                    <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mMeter" Label="@MeterLabel" HelperText="@MeterHint" Disabled="@(_mVehicle is null)" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_mDate" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3">
                 @* MLY-01: opsiyonel maliyet merkezi — bağ sunucuda kayıt sonrası yazılır. *@
@@ -615,7 +614,28 @@
     // Tab 2: maintenance
     private ApiClient.Opt? _mVehicle, _matSel;
     private string? _mDefId, _mSubId, _mTech;
-    private decimal? _mKm, _mHour; private DateTime? _mDate; private string _mDesc = "";
+    private DateTime? _mDate;
+    // ⭐ 2026-10-04 (kullanıcı kuralı): TEK sayaç alanı — türü seçilen ARACIN sayacı (km aracında KM, saat aracında
+    // Saat); yanlış türe giriş imkânsız. Bakımda zorunlu (sunucu da zorlar: RequireMeter). Güncel sayaçtan büyük
+    // olmak zorunda değil (arızalı araç km yapmadan bakıma girebilir).
+    private decimal? _mMeter; private string? _meterUnit; private decimal? _curMeter; private string? _meterVid;
+    private bool MeterIsHour => _meterUnit == "hour";
+    private string MeterLabel => _mVehicle is null ? "Yapılma Sayacı" : MeterIsHour ? "Yapılma Saat" : "Yapılma KM";
+    private string MeterHint => _mVehicle is null ? "Önce araç seçin"
+        : _curMeter is null ? "" : $"Güncel sayaç: {_curMeter:0.##} {(MeterIsHour ? "saat" : "km")}";
+    private decimal? MeterKm => MeterIsHour ? null : _mMeter;
+    private decimal? MeterHour => MeterIsHour ? _mMeter : null;
+    private async Task SayacTuruGuncelle()
+    {
+        // Araç değişince (seçim, düzeltme köprüsü, temizleme) sayaç türü yeniden okunur — tek yer.
+        var vid = _mVehicle?.Id;
+        if (vid == _meterVid) return;
+        _meterVid = vid; _mMeter = null; _meterUnit = null; _curMeter = null;
+        if (vid is not null)
+            try { var v = await Api.GetObjectAsync($"/api/vehicles/{vid}"); _meterUnit = Str(v, "meterUnit"); _curMeter = Dec(v, "currentMeter"); } catch { }
+        StateHasChanged();
+    }
+ private string _mDesc = "";
     // Bakım ekranından araç durumu değiştirme (boş = dokunma).
     private string? _mVehStatus; private string _mVehStatusNote = "";
     private decimal _matQty;
@@ -839,6 +859,7 @@
     private string? _lastMDef;
     protected override async Task OnAfterRenderAsync(bool first)
     {
+        await SayacTuruGuncelle();   // 2026-10-04: araç değişince sayaç türü
         if (_mDefId != _lastMDef)
         {
             _lastMDef = _mDefId; _mSubId = null;
@@ -927,6 +948,7 @@
         _mMsg = null;
         if (!await Dialog.RequireBranchAsync(Auth, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_mVehicle is null) { _mMsg = "Araç seçin."; _mOk = false; return; }
+        if (_mMeter is null) { _mMsg = $"{MeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; _mOk = false; return; }
         if (string.IsNullOrEmpty(_mDefId)) { _mMsg = "Bakım tanımı seçin."; _mOk = false; return; }
 
         // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur"; her iki
@@ -984,7 +1006,7 @@
             var err = await Api.PostAsync("/api/maintenance", new
             {
                 vehicleId = _mVehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
-                description = Empty(_mDesc), performedKm = _mKm, performedHour = _mHour,
+                description = Empty(_mDesc), performedKm = MeterKm, performedHour = MeterHour,
                 performedDate = DepoWise.Web.Services.FieldChecks.ToUnixMs(_mDate),
                 materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                 // BKM-04: KULLANICININ SEÇTİĞİ depo. Auth.BranchId yalnız VARSAYILANI belirledi;
@@ -1073,7 +1095,7 @@
     }
 
     // BKM-04: YENİ kayıt varsayılan depoyla açılır (bir önceki kaydın seçimi taşınmaz).
-    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; _mInvoiceNo = ""; _mCostCenterId = null; _mPartyId = null; }
+    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mMeter = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; _mInvoiceNo = ""; _mCostCenterId = null; _mPartyId = null; }
 
     // ── Uyarılar ──
     private async Task LoadAlerts() { _alerts = null; try { _alerts = await Api.GetArrayAsync("/api/maintenance/alerts"); } catch { _alerts = Array.Empty<JsonElement>(); } }

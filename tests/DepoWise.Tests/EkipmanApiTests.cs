@@ -171,7 +171,7 @@ public class EkipmanApiTests : IAsyncLifetime
             cmd.ExecuteNonQuery();
         }
 
-        (await _a.PostAsJsonAsync("/api/maintenance", new { vehicleId = arac, definitionId = _defA }))
+        (await _a.PostAsJsonAsync("/api/maintenance", new { vehicleId = arac, definitionId = _defA, performedKm = 100m }))   // 2026-10-04: sayaç zorunlu
             .EnsureSuccessStatusCode();
         (await _a.PostAsJsonAsync("/api/equipment-maintenance", new { equipmentId = _ekipmanA, definitionId = _defA }))
             .EnsureSuccessStatusCode();

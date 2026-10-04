@@ -37,7 +37,12 @@ public sealed record NewMaintenance(
     string? InvoiceNo = null,
     /// <summary>⭐ MUH-01c (2026-09-04): DIŞ SERVİS SAĞLAYICISI (cari). Bakım dışarıda yapıldıysa
     /// kime borçlanıldığı buradan bilinir. Opsiyoneldir — kendi atölyesinde yapılan bakımda boştur.</summary>
-    string? PartyId = null);
+    string? PartyId = null,
+    /// <summary>⭐ 2026-10-04 (kullanıcı kuralı): ekrandan girilen bakımda SAYAÇ ZORUNLU ve ARACIN sayaç türüne
+    /// yazılır (km aracında km, saat aracında saat) — yanlış alana girilen sayaç uyarıları bozuyordu (GREY 010).
+    /// Değer güncel sayaçtan büyük olmak zorunda DEĞİL (arızalı araç km yapmadan bakıma girebilir).
+    /// false = eski davranış (içe aktarma, eşitleme, testler).</summary>
+    bool RequireMeter = false);
 
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
@@ -130,6 +135,7 @@ public sealed class MaintenanceService
         EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
         var def = LoadDefinition(conn, tx, s.CompanyId, dto.DefinitionId)
             ?? throw new ForbiddenException("Bakım tanımı bulunamadı veya başka firmaya ait.");
+        if (dto.RequireMeter) dto = NormalizeMeter(conn, tx, s.CompanyId, dto);
 
         var id = Guid.NewGuid().ToString("N");
 
@@ -137,8 +143,9 @@ public sealed class MaintenanceService
         decimal? nextKm = null, nextHour = null; long? nextDate = null;
         switch (AlertRules.ParseUnit(def.IntervalUnit))
         {
-            case IntervalUnit.Km when dto.PerformedKm is not null: nextKm = dto.PerformedKm + def.IntervalValue; break;
-            case IntervalUnit.Hour when dto.PerformedHour is not null: nextHour = dto.PerformedHour + def.IntervalValue; break;
+            // 2026-10-04: sayaç km YA DA saat alanında olabilir (aracın türüne göre) — tanımın biriminde hedef üretilir.
+            case IntervalUnit.Km when (dto.PerformedKm ?? dto.PerformedHour) is { } mk: nextKm = mk + def.IntervalValue; break;
+            case IntervalUnit.Hour when (dto.PerformedHour ?? dto.PerformedKm) is { } mh: nextHour = mh + def.IntervalValue; break;
             case IntervalUnit.Day when dto.PerformedDate is not null:
                 nextDate = DateTimeOffset.FromUnixTimeMilliseconds(dto.PerformedDate.Value)
                     .AddDays((double)def.IntervalValue).ToUnixTimeMilliseconds();
@@ -759,7 +766,9 @@ VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev,
     private void AdvanceMeterInTx(DbConnection conn, DbTransaction tx, string companyId, string vehicleId,
         string unit, decimal? performedKm, decimal? performedHour, long now)
     {
-        var incoming = unit == "hour" ? performedHour : performedKm;
+        // 2026-10-04: aracın TEK sayacı vardır; bakım sayacı hangi alana yazıldıysa o (eskiden tanım birimine
+        // bakılıyordu → saat tanımlı bakım km aracında sayacı hiç ilerletmiyordu).
+        var incoming = unit == "hour" ? (performedHour ?? performedKm) : (performedKm ?? performedHour);
         if (incoming is null) return;
         decimal current;
         using (var read = conn.CreateCommand())
@@ -892,6 +901,22 @@ VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev,
     // BKM-04: `LoadMaintenanceMaterials` KALDIRILDI. İptal artık malzeme satırlarından değil DEFTERDEN
     // (`LoadUsageMovements`) besleniyor — lokasyon yalnız orada tutuluyor. Ekip-stoğu satırlarının
     // atlanması da bayrak kontrolüyle değil, hiç hareket üretmemeleriyle yapısal olarak sağlanıyor.
+
+    /// <summary>2026-10-04 — sayaç zorunlu + aracın sayaç türüne yerleştir (bkz. <see cref="NewMaintenance.RequireMeter"/>).</summary>
+    internal static NewMaintenance NormalizeMeter(DbConnection conn, DbTransaction tx, string companyId, NewMaintenance dto)
+    {
+        var meter = dto.PerformedKm ?? dto.PerformedHour;
+        if (meter is null)
+            throw new ArgumentException("Bakım sayacı zorunludur. Bakımın yapıldığı sayaç değerini girin (güncel sayaçla aynı olabilir).");
+        if (meter < 0) throw new ArgumentException("Bakım sayacı negatif olamaz.");
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT meter_unit FROM vehicles WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", dto.VehicleId);
+        cmd.AddWithValue("@c", companyId);
+        var saat = (cmd.ExecuteScalar() as string) == "hour";
+        return dto with { PerformedKm = saat ? null : meter, PerformedHour = saat ? meter : null };
+    }
 
     private static void EnsureVehicleOwned(DbConnection conn, DbTransaction tx, string companyId, string vehicleId)
     {

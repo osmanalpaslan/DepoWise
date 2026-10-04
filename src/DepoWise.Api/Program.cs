@@ -4091,7 +4091,8 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId),
+        RequireMeter: true), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "vehicle_maintenance", id, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id });
 }).RequireAuthorization();
@@ -4301,7 +4302,8 @@ app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
     var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
-        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Guid.NewGuid().ToString("N"));   // BKM-04
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId),
+        RequireMeter: true), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19, ADR-091) — Bakım ile AYNI mekanizma, Bakım

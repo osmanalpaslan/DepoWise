@@ -413,6 +413,45 @@ public class MaintenanceTests : IDisposable
         Assert.Contains("geçmiş", a.Note);
     }
 
+    // ═══ 2026-10-04 — bakım sayacı kuralı (kullanıcı: yanlış sayaç türüne giriş imkânsız + boş geçilemez) ═══
+
+    [Fact]
+    public void Sayac_Zorunlu_Bos_Gecilemez()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("SZ-1", CurrentMeter: 500m));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("P", 100m, "km"));
+        var ex = Assert.Throws<ArgumentException>(() =>
+            _maint.Save(_admin, new NewMaintenance(v, def, RequireMeter: true), "op-1"));
+        Assert.Contains("sayacı zorunlu", ex.Message);
+        Assert.Empty(_maint.ListMaintenances(_admin));   // hiçbir şey yazılmadı
+    }
+
+    [Fact]
+    public void Sayac_Aracin_Turune_Yazilir_Saat_Araci()
+    {
+        // Saat sayaçlı araç; istemci değeri km alanında gönderse bile SAAT olarak kaydedilir (GREY 010 vakası).
+        var v = _vehicles.Create(_admin, new NewVehicle("SZ-2", CurrentMeter: 1700m, MeterUnit: "hour"));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("MOTOR BAKIMI", 250m, "hour"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1789m, RequireMeter: true), "op-1");
+        var m = _maint.ListMaintenances(_admin).Single();
+        Assert.Null(m.PerformedKm);
+        Assert.Equal(1789m, m.PerformedHour);
+        Assert.Equal(2039m, m.NextDueHour);                                       // hedef tanım biriminde üretildi
+        Assert.Equal(1789m, _vehicles.List(_admin).Single(x => x.Id == v).CurrentMeter);   // araç sayacı ilerledi
+    }
+
+    [Fact]
+    public void Sayac_Guncelden_Kucuk_Ya_Da_Esit_Girilebilir()
+    {
+        // Arızalı araç km yapmadan bakıma girebilir: güncel sayaçla AYNI (ya da eski) değer kabul edilir.
+        var v = _vehicles.Create(_admin, new NewVehicle("SZ-3", CurrentMeter: 5000m));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("P", 1000m, "km"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 5000m, RequireMeter: true), "op-1");
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 4800m, RequireMeter: true), "op-2");
+        Assert.Equal(2, _maint.ListMaintenances(_admin).Count);
+        Assert.Equal(5000m, _vehicles.List(_admin).Single(x => x.Id == v).CurrentMeter);   // sayaç geriye gitmedi
+    }
+
     [Fact]
     public void Uyari_Gecikti_Yuzde100Ustu()
     {

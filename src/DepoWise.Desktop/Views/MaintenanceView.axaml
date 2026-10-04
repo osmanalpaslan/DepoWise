@@ -206,11 +206,10 @@
                                         </Grid>
                                     </StackPanel>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Yapılma KM" Width="130">
-                                    <NumericUpDown Classes="Field" Value="{Binding MntKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Yapılma Saat" Width="130">
-                                    <NumericUpDown Classes="Field" Value="{Binding MntHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                <!-- 2026-10-04: TEK sayaç alanı — türü seçilen aracın sayacı; bakımda zorunlu. -->
+                                <ctrl:FormField Label="{Binding MntMeterLabel}" HelpText="{Binding MntMeterHint}" Width="170">
+                                    <NumericUpDown Classes="Field" Value="{Binding MntMeter}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
+                                                   IsEnabled="{Binding MntMeterEnabled}"/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Tarih" Width="150">
                                     <ctrl:TarihKutusu SelectedDate="{Binding MntDate}"/>

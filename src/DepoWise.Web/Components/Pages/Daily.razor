@@ -79,8 +79,7 @@
                     <MudItem xs="6" md="4"><LookupSelect Label="Alt Bakım" @bind-Value="_mSubId" Items="_mSubOpts" CreatePath="/api/maintenance/definitions" CreateField="name" ExtraField="parentDefId" ExtraValue="@_mDefId" OnAdded="ReloadMSub" Disabled="@(string.IsNullOrEmpty(_mDefId))" /></MudItem>
                 }
                 <MudItem xs="6" md="4"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
-                <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mMeter" Label="@MeterLabel" HelperText="@MeterHint" Disabled="@(_vehicle is null)" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
             <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (varsayılan: merkez depo stoğundan düşülür)</MudText>
             @* BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan giriş şubesi, kullanıcı değiştirebilir
@@ -333,7 +332,28 @@
     private string? _exitTo, _exitPersonnel;
     // maintenance
     private string? _mDefId, _mSubId, _mTech;
-    private decimal? _mKm, _mHour;
+
+    // ⭐ 2026-10-04 (kullanıcı kuralı): TEK sayaç alanı — türü seçilen ARACIN sayacı (km aracında KM, saat aracında
+    // Saat); yanlış türe giriş imkânsız. Bakımda zorunlu (sunucu da zorlar: RequireMeter). Güncel sayaçtan büyük
+    // olmak zorunda değil (arızalı araç km yapmadan bakıma girebilir).
+    private decimal? _mMeter; private string? _meterUnit; private decimal? _curMeter; private string? _meterVid;
+    private bool MeterIsHour => _meterUnit == "hour";
+    private string MeterLabel => _vehicle is null ? "Yapılma Sayacı" : MeterIsHour ? "Yapılma Saat" : "Yapılma KM";
+    private string MeterHint => _vehicle is null ? "Önce araç seçin"
+        : _curMeter is null ? "" : $"Güncel sayaç: {_curMeter:0.##} {(MeterIsHour ? "saat" : "km")}";
+    private decimal? MeterKm => MeterIsHour ? null : _mMeter;
+    private decimal? MeterHour => MeterIsHour ? _mMeter : null;
+    private async Task SayacTuruGuncelle()
+    {
+        // Araç değişince (seçim, düzeltme köprüsü, temizleme) sayaç türü yeniden okunur — tek yer.
+        var vid = _vehicle?.Id;
+        if (vid == _meterVid) return;
+        _meterVid = vid; _mMeter = null; _meterUnit = null; _curMeter = null;
+        if (vid is not null)
+            try { var v = await Api.GetObjectAsync($"/api/vehicles/{vid}"); _meterUnit = Str(v, "meterUnit"); _curMeter = Dec(v, "currentMeter"); } catch { }
+        StateHasChanged();
+    }
+
     private ApiClient.Opt? _matSel; private decimal _matQty;
     private readonly List<Line> _lines = new();
     // ── BKM-04 / KARAR-9: malzemenin çekildiği depo (bakım + İlave Yağ/Filtre/Tamir) ─────────────
@@ -493,6 +513,7 @@
     private string? _lastMDef;
     protected override async Task OnAfterRenderAsync(bool first)
     {
+        await SayacTuruGuncelle();   // 2026-10-04: araç değişince sayaç türü
         if (_mDefId != _lastMDef)
         {
             _lastMDef = _mDefId; _mSubId = null;
@@ -569,13 +590,14 @@
             if (_kind == "Bakım")
             {
                 if (string.IsNullOrEmpty(_mDefId)) { _msg = "Bakım tanımı seçin."; _ok = false; _busy = false; return; }
+                if (_mMeter is null) { _msg = $"{MeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; _ok = false; _busy = false; return; }
                 // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
                 if (!await Dialog.Confirm(_lines.Count == 0 ? "Bakım kaydı eklensin mi?"
                         : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
                 err = await Api.PostAsync("/api/daily/maintenance", new
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
-                    description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
+                    description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
                     materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                     branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
                 });
@@ -588,7 +610,7 @@
                 err = await Api.PostAsync("/api/daily/extra", new
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
-                    description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
+                    description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
                     materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                     branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
                 });
@@ -673,7 +695,7 @@
     {
         _vehicle = null; _date = null; _desc = "";
         _from = _to = _operator = null; _duration = null;
-        _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _matSel = null; _matQty = 0; _lines.Clear();
+        _mDefId = _mSubId = _mTech = null; _mMeter = null; _matSel = null; _matQty = 0; _lines.Clear();
         _mLocationId = DefaultLocationId();   // BKM-04: yeni kayıt varsayılan depoyla açılır
         _exitScope = "Şube İçi"; _exitMaterial = null; _exitQty = 0; _exitTo = _exitPersonnel = null;
     }

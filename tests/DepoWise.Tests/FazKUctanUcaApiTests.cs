@@ -196,6 +196,7 @@ public class FazKUctanUcaApiTests : IAsyncLifetime
         {
             vehicleId = _aracA,
             definitionId = _tanimA,
+            performedKm = 100m,   // 2026-10-04: sayaç zorunlu
             performedDate = 1_700_000_000_000L,
             branchId = _subeA,
             invoiceNo = new string('X', BelgeNo.EnFazlaUzunluk + 50),
@@ -229,6 +230,7 @@ public class FazKUctanUcaApiTests : IAsyncLifetime
         object Govde() => new
         {
             vehicleId = _aracA, definitionId = _tanimA,
+            performedKm = 100m,   // 2026-10-04: sayaç zorunlu
             performedDate = 1_700_000_000_000L, branchId = _subeA,
         };
 
