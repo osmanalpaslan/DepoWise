@@ -98,6 +98,19 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+// ⭐ 2026-10-04 — ANLIK EŞİTLEME: kimliği doğrulanmış BAŞARILI yazma isteği (GET/HEAD/OPTIONS dışı, 2xx)
+// firmasının sinyalini tetikler → /api/sync/wait'te bekleyen masaüstleri hemen uyanır (bkz. SyncNotifier).
+// Hata middleware'inden ÖNCE kaydedilir ki son durum kodunu görsün; yanıt yazıldıktan sonra çalışır
+// (transaction tamamlanmıştır).
+app.Use(async (ctx, next) =>
+{
+    await next();
+    var m = ctx.Request.Method;
+    if (HttpMethods.IsGet(m) || HttpMethods.IsHead(m) || HttpMethods.IsOptions(m)) return;
+    if (ctx.Response.StatusCode is < 200 or >= 300) return;
+    SyncNotifier.Notify(ctx.User?.FindFirstValue(JwtTokens.CompanyClaim));
+});
+
 // Gözlemlenebilirlik: her istek için tek satır erişim logu (metot/yol/durum/süre). Fly.io bunu toplar → canlıda
 // ne olup bittiği + hangi istek yavaş/hatalı görünür. Yüksek-frekanslı yoklamalar (health/status) loglanmaz (gürültü).
 app.Use(async (ctx, next) =>
@@ -482,6 +495,25 @@ app.MapGet("/api/sync/business-pull", (HttpContext c, long? since) =>
 // değişmediyse tam snapshot ÇEKMEZ (kullanıcı isteği 2026-07-19: anlık ama bant israfsız).
 app.MapGet("/api/sync/business-version", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(new { version = svc.BusinessSync.CompanyVersion(s.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ⭐ 2026-10-04 — "DEĞİŞİKLİK OLANA KADAR BEKLE" (uzun yoklama). Masaüstü elindeki sürümle (since) çağırır;
+// sunucu sürümü since'ten büyükse HEMEN döner, değilse firmanın sinyalini en fazla 25 sn bekler. Sinyal
+// kaçarsa diye 10 sn'de bir sürüm yine kontrol edilir. Bekleme sırasında DB bağlantısı tutulmaz; istemci
+// bağlantıyı kapatırsa bekleme iptal olur. Eski masaüstü bu ucu çağırmaz (davranışı değişmez).
+app.MapGet("/api/sync/wait", async (HttpContext c, long? since) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var bitis = DateTime.UtcNow.AddSeconds(25);
+    while (true)
+    {
+        var v = svc.BusinessSync.CompanyVersion(s.CompanyId);
+        if (v > (since ?? 0)) return Results.Ok(new { version = v, changed = true });
+        var kalan = bitis - DateTime.UtcNow;
+        if (kalan <= TimeSpan.Zero || c.RequestAborted.IsCancellationRequested)
+            return Results.Ok(new { version = v, changed = false });
+        await SyncNotifier.WaitAsync(s.CompanyId, kalan < TimeSpan.FromSeconds(10) ? kalan : TimeSpan.FromSeconds(10), c.RequestAborted);
+    }
+}).RequireAuthorization();
 
 // Çakışmalar — admin (tümü) / personel (görmediği, şube kapsamında)
 // ⭐ FAZ 4.4 (2026-09-06): çakışma LİSTESİ artık "sync_conflicts" ekran yetkisine bağlıdır — arayüzdeki

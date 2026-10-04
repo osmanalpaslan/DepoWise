@@ -269,19 +269,24 @@
                         <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
                             <Ellipse Width="9" Height="9" Fill="{Binding ConnectionBrush}" VerticalAlignment="Center"/>
 
-                            <!-- ⭐ FAZ 4.12 (kullanıcı isteği 2026-09-06) — SENKRON HALKASI.
-                                 BOŞTA: halka bir sonraki eşitlemeye kadar yavaşça dolar (SANİYE YAZMAZ).
-                                 EŞİTLERKEN: aynı halka yüzde ilerlemesini gösterir, ortasında % yazar.
-                                 Tek görselin iki hâli olduğu için geçişte yer değiştirme/sıçrama olmaz. -->
+                            <!-- ⭐ 2026-10-04 (kullanıcı isteği) — ANLIK EŞİTLEME HALKASI. Eski 15 sn geri sayımı
+                                 kaldırıldı (eşitleme artık anlık). BOŞTA: sakin dolu çember. VERİ AKARKEN: dönen vurgu
+                                 yayı + ortada ⇅. ELLE EŞİTLEMEDE: yüzde ilerlemesi (eskisi gibi). -->
                             <Panel Width="26" Height="26" VerticalAlignment="Center"
                                    ToolTip.Tip="{Binding SyncRingTooltip}">
                                 <Ellipse Width="26" Height="26" StrokeThickness="2"
                                          Stroke="{DynamicResource OverlaySelectedBrush}"/>
-                                <!-- Boşta: geri sayım yayı (soluk) -->
-                                <Path Stretch="None" StrokeThickness="2" StrokeLineCap="Round"
-                                      Stroke="{DynamicResource TextSecondaryBrush}" Opacity="0.75"
-                                      IsVisible="{Binding !IsSyncing}"
-                                      Data="{Binding SyncCountdown, Converter={x:Static vm:ArcProgressConverter.Instance}, ConverterParameter=26}"/>
+                                <!-- Boşta: sakin, dolu ince çember (soluk) -->
+                                <Ellipse Width="26" Height="26" StrokeThickness="2" Opacity="0.55"
+                                         Stroke="{DynamicResource TextSecondaryBrush}"
+                                         IsVisible="{Binding AktarimBosta}"/>
+                                <!-- Veri akarken: dönen çeyrek yay (animasyon: Components.axaml Path.DonenYay) -->
+                                <Path Classes="DonenYay" Stretch="None" StrokeThickness="3" StrokeLineCap="Round"
+                                      Stroke="{DynamicResource AccentBrush}" RenderTransformOrigin="13,13"
+                                      IsVisible="{Binding AktarimVar}"
+                                      Data="{Binding Source=30, Converter={x:Static vm:ArcProgressConverter.Instance}, ConverterParameter=26}">
+                                    <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+                                </Path>
                                 <!-- Eşitlerken: ilerleme yayı (vurgu rengi) -->
                                 <Path Stretch="None" StrokeThickness="3" StrokeLineCap="Round"
                                       Stroke="{DynamicResource AccentBrush}"
@@ -296,8 +301,13 @@
                                 <SelectableTextBlock Text="{Binding SyncStatusChip}" Classes="Body"
                                                      FontSize="12" FontWeight="SemiBold"
                                                      MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper"
-                                                     IsVisible="{Binding !IsSyncing}"/>
+                                <!-- 2026-10-04: bağlantı durumu + son aktarımın gelen/giden kayıt sayısı -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsSyncing}">
+                                    <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper"/>
+                                    <SelectableTextBlock Text="{Binding AktarimSayilari}" Classes="Helper"
+                                                         Foreground="{DynamicResource AccentBrush}"
+                                                         ToolTip.Tip="Son aktarım: ↑ gönderilen · ↓ alınan kayıt sayısı"/>
+                                </StackPanel>
                                 <SelectableTextBlock Text="{Binding SyncProgress, StringFormat='Eşitleniyor · %{0}'}"
                                                      Classes="Helper" IsVisible="{Binding IsSyncing}"/>
                             </StackPanel>

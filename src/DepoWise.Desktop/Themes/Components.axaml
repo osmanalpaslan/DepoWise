@@ -710,4 +710,13 @@
         <Setter Property="BorderThickness" Value="2"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
     </Style>
+    <!-- 2026-10-04: üst bar ANLIK EŞİTLEME halkası — veri akarken dönen vurgu yayı (MainWindow, Path.DonenYay). -->
+    <Style Selector="Path.DonenYay">
+        <Style.Animations>
+            <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
 </Styles>

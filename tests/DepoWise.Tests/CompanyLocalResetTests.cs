@@ -167,7 +167,7 @@ public class CompanyLocalResetTests : IDisposable
         // Kontrol, gönderimden ÖNCE olmalı — sonrasında olsaydı eski veri çoktan gitmiş olurdu.
         // Karşılaştırma YALNIZ periyodik tur metodunun gövdesinde yapılır; dosyanın başındaki manuel
         // "Eşitle" komutu da PushAsync çağırır ve dosya-geneli arama yanıltıcı olurdu.
-        var tur = src.IndexOf("private async System.Threading.Tasks.Task MaybePushBusinessAsync", StringComparison.Ordinal);
+        var tur = src.IndexOf("private async System.Threading.Tasks.Task<bool> MaybePushBusinessAsync", StringComparison.Ordinal);
         Assert.True(tur > 0, "MaybePushBusinessAsync bulunamadı");
         var govde = src.Substring(tur);
 
@@ -183,7 +183,7 @@ public class CompanyLocalResetTests : IDisposable
     public void SIF02b_Kapi_Devredeyse_Tur_Durur_Ve_Oturum_Kapanir()
     {
         var src = ShellSource();
-        Assert.Contains("if (_localResetPending) { await WarnLocalResetOnceAsync(); return; }", src);
+        Assert.Contains("if (_localResetPending) { await WarnLocalResetOnceAsync(); return true; }", src);
         Assert.Contains("WarnLocalResetOnceAsync", src);
         // Bilgilendirme + güvenli çıkış (makine pasife alındığındaki desenle aynı).
         Assert.Contains("App.Current?.Logout();", src);

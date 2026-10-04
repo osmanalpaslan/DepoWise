@@ -79,6 +79,7 @@ public static class BusinessSyncPushService
             {
                 var r = ParseResult(bodyText);
                 LastPushResult = r;
+                SonGonderilenSayisi = r.Upserted;   // 2026-10-04: üst bardaki "giden" sayacı
                 LastPushFailed = false;
 
                 // ── Z3 (2026-07-22) RETRY: sunucu HTTP-başarılı dönse bile bazı satırları UYGULAMAMIŞ olabilir
@@ -156,6 +157,25 @@ public static class BusinessSyncPushService
 
     /// <summary>Son BAŞARILI push'un sunucu sonucu (upserted/skipped/errors). Ağ hatasında değişmez (bkz. LastPushFailed).</summary>
     public static PushResult? LastPushResult { get; private set; }
+
+    /// <summary>2026-10-04: son başarılı gönderimde sunucuya yazılan kayıt sayısı (üst bar "↑ giden").</summary>
+    public static int SonGonderilenSayisi { get; private set; }
+
+    /// <summary>
+    /// ⭐ 2026-10-04 — ANLIK GÖNDERİM: bu makinede henüz gönderilmemiş yerel değişiklik var mı? Yalnız YEREL
+    /// veritabanına bakar (ağ yok, ucuz) → masaüstü birkaç saniyede bir sorup değişikliği beklemeden gönderir.
+    /// </summary>
+    public static bool YerelBekleyenVar()
+    {
+        var companyId = DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(companyId)) return false;
+        try
+        {
+            var localV = new BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!);
+            return localV > LoadPushWatermark(companyId!);
+        }
+        catch { return false; }
+    }
 
     // ── Z4: bu makinenin "son gönderilen watermark"ı (firma bazında, KALICI — SettingsService). Kök neden
     // düzeltmesinin çekirdeği: push kararı sunucu global max'ına DEĞİL, bu makinenin kendi ilerleyişine bağlıdır. ──

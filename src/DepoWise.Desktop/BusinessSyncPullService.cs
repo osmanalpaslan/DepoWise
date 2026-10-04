@@ -143,7 +143,8 @@ public static class BusinessSyncPullService
             await Task.Run(() =>
             {
                 using var doc = JsonDocument.Parse(json);
-                new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
+                var sonuc = new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
+                SonAlinanSayisi = sonuc.Upserted;   // 2026-10-04: üst bardaki "gelen" sayacı
             });
             // Z5: son BAŞARILI çekme zamanı (senkron durum paneli gösterir).
             try { DesktopServices.Settings.Set(companyId!, "sync_last_pull_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(), DesktopServices.Session?.UserId ?? ""); } catch { }
@@ -156,6 +157,36 @@ public static class BusinessSyncPullService
 
     /// <summary>Sunucudaki firmanın iş verisi SÜRÜMÜ (en büyük updated_at) — ucuz tek sayı. Tam snapshot
     /// çekmeden "değişti mi?" için (kullanıcı isteği 2026-07-19: anlık ama bant israfsız). null = ulaşılamadı.</summary>
+    /// <summary>2026-10-04: son başarılı çekmede yerele uygulanan kayıt sayısı (üst bar "↓ gelen").</summary>
+    public static int SonAlinanSayisi { get; private set; }
+
+    /// <summary>
+    /// ⭐ 2026-10-04 — ANLIK EŞİTLEME: sunucuda <paramref name="since"/>'ten yeni değişiklik olana kadar
+    /// (en fazla ~25 sn) bekler. Değişiklik olursa sunucu HEMEN yanıt verir → masaüstü 15 sn beklemez.
+    /// null = çevrimdışı / sunucu bu ucu bilmiyor (eski sürüm) / hata → çağıran periyodik tura güvenir.
+    /// </summary>
+    public static async Task<(long Version, bool Changed)?> WaitForChangeAsync(long since, System.Threading.CancellationToken ct = default)
+    {
+        var url = ResolveServerUrl();
+        var companyId = DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return null;
+        await ServerAuthClient.EnsureFreshTokenAsync();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get,
+                url!.TrimEnd('/') + "/api/sync/wait?since=" + (since < 0 ? 0 : since));
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            var r = doc.RootElement;
+            return (r.GetProperty("version").GetInt64(), r.TryGetProperty("changed", out var c) && c.GetBoolean());
+        }
+        catch { return null; }
+    }
+
     public static async Task<long?> GetServerVersionAsync()
     {
         LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın

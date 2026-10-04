@@ -154,6 +154,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SyncRingText))]
     [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    [NotifyPropertyChangedFor(nameof(AktarimBosta))]
     private bool _isSyncing;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SyncRingText))]
@@ -170,45 +171,55 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>Z5 — üst bardaki tıklanabilir senkron rozeti. Sorun yoksa "✓ Senkron".</summary>
     public string SyncStatusChip => string.IsNullOrEmpty(SyncWarning) ? "✓ Senkron" : SyncWarning;
 
-    // ═══ FAZ 4.12 (kullanıcı isteği 2026-09-06) — SENKRON GERİ SAYIM / İLERLEME ANİMASYONU ══════
+    // ═══ 2026-10-04 (kullanıcı isteği) — ANLIK EŞİTLEME GÖSTERGESİ ══════════════════════════════════
     //
-    // Kullanıcı: "Üst barda senkrona kalan başlama süresini ifade eden ANİMASYONLU bir görsel istiyorum,
-    // ama SANİYE GÖRÜNMESİN. Senkrona başladığında da yerini YÜZDELİ bir animasyon alsın."
-    //
-    // Tasarım: 24 px'lik ince bir halka. Boşta → halka bir sonraki eşitlemeye kadar yavaşça DOLAR
-    // (sayı yok, yalnız hareket). Eşitleme başlayınca aynı halka YÜZDE ilerlemesini gösterir ve
-    // ortasında %'lik değer yazar. İki durum aynı görselin iki hâlidir → yer değiştirme sıçraması olmaz.
-    //
-    // ⚠️ Sayaç yalnız GÖRSELDİR: eşitleme zamanlamasını değiştirmez, ağ trafiği üretmez.
-    // Zamanlayıcı 500 ms'de bir yalnız bir sayı günceller (CPU maliyeti ihmal edilebilir).
+    // Eski "15 sn geri sayım" halkası KALDIRILDI: eşitleme artık anlık (sunucu değişikliği haber verir,
+    // yerel değişiklik birkaç saniye içinde gönderilir) — geri sayılacak bir süre yok. Halka artık:
+    //   • boşta: sakin, dolu ince çember;
+    //   • veri AKARKEN: dönen vurgu yayı (animasyon) + ortada ⇅;
+    //   • elle "Eşitle"de: eskisi gibi yüzde ilerlemesi.
+    // Yanında son aktarımın GELEN/GİDEN kayıt sayıları görünür (↑ giden · ↓ gelen).
 
-    /// <summary>Bir sonraki eşitlemeye kalan sürenin YÜZDESİ (0 → yeni başladı, 100 → şimdi).</summary>
-    [ObservableProperty] private double _syncCountdown;
+    /// <summary>Arka plan aktarımı sürüyor mu (dönen animasyon).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncRingText))]
+    [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    [NotifyPropertyChangedFor(nameof(AktarimBosta))]
+    private bool _aktarimVar;
+    public bool AktarimBosta => !AktarimVar && !IsSyncing;
 
-    /// <summary>Halkanın ortasındaki metin: eşitlemede yüzde, boşta boş (saniye GÖSTERİLMEZ).</summary>
-    public string SyncRingText => IsSyncing ? $"%{(int)SyncProgress}" : "";
+    /// <summary>Son aktarımda gönderilen / alınan kayıt sayısı.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AktarimSayilari))]
+    [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    private int _sonGiden;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AktarimSayilari))]
+    [NotifyPropertyChangedFor(nameof(SyncRingTooltip))]
+    private int _sonGelen;
+    private int _oturumGiden, _oturumGelen;
+    private System.DateTimeOffset? _sonAktarim;
 
-    /// <summary>Kullanıcıya sözle durum (ekran okuyucu + tooltip): saniye vermeden.</summary>
-    public string SyncRingTooltip => IsSyncing
+    /// <summary>Halkanın yanında: "↑ giden  ↓ gelen" (son aktarım).</summary>
+    public string AktarimSayilari => $"↑ {SonGiden}  ↓ {SonGelen}";
+
+    /// <summary>Halkanın ortasındaki metin: elle eşitlemede yüzde, aktarımda ⇅, boşta boş.</summary>
+    public string SyncRingText => IsSyncing ? $"%{(int)SyncProgress}" : AktarimVar ? "⇅" : "";
+
+    /// <summary>Kullanıcıya sözle durum (tooltip).</summary>
+    public string SyncRingTooltip => (IsSyncing
         ? $"Eşitleniyor · %{(int)SyncProgress}"
-        : "Otomatik eşitleme yaklaşıyor — halka dolunca eşitleme başlar. Hemen eşitlemek için Eşitle düğmesini kullanın.";
+        : AktarimVar ? "Veri aktarılıyor…" : "Anlık eşitleme açık — değişiklikler oluştuğu anda gönderilir ve alınır.")
+        + Environment.NewLine + $"Son aktarım: ↑ {SonGiden} gönderildi · ↓ {SonGelen} alındı"
+        + (_sonAktarim is { } z ? $" ({z.LocalDateTime:HH:mm:ss})" : "")
+        + Environment.NewLine + $"Bu oturumda: ↑ {_oturumGiden} · ↓ {_oturumGelen}";
 
-    private System.DateTimeOffset _sonTick = System.DateTimeOffset.UtcNow;
-    private Avalonia.Threading.DispatcherTimer? _ringTimer;
-
-    /// <summary>Geri sayım halkasını çalıştırır (yalnız görsel; eşitleme kadansına DOKUNMAZ).</summary>
-    private void HalkaSayaciniBaslat()
+    /// <summary>Bir aktarım turunun sonuçlarını göstergeye işler (UI thread).</summary>
+    private void AktarimiIsle(int giden, int gelen)
     {
-        _ringTimer = new Avalonia.Threading.DispatcherTimer { Interval = System.TimeSpan.FromMilliseconds(500) };
-        _ringTimer.Tick += (_, _) =>
-        {
-            if (IsSyncing) { SyncCountdown = 100; OnPropertyChanged(nameof(SyncRingText)); return; }
-            var gecen = (System.DateTimeOffset.UtcNow - _sonTick).TotalSeconds;
-            var oran = gecen / FastTickSeconds * 100.0;
-            SyncCountdown = oran < 0 ? 0 : (oran > 100 ? 100 : oran);
-            OnPropertyChanged(nameof(SyncRingText));
-        };
-        _ringTimer.Start();
+        if (giden == 0 && gelen == 0) return;
+        _oturumGiden += giden; _oturumGelen += gelen; _sonAktarim = System.DateTimeOffset.Now;
+        SonGiden = giden; SonGelen = gelen;
     }
 
     /// <summary>Son push sonucuna bakıp uyarı rozetini günceller (arka plan + manuel eşitleme sonrası çağrılır).</summary>
@@ -464,13 +475,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// kalmalı (dışarı taşımak gating davranışını değiştirirdi) → dışarı taşımak yerine parametreyle
     /// atlanır. Veri yolu (sürüm kontrolü + push + pull) bu bayraktan ETKİLENMEZ, her tur çalışır.
     /// </param>
-    private async System.Threading.Tasks.Task MaybePushBusinessAsync(bool checkConflicts)
+    /// <returns>true = tur kapıdan geçip ÇALIŞTI (2026-10-04: anlık döngü, kapı meşgulse kısa süre sonra yeniden dener).</returns>
+    private async System.Threading.Tasks.Task<bool> MaybePushBusinessAsync(bool checkConflicts)
     {
         var companyId = DesktopServices.Session?.CompanyId;
-        if (string.IsNullOrWhiteSpace(companyId)) return;
+        if (string.IsNullOrWhiteSpace(companyId)) return true;
         // SNK-03: geçici hata sonrası geri çekilme. Kontrol SyncGate'ten ÖNCE → bekleme sırasında kapı
         // TUTULMAZ; manuel "Eşitle" (EnterAsync) ve özel push'lar bu koddan hiç geçmediği için serbesttir.
-        if (DateTime.UtcNow < _syncNextAttemptUtc) return;
+        if (DateTime.UtcNow < _syncNextAttemptUtc) return true;
         EnsureSyncCursorLoaded();
 
         // ⭐ SIF-02 (2026-08-25) — AÇIK OTURUMDA SIFIRLAMA İSTEĞİ.
@@ -484,10 +496,11 @@ public sealed partial class ShellViewModel : ViewModelBase
         // Kontrol SyncGate'ten ve PUSH'tan ÖNCEdir: veri kaybı yönü GÖNDERİM'dir.
         // Çevrimdışıysa uç null döner → bayrak açılmaz → davranış eskisiyle birebir aynı (fail-safe).
         if (checkConflicts && !_localResetPending) await RefreshLocalResetFlagAsync(companyId!);
-        if (_localResetPending) { await WarnLocalResetOnceAsync(); return; }
+        if (_localResetPending) { await WarnLocalResetOnceAsync(); return true; }
         // Z1: ORTAK kapı. Manuel Eşitle / Yereli Sıfırla / giriş senkronu çalışıyorsa bu tur ATLANIR
         // (eskiden ayrı bayrak kullanıldığı için reset ile tick aynı anda çalışabiliyordu → yarış).
-        if (!SyncGate.TryEnter()) return;
+        if (!SyncGate.TryEnter()) return false;
+        int giden = 0, gelen = 0;
         try
         {
             var serverV = await BusinessSyncPullService.GetServerVersionAsync();
@@ -496,12 +509,17 @@ public sealed partial class ShellViewModel : ViewModelBase
                 // SNK-03: yalnız GEÇİCİ hatada geri çekil. Kalıcı (401/403/4xx/JSON) ya da hiç istek
                 // denenmediyse (token/URL yok) kadans bozulmaz — normal hata akışı sürer.
                 if (BusinessSyncPullService.LastFailure == SyncFailureKind.Transient) NoteSyncTransientFailure();
-                return;                                // çevrimdışı → sessiz
+                return true;                           // çevrimdışı → sessiz
             }
+            // 2026-10-04: gerçekten veri akacaksa (yerelde gönderilmemiş var / sunucu ileride) animasyon döner.
+            var akacak = BusinessSyncPushService.YerelBekleyenVar() || sv > _lastServerVersionPulled;
+            if (akacak) await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => AktarimVar = true);
+            var oncekiPush = BusinessSyncPushService.LastPushResult;
             // PUSH: bu makinenin GÖNDERİLMEMİŞ yerel değişikliklerini gönder. Gönderilecekler PushAsync içinde,
             // bu makinenin KENDİ "son gönderilen watermark"ına göre belirlenir (sunucu global max'ına BAKILMAZ —
             // Z4 kök neden: başka tablo/makinenin zaman damgası artık bu makinenin kaydını atlatamaz).
             await BusinessSyncPushService.PushAsync();
+            if (!ReferenceEquals(oncekiPush, BusinessSyncPushService.LastPushResult)) giden = BusinessSyncPushService.SonGonderilenSayisi;
             // SNK-12: ŞUBE/DEPO listesini de tazele. Şubeler iş-senkronunda TAŞINMAZ (web-otoriteli) —
             // eskiden yalnız girişte aynalanıyordu, bu yüzden oturum açıkken web'de açılan yeni depo
             // masaüstünde görünmüyor ve o depoya stok işlemi YAPILAMIYORDU (EnsureLocationOwned reddeder).
@@ -528,6 +546,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 var ok = await BusinessSyncPullService.PullAsync(sinceVersion: _lastServerVersionPulled > 0 ? _lastServerVersionPulled : 0);
                 if (ok)
                 {
+                    gelen = BusinessSyncPullService.SonAlinanSayisi;
                     // ⭐ SNK-09 (2026-09-04) — İMLEÇ ARTIK "SUNUCU GLOBAL MAX'I" DEĞİL, GERÇEKTEN ALINAN
                     // EN BÜYÜK DAMGA. Eskiden `sv` (sunucu sürümü) yazılıyordu; sunucu sürümü okunduktan
                     // SONRA aynı milisaniyede yazılan satır bir daha ASLA gelmiyordu (sonraki çekim
@@ -553,7 +572,63 @@ public sealed partial class ShellViewModel : ViewModelBase
             if (checkConflicts) await WarnConflictsAsync();   // SNK-02: yavaş grup (60 sn)
         }
         catch { }
-        finally { SyncGate.Exit(); }
+        finally
+        {
+            SyncGate.Exit();
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { AktarimVar = false; AktarimiIsle(giden, gelen); });
+        }
+        return true;
+    }
+
+    // ═══ 2026-10-04 — ANLIK EŞİTLEME (kullanıcı isteği: "sunucu değişiklik algılarsa haber versin, 15 sn'de bir
+    // eşitleme yapmak zorunda kalmasın"). İki yön:
+    //  • GELEN: sunucuya "değişiklik olana kadar bekle" (uzun yoklama) çağrısı açık tutulur; web'de ya da başka
+    //    makinede kayıt olur olmaz sunucu yanıt verir → tur hemen çalışır.
+    //  • GİDEN: yerelde gönderilmemiş değişiklik birkaç saniyede bir YALNIZ YEREL veritabanından kontrol edilir
+    //    (ağ yok); varsa tur hemen çalışır.
+    // Eski sunucu (uç yoksa) / çevrimdışı: döngü sessizce bekler; dakikalık güvenlik ağı turu veriyi yine taşır.
+    // Veri yolu (push/pull/watermark/LWW/idempotency) DEĞİŞMEDİ — yalnız turun NE ZAMAN çalıştığı değişti.
+
+    private const int YerelKontrolSaniye = 3;
+    private Avalonia.Threading.DispatcherTimer? _yerelTimer;
+    private bool _anlikDonguCalisiyor;
+
+    private void AnlikEsitlemeyiBaslat()
+    {
+        _yerelTimer?.Stop();
+        _yerelTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(YerelKontrolSaniye) };
+        _yerelTimer.Tick += async (_, _) =>
+        {
+            if (_connTimer is null || !_connTimer.IsEnabled) { _yerelTimer?.Stop(); return; }
+            var bekleyen = await System.Threading.Tasks.Task.Run(BusinessSyncPushService.YerelBekleyenVar);
+            // Son gönderim REDDEDİLDİYSE (ağ/yetki/sunucu hatası) 3 sn'de bir zorlamayız: dakikalık güvenlik ağı
+            // turu ve SNK-03 geri çekilmesi yeniden dener → sunucu hata anında istek yağmuruna tutulmaz.
+            if (bekleyen && !BusinessSyncPushService.LastPushFailed) await MaybePushBusinessAsync(checkConflicts: false);
+        };
+        _yerelTimer.Start();
+        if (!_anlikDonguCalisiyor) _ = AnlikGelenDongusuAsync();
+    }
+
+    private async System.Threading.Tasks.Task AnlikGelenDongusuAsync()
+    {
+        _anlikDonguCalisiyor = true;
+        long gorulen = -1;   // en son haber alınan sunucu sürümü (çekilemeyen tablolar yüzünden döngüye girmesin)
+        try
+        {
+            while (_connTimer is not null && _connTimer.IsEnabled)
+            {
+                EnsureSyncCursorLoaded();
+                var r = await BusinessSyncPullService.WaitForChangeAsync(Math.Max(gorulen, _lastServerVersionPulled));
+                if (_connTimer is null || !_connTimer.IsEnabled) break;
+                if (r is null) { await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(30)); continue; }
+                if (!r.Value.Changed) continue;
+                var calisti = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => MaybePushBusinessAsync(checkConflicts: false));
+                if (calisti) gorulen = r.Value.Version;
+                else await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(2));   // kapı meşgul → kısa süre sonra yeniden
+            }
+        }
+        catch { }
+        finally { _anlikDonguCalisiyor = false; }
     }
 
     // Push sonrası: admin ile çakışılan kayıtlar varsa personeli bilgilendir (bir kez), sonra 'görüldü' işaretle.
@@ -588,11 +663,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     // (bağlantı rozeti + çakışma bildirimi) her 4. turda çalışır → boşta ~%30 daha az istek.
     // YENİ TIMER YOK, kullanıcı aktivite takibi YOK, veri yolu (push/pull/watermark/LWW) DEĞİŞMEDİ. ──
 
-    /// <summary>Hızlı grup aralığı. ADR-099 kararı: veri "anlık" görünmeli → 15 sn KORUNUR.</summary>
-    private const int FastTickSeconds = 15;
+    // 2026-10-04: veri eşitlemesi ARTIK ANLIK (bkz. AnlikEsitlemeyiBaslat). Bu zamanlayıcı yalnız güvenlik
+    // kontrolleri (makine iptali, yetki/şifre değişikliği) ve dakikalık GÜVENLİK AĞI turu içindir.
 
-    /// <summary>Yavaş grup kaç hızlı turda bir çalışır (4 × 15 sn = 60 sn).</summary>
-    private const int SlowEveryNTicks = 4;
+    /// <summary>Hızlı grup aralığı: makine iptali + yetki değişikliği algılama.</summary>
+    private const int FastTickSeconds = 30;
+
+    /// <summary>Yavaş grup kaç hızlı turda bir çalışır (2 × 30 sn = 60 sn): rozet + güvenlik ağı eşitleme turu.</summary>
+    private const int SlowEveryNTicks = 2;
 
     /// <summary>Tick sayacı — yalnız UI thread'de artar, kilit gerekmez.</summary>
     private int _tick;
@@ -605,26 +683,24 @@ public sealed partial class ShellViewModel : ViewModelBase
         // kullanıcı hiçbir şey yapmak zorunda değildir. Başarılı taşımadan sonra imza yazılır ve
         // sonraki açılışlar ağa hiç çıkmaz; hata/çevrimdışı girişi ASLA bozmaz (içeride sessiz).
         _ = DesktopPhotos.AcilistaSessizTasiAsync(_session);
-        // 15 sn: eşitleme artık her tick'te ÜCUZ sürüm kontrolü yapıp yalnız değişince aktarıyor (duyarlı).
         _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(FastTickSeconds) };
         _connTimer.Tick += async (_, _) =>
         {
             // İlk tur (0) yavaş grubu DA çalıştırır → açılıştan sonra rozet/çakışma geç kalmaz.
             bool slow = (_tick++ % SlowEveryNTicks) == 0;
-            _sonTick = System.DateTimeOffset.UtcNow;   // FAZ 4.12: halka sıfırlanır (yalnız görsel)
 
             // Çağrı SIRASI bilinçli olarak DEĞİŞTİRİLMEDİ; yalnız iki uç koşullu hale geldi.
             if (slow) await PingAsync();      // YAVAŞ (60 sn): bağlantı rozeti — veri akışı buna bağlı DEĞİL
-            await RegisterMachineAsync();     // HIZLI (15 sn): makine iptali algılama — kullanıcı kararı 2a
-            await CheckUserChangedAsync();    // HIZLI (15 sn): yetki/şifre değişikliği algılama
-            await MaybePushBusinessAsync(checkConflicts: slow);  // HIZLI: sürüm+push+pull · çakışma bildirimi YAVAŞ
+            await RegisterMachineAsync();     // HIZLI (30 sn): makine iptali algılama — kullanıcı kararı 2a
+            await CheckUserChangedAsync();    // HIZLI (30 sn): yetki/şifre değişikliği algılama
+            if (slow) await MaybePushBusinessAsync(checkConflicts: true);  // YAVAŞ (60 sn): güvenlik ağı turu
             await MaybeDailyBackupAsync();    // kendi saatlik kısıtı var
             // 2026-10-04: sunucudaki fotoğraflar cihaza iner (çevrimdışı görüntüleme). Kendi 30 dk kısıtı +
             // tek-koşu kilidi var; ateşle-unut → eşitleme turunu bekletmez.
             _ = DesktopPhotos.OnbellegiDoldurAsync(_session);
         };
         _connTimer.Start();
-        HalkaSayaciniBaslat();   // FAZ 4.12: üst bardaki geri sayım/ilerleme halkası
+        AnlikEsitlemeyiBaslat();   // 2026-10-04: anlık gelen/giden eşitleme
     }
 
     private async System.Threading.Tasks.Task PingAsync()
