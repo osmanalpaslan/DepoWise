@@ -1,5 +1,14 @@
 ﻿# AKTİF DURUM
 
+## 🟡 2026-10-04 (2. tur) — sayaç kuralı · tablo başlıkları · rapor sütun genişliği · ANLIK EŞİTLEME
+- **Bakım sayacı (e44e46a):** formlarda tek alan, türü aracın sayacı; bakımda zorunlu (masaüstü + web + sunucu `RequireMeter`).
+  Güncelden küçük/eşit değer kabul. Tamir/İlave Yağ/Filtre'de tek alan ama opsiyonel.
+- **Tablolar (72fd044):** tüm başlıklar yatay+dikey ortada (rapor dahil); rapor tablosu tutamağı Thumb → işaretçi yakalamalı Border.
+- **Anlık eşitleme (d7acce4):** `/api/sync/wait` uzun yoklama + `SyncNotifier`; masaüstü gelen için bekler, giden için 3 sn'de bir YEREL kontrol.
+  Zamanlayıcı: 30 sn güvenlik kontrolleri + 60 sn güvenlik ağı turu. Geri sayım halkası kalktı; aktarımda dönen yay + ↑giden/↓gelen.
+- **Kalıcı kurallar (hafıza):** test tipine Claude karar verir; tablo istekleri rapor dahil TÜM tablolara uygulanır.
+- **Yayın:** kullanıcı onayı VAR (2026-10-04) → tam takım geçince API + Web deploy + masaüstü 1.0.194 (HEAD export'tan).
+
 ## 🟡 2026-10-04 — uyarılar 2. tur · fotoğraflar cihaza iner · muadil düzenleme (commit'li, YAYIN BEKLİYOR)
 
 - **Uyarı kök nedenleri (canlı veride doğrulandı, salt-okuma):**
