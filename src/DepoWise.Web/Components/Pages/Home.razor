@@ -141,6 +141,11 @@
                             <div class="flex-grow-1" style="min-width:0;">
                                 <MudText Typo="Typo.body1" Style="font-weight:600;">@a.Title</MudText>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
+                        @if (!string.IsNullOrWhiteSpace(a.Note))
+                        {
+                            @* 2026-10-04: bilgilendirme notu — uyarı neden sürüyor / ne yapılmalı *@
+                            <MudText Typo="Typo.caption" Color="Color.Warning" Style="display:block">ⓘ @a.Note</MudText>
+                        }
                             </div>
                             <div @onclick:stopPropagation="true">
                                 <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
@@ -451,7 +456,7 @@
 </style>
 
 @code {
-    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string Key, string Signature);
+    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string Key, string Signature, string? Note = null);
     private List<Alert>? _alerts;
     private string? _filter;   // null → hiçbiri seçili değil; aksi halde Kind
 
@@ -505,7 +510,8 @@
                         a.TryGetProperty("navigateKey", out var n) ? n.GetString() ?? "" : "",
                         a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True,
                         a.TryGetProperty("key", out var k) ? k.GetString() ?? "" : "",
-                        a.TryGetProperty("signature", out var sg) ? sg.GetString() ?? "" : ""));
+                        a.TryGetProperty("signature", out var sg) ? sg.GetString() ?? "" : "",
+                        a.TryGetProperty("note", out var nt) && nt.ValueKind == JsonValueKind.String ? nt.GetString() : null));
                 }
             _alerts = list;
             // PAN-01 (ADR-175): özet sayıları + şeritler (EKLEMELİ alanlar; null = yetki yok → gizli).

@@ -70,13 +70,17 @@ public sealed class DashboardService
         {
             foreach (var a in _maintenance.GetAlerts(s))
             {
-                if (a.Level == AlertLevel.Normal) continue;
+                // 2026-10-04: seviyesi Normal olsa da NOTU olan (ör. sayaçsız girilmiş son bakım → takip
+                // edilemiyor) kalem bilgi olarak gösterilir; kullanıcı neyi tamamlayacağını görür.
+                if (a.Level == AlertLevel.Normal && a.Note is null) continue;
                 // Seviye etiketi TÜRKÇE ve TEK KAYNAKTAN (eskiden enum adı basılıyordu → "(Overdue)").
                 var durum = a.NeverPerformed ? "İlk bakım yapılmadı"
+                    : a.Level == AlertLevel.Normal ? "Kontrol gerekli"
                     : $"%{a.Progress * 100:0} ({AlertRules.LevelText(a.Level)})";
                 alerts.Add(new DashboardAlert(AlertKind.Maintenance, a.DefinitionName,
                     Birlestir(aracMetni, a.VehicleId, durum),
-                    "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
+                    "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId,
+                    Note: a.Note));
             }
         }
         // Muayene/sigorta
@@ -95,7 +99,7 @@ public sealed class DashboardService
                 // Araç kodu + plaka detaya eklenir (bakım uyarısıyla aynı biçim).
                 alerts.Add(new DashboardAlert(AlertKind.Inspection, docText,
                     Birlestir(aracMetni, a.VehicleId, levelText),
-                    "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
+                    "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId, Note: a.Note));
             }
         }
         // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı.

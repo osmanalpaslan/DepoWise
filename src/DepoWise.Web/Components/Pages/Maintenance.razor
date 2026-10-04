@@ -512,7 +512,14 @@
                 <RowTemplate>
                     <MudTd>@Str(context, "vehicleCode")</MudTd>
                     <MudTd>@Str(context, "plate")</MudTd>
-                    <MudTd>@Str(context, "definition")</MudTd>
+                    <MudTd>
+                        @Str(context, "definition")
+                        @if (!string.IsNullOrWhiteSpace(Str(context, "note")))
+                        {
+                            @* 2026-10-04: bilgilendirme notu — uyarı neden sürüyor / ne yapılmalı *@
+                            <MudText Typo="Typo.caption" Color="Color.Warning" Style="display:block">ⓘ @Str(context, "note")</MudText>
+                        }
+                    </MudTd>
                     <MudTd>@Str(context, "progressText")</MudTd>
                     <MudTd>@Str(context, "consumedText")</MudTd>
                     <MudTd>@Str(context, "levelText")</MudTd>

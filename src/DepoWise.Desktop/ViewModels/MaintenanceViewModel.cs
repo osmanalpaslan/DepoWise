@@ -898,7 +898,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 var code = codes.TryGetValue(a.VehicleId, out var c) ? c : a.VehicleId;
                 plates.TryGetValue(a.VehicleId, out var plate);
                 Items.Add(new MaintenanceAlertRow(code, a.DefinitionName, a.Level, a.Progress, a.Consumed,
-                    a.Interval, a.VehicleId, plate, a.MaintenanceId));
+                    a.Interval, a.VehicleId, plate, a.MaintenanceId, a.Note));
             }
         }
         catch (Exception ex) { LoadError = ex.Message; }
@@ -1040,8 +1040,11 @@ public sealed partial class MntMaterialLine : ObservableObject
 public sealed record MaintenanceAlertRow(string VehicleCode, string Definition, AlertLevel Level,
     double Progress, decimal Consumed, decimal Interval, string VehicleId = "", string? Plate = null,
     // Uyarının dayandığı bakım kaydının kimliği; "hiç yapılmamış" uyarıda null (bkz. OpenAlert).
-    string? MaintenanceId = null)
+    string? MaintenanceId = null,
+    // 2026-10-04: uyarı neden sürüyor / ne yapılmalı — bilgilendirme notu.
+    string? Note = null)
 {
+    public bool HasNote => !string.IsNullOrWhiteSpace(Note);
     /// <summary>Plakası olmayan araçta boş kutu yerine tire gösterilir (kolon hizası bozulmasın).</summary>
     public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;
     public string ProgressText => $"%{Progress * 100:0}";

@@ -205,6 +205,9 @@
                                                    TextTrimming="CharacterEllipsis"/>
                                         <SelectableTextBlock Text="{Binding Detail}" Classes="Helper"
                                                    TextTrimming="CharacterEllipsis"/>
+                                        <!-- 2026-10-04: bilgilendirme notu — uyarı neden sürüyor / ne yapılmalı -->
+                                        <SelectableTextBlock Text="{Binding Note, StringFormat='ⓘ {0}'}" IsVisible="{Binding HasNote}" Classes="Helper"
+                                                             Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <!-- #18: okundu → ana ekrandan kaldır (ilgili modül ekranında kalır) -->
                                     <Button Grid.Column="3" Classes="Secondary" Content="okundu" Margin="8,0,10,0" VerticalAlignment="Center"

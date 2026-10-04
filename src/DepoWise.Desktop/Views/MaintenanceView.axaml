@@ -616,7 +616,12 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="110" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
+                                                <StackPanel Grid.Column="2" MinWidth="160" VerticalAlignment="Center" Spacing="1">
+                                                    <TextBlock Text="{Binding Definition}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
+                                                    <!-- 2026-10-04: bilgilendirme notu (uyarı neden sürüyor / ne yapılmalı) -->
+                                                    <TextBlock Text="{Binding Note, StringFormat='ⓘ {0}'}" IsVisible="{Binding HasNote}" Classes="Helper"
+                                                               Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"/>
+                                                </StackPanel>
                                                 <TextBlock Grid.Column="3" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                                 <TextBlock Grid.Column="4" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <ctrl:StatusBadge Grid.Column="5" MinWidth="110" VerticalAlignment="Center" Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>

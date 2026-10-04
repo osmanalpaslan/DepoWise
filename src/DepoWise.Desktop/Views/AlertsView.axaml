@@ -163,6 +163,9 @@
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
                                         <SelectableTextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                         <SelectableTextBlock Text="{Binding Detail}" Classes="Helper" TextTrimming="CharacterEllipsis"/>
+                                        <!-- 2026-10-04: bilgilendirme notu — uyarı neden sürüyor / ne yapılmalı -->
+                                        <SelectableTextBlock Text="{Binding Note, StringFormat='ⓘ {0}'}" IsVisible="{Binding HasNote}" Classes="Helper"
+                                                             Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <!-- BLD-01: okundu/okunmadı ayrımı + tek uyarıyı okundu işaretleme (satır tıklamasını tetiklemez) -->
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">

@@ -292,6 +292,127 @@ public class MaintenanceTests : IDisposable
         Assert.Equal(now + 300 * gun, a.NextDate);
     }
 
+    // ═══ 2026-10-04 — uyarılar 2. tur (kullanıcı: "aynı türde yeni bakım girsem de eski uyarı silinmiyor") ═══
+    private const long Gun = 86_400_000;
+
+    /// <summary>Canlı vaka (GREY 010): SAAT bazlı tanımda yeni bakımın sayacı KM alanına girilmiş. Yeni kayıt
+    /// esas alınmalı (sayaç km ?? saat) — eskiden eski saatli kayıt seçilip "Gecikti" kalıyordu.</summary>
+    [Fact]
+    public void Saat_Tanimi_Sayaci_Km_Alanina_Girilen_Yeni_Bakim_Uyariyi_Kaldirir()
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var v = _vehicles.Create(_admin, new NewVehicle("GREY-10", CurrentMeter: 1829m, MeterUnit: "hour"));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("MOTOR BAKIMI", 250m, "hour"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedHour: 1240m, PerformedDate: now - 300 * Gun), "op-1");
+        Assert.Equal(AlertLevel.Overdue, _maint.GetAlerts(_admin).Single().Level);
+
+        _clock.Advance(60_000);
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1789m, PerformedDate: now - 10 * Gun), "op-2");
+        var a = _maint.GetAlerts(_admin).Single();
+        Assert.Equal(AlertLevel.Normal, a.Level);
+        Assert.Equal(40m, a.Consumed);
+        Assert.Null(a.Note);
+    }
+
+    /// <summary>Canlı vaka (EKS-P 019): yeni bakım SAYAÇSIZ girildi → eski sayaçlı kayıt esas alınıp uyarı
+    /// sürüyordu. Artık yeni kayıt esas alınır; periyot hesaplanamadığı için kullanıcıya NOT verilir ve
+    /// ana ekranda "Kontrol gerekli" bilgi kalemi görünür.</summary>
+    [Fact]
+    public void Sayacsiz_Yeni_Bakim_Esas_Alinir_Ve_Not_Verir()
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var v = _vehicles.Create(_admin, new NewVehicle("EKS-19", CurrentMeter: 7600m, MeterUnit: "hour"));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("MOTOR BAKIMI", 250m, "hour"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedHour: 7251m, PerformedDate: now - 60 * Gun), "op-1");
+        Assert.Equal(AlertLevel.Overdue, _maint.GetAlerts(_admin).Single().Level);
+
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedDate: now - 1 * Gun), "op-2");
+        var a = _maint.GetAlerts(_admin).Single();
+        Assert.Equal(AlertLevel.Normal, a.Level);
+        Assert.Contains("girilmeden", a.Note);
+
+        var dash = new DepoWise.Infrastructure.Reporting.DashboardService(_factory, _maint, new InspectionService(_factory, _clock));
+        var d = dash.GetSummary(_admin).Alerts.Single(x => x.Kind == DepoWise.Application.Reports.AlertKind.Maintenance);
+        Assert.Contains("Kontrol gerekli", d.Detail);
+        Assert.False(d.IsCritical);
+        Assert.True(d.HasNote);
+    }
+
+    /// <summary>Canlı vaka (EKS-P 004): araç sayacı 122045 (fazladan hane), bakım 12404 saat → uyarı sürer ama
+    /// not "sayaç hatalı girilmiş olabilir" der.</summary>
+    [Fact]
+    public void Supheli_Arac_Sayaci_Notla_Bildirilir()
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var v = _vehicles.Create(_admin, new NewVehicle("EKS-04", CurrentMeter: 122045m, MeterUnit: "hour"));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("MOTOR BAKIMI", 250m, "hour"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedHour: 12404m, PerformedDate: now - 5 * Gun), "op-1");
+        var a = _maint.GetAlerts(_admin).Single();
+        Assert.Equal(AlertLevel.Overdue, a.Level);
+        Assert.Contains("hatalı", a.Note);
+    }
+
+    /// <summary>Sonradan girilen kayıt DAHA ESKİ tarihli → esas alınmaz; uyarı sürerse nedeni nota yazılır.</summary>
+    [Fact]
+    public void Eski_Tarihli_Sonradan_Girilen_Kayit_Esas_Alinmaz_Notla_Aciklanir()
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var v = _vehicles.Create(_admin, new NewVehicle("V-7", CurrentMeter: 1200m));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("Periyodik", 100m, "km"));
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1000m, PerformedDate: now - 10 * Gun), "op-1");
+        _clock.Advance(60_000);
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1150m, PerformedDate: now - 40 * Gun), "op-2");
+        var a = _maint.GetAlerts(_admin).Single();
+        Assert.Equal(AlertLevel.Overdue, a.Level);
+        Assert.Contains("daha eski tarihli", a.Note);
+    }
+
+    /// <summary>Muayene listesi: yenilenen eski belge artık "Süresi geçti" değil "Yenilendi" görünür
+    /// (kullanıcı: "yeni muayene girsem de eski uyarı silinmiyor").</summary>
+    [Fact]
+    public void Muayene_Listesi_Yenilenen_Belgeyi_Yenilendi_Gosterir()
+    {
+        var insp = new InspectionService(_factory, _clock);
+        var v = _vehicles.Create(_admin, new NewVehicle("KAM-7", Plate: "34K"));
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        insp.Save(_admin, new NewInspection(v, "inspection", now - 400 * Gun, now - 30 * Gun));   // eski, süresi geçmiş
+        _clock.Advance(60_000);
+        insp.Save(_admin, new NewInspection(v, "inspection", now, now + 365 * Gun));             // yeni
+
+        var rows = insp.List(_admin);
+        Assert.Equal("Yenilendi", rows.Single(r => r.NextDate == now - 30 * Gun).StatusText);
+        Assert.Equal("Normal", rows.Single(r => r.NextDate == now + 365 * Gun).StatusText);
+        Assert.Equal(DateAlertLevel.Normal, insp.GetAlerts(_admin).Single().Level);
+    }
+
+    /// <summary>Yeni belge bitiş tarihsiz girildi → uyarı eski belgeye göre sürer; not ne yapılacağını söyler.</summary>
+    [Fact]
+    public void Muayene_Bitis_Tarihsiz_Yeni_Belge_Notla_Aciklanir()
+    {
+        var insp = new InspectionService(_factory, _clock);
+        var v = _vehicles.Create(_admin, new NewVehicle("KAM-8"));
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        insp.Save(_admin, new NewInspection(v, "inspection", now - 400 * Gun, now - 30 * Gun));
+        _clock.Advance(60_000);
+        insp.Save(_admin, new NewInspection(v, "inspection", now, null));
+        var a = insp.GetAlerts(_admin).Single();
+        Assert.Equal(DateAlertLevel.Expired, a.Level);
+        Assert.Contains("bitiş tarihi boş", a.Note);
+    }
+
+    /// <summary>Yeni belge, bitişi ZATEN geçmiş tarihle girildi → uyarı sürer; not tarihleri kontrol ettirir.</summary>
+    [Fact]
+    public void Muayene_Gecmis_Bitisle_Girilen_Yeni_Belge_Notla_Aciklanir()
+    {
+        var insp = new InspectionService(_factory, _clock);
+        var v = _vehicles.Create(_admin, new NewVehicle("KAM-9"));
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        insp.Save(_admin, new NewInspection(v, "inspection", now - 365 * Gun, now - 2 * Gun));
+        var a = insp.GetAlerts(_admin).Single();
+        Assert.Equal(DateAlertLevel.Expired, a.Level);
+        Assert.Contains("geçmiş", a.Note);
+    }
+
     [Fact]
     public void Uyari_Gecikti_Yuzde100Ustu()
     {

@@ -103,8 +103,14 @@ public static class ReportGate
 // BLD-01 (ADR-172) / DYR-01 (ADR-173): yeni türler SONA eklenir — mevcut değerlerin sırası/serileştirmesi DEĞİŞMEZ.
 public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request, Announcement }
 
-public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false, string? SignatureOverride = null)
+public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false, string? SignatureOverride = null,
+    // ⭐ 2026-10-04: bilgilendirme notu ("yeni kayıt girildi ama şu sebeple uyarı sürüyor; şunu yapın").
+    // İmzaya (okundu durumu) KATILMAZ — not metni değişti diye okunmuş uyarı yeniden açılmaz.
+    string? Note = null)
 {
+    /// <summary>Not varsa arayüz gösterir.</summary>
+    public bool HasNote => !string.IsNullOrWhiteSpace(Note);
+
     /// <summary>Uyarı tipine göre ikon (emoji) — ana ekran uyarı listesinde gösterilir.</summary>
     public string Icon => Kind switch
     {

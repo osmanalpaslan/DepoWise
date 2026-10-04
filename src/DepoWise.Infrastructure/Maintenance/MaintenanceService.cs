@@ -47,7 +47,10 @@ public sealed record MaintenanceAlert(
     // aracın EN YENİ bakımına düşüyor ve ALAKASIZ bir kayıt açıyordu (kullanıcı bildirimi: "10.000'e
     // tıklıyorum 100.000 açılıyor"). Kimlik taşınınca tahmin gerekmez.
     // HİÇ YAPILMAMIŞ uyarıda null'dır → çağıran "kayıt yok" der, yanlış kayıt AÇMAZ.
-    string? MaintenanceId = null);
+    string? MaintenanceId = null,
+    // ⭐ 2026-10-04 (kullanıcı isteği): "yeni kayıt girildi ama uyarı neden sürüyor / ne yapmalıyım"
+    // BİLGİLENDİRME NOTU. null = açıklanacak özel durum yok. Not, seviyeyi DEĞİŞTİRMEZ; yalnız açıklar.
+    string? Note = null);
 
 public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
@@ -348,6 +351,43 @@ public sealed class MaintenanceService
             throw new ForbiddenException("Personel bulunamadı veya başka firmaya ait.");
     }
 
+    /// <summary>Bir dönem bu kadar periyodu aşan tüketim, sayaç yazım hatası şüphesi sayılır (ör. 12204 yerine 122045).</summary>
+    public const int SuspiciousPeriods = 5;
+
+    /// <summary>
+    /// ⭐ 2026-10-04 — uyarı BİLGİLENDİRME NOTU (kullanıcı isteği: "yeni kayıt girildi ama şu sebepten silinmedi,
+    /// şunu tamamlayınız"). Seviyeyi değiştirmez; yalnız kullanıcının gözden kaçırdığı durumu ve yapılacak işi söyler.
+    /// Sıra önemlidir: önce takibi imkânsız kılan veri eksikliği, sonra şüpheli sayaç, sonra esas alınmayan kayıt.
+    /// </summary>
+    internal static string? AlertNote(IntervalUnit unit, decimal interval, AlertLevel level, decimal consumed,
+        decimal currentMeter, decimal? perfMeter, long? perfDate, bool meterAhead,
+        bool lastDiffers, long? lastDate, decimal? lastMeter)
+    {
+        if (unit == IntervalUnit.Day || interval <= 0) return null;
+        var birim = unit == IntervalUnit.Hour ? "saat" : "km";
+        static string Tarih(long? ms) => ms is null ? "—"
+            : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).LocalDateTime.ToString("dd.MM.yyyy");
+
+        if (perfMeter is null)
+            return $"Son bakım ({Tarih(perfDate)}) {birim} girilmeden kaydedildi; sonraki bakım hesaplanamıyor. " +
+                   $"Bakım kaydını düzenleyip yapıldığı {birim} değerini girin.";
+        if (meterAhead)
+            return $"Bakım sayacı ({perfMeter:0.##} {birim}) aracın güncel sayacından ({currentMeter:0.##}) büyük. " +
+                   "Araç sayacını güncelleyin ya da bakım kaydındaki sayacı düzeltin.";
+        if (level == AlertLevel.Normal) return null;
+        if (consumed > interval * SuspiciousPeriods)
+            return $"Araç sayacı ({currentMeter:0.##}) son bakım sayacından ({perfMeter:0.##} {birim}) {consumed / interval:0} periyot " +
+                   "fazla; sayaç hatalı girilmiş olabilir. Araç sayacını kontrol edin — doğruysa bakım yapılmalı.";
+        if (lastDiffers)
+            return $"En son girilen kayıt ({Tarih(lastDate)}" + (lastMeter is null ? "" : $", {lastMeter:0.##} {birim}") + ") " +
+                   (lastDate is not null && perfDate is not null && lastDate.Value >= perfDate.Value
+                       ? "aynı tarihli ancak sayacı daha düşük/boş olduğu için"
+                       : "daha eski tarihli olduğu için") +
+                   $" esas alınmadı; uyarı {Tarih(perfDate)} tarihli bakıma göre hesaplanıyor. " +
+                   "Yeni bakım yapıldıysa kaydın tarihini ve sayacını kontrol edin.";
+        return null;
+    }
+
     public IReadOnlyList<MaintenanceAlert> GetAlerts(SessionContext s)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -359,25 +399,26 @@ public sealed class MaintenanceService
         // Kolon sırası AYNI (okuyucu değişmedi): 0..10 = vehicle_id..created_at.
         cmd.CommandText = @"
 SELECT vehicle_id, maintenance_def_id, name, interval_value, interval_unit,
-       performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at, maintenance_id
+       performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at, maintenance_id,
+       last_id, last_date, last_meter
 FROM (
     SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
            vm.performed_km, vm.performed_hour, vm.performed_date,
            v.current_meter, v.meter_unit, vm.created_at, vm.id AS maintenance_id,
-           -- 2026-10-01 (kullanıcı bildirimi: yeni bakım girsem de eski uyarı silinmiyor): en son bakım
-           -- GİRİŞ zamanına (created_at) göre değil, YAPILDIĞI noktaya göre seçilir. Sonradan girilen/eşitlenen/
-           -- aktarılan ESKİ tarihli bir kayıt, daha yeni yapılmış bakımı gölgeliyor ve süresi geçmiş uyarıyı
-           -- canlı tutuyordu (canlı veride 21 grup). Ölçüt TANIMIN KENDİ BİRİMİDİR (uyarı da onunla hesaplanır):
-           -- km tanımında yapıldığı km, saat tanımında saat, gün tanımında tarih. Tarih her km kaydında
-           -- güvenilir değil (tarihsiz girişte kayıt günü olabilir) → km/saat tanımında ikinci ölçüttür.
-           -- created_at yalnız eşitlik bozucudur.
+           -- 2026-10-04 (kullanıcı bildirimi 2. tur: aynı türde yeni bakım girsem de eski uyarı silinmiyor):
+           -- EN SON bakım = YAPILDIĞI TARİHİ en geç olan kayıt. 2026-10-01 sürümü tanımın kendi birimine
+           -- (km/saat) göre seçiyordu; canlı veride kayıtların çoğu sayaçsız, bir kısmında da saat bazlı
+           -- bakımın sayacı km alanına girilmiş: yeni kayıt 0 sayılıp ESKİ kayıt seçiliyor, gecikmiş uyarı
+           -- yaşıyordu (ör. saat bazlı tanımda yeni kaydın sayacı km alanında). Tarih zorunlu alan.
+           -- Aynı gün: sayacı büyük olan (km ya da saat, hangisi girildiyse), sonra giriş zamanı.
            ROW_NUMBER() OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id
-               ORDER BY CASE d.interval_unit
-                            WHEN 'hour' THEN CAST(COALESCE(vm.performed_hour, '0') AS REAL)
-                            WHEN 'day'  THEN CAST(COALESCE(vm.performed_date, 0) AS REAL)
-                            ELSE CAST(COALESCE(vm.performed_km, '0') AS REAL) END DESC,
-                        COALESCE(vm.performed_date, 0) DESC,
-                        vm.created_at DESC) AS rn
+               ORDER BY COALESCE(vm.performed_date, 0) DESC,
+                        CAST(COALESCE(vm.performed_km, vm.performed_hour, '0') AS REAL) DESC,
+                        vm.created_at DESC) AS rn,
+           -- Bilgilendirme notu için: EN SON GİRİLEN kayıt (seçilenle aynı değilse neden esas alınmadığı söylenir).
+           FIRST_VALUE(vm.id) OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS last_id,
+           FIRST_VALUE(vm.performed_date) OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS last_date,
+           FIRST_VALUE(COALESCE(vm.performed_km, vm.performed_hour)) OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS last_meter
     FROM vehicle_maintenances vm
     JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
     JOIN vehicles v ON v.id = vm.vehicle_id
@@ -400,19 +441,28 @@ WHERE rn = 1;";
             var perfDate = r.IsDBNull(7) ? (long?)null : r.GetInt64(7);
             var currentMeter = Money.Parse(r.GetString(8));
 
+            // Sayaç: km ya da saat — HANGİSİ girildiyse (saat bazlı bakımın sayacı km alanına girilebiliyor).
+            var perfMeter = perfKm ?? perfHour;
             decimal consumed = unit switch
             {
-                IntervalUnit.Km => perfKm is null ? 0 : currentMeter - perfKm.Value,
-                IntervalUnit.Hour => perfHour is null ? 0 : currentMeter - perfHour.Value,
+                IntervalUnit.Km or IntervalUnit.Hour => perfMeter is null ? 0 : currentMeter - perfMeter.Value,
                 IntervalUnit.Day => perfDate is null ? 0 :
                     (decimal)(DateTimeOffset.FromUnixTimeMilliseconds(_clock.UtcNow.ToUnixTimeMilliseconds())
                         - DateTimeOffset.FromUnixTimeMilliseconds(perfDate.Value)).TotalDays,
                 _ => 0,
             };
+            var meterAhead = consumed < 0;
             if (consumed < 0) consumed = 0;
             var progress = AlertRules.Progress(consumed, interval);
-            list.Add(new MaintenanceAlert(vehicleId, defId, defName, AlertRules.Level(progress), progress, consumed, interval,
-                MaintenanceId: r.IsDBNull(11) ? null : r.GetString(11)));
+            var level = AlertRules.Level(progress);
+            var maintId = r.IsDBNull(11) ? null : r.GetString(11);
+            var lastId = r.IsDBNull(12) ? null : r.GetString(12);
+            var lastDate = r.IsDBNull(13) ? (long?)null : r.GetInt64(13);
+            var lastMeter = r.IsDBNull(14) ? (decimal?)null : Money.Parse(r.GetString(14));
+            var note = AlertNote(unit, interval, level, consumed, currentMeter, perfMeter, perfDate, meterAhead,
+                lastId is not null && lastId != maintId, lastDate, lastMeter);
+            list.Add(new MaintenanceAlert(vehicleId, defId, defName, level, progress, consumed, interval,
+                MaintenanceId: maintId, Note: note));
         }
 
         // HİÇ YAPILMAMIŞ atanmış bakımlar (2026-07-25 kullanıcı bulgusu: "bakım periyodu doldu ama uyarı çıkmadı"):

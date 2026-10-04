@@ -789,6 +789,7 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
             navigateKey = a.NavigateKey, isCritical = a.IsCritical, icon = a.Icon,
             key = a.Key, signature = a.Signature, read = a.Read, // #18
             entityId = a.EntityId,   // BLD-01: masaüstü uzak evrak bildirimini tam kurabilsin (eklemeli alan)
+            note = a.Note,           // 2026-10-04: bilgilendirme notu (eklemeli alan; eski istemci yok sayar)
         }),
         // A2 (Aurora): ana ekran KPI sayıları. AYNI GetSummary → aynı tenant/şube/yetki kapsamı
         // (uyarılarla birebir). Yeni alan; eski davranış bozulmaz (summary yoksa web türetmeye düşer).
@@ -4190,6 +4191,7 @@ app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
             progressText = $"%{(int)(a.Progress * 100)}",
             consumedText = $"{a.Consumed:0.##} / {a.Interval:0.##}",
             levelText = LevelText(a.Level),
+            note = a.Note,   // 2026-10-04: bilgilendirme notu (eklemeli alan)
         };
     });
     return Results.Ok(rows);
