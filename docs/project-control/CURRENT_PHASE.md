@@ -1,15 +1,15 @@
 ﻿# AKTİF DURUM
 
-## 🟡 2026-10-04 (2. tur) — sayaç kuralı · tablo başlıkları · rapor sütun genişliği · ANLIK EŞİTLEME
+## ✅ 2026-10-04 (2. tur) YAYINDA — API+Web a6294ac · masaüstü 1.0.194 · sayaç kuralı · tablo başlıkları · rapor sütun genişliği · ANLIK EŞİTLEME
 - **Bakım sayacı (e44e46a):** formlarda tek alan, türü aracın sayacı; bakımda zorunlu (masaüstü + web + sunucu `RequireMeter`).
   Güncelden küçük/eşit değer kabul. Tamir/İlave Yağ/Filtre'de tek alan ama opsiyonel.
 - **Tablolar (72fd044):** tüm başlıklar yatay+dikey ortada (rapor dahil); rapor tablosu tutamağı Thumb → işaretçi yakalamalı Border.
 - **Anlık eşitleme (d7acce4):** `/api/sync/wait` uzun yoklama + `SyncNotifier`; masaüstü gelen için bekler, giden için 3 sn'de bir YEREL kontrol.
   Zamanlayıcı: 30 sn güvenlik kontrolleri + 60 sn güvenlik ağı turu. Geri sayım halkası kalktı; aktarımda dönen yay + ↑giden/↓gelen.
 - **Kalıcı kurallar (hafıza):** test tipine Claude karar verir; tablo istekleri rapor dahil TÜM tablolara uygulanır.
-- **Yayın:** kullanıcı onayı VAR (2026-10-04) → tam takım geçince API + Web deploy + masaüstü 1.0.194 (HEAD export'tan).
+- **Yayın (2026-10-04 19:00):** tam takım 3.988/3.990 (2 hata = yeni test sınıflarında seri koleksiyon eksikti, düzeltildi, yeniden geçti) → API + Web deploy + masaüstü 1.0.194. Sıradaki: kullanıcı rapor tablosunda sütun sürüklemeyi ekranda doğrulasın.
 
-## 🟡 2026-10-04 — uyarılar 2. tur · fotoğraflar cihaza iner · muadil düzenleme (commit'li, YAYIN BEKLİYOR)
+## ✅ 2026-10-04 — uyarılar 2. tur · fotoğraflar cihaza iner · muadil düzenleme (1.0.194 ile YAYINDA)
 
 - **Uyarı kök nedenleri (canlı veride doğrulandı, salt-okuma):**
   - Bakım: 1.0.193 tanımın biriminde sayaca göre seçiyordu; GREY 010'da saat tanımının yeni kaydı sayacı **km alanına** girilmiş → eski kayıt seçildi.
