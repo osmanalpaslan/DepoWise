@@ -79,7 +79,10 @@ public sealed class SortHeader : Grid
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            // 2026-10-04 (kullanıcı isteği): başlık yazısı hücrenin tam ortasında (yatay + dikey).
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
         };
         _button.Classes.Add("Ghost");
         _button.Click += (_, _) => _vm?.SortByCommand.Execute(ColumnKey);

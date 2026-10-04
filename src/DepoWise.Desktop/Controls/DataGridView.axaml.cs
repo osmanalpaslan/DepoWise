@@ -22,6 +22,10 @@ public partial class DataGridView : UserControl
         InitializeComponent();
         AddHandler(Thumb.DragDeltaEvent, OnThumbDragDelta, RoutingStrategies.Bubble);
         AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted, RoutingStrategies.Bubble);
+        // 2026-10-04: başlık tutamağı (Border.ColGrip) — işaretçi yakalamalı sürükleme (liste tablolarıyla aynı yöntem).
+        AddHandler(PointerPressedEvent, OnGripPressed, RoutingStrategies.Tunnel);
+        AddHandler(PointerMovedEvent, OnGripMoved, RoutingStrategies.Tunnel);
+        AddHandler(PointerReleasedEvent, OnGripReleased, RoutingStrategies.Tunnel);
         AttachedToVisualTree += (_, _) => SagTikBagla();
     }
 
@@ -46,6 +50,36 @@ public partial class DataGridView : UserControl
 
     private static GridColumnVm? ColumnOf(object? source)
         => (source as Control)?.DataContext as GridColumnVm;
+
+    private GridColumnVm? _surukKolon;
+    private Border? _surukTutamak;
+    private double _surukBasX, _surukBasW;
+
+    private void OnGripPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Source is not Border b || !b.Classes.Contains("ColGrip") || b.DataContext is not GridColumnVm col) return;
+        if (!e.GetCurrentPoint(b).Properties.IsLeftButtonPressed) return;
+        _surukKolon = col; _surukTutamak = b;
+        _surukBasX = e.GetPosition(null).X; _surukBasW = col.Width;   // pencere çerçevesi: sabit referans
+        e.Pointer.Capture(b);
+        e.Handled = true;
+    }
+
+    private void OnGripMoved(object? sender, PointerEventArgs e)
+    {
+        if (_surukKolon is null) return;
+        _surukKolon.Width = Math.Max(50, Math.Min(600, _surukBasW + (e.GetPosition(null).X - _surukBasX)));
+        e.Handled = true;
+    }
+
+    private void OnGripReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_surukKolon is null) return;
+        if (DataContext is GridController g) g.CommitWidth(_surukKolon);
+        e.Pointer.Capture(null);
+        _surukKolon = null; _surukTutamak = null;
+        e.Handled = true;
+    }
 
     private void OnThumbDragDelta(object? sender, VectorEventArgs e)
     {

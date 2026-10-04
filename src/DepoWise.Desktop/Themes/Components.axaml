@@ -452,6 +452,11 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LetterSpacing" Value="0"/>
         <Setter Property="FontSize" Value="12.5"/>
+        <!-- 2026-10-04 (kullanıcı isteği): başlık yazıları hücrenin TAM ORTASINDA (yatay + dikey), tüm tablolarda.
+             Hücre genişliğini dolduran yazıda TextAlignment ortalar; içerik yığınları (SortHeader, rapor başlığı)
+             kendi içerik hizasıyla ortalanır. -->
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <!-- Başlık hücrelerinin arkasındaki bağımsız kutucuklar (Ghost buton zemini) kaldırılır: düz zemin. -->
     <Style Selector="Border.TableHeader Button.Ghost">

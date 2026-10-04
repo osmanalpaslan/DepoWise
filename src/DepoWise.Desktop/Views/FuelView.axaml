@@ -205,13 +205,13 @@
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
                                         <SelectableTextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
-                                        <SelectableTextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="SAYAÇ FARKI" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="ORT. TÜKETİM" MinWidth="110" TextAlignment="Right"
+                                        <SelectableTextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="SAYAÇ FARKI" MinWidth="100" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="ORT. TÜKETİM" MinWidth="110" TextAlignment="Center"
                                                              ToolTip.Tip="Litre / sayaç farkı (Yakıt Tüketim raporuyla aynı hesap)"/>
-                                        <SelectableTextBlock Grid.Column="5" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="6" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="7" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="6" Text="TOPLAM" MinWidth="100" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="7" Text="TARİH" MinWidth="100" TextAlignment="Center"/>
                                         <SelectableTextBlock Grid.Column="8" Text="BELGE NO" MinWidth="110" Margin="14,0,0,0"/>
                                         <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
@@ -354,9 +354,9 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d5"/>
                                         </Grid.ColumnDefinitions>
                                         <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
-                                        <SelectableTextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Center"/>
                                         <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
@@ -414,9 +414,9 @@
                     <Border Classes="TableHeader">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="180,130,150,150,*">
                             <SelectableTextBlock Grid.Column="0" Text="AY"/>
-                            <SelectableTextBlock Grid.Column="1" Text="AYLIK TOPLAM" TextAlignment="Right"/>
-                            <SelectableTextBlock Grid.Column="2" Text="HAFTALIK ORT." TextAlignment="Right"/>
-                            <SelectableTextBlock Grid.Column="3" Text="GÜNLÜK ORT." TextAlignment="Right"/>
+                            <SelectableTextBlock Grid.Column="1" Text="AYLIK TOPLAM" TextAlignment="Center"/>
+                            <SelectableTextBlock Grid.Column="2" Text="HAFTALIK ORT." TextAlignment="Center"/>
+                            <SelectableTextBlock Grid.Column="3" Text="GÜNLÜK ORT." TextAlignment="Center"/>
                             <SelectableTextBlock Grid.Column="4" Text="İŞLEM" Margin="16,0,0,0"/>
                         </Grid>
                     </Border>
