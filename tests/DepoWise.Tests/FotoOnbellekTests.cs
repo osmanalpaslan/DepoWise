@@ -14,6 +14,7 @@ namespace DepoWise.Tests;
 /// FOB1-2: yeni <c>/api/photos/index</c> ucu — yalnız oturum firmasının fotoğrafları, oturumsuz erişim yok.
 /// FOB3-5: masaüstü kaynak taraması — çevrimdışı okuma önbellekten, arka plan doldurma bağlı, eski metin yok.
 /// </summary>
+[Collection("PostgresSchema")]   // ApiTestHost süreç-geneli ortam değişkeni yazar → seri koşmalı
 public class FotoOnbellekTests : IAsyncLifetime
 {
     private readonly ApiTestHost _host = new();

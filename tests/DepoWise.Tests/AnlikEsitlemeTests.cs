@@ -17,6 +17,7 @@ namespace DepoWise.Tests;
 /// (25 sn'lik üst sınırı beklemez) · ANL3 oturumsuz erişim yok · ANL4 başka firmanın yazması UYANDIRMAZ
 /// (tenant) · ANL5 SyncNotifier birim davranışı.
 /// </summary>
+[Collection("PostgresSchema")]   // ApiTestHost süreç-geneli ortam değişkeni yazar → seri koşmalı
 public class AnlikEsitlemeTests : IAsyncLifetime
 {
     private readonly ApiTestHost _host = new();
