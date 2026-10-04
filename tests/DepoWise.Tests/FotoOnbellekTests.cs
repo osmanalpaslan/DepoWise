@@ -78,7 +78,13 @@ public class FotoOnbellekTests : IAsyncLifetime
         var r = await anonim.GetAsync("/api/photos/index");
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }
+}
 
+/// <summary>FOB3-5: masaüstü kaynak taraması. Sunucu gerektirmez — ayrı sınıfta, çünkü üstteki sınıf her test için
+/// test sunucusu açıp oturum açıyor; tam takımın yükünde bu oturum açma zaman aşımına düşüp kaynak taramasını
+/// yanlışlıkla kırmızıya çeviriyordu (2026-10-04 tam koşu).</summary>
+public class FotoOnbellekKaynakTests
+{
     private static string Kaynak(string goreli)
     {
         var dir = AppContext.BaseDirectory;
