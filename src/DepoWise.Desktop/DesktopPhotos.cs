@@ -52,17 +52,23 @@ public static class DesktopPhotos
     {
         var api = ApiEntity(entityType);
         var uzak = await OrgServerClient.ListPhotosAsync(api, entityId);
-        if (uzak is null) return (YerelOku(s, entityType, entityId), true);   // çevrimdışı → yerel kopya
+        if (uzak is null) return (CevrimdisiOku(s, entityType, entityId), true);   // çevrimdışı → cihazdaki kopya
 
         if (await TasiEskileriAsync(s, entityType, entityId, uzak) > 0)
             uzak = await OrgServerClient.ListPhotosAsync(api, entityId) ?? uzak;
 
+        // 2026-10-04: içerik önce CİHAZ ÖNBELLEĞİNDEN okunur, yoksa sunucudan indirilip önbelleğe yazılır →
+        // aynı fotoğraf tekrar tekrar indirilmez ve çevrimdışıyken de görünür.
         var liste = new List<Yuklenen>();
         foreach (var p in uzak)
         {
-            var bytes = await OrgServerClient.DownloadPhotoAsync(api, entityId, p.Id);
-            if (bytes is not null) liste.Add(new Yuklenen(p.Id, bytes));
+            var bytes = Onbellek.Oku(s.CompanyId, entityType, entityId, p.Id)
+                        ?? await OrgServerClient.DownloadPhotoAsync(api, entityId, p.Id);
+            if (bytes is null) continue;
+            Onbellek.Yaz(s.CompanyId, entityType, entityId, p.Id, bytes);
+            liste.Add(new Yuklenen(p.Id, bytes));
         }
+        Onbellek.ListeYaz(s.CompanyId, entityType, entityId, uzak.Select(p => p.Id));
         return (liste, false);
     }
 
@@ -222,6 +228,149 @@ public static class DesktopPhotos
         using var sha = System.Security.Cryptography.SHA256.Create();
         var bytes = System.Text.Encoding.UTF8.GetBytes(string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal)));
         return Convert.ToHexString(sha.ComputeHash(bytes));
+    }
+
+    /// <summary>
+    /// Çevrimdışı görüntüleme (2026-10-04): önce sunucudan CİHAZA İNDİRİLMİŞ kopya (önbellek listesi); o kayıt
+    /// için önbellek hiç oluşmamışsa bu makinede kalmış eski yerel fotoğraflar.
+    /// </summary>
+    private static List<Yuklenen> CevrimdisiOku(SessionContext s, string entityType, string entityId)
+    {
+        var ids = Onbellek.ListeOku(s.CompanyId, entityType, entityId);
+        if (ids is null) return YerelOku(s, entityType, entityId);
+        var liste = new List<Yuklenen>();
+        foreach (var id in ids)
+            if (Onbellek.Oku(s.CompanyId, entityType, entityId, id) is { } b) liste.Add(new Yuklenen(id, b));
+        return liste;
+    }
+
+    /// <summary>Çevrimdışı ekran notu — dört ekran aynı cümleyi kullanır.</summary>
+    public const string CevrimdisiNotu = "Çevrimdışı: cihaza indirilmiş fotoğraflar gösteriliyor.";
+
+    private static DateTime _sonDoldurma = DateTime.MinValue;
+    private static int _dolduruluyor;
+
+    /// <summary>
+    /// ⭐ 2026-10-04 — ARKA PLANDA ÖNBELLEK DOLDURMA (kullanıcı isteği: "internete bağlı olmasam bile fotoğrafların
+    /// sunucudan cihazıma inmiş olması gerek"). Firmanın fotoğraf dizini TEK istekle alınır; cihazda olmayanlar
+    /// indirilir, sunucuda silinenler önbellekten kaldırılır. Kayıt hiç açılmamış olsa bile fotoğraf cihazda olur.
+    /// Kurallar: başarılı turdan sonra en fazla 30 dakikada bir · aynı anda tek koşu · hata/çevrimdışı sessiz
+    /// (sonraki turda yeniden dener) · eski sunucu (uç yok) → hiçbir şey yapılmaz.
+    /// </summary>
+    public static async Task OnbellegiDoldurAsync(SessionContext s)
+    {
+        if ((DateTime.UtcNow - _sonDoldurma).TotalMinutes < 30) return;
+        if (System.Threading.Interlocked.Exchange(ref _dolduruluyor, 1) == 1) return;
+        try
+        {
+            var dizin = await OrgServerClient.ListPhotoIndexAsync();
+            if (dizin is null) return;
+            bool tamam = true;
+            foreach (var g in dizin.GroupBy(x => (x.EntityType, x.EntityId)))
+            {
+                var api = ApiEntity(g.Key.EntityType);
+                foreach (var p in g)
+                {
+                    if (Onbellek.Var(s.CompanyId, g.Key.EntityType, g.Key.EntityId, p.Id)) continue;
+                    var bytes = await OrgServerClient.DownloadPhotoAsync(api, g.Key.EntityId, p.Id);
+                    if (bytes is null) { tamam = false; continue; }
+                    Onbellek.Yaz(s.CompanyId, g.Key.EntityType, g.Key.EntityId, p.Id, bytes);
+                }
+                Onbellek.ListeYaz(s.CompanyId, g.Key.EntityType, g.Key.EntityId, g.Select(p => p.Id));
+            }
+            Onbellek.FazlalariTemizle(s.CompanyId, dizin.Select(x => (x.EntityType, x.EntityId)));
+            if (tamam) _sonDoldurma = DateTime.UtcNow;
+        }
+        catch { /* sessiz — sonraki turda yeniden dener */ }
+        finally { System.Threading.Interlocked.Exchange(ref _dolduruluyor, 0); }
+    }
+
+    /// <summary>
+    /// Cihaz fotoğraf önbelleği: <c>%LOCALAPPDATA%\DepoWise\FotoOnbellek\{firma}\{tür}\{kayıt}\</c>.
+    /// Her fotoğraf kendi kimliğiyle saklanır; <c>liste.txt</c> sunucudaki son bilinen listeyi tutar (sunucuda
+    /// silinen fotoğraf çevrimdışıyken de görünmesin diye). Yalnız sunucudan inen kopyalar burada durur.
+    /// </summary>
+    internal static class Onbellek
+    {
+        internal static string? KokOverride;   // testler için
+        private static string Kok => KokOverride ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "FotoOnbellek");
+
+        // Yol parçası güvenliği: kimlikler yalnız harf/rakam/-/_ ile klasör adına dönüşür (yol kaçışı yok).
+        private static string Temiz(string v)
+            => string.Concat(v.Select(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_'));
+
+        private static string Klasor(string firma, string tur, string kayit)
+            => Path.Combine(Kok, Temiz(firma), Temiz(tur), Temiz(kayit));
+
+        private static string Dosya(string firma, string tur, string kayit, string id)
+            => Path.Combine(Klasor(firma, tur, kayit), Temiz(id) + ".img");
+
+        internal static bool Var(string firma, string tur, string kayit, string id)
+            => File.Exists(Dosya(firma, tur, kayit, id));
+
+        internal static byte[]? Oku(string firma, string tur, string kayit, string id)
+        {
+            try { var yol = Dosya(firma, tur, kayit, id); return File.Exists(yol) ? File.ReadAllBytes(yol) : null; }
+            catch { return null; }
+        }
+
+        internal static void Yaz(string firma, string tur, string kayit, string id, byte[] bytes)
+        {
+            try
+            {
+                var yol = Dosya(firma, tur, kayit, id);
+                if (File.Exists(yol)) return;
+                Directory.CreateDirectory(Path.GetDirectoryName(yol)!);
+                var gecici = yol + ".tmp";
+                File.WriteAllBytes(gecici, bytes);
+                File.Move(gecici, yol, overwrite: true);   // yarım dosya kalmaz
+            }
+            catch { }
+        }
+
+        /// <summary>Sunucudaki güncel liste yazılır; listede olmayan (sunucuda silinmiş) fotoğraflar kaldırılır.</summary>
+        internal static void ListeYaz(string firma, string tur, string kayit, IEnumerable<string> ids)
+        {
+            try
+            {
+                var klasor = Klasor(firma, tur, kayit);
+                Directory.CreateDirectory(klasor);
+                var liste = ids.ToList();
+                File.WriteAllLines(Path.Combine(klasor, "liste.txt"), liste);
+                var tut = liste.Select(i => Temiz(i) + ".img").ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var f in Directory.GetFiles(klasor, "*.img"))
+                    if (!tut.Contains(Path.GetFileName(f))) File.Delete(f);
+            }
+            catch { }
+        }
+
+        internal static List<string>? ListeOku(string firma, string tur, string kayit)
+        {
+            try
+            {
+                var yol = Path.Combine(Klasor(firma, tur, kayit), "liste.txt");
+                return File.Exists(yol) ? File.ReadAllLines(yol).Where(x => x.Length > 0).ToList() : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Dizinde artık hiç fotoğrafı olmayan kayıtların önbelleği "boş liste" olur (çevrimdışıyken
+        /// silinmiş fotoğraf görünmez). Boş liste "bu kaydın fotoğrafı yok" bilgisidir.</summary>
+        internal static void FazlalariTemizle(string firma, IEnumerable<(string Tur, string Kayit)> mevcut)
+        {
+            try
+            {
+                var set = mevcut.Select(x => (Temiz(x.Tur), Temiz(x.Kayit))).ToHashSet();
+                var firmaKok = Path.Combine(Kok, Temiz(firma));
+                if (!Directory.Exists(firmaKok)) return;
+                foreach (var turDir in Directory.GetDirectories(firmaKok))
+                    foreach (var kayitDir in Directory.GetDirectories(turDir))
+                        if (!set.Contains((Path.GetFileName(turDir), Path.GetFileName(kayitDir))))
+                            ListeYaz(firma, Path.GetFileName(turDir), Path.GetFileName(kayitDir), Array.Empty<string>());
+            }
+            catch { }
+        }
     }
 
     /// <summary>Çevrimdışı görüntüleme: bu makinede kalmış fotoğraflar.</summary>

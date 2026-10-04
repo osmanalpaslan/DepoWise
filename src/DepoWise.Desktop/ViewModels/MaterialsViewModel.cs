@@ -1051,7 +1051,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [NotifyPropertyChangedFor(nameof(PhotosOfflineNote))]
     private bool _photosOffline;
     public string? PhotosOfflineNote => PhotosOffline
-        ? "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor."
+        ? DesktopPhotos.CevrimdisiNotu
         : null;
 
     /// <summary>PK-F3 — fotoğraf silme düğmesi YALNIZ düzenleme modunda ve SİLME yetkisiyle görünür.</summary>

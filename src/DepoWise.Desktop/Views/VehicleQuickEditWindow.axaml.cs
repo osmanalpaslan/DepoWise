@@ -305,7 +305,7 @@ public partial class VehicleQuickEditWindow : Window
             // ⭐ FAZ 4.7: fotoğraflar artık kendi SEKMESİNDE. Sekme daima durur; boşsa bilgi yazılır
             // (eskiden bölüm tamamen gizleniyordu ve kullanıcı "fotoğraf yok mu, yüklenmedi mi" bilemiyordu).
             note.Text = cevrimdisi
-                ? "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor."
+                ? DesktopPhotos.CevrimdisiNotu
                 : (panel.Children.Count == 0 ? "Bu araca ait fotoğraf yok." : "");
             note.IsVisible = note.Text.Length > 0;
             section.IsVisible = true;

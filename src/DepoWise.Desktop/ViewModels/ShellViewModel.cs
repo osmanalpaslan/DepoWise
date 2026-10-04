@@ -619,6 +619,9 @@ public sealed partial class ShellViewModel : ViewModelBase
             await CheckUserChangedAsync();    // HIZLI (15 sn): yetki/şifre değişikliği algılama
             await MaybePushBusinessAsync(checkConflicts: slow);  // HIZLI: sürüm+push+pull · çakışma bildirimi YAVAŞ
             await MaybeDailyBackupAsync();    // kendi saatlik kısıtı var
+            // 2026-10-04: sunucudaki fotoğraflar cihaza iner (çevrimdışı görüntüleme). Kendi 30 dk kısıtı +
+            // tek-koşu kilidi var; ateşle-unut → eşitleme turunu bekletmez.
+            _ = DesktopPhotos.OnbellegiDoldurAsync(_session);
         };
         _connTimer.Start();
         HalkaSayaciniBaslat();   // FAZ 4.12: üst bardaki geri sayım/ilerleme halkası

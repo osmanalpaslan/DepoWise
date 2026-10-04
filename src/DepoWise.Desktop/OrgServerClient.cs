@@ -178,6 +178,20 @@ public static class OrgServerClient
     /// <summary>Sunucudaki bir fotoğrafın kimliği + içerik özeti (mükerrer taşımayı önlemek için).</summary>
     public sealed record RemotePhoto(string Id, string? Sha256);
 
+    /// <summary>2026-10-04: firmanın tüm fotoğraf dizini (önbellek doldurma). <c>null</c> = çevrimdışı ya da
+    /// sunucu bu ucu henüz bilmiyor (eski sürüm) → çağıran sessizce atlar.</summary>
+    public sealed record PhotoIndexItem(string EntityType, string EntityId, string Id, string? Sha256);
+
+    public static async Task<List<PhotoIndexItem>?> ListPhotoIndexAsync()
+    {
+        using var doc = await GetJsonAsync("/api/photos/index");
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<PhotoIndexItem>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+            list.Add(new PhotoIndexItem(Str(e, "entityType"), Str(e, "entityId"), Str(e, "id"), NullS(e, "sha256")));
+        return list;
+    }
+
     private static long? Num(JsonElement e, string key)
         => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 

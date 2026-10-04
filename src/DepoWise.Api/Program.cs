@@ -1123,6 +1123,15 @@ app.MapPost("/api/materials/{id}/compatible-vehicles", (HttpContext c, string id
 app.MapPost("/api/materials/{id}/equivalents", (HttpContext c, string id, IdDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Materials.AddEquivalent(s, id, d.Id)) }) : Results.Unauthorized()).RequireAuthorization();
 
+// ⭐ 2026-10-04 (kullanıcı isteği: "internete bağlı olmasam bile fotoğraflar sunucudan cihazıma inmiş olmalı"):
+// firmanın TÜM fotoğraflarının dizini (içerik YOK, yalnız kimlik + özet). Masaüstü bunu arka planda çekip eksik
+// fotoğrafları cihaz önbelleğine indirir → çevrimdışıyken de görünür. Yetki tür başına (malzeme/araç görüntüleme)
+// FileService içinde uygulanır; yetkisi olmayan tür listeye girmez.
+app.MapGet("/api/photos/index", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Files.GetAllLocalPhotos(s).Select(p => new
+    {
+        entityType = p.EntityType, entityId = p.EntityId, id = p.Id, sha256 = p.Sha256, size = p.SizeBytes,
+    })) : Results.Unauthorized()).RequireAuthorization();
 // Malzeme fotoğrafları (file_records + disk storage)
 // ADR-182 (ARA İŞ 2 / S5): yanıta `sha256` EKLENDİ (eklemeli — eski istemciler alanı yok sayar).
 // Masaüstü, yerelde kalmış eski fotoğrafları sunucuya BİR KEZ taşırken bu özetle mükerrer yüklemeyi önler.

@@ -362,7 +362,7 @@ public partial class MaterialQuickEditWindow : Window
                 }
                 catch { /* bozuk görsel atlanır */ }
             }
-            note.Text = "Çevrimdışı: yalnız bu bilgisayardaki fotoğraflar gösteriliyor.";
+            note.Text = DesktopPhotos.CevrimdisiNotu;
             note.IsVisible = cevrimdisi;
             section.IsVisible = panel.Children.Count > 0 || cevrimdisi;
         }
