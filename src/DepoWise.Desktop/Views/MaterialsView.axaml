@@ -778,8 +778,8 @@
                         <DataTemplate x:DataType="m:MaterialRefRow">
                             <Button Classes="Ghost" Padding="4,2" Margin="0,1" HorizontalAlignment="Left"
                                     HorizontalContentAlignment="Left" Cursor="Hand"
-                                    ToolTip.Tip="Malzeme detayını aç"
-                                    Content="{Binding Name, StringFormat='• {0}'}"
+                                    ToolTip.Tip="Malzeme detayını aç (kod — ad)"
+                                    Content="{Binding Display, StringFormat='• {0}'}"
                                     Command="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).OpenMaterialCommand}"
                                     CommandParameter="{Binding}"/>
                         </DataTemplate>

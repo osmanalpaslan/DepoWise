@@ -1,7 +1,8 @@
 @* Çift-tık ile açılan "hızlı düzenle" penceresi (kullanıcı isteği 2026-07-19): kayda ÇİFT TIKLAYINCA
    ayrı bir pencerede Düzelt / Kaydet / Sil. Tek tık listede DETAY panelini açar (o davranış korunur);
    bu pencere yalnız çift tıkla gelir. "Düzelt"e basılana kadar alanlar SALT-OKUNUR; basınca düzenlenebilir.
-   NOT: Fotoğraf, muadil ve uyumlu araçlar bu hızlı pencerede DEĞİŞTİRİLMEZ (korunur) — onlar tam "Düzenle"
+   2026-10-04: MUADİLLER bu pencerede kod + ad ile listelenir ve Düzelt modunda eklenip çıkarılabilir.
+   NOT: Fotoğraf ve uyumlu araçlar bu hızlı pencerede DEĞİŞTİRİLMEZ (korunur) — onlar tam "Düzenle"
    ekranından yönetilir; kaydederken uyumlu araç listesi null gönderilir (sunucu mevcut listeyi korur). *@
 @using System.Text.Json
 @inject ApiClient Api
@@ -110,6 +111,22 @@
                     else { <MudField Label="Açıklama" Variant="Variant.Text">@(string.IsNullOrEmpty(_desc) ? "—" : _desc)</MudField> }
                 </MudItem>
             </MudGrid>
+            @* ⭐ 2026-10-04 (kullanıcı isteği): muadil malzemeler — kod + ad; Düzelt modunda ekle/çıkar. *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">Muadil Malzemeler</MudText>
+            @if (_equivalents.Count == 0) { <MudText Typo="Typo.body2" Class="mud-text-secondary">Muadil malzeme tanımlı değil.</MudText> }
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-1">
+                @foreach (var e in _equivalents)
+                {
+                    if (_edit) { <MudChip T="string" Size="Size.Small" OnClose="@(() => _equivalents.Remove(e))">@e.Name</MudChip> }
+                    else { <MudChip T="string" Size="Size.Small">@e.Name</MudChip> }
+                }
+            </MudStack>
+            @if (_edit)
+            {
+                <MudAutocomplete T="ApiClient.Opt" Label="Muadil ekle" SearchFunc="SearchMaterial" Value="_eqPick" ValueChanged="AddEquivalent"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="1"
+                                 HelperText="Kod veya ad yazıp seçin." Class="mt-1" />
+            }
             @* Kullanıcı isteği (2026-09-02): "başka makinede eklenen fotoğrafı çift tıkta göremiyorum."
                Fotoğraflar SUNUCUDAN gelir → hangi bilgisayardan eklendiği fark etmez. Salt görüntüleme. *@
             @if (_photos.Count > 0)
@@ -126,7 +143,7 @@
             @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             @* G2-01: eskiden "liste ekranındaki Düzenle"yi işaret ediyordu — ÖYLE BİR DÜĞME YOKTU.
                Artık bu pencerenin kendi "Tam Düzenleme" düğmesine yönlendiriyor. *@
-            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — bunları değiştirmek için pencereyi kapatıp “Tam Düzenleme”yi kullanın.</MudText> }
+            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Fotoğraf ve uyumlu araçlar bu pencerede değişmez (korunur) — bunları değiştirmek için pencereyi kapatıp “Tam Düzenleme”yi kullanın.</MudText> }
         }
     </DialogContent>
     <DialogActions>
@@ -195,6 +212,25 @@
     private decimal _min, _price;
     private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new();
 
+    // 2026-10-04: muadiller (Name = "KOD — Ad"). Açılıştaki küme ile karşılaştırılır: değişmediyse kaydederken
+    // null gönderilir → sunucu muadillere HİÇ dokunmaz (eski davranış).
+    private readonly List<ApiClient.Opt> _equivalents = new();
+    private HashSet<string> _origEquiv = new();
+    private ApiClient.Opt? _eqPick;
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(t)) return Array.Empty<ApiClient.Opt>();
+        var r = await Api.MaterialOptionsAsync("/api/materials?search=" + Uri.EscapeDataString(t));
+        return r.Where(o => o.Id != Id && _equivalents.All(e => e.Id != o.Id)).Take(30);
+    }
+
+    private void AddEquivalent(ApiClient.Opt? o)
+    {
+        if (o is not null && o.Id != Id && _equivalents.All(e => e.Id != o.Id)) _equivalents.Add(o);
+        _eqPick = null;
+    }
+
     /// <summary>Salt görüntüleme fotoğrafları (data-URL). Sunucudan gelir → makineler arası ortaktır.</summary>
     private readonly List<string> _photos = new();
 
@@ -232,6 +268,14 @@
             _originalStock = Dec(d, "stock"); _stockValue = _originalStock;
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
             _templateId = NullId(d, "templateId");   // G2-04: mevcut şablon bağı (kaydederken aynen geri gönderilir)
+            _equivalents.Clear();
+            if (d.TryGetProperty("equivalents", out var eqs) && eqs.ValueKind == JsonValueKind.Array)
+                foreach (var e in eqs.EnumerateArray())
+                {
+                    var ec = Str(e, "code"); var en = Str(e, "name");
+                    _equivalents.Add(new ApiClient.Opt(Str(e, "id"), string.IsNullOrWhiteSpace(ec) ? en : $"{ec} — {en}"));
+                }
+            _origEquiv = _equivalents.Select(e => e.Id).ToHashSet();
             await LoadPhotos();   // kullanıcı isteği 2026-09-02: fotoğraflar bu pencerede de görünsün
         }
         catch { _notFound = true; }
@@ -263,6 +307,9 @@
                 unitId = _unit, brandId = _brand, supplierId = _sup,
                 minStock = _min, unitPrice = _price, description = string.IsNullOrEmpty(_desc) ? null : _desc,
                 vehicleIds = (List<string>?)null,
+                // 2026-10-04: muadil listesi YALNIZ değiştiyse gönderilir (null = sunucu muadilleri korur).
+                equivalentIds = _equivalents.Select(e => e.Id).ToHashSet().SetEquals(_origEquiv)
+                    ? null : _equivalents.Select(e => e.Id).ToList(),
                 // G2-04: yüklenen şablon bağı AYNEN geri gönderilir (bu pencerede değiştirilmez, ama
                 // gönderilmezse sunucu template_id'yi NULL yapardı → sessiz veri kaybı).
                 templateId = _templateId,

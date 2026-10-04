@@ -50,6 +50,22 @@
                 <TextBox   Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DescBox" Classes="Field" AcceptsReturn="True" MinHeight="56" TextWrapping="Wrap" Margin="0,4,0,4"/>
             </Grid>
 
+            <!-- ⭐ 2026-10-04 (kullanıcı isteği): MUADİL MALZEMELER — kod + ad listelenir; "Düzelt" modunda
+                 çıkarma (✕) ve arayarak ekleme yapılır, "Kaydet" ile uygulanır (ana formdaki uzlaştırmayla aynı). -->
+            <StackPanel x:Name="EquivSection" Spacing="6">
+                <TextBlock Text="Muadil Malzemeler" Classes="Body" FontWeight="SemiBold"/>
+                <WrapPanel x:Name="EquivPanel" Orientation="Horizontal"/>
+                <SelectableTextBlock x:Name="EquivEmpty" Classes="Helper" Text="Muadil malzeme tanımlı değil." IsVisible="False"/>
+                <StackPanel x:Name="EquivEditor" Spacing="4" IsVisible="False">
+                    <TextBox x:Name="EquivSearch" Classes="Field" PlaceholderText="Muadil eklemek için kod veya ad yazın..."/>
+                    <Border x:Name="EquivResultsBorder" Classes="Panel" Padding="0" MaxHeight="150" IsVisible="False">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="EquivResults"/>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
             <!-- Kritik stok paneli (S3) — stok minimum altındaysa uyarı + Talep Oluştur (taslak). -->
             <Border x:Name="CriticalPanel" IsVisible="False" Padding="12,10" CornerRadius="10"
                     Background="{DynamicResource SurfaceElevatedBrush}"
@@ -77,7 +93,7 @@
 
             <SelectableTextBlock x:Name="StatusText" Classes="Body" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" IsVisible="False"/>
             <SelectableTextBlock x:Name="HintText" Classes="Helper" TextWrapping="Wrap" IsVisible="False"
-                Text="Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın."/>
+                Text="Fotoğraf ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın."/>
 
             <!-- Son Hareketler (A3) — salt-okunur; malzemenin son 10 stok hareketi (giriş/çıkış/bakım). -->
             <SelectableTextBlock Text="Son Hareketler" Classes="CardLabel" Margin="0,6,0,0"/>

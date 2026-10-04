@@ -13,7 +13,8 @@ namespace DepoWise.Desktop.Views;
 /// <summary>
 /// Çift-tık ile açılan malzeme "hızlı düzenle" penceresi (kullanıcı isteği 2026-07-19): Düzelt / Kaydet / Sil.
 /// "Düzelt"e basılana kadar alanlar KİLİTLİ. Kod-arkası (DataContext bağlaması YOK) — ColumnPickerWindow ile
-/// aynı düşük-riskli desen. NOT: fotoğraf/muadil/uyumlu araçlar KORUNUR (bu pencerede değişmez).
+/// aynı düşük-riskli desen. NOT: fotoğraf/uyumlu araçlar KORUNUR (bu pencerede değişmez). Muadiller
+/// 2026-10-04'ten beri burada da listelenir ve "Düzelt" modunda eklenip çıkarılabilir.
 /// Close değeri: "saved" / "deleted" / null.
 /// </summary>
 public partial class MaterialQuickEditWindow : Window
@@ -197,6 +198,75 @@ public partial class MaterialQuickEditWindow : Window
             };
         }
 
+        // ⭐ 2026-10-04 — MUADİL MALZEMELER (kullanıcı isteği): kod + ad listelenir; Düzelt modunda ✕ ile
+        // çıkarılır, arama kutusundan eklenir. Kaydet'te ana formdaki uzlaştırmanın AYNISI uygulanır
+        // (Add/RemoveEquivalent — iki yönlü, tenant kontrollü servis kuralları).
+        var equivPanel = this.FindControl<WrapPanel>("EquivPanel")!;
+        var equivEmpty = this.FindControl<SelectableTextBlock>("EquivEmpty")!;
+        var equivEditor = this.FindControl<StackPanel>("EquivEditor")!;
+        var equivSearch = this.FindControl<TextBox>("EquivSearch")!;
+        var equivResults = this.FindControl<StackPanel>("EquivResults")!;
+        var equivResultsBorder = this.FindControl<Border>("EquivResultsBorder")!;
+        var origEquiv = d.Equivalents.Select(e => e.Id).ToHashSet();
+        var chosenEquiv = d.Equivalents.ToList();
+        bool equivEditing = false;
+        Action recountHook = () => { };   // Recount aşağıda tanımlanınca bağlanır
+        void RenderEquiv()
+        {
+            equivPanel.Children.Clear();
+            foreach (var e in chosenEquiv)
+            {
+                var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 4 };
+                row.Children.Add(new SelectableTextBlock { Text = e.Display, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
+                if (equivEditing)
+                {
+                    var sil = new Button { Content = "✕", Classes = { "Ghost" }, Padding = new Avalonia.Thickness(4, 0),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+                    ToolTip.SetTip(sil, "Muadillikten çıkar");
+                    var hedef = e;
+                    sil.Click += (_, _) => { chosenEquiv.Remove(hedef); RenderEquiv(); recountHook(); };
+                    row.Children.Add(sil);
+                }
+                equivPanel.Children.Add(new Border
+                {
+                    Child = row, Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6),
+                    CornerRadius = new Avalonia.CornerRadius(999), BorderThickness = new Avalonia.Thickness(1),
+                    BorderBrush = this.TryFindResource("BorderSubtleBrush", out var bb) ? bb as IBrush : null,
+                    Background = this.TryFindResource("SurfaceElevatedBrush", out var sb) ? sb as IBrush : null,
+                });
+            }
+            equivEmpty.IsVisible = chosenEquiv.Count == 0;
+        }
+        void SearchEquiv()
+        {
+            equivResults.Children.Clear();
+            var term = (equivSearch.Text ?? "").Trim();
+            if (term.Length == 0) { equivResultsBorder.IsVisible = false; return; }
+            try
+            {
+                var page = DesktopServices.Materials.List(session, new DepoWise.Application.Common.PageRequest { Limit = 30 }, term);
+                foreach (var m in page.Items)
+                {
+                    if (m.Id == materialId || chosenEquiv.Any(c => c.Id == m.Id)) continue;
+                    var secim = new MaterialRefRow(m.Id, m.Code, m.Name);
+                    var b = new Button
+                    {
+                        Content = secim.Display, Classes = { "Ghost" }, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                        HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left, Padding = new Avalonia.Thickness(12, 6),
+                    };
+                    b.Click += (_, _) => { chosenEquiv.Add(secim); equivSearch.Text = ""; RenderEquiv(); recountHook(); };
+                    equivResults.Children.Add(b);
+                }
+            }
+            catch { /* arama hatası sessiz */ }
+            if (equivResults.Children.Count == 0)
+                equivResults.Children.Add(new SelectableTextBlock { Text = "Eşleşen malzeme yok.", Classes = { "Helper" }, Margin = new Avalonia.Thickness(12, 6) });
+            equivResultsBorder.IsVisible = true;
+        }
+        equivSearch.TextChanged += (_, _) => SearchEquiv();
+        bool EquivDirty() => !chosenEquiv.Select(e => e.Id).ToHashSet().SetEquals(origEquiv);
+        RenderEquiv();
+
         // Başlangıçta KİLİTLİ (salt-okunur). Stok kutusu ayrıca "stock" yetkisine tabidir (madde 1.2).
         var editable = new Control[] { code, name, typeBox, catBox, subCatBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };
         void SetLocked(bool locked) { foreach (var c in editable) c.IsEnabled = !locked; stockBox.IsEnabled = !locked && canEditStock; }
@@ -222,6 +292,7 @@ public partial class MaterialQuickEditWindow : Window
             if ((decimal)(priceBox.Value ?? 0) != d.UnitPrice) n++;
             if ((descBox.Text ?? "") != (d.Description ?? "")) n++;
             if (canEditStock && (decimal)(stockBox.Value ?? 0) != originalStock) n++;   // madde 1.2
+            if (EquivDirty()) n++;   // 2026-10-04: muadil listesi değişti
             return n;
         }
         void Recount()
@@ -230,6 +301,7 @@ public partial class MaterialQuickEditWindow : Window
             dirtyText.Text = n > 0 ? $"{n} kaydedilmemiş değişiklik" : "";
             dirtyText.IsVisible = n > 0;
         }
+        recountHook = Recount;
         code.TextChanged += (_, _) => Recount();
         name.TextChanged += (_, _) => Recount();
         descBox.TextChanged += (_, _) => Recount();
@@ -246,6 +318,7 @@ public partial class MaterialQuickEditWindow : Window
         editBtn.Click += (_, _) =>
         {
             SetLocked(false);
+            equivEditing = true; equivEditor.IsVisible = true; RenderEquiv();
             editBtn.IsVisible = false;
             saveBtn.IsVisible = true;
             hintText.IsVisible = true;
@@ -290,7 +363,13 @@ public partial class MaterialQuickEditWindow : Window
                     TemplateId: d.TemplateId),
                     // DÜZENLEME KİLİDİ: pencere açıldığındaki sürüm — kayıt arada değiştiyse üzerine yazma.
                     expectedVersion: d.Version);
-                // Uyumlu araçlar / muadiller / fotoğraflar DEĞİŞTİRİLMEZ (korunur).
+                // Uyumlu araçlar / fotoğraflar DEĞİŞTİRİLMEZ (korunur).
+                // Muadiller (2026-10-04): ekle/çıkar uzlaştırması — ana formdaki (MaterialsViewModel) kuralın aynısı.
+                var secilen = chosenEquiv.Select(e => e.Id).ToHashSet();
+                foreach (var ekle in secilen.Where(x => !origEquiv.Contains(x)))
+                    DesktopServices.Materials.AddEquivalent(session, materialId, ekle);
+                foreach (var cikar in origEquiv.Where(x => !secilen.Contains(x)))
+                    DesktopServices.Materials.RemoveEquivalent(session, materialId, cikar);
 
                 // Doğrudan stok değişikliği kararını uygula/logla (madde 1.4): Devam → adjustment + log("continued");
                 // Vazgeç → yalnız log("cancelled"), stok değişmez. Kart alanları zaten kaydedildi.
