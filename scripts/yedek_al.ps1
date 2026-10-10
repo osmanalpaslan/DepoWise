@@ -31,6 +31,18 @@ try {
     $env:PGDATABASE = $kv["database"]; $env:PGUSER = $kv["username"]; $env:PGPASSWORD = $kv["password"]; $env:PGSSLMODE = "require"
 
     $dosya = Join-Path $yerel ("DepoWise_prod_{0}.dump" -f (Get-Date -Format "yyyy-MM-dd_HHmm"))
+
+    # 2026-10-10 — SAYIM LİSTESİ (aylık geri yükleme provası bununla karşılaştırır, bkz. yedek_prova.ps1).
+    # Yedekten HEMEN ÖNCE her tablonun satır sayısı + şema sürümü (salt okuma). Arada yazılan kayıt olursa
+    # yedekteki sayı ≥ listedeki olur; prova bunu tolere eder.
+    $sorgu = & "$pgbin\psql.exe" -At -c "SELECT string_agg(format('SELECT %L, count(*) FROM public.%I', table_name, table_name), ' UNION ALL ') FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';"
+    $sayim = [ordered]@{}
+    foreach ($s in (& "$pgbin\psql.exe" -At -F "|" -c $sorgu)) { $p = $s -split "\|"; if ($p.Count -eq 2) { $sayim[$p[0]] = [int64]$p[1] } }
+    $surum = (& "$pgbin\psql.exe" -At -c "SELECT MAX(version) FROM schema_migrations;").Trim()
+    $liste = [ordered]@{ alinma = (Get-Date).ToString("s"); sema = [int]$surum; tablolar = $sayim }
+    $listeDosya = [IO.Path]::ChangeExtension($dosya, ".counts.json")
+    [IO.File]::WriteAllText($listeDosya, ($liste | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+
     & "$pgbin\pg_dump.exe" -Fc --no-owner --no-privileges -f $dosya
     if ($LASTEXITCODE -ne 0) { throw "pg_dump basarisiz (kod $LASTEXITCODE)" }
     $tablo = (& "$pgbin\pg_restore.exe" -l $dosya | Select-String "TABLE DATA").Count
@@ -38,6 +50,8 @@ try {
 
     & $rclone copy $dosya "gdrive:DepoWise_Yedekler" --log-level ERROR
     if ($LASTEXITCODE -ne 0) { throw "Drive yuklemesi basarisiz (kod $LASTEXITCODE)" }
+    & $rclone copy $listeDosya "gdrive:DepoWise_Yedekler" --log-level ERROR
+    Get-ChildItem $yerel -Filter "DepoWise_prod_*.counts.json" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
     & $rclone delete "gdrive:DepoWise_Yedekler" --min-age 120d --log-level ERROR
     Get-ChildItem $yerel -Filter "DepoWise_prod_*.dump" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
 

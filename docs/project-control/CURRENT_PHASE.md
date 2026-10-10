@@ -3,7 +3,14 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-10):** canlıda API+Web, masaüstü 1.0.195, şema 98, üretim DB Supabase. Sıradaki: kullanıcının seçtiği öneriler (yakıt sapma uyarısı, kiralık araç uyarı+maliyet raporu, yedek geri yükleme provası).
+**Özet (2026-10-10):** canlıda API+Web, masaüstü 1.0.195, şema 98, üretim DB Supabase. Sıradaki: 1/2 numaralı geliştirmelerin yayını (kullanıcı onayıyla).
+
+## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
+- **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.
+- **Filo uyarıları (979415a):** `FleetAlerts` — son dolum aracın 180 günlük ortalamasının %30+ üstü → "Yakıt tüketimi yüksek" (≥%60 kritik); kira bitişi ≤7 gün / geçmiş+aktif → yeni **Kiralık** uyarı kategorisi (masaüstü+web, ana ekran+Uyarılar).
+- **Rapor:** `rental-cost` Kiralık Araç Maliyeti (kesişen gün × bedel gün/ay/saat + dönem yakıtı).
+- **Yedek provası:** `scripts/yedek_prova.ps1` + görev "DepoWise Aylik Yedek Provasi" (ayın ilk Pazarı 04:00); `yedek_al.ps1` artık `*.counts.json` sayım listesi yazar. İlk prova BAŞARILI; bozuk listeyle hata yakalama kanıtlandı.
+- Not: yakıt deposu kritik seviye uyarısı ZATEN vardı (%20).
 
 ## ✅ 2026-10-10 YAYINDA — API+Web 41f47a7 · masaüstü 1.0.195 · şema 98 · Talep çoklu araç · Kiralık Araçlar · Yakıt Özeti · yeni sesler
 - **Talep Formu (4e0cf18):** kalemde birden fazla araç (`material_request_items.vehicle_ids`, Migration097; `vehicle_id` = ilk araç,

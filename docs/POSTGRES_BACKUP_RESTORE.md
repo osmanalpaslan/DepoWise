@@ -7,6 +7,15 @@
 
 ---
 
+> ## ⭐ OTOMASYON (2026-10-10) — önce bunu oku
+> - **Haftalık yedek:** `scripts/yedek_al.ps1` (Görev Zamanlayıcı *DepoWise Haftalik Yedek*, Pazar 03:00) → Supabase `pg_dump`
+>   + yanına **sayım listesi** (`*.counts.json`: tablo satır sayıları + şema sürümü) → Google Drive `DepoWise_Yedekler`.
+> - **Aylık geri yükleme provası:** `scripts/yedek_prova.ps1` (*DepoWise Aylik Yedek Provasi*, her ayın ilk Pazarı 04:00) →
+>   Drive'daki en yeni yedeği indirir, yerel test PostgreSQL'ine (localhost:54329) geri yükler, tablo/şema/satır sayılarını
+>   listeyle karşılaştırır, sonucu `%LOCALAPPDATA%\DepoWise\yedek_log.txt` ve `Belgeler\DepoWise_Yedekler\prova_son.json`'a yazar.
+>   Başarısızsa Windows bildirimi. Kendini sınama: `-SayimListesi <bozuk.json>` ile bilerek hata yakalatılabilir.
+> - Aşağıdaki elle prosedür hâlâ geçerlidir (felaket anında gerçek geri yükleme).
+
 ## 1. Neden bu prosedür var?
 
 Sunucu veritabanı yedeği bugün tamamen **Neon'un sağlayıcı yedeğine** bağlıdır. Uygulama içindeki
