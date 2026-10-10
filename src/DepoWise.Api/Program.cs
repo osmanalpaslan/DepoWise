@@ -7,6 +7,7 @@ using DepoWise.Application.Security;
 using DepoWise.Application.Sync;
 using DepoWise.Infrastructure.Update;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;   // ⭐ anlık sohbet: IHubContext.Clients.Group(...).SendAsync uzantısı
 
 // JWT "sub"/"company" claim adlarını KORU (.NET varsayılanı sub→NameIdentifier eşlemesini kapat)
 JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
@@ -39,8 +40,28 @@ if (string.IsNullOrWhiteSpace(jwtKey))
 }
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o => o.TokenValidationParameters = JwtTokens.ValidationParameters(jwtKey));
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = JwtTokens.ValidationParameters(jwtKey);
+        // ⭐ ANLIK SOHBET (2026-09-07): WebSocket el sıkışması ÖZEL BAŞLIK TAŞIYAMAZ (tarayıcı
+        // WebSocket API'si Authorization başlığı eklemeye izin vermez). SignalR'ın standart çözümü
+        // jetonu sorgu dizesinde taşımaktır. YALNIZ hub yolunda kabul edilir — normal /api uçları
+        // eskisi gibi SADECE Authorization başlığına bakar, jeton URL'de dolaşmaz.
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var jeton = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(jeton) &&
+                    ctx.HttpContext.Request.Path.StartsWithSegments(ChatHub.Yol, StringComparison.Ordinal))
+                    ctx.Token = jeton;
+                return Task.CompletedTask;
+            },
+        };
+    });
 builder.Services.AddAuthorization();
+// ⭐ ANLIK SOHBET: yalnız İŞARET taşır (mesaj içeriği bu kanaldan geçmez — bkz. ChatHub).
+builder.Services.AddSignalR();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 // ⭐ SNK-08 (FAZ E, 2026-09-04) — YANIT SIKIŞTIRMA.
@@ -542,12 +563,22 @@ app.MapGet("/api/chat/messages", (HttpContext c, string withUserId, long? since)
     return Results.Ok(svc.Chat.Konusma(s, withUserId, since));
 }).RequireAuthorization();
 
-app.MapPost("/api/chat/messages", (HttpContext c, ChatGonderDto d) =>
+app.MapPost("/api/chat/messages", async (HttpContext c, ChatGonderDto d,
+    Microsoft.AspNetCore.SignalR.IHubContext<ChatHub> hub) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     // Mesaj YAZMAK için Create yetkisi: salt-okunur bir kullanıcı sohbeti izleyip yazamaz.
     AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.Create);
-    return Results.Ok(new { id = svc.Chat.Gonder(s, d.ToUserId, d.Body) });
+    var id = svc.Chat.Gonder(s, d.ToUserId, d.Body);
+
+    // ⭐ ANLIK SOHBET (2026-09-07): alıcıya YALNIZ BİR İŞARET gönderilir ("senden yeni bir şey var").
+    // Mesaj içeriği bu kanaldan GEÇMEZ; alıcı yine yetkisi denetlenen uçtan çeker.
+    // Bildirim SESSİZCE başarısız olabilir (bağlantı yok, hub kapalı) — mesaj ZATEN yazıldı ve
+    // yavaş yoklama onu yine getirir. Bu yüzden hata mesajın kaydını GERİ ALMAZ.
+    try { await hub.Clients.Group(ChatHub.Grup(s.CompanyId, d.ToUserId)).SendAsync(ChatHub.MesajGeldiMetodu, s.UserId); }
+    catch { }
+
+    return Results.Ok(new { id });
 }).RequireAuthorization();
 
 app.MapPost("/api/chat/seen", (HttpContext c, ChatOkunduDto d) =>
@@ -5073,6 +5104,10 @@ app.MapDelete("/api/backups", (HttpContext ctx, string company, DateOnly from, D
     var s = Session(ctx); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
     return Results.Ok(new { deleted = svc.Backups.DeleteRange(company, from, to) });
 }).RequireAuthorization();
+
+// ⭐ ANLIK SOHBET (2026-09-07) — SignalR hub'ı. Yetki kapısı hub sınıfındaki [Authorize];
+// jeton WebSocket'te sorgu dizesinden okunur (yukarıdaki OnMessageReceived, YALNIZ bu yol için).
+app.MapHub<ChatHub>(ChatHub.Yol);
 
 app.Run();
 

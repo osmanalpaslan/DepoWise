@@ -32,6 +32,13 @@ public sealed class ApiClient
     public ApiClient(HttpClient http, AuthState auth, ILogger<ApiClient>? log = null)
     { _http = http; _auth = auth; _log = log; }
 
+    /// <summary>
+    /// API'nin kök adresi (ör. <c>https://depowise-erp.fly.dev</c>). ⭐ 2026-09-07: anlık sohbet
+    /// SignalR bağlantısı bunu ister. Adres TEK yerden (HttpClient.BaseAddress) okunur; ikinci bir
+    /// yapılandırma anahtarı eklenmedi ki web ile hub farklı sunucuya bakamasın.
+    /// </summary>
+    public string? ApiKokAdresi => _http.BaseAddress?.ToString().TrimEnd('/');
+
     // ═══════════════════════════════════════════════════════════════════════════════════════════
     //  ⭐ BAG-01 (denetim 2026-08-26) — "SUNUCUYA ULAŞILAMIYOR" DURUMU
     //
