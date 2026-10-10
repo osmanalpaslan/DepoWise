@@ -158,6 +158,9 @@ public static class AppScreens
         // ── Araçlar ─────────────────────────────────────────────────────────────────────────
         new AppScreen("vehicles.list", "vehicles", "Araçlar", "Araç Listesi", Both, "vehicles", "vehicles"),
         new AppScreen("vehicles.new", "vehicles", "Araçlar", "Yeni Araç Ekle", Both, "vehicles/new", "vehicles:new"),
+        // ⭐ 2026-10-10 (kullanıcı isteği): KİRALIK ARAÇLAR — Araç Listesi'nden AYRI liste. Yeni yetki modülü YOK:
+        // "vehicles" modülüne bağlıdır (projects/teams içtihadı); araç yetkisi olan kiralıkları da yönetir.
+        new AppScreen("vehicles.rental", "vehicles", "Araçlar", "Kiralık Araçlar", Both, "vehicles/rental", "vehicles:rental"),
         new AppScreen("vehicle_templates", "vehicle_templates", "Araçlar", "Şablonlar", Both, "vehicle-templates", "vehicle_templates:templates"),
         new AppScreen("inspection", "inspection", "Araçlar", "Muayene / Sigorta", Both, "inspection", "inspection"),
 

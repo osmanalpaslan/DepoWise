@@ -10,7 +10,7 @@
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5" Class="dw-pagetitle">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">@(_isRental ? (_isNew ? "Kiralık Araç — Kayıt" : "Kiralık Araçlar") : (_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi"))</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
     @* E1.2/ZB-1: birincil eylem sağda. forceLoad ZORUNLU — /vehicles ile /vehicles/new AYNI bileşendir. *@
@@ -19,8 +19,8 @@
         <div class="dw-pagehead-actions">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium"
                        StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="@(() => Nav.NavigateTo("/vehicles/new", forceLoad: true))">
-                Yeni Araç
+                       OnClick="@(() => Nav.NavigateTo(_isRental ? "/vehicles/rental?new=1" : "/vehicles/new", forceLoad: true))">
+                @(_isRental ? "Yeni Kiralık Araç" : "Yeni Araç")
             </MudButton>
         </div>
     }
@@ -35,7 +35,7 @@
 @if (_isNew && Auth.CanCreate("vehicles"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
-        <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE")</MudText>
+        <MudText Typo="Typo.h6" Class="mb-2">@(_isRental ? (_editId is null ? "YENİ KİRALIK ARAÇ" : "KİRALIK ARAÇ DÜZENLE") : (_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE"))</MudText>
         @* BAR-01: QR etiketi (salt-okunur; yalnız MEVCUT kayıtta) — içerik = araç iç kodu. *@
         @if (_editId is not null)
         {
@@ -61,6 +61,60 @@
             <MudItem xs="6" md="4"><MudTextField @bind-Value="_plate" Label="Plaka" Placeholder="34 ABC 123" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="4"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="@DepoWise.Web.Services.FieldChecks.MinVehicleYear" Max="@DepoWise.Web.Services.FieldChecks.MaxVehicleYear" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
+
+        @* ⭐ 2026-10-10 KİRA BİLGİSİ (yalnız Kiralık Araçlar) — masaüstüyle aynı alanlar ve kurallar. *@
+        @if (_isRental)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Kira Bilgisi</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="_rentCompany" Label="Kiralayan Firma *" MaxLength="200" Error="_err && string.IsNullOrWhiteSpace(_rentCompany)" ErrorText="Kiralayan firma zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_rentStart" Label="Kira Başlangıç *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_rentEnd" Label="Kira Bitiş" HelperText="Belli değilse boş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_rentPrice" Label="Kira Bedeli (TL)" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3">
+                    <MudSelect T="string" @bind-Value="_rentUnit" Label="Bedel Birimi" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        @foreach (var u in DepoWise.Application.Ui.RentalPriceUnits.All) { <MudSelectItem T="string" Value="@u.Key">@u.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                @if (_editId is null)
+                {
+                    @* ARAÇ DEĞİŞİMİ: kaydedince giden araç otomatik PASİFE alınır (sunucu aynı işlemde yapar). *@
+                    <MudItem xs="12"><MudCheckBox T="bool" @bind-Value="_isReplacement" Color="Color.Primary" Label="Bu araç, arızalanıp iade edilen bir kiralık aracın YERİNE geldi (değişim kaydı)" /></MudItem>
+                    @if (_isReplacement)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" @bind-Value="_replacedId" Label="Yerine Gelinen (İade Edilen) Araç *" HelperText="Kaydedince bu araç otomatik pasife alınır." Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                                @foreach (var r in _activeRentals) { <MudSelectItem T="string" Value="@r.Id">@r.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_replaceReason" Label="Değişim Nedeni" Placeholder="Ör. motor arızası" MaxLength="500" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                    }
+                }
+                else
+                {
+                    <MudItem xs="12" md="6"><MudTextField @bind-Value="_replaceReason" Label="Değişim Nedeni" HelperText="Bu araç bir değişim kaydıyla geldiyse." MaxLength="500" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                    @if (_detail is { } kd && (!string.IsNullOrEmpty(Str(kd, "replacedVehicleCode")) || !string.IsNullOrEmpty(Str(kd, "replacedByCode"))))
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                @if (!string.IsNullOrEmpty(Str(kd, "replacedVehicleCode"))) { <span>Yerine geldiği araç: <b>@Str(kd, "replacedVehicleCode")</b>. </span> }
+                                @if (!string.IsNullOrEmpty(Str(kd, "replacedByCode"))) { <span>Bu aracın yerine gelen: <b>@Str(kd, "replacedByCode")</b>.</span> }
+                            </MudAlert>
+                        </MudItem>
+                    }
+                    @* Kiralamayı Bitir (iade) — yalnız aktif (pasif olmayan) kiralık araçta. *@
+                    @if (Auth.CanEdit("vehicles") && _status != DepoWise.Web.Services.VehicleStatus.Passive)
+                    {
+                        <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_endRentalDate" Label="İade (bitiş) tarihi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="6" md="3" Class="d-flex align-center">
+                            <MudTooltip Text="Araç kiralayan firmaya iade edildi: durum Pasif olur, kira bitişi seçilen gün yazılır. Geçmiş kayıtlar korunur.">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="EndRental" Disabled="_busy">Kiralamayı Bitir</MudButton>
+                            </MudTooltip>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        }
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Durum &amp; Sayaç</MudText>
         <MudGrid Spacing="2">
@@ -182,7 +236,7 @@
         }
 
         <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
-            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="CancelForm">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">
                 @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
                 @(_busy ? "Kaydediliyor…" : "Kaydet")
@@ -202,7 +256,7 @@
         <div class="dw-summary">
             <div class="dw-summary-box">
                 <span class="dw-summary-num">@_totalCount.ToString("N0")</span>
-                <span class="dw-summary-cap">toplam<br />araç</span>
+                <span class="dw-summary-cap">toplam<br />@(_isRental ? "kiralık araç" : "araç")</span>
             </div>
             <div class="dw-summary-box">
                 <span class="dw-summary-num">@UyariSayisi("Bakım")</span>
@@ -219,7 +273,7 @@
         <MudPaper Class="pa-4" Elevation="2">
             <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
-                    <MudText Typo="Typo.h6">Araç Listesi</MudText>
+                    <MudText Typo="Typo.h6">@(_isRental ? "Kiralık Araç Listesi" : "Araç Listesi")</MudText>
                     <MudTooltip Text="Hangi sütunların görüneceğini seçin — bu alanda sağ tık da açar. Yalnız sizin için geçerlidir.">
                         <MudButton Size="Size.Small" Variant="Variant.Text"
                                    StartIcon="@Icons.Material.Filled.Tune"
@@ -375,7 +429,22 @@
 
 @code {
     [Parameter] public string? Section { get; set; }
-    private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
+    /// <summary>⭐ 2026-10-10: /vehicles/rental = KİRALIK ARAÇLAR (ayrı liste). Yeni kayıt/düzenleme aynı adreste
+    /// ?new=1 / ?edit=ID ile açılır (kayıtlı ekran rotası değişmez → menü/yetki kapısı aynen çalışır).</summary>
+    private bool _isRental => string.Equals(Section, "rental", StringComparison.OrdinalIgnoreCase);
+    private bool _rentalForm;
+    private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase) || (_isRental && _rentalForm);
+    private string ListKey => _isRental ? "vehicles_rental" : "vehicles";
+    private IReadOnlyList<DepoWise.Application.Ui.ListColumn> Catalog => _isRental ? VehicleListColumns.RentalAll : VehicleListColumns.All;
+    private string BasePath => _isRental ? "/vehicles/rental" : "/vehicles";
+
+    // Kira formu
+    private string _rentCompany = "", _rentUnit = DepoWise.Application.Ui.RentalPriceUnits.Day, _replaceReason = "";
+    private DateTime? _rentStart = DateTime.Today, _rentEnd, _endRentalDate = DateTime.Today;
+    private decimal? _rentPrice;
+    private bool _isReplacement;
+    private string? _replacedId;
+    private List<ApiClient.Opt> _activeRentals = new();
     /// <summary>
     /// ARC-01 (PRT-01 Grup 5): araç TAM düzenleme formuna geçiş. Hızlı düzenleme penceresindeki
     /// "Tam Düzenleme" düğmesinden çağrılır — eskiden bu metodun HİÇBİR çağıranı yoktu, dolayısıyla
@@ -390,14 +459,15 @@
     /// <remarks>⭐ FAZ 4.2: burada onay SORULMAZ — bu bir NAVİGASYONdur, düzenleme değil. Kullanıcı
     /// zaten "Tam Düzenleme" düğmesine bilinçli bastı; asıl düzenleme onayı formun kendi akışındadır.
     /// (Kullanıcının şartı: "aynı koşula sahip olan butonları pas geç".)</remarks>
-    private void EditNav(string id) => Nav.NavigateTo($"/vehicles/new?edit={id}", forceLoad: true);
+    private void EditNav(string id) => Nav.NavigateTo(EditUrl(id), forceLoad: true);
+    private string EditUrl(string id) => _isRental ? $"/vehicles/rental?edit={id}" : $"/vehicles/new?edit={id}";
 
     /// <summary>Kullanıcı isteği (2026-09-02): bilgi panelindeki "Tam Düzenleme" YENİ SEKMEDE açılır —
     /// böylece liste ekranı (filtre/sayfa) kaybolmaz. Tarayıcı yeni sekmeyi engellerse (pop-up engelleyici)
     /// sessiz kalınmaz: aynı sekmede açılarak eski davranışa güvenli şekilde düşülür.</summary>
     private async Task EditNavNewTab(string id)
     {
-        var url = $"/vehicles/new?edit={id}";
+        var url = EditUrl(id);
         try
         {
             var acildi = await JS.InvokeAsync<bool>("dwOpenInNewTab", url);
@@ -443,8 +513,8 @@
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
     private void SetFilter(string key, string v) => _filters[key] = v ?? "";
-    private static string Label(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
-    private static bool IsNumeric(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
+    private string Label(string key) => Catalog.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+    private bool IsNumeric(string key) => Catalog.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
 
     /// <summary>Durum kodunu rozet rengine eşler. Kod listesi TEK KAYNAK:
     /// Services/VehicleStatus.cs — yeni durum eklenirse buraya da bir satır eklenir,
@@ -480,16 +550,16 @@
     private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }
     private async Task OnFilterKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ApplyFilters(); }
     private async Task OnPageChanged(int p) { _page = p; await Load(); }
-    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Api.SavePageSizeAsync("vehicles", sz); await Load(); }
+    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Api.SavePageSizeAsync(ListKey, sz); await Load(); }
 
     private async Task OpenColumnPicker()
     {
-        var parameters = new DialogParameters { ["Available"] = VehicleListColumns.All.ToList(), ["Selected"] = _visibleColumns };
+        var parameters = new DialogParameters { ["Available"] = Catalog.ToList(), ["Selected"] = _visibleColumns };
         var dlg = await Dialog.ShowAsync<ColumnPickerDialog>("Kolonları Ayarla", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
         var result = await dlg.Result;
         if (result is null || result.Canceled || result.Data is not List<string> chosen) return;
         _visibleColumns = chosen;
-        await Api.SaveListColumnsAsync("vehicles", _visibleColumns);
+        await Api.SaveListColumnsAsync(ListKey, _visibleColumns);
         await Load();
     }
 
@@ -504,13 +574,20 @@
         _visibleColumns.RemoveAt(from);
         var to = _visibleColumns.IndexOf(targetKey);
         _visibleColumns.Insert(to < 0 ? _visibleColumns.Count : to, src);   // hedef kolonun ÖNÜNE bırak
-        await Api.SaveListColumnsAsync("vehicles", _visibleColumns);
+        await Api.SaveListColumnsAsync(ListKey, _visibleColumns);
     }
 
     protected override async Task OnInitializedAsync()
     {
+        if (_isRental)
+        {
+            var rq = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+            _rentalForm = rq.ContainsKey("new") || rq.ContainsKey("edit");
+            if (!_rentalForm) _visibleColumns = VehicleListColumns.RentalDefaultVisible.ToList();
+        }
         if (_isNew && Auth.CanCreate("vehicles"))
         {
+            if (_isRental) await LoadActiveRentals();
             _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
             _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
@@ -525,14 +602,43 @@
         }
         if (!_isNew)
         {
-            var saved = await Api.GetListColumnsAsync("vehicles");
+            var saved = await Api.GetListColumnsAsync(ListKey);
             // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür — masaüstüyle aynı kural (hayalet kolon çizilmesin).
-            if (saved is { Count: > 0 }) _visibleColumns = VehicleListColumns.Sanitize(saved).ToList();
-            var (ps, _) = await Api.GetListPrefsAsync("vehicles");
+            if (saved is { Count: > 0 })
+                _visibleColumns = (_isRental ? VehicleListColumns.SanitizeRental(saved) : VehicleListColumns.Sanitize(saved)).ToList();
+            var (ps, _) = await Api.GetListPrefsAsync(ListKey);
             if (ps is > 0) _pageSize = ps.Value;   // genişlik yüklenmez (kalıcı değil)
             await Load();
         }
     }
+
+    /// <summary>Değişim seçicisi: bu firmanın AKTİF kiralık araçları.</summary>
+    private async Task LoadActiveRentals()
+    {
+        try { _activeRentals = await Api.OptionsAsync("/api/vehicles/rentals/active", "id", "display"); }
+        catch { _activeRentals = new(); }
+    }
+
+    /// <summary>"Kiralamayı Bitir" — araç iade edildi: pasif + kira bitişi (karar ve yetki SUNUCUDA).</summary>
+    private async Task EndRental()
+    {
+        if (_editId is null) return;
+        if (_endRentalDate is null) { _ok = false; _msg = "İade (bitiş) tarihini seçin."; return; }
+        if (!await Dialog.Confirm($"Bu kiralık aracın kiralaması {_endRentalDate:dd.MM.yyyy} itibarıyla bitirilsin mi?\n\nAraç PASİF olur ve seçicilerde artık önerilmez; geçmiş kayıtları (yakıt, bakım) korunur.", "Evet, Bitir")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/vehicles/{_editId}/rental/end", new { endDate = Ms(_endRentalDate) });
+            _ok = err is null; _msg = err ?? "Kiralama bitirildi; araç pasife alındı.";
+            if (_ok) { Clear(); Nav.NavigateTo("/vehicles/rental", forceLoad: true); }
+        }
+        finally { _busy = false; }
+    }
+
+    private static long? Ms(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d);
+    private static DateTime? FromMs(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).UtcDateTime.Date : null;
 
     private async Task LoadTemplates()
     {
@@ -589,6 +695,7 @@
         _rows = null;
         var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
         qs.AddRange(BuildFilterSortQs());
+        if (_isRental) qs.Add("rental=true");
         var grid = await Api.GetGridAsync("/api/vehicles/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
         try
@@ -644,8 +751,10 @@
         _exporting = true;
         try
         {
-            var qs = string.Join("&", BuildFilterSortQs());
-            var (bytes, fileName) = await Api.GetFileAsync("/api/vehicles/grid/export" + (qs.Length > 0 ? "?" + qs : ""), "Araclar.xlsx");
+            var parca = BuildFilterSortQs();
+            if (_isRental) parca.Add("rental=true");
+            var qs = string.Join("&", parca);
+            var (bytes, fileName) = await Api.GetFileAsync("/api/vehicles/grid/export" + (qs.Length > 0 ? "?" + qs : ""), _isRental ? "Kiralik_Araclar.xlsx" : "Araclar.xlsx");
             if (bytes is not null)
                 await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -771,6 +880,11 @@
         _lastBrand = _brand; _suppressModelReset = true;
         _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
         _model = NullS(d, "vehicleModelId"); _branch = NullS(d, "branchId"); _driver = NullS(d, "driverPersonnelId");
+        // Kira alanları (değişim bağı düzenlemede değişmez; yalnız bilgi olarak gösterilir).
+        _rentCompany = Str(d, "rentalCompany"); _rentStart = FromMs(d, "rentalStart"); _rentEnd = FromMs(d, "rentalEnd");
+        _rentPrice = d.TryGetProperty("rentalPrice", out var rp) && rp.ValueKind == JsonValueKind.Number ? rp.GetDecimal() : null;
+        _rentUnit = string.IsNullOrEmpty(Str(d, "rentalPriceUnit")) ? DepoWise.Application.Ui.RentalPriceUnits.Day : Str(d, "rentalPriceUnit");
+        _replaceReason = Str(d, "replacementReason"); _isReplacement = false; _replacedId = null;
         _msg = null;
         await LoadHistoryAsync(_editId);
     }
@@ -841,8 +955,21 @@
         // Yumuşak uyarı: sayaç çok büyük (yanlış giriş olabilir — madde 7).
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_meter)
             && !await Dialog.Confirm($"Sayaç değeri çok büyük görünüyor ({_meter:0.##}). Emin misiniz?", "Evet, Doğru")) return;
+        // Kiralık araç: kiralayan firma + başlangıç zorunlu; değişimde giden araç seçilmeli (sunucu da doğrular).
+        if (_isRental)
+        {
+            if (string.IsNullOrWhiteSpace(_rentCompany)) { _msg = "Kiralayan firma zorunludur."; _ok = false; return; }
+            if (_rentStart is null) { _msg = "Kira başlangıç tarihi zorunludur."; _ok = false; return; }
+            if (_rentEnd is not null && _rentEnd.Value.Date < _rentStart.Value.Date) { _msg = "Kira bitişi başlangıçtan önce olamaz."; _ok = false; return; }
+            if (_editId is null && _isReplacement && string.IsNullOrEmpty(_replacedId)) { _msg = "Değişim kaydı için yerine gelinen (iade edilen) aracı seçin."; _ok = false; return; }
+            var giden = _activeRentals.FirstOrDefault(x => x.Id == _replacedId)?.Name;
+            if (!await Dialog.Confirm(_editId is not null ? "Kiralık araç güncellensin mi?"
+                    : _isReplacement && giden is not null
+                        ? $"Yeni kiralık araç kaydedilecek ve '{giden}' aracı otomatik olarak PASİFE alınacak (iade edildi).\n\nDevam edilsin mi?"
+                        : "Yeni kiralık araç kaydedilsin mi?")) return;
+        }
         // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.
-        if (_editId is null && string.IsNullOrEmpty(_template))
+        else if (_editId is null && string.IsNullOrEmpty(_template))
         {
             if (!await Dialog.Confirm("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?", "Evet, Devam Et", danger: true)) return;
         }
@@ -857,6 +984,15 @@
                 status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
                 vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model,
                 templateId = _template,   // create'te bağlar; düzenlemede mevcut bağı korur/değiştirir
+                // ⭐ 2026-10-10 kira alanları — yalnız Kiralık Araçlar formunda gönderilir (şirket aracında null → dokunulmaz).
+                isRental = _isRental ? (bool?)true : null,
+                rentalCompany = _isRental ? Empty(_rentCompany?.Trim()) : null,
+                rentalStart = _isRental ? Ms(_rentStart) : null,
+                rentalEnd = _isRental ? Ms(_rentEnd) : null,
+                rentalPrice = _isRental && _rentPrice is > 0 ? _rentPrice : null,
+                rentalPriceUnit = _isRental ? _rentUnit : null,
+                replacedVehicleId = _isRental && _editId is null && _isReplacement ? _replacedId : null,
+                replacementReason = _isRental ? Empty(_replaceReason?.Trim()) : null,
                 // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
                 version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null
             };
@@ -866,10 +1002,17 @@
             if (err is null && savedId is not null && _staged.Count > 0)
                 await Api.UploadFilesAsync($"/api/vehicles/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
             _ok = err is null; _msg = err ?? (_editId is null ? "Araç eklendi." : "Araç güncellendi.");
-            if (_ok) { Clear(); Nav.NavigateTo("/vehicles"); }
+            if (_ok) { Clear(); Nav.NavigateTo(BasePath, forceLoad: _isRental); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    /// <summary>İptal: formu temizle; kiralık formda listeye geri dön (form ayrı adreste değil, ?new/?edit ile açılır).</summary>
+    private void CancelForm()
+    {
+        Clear();
+        if (_isRental) Nav.NavigateTo("/vehicles/rental", forceLoad: true);
     }
 
     private void Clear()
@@ -877,6 +1020,8 @@
         _err = false; _editId = null; _editVersion = 0; _template = null; _lastTemplate = null;
         _code = _plate = ""; _status = "active"; _meterUnit = "km"; _statusNote = _chassis = _engine = "";
         _type = _cat = _brand = _model = _branch = _driver = null; _year = null; _meter = 0;
+        _rentCompany = ""; _rentStart = DateTime.Today; _rentEnd = null; _rentPrice = null;
+        _rentUnit = DepoWise.Application.Ui.RentalPriceUnits.Day; _isReplacement = false; _replacedId = null; _replaceReason = "";
         _staged.Clear();
         _history = null;
     }

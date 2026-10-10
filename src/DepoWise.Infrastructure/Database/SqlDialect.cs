@@ -76,6 +76,16 @@ internal static class SqlDialect
     public static string LikeTr(DbConnection conn, string colExpr, string paramExpr)
         => LikeTr(IsSqlite(conn), colExpr, paramExpr);
 
+    /// <summary>
+    /// 2026-10-10 — UTC gün başı (ms) tutan kolonu "gg.aa.yyyy" metnine çevirir (liste/grid'de tarih kolonunun
+    /// "içerir" araması için). NULL → '' (boş hücre). Tarihler IsGunuTarihi ile UTC gün başı yazıldığı için
+    /// UTC'de biçimlenir → iki lehçe ve her saat dilimi aynı günü gösterir.
+    /// </summary>
+    public static string DayText(DbConnection conn, string colExpr)
+        => IsSqlite(conn)
+            ? $"COALESCE(strftime('%d.%m.%Y', {colExpr} / 1000, 'unixepoch'), '')"
+            : $"COALESCE(to_char(to_timestamp({colExpr} / 1000.0) AT TIME ZONE 'UTC', 'DD.MM.YYYY'), '')";
+
     /// <summary>SQLite'a özel (PostgreSQL'de karşılığı olmayan) fonksiyonları bağlantının lehçesine çevirir.
     /// SQLite'ta metni AYNEN döndürür → mevcut davranış BİREBİR korunur (569 test etkilenmez); yalnız PostgreSQL'de:
     ///   • <c>printf('%.2f', CAST(&lt;expr&gt; AS REAL))</c> → <c>to_char(CAST(&lt;expr&gt; AS double precision), 'FM…0.00')</c>

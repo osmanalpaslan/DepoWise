@@ -62,6 +62,7 @@ public static class MenuIcons
         // Araçlar
         ["vehicles.list"]             = "list",
         ["vehicles.new"]              = "new",
+        ["vehicles.rental"]           = "vehicles",          // 2026-10-10: kiralık araçlar (araç ikonu)
         ["vehicle_templates"]         = "template",
         ["inspection"]                = "inspection",
 

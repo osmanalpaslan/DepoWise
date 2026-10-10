@@ -17,7 +17,7 @@
     <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
         <!-- ===== Toolbar: başlık + kolon ayarla + sayfa boyutu + Yeni Araç ===== -->
-        <ctrl:Toolbar Grid.Row="0" Title="Araçlar"
+        <ctrl:Toolbar Grid.Row="0" Title="{Binding PageTitle}"
                       PrimaryActionText="{Binding AddButtonText}"
                       PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
@@ -75,6 +75,53 @@
                     <ctrl:FormField Label="Üretim Yılı" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding NewYear}" Minimum="0" Maximum="2100"
                                        FormatString="0" ShowButtonSpinner="False" TabIndex="2"/>
+                    </ctrl:FormField>
+                </StackPanel>
+
+                <!-- ⭐ 2026-10-10 KİRA BİLGİSİ (yalnız Kiralık Araçlar ekranında) -->
+                <StackPanel Spacing="12" IsVisible="{Binding IsRentalMode}">
+                    <SelectableTextBlock Text="Kira Bilgisi" Classes="CardLabel"/>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Kiralayan Firma" IsRequired="True" Width="260"
+                                        HelpText="Aracı kiraladığınız firma.">
+                            <TextBox Classes="Field" Text="{Binding RentCompany}" MaxLength="200"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Kira Başlangıç" IsRequired="True" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding RentStart}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Kira Bitiş" Width="150" HelpText="Belli değilse boş bırakın.">
+                            <ctrl:TarihKutusu SelectedDate="{Binding RentEnd}"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Kira Bedeli (TL)" Width="160" HelpText="İsteğe bağlı.">
+                            <NumericUpDown Classes="Field" Value="{Binding RentPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Bedel Birimi" Width="120">
+                            <ComboBox Classes="Field" ItemsSource="{Binding RentPriceUnits}" SelectedItem="{Binding RentPriceUnitPick}" HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:StatusPick"><SelectableTextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <!-- ARAÇ DEĞİŞİMİ: arızalanan kiralık aracın yerine gelen araç. Yalnız YENİ kayıtta;
+                         kaydedince giden araç otomatik PASİFE alınır, kira bitişi bu aracın başlangıcı olur. -->
+                    <CheckBox Content="Bu araç, arızalanıp iade edilen bir kiralık aracın YERİNE geldi (değişim kaydı)"
+                              IsChecked="{Binding IsReplacement}" IsVisible="{Binding !IsEditMode}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding ShowReplacementFields}">
+                        <ctrl:FormField Label="Yerine Gelinen (İade Edilen) Araç" IsRequired="True" Width="300"
+                                        HelpText="Kaydedince bu araç otomatik pasife alınır.">
+                            <ctrl:LookupBox ItemsSource="{Binding ActiveRentals}" SelectedItem="{Binding ReplacedPick}"
+                                            DisplayMember="Display" PlaceholderText="Aktif kiralık araç seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Değişim Nedeni" Width="300">
+                            <TextBox Classes="Field" Text="{Binding ReplacementReason}" PlaceholderText="Ör. motor arızası" MaxLength="500"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <ctrl:FormField Label="Değişim Nedeni" Width="300" IsVisible="{Binding IsEditMode}"
+                                    HelpText="Bu araç bir değişim kaydıyla geldiyse nedeni düzeltilebilir.">
+                        <TextBox Classes="Field" Text="{Binding ReplacementReason}" MaxLength="500"/>
                     </ctrl:FormField>
                 </StackPanel>
 
@@ -321,6 +368,10 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <local:SortHeader Grid.Column="0" Text="İÇ KOD" ColumnKey="internalCode" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=internalCode}"/>
@@ -350,7 +401,16 @@
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=chassisNo}"/>
                             <local:SortHeader Grid.Column="13" Text="MOTOR NO" ColumnKey="engineNo" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=engineNo}"/>
-                            <SelectableTextBlock Grid.Column="14" Text="BAKIM/MUAYENE" MinWidth="120" MaxWidth="120"/>
+                            <!-- ⭐ 2026-10-10 kira kolonları — yalnız Kiralık Araçlar ekranının kataloğunda seçilebilir. -->
+                            <local:SortHeader Grid.Column="14" Text="KİRALAYAN FİRMA" ColumnKey="rentalCompany" MinWidth="120"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalCompany}"/>
+                            <local:SortHeader Grid.Column="15" Text="KİRA BAŞLANGIÇ" ColumnKey="rentalStart" MinWidth="100"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalStart}"/>
+                            <local:SortHeader Grid.Column="16" Text="KİRA BİTİŞ" ColumnKey="rentalEnd" MinWidth="100"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalEnd}"/>
+                            <local:SortHeader Grid.Column="17" Text="YERİNE GELDİĞİ" ColumnKey="replacedVehicle" MinWidth="110"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=replacedVehicle}"/>
+                            <SelectableTextBlock Grid.Column="18" Text="BAKIM/MUAYENE" MinWidth="120" MaxWidth="120"/>
                         </Grid>
                     </Border>
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml aynı yorum.
@@ -358,6 +418,10 @@
                     <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -528,6 +592,50 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
+                            <ContentControl Grid.Column="14" Padding="0,0,8,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalCompany}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalCompany}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalCompany}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=rentalCompany}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:VehiclesViewModel)DataContext).ApplyFiltersCommand}"/>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="15" Padding="0,0,8,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalStart}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalStart}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalStart}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=rentalStart}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:VehiclesViewModel)DataContext).ApplyFiltersCommand}"/>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="16" Padding="0,0,8,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalEnd}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalEnd}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalEnd}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=rentalEnd}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:VehiclesViewModel)DataContext).ApplyFiltersCommand}"/>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="17" Padding="0,0,8,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=replacedVehicle}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=replacedVehicle}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=replacedVehicle}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=replacedVehicle}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <ctrl:HucreFiltre ApplyCommand="{Binding $parent[ContentControl].((vm:VehiclesViewModel)DataContext).ApplyFiltersCommand}"/>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
                         </Grid>
                     </Border>
                     <!-- Tek tık = detay paneli (SelectedItem). Çift tık = ayrı Düzelt/Kaydet/Sil penceresi. -->
@@ -537,6 +645,10 @@
                             <DataTemplate x:DataType="vm:VehicleRow">
                                 <Grid ctrl:ColumnRules.Enabled="True">
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -629,7 +741,27 @@
                                                MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=engineNo}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding EngineNo}"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=engineNo}"/>
-                                    <ctrl:StatusBadge Grid.Column="14" MinWidth="120" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="14" Text="{Binding RentalCompany}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalCompany}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalCompany}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RentalCompany}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalCompany}"/>
+                                    <SelectableTextBlock Grid.Column="15" Text="{Binding RentalStart}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalStart}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalStart}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RentalStart}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalStart}"/>
+                                    <SelectableTextBlock Grid.Column="16" Text="{Binding RentalEnd}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalEnd}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=rentalEnd}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RentalEnd}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=rentalEnd}"/>
+                                    <SelectableTextBlock Grid.Column="17" Text="{Binding ReplacedVehicle}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=replacedVehicle}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=replacedVehicle}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ReplacedVehicle}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=replacedVehicle}"/>
+                                    <ctrl:StatusBadge Grid.Column="18" MinWidth="120" VerticalAlignment="Center"
                                                       Kind="{Binding AlertKind}" Text="{Binding AlertText}"/>
                                 </Grid>
                             </DataTemplate>
@@ -672,6 +804,13 @@
                 </ItemsControl>
                 <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint"
                                      IsVisible="{Binding PhotosOffline}" TextWrapping="Wrap"/>
+                <!-- ⭐ 2026-10-10: Kiralamayı Bitir (araç kiralayan firmaya iade edildi) — yalnız aktif kiralık araçta. -->
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanEndRental}">
+                  <ctrl:TarihKutusu SelectedDate="{Binding EndRentalDate}" Width="140"
+                                    ToolTip.Tip="İade (kira bitiş) tarihi"/>
+                  <Button Classes="Secondary" Content="Kiralamayı Bitir" Command="{Binding EndRentalCommand}"
+                          ToolTip.Tip="Araç iade edildi: durum Pasif olur, kira bitişi seçilen gün yazılır. Geçmiş kayıtlar korunur."/>
+                </StackPanel>
                 <WrapPanel>
                   <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0"
                           Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
@@ -721,6 +860,36 @@
                           <SelectableTextBlock Text="Durum Açıklaması" Classes="Helper"/>
                           <SelectableTextBlock Text="{Binding Detail.StatusNote}" Classes="Body" TextWrapping="Wrap"/>
                         </StackPanel>
+                        <!-- ⭐ 2026-10-10 KİRA BİLGİSİ + değişim zinciri (kiralık araçta) -->
+                        <Border Classes="Panel" Background="{DynamicResource SurfaceAltBrush}" Padding="10"
+                                IsVisible="{Binding Detail.IsRental}">
+                          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" DataContext="{Binding Detail}">
+                            <SelectableTextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="KİRA BİLGİSİ" Classes="SectionTitle" Margin="0,0,0,6"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Kiralayan" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RentalCompany}" Classes="Body" TextWrapping="Wrap"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Başlangıç" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RentalStartText}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Bitiş" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RentalEndText}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Bedel" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RentalPriceText}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="5" Grid.Column="0" Text="Yerine geldiği" Classes="Helper" Margin="0,2,12,2"
+                                                 IsVisible="{Binding ReplacedVehicleCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <SelectableTextBlock Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Classes="Body"
+                                                 IsVisible="{Binding ReplacedVehicleCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                              <SelectableTextBlock.Text>
+                                <MultiBinding StringFormat="{}{0} — {1}">
+                                  <Binding Path="ReplacedVehicleCode"/>
+                                  <Binding Path="ReplacementReason" FallbackValue="" TargetNullValue="neden yazılmadı"/>
+                                </MultiBinding>
+                              </SelectableTextBlock.Text>
+                            </SelectableTextBlock>
+                            <SelectableTextBlock Grid.Row="6" Grid.Column="0" Text="Yerine gelen" Classes="Helper" Margin="0,2,12,2"
+                                                 IsVisible="{Binding ReplacedByCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <SelectableTextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ReplacedByCode}" Classes="Body"
+                                                 IsVisible="{Binding ReplacedByCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                          </Grid>
+                        </Border>
                       </StackPanel>
                     </ScrollViewer>
                   </TabItem>

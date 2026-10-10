@@ -32,3 +32,34 @@ public static class MeterUnitOptions
         _ => key,
     };
 }
+
+/// <summary>
+/// ═══ KİRA BEDELİ BİRİMİ (kullanıcı isteği 2026-10-10 — Kiralık Araçlar) ═══
+/// Kiralık iş makinesi saatlik, günlük ya da aylık kiralanır. DB'de kod (hour/day/month) durur; ekranda
+/// Türkçe etiket görünür. Bu dosya web projesinde de derlenir (MeterUnitOptions ile aynı bağ) → iki platform
+/// aynı listeyi kullanır.
+/// </summary>
+public static class RentalPriceUnits
+{
+    public const string Hour = "hour";
+    public const string Day = "day";
+    public const string Month = "month";
+
+    public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
+    {
+        (Day, "Gün"),
+        (Month, "Ay"),
+        (Hour, "Saat"),
+    };
+
+    public static string Label(string? key) => key switch
+    {
+        Hour => "Saat",
+        Month => "Ay",
+        Day or null or "" => "Gün",
+        _ => key,
+    };
+
+    /// <summary>Bilinmeyen/boş birim → "day" (varsayılan günlük kira).</summary>
+    public static string Normalize(string? key) => key is Hour or Month ? key : Day;
+}

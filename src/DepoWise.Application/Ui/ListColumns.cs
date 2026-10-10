@@ -103,6 +103,12 @@ public static class VehicleListColumns
     public const string Driver = "driver";
     public const string ChassisNo = "chassisNo";
     public const string EngineNo = "engineNo";
+    // ⭐ 2026-10-10 KİRALIK ARAÇLAR — yalnız Kiralık Araçlar ekranında seçilebilir (RentalAll); Araç Listesi
+    // kataloğuna (All) BİLEREK girmez → şirket araçları listesinde boş kolon olarak görünmez.
+    public const string RentalCompany = "rentalCompany";
+    public const string RentalStart = "rentalStart";
+    public const string RentalEnd = "rentalEnd";
+    public const string ReplacedVehicle = "replacedVehicle";
 
     public static readonly IReadOnlyList<ListColumn> All = new[]
     {
@@ -134,6 +140,28 @@ public static class VehicleListColumns
         var wanted = new HashSet<string>(keys, StringComparer.Ordinal);
         var result = All.Where(c => wanted.Contains(c.Key)).Select(c => c.Key).ToList();
         return result.Count > 0 ? result : DefaultVisible;
+    }
+
+    /// <summary>Kiralık Araçlar ekranının kataloğu: Araç Listesi kolonları + kira kolonları (sıra = Excel sırası).</summary>
+    public static readonly IReadOnlyList<ListColumn> RentalAll = All.Concat(new[]
+    {
+        new ListColumn(RentalCompany, "Kiralayan Firma"),
+        new ListColumn(RentalStart, "Kira Başlangıç"),
+        new ListColumn(RentalEnd, "Kira Bitiş"),
+        new ListColumn(ReplacedVehicle, "Yerine Geldiği Araç"),
+    }).ToList();
+
+    public static readonly IReadOnlyList<string> RentalDefaultVisible = new[]
+    {
+        InternalCode, Plate, Meter, Status, RentalCompany, RentalStart, RentalEnd, ReplacedVehicle,
+    };
+
+    public static IReadOnlyList<string> SanitizeRental(IEnumerable<string>? keys)
+    {
+        if (keys is null) return RentalDefaultVisible;
+        var wanted = new HashSet<string>(keys, System.StringComparer.Ordinal);
+        var result = RentalAll.Where(c => wanted.Contains(c.Key)).Select(c => c.Key).ToList();
+        return result.Count > 0 ? result : RentalDefaultVisible;
     }
 }
 

@@ -1269,6 +1269,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Araçlar";
                 CurrentContext = "Araç kartları, durum ve uyarılar";
                 break;
+            // ⭐ 2026-10-10 (kullanıcı isteği): kiralık araçlar Araç Listesi'nden AYRI listelenir.
+            case "vehicles:rental":
+                CurrentPage = new VehiclesViewModel(_session, kiralik: true);
+                CurrentTitle = "Kiralık Araçlar";
+                CurrentContext = "Kiralık araçlar, kira bilgisi ve araç değişimleri";
+                break;
             case "request_ops:board":
                 CurrentPage = new RequestOperationsViewModel(_session);
                 CurrentTitle = "Talep Operasyonları";

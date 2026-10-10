@@ -63,6 +63,38 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     }
     private readonly SessionContext _session;
 
+    // ═══ KİRALIK ARAÇLAR (kullanıcı isteği 2026-10-10) ═══════════════════════════════════════════════
+    // Aynı ekran iki modda çalışır: Araç Listesi (şirket araçları) ve Kiralık Araçlar. Kiralık mod kendi
+    // listesini (is_rental=1), kira kolonlarını, kira formunu ve "Kiralamayı Bitir" düğmesini gösterir;
+    // filtre/sıralama/Excel/fotoğraf/bakım sekmeleri iki modda AYNIDIR (tek kod).
+    /// <summary>true = Kiralık Araçlar ekranı.</summary>
+    public bool IsRentalMode { get; }
+    public bool IsCompanyMode => !IsRentalMode;
+    public string PageTitle => IsRentalMode ? "Kiralık Araçlar" : "Araçlar";
+    /// <summary>Kişisel liste tercihlerinin (kolon/sayfa boyutu) anahtarı — iki mod birbirini ezmesin.</summary>
+    private string ListKey => IsRentalMode ? "vehicles_rental" : "vehicles";
+    private IReadOnlyList<ListColumn> Catalog => IsRentalMode ? VehicleListColumns.RentalAll : VehicleListColumns.All;
+    private List<string> SanitizeCols(IEnumerable<string>? k)
+        => (IsRentalMode ? VehicleListColumns.SanitizeRental(k) : VehicleListColumns.Sanitize(k)).ToList();
+
+    // Kira formu alanları
+    [ObservableProperty] private string _rentCompany = "";
+    [ObservableProperty] private DateTimeOffset? _rentStart = DateTimeOffset.Now;
+    [ObservableProperty] private DateTimeOffset? _rentEnd;
+    [ObservableProperty] private decimal? _rentPrice;
+    [ObservableProperty] private StatusPick? _rentPriceUnitPick;
+    public ObservableCollection<StatusPick> RentPriceUnits { get; } =
+        new(DepoWise.Application.Ui.RentalPriceUnits.All.Select(x => new StatusPick(x.Key, x.Label)));
+    /// <summary>"Bu araç arızalanan bir kiralık aracın yerine geldi" — yalnız YENİ kayıtta.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowReplacementFields))]
+    private bool _isReplacement;
+    public bool ShowReplacementFields => IsReplacement && !IsEditMode;
+    public ObservableCollection<VehicleListRow> ActiveRentals { get; } = new();
+    [ObservableProperty] private VehicleListRow? _replacedPick;
+    [ObservableProperty] private string _replacementReason = "";
+    [ObservableProperty] private DateTimeOffset? _endRentalDate = DateTimeOffset.Now;
+
     public ObservableCollection<VehicleRow> Items { get; } = new();
     /// <summary>Durum seçenekleri ORTAK listeden gelir (DepoWise.Application.Ui.VehicleStatus) — eskiden
     /// burada ham kodlar ("active"/"passive") elle yazılıydı ve kutuda Türkçe değil KOD görünüyordu.</summary>
@@ -126,6 +158,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         [VehicleListColumns.VehicleType] = 110, [VehicleListColumns.Category] = 110, [VehicleListColumns.Brand] = 100,
         [VehicleListColumns.Model] = 110, [VehicleListColumns.Branch] = 130, [VehicleListColumns.Driver] = 130,
         [VehicleListColumns.ChassisNo] = 130, [VehicleListColumns.EngineNo] = 130,
+        [VehicleListColumns.RentalCompany] = 150, [VehicleListColumns.RentalStart] = 110,
+        [VehicleListColumns.RentalEnd] = 110, [VehicleListColumns.ReplacedVehicle] = 130,
     };
 
     // 2026-09-30: "Kolon Ayarlarını Kaydet" (sağ tık) ile kaydedilen genişlikler açılışta yüklenir (yerel dosya).
@@ -153,12 +187,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     partial void OnPageSizeChanged(int value)
     {
         if (_suppressPageSizeReload) return;
-        try { DesktopServices.ListPrefs.SavePageSize(_session, "vehicles", value); } catch { }   // kişiye özel hatırla
+        try { DesktopServices.ListPrefs.SavePageSize(_session, ListKey, value); } catch { }   // kişiye özel hatırla
         Page = 1; Load();
     }
 
     /// <summary>Filtresi AÇILIR LİSTE olan kolonlar (kullanıcı isteği 2026-09-30).</summary>
-    private static readonly HashSet<string> SecimKolonlari = new(new[] { VehicleListColumns.ProductionYear, VehicleListColumns.Status, VehicleListColumns.VehicleType, VehicleListColumns.Category, VehicleListColumns.Brand, VehicleListColumns.Model, VehicleListColumns.Branch, VehicleListColumns.Driver });
+    private static readonly HashSet<string> SecimKolonlari = new(new[] { VehicleListColumns.ProductionYear, VehicleListColumns.Status, VehicleListColumns.VehicleType, VehicleListColumns.Category, VehicleListColumns.Brand, VehicleListColumns.Model, VehicleListColumns.Branch, VehicleListColumns.Driver, VehicleListColumns.RentalCompany });
 
     private void RebuildFilterFields()
     {
@@ -166,13 +200,13 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         FilterFields.Clear();
         foreach (var key in VisibleColumns)
         {
-            var col = VehicleListColumns.All.FirstOrDefault(c => c.Key == key);
+            var col = Catalog.FirstOrDefault(c => c.Key == key);
             FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false, SecimKolonlari.Contains(key))
             { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
         FilterFieldsByKey = FilterFields.ToDictionary(f => f.Key, f => f);
         // 2026-09-30: seçim kolonlarının açılır liste seçenekleri — arka planda, ekranın kendi verisinden.
-        DepoWise.Desktop.Controls.HucreFiltre.SecenekleriDoldur(FilterFields, () => VehicleService.ToTableModel(DesktopServices.Vehicles.SearchGridAll(_session, new VehicleGridFilter(), null, false)));
+        DepoWise.Desktop.Controls.HucreFiltre.SecenekleriDoldur(FilterFields, () => VehicleService.ToTableModel(DesktopServices.Vehicles.SearchGridAll(_session, new VehicleGridFilter(), null, false, IsRentalMode), IsRentalMode));
     }
 
     private void RebuildPageNumbers()
@@ -196,10 +230,10 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         IsExporting = true;
         try
         {
-            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
-            var path = await FilePickerService.SaveExcelAsync("Araclar.xlsx");
+            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, IsRentalMode);
+            var path = await FilePickerService.SaveExcelAsync(IsRentalMode ? "Kiralik_Araclar.xlsx" : "Araclar.xlsx");
             if (path is null) return;
-            var bytes = DesktopServices.Excel.Export(VehicleService.ToTableModel(rows));
+            var bytes = DesktopServices.Excel.Export(VehicleService.ToTableModel(rows, IsRentalMode));
             await System.IO.File.WriteAllBytesAsync(path, bytes);
         }
         catch (Exception ex) { Status = "Excel'e aktarılamadı: " + ex.Message; }
@@ -223,8 +257,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         IsExporting = true;
         try
         {
-            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
-            var hedef = await YazdirmaYardimcisi.YazdirAsync(VehicleService.ToTableModel(rows), _session);
+            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, IsRentalMode);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(VehicleService.ToTableModel(rows, IsRentalMode), _session);
             if (hedef is null) return;
         }
         catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
@@ -261,7 +295,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             V(VehicleListColumns.Meter), V(VehicleListColumns.Status), V(VehicleListColumns.StatusNote),
             V(VehicleListColumns.VehicleType), V(VehicleListColumns.Category), V(VehicleListColumns.Brand),
             V(VehicleListColumns.Model), V(VehicleListColumns.Branch), V(VehicleListColumns.Driver),
-            V(VehicleListColumns.ChassisNo), V(VehicleListColumns.EngineNo));
+            V(VehicleListColumns.ChassisNo), V(VehicleListColumns.EngineNo),
+            V(VehicleListColumns.RentalCompany), V(VehicleListColumns.RentalStart),
+            V(VehicleListColumns.RentalEnd), V(VehicleListColumns.ReplacedVehicle));
     }
 
     [RelayCommand]
@@ -286,14 +322,14 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [RelayCommand]
     private async Task OpenColumnPicker()
     {
-        var available = VehicleListColumns.All.Select(c => (c.Key, c.Label)).ToList();
+        var available = Catalog.Select(c => (c.Key, c.Label)).ToList();
         var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
         if (chosen is null) return;
         VisibleColumns = chosen;
         // ⭐ FAZ 4.14: tercih hem YERELE hem SUNUCUYA yazılır → kullanıcı hangi makinede/web'de
         // giriş yaparsa yapsın aynı kolonları görür (eskiden yalnız o makinede kalıyordu).
-        DesktopServices.ListPrefs.SaveColumns(_session, "vehicles", chosen);
-        _ = ServerListPrefsClient.SaveColumnsAsync("vehicles", chosen);
+        DesktopServices.ListPrefs.SaveColumns(_session, ListKey, chosen);
+        _ = ServerListPrefsClient.SaveColumnsAsync(ListKey, chosen);
         Load();
     }
 
@@ -423,20 +459,22 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         }
         catch (Exception ex) { Status = "Onarılamadı: " + ex.Message; }
     }
-    public string? AddButtonText => CanWrite ? "Yeni Araç" : null;
+    public string? AddButtonText => CanWrite ? (IsRentalMode ? "Yeni Kiralık Araç" : "Yeni Araç") : null;
 
-    public VehiclesViewModel(SessionContext session)
+    public VehiclesViewModel(SessionContext session, bool kiralik = false)
     {
         _session = session;
+        IsRentalMode = kiralik;
         // 2026-09-03: birim kutusu açılışta boş kalmasın (alan başlangıcı "km" bildirim üretmez).
         NewMeterUnitPick = MeterUnits.FirstOrDefault(x => x.Code == NewMeterUnit);
-        var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
+        RentPriceUnitPick = RentPriceUnits.FirstOrDefault();
+        var saved = DesktopServices.ListPrefs.GetColumns(session, ListKey);
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
-        VisibleColumns = VehicleListColumns.Sanitize(saved).ToList();
+        VisibleColumns = SanitizeCols(saved);
         // ⭐ FAZ 4.14: çevrimiçiyse SUNUCUDAKİ tercih otorite kabul edilir ve yerele aynalanır.
-        _ = SunucudanKolonAynalaAsync("vehicles", k => VisibleColumns = VehicleListColumns.Sanitize(k).ToList());
+        _ = SunucudanKolonAynalaAsync(ListKey, k => VisibleColumns = SanitizeCols(k));
         _suppressPageSizeReload = true;
-        try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
+        try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, ListKey) ?? 25; }
         finally { _suppressPageSizeReload = false; }
         // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): her login STANDART; oturum içi resize kaydedilmez.
         Load();
@@ -468,7 +506,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             var maint = SafeMaint();
             var insp = SafeInsp();
 
-            var grid = DesktopServices.Vehicles.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
+            var grid = DesktopServices.Vehicles.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc, IsRentalMode);
             foreach (var v in grid.Items)
             {
                 var (kind, text) = CombineAlert(
@@ -476,14 +514,15 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     insp.TryGetValue(v.Id, out var il) ? il : (DateAlertLevel?)null);
                 Items.Add(new VehicleRow(v.Id, v.InternalCode, v.Plate, v.Status, v.Meter, v.MeterUnit, v.ProductionYear, kind, text,
                     v.StatusNote ?? "", v.VehicleType ?? "", v.Category ?? "", v.Brand ?? "", v.Model ?? "",
-                    v.Branch ?? "", v.Driver ?? "", v.ChassisNo ?? "", v.EngineNo ?? ""));
+                    v.Branch ?? "", v.Driver ?? "", v.ChassisNo ?? "", v.EngineNo ?? "",
+                    v.RentalCompany ?? "", v.RentalStart ?? "", v.RentalEnd ?? "", v.ReplacedVehicle ?? ""));
             }
             TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
             Page = grid.Page;
             _suppressPageSizeReload = true;
             try { PageSize = grid.PageSize; } finally { _suppressPageSizeReload = false; }
             RebuildPageNumbers();
-            Status = $"{TotalCount} araç — sayfa {Page} / {TotalPages}";
+            Status = $"{TotalCount} {(IsRentalMode ? "kiralık araç" : "araç")} — sayfa {Page} / {TotalPages}";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         if (selectedId is not null)
@@ -535,6 +574,14 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         if (SelBranch is null) { Status = "Araç için şantiye/şube seçimi zorunludur."; return; }
         if (!DepoWise.Application.Ui.FieldChecks.YearInRange(NewYear > 0 ? NewYear : (int?)null))
         { Status = $"Üretim yılı {DepoWise.Application.Ui.FieldChecks.MinVehicleYear}–{DepoWise.Application.Ui.FieldChecks.MaxVehicleYear} aralığında olmalı."; return; }
+        // Kiralık araç: kiralayan firma + başlangıç zorunlu; değişimde giden araç seçilmeli (servis de doğrular).
+        if (IsRentalMode)
+        {
+            if (string.IsNullOrWhiteSpace(RentCompany)) { Status = "Kiralayan firma zorunludur."; return; }
+            if (RentStart is null) { Status = "Kira başlangıç tarihi zorunludur."; return; }
+            if (RentEnd is not null && RentEnd.Value.Date < RentStart.Value.Date) { Status = "Kira bitişi başlangıçtan önce olamaz."; return; }
+            if (!editing && IsReplacement && ReplacedPick is null) { Status = "Değişim kaydı için yerine gelinen (iade edilen) aracı seçin."; return; }
+        }
 
         // ⭐ 2026-09-03 (kullanıcı isteği) — FİRMA ALAN ZORUNLULUKLARI (Alan Ayarları ekranından).
         // Yalnız firmanın zorunlu YAPTIĞI opsiyonel alanlar denetlenir; hiçbir kayıt yoksa liste boştur
@@ -561,8 +608,16 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             && !await ConfirmService.AskAsync($"Sayaç değeri çok büyük görünüyor ({NewMeter:0.##}). Emin misiniz?", "Sayaç Uyarısı", "Evet, Doğru")) return;
         if (!editing)
         {
+            // Kiralık araç: şablon dışı uyarısı YOK (şablon şirket filosunun standardıdır); değişimde ayrıca onay.
+            if (IsRentalMode)
+            {
+                var soru = IsReplacement && ReplacedPick is not null
+                    ? $"Yeni kiralık araç kaydedilecek ve '{ReplacedPick.Display}' aracı otomatik olarak PASİFE alınacak (iade edildi).\n\nDevam edilsin mi?"
+                    : "Yeni kiralık araç kaydedilsin mi?";
+                if (!await ConfirmService.AskAsync(soru, "Kaydet")) return;
+            }
             // Şablon dışı kayıt uyarısı (tek tip kayıt için).
-            if (SelectedTemplate is null)
+            else if (SelectedTemplate is null)
             {
                 if (!await ConfirmService.AskAsync("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?",
                         "Şablon Dışı Kayıt", "Evet, Devam Et", "Vazgeç", danger: true)) return;
@@ -602,7 +657,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                     BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
                     BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id,
-                    TemplateId: _templateId),   // düzenlemede şablona bağla/koru (yüklenen mevcut bağ)
+                    TemplateId: _templateId,   // düzenlemede şablona bağla/koru (yüklenen mevcut bağ)
+                    Rental: IsRentalMode ? BuildRental() : null),   // şirket aracında kira alanına dokunulmaz
                     // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm — kayıt arada değiştiyse sessizce ezme.
                     expectedVersion: Detail?.Version);
 
@@ -645,16 +701,54 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                 StatusNote: IsNewMaintenance && !string.IsNullOrWhiteSpace(NewStatusNote) ? NewStatusNote.Trim() : null,
                 VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                 BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
-                TemplateId: _templateId));
+                TemplateId: _templateId,
+                Rental: IsRentalMode ? BuildRental() : null));
             await SaveStagedPhotosAsync(id);
             var fotoUyarisi = Status;   // yükleme uyarısı varsa korunur (Clear/Load ezmesin)
             Clear();
             Load();
             Status = fotoUyarisi is not null && fotoUyarisi.StartsWith("Kayıt tamam", StringComparison.Ordinal)
-                ? fotoUyarisi : "Araç eklendi.";
+                ? fotoUyarisi : (IsRentalMode ? "Kiralık araç eklendi." : "Araç eklendi.");
         }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
+
+    /// <summary>Formdaki kira alanlarından servis girdisi (tarihler UTC gün başı — ADR-184).</summary>
+    private RentalInfo BuildRental() => new(
+        Company: string.IsNullOrWhiteSpace(RentCompany) ? null : RentCompany.Trim(),
+        Start: IsGunuTarihi.Ms(RentStart),
+        End: IsGunuTarihi.Ms(RentEnd),
+        Price: RentPrice is > 0 ? RentPrice : null,
+        PriceUnit: RentPriceUnitPick?.Code,
+        ReplacedVehicleId: !IsEditMode && IsReplacement ? ReplacedPick?.Id : null,
+        ReplacementReason: string.IsNullOrWhiteSpace(ReplacementReason) ? null : ReplacementReason.Trim());
+
+    /// <summary>
+    /// "Kiralamayı Bitir" — araç kiralayan firmaya İADE edildi: durum PASİF, kira bitişi seçilen gün.
+    /// Kayıt silinmez; yakıt/bakım geçmişi raporlarda kalır.
+    /// </summary>
+    [RelayCommand]
+    private async Task EndRental()
+    {
+        if (!IsRentalMode || Selected is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (EndRentalDate is null) { Status = "Kira bitiş tarihini seçin."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"'{Selected.Code}' kiralık aracının kiralaması {EndRentalDate.Value:dd.MM.yyyy} itibarıyla bitirilsin mi?\n\n" +
+                "Araç PASİF olur ve seçicilerde artık önerilmez; geçmiş kayıtları (yakıt, bakım) korunur.",
+                "Kiralamayı Bitir", "Evet, Bitir")) return;
+        try
+        {
+            DesktopServices.Vehicles.EndRental(_session, Selected.Id, IsGunuTarihi.Ms(EndRentalDate)!.Value);
+            Load();
+            Status = "Kiralama bitirildi; araç pasife alındı.";
+        }
+        catch (Exception ex) { Status = "Kiralama bitirilemedi: " + ex.Message; }
+    }
+
+    /// <summary>Seçili araç aktif bir kiralık mı? ("Kiralamayı Bitir" yalnız bunda görünür.)</summary>
+    public bool CanEndRental => IsRentalMode && CanEdit && Selected is not null
+        && Selected.Status != DepoWise.Application.Ui.VehicleStatus.Passive;
 
     [RelayCommand]
     private void ToggleAdd()
@@ -674,11 +768,24 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         Photos.Clear();
         SelectedTemplate = null; _templateId = null;
         EditId = null;
+        RentCompany = ""; RentStart = DateTimeOffset.Now; RentEnd = null; RentPrice = null;
+        RentPriceUnitPick = RentPriceUnits.FirstOrDefault();
+        IsReplacement = false; ReplacedPick = null; ReplacementReason = "";
         TriedSave = false; ShowAdd = false;
     }
 
     private void LoadVehLookups()
     {
+        // Kiralık modda değişim seçicisi her form açılışında TAZE okunur (az önce pasife alınan araç önerilmesin).
+        if (IsRentalMode)
+        {
+            try
+            {
+                ActiveRentals.Clear();
+                foreach (var r in DesktopServices.Vehicles.ListActiveRentals(_session)) ActiveRentals.Add(r);
+            }
+            catch { /* liste boş kalır; servis yine doğrular */ }
+        }
         if (_vehLookupsLoaded) return;
         try
         {
@@ -723,6 +830,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     // ===== Detay (salt okuma) / Düzenle (form) / Sil =====
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyPropertyChangedFor(nameof(CanEndRental))]
     private VehicleRow? _selected;
 
     [ObservableProperty] private VehicleDetail? _detail;
@@ -732,9 +840,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [NotifyPropertyChangedFor(nameof(IsEditMode))]
     [NotifyPropertyChangedFor(nameof(FormTitle))]
     [NotifyPropertyChangedFor(nameof(CanDeletePhoto))]   // ADR-182 (PK-F3): silme yalnız düzenleme modunda
+    [NotifyPropertyChangedFor(nameof(ShowReplacementFields))]
     private string? _editId;
     public bool IsEditMode => EditId != null;
-    public string FormTitle => IsEditMode ? "ARAÇ DÜZENLE" : "YENİ ARAÇ";
+    public string FormTitle => IsRentalMode
+        ? (IsEditMode ? "KİRALIK ARAÇ DÜZENLE" : "YENİ KİRALIK ARAÇ")
+        : (IsEditMode ? "ARAÇ DÜZENLE" : "YENİ ARAÇ");
 
     public bool HasSelection => Selected != null;
     public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
@@ -889,6 +1000,13 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         SelModel = VehicleModels.FirstOrDefault(x => x.Id == d.VehicleModelId);
         // Mevcut şablon bağı (EditId set edildiği için changed-handler prefill YAPMAZ; yalnız bağ yüklenir).
         SelectedTemplate = Templates.FirstOrDefault(x => x.Id == d.TemplateId);
+        // Kira alanları (değişim bağı düzenlemede DEĞİŞMEZ — yalnız bilgi olarak detayda görünür).
+        RentCompany = d.RentalCompany ?? "";
+        RentStart = d.RentalStart is { } rs ? DateTimeOffset.FromUnixTimeMilliseconds(rs) : null;
+        RentEnd = d.RentalEnd is { } re ? DateTimeOffset.FromUnixTimeMilliseconds(re) : null;
+        RentPrice = d.RentalPrice;
+        RentPriceUnitPick = RentPriceUnits.FirstOrDefault(x => x.Code == d.RentalPriceUnit) ?? RentPriceUnits.FirstOrDefault();
+        IsReplacement = false; ReplacedPick = null; ReplacementReason = d.ReplacementReason ?? "";
 
         // Önceki araçtan TAŞINABİLECEK kalıntılar: yüklenmeyi bekleyen fotoğraflar ve satır-içi
         // "yeni lookup adı" kutuları. Bunlar araca ait değildir → her doldurmada sıfırlanır.
@@ -999,7 +1117,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
 public sealed record VehicleRow(string Id, string Code, string? Plate, string Status, decimal Meter, string MeterUnit,
     int? Year, BadgeKind AlertKind, string AlertText,
     string StatusNote = "", string VehicleType = "", string Category = "", string Brand = "", string Model = "",
-    string Branch = "", string Driver = "", string ChassisNo = "", string EngineNo = "")
+    string Branch = "", string Driver = "", string ChassisNo = "", string EngineNo = "",
+    // 2026-10-10 kiralık araç kolonları (Araç Listesi'nde boş):
+    string RentalCompany = "", string RentalStart = "", string RentalEnd = "", string ReplacedVehicle = "")
 {
     public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;
     public string MeterDisplay => $"{Meter:0.##} {DepoWise.Application.Ui.MeterUnitOptions.Label(MeterUnit)}";   // 2026-09-03: "hour" ekranda "saat"

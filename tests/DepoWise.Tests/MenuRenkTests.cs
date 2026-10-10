@@ -432,7 +432,8 @@ public class MenuRenkTests
         // yalnız web rotası; masaüstünde karşılığı bir penceredir (SyncConflictsWindow).
         Assert.Equal(6, AppScreens.Sections.Count);
         Assert.Equal(24, AppScreens.Groups.Select(g => g.Title).Distinct().Count());
-        Assert.Equal(71, AppScreens.All.Count);
+        // 71 → 72: Kiralık Araçlar (2026-10-10, kullanıcı isteği). Araçlar grubunda, "vehicles" modülünde.
+        Assert.Equal(72, AppScreens.All.Count);
     }
 
     /// <summary>⭐ Token adı üretimi tek biçimdir — iki platform isimlendirmede ayrışamaz.</summary>

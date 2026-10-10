@@ -341,7 +341,7 @@ public class AppScreensParityTests
         {
             ("Uyarılar", new[] { "alerts" }),
             ("Malzemeler", new[] { "materials", "materials:new", "stock", "stock:movements", "stock:count", "material_templates:templates", "stock:distribute" }),
-            ("Araçlar", new[] { "vehicles", "vehicles:new", "vehicle_templates:templates", "inspection" }),
+            ("Araçlar", new[] { "vehicles", "vehicles:new", "vehicles:rental", "vehicle_templates:templates", "inspection" }),   // 2026-10-10: Kiralık Araçlar
             ("Ekipman", new[] { "equipment" }),   // EKP-01 (ADR-166)
             ("Zimmet", new[] { "assignments" }),   // ZMT-01 (ADR-167)
             ("Satın Alma", new[] { "purchasing" }),   // STN-01 (ADR-169)
@@ -389,7 +389,7 @@ public class AppScreensParityTests
         // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57,
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler = 58, + ALT FAZ 3 Onaylamalarım = 59 (ADR-187/189).
         // Ekran kaybı yok; yeni ekran BİLİNÇLİ olarak eklendi (ADR-186).
-        Assert.Equal(60, gercek.Sum(x => x.Item2.Length));   // 59 → 60: Alan Ayarları (2026-09-03, ADR-198)
+        Assert.Equal(61, gercek.Sum(x => x.Item2.Length));   // 59 → 60: Alan Ayarları (2026-09-03, ADR-198) · 60 → 61: Kiralık Araçlar (2026-10-10)
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -402,7 +402,7 @@ public class AppScreensParityTests
         {
             ("Uyarılar", new[] { ("", "alerts") }),
             ("Malzemeler", new[] { ("materials", "materials"), ("materials", "materials/new"), ("stock", "stock"), ("stock", "stock/movements"), ("stock", "stock/count") }),
-            ("Araçlar", new[] { ("vehicles", "vehicles"), ("vehicles", "vehicles/new"), ("vehicle_templates", "vehicle-templates"), ("inspection", "inspection") }),
+            ("Araçlar", new[] { ("vehicles", "vehicles"), ("vehicles", "vehicles/new"), ("vehicles", "vehicles/rental"), ("vehicle_templates", "vehicle-templates"), ("inspection", "inspection") }),   // 2026-10-10: Kiralık Araçlar
             ("Ekipman", new[] { ("equipment", "equipment") }),   // EKP-01
             ("Zimmet", new[] { ("assignments", "assignments") }),   // ZMT-01
             ("Satın Alma", new[] { ("purchasing", "purchasing") }),   // STN-01
@@ -453,7 +453,7 @@ public class AppScreensParityTests
         // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186),
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler → 65, + ALT FAZ 3 Onaylamalarım → 66 (ADR-187/189).
         // 67 → 68: Senkron Çakışmaları (2026-09-06, FAZ 4.4 — kullanıcı isteği).
-        Assert.Equal(68, gercek.Sum(x => x.Item2.Length));
+        Assert.Equal(69, gercek.Sum(x => x.Item2.Length));   // 68 → 69: Kiralık Araçlar (2026-10-10)
     }
 
     /// <summary>

@@ -1224,17 +1224,20 @@ app.MapDelete("/api/templates/{kind}/{id}/photos/{fileId}", (HttpContext c, stri
 app.MapGet("/api/vehicles", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Vehicles.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
 // Araç LİSTE ekranı: kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Eski
 // "/api/vehicles" (search) YUKARIDA — başka ekranlardaki hızlı-arama seçicileri onu kullanır, DOKUNULMADI.
+// rental=true (2026-10-10): Kiralık Araçlar ekranı — yalnız kiralık araçlar + kira kolonları. Gönderilmezse
+// (eski web/masaüstü) Araç Listesi davranışı: yalnız şirket araçları.
 app.MapGet("/api/vehicles/grid", (HttpContext c,
     string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
     string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
-    string? chassisNo, string? engineNo, int page, int pageSize, string? sort, bool? desc) =>
+    string? chassisNo, string? engineNo, int page, int pageSize, string? sort, bool? desc,
+    bool? rental, string? rentalCompany, string? rentalStart, string? rentalEnd, string? replacedVehicle) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
         internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
-        branch, driver, chassisNo, engineNo);
+        branch, driver, chassisNo, engineNo, rentalCompany, rentalStart, rentalEnd, replacedVehicle);
     var res = svc.Vehicles.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
-        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, rental == true);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -1244,15 +1247,27 @@ app.MapGet("/api/vehicles/grid", (HttpContext c,
 app.MapGet("/api/vehicles/grid/export", (HttpContext c,
     string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
     string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
-    string? chassisNo, string? engineNo, string? sort, bool? desc, string? format) =>
+    string? chassisNo, string? engineNo, string? sort, bool? desc, string? format,
+    bool? rental, string? rentalCompany, string? rentalStart, string? rentalEnd, string? replacedVehicle) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
         internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
-        branch, driver, chassisNo, engineNo);
-    var rows = svc.Vehicles.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
-    return TabloCikti(c, DepoWise.Infrastructure.Vehicles.VehicleService.ToTableModel(rows), format, "Araclar");
+        branch, driver, chassisNo, engineNo, rentalCompany, rentalStart, rentalEnd, replacedVehicle);
+    var kira = rental == true;
+    var rows = svc.Vehicles.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, kira);
+    return TabloCikti(c, DepoWise.Infrastructure.Vehicles.VehicleService.ToTableModel(rows, kira), format, kira ? "Kiralik_Araclar" : "Araclar");
+}).RequireAuthorization();
+// ⭐ 2026-10-10 KİRALIK ARAÇLAR — değişim seçicisi (aktif kiralıklar) + "Kiralamayı Bitir" (iade).
+app.MapGet("/api/vehicles/rentals/active", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Vehicles.ListActiveRentals(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/vehicles/{id}/rental/end", (HttpContext c, string id, RentalEndDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (d?.EndDate is not { } bitis) return Results.Json(new { error = "Kira bitiş tarihi zorunlu." }, statusCode: 400);
+    svc.Vehicles.EndRental(s, id, bitis);
+    return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 // Araç seçici (uyumlu araçlar vb. çoklu seçim için): id + görünen ad (iç kod - plaka).
 app.MapGet("/api/vehicles/options", (HttpContext c) =>
@@ -1261,10 +1276,16 @@ app.MapGet("/api/vehicles/options", (HttpContext c) =>
     var opts = new List<object>();
     using var conn = svc.Factory.Create();
     using var cmd = conn.CreateCommand();
-    cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=@c AND is_deleted=0 ORDER BY internal_code;";
+    cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,''), is_rental FROM vehicles WHERE company_id=@c AND is_deleted=0 ORDER BY internal_code;";
     cmd.AddWithValue("@c", s.CompanyId);
     using var r = cmd.ExecuteReader();
-    while (r.Read()) { var p = r.GetString(2); opts.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
+    while (r.Read())
+    {
+        var p = r.GetString(2);
+        // 2026-10-10: kiralık araç burada da "(Kiralık)" etiketiyle (VehicleListRow.Display ile AYNI biçim).
+        var kira = Convert.ToInt64(r.GetValue(3)) == 1 ? DepoWise.Infrastructure.Vehicles.VehicleListRow.RentalTag : "";
+        opts.Add(new { id = r.GetString(0), display = (string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}") + kira });
+    }
     return Results.Ok(opts);
 }).RequireAuthorization();
 app.MapGet("/api/stock", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Stock.RecentMovements(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -4365,6 +4386,12 @@ app.MapDelete("/api/daily/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.DailyActivity.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Araçlar (ekle/sil) ──
+// 2026-10-10: DTO → kira bilgisi. IsRental=true değilse null (şirket aracı / eski istemci → kira alanına dokunulmaz).
+static DepoWise.Infrastructure.Vehicles.RentalInfo? KiraBilgisi(NewVehicleDto d, bool yeniKayit)
+    => d.IsRental == true
+        ? new DepoWise.Infrastructure.Vehicles.RentalInfo(d.RentalCompany, d.RentalStart, d.RentalEnd, d.RentalPrice, d.RentalPriceUnit,
+            yeniKayit ? d.ReplacedVehicleId : null, string.IsNullOrWhiteSpace(d.ReplacementReason) ? null : d.ReplacementReason.Trim())
+        : null;
 app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -4385,7 +4412,7 @@ app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
     return Results.Ok(new { id = svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(
         d.InternalCode, Doc(d.Plate), d.ProductionYear, d.CurrentMeter, string.IsNullOrWhiteSpace(d.MeterUnit) ? "km" : d.MeterUnit,
         d.BranchId, d.DriverPersonnelId, Doc(d.ChassisNo), Doc(d.EngineNo), string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
-        d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId)) });
+        d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId, Rental: KiraBilgisi(d, yeniKayit: true))) });
 }).RequireAuthorization();
 app.MapDelete("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Vehicles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
@@ -4408,7 +4435,7 @@ app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
     svc.Vehicles.Update(s, id, new DepoWise.Infrastructure.Vehicles.UpdateVehicle(
         Doc(d.Plate), d.ProductionYear, string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
         Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId,
-        TemplateId: d.TemplateId),
+        TemplateId: d.TemplateId, Rental: KiraBilgisi(d, yeniKayit: false)),
         expectedVersion: d.Version); // düzenleme kilidi
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -5320,7 +5347,12 @@ record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, str
     string? PartyId = null);   // BKM-04 depo · MUH-01b belge no · MUH-01c cari (dış servis)
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
-    long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
+    long? Version = null, // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
+    // ⭐ 2026-10-10 KİRALIK ARAÇ: IsRental=true ise kira alanları işlenir; gönderilmezse (eski istemci) araç
+    // şirket aracıdır ve düzenlemede kira alanlarına DOKUNULMAZ.
+    bool? IsRental = null, string? RentalCompany = null, long? RentalStart = null, long? RentalEnd = null,
+    decimal? RentalPrice = null, string? RentalPriceUnit = null, string? ReplacedVehicleId = null, string? ReplacementReason = null);
+record RentalEndDto(long? EndDate);
 // VehicleIds (2026-10-10): kalemin TÜM araçları; eski istemci göndermez → VehicleId kullanılır.
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note, List<string>? VehicleIds = null);
 /// <summary>Priority: "normal|high|urgent|critical" (şartname madde 18). Gönderilmezse Normal (geriye uyumlu).</summary>
