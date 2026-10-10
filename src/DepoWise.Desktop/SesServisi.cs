@@ -19,8 +19,9 @@ namespace DepoWise.Desktop;
 ///
 /// <para><b>Sesler nereden geliyor:</b> <c>Assets/Sounds/*.wav</c> Avalonia kaynağı olarak
 /// uygulamanın İÇİNE gömülüdür (<c>AvaloniaResource</c>). Diske dosya yazılmaz, dışarıdan dosya
-/// okunmaz → eksik/bozuk dosya diye bir durum oluşmaz. Sesler <c>scripts/ses_uret.mjs</c> ile
-/// matematiksel olarak üretilmiştir; telif sorunu yoktur.</para>
+/// okunmaz → eksik/bozuk dosya diye bir durum oluşmaz. 2026-10-10 (kullanıcı isteği: "sesler aşırı kötü"):
+/// sesler artık GitHub'daki ücretsiz <b>Octave</b> iOS arayüz ses paketinden gelir
+/// (<c>scripts/ses_guncelle.mjs</c> indirir + WAV'a çevirir; lisans: THIRD_PARTY_NOTICES.md).</para>
 ///
 /// <para><b>Bellek güvenliği:</b> <c>SND_ASYNC</c> ile Windows çalma bitene kadar tamponu okumaya
 /// DEVAM eder. Yönetilen bir <c>byte[]</c> bu sırada çöp toplayıcı tarafından taşınabilirdi; bu
