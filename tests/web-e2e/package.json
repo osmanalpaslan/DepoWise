@@ -1,0 +1,11 @@
+{
+  "name": "depowise-web-e2e",
+  "private": true,
+  "description": "DepoWise web uçtan uca (E2E) testleri — Playwright. Varsayılan koşuda KAPALI; Claude gerektiğinde çalıştırır.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
