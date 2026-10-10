@@ -1,11 +1,11 @@
 app = "depowise-web"
 primary_region = "fra"
+# 2026-10-10: 256 MB makinede bellek dolunca süreç kilitleniyordu → takas alanı (ücretsiz) + .NET bellek tasarrufu.
+# ⚠ Üst düzey anahtar: [bölüm] başlıklarından ÖNCE durmalı (altına yazılırsa o bölüme ait sayılır).
+swap_size_mb = 256
 
 [build]
   dockerfile = "Dockerfile.web"
-
-# 2026-10-10: 256 MB makinede bellek dolunca süreç kilitleniyordu → takas alanı (ücretsiz) + .NET bellek tasarrufu.
-swap_size_mb = 256
 
 [env]
   Api__BaseUrl = "https://depowise-erp.fly.dev"
