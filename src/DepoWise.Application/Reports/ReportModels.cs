@@ -101,7 +101,8 @@ public static class ReportGate
 }
 
 // BLD-01 (ADR-172) / DYR-01 (ADR-173): yeni türler SONA eklenir — mevcut değerlerin sırası/serileştirmesi DEĞİŞMEZ.
-public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request, Announcement }
+/// <summary>Uyarı türü. ⚠ Yeni tür daima SONA eklenir (API metin olarak taşır; sıra değişmesin). Rental: 2026-10-10.</summary>
+public enum AlertKind { Maintenance, Inspection, LowStock, Fuel, Document, WorkOrder, Request, Announcement, Rental }
 
 public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null, bool Read = false, string? SignatureOverride = null,
     // ⭐ 2026-10-04: bilgilendirme notu ("yeni kayıt girildi ama şu sebeple uyarı sürüyor; şunu yapın").
@@ -122,6 +123,7 @@ public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail,
         AlertKind.WorkOrder => "📋",
         AlertKind.Request => "📄",
         AlertKind.Announcement => "📢",
+        AlertKind.Rental => "🚚",
         _ => "⚠️",
     };
 

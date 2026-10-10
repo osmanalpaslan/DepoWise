@@ -2079,6 +2079,149 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
     /// Ekranın YAPMADIĞI ama raporun yaptığı tek şey ŞUBE KAPSAMIDIR: rapor, aracın şubesine göre
     /// <see cref="ReportScope"/> ile daraltılır (diğer operasyon raporlarıyla aynı kalıp).
     /// </summary>
+    /// <summary>
+    /// ⭐ 2026-10-10 (kullanıcının seçtiği öneri 2) — KİRALIK ARAÇ MALİYETİ.
+    /// Seçilen dönemle kira süresinin KESİŞTİĞİ günler üzerinden kira bedeli hesaplanır:
+    /// günlük bedel → gün × bedel · aylık → gün ÷ 30 × bedel · saatlik → dönemdeki sayaç (saat) artışı × bedel
+    /// (araç sayaç geçmişinden; artış yoksa tutar boş kalır, uydurulmaz). Aynı dönemin yakıt tutarı
+    /// (iptal edilmemiş fişler, litre × birim fiyat) eklenir → "kiralık araç bize kaça mal oldu".
+    /// Bitişi boş (süren) kira bugüne kadar sayılır. Tutarlar decimal hesaplanır.
+    /// </summary>
+    public TableModel RentalCost(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        AccessControl.Require(s, "vehicles", PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        const long gunMs = 86_400_000L;
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var bugunSonu = now - now % gunMs + gunMs - 1;
+        var bas = req.FromDate ?? 0;
+        var son = Math.Min(req.ToDate ?? bugunSonu, bugunSonu);
+
+        using var conn = _factory.Create();
+        var araclar = new List<(string Id, string Sube, string Arac, string Firma, long Start, long? End, string Status, decimal? Fiyat, string Birim)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            var vehIn = InList("v.id", "@rv", req.VehicleIds);
+            cmd.CommandText = @"
+SELECT v.id, COALESCE(br.name,''), v.internal_code, COALESCE(v.plate,''), COALESCE(v.rental_company,''),
+       v.rental_start, v.rental_end, v.status, v.rental_price, COALESCE(v.rental_price_unit,'day')
+FROM vehicles v
+LEFT JOIN branches br ON br.id = v.branch_id AND br.company_id = v.company_id
+WHERE v.company_id=@c AND v.is_deleted=0 AND v.is_rental=1 AND v.rental_start IS NOT NULL
+  AND v.rental_start <= @son AND (v.rental_end IS NULL OR v.rental_end >= @bas)"
+                + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn + @"
+ORDER BY br.name, v.internal_code;";
+            cmd.AddWithValue("@c", companyId);
+            cmd.AddWithValue("@bas", bas);
+            cmd.AddWithValue("@son", son);
+            ReportScope.BindBranch(cmd, s, req);
+            BindList(cmd, "@rv", req.VehicleIds);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var plaka = r.GetString(3);
+                araclar.Add((r.GetString(0), r.GetString(1), plaka.Length == 0 ? r.GetString(2) : r.GetString(2) + " - " + plaka,
+                    r.GetString(4), Convert.ToInt64(r.GetValue(5)), r.IsDBNull(6) ? null : Convert.ToInt64(r.GetValue(6)),
+                    r.GetString(7), r.IsDBNull(8) ? null : Money.Parse(Convert.ToString(r.GetValue(8))), r.GetString(9)));
+            }
+        }
+
+        var rows = new List<IReadOnlyList<object?>>();
+        decimal tKira = 0, tYakit = 0;
+        int tGun = 0;
+        foreach (var a in araclar)
+        {
+            var kBas = Math.Max(a.Start, bas);
+            var kSon = Math.Min(a.End is { } e ? e + gunMs - 1 : bugunSonu, son);
+            if (kSon < kBas) continue;
+            var gun = (int)((kSon - kBas) / gunMs) + 1;
+
+            decimal? kira = null;
+            string miktar;
+            if (a.Fiyat is { } fiyat)
+            {
+                switch (a.Birim)
+                {
+                    case "month": kira = Math.Round(gun / 30m * fiyat, 2); miktar = $"{gun} gün (≈{gun / 30m:0.##} ay)"; break;
+                    case "hour":
+                        var saat = SayacArtisi(conn, companyId, a.Id, kBas, kSon);
+                        kira = saat is { } h ? Math.Round(h * fiyat, 2) : null;
+                        miktar = saat is { } hh ? $"{hh:0.##} saat" : "sayaç kaydı yok";
+                        break;
+                    default: kira = gun * fiyat; miktar = $"{gun} gün"; break;
+                }
+            }
+            else miktar = $"{gun} gün (bedel girilmemiş)";
+
+            var yakit = YakitTutari(conn, companyId, a.Id, kBas, kSon);
+            tGun += gun; tKira += kira ?? 0; tYakit += yakit;
+            rows.Add(new object?[]
+            {
+                a.Sube.Length == 0 ? "Atanmamış" : a.Sube,
+                a.Arac,
+                a.Firma,
+                D(a.Start),
+                a.End is null ? "Sürüyor" : D(a.End),
+                a.Status == DepoWise.Application.Ui.VehicleStatus.Passive ? "İade edildi" : "Kirada",
+                miktar,
+                a.Fiyat is { } f2 ? $"{f2:#,##0.##} TL / {DepoWise.Application.Ui.RentalPriceUnits.Label(a.Birim)}" : "—",
+                kira is { } k ? Num((double)k, FmtMoney) : "—",
+                Num((double)yakit, FmtMoney),
+                Num((double)((kira ?? 0) + yakit), FmtMoney),
+            });
+        }
+
+        var toplam = new object?[]
+        {
+            "TOPLAM", $"{rows.Count} araç", "", "", "", "", $"{tGun} gün", "",
+            Num((double)tKira, FmtMoney), Num((double)tYakit, FmtMoney), Num((double)(tKira + tYakit), FmtMoney),
+        };
+        var numeric = new[] { false, false, false, false, false, false, false, false, true, true, true };
+        return new TableModel("Kiralık Araç Maliyeti", new[]
+        {
+            "Şube", "Araç", "Kiralayan Firma", "Kira Başlangıç", "Kira Bitiş", "Durum", "Dönemdeki Süre", "Kira Bedeli",
+            "Kira Tutarı", "Yakıt Tutarı", "Toplam Maliyet",
+        }, rows, numeric, toplam);
+    }
+
+    /// <summary>Kiralık aracın dönemdeki sayaç artışı (saatlik kira) — sayaç geçmişinden; kayıt yoksa null.</summary>
+    private static decimal? SayacArtisi(DbConnection conn, string companyId, string vehicleId, long bas, long son)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT old_value, new_value FROM vehicle_meter_logs WHERE company_id=@c AND vehicle_id=@v AND created_at BETWEEN @b AND @s;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@v", vehicleId);
+        cmd.AddWithValue("@b", bas);
+        cmd.AddWithValue("@s", son);
+        decimal? min = null, max = null;
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var o = Money.Parse(Convert.ToString(r.GetValue(0)));
+            var n = Money.Parse(Convert.ToString(r.GetValue(1)));
+            min = min is null ? Math.Min(o, n) : Math.Min(min.Value, Math.Min(o, n));
+            max = max is null ? Math.Max(o, n) : Math.Max(max.Value, Math.Max(o, n));
+        }
+        return min is null || max is null || max <= min ? null : max - min;
+    }
+
+    /// <summary>Aracın dönemdeki yakıt tutarı (iptal edilmemiş fişler; litre × birim fiyat, decimal).</summary>
+    private static decimal YakitTutari(DbConnection conn, string companyId, string vehicleId, long bas, long son)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT liters, unit_price FROM fuel_distributions WHERE company_id=@c AND vehicle_id=@v AND is_deleted=0 AND distribution_date BETWEEN @b AND @s;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@v", vehicleId);
+        cmd.AddWithValue("@b", bas);
+        cmd.AddWithValue("@s", son);
+        decimal t = 0;
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) t += Money.Parse(Convert.ToString(r.GetValue(0))) * Money.Parse(Convert.ToString(r.GetValue(1)));
+        return Math.Round(t, 2);
+    }
+
     public TableModel Inspections(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -2461,6 +2604,7 @@ ORDER BY br.name, p.full_name;";
         "stock-count" => StockCount(s, req),
         "requests" => Requests(s, req),
         "inspection" => Inspections(s, req),      // RPR-10
+        "rental-cost" => RentalCost(s, req),      // 2026-10-10 kiralık araç maliyeti
         "personnel" => Personnel(s, req),         // RPR-11
         "materials-template" => MaterialsByTemplate(s, req),
         "materials-nontemplate" => MaterialsNonTemplate(s, req),

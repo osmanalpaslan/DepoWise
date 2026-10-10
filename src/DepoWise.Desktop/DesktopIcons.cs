@@ -125,6 +125,7 @@ public static class DesktopIcons
         DepoWise.Application.Reports.AlertKind.Inspection  => "IconInspection",
         DepoWise.Application.Reports.AlertKind.LowStock    => "IconMaterials",
         DepoWise.Application.Reports.AlertKind.Fuel        => "IconFuel",
+        DepoWise.Application.Reports.AlertKind.Rental      => "IconVehicles",
         _ => "IconWarning",
     });
 

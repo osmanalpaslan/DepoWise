@@ -175,6 +175,18 @@
                             </Border>
                         </StackPanel>
                     </Button>
+                    <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                            Command="{Binding SelectAlertCategoryCommand}" CommandParameter="rental">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="15" Height="15" Data="{DynamicResource IconVehicles}"/>
+                            <TextBlock Text="Kiralık" VerticalAlignment="Center"/>
+                            <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}">
+                                <TextBlock Text="{Binding KiralikCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
                 </WrapPanel>
 
                 <!-- Uyarı varsa: liste -->

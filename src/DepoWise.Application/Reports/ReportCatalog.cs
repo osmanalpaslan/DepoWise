@@ -296,6 +296,13 @@ public static class ReportCatalog
                       "Durum: sonraki tarih geçmişse «Süresi geçti», 30 günden az kalmışsa «Yaklaşıyor», " +
                       "aksi halde «Normal» — Muayene/Sigorta ekranıyla aynı kural. İptal edilen belgeler listelenmez.",
             RequiredModule: "inspection"),
+        // ⭐ 2026-10-10 (kullanıcının seçtiği öneri 2): KİRALIK ARAÇ MALİYETİ — dönemle kesişen kira günleri ×
+        // bedel + aynı dönemin yakıtı. Kiralık araçlar Araç Listesi'nde değil, ayrı ekrandadır.
+        new ReportDescriptor("rental-cost", "Kiralık Araç Maliyeti", "Kiralık araç başına dönemdeki kira tutarı + yakıt = toplam maliyet",
+            ReportCategory.Vehicle, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle, true, ExportStandard,
+            InfoNote: "Kira tutarı, seçilen dönemle kira süresinin kesiştiği günlerden hesaplanır: günlük bedelde gün × bedel, aylık bedelde gün ÷ 30 × bedel, saatlik bedelde dönemdeki sayaç (saat) artışı × bedel. Bitişi girilmemiş kira bugüne kadar sayılır. Yakıt tutarı aynı dönemdeki iptal edilmemiş yakıt fişleridir. Bedeli girilmemiş araçta kira tutarı boş kalır.",
+            DataModule: "vehicles"),
         // ⭐ RPR-11 (denetim 2026-08-26) — PERSONEL RAPORU. Kolonlar mevcut Personel ekranından alındı
         // (AD SOYAD · UNVAN · TELEFON · ERİŞİM · DURUM) + şube. "Erişim" rozeti de ekranla aynı kuraldır.
         new ReportDescriptor("personnel", "Personel Listesi", "Şube bazlı personel: unvan, telefon, uygulama erişimi ve durum",

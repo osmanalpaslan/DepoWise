@@ -61,5 +61,20 @@ public class PostgresKiralikAracTests
         var id = req.Create(s, new NewRequest(new[] { new RequestItemInput(mat, 2m, VehicleIds: new[] { sirket, yeni }) })).Id;
         Assert.Equal(new[] { sirket, yeni }, req.GetForEdit(s, id).Items.Single().Vehicles!.Select(x => x.Id));
         Assert.Contains("(Kiralık)", v.List(s).Single(x => x.Id == yeni).Display);
+
+        // Filo uyarıları + Kiralık Araç Maliyeti raporu PostgreSQL'de de çalışır.
+        var simdi = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var bugun = simdi - simdi % 86_400_000L;
+        var bitecek = v.Create(s, new NewVehicle("KRL-03", Rental: new RentalInfo("Kiracı", bugun - 10 * 86_400_000L,
+            End: bugun + 2 * 86_400_000L, Price: 500m, PriceUnit: "day")));
+        using (var conn = factory.Create())
+        {
+            Assert.Contains(DepoWise.Infrastructure.Reporting.FleetAlerts.RentalExpiries(conn, s, simdi), k => k.VehicleId == bitecek);
+            Assert.Empty(DepoWise.Infrastructure.Reporting.FleetAlerts.FuelAnomalies(conn, s, simdi));
+        }
+        var rapor = new DepoWise.Infrastructure.Reporting.ReportService(factory).Run(s, "rental-cost",
+            new DepoWise.Application.Reports.ReportRequest(true, bugun - 4 * 86_400_000L, bugun + 86_400_000L - 1));
+        var satir = rapor.Rows.Single(r => ((string)r[1]!).StartsWith("KRL-03"));
+        Assert.Equal(2_500d, Assert.IsType<DepoWise.Application.Reports.NumCell>(satir[8]).Value);   // 5 gün × 500
     }
 }

@@ -121,6 +121,40 @@ public sealed class DashboardService
                     remaining <= 0 ? "Yakıt Tükendi" : "Yakıt Azaldı",
                     $"Kalan depo: {remaining:0.##} L (%{pct:0})", "fuel:summary", true));
             }
+
+            // ⭐ 2026-10-10 — TÜKETİM SAPMASI: son dolum aracın kendi ortalamasının %30+ üstünde (bkz. FleetAlerts).
+            // İmza = dolum kimliği → yeni bir sapmalı dolum gelince okunmuş uyarı yeniden açılır.
+            try
+            {
+                foreach (var y in FleetAlerts.FuelAnomalies(conn, s, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+                    alerts.Add(new DashboardAlert(AlertKind.Fuel, "Yakıt tüketimi yüksek",
+                        Birlestir(aracMetni, y.VehicleId,
+                            $"son dolum {y.Last:0.00} {y.UnitText} · ortalama {y.Baseline:0.00} {y.UnitText} (+%{y.ExcessPercent:0})"),
+                        "fuel:dist", y.Last >= y.Baseline * FleetAlerts.KritikOran, y.VehicleId,
+                        SignatureOverride: y.DistributionId,
+                        Note: "Önce son dolumdaki sayaç değerini kontrol edin; doğruysa olası yakıt kaçağı, arıza ya da ağır çalışma olabilir."));
+            }
+            catch { /* eski şema / ölçülemeyen veri → ana ekran çalışmaya devam eder */ }
+        }
+
+        // ⭐ 2026-10-10 — KİRA BİTİŞİ: 7 gün içinde bitecek ya da süresi geçtiği hâlde aktif duran kiralık araç.
+        if (AccessControl.Can(s, "vehicles", PermissionAction.View))
+        {
+            try
+            {
+                foreach (var k in FleetAlerts.RentalExpiries(conn, s, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+                {
+                    var bitis = DateTimeOffset.FromUnixTimeMilliseconds(k.End).UtcDateTime.ToString("dd.MM.yyyy");
+                    var durum = k.Expired ? $"bitiş {bitis} · {-k.DaysLeft} gün geçti"
+                        : k.DaysLeft == 0 ? $"bitiş {bitis} · bugün" : $"bitiş {bitis} · {k.DaysLeft} gün kaldı";
+                    alerts.Add(new DashboardAlert(AlertKind.Rental, k.Expired ? "Kira süresi doldu" : "Kira bitişi yaklaşıyor",
+                        Birlestir(aracMetni, k.VehicleId, (string.IsNullOrEmpty(k.Company) ? "" : k.Company + " · ") + durum),
+                        "vehicles:rental", k.Expired, k.VehicleId,
+                        SignatureOverride: k.End + (k.Expired ? ":gecti" : ""),
+                        Note: k.Expired ? "Araç iade edildiyse 'Kiralamayı Bitir'; süre uzadıysa kira bitişini güncelleyin." : null));
+                }
+            }
+            catch { /* eski şema (Migration098 öncesi) → kiralık uyarısı yok */ }
         }
 
         // ═══ BLD-01 (ADR-172) — YENİ TÜRETİLMİŞ KAYNAKLAR (PK-I1: evrak + geciken iş emri + bekleyen talep).

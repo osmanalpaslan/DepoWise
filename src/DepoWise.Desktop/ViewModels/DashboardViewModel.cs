@@ -36,6 +36,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     public int IsEmriCount => _allAlerts.Count(a => a.Kind == AlertKind.WorkOrder);
     public int TalepCount => _allAlerts.Count(a => a.Kind == AlertKind.Request);
     public int DuyuruCount => _allAlerts.Count(a => a.Kind == AlertKind.Announcement);
+    public int KiralikCount => _allAlerts.Count(a => a.Kind == AlertKind.Rental);   // 2026-10-10
 
     // PAN-01 (PK-L1): Bugünün Takvimi + Aktif Duyurular şeritleri (yetki yoksa GİZLİ — summary null verir).
     public ObservableCollection<DashboardCalendarRow> TodayCalendar { get; } = new();
@@ -62,6 +63,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
             "inspection" => AlertKind.Inspection, "fuel" => AlertKind.Fuel,
             "document" => AlertKind.Document, "work_order" => AlertKind.WorkOrder,       // PAN-01
             "request" => AlertKind.Request, "announcement" => AlertKind.Announcement,    // PAN-01
+            "rental" => AlertKind.Rental,    // 2026-10-10
             _ => (AlertKind?)null,
         };
         if (kind is { } k)
@@ -226,7 +228,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
 
     private void NotifyAlertCounts()
     {
-        foreach (var n in new[] { nameof(MalzemeCount), nameof(BakimCount), nameof(MuayeneCount), nameof(YakitCount) })
+        // 2026-10-10: Evrak/İş Emri/Talep/Duyuru sayıları da yenilenir (eskiden yalnız ilk 4 bildiriliyordu) + Kiralık.
+        foreach (var n in new[] { nameof(MalzemeCount), nameof(BakimCount), nameof(MuayeneCount), nameof(YakitCount),
+                                  nameof(EvrakCount), nameof(IsEmriCount), nameof(TalepCount), nameof(DuyuruCount), nameof(KiralikCount) })
             OnPropertyChanged(n);
     }
 

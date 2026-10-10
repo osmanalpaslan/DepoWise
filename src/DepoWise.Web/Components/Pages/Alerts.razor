@@ -49,6 +49,8 @@ else
                    StartIcon="@Icons.Material.Filled.Description" OnClick="@(() => Toggle("Request"))">Talep (@CountOf("Request"))</MudButton>
         <MudButton Variant="@(_filter == "Announcement" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Campaign" OnClick="@(() => Toggle("Announcement"))">Duyuru (@CountOf("Announcement"))</MudButton>
+        <MudButton Variant="@(_filter == "Rental" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.LocalShipping" OnClick="@(() => Toggle("Rental"))">Kiralık (@CountOf("Rental"))</MudButton>
         <MudButton Variant="@(_filter == "ALL" ? Variant.Filled : Variant.Outlined)" Color="Color.Secondary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.ListAlt" OnClick="@(() => Toggle("ALL"))">Tümü (@(_alerts?.Count ?? 0))</MudButton>
         <MudSpacer />
@@ -163,6 +165,7 @@ else
         "WorkOrder" => Icons.Material.Filled.Assignment,  // BLD-01
         "Request" => Icons.Material.Filled.Description,   // BLD-01
         "Announcement" => Icons.Material.Filled.Campaign, // DYR-01
+        "Rental" => Icons.Material.Filled.LocalShipping,  // 2026-10-10 kiralık araç
         _ => Icons.Material.Filled.Warning,
     };
 

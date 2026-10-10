@@ -129,6 +129,9 @@ public class RaporKapsamliTaramaTests : IDisposable
         var vehicles = new VehicleService(_f, _clock);
         var arac = vehicles.Create(_admin, new NewVehicle("ARC-1", "06ABC01", 2020, 1000m, "km", depo,
             TemplateId: aracSablon));
+        // 2026-10-10: Kiralık Araç Maliyeti raporu için normal yoldan bir kiralık araç.
+        vehicles.Create(_admin, new NewVehicle("KRL-1", BranchId: depo,
+            Rental: new RentalInfo("Kiracı A.Ş.", Simdi - Simdi % 86_400_000, Price: 1000m, PriceUnit: "day")));
 
         // Bakım
         var bakimTanim = new MaintenanceDefinitionService(_f, _clock)
