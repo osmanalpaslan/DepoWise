@@ -11,6 +11,106 @@
              x:Class="DepoWise.Desktop.Views.FuelView"
              x:DataType="vm:FuelViewModel">
 
+    <!-- ⭐ 2026-10-10 Yakıt Özeti — iOS tarzı yumuşak kart stilleri (yalnız bu ekran). Renkler tema
+         fırçalarından gelir → açık/koyu temada kendiliğinden doğru. -->
+    <UserControl.Styles>
+        <Style Selector="Border.FuelKpi">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="18,16"/>
+            <Setter Property="BoxShadow" Value="0 2 10 0 #14000000"/>
+        </Style>
+        <Style Selector="TextBlock.FuelKpiLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="SelectableTextBlock.FuelKpiValue">
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Border.FuelMonth">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Padding" Value="18,14"/>
+            <Setter Property="BoxShadow" Value="0 2 12 0 #12000000"/>
+        </Style>
+        <Style Selector="Border.FuelMonth.current">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.FuelMonthHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ToggleButton.FuelMonthHeader:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ToggleButton.FuelMonthHeader:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ToggleButton.FuelMonthHeader:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ToggleButton.FuelMonthHeader TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.FuelChevron">
+            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Setter Property="Transitions">
+                <Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/></Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.FuelChevron.open">
+            <Setter Property="RenderTransform" Value="rotate(180deg)"/>
+        </Style>
+        <Style Selector="Border.FuelPill">
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+        </Style>
+        <Style Selector="Border.FuelPill TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Border.FuelPill.info TextBlock"><Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/></Style>
+        <Style Selector="Border.FuelPill.success TextBlock"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></Style>
+        <Style Selector="Border.FuelPill.accent"><Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/></Style>
+        <Style Selector="Border.FuelPill.accent TextBlock"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/></Style>
+        <Style Selector="Border.FuelPanel">
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="ProgressBar.FuelShare">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="MinHeight" Value="6"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}"/>
+        </Style>
+        <Style Selector="ProgressBar.FuelWeek">
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="MinHeight" Value="10"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}"/>
+        </Style>
+        <Style Selector="StackPanel.FuelDay TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="StackPanel.FuelDay.strong TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </UserControl.Styles>
+
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
         <TabControl Grid.Row="0" Classes="NoHeader" SelectedIndex="{Binding SelectedTab}">
 
@@ -389,79 +489,169 @@
 
             <!-- ═══════════ ÖZET ═══════════ -->
             <TabItem Header="Özet">
+                <!-- ⭐ 2026-10-10 (kullanıcı isteği) YENİ TASARIM — iOS tarzı yumuşak kartlar.
+                     Eski sorun: ay açılınca haftalık ve günlük değerler AYNI "tarih — litre" listesi olarak
+                     yan yana duruyordu, ayırt edilemiyordu. Artık:
+                       • HAFTALAR → mavi oran çubukları ("1. Hafta", tarih aralığı, litre)
+                       • GÜNLER   → yeşil takvim kutucukları (gün no + gün adı + litre; koyuluk = yoğunluk)
+                     Her ay kartında, en yoğun aya göre ince bir oran çubuğu ve ortalamalar renkli etiketlerle. -->
                 <ScrollViewer>
-                <StackPanel Margin="0,16,0,0" Spacing="16">
-                    <WrapPanel>
-                        <Border Classes="Kpi"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <SelectableTextBlock Text="{Binding DepotBalanceText}" Classes="KpiValue"/>
-                            <SelectableTextBlock Text="Kalan Yakıt (Depo)" Classes="KpiLabel"/></StackPanel></Border>
-                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <SelectableTextBlock Text="{Binding CurrentPriceText}" Classes="KpiValue"/>
-                            <SelectableTextBlock Text="Güncel Fiyat" Classes="KpiLabel"/></StackPanel></Border>
-                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <SelectableTextBlock Text="{Binding TotalReceivedText}" Classes="KpiValue"/>
-                            <SelectableTextBlock Text="Toplam Alınan" Classes="KpiLabel"/></StackPanel></Border>
-                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <SelectableTextBlock Text="{Binding TotalDistributedText}" Classes="KpiValue"/>
-                            <SelectableTextBlock Text="Toplam Dağıtılan" Classes="KpiLabel"/></StackPanel></Border>
-                    </WrapPanel>
-                    <SelectableTextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
-                               Classes="Helper" TextWrapping="Wrap"/>
+                <StackPanel Margin="0,16,0,8" Spacing="18" MaxWidth="1180" HorizontalAlignment="Left">
+                    <!-- KPI kartları -->
+                    <UniformGrid Columns="4" ColumnSpacing="14" RowSpacing="14">
+                        <Border Classes="FuelKpi">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Ellipse Width="10" Height="10" Fill="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Kalan Yakıt (Depo)" Classes="FuelKpiLabel"/>
+                                </StackPanel>
+                                <SelectableTextBlock Text="{Binding DepotBalanceText}" Classes="FuelKpiValue"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="FuelKpi">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Ellipse Width="10" Height="10" Fill="{DynamicResource WarningBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Güncel Fiyat" Classes="FuelKpiLabel"/>
+                                </StackPanel>
+                                <SelectableTextBlock Text="{Binding CurrentPriceText}" Classes="FuelKpiValue"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="FuelKpi">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Ellipse Width="10" Height="10" Fill="{DynamicResource InfoBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Toplam Alınan" Classes="FuelKpiLabel"/>
+                                </StackPanel>
+                                <SelectableTextBlock Text="{Binding TotalReceivedText}" Classes="FuelKpiValue"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="FuelKpi">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Ellipse Width="10" Height="10" Fill="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Toplam Dağıtılan" Classes="FuelKpiLabel"/>
+                                </StackPanel>
+                                <SelectableTextBlock Text="{Binding TotalDistributedText}" Classes="FuelKpiValue"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                    <TextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
+                               Classes="Helper" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
 
-                    <!-- 2026-09-30 (kullanıcı isteği): AYLIK GRUPLU DAĞITIM. Ay satırı: toplam + haftalık/günlük
-                         ortalama; açınca o ayın haftalık toplamları ve gün gün dağıtılan miktar. Tüm kayıtlardan. -->
-                    <SelectableTextBlock Text="Aylık Dağıtım (son 12 ay)" Classes="SectionTitle"/>
-                    <Border Classes="TableHeader">
-                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="180,130,150,150,*">
-                            <SelectableTextBlock Grid.Column="0" Text="AY"/>
-                            <SelectableTextBlock Grid.Column="1" Text="AYLIK TOPLAM" TextAlignment="Center"/>
-                            <SelectableTextBlock Grid.Column="2" Text="HAFTALIK ORT." TextAlignment="Center"/>
-                            <SelectableTextBlock Grid.Column="3" Text="GÜNLÜK ORT." TextAlignment="Center"/>
-                            <SelectableTextBlock Grid.Column="4" Text="İŞLEM" Margin="16,0,0,0"/>
-                        </Grid>
-                    </Border>
+                    <!-- Başlık + renk açıklaması -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                        <TextBlock Grid.Column="0" Text="Aylık Dağıtım" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="18" Height="8" CornerRadius="4" Background="{DynamicResource InfoBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Haftalık" Classes="Helper" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="12" Height="12" CornerRadius="3" Background="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Günlük" Classes="Helper" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="son 12 ay" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="Bu dönemde dağıtım yok." Classes="Helper" IsVisible="{Binding !HasMonthly}"/>
+
                     <ItemsControl ItemsSource="{Binding MonthlySummary}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="op:FuelMonthSummary">
-                                <Expander HorizontalAlignment="Stretch" Margin="0,0,0,4">
-                                    <Expander.Header>
-                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="164,130,150,150,*">
-                                            <SelectableTextBlock Grid.Column="0" Text="{Binding MonthText}" FontWeight="SemiBold"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" TextAlignment="Right" FontWeight="SemiBold"/>
-                                            <SelectableTextBlock Grid.Column="2" Text="{Binding WeeklyAverageText}" TextAlignment="Right"/>
-                                            <SelectableTextBlock Grid.Column="3" Text="{Binding DailyAverageText}" TextAlignment="Right"/>
-                                            <SelectableTextBlock Grid.Column="4" Text="{Binding CountText}" Margin="16,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <DataTemplate x:DataType="vm:FuelMonthCard">
+                                <Border Classes="FuelMonth" Classes.current="{Binding S.IsCurrentMonth}">
+                                    <StackPanel Spacing="12">
+                                        <!-- Ay başlığı: tıklayınca açılır/kapanır -->
+                                        <ToggleButton Classes="FuelMonthHeader" IsChecked="{Binding IsExpanded}" HorizontalAlignment="Stretch"
+                                                      ToolTip.Tip="Haftalık ve günlük ayrıntıyı göster / gizle">
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding S.MonthName}" FontSize="18" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding S.YearText}" FontSize="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <Border Classes="FuelPill accent" IsVisible="{Binding S.IsCurrentMonth}">
+                                                        <TextBlock Text="Bu ay"/>
+                                                    </Border>
+                                                </StackPanel>
+                                                <WrapPanel Grid.Column="1" Margin="18,0,12,0" VerticalAlignment="Center" ItemSpacing="8" LineSpacing="6">
+                                                    <Border Classes="FuelPill info">
+                                                        <TextBlock Text="{Binding S.WeeklyAverageText, StringFormat='Haftalık ort. {0}'}"/>
+                                                    </Border>
+                                                    <Border Classes="FuelPill success">
+                                                        <TextBlock Text="{Binding S.DailyAverageText, StringFormat='Günlük ort. {0}'}"/>
+                                                    </Border>
+                                                    <Border Classes="FuelPill">
+                                                        <TextBlock Text="{Binding S.CountText}"/>
+                                                    </Border>
+                                                </WrapPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding S.LitersText}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="⌄" FontSize="20" Margin="14,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" Classes="FuelChevron"
+                                                           Classes.open="{Binding IsExpanded}"/>
+                                                <ProgressBar Grid.Row="1" Grid.ColumnSpan="4" Classes="FuelShare" Margin="0,10,0,0"
+                                                             Minimum="0" Maximum="100" Value="{Binding Share}"
+                                                             ToolTip.Tip="Son 12 ayın en yoğun ayına göre oran"/>
+                                            </Grid>
+                                        </ToggleButton>
+
+                                        <!-- Ayrıntı: SOLDA haftalar (çubuk), SAĞDA günler (takvim kutucukları) -->
+                                        <Grid ColumnDefinitions="5*,16,6*" IsVisible="{Binding IsExpanded}">
+                                            <Border Grid.Column="0" Classes="FuelPanel">
+                                                <StackPanel Spacing="10">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <Border Width="18" Height="8" CornerRadius="4" Background="{DynamicResource InfoBrush}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="HAFTALAR" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource InfoBrush}" LetterSpacing="1"/>
+                                                    </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding S.WeekBars}">
+                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="op:FuelWeekBar">
+                                                                <StackPanel Spacing="4">
+                                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                                        <TextBlock Grid.Column="0" Text="{Binding Label}" FontWeight="SemiBold"/>
+                                                                        <TextBlock Grid.Column="1" Text="{Binding RangeText}" Margin="8,0" Classes="Helper"
+                                                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                                        <TextBlock Grid.Column="2" Text="{Binding LitersText}" FontWeight="Bold"/>
+                                                                    </Grid>
+                                                                    <ProgressBar Classes="FuelWeek" Minimum="0" Maximum="100" Value="{Binding Percent}"
+                                                                                 ToolTip.Tip="{Binding CountText}"/>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2" Classes="FuelPanel">
+                                                <StackPanel Spacing="10">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <Border Width="12" Height="12" CornerRadius="3" Background="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="GÜNLER" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource SuccessBrush}" LetterSpacing="1"/>
+                                                        <TextBlock Text="(yalnız dağıtım olan günler · koyu = daha çok)" Classes="Helper"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding S.DayTiles}">
+                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="8" LineSpacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="op:FuelDayTile">
+                                                                <Panel Width="78" Height="72" ToolTip.Tip="{Binding FullText}">
+                                                                    <Border CornerRadius="12" Background="{DynamicResource SuccessBrush}" Opacity="{Binding Opacity}"/>
+                                                                    <StackPanel Margin="8,6" Spacing="0" Classes="FuelDay" Classes.strong="{Binding IsStrong}">
+                                                                        <Grid ColumnDefinitions="*,Auto">
+                                                                            <TextBlock Grid.Column="0" Text="{Binding DayNumber}" FontSize="18" FontWeight="Bold"/>
+                                                                            <TextBlock Grid.Column="1" Text="{Binding Weekday}" FontSize="11" VerticalAlignment="Center" Opacity="0.85"/>
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding LitersText}" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,0"
+                                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                    </StackPanel>
+                                                                </Panel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
                                         </Grid>
-                                    </Expander.Header>
-                                    <Grid ColumnDefinitions="*,24,*">
-                                        <StackPanel Grid.Column="0" Spacing="2">
-                                            <SelectableTextBlock Text="Haftalık" Classes="Helper" FontWeight="SemiBold"/>
-                                            <ItemsControl ItemsSource="{Binding Weeks}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="op:FuelWeekSummary">
-                                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                            <SelectableTextBlock Grid.Column="0" Text="{Binding RangeText}"/>
-                                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" FontWeight="SemiBold"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2" Spacing="2">
-                                            <SelectableTextBlock Text="Günlük (yalnız dağıtım olan günler)" Classes="Helper" FontWeight="SemiBold"/>
-                                            <ItemsControl ItemsSource="{Binding Days}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="op:FuelDaySummary">
-                                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                            <SelectableTextBlock Grid.Column="0" Text="{Binding DayText}"/>
-                                                            <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" FontWeight="SemiBold"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Grid>
-                                </Expander>
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

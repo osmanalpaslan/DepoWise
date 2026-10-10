@@ -53,7 +53,8 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     public string TotalDistributedText => $"{TotalDistributed:0.##} L";
 
     /// <summary>Özet sekmesi — AYLIK gruplu dağıtım (kullanıcı isteği 2026-09-30); en yeni ay üstte.</summary>
-    public ObservableCollection<FuelMonthSummary> MonthlySummary { get; } = new();
+    public ObservableCollection<FuelMonthCard> MonthlySummary { get; } = new();
+    public bool HasMonthly => MonthlySummary.Count > 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -395,7 +396,15 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             TotalReceived = DepotEntries.Where(x => !x.IsCancelled).Sum(x => x.Liters);
             // Aylık özet TÜM kayıtlardan (sayfadan bağımsız) — hata listeyi düşürmesin.
             MonthlySummary.Clear();
-            try { foreach (var ay in DesktopServices.Fuel.MonthlySummary(_session).Months) MonthlySummary.Add(ay); } catch { }
+            try
+            {
+                // 2026-10-10 yeni tasarım: her ay kartında "en yoğun aya göre" oran çubuğu.
+                var aylar = DesktopServices.Fuel.MonthlySummary(_session).Months;
+                var enYuksek = aylar.Count == 0 ? 0m : aylar.Max(a => a.Liters);
+                foreach (var ay in aylar) MonthlySummary.Add(new FuelMonthCard(ay, FuelMonthSummary.Oran(ay.Liters, enYuksek)));
+            }
+            catch { }
+            OnPropertyChanged(nameof(HasMonthly));
             // Kesilmenin SESSİZ olmaması asıl şikayetin özüydü: kaç kayıt var, kaçıncı sayfadayız — yazılır.
             Status = TotalCount == 0
                 ? "Kayıt bulunamadı" + (Filtreli ? " (filtreler etkin)" : "")
@@ -668,4 +677,20 @@ public sealed record FuelRow(string Id, string VehicleCode, decimal PrevMeter, d
     public string TotalText => $"{Liters * UnitPrice:0.##} {Currency}";
     public string MeterText => $"{PrevMeter:0.##} → {CurrentMeter:0.##}";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(DistributionDate).LocalDateTime.ToString("dd.MM.yyyy");
+}
+
+/// <summary>
+/// Özet ekranı ay kartı (2026-10-10 yeni tasarım). Servis verisi + "en yoğun aya göre" oran (çubuk).
+/// Mevcut ay varsayılan AÇIK gelir; diğerleri kapalı (kullanıcı tıklayınca açılır).
+/// </summary>
+public sealed partial class FuelMonthCard : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public FuelMonthSummary S { get; }
+    public double Share { get; }
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _isExpanded;
+
+    public FuelMonthCard(FuelMonthSummary s, double share)
+    {
+        S = s; Share = share; _isExpanded = s.IsCurrentMonth;
+    }
 }

@@ -57,6 +57,54 @@ public sealed record FuelMonthSummary(int Year, int Month, decimal Liters, int C
     public string DailyAverageText => $"{DailyAverage.ToString("#,##0.##", Tr)} L";
     public string WeeklyAverageText => $"{WeeklyAverage.ToString("#,##0.##", Tr)} L";
     public string CountText => $"{Count} işlem";
+
+    // ═══ 2026-10-10 (kullanıcı isteği) — ÖZET EKRANI YENİ TASARIM: görüntü alanları (iki platform ortak) ═══
+    // Haftalık ve günlük değerler ayırt edilemiyordu (ikisi de aynı "tarih — litre" listesiydi). Artık
+    // haftalar ORAN ÇUBUĞU, günler TAKVİM KUTUCUĞU olarak çizilir; çubuk/kutucuk yoğunluğu burada hesaplanır.
+    public string MonthName => new DateTime(Year, Month, 1).ToString("MMMM", Tr);
+    public string YearText => Year.ToString();
+    public bool IsCurrentMonth => Year == DateTime.Today.Year && Month == DateTime.Today.Month;
+
+    public IReadOnlyList<FuelWeekBar> WeekBars
+    {
+        get
+        {
+            var max = Weeks.Count == 0 ? 0m : Weeks.Max(w => w.Liters);
+            return Weeks.Select((w, i) => new FuelWeekBar($"{i + 1}. Hafta", w.RangeText, w.LitersText,
+                $"{w.Count} işlem", Oran(w.Liters, max))).ToList();
+        }
+    }
+
+    public IReadOnlyList<FuelDayTile> DayTiles
+    {
+        get
+        {
+            var max = Days.Count == 0 ? 0m : Days.Max(d => d.Liters);
+            return Days.Select(d =>
+            {
+                var oran = Oran(d.Liters, max);
+                // 4 yoğunluk kademesi → kutucuk zemini açıktan koyuya (takvim ısı haritası).
+                var kademe = oran >= 75 ? 3 : oran >= 45 ? 2 : oran >= 20 ? 1 : 0;
+                return new FuelDayTile(d.Day.ToString("dd"), d.Day.ToString("ddd", Tr), d.Day.ToString("dd MMMM dddd", Tr),
+                    d.Liters.ToString("#,##0.#", Tr) + " L", $"{d.Count} işlem", kademe);
+            }).ToList();
+        }
+    }
+
+    /// <summary>0–100 oran (çubuk genişliği). En küçük görünür değer 4 — sıfır olmayan hafta kaybolmasın.</summary>
+    public static double Oran(decimal v, decimal max)
+        => max <= 0 || v <= 0 ? 0 : Math.Max(4, (double)(v / max * 100m));
+}
+
+/// <summary>Özet ekranı — bir haftanın oran çubuğu satırı.</summary>
+public sealed record FuelWeekBar(string Label, string RangeText, string LitersText, string CountText, double Percent);
+
+/// <summary>Özet ekranı — bir günün takvim kutucuğu. <paramref name="Level"/> 0–3: yoğunluk (zemin koyuluğu).</summary>
+public sealed record FuelDayTile(string DayNumber, string Weekday, string FullText, string LitersText, string CountText, int Level)
+{
+    public double Opacity => Level switch { 3 => 0.95, 2 => 0.70, 1 => 0.45, _ => 0.22 };
+    /// <summary>Koyu zeminde (kademe 2-3) yazı beyaz olur.</summary>
+    public bool IsStrong => Level >= 2;
 }
 
 public sealed record FuelWeekSummary(DateTime Start, DateTime End, decimal Liters, int Count)

@@ -230,59 +230,85 @@
         }
     }
 
-    @* ═══════════ ÖZET ═══════════ *@
+    @* ═══════════ ÖZET ═══════════
+       ⭐ 2026-10-10 (kullanıcı isteği) YENİ TASARIM — iOS tarzı yumuşak kartlar; masaüstüyle aynı düzen.
+       Haftalar mavi ORAN ÇUBUĞU, günler yeşil TAKVİM KUTUCUĞU → ay açılınca ikisi artık karışmaz.
+       Görüntü alanları (weekBars/dayTiles/monthName...) sunucudaki ortak modelden gelir. *@
     @if (_sec == "summary")
     {
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadSummary">Yenile</MudButton>
-        <MudGrid Class="mt-2" Spacing="2">
-            <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_depotBalance.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Kalan Yakıt (Depo)</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_currentPrice.ToString("0.##")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Güncel Fiyat</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_totalReceived.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Toplam Alınan</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_totalDistributed.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Toplam Dağıtılan</MudText></MudPaper></MudItem>
-        </MudGrid>
-        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır.</MudText>
+        <div class="fz-wrap">
+            <div class="d-flex justify-end mb-2">
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadSummary">Yenile</MudButton>
+            </div>
+            <div class="fz-kpis">
+                <div class="fz-kpi"><div class="fz-kpi-lbl"><span class="fz-dot fz-accent"></span>Kalan Yakıt (Depo)</div><div class="fz-kpi-val">@_depotBalance.ToString("#,##0.##", Tr) L</div></div>
+                <div class="fz-kpi"><div class="fz-kpi-lbl"><span class="fz-dot fz-warn"></span>Güncel Fiyat</div><div class="fz-kpi-val">@_currentPrice.ToString("#,##0.##", Tr) ₺/L</div></div>
+                <div class="fz-kpi"><div class="fz-kpi-lbl"><span class="fz-dot fz-info"></span>Toplam Alınan</div><div class="fz-kpi-val">@_totalReceived.ToString("#,##0.##", Tr) L</div></div>
+                <div class="fz-kpi"><div class="fz-kpi-lbl"><span class="fz-dot fz-ok"></span>Toplam Dağıtılan</div><div class="fz-kpi-val">@_totalDistributed.ToString("#,##0.##", Tr) L</div></div>
+            </div>
+            <div class="fz-note">Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır.</div>
 
-        @* 2026-09-30 (kullanıcı isteği): AYLIK GRUPLU DAĞITIM — masaüstüyle aynı içerik (sunucu hesaplar). *@
-        <MudText Typo="Typo.h6" Class="mt-4">Aylık Dağıtım (son 12 ay)</MudText>
-        @if (_months.Count == 0) { <MudText Class="mud-text-secondary">Bu dönemde dağıtım yok.</MudText> }
-        <MudExpansionPanels MultiExpansion="true" Dense="true" Class="mt-2">
+            <div class="fz-head">
+                <div class="fz-title">Aylık Dağıtım</div>
+                <div class="fz-legend">
+                    <span><i class="fz-leg-bar"></i>Haftalık</span>
+                    <span><i class="fz-leg-tile"></i>Günlük</span>
+                    <span class="fz-muted">son 12 ay</span>
+                </div>
+            </div>
+            @if (_months.Count == 0) { <div class="fz-muted">Bu dönemde dağıtım yok.</div> }
+            @{ var enYuksek = _months.Count == 0 ? 0m : _months.Max(a => Dec(a, "liters")); }
             @foreach (var ay in _months)
             {
-                <MudExpansionPanel>
-                    <TitleContent>
-                        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center">
-                            <b style="min-width:140px">@Str(ay, "monthText")</b>
-                            <span>Aylık: <b>@Str(ay, "litersText")</b></span>
-                            <span>Haftalık ort.: @Str(ay, "weeklyAverageText")</span>
-                            <span>Günlük ort.: @Str(ay, "dailyAverageText")</span>
-                            <span class="mud-text-secondary">@Str(ay, "countText")</span>
+                var anahtar = Str(ay, "year") + "-" + Str(ay, "month");
+                var acik = _openMonths.Contains(anahtar);
+                var buAy = Bool(ay, "isCurrentMonth");
+                var oran = enYuksek <= 0 ? 0 : Math.Max(4, (double)(Dec(ay, "liters") / enYuksek * 100m));
+                <div class="fz-month @(buAy ? "fz-current" : null)">
+                    <button type="button" class="fz-month-head" title="Haftalık ve günlük ayrıntıyı göster / gizle"
+                            @onclick="@(() => ToggleMonth(anahtar))">
+                        <div class="fz-mname"><b>@Str(ay, "monthName")</b> <span class="fz-muted">@Str(ay, "yearText")</span>
+                            @if (buAy) { <span class="fz-pill fz-pill-accent">Bu ay</span> }</div>
+                        <div class="fz-pills">
+                            <span class="fz-pill fz-pill-info">Haftalık ort. @Str(ay, "weeklyAverageText")</span>
+                            <span class="fz-pill fz-pill-ok">Günlük ort. @Str(ay, "dailyAverageText")</span>
+                            <span class="fz-pill">@Str(ay, "countText")</span>
                         </div>
-                    </TitleContent>
-                    <ChildContent>
-                        <MudGrid Spacing="2">
-                            <MudItem xs="12" md="6">
-                                <MudText Typo="Typo.subtitle2">Haftalık</MudText>
-                                <MudSimpleTable Dense="true">
-                                    <tbody>
-                                        @foreach (var h in Arr(ay, "weeks"))
-                                        { <tr><td>@Str(h, "rangeText")</td><td style="text-align:right"><b>@Str(h, "litersText")</b></td></tr> }
-                                    </tbody>
-                                </MudSimpleTable>
-                            </MudItem>
-                            <MudItem xs="12" md="6">
-                                <MudText Typo="Typo.subtitle2">Günlük (yalnız dağıtım olan günler)</MudText>
-                                <MudSimpleTable Dense="true">
-                                    <tbody>
-                                        @foreach (var g in Arr(ay, "days"))
-                                        { <tr><td>@Str(g, "dayText")</td><td style="text-align:right"><b>@Str(g, "litersText")</b></td></tr> }
-                                    </tbody>
-                                </MudSimpleTable>
-                            </MudItem>
-                        </MudGrid>
-                    </ChildContent>
-                </MudExpansionPanel>
+                        <div class="fz-total">@Str(ay, "litersText")</div>
+                        <div class="fz-chev @(acik ? "fz-open" : null)">⌄</div>
+                        <div class="fz-share" title="Son 12 ayın en yoğun ayına göre oran"><i style="width:@(oran.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+                    </button>
+                    @if (acik)
+                    {
+                        <div class="fz-detail">
+                            <div class="fz-panel">
+                                <div class="fz-ptitle fz-t-info"><i class="fz-leg-bar"></i>HAFTALAR</div>
+                                @foreach (var h in Arr(ay, "weekBars"))
+                                {
+                                    var p = Dbl(h, "percent");
+                                    <div class="fz-week" title="@Str(h, "countText")">
+                                        <div class="fz-week-row"><b>@Str(h, "label")</b><span class="fz-muted">@Str(h, "rangeText")</span><b class="fz-right">@Str(h, "litersText")</b></div>
+                                        <div class="fz-bar"><i style="width:@(p.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+                                    </div>
+                                }
+                            </div>
+                            <div class="fz-panel">
+                                <div class="fz-ptitle fz-t-ok"><i class="fz-leg-tile"></i>GÜNLER <span class="fz-muted" style="font-weight:400;letter-spacing:0">(yalnız dağıtım olan günler · koyu = daha çok)</span></div>
+                                <div class="fz-days">
+                                    @foreach (var g in Arr(ay, "dayTiles"))
+                                    {
+                                        <div class="fz-day fz-l@(Str(g, "level"))" title="@Str(g, "fullText") · @Str(g, "countText")">
+                                            <div class="fz-day-top"><b>@Str(g, "dayNumber")</b><span>@Str(g, "weekday")</span></div>
+                                            <div class="fz-day-l">@Str(g, "litersText")</div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
             }
-        </MudExpansionPanels>
+        </div>
     }
 
 
@@ -451,6 +477,9 @@
             _depotBalance = D(d, "depotBalance"); _currentPrice = D(d, "currentPrice");
             _totalReceived = D(d, "totalReceived"); _totalDistributed = D(d, "totalDistributed");
             _months = Arr(d, "months").ToList();
+            // Yeni tasarım: içinde bulunulan ay varsayılan AÇIK (masaüstüyle aynı).
+            _openMonths.Clear();
+            foreach (var ay in _months.Where(a => Bool(a, "isCurrentMonth"))) _openMonths.Add(Str(ay, "year") + "-" + Str(ay, "month"));
         }
         catch { }
     }
@@ -667,6 +696,12 @@
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
     private static decimal Dec(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+    private static readonly System.Globalization.CultureInfo Tr = new("tr-TR");
+    /// <summary>Özet: açık ay kartları (anahtar "yıl-ay").</summary>
+    private readonly HashSet<string> _openMonths = new();
+    private void ToggleMonth(string key) { if (!_openMonths.Remove(key)) _openMonths.Add(key); }
+    private static double Dbl(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
     private static decimal D(JsonElement o, string key) => o.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
     private static string Date(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
