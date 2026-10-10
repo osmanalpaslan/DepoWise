@@ -8,11 +8,10 @@
 ## 🔻 HER OTURUMDA OKUMA SIRASI (zorunlu)
 
 ```
-1. CURRENT_PHASE.md   → neredeyiz, sıradaki görev ne?
-2. MASTER_ROADMAP.md  → faz sırası ve bağımlılıklar
-3. TASK_BACKLOG.md    → görevin ayrıntısı ve kabul ölçütü
-4. git status + git log → kayıt ile GERÇEK durum uyuşuyor mu?
-5. Fark varsa → GERÇEK durum esastır; farkı raporla ve bu dosyaları düzelt
+1. CURRENT_PHASE.md   → neredeyiz, sıradaki görev ne? (kısa tutulur; eskisi ../arsiv/)
+2. git status + git log → kayıt ile GERÇEK durum uyuşuyor mu?
+   MASTER_ROADMAP / TASK_BACKLOG yalnız ilgili görev için, grep ile açılır (2026-10-10 sadeleştirme).
+3. Fark varsa → GERÇEK durum (kod) esastır; farkı raporla ve bu dosyaları düzelt
 ```
 
 **Hiçbir görev bu dosyalar güncellenmeden "tamamlandı" sayılmaz.**
@@ -27,10 +26,8 @@
 | [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) | Tüm fazlar, sıra, bağımlılık ağacı, maliyet sınıfı |
 | [`TASK_BACKLOG.md`](TASK_BACKLOG.md) | Tüm görevler (ID, durum, bağımlılık, kabul ölçütü) |
 | [`PARITY_MATRIX.md`](PARITY_MATRIX.md) | Web ↔ Masaüstü ekran ve özellik paritesi |
-| [`AUDIT_2026-08-11.md`](AUDIT_2026-08-11.md) | Kapsamlı denetim bulguları (sync, update, yetki, DB, API, sektör, ön muhasebe) |
 | [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) | Kullanıcı kararı bekleyen konular |
-| [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md) | FAZ C tasarımı: depo bazlı stok (KARAR-7=A), migration planı |
-| [`STK_02_UYGULAMA_PLANI.md`](STK_02_UYGULAMA_PLANI.md) | STK-02 envanteri: lokasyon farkına dönüştürülen 16 üretim noktası |
+| `../arsiv/project-control/` | Biten iş paketlerinin analiz/plan dosyaları (AUDIT, FAZ_C, STK_*, ARA_IS_* …) |
 
 ## Bu klasörün DIŞINDAKİ bağlayıcı kayıtlar
 

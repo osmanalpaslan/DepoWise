@@ -1,217 +1,62 @@
-# DepoWise - Claude Code Ana Kuralları
+# DepoWise — Claude Code Ana Kuralları
+> Kısa tutulur: her mesajda yüklenir. Ayrıntı `docs/` altındadır (harita: `docs/README.md`). Son sadeleştirme 2026-10-10.
 
-## 0. Oturum devri ve iki-PC senkronu (HER OTURUMDA — önce bu)
-- Bu proje birden fazla bilgisayarda geliştiriliyor; tek gerçek kaynak GitHub: `github.com/osmanalpaslan/DepoWise`.
-- **Kullanıcı dosya kaybı yaşıyor: git DAİMA güncel kalmalı.** Yerelde bırakılmış, push edilmemiş iş kabul edilemez.
-- **Oturum başında:** önce `git pull` (temiz ağaçta; kirliyse önce kullanıcıya sor, ezme/reset yapma), sonra `DEVAM.md`'yi oku. Bağlamı buradan al, kullanıcıya tekrar sorma.
-- **Her anlamlı değişiklikten HEMEN sonra commit + `git push`** yap; oturum sonunu bekleme. Bir dosya grubu tamamlandığında, bir hata düzeltildiğinde, bir özellik çalıştığında commit'le ve gönder. Kural: yerelde push'suz iş biriktirme.
-- **Her push öncesi `DEVAM.md`'yi güncel tut:** §2 "en son yaptıklarım", §3 "sıradaki tek iş" ve üstteki "son güncelleme" tarihini yeniden yaz. Gerekirse `docs/PROJECT_STATE.md`/`KNOWN_ISSUES.md`/`DECISIONS.md`'yi de eşle ve aynı commit'e dahil et.
-- **Oturum/yanıt bitmeden önce:** commit edilmemiş değişiklik kalmadığından emin ol (`git status` temiz + origin ile senkron). Kullanıcı açıkça "gönderme" demedikçe push'u asla atlama.
-- **⭐ Aktif durum ve sıradaki iş: `docs/project-control/`** (2026-08-11'den beri **tek doğru kaynak**).
-  Okuma sırası: `CURRENT_PHASE.md` → `MASTER_ROADMAP.md` → `TASK_BACKLOG.md` → `git status`/`git log`.
-  Kullanıcı "nerede kaldık / sırada ne var" dediğinde **buradan** cevapla; **hiçbir görev bu dosyalar
-  güncellenmeden "tamamlandı" sayılmaz**. `docs/YARIM_KALAN_ISLER.md`, `docs/GOREV_PANOSU.md`,
-  `docs/PROJE_DURUMU_VE_ILERLEME.md` ve `DEVAM.md` **arşivdir** — geçmiş kaydı olarak durur, güncellenmez.
-- **Çok görevli takip: `docs/GOREV_PANOSU.md`.** Aynı anda birden fazla bağımsız iş yürüyor (PostgreSQL geçişi + babanın uygulaması geliştirmeleri). Kullanıcı "X'te nerede kaldık / Y'ye dön" dediğinde buradan cevapla; her görevin **Durum / Nerede kaldık / Sıradaki adım** satırlarını her ilerlemede güncelle. 🔒 **Altın kural (geçiş boyunca her işte):** babanın canlı gerçek verisine dokunma — PostgreSQL denemeleri gerçek verinin KOPYASIYLA, ayrı DB'de; eski SQLite sunucusu kanıtlanana kadar canlı/yedekte kalır. Mimari: masaüstü SQLite KALIR, sunucu+web PostgreSQL'e taşınır, **yeni repo açılmaz**.
-- `DEVAM.md` kısa ve teknik-olmayan kalır; ayrıntı `docs/` altındadır. Çelişkide `DEVAM.md` özet, `docs/` bağlayıcıdır.
-- **Arayüz fark etmez** (VS Code eklentisi / Claude Code masaüstü uygulaması / terminal): kurallar `CLAUDE.md` + `.claude/` + `DEVAM.md`'dedir ve git ile taşınır. Yeni arayüzde de akış aynıdır: `git pull` → `DEVAM.md` → `docs/YARIM_KALAN_ISLER.md`.
+## 0. Oturum ve git
+- Başta `git pull`; güncel durum **yalnız** `docs/project-control/CURRENT_PHASE.md`'den okunur. `docs/arsiv/` geçmiştir — tarama.
+- Her anlamlı değişiklikten hemen sonra commit + push; push öncesi `CURRENT_PHASE.md`'ye kısa girdi.
+- **Kullanıcının commitlenmemiş sohbet/SignalR çalışması** (`ChatHub.cs`, `Program.cs` sohbet bölümleri, iki csproj, `ChatDock.razor`,
+  `ApiClient.cs`, `.gitignore`, `docs/ARAC_KURULUMU.md`, `docs/kilavuzlar/` …) commit'e GİRMEZ. `Program.cs`'te yalnız kendi
+  değişikliklerini index'e koy (HEAD + kendi yamaların → `git update-index`). Kullanıcı değişikliğini silme/ezme/resetleme.
 
-## 1. Proje kimliği ve kaynak önceliği
-- Bu projenin tek adı **DepoWise**'tır.
-- Bağlayıcı analiz: `docs/DEPOWISE_ANALYSIS.md`.
-- Aynı anda yalnız `prompts/` altındaki tek aktif faz uygulanır. Sonraki faza kendiliğinden geçme.
-- Çelişkide: kullanıcının son açık talebi > V6 analiz > aktif faz > bu dosya > mevcut kod. Kararı `docs/DECISIONS.md` içine yaz.
+## 1. Kullanıcı ve çalışma biçimi
+- Yazılım bilgisi yok: kısa, sade Türkçe; İngilizce terim (Türkçesi). Soru yalnız sonucu değiştiren ürün belirsizliğinde.
+- Her yeni işte önce **tek satır motor önerisi**: Haiku (metin/tek dosya) · Sonnet (rutin, varsayılan) · Opus (yetki/tenant/senkron/
+  migration/çok dosya/derin hata). Kullanıcı "başla/devam" ya da önden onay verdiyse beklemeden devam.
+- Çelişkide öncelik: kullanıcının son talebi > bu dosya + `.claude/rules/` > `docs/DECISIONS.md` > mevcut kod.
+- Çalışan kodu yeniden yazma; küçük, geri alınabilir değişiklik (ayrıntı: `.claude/rules/gelistirme-protokolu.md`).
 
-## 2. Kullanıcı ve çalışma biçimi
-- Kullanıcının yazılım bilgisi yoktur. Teknik sorumluluğu kullanıcıya devretme.
-- Belgede cevabı olmayan ve sonucu değiştiren gerçek ürün belirsizliği dışında soru sorma.
-- Mevcut çalışan kodu yeniden yazma; küçük, geri alınabilir değişiklik yap.
-- Kullanıcının git değişikliklerini silme, resetleme veya ezme.
+## 2. Mimari (güncel gerçek)
+- **Masaüstü:** .NET 8 · Avalonia 12 · MVVM · yerel SQLite `%LOCALAPPDATA%\DepoWise\Data` (Cache=Private, WAL, foreign_keys, busy_timeout=5000).
+  Çevrimdışı çalışır; anlık eşitleme `/api/sync/wait` + 60 sn güvenlik turu.
+- **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (256 MB, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
+- **API:** minimal API `/api/...` (sürüm öneki yok), `depowise-erp.fly.dev` (512 MB, tek makine). Hata gövdesi `{"error":"..."}`.
+- **Üretim DB:** Supabase PostgreSQL 17 (proje *Alpnex*, `depowise_prod`). API doğrudan bağlantı; yerel araçlar pooler
+  (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 98.**
+- Migration kataloğu iki lehçede yürür; lehçe farkı `SqlDialect`/`DbIntrospect`. Yeni migration yalnız ekleme (ADD COLUMN/CREATE)
+  ve kullanıcı onayıyla; servisler eski şemaya dayanıklı kalır (`DbIntrospect.ColumnExists`).
+- **Ortak dosya tuzağı:** Web, Application'daki bazı dosyaları csproj `Compile Include` ile bağlar (proje referansı yok). Web'de
+  gereken yeni ortak tipi zaten bağlı bir dosyaya ekle (ör. `Ui/MeterUnitOptions.cs`, `Ui/ListColumns.cs`).
+- **Ekran ekleme:** `AppScreens.cs` tek satır + `MenuIcons` + masaüstü `ShellViewModel.Navigate` case + web `@page`. Menü sayıları
+  testlerde sabittir (`AppScreensParityTests`, `MenuRenkTests`, `MasaustuTasarimPaketiTests`) — bilinçli güncelle.
 
-### 2.1 Motor (model) seçimi — HER işin başında (kullanıcı kuralı, 2026-07-12)
-> Kullanıcı maddi olarak dikkatli; fiyat/performans önemli. Bu yüzden her yeni iş talebinden **sonra**,
-> işe başlamadan **önce** Claude hangi motorun uygun olduğunu **tek satırla** söyler; kullanıcı motoru
-> değiştirir ("değiştirdim" / "devam" / "başla" der); Claude **ancak ondan sonra** işleme başlar.
+## 3. Değişmez iş kuralları
+- `company_id` yalnız oturumdan; her sorguda firma filtresi. Para/miktar `decimal` (metin saklanır), zaman UTC ms; tarih alanı UTC gün başı (`IsGunuTarihi`).
+- Stok hareket defteri ana kaynak; bakiye doğrudan değişmez. Stok/sayaç/yakıt/bakım/onayda LWW yasak; operation id + transaction + idempotency.
+- Operasyonel kayıt fiziksel silinmez (iptal/ters kayıt + audit). Tek istisna: süper adminin web "Kalıcı Silme" ekranı (ADR-083).
+- Deny-by-default; menü/işlem/alan/buton yetkisi UI ve API'de aynı. Kayıt işlemleri `ConfirmService` onayı ister (form içi işlemler muaf listede).
+- Web ve masaüstü işlevsel eşit; önce masaüstü, web aynı iş biriminde tamamlanır. Tablo istekleri rapor dahil TÜM tablolara uygulanır.
 
-- **Akış:** (1) talebi oku → (2) uygun motoru öner → (3) kullanıcının onayını bekle → (4) işe başla.
-  Önerilen motor zaten açıksa "**mevcut motor (X) yeterli, değiştirme gerekmez**" de ve yine kısa onay bekle.
-- Öneri kalıbı: **"Bu iş için önerilen motor: X — [tek cümle gerekçe]."**
-- **Seçim rehberi (karmaşıklık × hata maliyeti):**
-  - **Haiku 4.5** — çok basit: metin/etiket/yorum düzeltme, tek dosyada ufak değişiklik, log/dosya okuma, biçimlendirme, salt-okunur özet.
-  - **Sonnet 5 (VARSAYILAN)** — rutin özellik/hata işleri, orta karmaşıklık, UI bağlama, birkaç dosya, testli ama riski düşük değişiklikler. Fiyat/performansın en iyisi.
-  - **Opus 4.8** — zor/riskli: yetki-güvenlik, tenant sızıntısı, senkron/LWW/idempotency, migration/şema, ~6'dan çok dosyaya yayılan refactor, "neden kırıldı" derin hata avı, mimari karar. **Hatanın maliyeti yüksekse Opus.**
-- Emin değilsen bir üst kademeyi öner (güvenlik/para/senkrona dokunan işte Sonnet yerine Opus).
-- Kullanıcı açıkça "sen seç / geçme / beklemeden başla" derse: öneriyi yine yaz ama beklemeden devam et.
+## 4. Test
+- **Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 [-Filter "..."] [-Bekle] [-PostgresAtla]`.
+  Tam takım ~4.000 test / ~60 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
+- Test tipine (normal/kapsamlı) Claude karar verir, gerekçe tek satır. Flaky testi tekrarla gizleme.
+- **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
+  masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
+  web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; 256 MB web → koşular arası ~3 dk bekle).
+- Kritik alanlarda her zaman test: tenant, yetki, rollback, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı, eski şema.
 
-## 3. Token tasarrufu
-- Önce glob/grep, sonra gerekli satır aralığı. Değişmemiş dosyaları tekrar okuma.
-- Tam dosyayı yanıta yapıştırma; değişen dosyalar + kısa gerekçe + test sonucu ver.
-- Uzun logu dosyaya yaz; yanıtta yalnız ilgili hata.
-- 8'den fazla dosyaya yayılan işi alt adımlara böl.
-- Her faz sonunda state dosyalarını güncelle. Bağlam büyürse `/compact` öner ve aynı fazdan devam et.
+## 5. Yayın ve üretim
+- Yayın kullanıcı onayıyla (önden onay verdiyse testler geçince). Deploy **yalnız temiz kopyadan**:
+  `git archive HEAD | tar -x -C %TEMP%/dw_deploy` → `flyctl deploy --config fly.toml --remote-only` (API, önce) → `fly.web.toml` (web).
+- Masaüstü: `dotnet publish src/DepoWise.Desktop -c Release -r win-x64 --self-contained -p:Version=X.Y.Z -o artifacts/rc/desktop-X.Y.Z`
+  → zip `artifacts/rc/` içine → `node scripts/publish_release.mjs <zip> X.Y.Z "<not>"` (env `DEPOWISE_ADMIN_USER/PASS`).
+- Üretim DB'de yalnız salt okuma. Gerçek firma **Oze İnşaat**'a yıkıcı işlem yok; test firması *Alpnex Test* (`.env.test.local`).
+- Sır/şifre ekrana yazılmaz. Release/update mekanizması değişikliği onay ister.
 
-## 4. Mimari değişmezler (güncel — 2026-07-09, ADR-057)
-- **Web: Blazor Server/.NET (MudBlazor)** — `src/DepoWise.Web`, canlıda `depowise-web.fly.dev`. `apps/web`
-  (Next.js/Drizzle/PostgreSQL) 2026-06-27'den beri donmuş/terk edilmiş; yalnız referans/geçmiş, aktif
-  geliştirme yok. Masaüstü: .NET 8/Avalonia/MVVM/Dapper/SQLite.
-- **API/sunucu veritabanı: PostgreSQL** (Neon, `depowise_prod`) — **2026-07-24'ten beri üretimde**.
-  Sunucu, `DEPOWISE_PG_URL` ortam değişkeni tanımlıysa PostgreSQL'e bağlanır (Fly secret olarak ayarlı);
-  değişken TANIMSIZSA SQLite'a düşer — bu geri dönüş yolu bilinçli olarak korunuyor
-  (`flyctl secrets unset DEPOWISE_PG_URL` + redeploy). Eski `depowise-server.db` (Fly kalıcı disk `/data`)
-  yedek olarak duruyor. Üretim şema sürümü: **62**.
-  **Masaüstü SQLite'ta KALIR** (çevrimdışı çalışma bundan gelir) — şema aynı migration kataloğuyla yürür.
-  Lehçe farkları `SqlDialect` / `DbIntrospect` / `DialectPurge` içinde toplanmıştır; iki lehçe de test edilir.
-- Web ve masaüstü işlevsel olarak eşit; piksel eşitliği zorunlu değil.
-- API uçları **`/api/...`** altındadır (sürüm öneki YOKTUR — `/api/v1` kullanılmaz).
-  **Ortak hata modeli VARDIR:** tek bir middleware istisnaları HTTP koduna çevirir ve gövdeyi
-  `{"error": "..."}` olarak yazar (403 yetki, 409 düzenleme kilidi, 400 iş kuralı/doğrulama, 500 diğer).
-  **Correlation id ve OpenAPI/Swagger sözleşmesi YOKTUR** (D-1b, 2026-08-09 doğrulandı — kodda ne
-  `correlation` başlığı ne de Swagger paketi var). İhtiyaç olursa ayrı iş olarak eklenir; bu satır
-  "yapılacak" değil, **mevcut durumdur**.
-- `company_id` yalnız güvenilir session/server context'ten gelir.
-- Para decimal + currency; zaman UTC/Unix ms; sorgular parametreli.
-- Stok hareket defteri ana kaynaktır; doğrudan bakiye değiştirme yok.
-- Stok, sayaç, yakıt, bakım ve onayda LWW yasaktır. Operation id + transaction + idempotency kullan.
-- Operasyonel kaydı fiziksel silme; iptal/ters kayıt ve audit kullan.
-  **Tek istisna (ADR-083):** süper adminin web'deki "Kalıcı Silme" ekranı — FİRMA bazlı, geri alınamaz,
-  özel kod + şifre + firma adı teyidi ile; kendi firması silinemez. Başka hiçbir yerde fiziksel silme yok.
+## 6. Araçlar
+- Serena: yalnız okuma (sembol/referans). Değişiklik Claude'un Edit/Write/Bash araçlarıyla.
+- Context7 ve Playwright **MCP** tanımlı ama KAPALI; kullanıcı açıkça istemedikçe açma (Playwright testleri npm ile çalışır).
+- Uzun yama: `node` + dosyaya yazılmış betik (bash heredoc/escape tuzaklarına karşı); CRLF korunur.
 
-## 5. UI ve yetki
-- Deny-by-default; menü, işlem, alan ve özel buton yetkisi UI ile API'da aynı uygulanır.
-- Numeric alan kontrollü numeric input/NumericUpDown; tarih GG/AA/YYYY + gerçek takvim doğrulaması.
-- Aranabilir çoklu seçimde seçimler aramada korunur; tümünü seç yalnız filtre sonucunu ekler.
-- Ağır rapor Sorgula/Filtrele tıklanmadan çalışmaz.
-
-## 6. COMODO - artık geçerli değil (2026-07-09, ADR-056)
-- Geliştirme COMODO'suz yeni bir bilgisayara taşındı; EXE/BAT'ı doğrudan çalıştırma yasağı ve
-  bunu zorlayan PreToolUse hook'u (`.claude/hooks/comodo_guard.ps1`) kaldırıldı.
-  `dotnet build` / `dotnet run --project ...` / `dotnet <dll>` yine de geçerli ve önerilen yöntem.
-- Geçmiş kurallar ve geri ekleme talimatı: `docs/COMODO_RUNBOOK.md` (yalnız ileride tekrar
-  COMODO'lu bir makineye dönülürse kullanılır).
-- SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000 — bu kural COMODO'dan bağımsız, her zaman geçerli.
-
-## 7. Test ve bitirme — Ekran QA Motoru V2 (kullanıcı kuralı, 2026-07-12)
-> ⏸️ **VARSAYILAN OLARAK DEVRE DIŞI (2026-08-26, kullanıcı kuralı).** Normal geliştirme işlerinde artık
-> **`.claude/rules/gelistirme-protokolu.md`** geçerlidir: en dar kapsam, en küçük doğru değişiklik,
-> yalnız ilgili testler. §7'nin ZORUNLU ağır QA süreci (persona testleri, 7.13 Coverage Matrix,
-> 7.14 Test Raporu) **yalnız kullanıcı açıkça kapsamlı denetim isterse** ("tam denetim yap",
-> "baştan sona tara", "stabilizasyon turu" vb.) çalışır. §7.16'daki kritik testler (tenant, permission,
-> rollback, negatif stok, sayaç, idempotency, offline) ise ilgili katmana dokunulduğunda **her zaman**
-> geçerlidir.
->
-> Bu projede yalnızca geliştiren değil; aynı zamanda **Senior QA / Test Automation / Manual Tester /
-> UX Tester / Security Tester / Performance Tester** gibi davranılır.
->
-> **7.0 Token disiplini (aktifken de geçerli — kullanıcı kuralı 2026-07-21).** QA israfa dönüşmesin:
-> - Kapsam **yalnız değiştirilen ekran** (7.1). Çalışan başka yere dokunma.
-> - Coverage Matrix ve rapor **kısa tablo** olur; yanıta tam rapor yapıştırılmaz — dosyaya yazılır,
->   yanıtta yalnız *"X geçti / Y bulgu"* özeti verilir.
-> - Aynı senaryo iki kez koşturulmaz; log dosyaya, yanıta yalnız ilgili hata satırı.
->
-> **7.0.1 Test hesabı.** Canlı/uçtan-uca QA'de **yalnız** `.env.test.local` içindeki test kullanıcısı
-> (`DEPOWISE_TEST_USER`) kullanılır. Gerçek yönetici hesapları (superadmin, mustafa.alpaslan) testte
-> kullanılmaz. Parola hiçbir dosyada git'e girmez (`.env.*` ignore'da).
-
-### 7.1 Kapsam — EN KRİTİK KURAL
-- Her geliştirme tamamlandıktan sonra **SADECE değiştirilen ekran** test edilir (örn. Personel değiştiyse
-  yalnız Personel; Araç değiştiyse yalnız Araç). **Başka ekrana dokunulmaz.**
-- Genel regresyon testi **yalnızca kullanıcı açıkça isterse** yapılır — kendiliğinden yapılmaz.
-- Yeni oluşturulan ekranlar da bu kurala otomatik dahildir.
-- **Kod tamamlanmış sayılmaz.** İlgili ekranın QA süreci (bkz. 7.13 Coverage Matrix + 7.14 Test Raporu)
-  bitmeden geliştirme bitmiş kabul edilmez.
-
-### 7.2 İnsan gibi test et (persona'lar)
-Gerçek kullanıcı · ilk defa kullanan · depo görevlisi · şantiye şefi · muhasebeci · firma yöneticisi ·
-süper admin · yetkisiz kullanıcı · kötü niyetli kullanıcı · çok hızlı çalışan · çok yavaş çalışan.
-Amaç **hata bulmaktır**.
-
-### 7.3 Alan ve etkileşim kapsamı
-Textbox, textarea, numeric, dropdown/combobox, autocomplete, arama, filtre, checkbox, radio, date/time
-picker, treeview, tabs, grid/datagrid, context menu, toolbar, popup, modal, buton, icon buton.
-Kısayollar: Enter, Tab, Shift+Tab, Esc, Delete, Insert, F2, Ctrl+C/V/X, çift tık, sağ tık, mouse wheel,
-scroll, drag&drop.
-
-### 7.4 Veri senaryoları
-Boş, null, 0, 1, -1, min, max, ondalık (virgül/nokta), çok büyük/küçük sayı, emoji, unicode, Türkçe
-karakter, HTML/CSS/JS/SQL Injection/XSS/script, JSON/XML, 100/500/1000/10000 karakter, tek/çift/baş/son
-boşluk, yalnız sayı, yalnız harf, karışık veri, kopyala-yapıştır, satır sonu, TAB karakteri.
-
-### 7.5 Form senaryoları
-Yeni kayıt, düzenleme, silme, iptal, kaydet, kaydetmeden çık, hızlı/çift kayıt, aynı kod/isim, pasif/aktif
-kayıt, filtreli/arama-sonrası kayıt, kayıt sırasında hata.
-
-### 7.6 Grid senaryoları
-Kolon sıralama/gizleme/genişletme, filtre, çoklu filtre, arama, sayfalama, boş liste, 1/100/1000/10000
-kayıt, performans, scroll, seçim, çift/sağ tıklama.
-
-### 7.7 Yetki senaryoları
-Süper Admin, Firma Admin, Yönetici, Depo Kullanıcısı, Personel, Salt Okunur, Yetkisiz — her rol için
-**ayrı ayrı**: menüler, butonlar, alanlar, export, import, silme, düzenleme, yeni kayıt, rapor.
-
-### 7.8 Veritabanı kontrolleri
-Kayıt oluştu mu, duplicate oluştu mu, rollback doğru çalıştı mı, transaction tamamlandı mı, audit/history
-oluştu mu, sync kuyruğu oluştu mu, offline kayıt doğru mu, soft delete doğru mu, ilişkili tablolar doğru
-güncellendi mi.
-
-### 7.9 UI testleri
-Responsive, hizalama, boşluklar, yazı taşması, yanlış ikon/renk, tooltip, placeholder, label, sekme/odak
-sırası, scrollbar, popup, modal, koyu/açık tema.
-
-### 7.10 UX testleri
-Kullanıcı burada hata yapabilir mi, buton ismi anlaşılır mı, mesaj/hata mesajı açık ve yeterli mi, işlem
-gereksiz uzun mu, fazladan tıklama var mı, klavye ile kullanılabiliyor mu.
-
-### 7.11 Performans testleri
-Liste açılışı, filtreleme, arama, kaydetme, silme, düzenleme, import, export, render, bellek kullanımı,
-gereksiz/tekrarlayan sorgular.
-
-### 7.12 Güvenlik testleri
-SQL Injection, XSS, HTML Injection, yetki atlama, URL/parametre manipülasyonu, boş yetki, çift gönderim,
-race condition.
-
-### 7.13 Coverage Matrix
-Her geliştirme sonunda şu liste oluşturulur ve tamamlanan maddeler işaretlenir: Form Açıldı · Yeni Kayıt ·
-Düzenleme · Silme · Arama · Filtre · Grid · Doğrulamalar · Yetki · Hata Mesajları · Database · Offline ·
-Sync · Performans · UI · UX · Security.
-
-### 7.14 Test raporu
-Her geliştirme sonunda `docs/tests/<EkranAdi>_Test_Report.md` oluşturulur. İçerik: geçen testler, bulunan
-hatalar, riskler, performans, coverage, tahmini test kapsamı, çalıştırılan senaryo sayısı.
-
-### 7.15 Hata bulunursa
-Kod yazmadan önce analiz et. Her hata için: öncelik, risk, tekrar üretme adımları, beklenen sonuç, gerçek
-sonuç, muhtemel neden, çözüm önerisi yaz — **sonra** düzelt, tekrar test et; sorun kalmayana kadar döngüyü
-sürdür. Başarısız testi gizleme veya yalnız tekrar çalıştırıp geçme.
-
-### 7.16 Diğer
-- Her değişiklikte en dar test; faz sonunda build + ilgili unit/integration/e2e.
-- Kritik testler (proje geneli, ekrandan bağımsız): tenant sızıntısı, permission, rollback, negatif stok,
-  sayaç geriye gitme, idempotent retry, offline kalıcılık, update rollback.
-- `docs/PROJECT_STATE.md`, `DECISIONS.md`, `KNOWN_ISSUES.md`, `TEST_EVIDENCE.md` güncellenmeden fazı
-  tamamlandı sayma.
-
-## 7.5 Araçlar — Serena / beceriler (2026-09-03, ayrıntı: `docs/ARAC_KURULUMU.md`)
-- **Serena = SALT OKUMA kod zekâsı.** C# sembol arama, referans izleme, tanıma gitme, dosya tanısı için
-  kullanılır. Büyük dosyalarda (`Program.cs` ~4000 satır) "bu sembol nerede kullanılıyor" sorusunda
-  grep'ten üstündür; **önce Serena ile bul, sonra ilgili satır aralığını oku** (§3 token disiplini).
-- **Değişiklik Serena ile YAPILMAZ.** Yazma/kabuk araçları bilerek kapatıldı. Kod değişikliği daima
-  Claude Code'un kendi `Edit`/`Write`/`Bash` araçlarıyla yapılır — yalnız onlar `.claude/settings.json`
-  içindeki izin kurallarından (`ask`/`deny`) geçer.
-- **Context7 ve Playwright MCP TANIMLI ama KAPALI.** Context7'de açık bir kritik güvenlik açığı
-  (kimlik bilgisi sızdırma) var. **Kullanıcı açıkça istemeden Context7'yi açma.**
-- **QA test araçları (kullanıcı kuralı 2026-10-10) — varsayılan KAPALI, açma kararı Claude'da:**
-  - Masaüstü arayüz: `tests/DepoWise.Desktop.UiTests` (Avalonia Headless = görünmez ekran, gerçek fare/klavye).
-    `scripts/run_ui_tests.ps1` ile çalışır; `run_tests.ps1` çalıştırmaz. Masaüstünde görünüm/etkileşim değişince AÇ.
-  - Web: `tests/web-e2e` (Playwright + kendi Chromium'u). `cd tests/web-e2e && npx playwright test`.
-    Web arayüzü/akışı değişince ve yayın sonrası duman testi olarak AÇ. Canlıda yalnız okur (test kullanıcısı).
-  - Testten sonra hiçbir araç açık/çalışır bırakılmaz. Raporda hangi aracın neden çalıştırıldığı tek satırla yazılır.
-- **Beceriler:** arayüz tasarımı için `frontend-design`; hareket/animasyon için
-  `alpnex-arayuz-hareket` (MudBlazor + Avalonia'ya özel; React/Framer Motion örneklerini bu projeye
-  uygulama — o kütüphaneler burada YOK).
-
-## 8. Yanıt formatı
-1. Yapılanlar (en fazla 6 madde)
-2. Değişen dosyalar
-3. Çalıştırılan doğrulamalar ve sonuçları
-4. Açık risk/engel
-5. Sıradaki tek iş
+## 7. Yanıt formatı
+Yapılanlar (≤6 madde) · değişen alanlar · doğrulamalar ve sonuç · açık risk · sıradaki tek iş. Ayrıntı dosyaya, yanıta özet.

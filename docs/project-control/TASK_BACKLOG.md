@@ -1,5 +1,9 @@
 # GÖREV LİSTESİ (BACKLOG)
 
+> ⚠️ **2026-10-10 doğrulaması:** aşağıdaki "SIRADA" maddelerinin bir kısmı kodda ZATEN KAPALI — kodda doğrulamadan iş açma.
+> Kodda kapalı olduğu doğrulananlar: GUV-A1 (yetki dosya yazımından önce), GUV-A2 (yedek listesi süper admin), DEN-D1 (yakıt
+> bakiyesi decimal), DEN-E2 (stok durumu raporu şube kapsamı), DEN-F1 (web buton yetkisi `CanButton`), SNK-A3/A4/A5/A6/A7 (senkron listesinde).
+>
 > Son güncelleme: **2026-08-18** (denetim turu) · Durumlar: `SIRADA` · `BEKLEMEDE` · `ENGELLİ` · `GELİŞTİRMEDE` · `TAMAMLANDI` · `ERTELENDİ`
 > Maliyet: **A** şimdi/maliyetsiz · **B** opsiyonel · **C** canlıya geçişte · **D** gelir sonrası
 

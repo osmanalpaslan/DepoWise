@@ -1,28 +1,13 @@
 ---
 paths:
   - "tests/**/*"
-  - "**/*.{test,spec}.{ts,tsx}"
+  - "**/*.{test,spec}.{ts,tsx,js}"
 ---
 # Test
-- Deterministik ve izole test; üretim DB/secret kullanılmaz.
-- Kritik: tenant, permission, rollback, concurrency, negatif stok, sayaç geriye gitme, idempotency, offline kalıcılık.
-- Flaky testi retry ile gizleme.
-- COMODO kanıtı host, mutlak DB yolu, WAL ve yeniden açılış kalıcılığını içerir.
-
-## Testler NASIL çalıştırılır (2026-09-04, zorunlu)
-**Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1` (filtre için `-Filter "KUR"`). `-ExecutionPolicy Bypass` gereklidir: bu makinede betik çalıştırma ilkesi kapalı.
-
-**Elle `dotnet build ... && dotnet test` YAZMA.** Nedeni gerçek bir olaydır: 2026-09-04'te iki koşu
-aynı anda çalıştı, birincisi ikili dosyaları kilitledi, ikincisinin **derlemesi çöktü ama koşu devam
-edip ESKİ kodu test etti ve "hepsi geçti" dedi.** İki kusur birleşmişti:
-1. Aynı anda iki koşu engellenmiyordu.
-2. `dotnet build ... | tail -n 3 && dotnet test` kalıbında **boru, derlemenin çıkış kodunu yutuyor**
-   (`tail` hep 0 döner) → `&&` derleme başarısızken bile ilerliyor. **Sessizce yanlış yeşil sonuç.**
-
-Betik ikisini de kapatır: sistem geneli kilit + derleme çıkış kodunun gerçekten kontrolü
-(derleme çökerse test **çalıştırılmaz**).
-
-**Geçici veritabanları:** testler `%TEMP%` altında SQLite dosyası üretir (191 sınıf; xUnit her test
-metodu için sınıfı yeniden oluşturduğundan koşu başına ~10.000 dosya). `TempVeritabaniTemizligi`
-her koşunun **başında** önceki artıkları süpürür — birikim tek koşulukla sınırlı kalır. Yeni test
-sınıfı yazarken geçici dosyaları `depowise_` veya `dw_` ön ekiyle adlandır ki süpürgeye takılsın.
+- Deterministik ve izole; üretim DB/sır kullanılmaz. Flaky testi retry ile gizleme.
+- Kritik: tenant, yetki, rollback, eşzamanlılık, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı kalıcılık, eski şema.
+- **Tek yol:** `scripts/run_tests.ps1` (`-ExecutionPolicy Bypass` gerekli). Elle `dotnet build | tail && dotnet test` YAZMA —
+  2026-09-04'te boru derleme hatasını yuttu ve eski ikili "hepsi geçti" dedi. Betik kilit + gerçek çıkış kodu kontrolü yapar.
+- Geçici SQLite dosyalarını `depowise_` / `dw_` ön ekiyle adlandır (her koşu başında süpürülür).
+- PostgreSQL testleri `[Collection("PostgresSchema")]` + `PostgresTestGuard.SkipUnlessSafe()`; ApiTestHost kullanan sınıflar da bu koleksiyonda.
+- Menü/ekran/filtre sayısını sabitleyen testler (AppScreensParity, MenuRenk, MasaustuTasarimPaketi) bilinçli değişiklikte güncellenir.
