@@ -15,7 +15,9 @@ namespace DepoWise.Desktop.UiTests;
 public static class TestUygulamasi
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
-        .UseHeadless(new AvaloniaHeadlessPlatformOptions())
+        // 2026-10-10: gerçek çizim (Skia) → CaptureRenderedFrame ile ekran görüntüsü alınabilir.
+        .UseSkia()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
         .WithInterFont()
         .AfterSetup(_ =>
         {

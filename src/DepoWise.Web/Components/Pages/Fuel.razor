@@ -264,7 +264,7 @@
                 var acik = _openMonths.Contains(anahtar);
                 var buAy = Bool(ay, "isCurrentMonth");
                 var oran = enYuksek <= 0 ? 0 : Math.Max(4, (double)(Dec(ay, "liters") / enYuksek * 100m));
-                <div class="fz-month @(buAy ? "fz-current" : null)">
+                <div class="fz-month @(buAy ? "fz-current" : null) @(Bool(ay, "isEmpty") ? "fz-empty" : null)">
                     <button type="button" class="fz-month-head" title="Haftalık ve günlük ayrıntıyı göster / gizle"
                             @onclick="@(() => ToggleMonth(anahtar))">
                         <div class="fz-mname"><b>@Str(ay, "monthName")</b> <span class="fz-muted">@Str(ay, "yearText")</span>

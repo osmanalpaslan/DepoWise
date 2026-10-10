@@ -36,7 +36,7 @@
 
                     <!-- Yeni talep formu -->
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
-                        <ScrollViewer MaxHeight="440">
+                        <ScrollViewer MaxHeight="640">   <!-- 2026-10-10: 440 → 640 (araç çipleri + kalem tablosu kaydırmadan görünsün) -->
                         <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                             <SelectableTextBlock Text="Belge no otomatik (TLP-YYYY-NNNN). Kaydedince talep yöneticiye iletilir; sonra düzenlenemez."

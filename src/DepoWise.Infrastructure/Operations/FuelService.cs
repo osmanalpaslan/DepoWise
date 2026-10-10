@@ -64,6 +64,8 @@ public sealed record FuelMonthSummary(int Year, int Month, decimal Liters, int C
     public string MonthName => new DateTime(Year, Month, 1).ToString("MMMM", Tr);
     public string YearText => Year.ToString();
     public bool IsCurrentMonth => Year == DateTime.Today.Year && Month == DateTime.Today.Month;
+    /// <summary>Hiç dağıtım yok → kart soluk gösterilir (göz dolu aylara gitsin).</summary>
+    public bool IsEmpty => Count == 0;
 
     public IReadOnlyList<FuelWeekBar> WeekBars
     {

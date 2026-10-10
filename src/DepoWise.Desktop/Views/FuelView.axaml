@@ -39,6 +39,9 @@
             <Setter Property="Padding" Value="18,14"/>
             <Setter Property="BoxShadow" Value="0 2 12 0 #12000000"/>
         </Style>
+        <Style Selector="Border.FuelMonth.empty">
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
         <Style Selector="Border.FuelMonth.current">
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
@@ -496,7 +499,7 @@
                        • GÜNLER   → yeşil takvim kutucukları (gün no + gün adı + litre; koyuluk = yoğunluk)
                      Her ay kartında, en yoğun aya göre ince bir oran çubuğu ve ortalamalar renkli etiketlerle. -->
                 <ScrollViewer>
-                <StackPanel Margin="0,16,0,8" Spacing="18" MaxWidth="1180" HorizontalAlignment="Left">
+                <StackPanel Margin="0,16,0,8" Spacing="18" MaxWidth="1180" HorizontalAlignment="Stretch">
                     <!-- KPI kartları -->
                     <UniformGrid Columns="4" ColumnSpacing="14" RowSpacing="14">
                         <Border Classes="FuelKpi">
@@ -560,7 +563,7 @@
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:FuelMonthCard">
-                                <Border Classes="FuelMonth" Classes.current="{Binding S.IsCurrentMonth}">
+                                <Border Classes="FuelMonth" Classes.current="{Binding S.IsCurrentMonth}" Classes.empty="{Binding S.IsEmpty}">
                                     <StackPanel Spacing="12">
                                         <!-- Ay başlığı: tıklayınca açılır/kapanır -->
                                         <ToggleButton Classes="FuelMonthHeader" IsChecked="{Binding IsExpanded}" HorizontalAlignment="Stretch"
