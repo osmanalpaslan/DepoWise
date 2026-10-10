@@ -46,6 +46,8 @@ $ErrorActionPreference = "Stop"
 # PostgresTestGuard kapisi (ad "test" icermeli, sema bos olmali, boyut < 50 MB, salt-okunur
 # olmamali) AYNEN yururluktedir -> canli veritabani bu kapidan gecemez.
 if (-not $PostgresAtla) {
+  # 2026-10-10: PG testleri YEREL sunucuda (Neon kaldirildi). Kapaliysa baslatir, yoksa kurar; hata kosuyu durdurmaz.
+  try { & (Join-Path $PSScriptRoot "pg_test_sunucu.ps1") } catch { Write-Output "[pg] UYARI: yerel PG sunucusu hazirlanamadi: $($_.Exception.Message)" }
   $pgEnv = Join-Path $PSScriptRoot "..\.env.pgtest.local"
   if ((Test-Path $pgEnv) -and [string]::IsNullOrWhiteSpace($env:DEPOWISE_PG_URL)) {
     foreach ($satir in Get-Content $pgEnv) {
