@@ -19,7 +19,7 @@ test('Kiralık Araçlar ekranı açılır ve kira kolonlarını gösterir', asyn
   await page.goto('/vehicles/rental');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('#blazor-error-ui')).toBeHidden();
-  await expect(page.getByText('Kiralık Araçlar', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.dw-pagetitle', { hasText: 'Kiralık Araçlar' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Kiralık Araç Listesi')).toBeVisible();
   // Tablo başlığı yalnız satır varken çizilir; kiralık araç yoksa boş liste mesajı görünür.
   const baslik = page.locator('th', { hasText: 'KİRALAYAN FİRMA' });
@@ -59,7 +59,8 @@ test('Talep Formu çoklu araç alanı ve KOD sütunu', async ({ page }) => {
   await page.goto('/requests');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('#blazor-error-ui')).toBeHidden();
-  const alan = page.getByText('Araçlar (opsiyonel, çoklu)');
+  await expect(page.locator('.dw-pagetitle', { hasText: 'Talep Formu' })).toBeVisible({ timeout: 60_000 });   // devre (circuit) açılana kadar bekle
+  const alan = page.locator('label', { hasText: 'Araçlar (opsiyonel, çoklu)' });
   test.skip(await alan.count() === 0, 'Test kullanıcısının talep oluşturma yetkisi yok');
   await expect(alan.first()).toBeVisible({ timeout: 30_000 });
 });

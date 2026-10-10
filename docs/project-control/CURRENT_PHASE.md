@@ -1,6 +1,6 @@
 ﻿# AKTİF DURUM
 
-## ✅ 2026-10-10 — Talep çoklu araç · Kiralık Araçlar · Yakıt Özeti yeni tasarım · yeni sesler
+## ✅ 2026-10-10 YAYINDA — API+Web 41f47a7 · masaüstü 1.0.195 · şema 98 · Talep çoklu araç · Kiralık Araçlar · Yakıt Özeti · yeni sesler
 - **Talep Formu (4e0cf18):** kalemde birden fazla araç (`material_request_items.vehicle_ids`, Migration097; `vehicle_id` = ilk araç,
   geriye uyumlu); arama sonucunda + kalem tablosunda + standart PDF'te **malzeme kodu**. Araç kimliği artık firmaya göre doğrulanıyor.
 - **Kiralık Araçlar (c3101f5):** ayrı ekran (`vehicles.rental`, masaüstü `vehicles:rental`, web `/vehicles/rental`); `vehicles.is_rental`
@@ -10,6 +10,8 @@
 - **Yakıt Özeti (e599cf1):** iOS tarzı kartlar; haftalar mavi oran çubuğu, günler yeşil takvim kutucuğu; bu ay açık, boş aylar soluk.
 - **Sesler (494193c):** matematiksel tonlar → GitHub **Octave** (ücretsiz iOS arayüz sesleri); `scripts/ses_guncelle.mjs`.
 - **QA (41de313):** Avalonia Headless artık Skia ile çizer + ekran görüntüsü; UIT10-12. Web: `tests/web-e2e/tests/yeni-ekranlar.spec.js`.
+- **Doğrulama:** tam takım 4008 (9 bulgu düzeltildi, ilgili 155 test yeniden geçti) · masaüstü arayüz 6/6 · canlı web Playwright 7/7 (salt okuma).
+  Canlı web 256 MB: art arda çok Playwright koşusu Blazor oturumlarıyla makineyi yavaşlatır → koşular arası ~3 dk bekle.
 - **Not:** `TASK_BACKLOG.md`'deki birçok "SIRADA" madde kodda zaten kapalı (GUV-A1/A2, DEN-D1, DEN-E2, DEN-F1 doğrulandı) → liste temizlenmeli.
 
 ## ✅ 2026-10-04 (2. tur) YAYINDA — API+Web a6294ac · masaüstü 1.0.194 · sayaç kuralı · tablo başlıkları · rapor sütun genişliği · ANLIK EŞİTLEME
