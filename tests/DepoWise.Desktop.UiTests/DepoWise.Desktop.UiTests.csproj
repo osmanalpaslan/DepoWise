@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ⭐ 2026-10-10 — MASAÜSTÜ ARAYÜZ TESTLERİ (Avalonia Headless = görünmez ekran).
+       Gerçek pencere açmadan ekranları kurar, fareyle tıklar/sürükler ve sonucu ölçer.
+       BİLİNÇLİ OLARAK AYRI PROJE ve DepoWise.sln'de DEĞİL: scripts/run_tests.ps1 bunu çalıştırmaz
+       ("kapalı"). Arayüz davranışı değişen işlerde açıkça çalıştırılır:
+       powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_ui_tests.ps1 -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- xunit v3 test projesi kendi başına çalışan bir programdır (Avalonia.Headless.XUnit 12 v3 ister). -->
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DepoWise.Desktop\DepoWise.Desktop.csproj" />
+  </ItemGroup>
+
+</Project>
