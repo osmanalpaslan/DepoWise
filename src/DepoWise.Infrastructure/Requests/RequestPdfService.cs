@@ -68,17 +68,21 @@ public sealed class RequestPdfService : IRequestPdfService
             // Tablo
             root.Item().PaddingTop(14).Table(table =>
             {
+                // 2026-10-10 (kullanıcı isteği): standart PDF'e de MALZEME KODU sütunu — ekonomik düzende
+                // vardı, standartta yoktu; depo kodu görmeden doğru parçayı bulamıyordu.
                 table.ColumnsDefinition(c =>
                 {
-                    c.ConstantColumn(36);   // #
+                    c.ConstantColumn(30);   // #
+                    c.ConstantColumn(90);   // Malzeme Kodu
                     c.RelativeColumn();     // Malzeme Adı
-                    c.ConstantColumn(80);   // Birimi
-                    c.ConstantColumn(70);   // Adet
-                    c.ConstantColumn(150);  // Talep Edilen Araç
+                    c.ConstantColumn(60);   // Birimi
+                    c.ConstantColumn(50);   // Adet
+                    c.ConstantColumn(140);  // Talep Edilen Araç
                 });
                 table.Header(h =>
                 {
                     h.Cell().Element(HeadBlue).Text("#");
+                    h.Cell().Element(HeadBlue).Text("Malzeme Kodu");
                     h.Cell().Element(HeadBlue).Text("Malzeme Adı");
                     h.Cell().Element(HeadBlue).Text("Birimi");
                     h.Cell().Element(HeadBlue).Text("Adet");
@@ -91,6 +95,7 @@ public sealed class RequestPdfService : IRequestPdfService
                     string bg = i % 2 == 0 ? Zebra : "#FFFFFF";
                     IContainer Cell(IContainer c) => c.Background(bg).PaddingVertical(7).PaddingHorizontal(8);
                     table.Cell().Element(Cell).Text(i.ToString());
+                    table.Cell().Element(Cell).Text(it.MaterialCode).SemiBold();
                     table.Cell().Element(Cell).Text(it.MaterialName);
                     table.Cell().Element(Cell).Text(it.Unit);
                     table.Cell().Element(Cell).Text(it.Quantity.ToString("0.##"));
@@ -127,14 +132,24 @@ public sealed class RequestPdfService : IRequestPdfService
         });
     }
 
+    /// <summary>Kalemin araçları alt alta (kod + varsa şase). 2026-10-10: bir kalemde birden fazla araç olabilir.</summary>
     private static void VehicleCell(IContainer c, RequestPdfItem it)
     {
-        if (string.IsNullOrWhiteSpace(it.VehicleCode)) { c.Text("-"); return; }
+        var list = it.Vehicles is { Count: > 0 }
+            ? it.Vehicles
+            : string.IsNullOrWhiteSpace(it.VehicleCode)
+                ? Array.Empty<RequestPdfVehicle>()
+                : new[] { new RequestPdfVehicle(it.VehicleCode!, it.VehicleChassis) };
+        if (list.Count == 0) { c.Text("-"); return; }
         c.Column(col =>
         {
-            col.Item().Text(it.VehicleCode);
-            if (!string.IsNullOrWhiteSpace(it.VehicleChassis))
-                col.Item().Text($"Şase: {it.VehicleChassis}").FontColor(Colors.Grey.Medium).FontSize(8);
+            for (int k = 0; k < list.Count; k++)
+            {
+                var v = list[k];
+                col.Item().PaddingTop(k == 0 ? 0 : 3).Text(v.Code);
+                if (!string.IsNullOrWhiteSpace(v.Chassis))
+                    col.Item().Text($"Şase: {v.Chassis}").FontColor(Colors.Grey.Medium).FontSize(8);
+            }
         });
     }
 

@@ -106,22 +106,48 @@
                                         <ctrl:FormField Label="Miktar" Width="110">
                                             <NumericUpDown Classes="Field" Value="{Binding NewItemQty}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                         </ctrl:FormField>
-                                        <ctrl:FormField Label="Araç (opsiyonel)" Width="220">
+                                        <!-- 2026-10-10 (kullanıcı isteği): bir malzeme BİRDEN FAZLA araç için istenebilir.
+                                             Her seçim aşağıdaki çip listesine eklenir; kutu bir sonraki araç için boşalır. -->
+                                        <ctrl:FormField Label="Araçlar (opsiyonel, birden fazla seçilebilir)" Width="300">
                                             <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding NewItemVehicle}"
-                                                             DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
+                                                             DisplayMember="Display" PlaceholderText="İç kod / plaka seç — her seçim eklenir"/>
                                         </ctrl:FormField>
-                                        <Button Classes="Primary" Content="Ekle" VerticalAlignment="Bottom" Command="{Binding AddItemCommand}"/>
+                                        <Button Classes="Primary" Content="Kalemi Ekle" VerticalAlignment="Bottom" Command="{Binding AddItemCommand}"
+                                                ToolTip.Tip="Seçili malzemeyi, miktarı ve seçilen tüm araçları talebe kalem olarak ekler."/>
                                     </StackPanel>
 
-                                    <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MaterialResults.Count}">
+                                    <!-- Bu kalem için seçilen araçlar (çip) — × ile tek tek çıkarılır. -->
+                                    <ItemsControl ItemsSource="{Binding NewItemVehicles}" IsVisible="{Binding NewItemVehicles.Count}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="veh:VehicleListRow">
+                                                <Border Classes="Chip" Margin="0,0,6,6" Padding="10,3,4,3" CornerRadius="12"
+                                                        Background="{DynamicResource SurfaceElevatedBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <SelectableTextBlock Text="{Binding Display}" Classes="Helper" VerticalAlignment="Center"/>
+                                                        <Button Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu aracı çıkar"
+                                                                Command="{Binding $parent[ItemsControl].((vm:RequestsViewModel)DataContext).RemoveNewItemVehicleCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Arama sonuçları: KOD — AD (kullanıcı isteği 2026-10-10: seçerken kod görünmeli). -->
+                                    <Border Classes="Table" MaxHeight="140" IsVisible="{Binding MaterialResults.Count}">
                                         <ScrollViewer>
                                             <ItemsControl ItemsSource="{Binding MaterialResults}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="m:MaterialRefRow">
                                                         <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                                Content="{Binding Name}"
                                                                 Command="{Binding $parent[ItemsControl].((vm:RequestsViewModel)DataContext).PickMaterialCommand}"
-                                                                CommandParameter="{Binding}"/>
+                                                                CommandParameter="{Binding}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                                <TextBlock Text="{Binding Code}" FontWeight="SemiBold" MinWidth="90" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
@@ -130,14 +156,22 @@
                                     <SelectableTextBlock Text="{Binding ItemError}" Classes="Helper" Foreground="{DynamicResource DangerBrush}"
                                                IsVisible="{Binding ItemError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
 
+                                    <!-- Eklenen kalemler: KOD · MALZEME · ARAÇLAR · MİKTAR -->
+                                    <Grid ColumnDefinitions="110,*,220,120,Auto" Margin="0,4,0,0" IsVisible="{Binding FormItems.Count}">
+                                        <TextBlock Grid.Column="0" Text="KOD" Classes="Caption" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="MALZEME" Classes="Caption" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="ARAÇLAR" Classes="Caption" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="MİKTAR" Classes="Caption" HorizontalAlignment="Center"/>
+                                    </Grid>
                                     <ItemsControl ItemsSource="{Binding FormItems}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:ReqItemLine">
-                                                <Grid ColumnDefinitions="*,150,120,Auto" Margin="0,2">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleText}" Classes="Helper" VerticalAlignment="Center"/>
-                                                    <NumericUpDown Grid.Column="2" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                                    <Button Grid.Column="3" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                <Grid ColumnDefinitions="110,*,220,120,Auto" Margin="0,2">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding VehicleText}" Classes="Helper" VerticalAlignment="Center" TextWrapping="Wrap" Margin="6,0"/>
+                                                    <NumericUpDown Grid.Column="3" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                                    <Button Grid.Column="4" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
                                                             Command="{Binding $parent[ItemsControl].((vm:RequestsViewModel)DataContext).RemoveItemCommand}"
                                                             CommandParameter="{Binding}"/>
                                                 </Grid>
@@ -225,6 +259,7 @@
                                                                 <StackPanel Grid.Column="0">
                                                                     <SelectableTextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
                                                                     <SelectableTextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
+                                                                    <SelectableTextBlock Text="{Binding VehiclesText, StringFormat='Araç: {0}'}" Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasVehicles}"/>
                                                                 </StackPanel>
                                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                             </Grid>
@@ -311,6 +346,7 @@
                                                     <StackPanel Grid.Column="0">
                                                         <SelectableTextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
                                                         <SelectableTextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
+                                                                    <SelectableTextBlock Text="{Binding VehiclesText, StringFormat='Araç: {0}'}" Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasVehicles}"/>
                                                     </StackPanel>
                                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </Grid>

@@ -1,8 +1,13 @@
 namespace DepoWise.Application.Requests;
 
+/// <summary>PDF'teki bir kalem. <paramref name="Vehicles"/> (2026-10-10): kalemin TÜM araçları — doluysa
+/// "Talep Edilen Araç" hücresi bunları alt alta yazar; boşsa eski tek araç alanları kullanılır.</summary>
 public sealed record RequestPdfItem(
     string MaterialCode, string MaterialName, string Unit, decimal Quantity,
-    string? VehicleCode, string? VehicleChassis);
+    string? VehicleCode, string? VehicleChassis, IReadOnlyList<RequestPdfVehicle>? Vehicles = null);
+
+/// <summary>PDF'te bir aracın gösterimi: iç kod + (varsa) şase no.</summary>
+public sealed record RequestPdfVehicle(string Code, string? Chassis);
 
 /// <summary>Talep PDF için tenant-bağımsız veri modeli (web ve masaüstü aynı modeli kullanır).</summary>
 public sealed record RequestPdfModel(

@@ -196,6 +196,26 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
     [ObservableProperty] private VehicleListRow? _newItemVehicle;
     [ObservableProperty] private string? _itemError;
 
+    /// <summary>
+    /// 2026-10-10 (kullanıcı isteği): bir malzeme BİRDEN FAZLA araç için istenebilir. Araç kutusundan
+    /// seçilen her araç bu listeye eklenir (çip olarak görünür, × ile çıkarılır); kutu bir sonraki seçim
+    /// için boşalır. Ekle basılınca kalem bu araçların TAMAMIYLA oluşur.
+    /// </summary>
+    public ObservableCollection<VehicleListRow> NewItemVehicles { get; } = new();
+
+    partial void OnNewItemVehicleChanged(VehicleListRow? value)
+    {
+        if (value is null) return;
+        if (NewItemVehicles.Count >= RequestService.MaxVehiclesPerItem)
+            ItemError = $"Bir kalemde en fazla {RequestService.MaxVehiclesPerItem} araç seçilebilir.";
+        else if (NewItemVehicles.All(v => v.Id != value.Id)) NewItemVehicles.Add(value);
+        // Kutu bir sonraki araç için boşaltılır (seçim olayının İÇİNDE değil, hemen ardından).
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => NewItemVehicle = null);
+    }
+
+    [RelayCommand]
+    private void RemoveNewItemVehicle(VehicleListRow? v) { if (v is not null) NewItemVehicles.Remove(v); }
+
     // Inline personel ekleme (3 alan ortak) + şantiye ekleme
     [ObservableProperty] private bool _isAddingPersonnel;
     [ObservableProperty] private string _newPersonnelName = "";
@@ -231,7 +251,7 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
         FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
         FormPriority = RequestPriorityInfo.Label(RequestPriority.Normal);   // B-2: yeni talep varsayılanı
         FormItems.Clear();
-        MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; ItemError = null;
+        MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; NewItemVehicles.Clear(); ItemError = null;
         IsAddingPersonnel = false; IsAddingSite = false;
         RefreshMaterials();
         ShowForm = true;
@@ -267,11 +287,14 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
             FormItems.Clear();
             foreach (var it in d.Items)
             {
-                var disp = it.VehicleCode is null ? null
-                    : it.VehiclePlate is null ? it.VehicleCode : $"{it.VehicleCode} - {it.VehiclePlate}";
-                FormItems.Add(new ReqItemLine(it.MaterialId, it.Code, it.Name, it.Quantity, it.VehicleId, disp));
+                // 2026-10-10: kalemin TÜM araçları forma gelir (eskiden yalnız ilki).
+                var araclar = it.Vehicles is { Count: > 0 }
+                    ? it.Vehicles.Select(v => (v.Id, v.Display)).ToList()
+                    : it.VehicleId is null ? new List<(string, string)>()
+                    : new List<(string, string)> { (it.VehicleId, it.VehiclePlate is null ? it.VehicleCode ?? it.VehicleId : $"{it.VehicleCode} - {it.VehiclePlate}") };
+                FormItems.Add(new ReqItemLine(it.MaterialId, it.Code, it.Name, it.Quantity, araclar));
             }
-            MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; ItemError = null; FormError = null;
+            MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; NewItemVehicles.Clear(); ItemError = null; FormError = null;
             IsAddingPersonnel = false; IsAddingSite = false;
             RefreshMaterials();
             ShowForm = true;
@@ -296,8 +319,8 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
         if (PickedMaterial is null) { ItemError = "Önce bir malzeme seçin."; return; }
         if (NewItemQty <= 0) { ItemError = "Geçerli bir miktar girin."; return; }
         FormItems.Add(new ReqItemLine(PickedMaterial.Id, PickedMaterial.Code, PickedMaterial.Name,
-            NewItemQty, NewItemVehicle?.Id, NewItemVehicle?.Display));
-        PickedMaterial = null; MaterialSearch = ""; NewItemQty = 1; NewItemVehicle = null;
+            NewItemQty, NewItemVehicles.Select(v => (v.Id, v.Display)).ToList()));
+        PickedMaterial = null; MaterialSearch = ""; NewItemQty = 1; NewItemVehicle = null; NewItemVehicles.Clear();
         RefreshMaterials();
     }
 
@@ -351,7 +374,7 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
             return;
         try
         {
-            var items = FormItems.Select(l => new RequestItemInput(l.MaterialId, l.Quantity, l.VehicleId)).ToList();
+            var items = FormItems.Select(l => new RequestItemInput(l.MaterialId, l.Quantity, VehicleIds: l.VehicleIds)).ToList();
             var dto = new NewRequest(
                 Items: items,
                 BranchId: FormSite.Id,
@@ -525,7 +548,8 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
                 Status: RequestRow.StatusLabel(d.Status),
                 BranchName: d.BranchName, RequesterName: d.RequesterName, WarehouseName: d.WarehouseName,
                 ApproverName: d.ApproverName, Description: d.Description,
-                Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis)).ToList(),
+                Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis,
+                    i.Vehicles?.Select(v => new RequestPdfVehicle(v.Code, v.Chassis)).ToList())).ToList(),
                 LogoPath: CompanyLogoPath);
 
             byte[] bytes;
@@ -555,24 +579,27 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
     }
 }
 
-/// <summary>Yeni talep formundaki kalem (miktar düzenlenebilir).</summary>
+/// <summary>Yeni talep formundaki kalem (miktar düzenlenebilir). 2026-10-10: bir kalemde BİRDEN FAZLA araç.</summary>
 public sealed partial class ReqItemLine : ObservableObject
 {
     public string MaterialId { get; }
     public string Code { get; }
     public string Name { get; }
     [ObservableProperty] private decimal _quantity;
-    public string? VehicleId { get; }
-    public string? VehicleDisplay { get; }
+    public IReadOnlyList<string> VehicleIds { get; }
+    public IReadOnlyList<string> VehicleDisplays { get; }
 
-    public ReqItemLine(string materialId, string code, string name, decimal quantity, string? vehicleId, string? vehicleDisplay)
+    public ReqItemLine(string materialId, string code, string name, decimal quantity, IReadOnlyList<(string Id, string Display)> vehicles)
     {
         MaterialId = materialId; Code = code; Name = name; _quantity = quantity;
-        VehicleId = vehicleId; VehicleDisplay = vehicleDisplay;
+        VehicleIds = vehicles.Select(v => v.Id).ToList();
+        VehicleDisplays = vehicles.Select(v => v.Display).ToList();
     }
 
+    /// <summary>Geriye uyumluluk: ilk araç (yoksa null).</summary>
+    public string? VehicleId => VehicleIds.Count > 0 ? VehicleIds[0] : null;
     public string DisplayName => $"{Code} - {Name}";
-    public string VehicleText => string.IsNullOrEmpty(VehicleDisplay) ? "—" : VehicleDisplay!;
+    public string VehicleText => VehicleDisplays.Count == 0 ? "—" : string.Join(", ", VehicleDisplays);
 }
 
 /// <summary><paramref name="OperationStatusDb"/> = OPERASYON durumu (onay durumundan AYRI; null → "—").

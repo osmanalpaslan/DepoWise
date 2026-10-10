@@ -4500,7 +4500,7 @@ app.MapGet("/api/requests/{id}/items", (HttpContext c, string id) =>
 app.MapPost("/api/requests", (HttpContext c, RequestDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
+    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note), i.VehicleIds)).ToList();
     var h = svc.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)));
     return Results.Ok(new { id = h.Id, docNo = h.DocNo });
 }).RequireAuthorization();
@@ -4509,7 +4509,7 @@ app.MapGet("/api/requests/{id}/edit", (HttpContext c, string id) =>
 app.MapPut("/api/requests/{id}", (HttpContext c, string id, RequestDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
+    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note), i.VehicleIds)).ToList();
     svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)), expectedVersion: d.Version);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -4590,7 +4590,8 @@ app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) 
     var model = new DepoWise.Application.Requests.RequestPdfModel(
         companyName, d.DocNo, DateTimeOffset.FromUnixTimeMilliseconds(d.RequestDate).LocalDateTime.ToString("dd.MM.yyyy"),
         Lbl(d.Status), d.BranchName, d.RequesterName, d.WarehouseName, d.ApproverName, d.Description,
-        d.Items.Select(i => new DepoWise.Application.Requests.RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis)).ToList());
+        d.Items.Select(i => new DepoWise.Application.Requests.RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis,
+            i.Vehicles?.Select(v => new DepoWise.Application.Requests.RequestPdfVehicle(v.Code, v.Chassis)).ToList())).ToList());
     var bytes = svc.RequestPdf.Generate(model, economic == true);
     return Results.File(bytes, "application/pdf", $"{d.DocNo}{(economic == true ? "-ekonomik" : "")}.pdf");
 }).RequireAuthorization();
@@ -5320,7 +5321,8 @@ record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, str
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
-record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
+// VehicleIds (2026-10-10): kalemin TÜM araçları; eski istemci göndermez → VehicleId kullanılır.
+record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note, List<string>? VehicleIds = null);
 /// <summary>Priority: "normal|high|urgent|critical" (şartname madde 18). Gönderilmezse Normal (geriye uyumlu).</summary>
 record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null, long? Version = null);
 /// <summary>Talep Operasyonları durum değişikliği (Faz 2). UpdateBranches=true ise gönderen/gönderilecek şube

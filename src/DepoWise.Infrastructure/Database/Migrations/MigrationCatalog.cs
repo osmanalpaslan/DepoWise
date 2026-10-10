@@ -101,5 +101,7 @@ public static class MigrationCatalog
         new Migration094_ConflictSnapshots(),     // 2026-09-06 FAZ 4.4: çakışmada kazanan/kaybeden görüntüsü — yalnız ADD COLUMN
         new Migration095_UserContactFields(),     // 2026-09-06 kullanıcı isteği: e-posta · telefon · unvan · not — yalnız ADD COLUMN
         new Migration096_Chat(),                  // 2026-09-06 kullanıcı isteği: uygulama içi sohbet — CREATE TABLE (boş doğar) + ADD COLUMN
+        new Migration097_RequestItemVehicles(),   // 2026-10-10 kullanıcı isteği: talep kaleminde birden fazla araç — yalnız ADD COLUMN
+        new Migration098_RentalVehicles(),        // 2026-10-10 kullanıcı isteği: kiralık araçlar + araç değişimi — yalnız ADD COLUMN
     };
 }

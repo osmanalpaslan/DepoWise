@@ -48,18 +48,32 @@
                 <MudGrid Spacing="2" Class="align-center">
                     <MudItem xs="12" md="5"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme ara (kod/ad)" @bind-Value="_matSel" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
                     <MudItem xs="4" md="2"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="8" md="3"><MudAutocomplete T="ApiClient.Opt" Label="Araç (opsiyonel)" @bind-Value="_matVehicle" SearchFunc="SearchVehicle" ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
-                    <MudItem xs="12" md="2"><MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem">Ekle</MudButton></MudItem>
+                    @* 2026-10-10 (kullanıcı isteği): bir malzeme BİRDEN FAZLA araç için istenebilir — her seçim
+                       aşağıdaki çip listesine eklenir, kutu bir sonraki araç için boşalır. *@
+                    <MudItem xs="8" md="3"><MudAutocomplete T="ApiClient.Opt" Label="Araçlar (opsiyonel, çoklu)" Value="_matVehicle" ValueChanged="OnVehiclePicked" SearchFunc="SearchVehicle" ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka — her seçim eklenir" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="false" /></MudItem>
+                    <MudItem xs="12" md="2"><MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem">Kalemi Ekle</MudButton></MudItem>
                 </MudGrid>
+                @if (_matVehicles.Count > 0)
+                {
+                    <div class="d-flex flex-wrap mt-1" style="gap:4px;">
+                        @foreach (var v in _matVehicles.ToList())
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" OnClose="@(_ => _matVehicles.Remove(v))">@v.Name</MudChip>
+                        }
+                    </div>
+                }
+                @if (_itemErr is not null) { <MudText Typo="Typo.caption" Color="Color.Error">@_itemErr</MudText> }
                 @if (_items.Count > 0)
                 {
-                    <MudSimpleTable Dense="true" Class="mt-1" Style="max-width:680px;">
+                    <MudSimpleTable Dense="true" Class="mt-1" Style="max-width:880px;">
+                        <thead><tr><th style="text-align:center">KOD</th><th style="text-align:center">MALZEME</th><th style="text-align:center">ARAÇLAR</th><th style="text-align:center">MİKTAR</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var it in _items)
                             {
                                 <tr>
+                                    <td><b>@it.Code</b></td>
                                     <td>@it.Name</td>
-                                    <td>@(it.VehicleName ?? "—")</td>
+                                    <td>@(it.Vehicles.Count == 0 ? "—" : string.Join(", ", it.Vehicles.Select(x => x.Name)))</td>
                                     <td style="width:120px"><MudNumericField T="decimal" @bind-Value="it.Qty" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></td>
                                     <td><MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _items.Remove(it))">Kaldır</MudButton></td>
                                 </tr>
@@ -130,7 +144,7 @@
                         @foreach (var it in _detailItems)
                         {
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <div><MudText Typo="Typo.body2">@Str(it, "materialName")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(it, "materialCode")</MudText></div>
+                                <div><MudText Typo="Typo.body2">@Str(it, "materialName")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(it, "materialCode")</MudText>@if (!string.IsNullOrEmpty(Str(it, "vehiclesText"))) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Araç: @Str(it, "vehiclesText")</MudText> }</div>
                                 <MudText Typo="Typo.body2"><b>@Str(it, "quantity")</b></MudText>
                             </MudStack>
                         }
@@ -180,7 +194,7 @@
                         @foreach (var it in _detailItems)
                         {
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <div><MudText Typo="Typo.body2">@Str(it, "materialName")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(it, "materialCode")</MudText></div>
+                                <div><MudText Typo="Typo.body2">@Str(it, "materialName")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(it, "materialCode")</MudText>@if (!string.IsNullOrEmpty(Str(it, "vehiclesText"))) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Araç: @Str(it, "vehiclesText")</MudText> }</div>
                                 <MudText Typo="Typo.body2"><b>@Str(it, "quantity")</b></MudText>
                             </MudStack>
                         }
@@ -217,7 +231,10 @@
     private ApiClient.Opt? _matSel, _matVehicle;
     private decimal _matQty;
     private readonly List<Item> _items = new();
-    private sealed class Item { public string MaterialId = ""; public string Name = ""; public decimal Qty; public string? VehicleId; public string? VehicleName; }
+    /// <summary>Şu an eklenmekte olan kalemin araçları (çip listesi). 2026-10-10: bir kalemde birden fazla araç.</summary>
+    private readonly List<ApiClient.Opt> _matVehicles = new();
+    private string? _itemErr;
+    private sealed class Item { public string MaterialId = ""; public string Code = ""; public string Name = ""; public decimal Qty; public List<ApiClient.Opt> Vehicles = new(); }
 
     private List<ApiClient.Opt> _branches = new(), _personnel = new();
     private JsonElement[]? _rows;
@@ -274,7 +291,8 @@
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
     {
-        var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+        // 2026-10-10 (kullanıcı isteği): seçerken malzeme KODU görünmeli → "KOD — AD" (masaüstüyle aynı biçim).
+        var r = await Api.MaterialOptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"));
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
@@ -283,11 +301,33 @@
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
 
+    private const int MaxVehiclesPerItem = 50;   // RequestService.MaxVehiclesPerItem ile aynı
+
+    /// <summary>Araç kutusunda seçim → çip listesine ekle, kutuyu bir sonraki araç için boşalt.</summary>
+    private void OnVehiclePicked(ApiClient.Opt? v)
+    {
+        _itemErr = null;
+        if (v is not null)
+        {
+            if (_matVehicles.Count >= MaxVehiclesPerItem) _itemErr = $"Bir kalemde en fazla {MaxVehiclesPerItem} araç seçilebilir.";
+            else if (_matVehicles.All(x => x.Id != v.Id)) _matVehicles.Add(v);
+        }
+        _matVehicle = null;
+    }
+
     private void AddItem()
     {
-        if (_matSel is null || _matQty <= 0) return;
-        _items.Add(new Item { MaterialId = _matSel.Id, Name = _matSel.Name, Qty = _matQty, VehicleId = _matVehicle?.Id, VehicleName = _matVehicle?.Name });
-        _matSel = null; _matQty = 0; _matVehicle = null;
+        _itemErr = null;
+        if (_matSel is null) { _itemErr = "Önce bir malzeme seçin."; return; }
+        if (_matQty <= 0) { _itemErr = "Geçerli bir miktar girin."; return; }
+        // "KOD — AD" metni koda ve ada ayrılır (tabloda ayrı sütunlar).
+        var parca = _matSel.Name.Split(" — ", 2);
+        _items.Add(new Item
+        {
+            MaterialId = _matSel.Id, Code = parca.Length == 2 ? parca[0] : "", Name = parca.Length == 2 ? parca[1] : _matSel.Name,
+            Qty = _matQty, Vehicles = _matVehicles.ToList(),
+        });
+        _matSel = null; _matQty = 0; _matVehicle = null; _matVehicles.Clear();
     }
 
     private async Task OpenDetail(JsonElement row)
@@ -312,7 +352,7 @@
         {
             var body = new
             {
-                items = _items.Select(i => new { materialId = i.MaterialId, quantity = i.Qty, vehicleId = i.VehicleId, note = (string?)null }).ToList(),
+                items = _items.Select(i => new { materialId = i.MaterialId, quantity = i.Qty, vehicleId = i.Vehicles.FirstOrDefault()?.Id, note = (string?)null, vehicleIds = i.Vehicles.Select(v => v.Id).ToList() }).ToList(),
                 branchId = _branch, requesterId = _requester, warehouseId = _warehouse, approverId = _approver,
                 description = Empty(_desc), requestDate = Ms(_date), submitImmediately = _editId is null,
                 priority = _priority,   // B-2: DTO'da zaten vardı, web göndermiyordu
@@ -342,7 +382,14 @@
             _items.Clear();
             if (d.TryGetProperty("items", out var its) && its.ValueKind == JsonValueKind.Array)
                 foreach (var it in its.EnumerateArray())
-                    _items.Add(new Item { MaterialId = Str(it, "materialId"), Name = Str(it, "name"), Qty = Dec(it, "quantity"), VehicleId = NullS(it, "vehicleId"), VehicleName = NullS(it, "vehicleCode") });
+                {
+                    // 2026-10-10: kalemin TÜM araçları (eski kayıtta yalnız tek araç alanı dolu olabilir).
+                    var araclar = new List<ApiClient.Opt>();
+                    if (it.TryGetProperty("vehicles", out var vs) && vs.ValueKind == JsonValueKind.Array)
+                        foreach (var v in vs.EnumerateArray()) araclar.Add(new ApiClient.Opt(Str(v, "id"), Str(v, "display")));
+                    else if (NullS(it, "vehicleId") is { } vid) araclar.Add(new ApiClient.Opt(vid, Str(it, "vehicleCode")));
+                    _items.Add(new Item { MaterialId = Str(it, "materialId"), Code = Str(it, "code"), Name = Str(it, "name"), Qty = Dec(it, "quantity"), Vehicles = araclar });
+                }
             _msg = null;
         }
         catch (Exception ex) { _msg = "Düzenlemeye alınamadı: " + ex.Message; _ok = false; }
@@ -377,7 +424,7 @@
     {
         _editId = null; _editVersion = 0; _branch = _requester = _warehouse = _approver = null; _date = null; _desc = "";
         _priority = "normal";   // B-2: yeni talep varsayılanı
-        _items.Clear(); _matSel = null; _matVehicle = null; _matQty = 0;
+        _items.Clear(); _matSel = null; _matVehicle = null; _matVehicles.Clear(); _matQty = 0; _itemErr = null;
     }
 
     private static string StatusTr(int s) => s switch { 0 => "Taslak", 1 => "Beklemede", 2 => "Onaylı", 3 => "Reddedildi", 4 => "İptal", _ => "?" };

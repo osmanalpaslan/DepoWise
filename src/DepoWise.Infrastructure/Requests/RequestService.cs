@@ -7,7 +7,28 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Requests;
 
-public sealed record RequestItemInput(string MaterialId, decimal Quantity, string? VehicleId = null, string? Note = null);
+/// <summary>Talep kalemi girdisi. <paramref name="VehicleIds"/> (2026-10-10, kullanıcı isteği): kalemin
+/// TÜM araçları — bir malzeme birden fazla araç için istenebilir. Verilmezse eski tek
+/// <paramref name="VehicleId"/> kullanılır (geriye uyumlu: eski çağrılar aynen çalışır).</summary>
+public sealed record RequestItemInput(string MaterialId, decimal Quantity, string? VehicleId = null, string? Note = null,
+    IReadOnlyList<string>? VehicleIds = null)
+{
+    /// <summary>Kalemin araçları — tekrarsız, sırası korunur. Boş liste = araç seçilmemiş.</summary>
+    public IReadOnlyList<string> AllVehicleIds()
+    {
+        var list = new List<string>();
+        void Add(string? id) { if (!string.IsNullOrWhiteSpace(id) && !list.Contains(id.Trim())) list.Add(id.Trim()); }
+        if (VehicleIds is { Count: > 0 }) foreach (var v in VehicleIds) Add(v);
+        else Add(VehicleId);
+        return list;
+    }
+}
+
+/// <summary>Talep kalemindeki bir aracın gösterim bilgisi (form/detay/PDF ortak).</summary>
+public sealed record RequestItemVehicle(string Id, string Code, string? Plate, string? Chassis)
+{
+    public string Display => string.IsNullOrWhiteSpace(Plate) ? Code : $"{Code} - {Plate}";
+}
 
 /// <summary><paramref name="Priority"/> = talep önceliği (şartname madde 18); varsayılan Normal.
 /// Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
@@ -32,12 +53,20 @@ public sealed record RequestListRow(string Id, string DocNo, RequestStatus Statu
     public string PriorityColor => RequestPriorityInfo.ColorOf(PriorityDb);
 }
 
-public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note);
+/// <summary><paramref name="VehiclesText"/> (2026-10-10): kalemin araçları tek satırda ("A-01, A-02"); yoksa null.</summary>
+public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note,
+    string? VehiclesText = null)
+{
+    public bool HasVehicles => !string.IsNullOrWhiteSpace(VehiclesText);
+}
 
-public sealed record RequestPdfLine(string Code, string Name, string Unit, decimal Quantity, string? VehicleCode, string? VehicleChassis);
+/// <summary><paramref name="Vehicles"/> (2026-10-10): kalemin TÜM araçları; tek araçlı eski alanlar ilk aracı taşır.</summary>
+public sealed record RequestPdfLine(string Code, string Name, string Unit, decimal Quantity, string? VehicleCode, string? VehicleChassis,
+    IReadOnlyList<RequestItemVehicle>? Vehicles = null);
 
+/// <summary><paramref name="Vehicles"/> (2026-10-10): kalemin TÜM araçları; VehicleId/Code/Plate ilk aracı taşır (geriye uyumlu).</summary>
 public sealed record RequestEditItem(string MaterialId, string Code, string Name, decimal Quantity,
-    string? VehicleId, string? VehicleCode, string? VehiclePlate);
+    string? VehicleId, string? VehicleCode, string? VehiclePlate, IReadOnlyList<RequestItemVehicle>? Vehicles = null);
 
 /// <summary><paramref name="Version"/> = DÜZENLEME KİLİDİ için formun açıldığı andaki sürüm; kaydederken
 /// geri gönderilir. Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
@@ -116,21 +145,7 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
-        foreach (var item in dto.Items)
-        {
-            EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
-            using var ic = conn.CreateCommand();
-            ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@c,@r,@m,@q,@v,@n);";
-            ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
-            ic.AddWithValue("@c", s.CompanyId);   // M-S1a: firma izolasyonu
-            ic.AddWithValue("@r", id);
-            ic.AddWithValue("@m", item.MaterialId);
-            ic.AddWithValue("@q", Money.Serialize(item.Quantity));
-            ic.AddWithValue("@v", (object?)item.VehicleId ?? DBNull.Value);
-            ic.AddWithValue("@n", (object?)item.Note ?? DBNull.Value);
-            ic.ExecuteNonQuery();
-        }
+        InsertItems(conn, tx, s.CompanyId, id, dto.Items);
         WriteHistory(conn, tx, id, null, status, s.UserId, null, now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", id, AuditActions.Create, s.UserId), _clock);
         // ⭐ Doğrudan onaya gönderilen talepte zincir BURADA başlar (aynı transaction → yarım durum yok).
@@ -191,21 +206,7 @@ WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
             del.AddWithValue("@c", s.CompanyId);
             del.ExecuteNonQuery();
         }
-        foreach (var item in dto.Items)
-        {
-            EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
-            using var ic = conn.CreateCommand();
-            ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@c,@r,@m,@q,@v,@n);";
-            ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
-            ic.AddWithValue("@c", s.CompanyId);   // M-S1a: firma izolasyonu
-            ic.AddWithValue("@r", requestId);
-            ic.AddWithValue("@m", item.MaterialId);
-            ic.AddWithValue("@q", Money.Serialize(item.Quantity));
-            ic.AddWithValue("@v", (object?)item.VehicleId ?? DBNull.Value);
-            ic.AddWithValue("@n", (object?)item.Note ?? DBNull.Value);
-            ic.ExecuteNonQuery();
-        }
+        InsertItems(conn, tx, s.CompanyId, requestId, dto.Items);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
     }
@@ -236,22 +237,11 @@ WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
         }
 
         var items = new List<RequestEditItem>();
-        using (var ic = conn.CreateCommand())
+        foreach (var k in LoadItemRows(conn, s.CompanyId, requestId))
         {
-            ic.CommandText = @"
-SELECT i.material_id, m.code, m.name, i.quantity, i.vehicle_id, v.internal_code, v.plate
-FROM material_request_items i
-JOIN materials m ON m.id = i.material_id
-LEFT JOIN vehicles v ON v.id = i.vehicle_id
-WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
-            ic.AddWithValue("@r", requestId);
-            ic.AddWithValue("@c", s.CompanyId);
-            using var ir = ic.ExecuteReader();
-            while (ir.Read())
-                items.Add(new RequestEditItem(ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
-                    ir.IsDBNull(4) ? null : ir.GetString(4),
-                    ir.IsDBNull(5) ? null : ir.GetString(5),
-                    ir.IsDBNull(6) ? null : ir.GetString(6)));
+            var ilk = k.Vehicles.Count > 0 ? k.Vehicles[0] : null;
+            items.Add(new RequestEditItem(k.MaterialId, k.Code, k.Name, k.Quantity,
+                ilk?.Id, ilk?.Code, ilk?.Plate, k.Vehicles));
         }
         return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items, version, priority);
     }
@@ -432,19 +422,10 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
     {
         LoadStatus(s, requestId); // tenant guard (firma sahipliği)
         using var conn = _factory.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-SELECT m.code, m.name, i.quantity, i.note
-FROM material_request_items i JOIN materials m ON m.id = i.material_id
-WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
-        cmd.AddWithValue("@r", requestId);
-        cmd.AddWithValue("@c", s.CompanyId);
-        var list = new List<RequestItemRow>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            list.Add(new RequestItemRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
-                r.IsDBNull(3) ? null : r.GetString(3)));
-        return list;
+        return LoadItemRows(conn, s.CompanyId, requestId)
+            .Select(k => new RequestItemRow(k.Code, k.Name, k.Quantity, k.Note,
+                k.Vehicles.Count == 0 ? null : string.Join(", ", k.Vehicles.Select(v => v.Display))))
+            .ToList();
     }
 
     /// <summary>PDF için tam veri (isimler + araç etiketli kalemler). Tenant guard'lı.</summary>
@@ -477,28 +458,125 @@ WHERE mr.id=@id;";
             ap = hr.IsDBNull(7) ? null : hr.GetString(7);
         }
 
-        var items = new List<RequestPdfLine>();
+        var items = LoadItemRows(conn, s.CompanyId, requestId)
+            .Select(k => new RequestPdfLine(k.Code, k.Name, k.Unit, k.Quantity,
+                k.Vehicles.Count > 0 ? k.Vehicles[0].Code : null,
+                k.Vehicles.Count > 0 ? k.Vehicles[0].Chassis : null,
+                k.Vehicles))
+            .ToList();
+        return new RequestPdfData(docNo, date, RequestStatusMachine.FromDb(status), branch, req, wh, ap, desc, items);
+    }
+
+    // ═══ KALEM ARAÇLARI (2026-10-10, kullanıcı isteği: bir malzeme birden fazla araç için) ═══
+
+    /// <summary>Kalemin üst sınırı — yanlışlıkla yüzlerce araç seçilip PDF'in taşmasını önler.</summary>
+    public const int MaxVehiclesPerItem = 50;
+
+    private sealed record ItemRowData(string MaterialId, string Code, string Name, string Unit, decimal Quantity,
+        string? Note, IReadOnlyList<RequestItemVehicle> Vehicles);
+
+    /// <summary>
+    /// Kalemleri ARAÇLARIYLA birlikte okur (form / detay / PDF tek kaynaktan beslenir).
+    /// Araç listesi <c>vehicle_ids</c>'ten; boşsa (eski kayıt ya da eski istemci) <c>vehicle_id</c>'den gelir.
+    /// Araç adları YALNIZ bu firmanın araçlarından çözülür → başka firmanın aracı kimliği bilinse bile
+    /// kodu/plakası görünmez (tenant).
+    /// </summary>
+    private static List<ItemRowData> LoadItemRows(DbConnection conn, string companyId, string requestId)
+    {
+        var ham = new List<(string Mat, string Code, string Name, string Unit, decimal Qty, string? Note, List<string> Ids)>();
         using (var ic = conn.CreateCommand())
         {
             ic.CommandText = @"
-SELECT m.code, m.name, COALESCE(u.name,''), i.quantity, v.internal_code, v.chassis_no
+SELECT i.material_id, m.code, m.name, COALESCE(u.name,''), i.quantity, i.note, i.vehicle_id, i.vehicle_ids
 FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN units u ON u.id = m.unit_id
-LEFT JOIN vehicles v ON v.id = i.vehicle_id
 WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", requestId);
-            ic.AddWithValue("@c", s.CompanyId);
+            ic.AddWithValue("@c", companyId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
             {
-                items.Add(new RequestPdfLine(
-                    ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
-                    ir.IsDBNull(4) ? null : ir.GetString(4),
-                    ir.IsDBNull(5) ? null : ir.GetString(5)));
+                var ids = ParseVehicleIds(ir.IsDBNull(7) ? null : ir.GetString(7));
+                if (ids.Count == 0 && !ir.IsDBNull(6)) ids.Add(ir.GetString(6));
+                ham.Add((ir.GetString(0), ir.GetString(1), ir.GetString(2), ir.GetString(3), Money.Parse(ir.GetString(4)),
+                    ir.IsDBNull(5) ? null : ir.GetString(5), ids));
             }
         }
-        return new RequestPdfData(docNo, date, RequestStatusMachine.FromDb(status), branch, req, wh, ap, desc, items);
+
+        var araclar = LoadVehicles(conn, companyId, ham.SelectMany(h => h.Ids).Distinct().ToList());
+        return ham.Select(h => new ItemRowData(h.Mat, h.Code, h.Name, h.Unit, h.Qty, h.Note,
+                h.Ids.Where(araclar.ContainsKey).Select(id => araclar[id]).ToList()))
+            .ToList();
+    }
+
+    /// <summary>Virgüllü kimlik listesini ayrıştırır (boş/tekrar elenir, sıra korunur).</summary>
+    internal static List<string> ParseVehicleIds(string? raw)
+    {
+        var list = new List<string>();
+        if (string.IsNullOrWhiteSpace(raw)) return list;
+        foreach (var p in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (!list.Contains(p)) list.Add(p);
+        return list;
+    }
+
+    private static Dictionary<string, RequestItemVehicle> LoadVehicles(DbConnection conn, string companyId, IReadOnlyList<string> ids)
+    {
+        var map = new Dictionary<string, RequestItemVehicle>(StringComparer.Ordinal);
+        if (ids.Count == 0) return map;
+        using var cmd = conn.CreateCommand();
+        var ps = string.Join(",", ids.Select((_, i) => "@v" + i));
+        cmd.CommandText = $"SELECT id, internal_code, plate, chassis_no FROM vehicles WHERE company_id=@c AND id IN ({ps});";
+        cmd.AddWithValue("@c", companyId);
+        for (int i = 0; i < ids.Count; i++) cmd.AddWithValue("@v" + i, ids[i]);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            map[r.GetString(0)] = new RequestItemVehicle(r.GetString(0), r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3));
+        return map;
+    }
+
+    /// <summary>
+    /// Kalemleri yazar (Create ve Update ORTAK). Her kalemde malzeme VE seçilen her araç bu firmaya ait
+    /// olmalıdır — eskiden araç kimliği hiç doğrulanmıyordu; başka firmanın araç kimliği yazılabilir ve
+    /// düzenleme formu o aracın kodunu gösterebilirdi. <c>vehicle_id</c> = ilk araç (eski okuyucular için),
+    /// <c>vehicle_ids</c> = tamamı.
+    /// </summary>
+    private static void InsertItems(DbConnection conn, DbTransaction tx, string companyId, string requestId,
+        IReadOnlyList<RequestItemInput> items)
+    {
+        foreach (var item in items)
+        {
+            EnsureMaterialOwned(conn, tx, companyId, item.MaterialId);
+            var ids = item.AllVehicleIds();
+            if (ids.Count > MaxVehiclesPerItem)
+                throw new ArgumentException($"Bir kalemde en fazla {MaxVehiclesPerItem} araç seçilebilir.");
+            foreach (var vid in ids) EnsureVehicleOwned(conn, tx, companyId, vid);
+
+            using var ic = conn.CreateCommand();
+            ic.Transaction = tx;
+            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, vehicle_ids, note) VALUES(@id,@c,@r,@m,@q,@v,@vs,@n);";
+            ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ic.AddWithValue("@c", companyId);   // M-S1a: firma izolasyonu
+            ic.AddWithValue("@r", requestId);
+            ic.AddWithValue("@m", item.MaterialId);
+            ic.AddWithValue("@q", Money.Serialize(item.Quantity));
+            ic.AddWithValue("@v", ids.Count > 0 ? (object)ids[0] : DBNull.Value);
+            ic.AddWithValue("@vs", ids.Count > 0 ? (object)string.Join(",", ids) : DBNull.Value);
+            ic.AddWithValue("@n", (object?)item.Note ?? DBNull.Value);
+            ic.ExecuteNonQuery();
+        }
+    }
+
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction tx, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        // is_deleted BİLEREK aranmaz: sonradan silinen bir araç eski talebin düzenlenmesini kilitlemesin.
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 
     // ---- çekirdek ----
