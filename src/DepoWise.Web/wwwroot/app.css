@@ -1621,6 +1621,66 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     white-space: nowrap;
 }
 
+/* ═══ 2026-10-10 YAKIT ÖZETİ — iOS tarzı yumuşak kartlar (masaüstüyle aynı düzen) ═══
+   Haftalar = mavi oran çubuğu, günler = yeşil takvim kutucuğu (koyuluk = yoğunluk). Renkler MudBlazor
+   palet değişkenlerinden → açık/koyu temada kendiliğinden doğru. */
+.fz-wrap { max-width: 1180px; }
+.fz-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .fz-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fz-kpi { background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-lines-default);
+  border-radius: 18px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.fz-kpi-lbl { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--mud-palette-text-secondary); }
+.fz-kpi-val { font-size: 1.6rem; font-weight: 700; margin-top: 6px; }
+.fz-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.fz-accent { background: var(--mud-palette-primary); } .fz-warn { background: var(--mud-palette-warning); }
+.fz-info { background: var(--mud-palette-info); } .fz-ok { background: var(--mud-palette-success); }
+.fz-note { font-size: .78rem; color: var(--mud-palette-text-secondary); margin: 8px 2px 18px; }
+.fz-muted { color: var(--mud-palette-text-secondary); }
+.fz-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.fz-title { font-size: 1.25rem; font-weight: 600; }
+.fz-legend { display: flex; gap: 16px; font-size: .8rem; align-items: center; }
+.fz-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fz-leg-bar { display: inline-block; width: 18px; height: 8px; border-radius: 4px; background: var(--mud-palette-info); }
+.fz-leg-tile { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--mud-palette-success); }
+.fz-month { background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-lines-default);
+  border-radius: 20px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+.fz-month.fz-current { border-color: var(--mud-palette-primary); }
+.fz-month.fz-empty { opacity: .55; }
+.fz-month-head { all: unset; cursor: pointer; width: 100%; display: grid; grid-template-columns: auto 1fr auto auto;
+  align-items: center; column-gap: 14px; row-gap: 10px; color: var(--mud-palette-text-primary); }
+.fz-month-head:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 4px; border-radius: 12px; }
+.fz-mname { font-size: 1.1rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.fz-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.fz-pill { border-radius: 999px; padding: 3px 10px; font-size: .75rem; font-weight: 600;
+  background: var(--mud-palette-background); color: var(--mud-palette-text-secondary); white-space: nowrap; }
+.fz-pill-info { color: var(--mud-palette-info); } .fz-pill-ok { color: var(--mud-palette-success); }
+.fz-pill-accent { color: var(--mud-palette-primary); background: color-mix(in srgb, var(--mud-palette-primary) 14%, transparent); }
+.fz-total { font-size: 1.4rem; font-weight: 700; white-space: nowrap; }
+.fz-chev { font-size: 1.3rem; color: var(--mud-palette-text-secondary); transition: transform .18s ease; }
+.fz-chev.fz-open { transform: rotate(180deg); }
+.fz-share { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--mud-palette-lines-default); overflow: hidden; }
+.fz-share i { display: block; height: 100%; border-radius: 3px; background: var(--mud-palette-primary); }
+.fz-detail { display: grid; grid-template-columns: 5fr 6fr; gap: 16px; margin-top: 14px; }
+@media (max-width: 900px) { .fz-detail { grid-template-columns: 1fr; } .fz-month-head { grid-template-columns: 1fr auto; } .fz-pills { grid-column: 1 / -1; } }
+.fz-panel { background: var(--mud-palette-background); border-radius: 16px; padding: 12px 14px; }
+.fz-ptitle { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
+.fz-t-info { color: var(--mud-palette-info); } .fz-t-ok { color: var(--mud-palette-success); }
+.fz-week { margin-bottom: 10px; }
+.fz-week-row { display: flex; gap: 8px; align-items: baseline; font-size: .86rem; }
+.fz-week-row .fz-right { margin-left: auto; }
+.fz-bar { height: 10px; border-radius: 5px; background: var(--mud-palette-lines-default); overflow: hidden; margin-top: 4px; }
+.fz-bar i { display: block; height: 100%; border-radius: 5px; background: var(--mud-palette-info); }
+.fz-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.fz-day { width: 78px; height: 72px; border-radius: 12px; padding: 6px 8px; box-sizing: border-box;
+  display: flex; flex-direction: column; justify-content: space-between; color: var(--mud-palette-text-primary); }
+.fz-day-top { display: flex; justify-content: space-between; align-items: center; }
+.fz-day-top b { font-size: 1.1rem; } .fz-day-top span { font-size: .7rem; opacity: .85; }
+.fz-day-l { font-size: .75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fz-l0 { background: color-mix(in srgb, var(--mud-palette-success) 22%, transparent); }
+.fz-l1 { background: color-mix(in srgb, var(--mud-palette-success) 45%, transparent); }
+.fz-l2 { background: color-mix(in srgb, var(--mud-palette-success) 70%, transparent); color: #fff; }
+.fz-l3 { background: color-mix(in srgb, var(--mud-palette-success) 95%, transparent); color: #fff; }
+
 /* Menü satırı: ikon + etiket; "Bakım Takibi (x2)" biçimi ViewModel'den gelir. */
 .dw-diger-satir {
     display: flex;
@@ -1809,64 +1869,3 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
                      text-overflow: ellipsis; white-space: nowrap; }
     .dw-sekme-kapat { padding: 0 8px 0 4px; }
 }
-
-
-/* ═══ 2026-10-10 YAKIT ÖZETİ — iOS tarzı yumuşak kartlar (masaüstüyle aynı düzen) ═══
-   Haftalar = mavi oran çubuğu, günler = yeşil takvim kutucuğu (koyuluk = yoğunluk). Renkler MudBlazor
-   palet değişkenlerinden → açık/koyu temada kendiliğinden doğru. */
-.fz-wrap { max-width: 1180px; }
-.fz-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-@media (max-width: 900px) { .fz-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.fz-kpi { background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-lines-default);
-  border-radius: 18px; padding: 16px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
-.fz-kpi-lbl { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--mud-palette-text-secondary); }
-.fz-kpi-val { font-size: 1.6rem; font-weight: 700; margin-top: 6px; }
-.fz-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.fz-accent { background: var(--mud-palette-primary); } .fz-warn { background: var(--mud-palette-warning); }
-.fz-info { background: var(--mud-palette-info); } .fz-ok { background: var(--mud-palette-success); }
-.fz-note { font-size: .78rem; color: var(--mud-palette-text-secondary); margin: 8px 2px 18px; }
-.fz-muted { color: var(--mud-palette-text-secondary); }
-.fz-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-.fz-title { font-size: 1.25rem; font-weight: 600; }
-.fz-legend { display: flex; gap: 16px; font-size: .8rem; align-items: center; }
-.fz-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.fz-leg-bar { display: inline-block; width: 18px; height: 8px; border-radius: 4px; background: var(--mud-palette-info); }
-.fz-leg-tile { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--mud-palette-success); }
-.fz-month { background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-lines-default);
-  border-radius: 20px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
-.fz-month.fz-current { border-color: var(--mud-palette-primary); }
-.fz-month.fz-empty { opacity: .55; }
-.fz-month-head { all: unset; cursor: pointer; width: 100%; display: grid; grid-template-columns: auto 1fr auto auto;
-  align-items: center; column-gap: 14px; row-gap: 10px; color: var(--mud-palette-text-primary); }
-.fz-month-head:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 4px; border-radius: 12px; }
-.fz-mname { font-size: 1.1rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.fz-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.fz-pill { border-radius: 999px; padding: 3px 10px; font-size: .75rem; font-weight: 600;
-  background: var(--mud-palette-background); color: var(--mud-palette-text-secondary); white-space: nowrap; }
-.fz-pill-info { color: var(--mud-palette-info); } .fz-pill-ok { color: var(--mud-palette-success); }
-.fz-pill-accent { color: var(--mud-palette-primary); background: color-mix(in srgb, var(--mud-palette-primary) 14%, transparent); }
-.fz-total { font-size: 1.4rem; font-weight: 700; white-space: nowrap; }
-.fz-chev { font-size: 1.3rem; color: var(--mud-palette-text-secondary); transition: transform .18s ease; }
-.fz-chev.fz-open { transform: rotate(180deg); }
-.fz-share { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--mud-palette-lines-default); overflow: hidden; }
-.fz-share i { display: block; height: 100%; border-radius: 3px; background: var(--mud-palette-primary); }
-.fz-detail { display: grid; grid-template-columns: 5fr 6fr; gap: 16px; margin-top: 14px; }
-@media (max-width: 900px) { .fz-detail { grid-template-columns: 1fr; } .fz-month-head { grid-template-columns: 1fr auto; } .fz-pills { grid-column: 1 / -1; } }
-.fz-panel { background: var(--mud-palette-background); border-radius: 16px; padding: 12px 14px; }
-.fz-ptitle { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
-.fz-t-info { color: var(--mud-palette-info); } .fz-t-ok { color: var(--mud-palette-success); }
-.fz-week { margin-bottom: 10px; }
-.fz-week-row { display: flex; gap: 8px; align-items: baseline; font-size: .86rem; }
-.fz-week-row .fz-right { margin-left: auto; }
-.fz-bar { height: 10px; border-radius: 5px; background: var(--mud-palette-lines-default); overflow: hidden; margin-top: 4px; }
-.fz-bar i { display: block; height: 100%; border-radius: 5px; background: var(--mud-palette-info); }
-.fz-days { display: flex; flex-wrap: wrap; gap: 8px; }
-.fz-day { width: 78px; height: 72px; border-radius: 12px; padding: 6px 8px; box-sizing: border-box;
-  display: flex; flex-direction: column; justify-content: space-between; color: var(--mud-palette-text-primary); }
-.fz-day-top { display: flex; justify-content: space-between; align-items: center; }
-.fz-day-top b { font-size: 1.1rem; } .fz-day-top span { font-size: .7rem; opacity: .85; }
-.fz-day-l { font-size: .75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fz-l0 { background: color-mix(in srgb, var(--mud-palette-success) 22%, transparent); }
-.fz-l1 { background: color-mix(in srgb, var(--mud-palette-success) 45%, transparent); }
-.fz-l2 { background: color-mix(in srgb, var(--mud-palette-success) 70%, transparent); color: #fff; }
-.fz-l3 { background: color-mix(in srgb, var(--mud-palette-success) 95%, transparent); color: #fff; }

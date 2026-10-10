@@ -44,7 +44,9 @@ for (const [ad, kaynak, tepeDb] of sesler) {
   const tepe = Number((/max_volume: (-?[\d.]+) dB/.exec(olcum) ?? [])[1] ?? 0);
   const wav = path.join(gecici, ad + ".wav");
   execFileSync(ff, ["-hide_banner", "-loglevel", "error", "-y", "-i", aif, "-af", `volume=${(tepeDb - tepe).toFixed(2)}dB,apad=pad_dur=0.04`,
-    "-ar", "44100", "-ac", "1", "-sample_fmt", "s16", wav]);
+    "-ar", "44100", "-ac", "1", "-sample_fmt", "s16",
+    // Ek bilgi bölümü (LIST/INFO) YAZILMAZ → standart 44 baytlık başlık (testler ve eski oynatıcılar bunu bekler).
+    "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", wav]);
   for (const h of hedefler) fs.copyFileSync(wav, path.join(h, ad + ".wav"));
   console.log(`${ad}.wav ← ${kaynak} (tepe ${tepe} → ${tepeDb} dB)`);
 }

@@ -41,6 +41,8 @@ public class IslemOnaylariTests
     {
         // Henüz kaydedilmemiş form satırını çıkarır (hiçbir şey silinmez):
         "RemoveLine", "RemoveMntLine", "RemoveExitLine", "RemoveCountLine", "RemoveItem",
+        // 2026-10-10: talep formunda eklenmekte olan kalemin ARAÇ ÇİPİNİ çıkarır — form içi, henüz kaydedilmemiş veri.
+        "RemoveNewItemVehicle",
         "RemoveEquivalentPick", "RemovePhoto",
         // Satır içi "+" ekleme kutusunu kapatır:
         "CancelAddSub", "CancelAddTechnician", "CancelAddMntSub", "CancelAddCategory",

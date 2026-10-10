@@ -484,10 +484,12 @@ WHERE mr.id=@id;";
     private static List<ItemRowData> LoadItemRows(DbConnection conn, string companyId, string requestId)
     {
         var ham = new List<(string Mat, string Code, string Name, string Unit, decimal Qty, string? Note, List<string> Ids)>();
+        // ESKİ ŞEMA (Migration097 öncesi) toleransı: sütun yoksa NULL okunur → tek araç yoluna düşülür.
+        var cokluSutun = CokluAracSutunuVar(conn, null) ? "i.vehicle_ids" : "NULL";
         using (var ic = conn.CreateCommand())
         {
             ic.CommandText = @"
-SELECT i.material_id, m.code, m.name, COALESCE(u.name,''), i.quantity, i.note, i.vehicle_id, i.vehicle_ids
+SELECT i.material_id, m.code, m.name, COALESCE(u.name,''), i.quantity, i.note, i.vehicle_id, " + cokluSutun + @"
 FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN units u ON u.id = m.unit_id
@@ -497,7 +499,7 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
             using var ir = ic.ExecuteReader();
             while (ir.Read())
             {
-                var ids = ParseVehicleIds(ir.IsDBNull(7) ? null : ir.GetString(7));
+                var ids = ParseVehicleIds(ir.IsDBNull(7) ? null : Convert.ToString(ir.GetValue(7)));
                 if (ids.Count == 0 && !ir.IsDBNull(6)) ids.Add(ir.GetString(6));
                 ham.Add((ir.GetString(0), ir.GetString(1), ir.GetString(2), ir.GetString(3), Money.Parse(ir.GetString(4)),
                     ir.IsDBNull(5) ? null : ir.GetString(5), ids));
@@ -542,9 +544,15 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
     /// düzenleme formu o aracın kodunu gösterebilirdi. <c>vehicle_id</c> = ilk araç (eski okuyucular için),
     /// <c>vehicle_ids</c> = tamamı.
     /// </summary>
+    /// <summary>Migration097 uygulanmış mı? (Eski şemalı yerel veritabanı — OnayMigrationVeEskiIstemciTests OM03 ilkesi:
+    /// servisler yükseltilmemiş şemada da çalışmaya devam eder.)</summary>
+    private static bool CokluAracSutunuVar(DbConnection conn, DbTransaction? tx)
+        => DbIntrospect.ColumnExists(conn, tx, "material_request_items", "vehicle_ids");
+
     private static void InsertItems(DbConnection conn, DbTransaction tx, string companyId, string requestId,
         IReadOnlyList<RequestItemInput> items)
     {
+        var cokluSutun = CokluAracSutunuVar(conn, tx);
         foreach (var item in items)
         {
             EnsureMaterialOwned(conn, tx, companyId, item.MaterialId);
@@ -555,7 +563,9 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
 
             using var ic = conn.CreateCommand();
             ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, vehicle_ids, note) VALUES(@id,@c,@r,@m,@q,@v,@vs,@n);";
+            ic.CommandText = cokluSutun
+                ? "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, vehicle_ids, note) VALUES(@id,@c,@r,@m,@q,@v,@vs,@n);"
+                : "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@c,@r,@m,@q,@v,@n);";
             ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
             ic.AddWithValue("@c", companyId);   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", requestId);

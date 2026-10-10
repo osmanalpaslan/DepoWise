@@ -116,7 +116,8 @@ public class MasaustuTasarimPaketiTests
         // 2026-09-30: 37 kolon filtresi XAML'de tek tek TextBox değil, ortak HucreFiltre kontrolüdür
         // (CellFilter sınıfını kodda ekler). XAML'de yalnız ortak rapor tablosunun kutusu kalır.
         Assert.Equal(1, Say($"Classes={T}CellFilter{T}"));
-        Assert.Equal(37, Say("<ctrl:HucreFiltre "));          // 15 Malzeme + 14 Araç + 8 Günlük Faaliyet
+        // 2026-10-10: 37 → 41. Araç ekranına 4 KİRA kolonu filtresi (yalnız Kiralık Araçlar modunda görünür).
+        Assert.Equal(41, Say("<ctrl:HucreFiltre "));          // 15 Malzeme + 18 Araç + 8 Günlük Faaliyet
         // 2026-09-06 (FAZ 4.8): 19 → 20. Kullanıcı isteği: "Araç bakımlarında tarih / araç kodu /
         // plaka sorgulama alanı ve butonları yok." Bakım listesine serbest arama kutusu eklendi.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
@@ -129,7 +130,7 @@ public class MasaustuTasarimPaketiTests
     /// <summary>Filtre kutusunun üçlü imzası (Value + Label + Hint) korunmalı: filtre MANTIĞI
     /// değişmedi, yalnız sınıf adı değişti. İmza bozulursa kutu veriye bağlanmaz.</summary>
     [Theory]
-    [InlineData("VehiclesView", 14)]
+    [InlineData("VehiclesView", 18)]   // 2026-10-10: 14 + 4 kira kolonu
     [InlineData("MaterialsView", 15)]
     [InlineData("DailyActivityView", 8)]   // 2026-09-04: +1 "Malzeme Miktarı" · 2026-09-30: +1 "Kullanılan Malzemeler"
     public void TSR3_Filtre_Kutusu_Baglari_Korundu(string ekran, int adet)
