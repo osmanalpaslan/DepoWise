@@ -7,7 +7,7 @@ namespace DepoWise.Infrastructure.Reporting;
 
 /// <summary>Bir aracın son yakıt dolumunda tüketimi kendi ortalamasının belirgin üstünde.</summary>
 /// <param name="Last">Son geçerli dolumun tüketimi (L/km ya da L/saat).</param>
-/// <param name="Baseline">Önceki dolumların toplam litre / toplam sayaç farkı (ağırlıklı ortalama).</param>
+/// <param name="Baseline">Önceki dolumların tüketimlerinin MEDYANI (ortanca değer).</param>
 public sealed record FuelAnomaly(string VehicleId, string DistributionId, decimal Last, decimal Baseline,
     string MeterUnit, long Date, int Samples)
 {
@@ -26,8 +26,11 @@ public sealed record RentalExpiry(string VehicleId, string? Company, long End, i
 /// (<see cref="DashboardService"/>) bunları masaüstü ve web için AYNI hesapla üretir (tek kaynak).
 ///
 /// <b>Yakıt tüketim sapması:</b> her dolumun tüketimi = litre ÷ (güncel sayaç − önceki sayaç). Aracın son
-/// <see cref="PencereGun"/> gündeki ÖNCEKİ dolumlarının ağırlıklı ortalaması (Σlitre ÷ Σfark) taban kabul edilir;
-/// son dolum tabandan <see cref="EsikOran"/> kat fazlaysa uyarı (≥ <see cref="KritikOran"/> → kritik).
+/// <see cref="PencereGun"/> gündeki ÖNCEKİ dolumlarının tüketim <b>MEDYANI</b> taban kabul edilir; son dolum tabandan
+/// <see cref="EsikOran"/> kat fazlaysa uyarı (≥ <see cref="KritikOran"/> → kritik).
+/// <b>Neden medyan (canlı veride ölçüldü, 2026-10-10):</b> ilk sürüm ağırlıklı ortalama (Σlitre ÷ Σfark) kullanıyordu;
+/// gerçek veride tek bir hatalı sayaç atlaması (ör. +100.000 km) Σfark'ı şişirip tabanı ~0'a çekti ve 49 aracın 40+'ında
+/// sahte "+%5000" uyarısı üretecekti. Medyan bu uç değerlerden etkilenmez: aynı veride 6 uyarı (1 kritik).
 /// Kalkanlar (yanlış alarm üretmesin): en az <see cref="MinOrnek"/> geçerli dolum; son dolumun sayaç farkı
 /// km'de ≥ 20, saatte ≥ 2 (çok kısa aralıkta tek dolum oranı şişirir); iptal edilen kayıt (is_deleted=1) sayılmaz.
 ///
@@ -78,8 +81,9 @@ ORDER BY fd.vehicle_id, fd.distribution_date, fd.created_at;";
             var son = l[^1];
             var asgariFark = son.Unit == DepoWise.Application.Ui.MeterUnitOptions.Hour ? 2m : 20m;
             if (son.Diff < asgariFark) continue;
-            var onceki = l.Take(l.Count - 1).ToList();
-            var taban = onceki.Sum(x => x.Liters) / onceki.Sum(x => x.Diff);
+            var onceki = l.Take(l.Count - 1).Select(x => x.Liters / x.Diff).OrderBy(x => x).ToList();
+            var orta = onceki.Count / 2;
+            var taban = onceki.Count % 2 == 1 ? onceki[orta] : (onceki[orta - 1] + onceki[orta]) / 2m;
             var sonTuketim = son.Liters / son.Diff;
             if (taban > 0 && sonTuketim >= taban * EsikOran)
                 sonuc.Add(new FuelAnomaly(vid, son.Id, sonTuketim, taban, son.Unit, son.Date, l.Count));

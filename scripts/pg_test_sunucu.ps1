@@ -52,6 +52,16 @@ if ($durum.ExitCode -ne 0) {
 $sifre = Get-Content $sifreDosya -Raw
 $env:PGPASSWORD = $sifre
 $var = & (Join-Path $bin "psql.exe") -h localhost -p $port -U postgres -Atc "SELECT 1 FROM pg_database WHERE datname='depowise_test';"
+if ($var -eq "1") {
+    # 2026-10-10: her test şemayı silip yeniden kurduğu için veritabanı zamanla şişer; 40 MB'ı geçince
+    # PostgresTestGuard'ın 50 MB güvenlik sınırına takılmadan YENİDEN oluşturulur (yalnız bu bilgisayardaki test DB'si).
+    $mb = & (Join-Path $bin "psql.exe") -h localhost -p $port -U postgres -Atc "SELECT pg_database_size('depowise_test')/1048576;"
+    if ([int]$mb -gt 40) {
+        & (Join-Path $bin "psql.exe") -h localhost -p $port -U postgres -c "DROP DATABASE depowise_test WITH (FORCE);" | Out-Null
+        $var = ""
+        Write-Output "[pg] Test veritabani $mb MB'a sismisti; yeniden olusturuluyor."
+    }
+}
 if ($var -ne "1") { & (Join-Path $bin "psql.exe") -h localhost -p $port -U postgres -c "CREATE DATABASE depowise_test;" | Out-Null }
 Remove-Item Env:PGPASSWORD
 

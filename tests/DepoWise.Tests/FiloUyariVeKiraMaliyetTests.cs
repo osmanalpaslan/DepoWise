@@ -17,6 +17,7 @@ namespace DepoWise.Tests;
 /// FUA1: son dolum aracın ortalamasının %30+ üstündeyse sapma uyarısı; %60+ kritik; ana ekranda "Yakıt tüketimi yüksek".
 /// FUA2: kalkanlar — normal tüketim, 5'ten az dolum, çok kısa sayaç aralığı, İPTAL edilen dolum → uyarı YOK.
 /// FUA3: başka firmanın dolumları sayılmaz (tenant).
+/// FUA4: geçmişte HATALI dev sayaç atlaması olan araçta normal son dolum uyarı ÜRETMEZ (canlı veride bulunan durum).
 /// KRU1: kira bitişi 7 gün içinde → "Kira bitişi yaklaşıyor"; geçmiş + aktif → "Kira süresi doldu" (kritik);
 ///       pasif (iade edilmiş) ve bitişi uzak olan → uyarı yok.
 /// KRM1: Kiralık Araç Maliyeti raporu — günlük/aylık bedel dönemle kesişen günden, yakıt aynı dönemden, toplam satırı.
@@ -113,6 +114,14 @@ public class FiloUyariVeKiraMaliyetTests : IDisposable
         Dolumlar(_b, "B-KAM", (100, 30), (100, 30), (100, 30), (100, 30), (100, 30), (100, 90));
         Assert.Empty(Sapmalar(_a));
         Assert.Single(Sapmalar(_b));
+    }
+
+    [Fact]
+    public void FUA4_Gecmisteki_Hatali_Sayac_Atlamasi_Sahte_Uyari_Uretmez()
+    {
+        // 4. dolumda sayaç yanlışlıkla 100.000 km atlamış (tüketim ~0,0003) — son dolum normal (0,33 ≈ +%10).
+        Dolumlar(_a, "HATALI", (100, 30), (100, 30), (100_000, 30), (100, 30), (100, 30), (100, 33));
+        Assert.Empty(Sapmalar(_a));
     }
 
     [Fact]
