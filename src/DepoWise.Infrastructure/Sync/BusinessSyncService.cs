@@ -642,24 +642,46 @@ public sealed class BusinessSyncService
     /// olmasın. (Gerçek delta senkron ayrı iş; bu, ucuz değişiklik-tespitiyle "duyarlı" davranış verir.)</summary>
     public long CompanyVersion(string companyId)
     {
+        // ⭐ 2026-10-10 (Supabase trafik ölçümü): eskiden HER çağrıda 58 tablo × 3 sorgu (tablo var mı + kolon
+        // listesi + MAX) = ~174 veritabanı gidiş-dönüşü yapılıyordu. Sunucu bunu her masaüstü yoklamasında
+        // tekrarladığı için günde GB'larca veritabanı trafiği oluşuyordu (ölçüm: ~4 GB/gün; ücretsiz kota ~5 GB/ay).
+        // Artık: tablo/kolon bilgisi önbellekten (CompanyVersionSql), tüm MAX'lar TEK sorguda. Sonuç BİREBİR aynı.
         using var conn = _factory.Create();
-        long max = 0;
+        var sql = CompanyVersionSql(conn);
+        if (sql is null) return 0;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.AddWithValue("@c", companyId);
+        var v = cmd.ExecuteScalar();
+        return v is null or DBNull ? 0 : Convert.ToInt64(v);
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string? Sql, DateTime At)> _versionSql = new();
+
+    /// <summary>
+    /// Firma sürümü sorgusu: her tablonun damga MAX'ı UNION ALL ile tek sorguda. Tablo/kolon keşfi (şema
+    /// soruları) veritabanı başına önbelleğe alınır ve 10 dakikada bir tazelenir (şema yalnız açılıştaki
+    /// migration'la değişir). Tablo yoksa/damgası yoksa — eskisi gibi — atlanır.
+    /// </summary>
+    private static string? CompanyVersionSql(DbConnection conn)
+    {
+        var anahtar = conn.GetType().Name + "|" + conn.DataSource + "|" + conn.Database;
+        if (_versionSql.TryGetValue(anahtar, out var c) && DateTime.UtcNow - c.At < TimeSpan.FromMinutes(10)) return c.Sql;
+        var parcalar = new List<string>();
         foreach (var table in Tables)
         {
             if (!TableExists(conn, table)) continue;
             var cols = ColumnNames(conn, table);
             var stamp = StampColumn(cols);
             if (stamp is null) continue;
-            using var cmd = conn.CreateCommand();
-            var hasCompany = cols.Contains("company_id");
-            cmd.CommandText = hasCompany
-                ? $"SELECT MAX({stamp}) FROM {table} WHERE company_id=@c;"
-                : $"SELECT MAX({stamp}) FROM {table};";
-            if (hasCompany) cmd.AddWithValue("@c", companyId);
-            var v = cmd.ExecuteScalar();
-            if (v is not null and not DBNull) { var l = Convert.ToInt64(v); if (l > max) max = l; }
+            parcalar.Add(cols.Contains("company_id")
+                ? $"SELECT MAX({stamp}) AS v FROM {table} WHERE company_id=@c"
+                : $"SELECT MAX({stamp}) AS v FROM {table}");
         }
-        return max;
+        var sql = parcalar.Count == 0 ? null
+            : "SELECT MAX(v) FROM (" + string.Join(" UNION ALL ", parcalar) + ") surum;";
+        _versionSql[anahtar] = (sql, DateTime.UtcNow);
+        return sql;
     }
 
     /// <summary>

@@ -498,7 +498,7 @@ app.MapGet("/api/sync/business-version", (HttpContext c) =>
 
 // ⭐ 2026-10-04 — "DEĞİŞİKLİK OLANA KADAR BEKLE" (uzun yoklama). Masaüstü elindeki sürümle (since) çağırır;
 // sunucu sürümü since'ten büyükse HEMEN döner, değilse firmanın sinyalini en fazla 25 sn bekler. Sinyal
-// kaçarsa diye 10 sn'de bir sürüm yine kontrol edilir. Bekleme sırasında DB bağlantısı tutulmaz; istemci
+// kaçarsa diye süre sonunda sürüm yine kontrol edilir. Bekleme sırasında DB bağlantısı tutulmaz; istemci
 // bağlantıyı kapatırsa bekleme iptal olur. Eski masaüstü bu ucu çağırmaz (davranışı değişmez).
 app.MapGet("/api/sync/wait", async (HttpContext c, long? since) =>
 {
@@ -511,7 +511,8 @@ app.MapGet("/api/sync/wait", async (HttpContext c, long? since) =>
         var kalan = bitis - DateTime.UtcNow;
         if (kalan <= TimeSpan.Zero || c.RequestAborted.IsCancellationRequested)
             return Results.Ok(new { version = v, changed = false });
-        await SyncNotifier.WaitAsync(s.CompanyId, kalan < TimeSpan.FromSeconds(10) ? kalan : TimeSpan.FromSeconds(10), c.RequestAborted);
+        // 2026-10-10: ara kontrol kaldırıldı (trafik) — sinyal ya da süre sonu; süre sonunda sürüm bir kez daha okunur.
+        await SyncNotifier.WaitAsync(s.CompanyId, kalan, c.RequestAborted);
     }
 }).RequireAuthorization();
 
