@@ -190,6 +190,25 @@ sürdür. Başarısız testi gizleme veya yalnız tekrar çalıştırıp geçme.
 - `docs/PROJECT_STATE.md`, `DECISIONS.md`, `KNOWN_ISSUES.md`, `TEST_EVIDENCE.md` güncellenmeden fazı
   tamamlandı sayma.
 
+## 7.5 Araçlar — Serena / beceriler (2026-09-03, ayrıntı: `docs/ARAC_KURULUMU.md`)
+- **Serena = SALT OKUMA kod zekâsı.** C# sembol arama, referans izleme, tanıma gitme, dosya tanısı için
+  kullanılır. Büyük dosyalarda (`Program.cs` ~4000 satır) "bu sembol nerede kullanılıyor" sorusunda
+  grep'ten üstündür; **önce Serena ile bul, sonra ilgili satır aralığını oku** (§3 token disiplini).
+- **Değişiklik Serena ile YAPILMAZ.** Yazma/kabuk araçları bilerek kapatıldı. Kod değişikliği daima
+  Claude Code'un kendi `Edit`/`Write`/`Bash` araçlarıyla yapılır — yalnız onlar `.claude/settings.json`
+  içindeki izin kurallarından (`ask`/`deny`) geçer.
+- **Context7 ve Playwright MCP TANIMLI ama KAPALI.** Context7'de açık bir kritik güvenlik açığı
+  (kimlik bilgisi sızdırma) var. **Kullanıcı açıkça istemeden Context7'yi açma.**
+- **QA test araçları (kullanıcı kuralı 2026-10-10) — varsayılan KAPALI, açma kararı Claude'da:**
+  - Masaüstü arayüz: `tests/DepoWise.Desktop.UiTests` (Avalonia Headless = görünmez ekran, gerçek fare/klavye).
+    `scripts/run_ui_tests.ps1` ile çalışır; `run_tests.ps1` çalıştırmaz. Masaüstünde görünüm/etkileşim değişince AÇ.
+  - Web: `tests/web-e2e` (Playwright + kendi Chromium'u). `cd tests/web-e2e && npx playwright test`.
+    Web arayüzü/akışı değişince ve yayın sonrası duman testi olarak AÇ. Canlıda yalnız okur (test kullanıcısı).
+  - Testten sonra hiçbir araç açık/çalışır bırakılmaz. Raporda hangi aracın neden çalıştırıldığı tek satırla yazılır.
+- **Beceriler:** arayüz tasarımı için `frontend-design`; hareket/animasyon için
+  `alpnex-arayuz-hareket` (MudBlazor + Avalonia'ya özel; React/Framer Motion örneklerini bu projeye
+  uygulama — o kütüphaneler burada YOK).
+
 ## 8. Yanıt formatı
 1. Yapılanlar (en fazla 6 madde)
 2. Değişen dosyalar
