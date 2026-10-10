@@ -3,7 +3,7 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-10):** canlıda API+Web, masaüstü 1.0.195, şema 98, üretim DB Supabase. Sıradaki: 1/2 numaralı geliştirmelerin yayını (kullanıcı onayıyla).
+**Özet (2026-10-10 gece):** canlıda API+Web 36eb6d6+ (web bellek önlemleri), masaüstü **1.0.196**, şema 98, üretim DB Supabase. Sıradaki: kullanıcı talebi.
 
 ## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
 - **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.
@@ -11,6 +11,9 @@
 - **Rapor:** `rental-cost` Kiralık Araç Maliyeti (kesişen gün × bedel gün/ay/saat + dönem yakıtı).
 - **Yedek provası:** `scripts/yedek_prova.ps1` + görev "DepoWise Aylik Yedek Provasi" (ayın ilk Pazarı 04:00); `yedek_al.ps1` artık `*.counts.json` sayım listesi yazar. İlk prova BAŞARILI; bozuk listeyle hata yakalama kanıtlandı.
 - Not: yakıt deposu kritik seviye uyarısı ZATEN vardı (%20).
+- **YAYIN (gece):** API + Web + masaüstü 1.0.196. Yakıt sapma tabanı MEDYAN (canlı ölçüm: ağırlıklı ortalama 40+ sahte uyarı üretecekti → medyanla 6).
+- **Olay:** art arda Playwright koşuları 256 MB web makinesini kilitledi (~22:57) → makine yeniden başlatıldı. Önlem: swap 256 MB (fly.web.toml ÜST düzeyde!), DOTNET_GCConserveMemory=5, kopan devre tutma 1 dk/20. Testten sonra MemAvailable ~40 MB, swap boş.
+- Tam takım 3.996/4.017 (21 PG testi yerel test DB 51 MB > 50 MB kapısı) → pg_test_sunucu.ps1 artık 40 MB üstünde DB'yi yeniden kurar; PG + hedefli 80/80. Canlı web Playwright 6/6.
 
 ## ✅ 2026-10-10 YAYINDA — API+Web 41f47a7 · masaüstü 1.0.195 · şema 98 · Talep çoklu araç · Kiralık Araçlar · Yakıt Özeti · yeni sesler
 - **Talep Formu (4e0cf18):** kalemde birden fazla araç (`material_request_items.vehicle_ids`, Migration097; `vehicle_id` = ilk araç,

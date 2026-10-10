@@ -22,7 +22,7 @@ test('Kiralık Araçlar ekranı açılır ve kira kolonlarını gösterir', asyn
   await expect(page.locator('.dw-pagetitle', { hasText: 'Kiralık Araçlar' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Kiralık Araç Listesi')).toBeVisible();
   // Tablo başlığı yalnız satır varken çizilir; kiralık araç yoksa boş liste mesajı görünür.
-  const baslik = page.locator('th', { hasText: 'KİRALAYAN FİRMA' }).first();
+  const baslik = page.locator('th', { hasText: /K.RALAYAN F.RMA/i }).first();   // İ/I dönüşümüne dayanıklı
   await expect(baslik.or(page.getByText('Filtre kriterine uygun araç bulunamadı.'))).toBeVisible({ timeout: 30_000 });   // satır varsa tablo, yoksa boş mesaj
   await expect(page.locator('.dw-summary-box')).toHaveCount(1);   // yalnız "toplam kiralık araç"; firma geneli uyarı kutuları gizli
   // Yeni kayıt formu: kira alanları + değişim kutusu (KAYDETMEDEN çıkılır).
