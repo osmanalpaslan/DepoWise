@@ -57,7 +57,7 @@ Remove-Item Env:PGPASSWORD
 
 $hedef = "DEPOWISE_PG_URL=Host=localhost;Port=$port;Database=depowise_test;Username=postgres;Password=$sifre;Maximum Pool Size=20"
 foreach ($envDosya in $envDosyalari) { if (-not (Test-Path $envDosya)) { Set-Content -Path $envDosya -Value "# Yerel PG test sunucusu (scripts/pg_test_sunucu.ps1)" -Encoding utf8 }
-    $satirlar = Get-Content $envDosya
+    $satirlar = Get-Content $envDosya -Encoding UTF8   # 2026-10-10: kodlama verilmezse PS 5.1 ANSI okur → Türkçe değerler (ör. "Oze İnşaat") bozuluyordu
     if (-not ($satirlar -contains $hedef)) {
         $yeni = $satirlar | Where-Object { $_ -notlike "DEPOWISE_PG_URL=*" }
         $yeni += $hedef

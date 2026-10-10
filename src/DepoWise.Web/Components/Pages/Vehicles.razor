@@ -258,6 +258,9 @@
                 <span class="dw-summary-num">@_totalCount.ToString("N0")</span>
                 <span class="dw-summary-cap">toplam<br />@(_isRental ? "kiralık araç" : "araç")</span>
             </div>
+            @* Kiralık modda uyarı kutuları GİZLİ: /api/vehicles/alerts firma genelini sayar → kiralık ekranında yanıltıcı olur. *@
+            @if (!_isRental)
+            {
             <div class="dw-summary-box">
                 <span class="dw-summary-num">@UyariSayisi("Bakım")</span>
                 <span class="dw-summary-cap">bakım<br />uyarısı</span>
@@ -266,6 +269,7 @@
                 <span class="dw-summary-num">@UyariSayisi("Muayene")</span>
                 <span class="dw-summary-cap">muayene<br />uyarısı</span>
             </div>
+            }
         </div>
     }
 <MudGrid Spacing="2">
