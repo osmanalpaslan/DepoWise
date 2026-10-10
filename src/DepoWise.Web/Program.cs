@@ -21,7 +21,14 @@ builder.Services.AddDataProtection()
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
+    // ⭐ 2026-10-10 BELLEK (web 256 MB, kullanılabilir ~212 MB, süreç boşta ~100 MB): bağlantısı kopan devreler
+    // varsayılan 3 dk / 100 adet bellekte tutuluyordu; kısa sürede çok oturum açılınca bellek doldu ve süreç
+    // KİLİTLENDİ (canlıda yaşandı, makine yeniden başlatıldı). 1 dk / 20 adet: yeniden bağlanma yine çalışır.
+    .AddInteractiveServerComponents(o =>
+    {
+        o.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(1);
+        o.DisconnectedCircuitMaxRetained = 20;
+    })
     // KRİTİK: InputFile ile fotoğraf yükleme dosya baytlarını SignalR devresi üzerinden akıtır. Varsayılan
     // MaximumReceiveMessageSize = 32 KB olduğundan, birkaç yüz KB'lik bir foto seçilince devre DÜŞÜYOR →
     // kayıt sunucuda oluşsa bile ekran takılı kalıyor (spinner sonsuz döner). 12 MB'a çıkarıldı (foto akışı için).

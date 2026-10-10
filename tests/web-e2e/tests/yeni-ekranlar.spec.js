@@ -22,9 +22,8 @@ test('Kiralık Araçlar ekranı açılır ve kira kolonlarını gösterir', asyn
   await expect(page.locator('.dw-pagetitle', { hasText: 'Kiralık Araçlar' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Kiralık Araç Listesi')).toBeVisible();
   // Tablo başlığı yalnız satır varken çizilir; kiralık araç yoksa boş liste mesajı görünür.
-  const baslik = page.locator('th', { hasText: 'KİRALAYAN FİRMA' });
-  if (await baslik.count() > 0) await expect(baslik.first()).toBeVisible();
-  else await expect(page.getByText('Filtre kriterine uygun araç bulunamadı.')).toBeVisible();
+  const baslik = page.locator('th', { hasText: 'KİRALAYAN FİRMA' }).first();
+  await expect(baslik.or(page.getByText('Filtre kriterine uygun araç bulunamadı.'))).toBeVisible({ timeout: 30_000 });   // satır varsa tablo, yoksa boş mesaj
   await expect(page.locator('.dw-summary-box')).toHaveCount(1);   // yalnız "toplam kiralık araç"; firma geneli uyarı kutuları gizli
   // Yeni kayıt formu: kira alanları + değişim kutusu (KAYDETMEDEN çıkılır).
   const yeni = page.getByRole('button', { name: 'Yeni Kiralık Araç' });
@@ -63,4 +62,13 @@ test('Talep Formu çoklu araç alanı ve KOD sütunu', async ({ page }) => {
   const alan = page.locator('label', { hasText: 'Araçlar (opsiyonel, çoklu)' });
   test.skip(await alan.count() === 0, 'Test kullanıcısının talep oluşturma yetkisi yok');
   await expect(alan.first()).toBeVisible({ timeout: 30_000 });
+});
+
+test('Uyarılar ekranında Kiralık kategorisi var (2026-10-10 öneri 2)', async ({ page }) => {
+  await girisYap(page);
+  await page.goto('/alerts');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('#blazor-error-ui')).toBeHidden();
+  await expect(page.getByRole('button', { name: /Kiralık \(\d+\)/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: /Yakıt \(\d+\)/ })).toBeVisible();
 });

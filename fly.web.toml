@@ -4,8 +4,12 @@ primary_region = "fra"
 [build]
   dockerfile = "Dockerfile.web"
 
+# 2026-10-10: 256 MB makinede bellek dolunca süreç kilitleniyordu → takas alanı (ücretsiz) + .NET bellek tasarrufu.
+swap_size_mb = 256
+
 [env]
   Api__BaseUrl = "https://depowise-erp.fly.dev"
+  DOTNET_GCConserveMemory = "5"
 
 [http_service]
   internal_port = 8080
