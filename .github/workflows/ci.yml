@@ -10,6 +10,11 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    # 2026-10-10: testler masaüstünün TÜRKÇE davranışını ölçer (tarih yerel saatte, sayı virgüllü).
+    # GitHub makinesi varsayılan UTC + İngilizce → 3 test yalnız burada kırılıyordu (2026-09'dan beri kırmızı).
+    env:
+      TZ: Europe/Istanbul
+      LANG: tr_TR.UTF-8
     steps:
       - name: Checkout
         uses: actions/checkout@v4

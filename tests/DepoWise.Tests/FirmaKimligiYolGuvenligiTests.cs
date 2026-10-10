@@ -39,7 +39,7 @@ public class FirmaKimligiYolGuvenligiTests
 
     // ── Katman 2: yol çözümleyici (saf birim testi; dosya sistemi gerektirmez) ──────────────────
 
-    [Theory]
+    [SkippableTheory]
     [InlineData("..")]
     [InlineData("../ust")]
     [InlineData("..\\ust")]
@@ -47,6 +47,9 @@ public class FirmaKimligiYolGuvenligiTests
     [InlineData("a/../..")]
     public void YOL01a_Kok_Disina_Cikan_Kimlik_Reddedilir(string kimlik)
     {
+        // Ters bölü (\) yalnız Windows'ta klasör ayırıcıdır; Linux'ta (GitHub CI, Fly sunucusu) sıradan bir harftir
+        // ve kökten ÇIKAMAZ → orada reddedilmesi beklenmez. Masaüstü Windows'ta çalıştığı için test orada koşar.
+        Skip.If(kimlik.Contains('\\') && !OperatingSystem.IsWindows(), "Ters bölü yalnız Windows'ta yol ayırıcıdır.");
         var kok = Path.Combine(Path.GetTempPath(), "depowise_yol_test");
         Assert.Null(SafePath.UnderRoot(kok, "files", kimlik));
     }

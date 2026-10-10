@@ -1,0 +1,38 @@
+name: Kesinti Takibi
+
+# ⭐ 2026-10-10 — uptime monitoring (kesinti takibi). Sunucu/veritabanı/web erişilemezse bu görev KIRMIZI olur
+# ve GitHub hesabın sahibine (osmanalpaslan0101) e-posta gönderir. Gizli bilgi KULLANMAZ; yalnız herkese açık
+# adreslerin durum kodunu okur (depo herkese açık olduğu için Actions dakikaları ücretsizdir).
+# - API + veritabanı: 15 dakikada bir.
+# - Web: günde 1 kez (web boştayken UYUR — sık yoklama onu sürekli uyandırıp masraf çıkarırdı).
+# Yanlış alarm olmasın diye her kontrol 30 sn arayla 3 kez denenir.
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # API + veritabanı
+    - cron: "30 6 * * *"     # web (09:30 TSİ)
+  workflow_dispatch: {}
+
+jobs:
+  kontrol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Yoklama
+        env:
+          WEB_DE: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 6 * * *' }}
+        run: |
+          kontrol() {
+            ad="$1"; url="$2"; kod=""
+            for i in 1 2 3; do
+              kod=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 "$url" || echo "000")
+              if [ "$kod" = "200" ]; then echo "OK   $ad ($kod)"; return 0; fi
+              echo "deneme $i: $ad -> $kod"; [ $i -lt 3 ] && sleep 30
+            done
+            echo "::error::$ad ERISILEMIYOR ($url -> $kod)"; return 1
+          }
+          hata=0
+          kontrol "API" "https://depowise-erp.fly.dev/health" || hata=1
+          # Herkese açık firma listesi veritabanından okunur → API'nin DB bağlantısını da doğrular.
+          kontrol "API + Veritabani" "https://depowise-erp.fly.dev/api/public/companies" || hata=1
+          if [ "$WEB_DE" = "true" ]; then kontrol "Web" "https://depowise-web.fly.dev/login" || hata=1; fi
+          exit $hata
