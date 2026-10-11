@@ -4,7 +4,7 @@
         x:Class="DepoWise.Desktop.Views.VehicleQuickEditWindow"
         Width="820" Height="720" MinWidth="640" MinHeight="520" CanResize="True"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Alpnex — Araç" Icon="/Assets/app-logo.ico"
+        Title="Alpnex — Araç" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- Çift-tık ile açılan araç hızlı düzenle penceresi (kullanıcı isteği 2026-07-19). "Düzelt"e basılana
          kadar alanlar KİLİTLİ. İç kod ve sayaç bu pencerede değişmez (sayaç geri gitme koruması). -->

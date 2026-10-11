@@ -171,12 +171,12 @@ body {
 .mud-appbar .mud-toolbar { min-height: 62px; gap: 6px; }
 .mud-appbar .mud-typography-h6 { font-size: 1rem; font-weight: 700; letter-spacing: -.012em; }
 
-/* Logo — koyu üst barda logonun lacivert parçaları kaybolmasın diye açık plaka */
+/* Logo — 2026-10-11 yeni şeffaf "AN" işareti: parlak mavi, koyu ve açık üst barda okunur → arka plaka YOK
+   (eski logonun lacivert parçaları için konmuş beyaz plaka kaldırıldı). */
 .mud-appbar img[alt] {
     height: 36px !important; width: auto;
-    background: rgba(255,255,255,.94);
-    border-radius: var(--dw-r-sm); padding: 3px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.22), 0 0 0 1px rgba(255,255,255,.10);
+    background: none; padding: 0;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
 }
 
 /* Aktif firma seçici (süper admin) */

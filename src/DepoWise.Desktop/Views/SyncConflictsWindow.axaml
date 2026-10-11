@@ -4,7 +4,7 @@
         x:Class="DepoWise.Desktop.Views.SyncConflictsWindow"
         Width="900" Height="680" MinWidth="560" MinHeight="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Senkron Çakışmaları" Icon="/Assets/app-logo.ico"
+        Title="Senkron Çakışmaları" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — SENKRON ÇAKIŞMA EKRANI.
          "Kimin kazandığı kimin kaybettiği belirtilmeli… Üzerine yazılan kaydı iptal edip istenen

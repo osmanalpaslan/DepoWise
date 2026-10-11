@@ -11,7 +11,7 @@
         mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
         x:Class="DepoWise.Desktop.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
-        Icon="/Assets/app-logo.ico"
+        Icon="/Assets/app-gorev.ico"
         MinWidth="980" MinHeight="560"
         Width="1180" Height="720"
         Background="{DynamicResource AppBackgroundBrush}"
@@ -50,7 +50,7 @@
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Image Source="/Assets/app-icon-256.png" Width="34" Height="34" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-mark.png" Width="34" Height="34" VerticalAlignment="Center"/>
                         <SelectableTextBlock Text="Alpnex" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>

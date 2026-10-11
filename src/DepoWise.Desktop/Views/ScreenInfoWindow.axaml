@@ -3,7 +3,7 @@
         x:Class="DepoWise.Desktop.Views.ScreenInfoWindow"
         Width="860" Height="640" MinWidth="500" MinHeight="360"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Ekran Bilgisi" Icon="/Assets/app-logo.ico"
+        Title="Ekran Bilgisi" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
         <Grid Margin="18" RowDefinitions="Auto,*,Auto">

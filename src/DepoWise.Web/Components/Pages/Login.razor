@@ -205,8 +205,8 @@
 
 .dw-brand-top { display: flex; align-items: center; gap: 12px; animation: dwUp .55s cubic-bezier(.22,1,.36,1) both; }
 .dw-brand-logo {
-    width: 44px; height: 44px; border-radius: 13px; background: rgba(255,255,255,.94); padding: 4px;
-    box-sizing: border-box; box-shadow: 0 8px 22px rgba(0,0,0,.34), 0 0 0 1px rgba(255,255,255,.12);
+    /* 2026-10-11: yeni şeffaf logo — beyaz plaka kaldırıldı, işaret koyu giriş panelinde doğrudan durur */
+    width: 48px; height: 48px; box-sizing: border-box; filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
     animation: dwLogoIn .72s cubic-bezier(.34,1.56,.64,1) both;
 }
 @@keyframes dwLogoIn {

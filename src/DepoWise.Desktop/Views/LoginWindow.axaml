@@ -7,7 +7,7 @@
         x:Class="DepoWise.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
         Width="880" Height="560" CanResize="False"
-        Icon="/Assets/app-logo.ico"
+        Icon="/Assets/app-gorev.ico"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="None"
         Title="Alpnex — Giriş">
@@ -180,7 +180,7 @@
 
             <DockPanel Margin="32,30,32,24">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="11">
-                    <Image Source="/Assets/app-icon-256.png" Width="42" Height="42" VerticalAlignment="Center"/>
+                    <Image Source="/Assets/app-mark.png" Width="42" Height="42" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="Alpnex" FontSize="19" FontWeight="Bold"
                                          Foreground="#EAEEF7" VerticalAlignment="Center"/>
                 </StackPanel>

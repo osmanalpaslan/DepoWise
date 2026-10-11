@@ -3,7 +3,7 @@
         x:Class="DepoWise.Desktop.Views.HistoryDetailWindow"
         Width="440" SizeToContent="Height" MaxHeight="560" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Alpnex — İşlem Detayı" Icon="/Assets/app-logo.ico"
+        Title="Alpnex — İşlem Detayı" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- İşlem Geçmişi kaydı detayı (madde 5, kullanıcı isteği 2026-08-06): TAMAMEN SALT-OKUNUR — hiçbir alan
          burada düzenlenemez. "Kaydı Görüntüle" verilmişse kullanıcıyı gerçek ekrana yönlendirir. -->

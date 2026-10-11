@@ -4,7 +4,7 @@
         x:Class="DepoWise.Desktop.Views.RecordHistoryWindow"
         Width="880" Height="660" MinWidth="520" MinHeight="380"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Kayıt Geçmişi" Icon="/Assets/app-logo.ico"
+        Title="Kayıt Geçmişi" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — ANLAŞILIR LOG EKRANI.
          Günlere ayrılmış liste: gün başlığı → o günün işlemleri → her işlemin ALAN BAZLI farkı

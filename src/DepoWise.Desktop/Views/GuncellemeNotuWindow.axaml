@@ -3,7 +3,7 @@
         x:Class="DepoWise.Desktop.Views.GuncellemeNotuWindow"
         Width="560" SizeToContent="Height" MaxHeight="680" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="Yenilikler" Icon="/Assets/app-logo.ico"
+        Title="Yenilikler" Icon="/Assets/app-gorev.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- ⭐ 2026-10-11: güncelleme SONRASI ilk açılışta bir kez gösterilen "Yenilikler" penceresi. -->
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
