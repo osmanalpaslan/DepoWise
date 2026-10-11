@@ -48,7 +48,9 @@
 - Kritik alanlarda her zaman test: tenant, yetki, rollback, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı, eski şema.
 
 ## 5. Yayın ve üretim
-- Yayın kullanıcı onayıyla (önden onay verdiyse testler geçince). Deploy **yalnız temiz kopyadan**:
+- **Yayın OTOMATİK (kullanıcı kararı 2026-10-11: "onaya gerek yok, bütün testler hatasız olunca otomatik yayınla"):**
+  yalnız eksiksiz geçen TAM koşu + arayüz testleri + (büyük işte) iki ortam denetimi sonrası; ardından canlı duman testi.
+  Yarım/kırık koşuyla ASLA. Kullanıcı aksini söylerse onaylı yayına dön. Release/update mekanizması değişikliği yine onay ister. Deploy **yalnız temiz kopyadan**:
   `git archive HEAD | tar -x -C %TEMP%/dw_deploy` → `flyctl deploy --config fly.toml --remote-only` (API, önce) → `fly.web.toml` (web).
 - Masaüstü: `dotnet publish src/DepoWise.Desktop -c Release -r win-x64 --self-contained -p:Version=X.Y.Z -o artifacts/rc/desktop-X.Y.Z`
   → zip `artifacts/rc/` içine → `node scripts/publish_release.mjs <zip> X.Y.Z "<not>"` (env `DEPOWISE_ADMIN_USER/PASS`).

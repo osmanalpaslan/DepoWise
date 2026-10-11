@@ -5,8 +5,9 @@ description: DepoWise'ı canlıya yayınlar — API + web (Fly.io) ve masaüstü
 
 # Yayın (DepoWise)
 
-**Onay:** yayın kullanıcı onayı ister. Önden "testler geçince yayınla" dediyse ayrıca sorma. Release/update
-mekanizmasının KENDİSİNİ değiştirmek ayrıca onay ister (bu skill yalnız mevcut mekanizmayı kullanır).
+**Onay:** 2026-10-11'den beri DepoWise'da yayın OTOMATİK — aşağıdaki kapı tamamen geçince onay beklenmez (kullanıcı
+kararı, proje CLAUDE.md §5). Kullanıcı aksini söylerse onaylı yayına dön. Release/update mekanizmasının KENDİSİNİ
+değiştirmek ve ücret çıkaran adımlar yine onay ister (bu skill yalnız mevcut mekanizmayı kullanır).
 
 ## 0. Kapı — bunlar olmadan yayın YOK
 - [ ] Son TAM test koşusu "SONUC: TUM TESTLER GECTI" ile bitti (`test-kosusu` skill'i). Yarıda kalan koşu = geçmedi.
