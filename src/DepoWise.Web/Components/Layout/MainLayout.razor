@@ -276,7 +276,8 @@
                 }
                 else
                 {
-                    @Body
+                    @* 2026-10-11: aynı bileşenin alt ekranları arası geçişte sayfa sıfırdan kurulsun (WebSayfaAnahtari). *@
+                    <SayfaKabi @key="DepoWise.Application.Security.WebSayfaAnahtari.Hesapla(CurrentRoute())">@Body</SayfaKabi>
                 }
             }
             else

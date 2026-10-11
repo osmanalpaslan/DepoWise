@@ -387,3 +387,38 @@ public static class AppScreens
     public static IEnumerable<AppScreen> ScreensOf(string groupTitle, ScreenPlatform platform)
         => All.Where(s => s.Group == groupTitle && s.Platforms.HasFlag(platform));
 }
+
+/// <summary>
+/// ⭐ 2026-10-11 — WEB SAYFA ANAHTARI (kullanıcı hatası: "Kiralık Araçlar ↔ Araç Listesi geçişinde ekran takılı
+/// kalıyor, hep aynı veriler listeleniyor").
+///
+/// <para><b>Kök neden:</b> Blazor, AYNI bileşene giden iki adres arasında (ör. <c>/vehicles</c> → <c>/vehicles/rental</c>)
+/// sayfayı yeniden KURMAZ; yalnız <c>Section</c> parametresini değiştirir. Bu sayfalar verilerini/kipini yalnız ilk
+/// açılışta (<c>OnInitializedAsync</c>) yüklediği için önceki ekranın listesi, kolonları ve kipi ekranda kalıyordu.
+/// Aynı tuzak: Malzemeler ↔ Yeni Kayıt, Raporlar ↔ Yönetici Raporları (kapsam!), Talep Formu ↔ Talep Onaylama,
+/// Cari/Fatura/Hesap ↔ "Yeni" menüleri.</para>
+///
+/// <para><b>Çözüm (tek merkez):</b> ana yerleşim sayfa gövdesini bu anahtarla <c>@key</c>'ler. Aşağıdaki sayfalarda
+/// anahtar TAM yoldur → alt ekran değişince sayfa sıfırdan kurulur (masaüstündeki gibi: orada her menü tıklaması yeni
+/// ekran modeli açar). Diğer sayfalarda anahtar ilk yol parçasıdır → davranış AYNEN korunur (ör. Yakıt/Bakım
+/// sekmeleri tüm veriyi bir kez yükler ve sekme değişince yarım form kaybolmaz). Sorgu dizesi (<c>?edit=</c>,
+/// <c>?view=</c>) anahtara girmez.</para>
+/// </summary>
+public static class WebSayfaAnahtari
+{
+    /// <summary>Alt ekranı (Section) verisini/kipini değiştiren sayfalar — ilk yol parçası.</summary>
+    public static readonly IReadOnlySet<string> AltEkrandaSifirlanan = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "vehicles", "materials", "reports", "requests", "parties", "invoices", "finance",
+    };
+
+    /// <summary>Tabana göre göreli yol (sorgusuz) → sayfa gövdesi anahtarı.</summary>
+    public static string Hesapla(string? yol)
+    {
+        var y = (yol ?? "").Trim().Trim('/');
+        var q = y.IndexOfAny(new[] { '?', '#' });
+        if (q >= 0) y = y[..q].TrimEnd('/');
+        var ilk = y.Split('/')[0];
+        return AltEkrandaSifirlanan.Contains(ilk) ? y.ToLowerInvariant() : ilk.ToLowerInvariant();
+    }
+}

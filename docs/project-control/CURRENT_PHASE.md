@@ -5,6 +5,9 @@
 
 **Özet (2026-10-11):** web makinesi **512 MB** (kullanıcı onayı, ≈+1,2 $/ay) + 256 MB swap. Canlıda API+Web 36eb6d6+ (web bellek önlemleri), masaüstü **1.0.196**, şema 98, üretim DB Supabase. Sıradaki: kullanıcı talebi.
 
+## ⏳ 2026-10-11 — kullanıcı talebi (6 iş, fazlı): `TALEP_2026-10-11.md`
+- Faz 1 ✅ web alt ekran geçiş hatası: ana yerleşim gövdeyi `WebSayfaAnahtari` ile @key'ler (Araç/Kiralık, Malzeme, Rapor/Yönetici, Talep/Onay, Yeni Cari/Fatura/Hesap).
+
 ## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
 - **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.
 - **Filo uyarıları (979415a):** `FleetAlerts` — son dolum aracın 180 günlük ortalamasının %30+ üstü → "Yakıt tüketimi yüksek" (≥%60 kritik); kira bitişi ≤7 gün / geçmiş+aktif → yeni **Kiralık** uyarı kategorisi (masaüstü+web, ana ekran+Uyarılar).

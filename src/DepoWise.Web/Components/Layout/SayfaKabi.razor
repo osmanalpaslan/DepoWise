@@ -1,0 +1,7 @@
+@* ⭐ 2026-10-11 — Sayfa gövdesi kabı: DOM'a hiçbir şey eklemez, yalnız @key taşır (bkz. WebSayfaAnahtari).
+   Ana yerleşim @Body'yi bununla sarar; anahtar değişince içindeki sayfa bileşeni sıfırdan kurulur. *@
+@ChildContent
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

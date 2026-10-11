@@ -1006,7 +1006,9 @@
             if (err is null && savedId is not null && _staged.Count > 0)
                 await Api.UploadFilesAsync($"/api/vehicles/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
             _ok = err is null; _msg = err ?? (_editId is null ? "Araç eklendi." : "Araç güncellendi.");
-            if (_ok) { Clear(); Nav.NavigateTo(BasePath, forceLoad: _isRental); }
+            // 2026-10-11: /vehicles/new → /vehicles geçişinde sayfa artık sıfırdan kurulur (WebSayfaAnahtari) → liste
+            // yüklenir ama sayfa içi mesaj kaybolur; başarı bildirimi yerleşimdeki Snackbar ile gösterilir.
+            if (_ok) { Snackbar.Add(_msg, Severity.Success); Clear(); Nav.NavigateTo(BasePath, forceLoad: _isRental); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
