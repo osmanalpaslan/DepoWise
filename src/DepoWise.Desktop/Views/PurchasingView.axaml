@@ -32,7 +32,7 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="YENİ SİPARİŞ" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Sipariş No" IsRequired="True" Width="140">
                         <TextBox Classes="Field" Text="{Binding FormOrderNo}"/>
                     </ctrl:FormField>
@@ -55,9 +55,9 @@
                     <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"
                                     HelpText="Kabulde oluşan stok belgesine bağlanır.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
-                                        PlaceholderText="Merkez... (boş olabilir)"/>
+                                        PlaceholderText="Merkez seç / ara..."/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <ctrl:FormField Label="Açıklama" Width="700">
                     <TextBox Classes="Field" Text="{Binding FormNote}"/>
                 </ctrl:FormField>

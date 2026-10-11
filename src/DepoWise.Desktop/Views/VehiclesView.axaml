@@ -44,12 +44,14 @@
 
 
         <!-- Yeni Araç formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <!-- 2026-10-12: form, liste GİZLİYKEN listenin esneyen (*) satırını kullanır — ekranda boş alan kalırken
+             500 px'lik kutuya sıkışıp kaydırılmasın (kullanıcı bulgusu). Sığmazsa kendi içinde kayar. -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top" IsVisible="{Binding ShowAdd}">
             <Border.KeyBindings>
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
             </Border.KeyBindings>
-            <ScrollViewer MaxHeight="500">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
@@ -62,7 +64,7 @@
                               PlaceholderText="Şablon seç / ara..."/>
                 </ctrl:FormField>
 
-                <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Tanım" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="İç Kod" IsRequired="True" Width="180"
                                     HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}"
@@ -80,7 +82,7 @@
 
                 <!-- ⭐ 2026-10-10 KİRA BİLGİSİ (yalnız Kiralık Araçlar ekranında) -->
                 <StackPanel Spacing="12" IsVisible="{Binding IsRentalMode}">
-                    <SelectableTextBlock Text="Kira Bilgisi" Classes="CardLabel"/>
+                    <SelectableTextBlock Text="Kira Bilgisi" Classes="FormBolum"/>
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ctrl:FormField Label="Kiralayan Firma" IsRequired="True" Width="260"
                                         HelpText="Aracı kiraladığınız firma.">
@@ -125,7 +127,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <SelectableTextBlock Text="Durum &amp; Sayaç" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Durum &amp; Sayaç" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Durum" Width="160">
                         <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}"
@@ -157,7 +159,7 @@
                 </ctrl:FormField>
 
                 <!-- Sınıflandırma (Tanımlar'dan; + ile yeni) -->
-                <SelectableTextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
                 <ctrl:FormField Label="Makine Tipi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
@@ -223,7 +225,7 @@
                 </ctrl:FormField>
 
                 <!-- Konum & Atama -->
-                <SelectableTextBlock Text="Konum &amp; Atama" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Konum &amp; Atama" Classes="FormBolum"/>
                 <ctrl:FormField Label="Şantiye / Şube">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
@@ -251,7 +253,7 @@
                 </ctrl:FormField>
 
                 <!-- Teknik -->
-                <SelectableTextBlock Text="Teknik" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Teknik" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Şasi No" Width="240">
                         <TextBox Classes="Field" Text="{Binding NewChassisNo}"/>
@@ -262,7 +264,7 @@
                 </StackPanel>
 
                 <!-- Fotoğraflar -->
-                <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Fotoğraflar" Classes="FormBolum"/>
                 <StackPanel Spacing="8">
                     <!-- ADR-182 (PK-F3): KAYITLI fotoğraflar yalnız burada (düzenleme formunda) ve SİLME
                          yetkisiyle silinebilir. Yeni kayıtta bu blok görünmez. -->

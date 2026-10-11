@@ -51,7 +51,7 @@
                     <ctrl:FormField Label="Unvan" Width="220">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <ComboBox Classes="Field" Width="180" ItemsSource="{Binding Titles}" SelectedItem="{Binding FTitle}"/>
-                            <Button Classes="Secondary" Content="+" Width="34" ToolTip.Tip="Yeni unvan tanımı ekle"
+                            <Button Classes="Secondary" Content="+" Width="34" Padding="0" HorizontalContentAlignment="Center" ToolTip.Tip="Yeni unvan tanımı ekle"
                                     Command="{Binding ToggleAddTitleCommand}" IsVisible="{Binding CanWrite}"/>
                         </StackPanel>
                     </ctrl:FormField>

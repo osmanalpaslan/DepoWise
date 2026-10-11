@@ -146,7 +146,7 @@
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDist}">
                         <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="{Binding DistFormTitle}" Classes="SectionTitle"/>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
                                     <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
                                                     DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
@@ -164,8 +164,8 @@
                                     <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
                                                    FormatString="0.##" ShowButtonSpinner="False" PlaceholderText="Sayacı girin"/>
                                 </ctrl:FormField>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            </WrapPanel>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
                                 <ctrl:FormField Label="İşlem Tarihi" Width="150">
                                     <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
@@ -174,7 +174,7 @@
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
                                                 HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DistCostCenter}"
-                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                                    PlaceholderText="Merkez seç / ara..."/>
                                 </ctrl:FormField>
                                 <!-- ⭐ MUH-01b: irsaliye / fiş no. Depo girişindeki "Fatura/İrsaliye No"
                                      alanının dağıtım karşılığı; ön muhasebe gideri kaynak belgesine bağlar. -->
@@ -204,7 +204,7 @@
                                               ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}"
                                               PlaceholderText="Personel seç / ara..."/>
                                 </ctrl:FormField>
-                            </StackPanel>
+                            </WrapPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDistCommand}"/>
                                 <Button Classes="Primary" Content="{Binding DistSaveText}" Command="{Binding SaveDistCommand}"/>
@@ -377,7 +377,7 @@
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDepot}">
                         <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
                                 <ctrl:FormField Label="İşlem Tarihi" Width="150">
                                     <ctrl:TarihKutusu SelectedDate="{Binding DepotDate}" IsEnabled="{Binding CanBackDate}"
@@ -386,7 +386,7 @@
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
                                                 HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DepotCostCenter}"
-                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                                    PlaceholderText="Merkez seç / ara..."/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
                                     <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
@@ -397,8 +397,8 @@
                                 <ctrl:FormField Label="Toplam" Width="140">
                                     <TextBox Classes="Field" Text="{Binding DepotTotalText}" IsEnabled="False"/>
                                 </ctrl:FormField>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            </WrapPanel>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <!-- Tedarikçi + "+" ekleme (madde 2.1, kullanıcı isteği 2026-08-06): Malzemeler ekranıyla AYNI desen. -->
                                 <ctrl:FormField Label="Tedarikçi" Width="300">
                                     <StackPanel Spacing="6">
@@ -419,7 +419,7 @@
                                 <ctrl:FormField Label="Fatura/İrsaliye No" Width="200">
                                     <TextBox Classes="Field" Text="{Binding DepotInvoice}"/>
                                 </ctrl:FormField>
-                            </StackPanel>
+                            </WrapPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDepotCommand}"/>
                                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDepotCommand}"/>

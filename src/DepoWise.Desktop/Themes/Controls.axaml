@@ -24,6 +24,18 @@
         <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
+    <!-- ⭐ 2026-10-12 (görsel iyileştirme) — FORM BÖLÜM BAŞLIĞI. Uzun yeni kayıt formlarında ("Tanım", "Sınıflandırma",
+         "Durum & Sayaç"…) bölümler CardLabel ile yazılıyordu: 12 pt, normal kalınlık, ikincil renk → alan etiketlerinden
+         (yarı kalın) bile ZAYIF görünüyor, hiyerarşi tersine dönüyordu. Bölüm başlığı artık uygulamanın vurgu rengiyle,
+         kalın ve üstte nefes payıyla çizilir; alan etiketleri bunun ALTINDA kalır. CardLabel'in diğer kullanımları
+         (tema ayarları, panel etiketleri) DEĞİŞMEZ. Açık/koyu temada AccentBrush iki paletten de gelir. -->
+    <Style Selector=":is(TextBlock).FormBolum">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSectionTitle}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Margin" Value="0,10,0,0"/>
+    </Style>
     <Style Selector=":is(TextBlock).Metric">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontMetric}"/>

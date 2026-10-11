@@ -458,6 +458,14 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        new("2026-10-12-formlar", new DateOnly(2026, 10, 12), "1.0.199", "Yeni kayıt formları daha rahat", new GuncellemeMaddesi[]
+        {
+            new("Yeni kayıt formları artık ekrandaki boş alanı kullanır: Malzeme, Araç ve diğer formlar küçük bir kutuya sıkışmaz; yalnız ekrana sığmadığında fare tekerleğiyle kaydırılır.", Masaustu),
+            new("Menüdeki «Yeni Araç Ekle», «Yeni Cari», «Yeni Fatura» ve «Yeni Hesap» artık doğrudan boş formu açar.", Masaustu),
+            new("Pencere daraldığında form alanları sağdan taşmak yerine alt satıra geçer.", Masaustu),
+            new("Form bölüm başlıkları daha belirgin; değiştirilemeyen alanlar daha sade ve okunur görünür.", Masaustu),
+            new("Kullanıcılar ekranında yeni kullanıcı formunun alt kısmına (Oluştur düğmesi) küçük ekranlarda da kaydırarak ulaşılabilir.", Masaustu),
+        }),
         new("2026-10-11-logo", new DateOnly(2026, 10, 11), "1.0.198", "Yeni Alpnex logosu ve açılış animasyonu", new GuncellemeMaddesi[]
         {
             new("Alpnex'in logosu yenilendi: uygulama içinde, görev çubuğunda ve masaüstü simgesinde yeni logo görünür."),

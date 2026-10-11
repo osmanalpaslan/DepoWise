@@ -201,7 +201,14 @@
     <Style Selector="TextBox.Field:focus-within /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
-    <Style Selector="TextBox.Field:disabled"><Setter Property="Opacity" Value="0.5"/></Style>
+    <!-- 2026-10-12 (görsel iyileştirme): kilitli/otomatik alan ("Önceki Sayaç", "Toplam", "Yapılma Sayacı"…) temanın açık gri
+         devre-dışı zemini + %50 opaklıkla AĞIR GRİ BLOK görünüyor, doldurulabilir alanlardan daha çok dikkat çekiyordu.
+         Artık sessiz: şeffaf zemin, ince kenar, okunur metin (tarih alanının kilitli görünümüyle aynı dil). -->
+    <Style Selector="TextBox.Field:disabled"><Setter Property="Opacity" Value="0.8"/></Style>
+    <Style Selector="TextBox.Field:disabled /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+    </Style>
     <Style Selector="TextBox.Field.error /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
     </Style>
@@ -268,6 +275,13 @@
         <Setter Property="CornerRadius" Value="11"/>
         <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+    </Style>
+    <!-- 2026-10-12: kilitli sayı kutusu ("Önce araç seçin" → Yapılma Sayacı) da metin kutusuyla AYNI sessiz görünümde.
+         Eskiden iç metin kutusunun hazır tema zemini açık GRİ BLOK çiziyordu (doldurulabilir alanlardan çok dikkat çekiyordu). -->
+    <Style Selector="NumericUpDown.Field:disabled"><Setter Property="Opacity" Value="0.8"/></Style>
+    <Style Selector="NumericUpDown.Field:disabled /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
     </Style>
 
     <!-- ⭐ TRH-01 (kullanıcı isteği 2026-08-27) — TARİH ALANI KEHRİBAR.

@@ -1266,11 +1266,22 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Araç hareket / transfer + bakım faaliyetleri";
                 break;
             case "vehicles":
-            case "vehicles:new":
                 CurrentPage = new VehiclesViewModel(_session);
                 CurrentTitle = "Araçlar";
                 CurrentContext = "Araç kartları, durum ve uyarılar";
                 break;
+            // ⭐ 2026-10-12 (kullanıcı onayı): menüdeki "Yeni …" girişleri listeyi değil, YENİ KAYIT FORMUNU açar
+            // ("materials:new" ile aynı davranış). Form, ekrandaki "Yeni" düğmesinin komutuyla açılır — ayrı yol yok;
+            // yetki yoksa form açılmaz, liste görünür (Malzeme'deki openAdd && CanWrite kalıbı).
+            case "vehicles:new":
+            {
+                var vm = new VehiclesViewModel(_session);
+                if (vm.CanWrite) vm.ToggleAddCommand.Execute(null);
+                CurrentPage = vm;
+                CurrentTitle = "Araçlar — Yeni Araç";
+                CurrentContext = "Yeni araç formu";
+                break;
+            }
             // ⭐ 2026-10-10 (kullanıcı isteği): kiralık araçlar Araç Listesi'nden AYRI listelenir.
             case "vehicles:rental":
                 CurrentPage = new VehiclesViewModel(_session, kiralik: true);
@@ -1419,27 +1430,40 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Firma Tanım";
                 CurrentContext = "Firma kayıtları (yalnız Süper Admin)";
                 break;
-            // G4-1 — ÖN MUHASEBE / CARİ. "parties:new" aynı ekranı açar (liste + kart tek ekranda).
+            // G4-1 — ÖN MUHASEBE / CARİ. "parties:new" aynı ekranı açar (liste + kart tek ekranda);
+            // ⭐ 2026-10-12: "Yeni" girişinde form da açılır (yukarıdaki vehicles:new notu).
             case "parties":
             case "parties:new":
-                CurrentPage = new PartiesViewModel(_session);
+            {
+                var vm = new PartiesViewModel(_session);
+                if (key == "parties:new" && vm.CanCreate) vm.NewPartyCommand.Execute(null);
+                CurrentPage = vm;
                 CurrentTitle = "Cari Hesaplar";
                 CurrentContext = "Müşteri / tedarikçi kartları ve cari hesap hareketleri";
                 break;
-            // G4-2 — ÖN MUHASEBE / FATURA. "invoices:new" aynı ekranı açar (liste + form tek ekranda).
+            }
+            // G4-2 — ÖN MUHASEBE / FATURA. "invoices:new" aynı ekranı açar (liste + form tek ekranda); 2026-10-12: form açık gelir.
             case "invoices":
             case "invoices:new":
-                CurrentPage = new InvoicesViewModel(_session);
+            {
+                var vm = new InvoicesViewModel(_session);
+                if (key == "invoices:new" && vm.CanCreate) vm.NewInvoiceFormCommand.Execute(null);
+                CurrentPage = vm;
                 CurrentTitle = "Faturalar";
                 CurrentContext = "Alış / satış faturaları — stok ve cari etkisi tek işlemde";
                 break;
-            // G4-3 — ÖN MUHASEBE / KASA-BANKA. "finance:new" aynı ekranı açar (liste + form tek ekranda).
+            }
+            // G4-3 — ÖN MUHASEBE / KASA-BANKA. "finance:new" aynı ekranı açar (liste + form tek ekranda); 2026-10-12: form açık gelir.
             case "finance":
             case "finance:new":
-                CurrentPage = new FinanceViewModel(_session);
+            {
+                var vm = new FinanceViewModel(_session);
+                if (key == "finance:new" && vm.CanCreate) vm.NewAccountCommand.Execute(null);
+                CurrentPage = vm;
                 CurrentTitle = "Kasa / Banka";
                 CurrentContext = "Kasa ve banka hesapları, ekstre ve iç transfer";
                 break;
+            }
             case "payments":
                 CurrentPage = new PaymentsViewModel(_session);
                 CurrentTitle = "Tahsilat / Ödeme";

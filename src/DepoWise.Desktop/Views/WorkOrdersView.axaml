@@ -33,7 +33,7 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="İş Emri No" IsRequired="True" Width="130">
                         <TextBox Classes="Field" Text="{Binding FormWoNo}"/>
                     </ctrl:FormField>
@@ -51,12 +51,12 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormAssignee}"
                                         PlaceholderText="Personel seç / ara..."/>
                     </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Maliyet Merkezi" Width="200" IsVisible="{Binding CanPickCostCenter}"
                                     HelpText="Tüketim belgeleri bu merkeze bağlanır.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
-                                        PlaceholderText="Merkez... (boş olabilir)"/>
+                                        PlaceholderText="Merkez seç / ara..."/>
                     </ctrl:FormField>
                     <!-- Plan tarihleri KEHRİBAR temadan; plan bilgisi olduğundan geri-tarih kapısına girmez -->
                     <ctrl:FormField Label="Plan Başlangıç" Width="150">
@@ -68,7 +68,7 @@
                     <ctrl:FormField Label="Açıklama" Width="320">
                         <TextBox Classes="Field" Text="{Binding FormDescription}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

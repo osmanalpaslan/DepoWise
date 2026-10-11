@@ -42,12 +42,14 @@
 
 
         <!-- ===== Yeni Kayıt formu (gruplu) ===== -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <!-- 2026-10-12: form, liste GİZLİYKEN listenin esneyen (*) satırını kullanır — ekranda boş alan kalırken
+             470 px'lik kutuya sıkışıp kaydırılmasın (kullanıcı bulgusu). Sığmazsa kendi içinde kayar. -->
+        <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top" IsVisible="{Binding ShowAdd}">
             <Border.KeyBindings>
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
             </Border.KeyBindings>
-            <ScrollViewer MaxHeight="470">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
@@ -67,7 +69,7 @@
                 </ctrl:FormField>
 
                 <!-- Grup 1: Tanım -->
-                <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Tanım" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kod" IsRequired="True" Width="170"
                                     HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}">
@@ -84,7 +86,7 @@
                 </StackPanel>
 
                 <!-- Grup 2: Sınıflandırma (Tanımlar'dan beslenir; + ile yeni eklenir) -->
-                <SelectableTextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
 
                 <ctrl:FormField Label="Kategori">
                     <StackPanel Spacing="6">
@@ -173,7 +175,7 @@
                 </ctrl:FormField>
 
                 <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
-                <SelectableTextBlock Text="İlişkiler" Classes="CardLabel"/>
+                <SelectableTextBlock Text="İlişkiler" Classes="FormBolum"/>
                 <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar (çoklu seçim).">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto,Auto">
@@ -230,7 +232,7 @@
                 </ctrl:FormField>
 
                 <!-- Fotoğraflar -->
-                <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Fotoğraflar" Classes="FormBolum"/>
                 <StackPanel Spacing="8">
                     <!-- ADR-182 (PK-F3): KAYITLI fotoğraflar YALNIZ burada (düzenleme formunda) silinebilir.
                          Düğme ayrıca SİLME yetkisine bağlıdır — sunucu da Delete ister (arayüz kilidi tek
@@ -279,7 +281,7 @@
                 </StackPanel>
 
                 <!-- Grup 3: Fiyat & Stok -->
-                <SelectableTextBlock Text="Fiyat &amp; Stok" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Fiyat &amp; Stok" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Birim Fiyat (TRY)" Width="160" IsVisible="{Binding FiyatGorunur}">
                         <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"

@@ -3,7 +3,15 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-11 gece):** YAYINDA — API + Web bff079a, masaüstü **1.0.198** (yeni logo + açılış animasyonu), şema 98, web 512 MB + swap. Önceki: 1.0.197 talep paketi (`TALEP_2026-10-11.md`). Yayın otomatik (testler geçince). Sıradaki: kullanıcı talebi.
+**Özet (2026-10-12):** YAYINDA — API + Web bff079a, masaüstü **1.0.198**. Commit'te, YAYINDA DEĞİL: masaüstü yeni kayıt formları görsel iyileştirme (`TALEP_2026-10-12_gorsel.md`) — kullanıcı canlı pencerede kontrol edecek, yayın onu bekliyor.
+
+## ⏳ 2026-10-12 — masaüstü yeni kayıt formları görsel iyileştirme (commit; yayın kullanıcı kontrolünden sonra)
+- Rapor: `docs/raporlar/GORSEL_IYILESTIRME_2026-10-12.md`. Yalnız masaüstü görünümü + menü yönlendirmesi; iş mantığı/şema/API değişmedi.
+- Form yüksekliği ekrana göre (sabit 380–640 px kutular kaldırıldı): Malzeme/Araç formu listenin esneyen satırında; liste görünen ekranlarda `FormListeOrani` (Depo Giriş kalıbı). Kullanıcılar formuna kaydırma.
+- Menü "Yeni Araç Ekle / Yeni Cari / Yeni Fatura / Yeni Hesap" artık formu açar (web zaten açıyordu), yetki yoksa açmaz.
+- Sarmalı form satırları (Bakım, Yakıt, İş Emri, Satın Alma, Duyuru), `FormBolum` bölüm başlığı, kapalı kutu görünümü, yer tutucu birliği.
+- Test: `GorselTaramaTests` (30 ekran × 3 boyut, SIKIŞIK FORM/ULAŞILAMAZ dahil, eski hatalı sürüme karşı kanıtlandı); `MasaustuYeniKayitFormuTests` (25). Arayüz 41/41.
+- Açık: tablo başlığı dar pencerede kayıyor (ortak `TableHeader` + `ListBox.Table`) → ayrı iş önerildi.
 
 ## ✅ 2026-10-11 gece YAYINDA — yeni logo + açılış animasyonu (masaüstü 1.0.198)
 - Logo: kaynak JPG şeffaflığı çizilmiş dama → kroma+parlaklık anahtarı, renk sızdırma, ön-çarpılmış küçültme (`scripts/logo_uret.py`). Exe/görev çubuğu şeffaf `app-gorev.ico`; masaüstü kısayolu + Setup arka planlı `app-logo.ico` (Setup IconLocation + `KisayolSimgesi`).

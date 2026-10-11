@@ -10,14 +10,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
              x:Class="DepoWise.Desktop.Views.MaintenanceView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:MaintenanceViewModel">
+
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
         <TabControl Grid.Row="0" Classes="NoHeader" SelectedIndex="{Binding SelectedTab}">
 
             <!-- ═══════════ BAKIM TANIMLARI ═══════════ -->
             <TabItem Header="Bakım Tanımları">
-                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                <Grid x:Name="TanimYerlesim" RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
                     <ctrl:Toolbar Grid.Row="0" Title="Bakım Tanımları"
                                   PrimaryActionText="{Binding AddDefButtonText}" PrimaryActionCommand="{Binding ToggleDefAddCommand}">
                         <ctrl:Toolbar.FilterContent>
@@ -31,10 +36,13 @@
                             <KeyBinding Gesture="Enter" Command="{Binding AddDefCommand}"/>
                             <KeyBinding Gesture="Escape" Command="{Binding ClearDefCommand}"/>
                         </Border.KeyBindings>
-                        <ScrollViewer MaxHeight="380">
+                        <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #TanimYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
                         <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="{Binding DefFormTitle}" Classes="SectionTitle"/>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <ctrl:FormField Label="Tanım Adı" IsRequired="True" Width="280"
                                                 HasError="{Binding HasDefNameError}" ErrorText="{Binding DefNameError}">
                                     <TextBox Classes="Field" Text="{Binding DefName}" />
@@ -47,7 +55,7 @@
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch"
                                               ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding DefUnitDisplay}"/>
                                 </ctrl:FormField>
-                            </StackPanel>
+                            </WrapPanel>
                             <ctrl:FormField Label="Açıklama">
                                 <TextBox Classes="Field" Text="{Binding DefDescription}" AcceptsReturn="True" Height="52"/>
                             </ctrl:FormField>
@@ -153,7 +161,7 @@
 
             <!-- ═══════════ ARAÇ BAKIMLARI ═══════════ -->
             <TabItem Header="Araç Bakımları">
-                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                <Grid x:Name="BakimYerlesim" RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
                     <ctrl:Toolbar Grid.Row="0" Title="Araç Bakımları"
                                   PrimaryActionText="{Binding AddMntButtonText}" PrimaryActionCommand="{Binding ToggleMntAddCommand}">
                         <ctrl:Toolbar.FilterContent>
@@ -163,10 +171,13 @@
 
                     <!-- Yeni bakım kaydı formu -->
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMntAdd}">
-                        <ScrollViewer MaxHeight="420">
+                        <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #BakimYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
                         <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
                                     <ctrl:LookupBox ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}"
                                                     DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
@@ -189,9 +200,9 @@
                                         </Grid>
                                     </StackPanel>
                                 </ctrl:FormField>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Teknisyen" Width="220">
+                            </WrapPanel>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                                <ctrl:FormField Label="Teknisyen" Width="250">
                                     <StackPanel Spacing="6">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MntTechnician}"
@@ -217,7 +228,7 @@
                                 <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
                                                 HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding MntCostCenter}"
-                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                                    PlaceholderText="Merkez seç / ara..."/>
                                 </ctrl:FormField>
                                 <!-- ⭐ MUH-01b: dış servis faturası / servis fişi no. Ön muhasebe (FAZ H)
                                      gideri kaynak belgesine bağlayabilsin diye eklendi. -->
@@ -231,15 +242,15 @@
                                                 HelpText="Opsiyonel — bakım dışarıda yapıldıysa seçin.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PartyOptions}"
                                                     SelectedItem="{Binding MntParty}"
-                                                    PlaceholderText="Cari seç... (boş olabilir)"/>
+                                                    PlaceholderText="Cari seç / ara..."/>
                                 </ctrl:FormField>
-                            </StackPanel>
+                            </WrapPanel>
                             <ctrl:FormField Label="Açıklama">
                                 <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>
                             </ctrl:FormField>
 
                             <!-- Araç durumu: bakım kaydı açarken aracı "Arızalı" vb. işaretle. Boş = dokunma. -->
-                            <StackPanel Orientation="Horizontal" Spacing="14">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                                 <ctrl:FormField Label="Araç Durumu (değiştir)" Width="180"
                                                 HelpText="Boş = aracın durumu değişmez.">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch"
@@ -253,7 +264,7 @@
                                                 HelpText="Arıza/bakım sebebi (araç kartına yazılır).">
                                     <TextBox Classes="Field" Text="{Binding MntVehStatusNote}"/>
                                 </ctrl:FormField>
-                            </StackPanel>
+                            </WrapPanel>
 
                             <!-- BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO. Varsayılan oturum şubesidir,
                                  kullanıcı değiştirebilir. "Atanmamış" seçenek olarak SUNULMAZ (yeni stok
@@ -518,7 +529,7 @@
                                                 HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}"
                                                     SelectedItem="{Binding EqmCostCenter}"
-                                                    PlaceholderText="Merkez seç... (boş olabilir)"/>
+                                                    PlaceholderText="Merkez seç / ara..."/>
                                 </ctrl:FormField>
                                 <!-- ⭐ MUH-01b: ekipman bakımının belge numarası (araç sekmesinden AYRI). -->
                                 <ctrl:FormField Label="Fatura/Servis Fişi No" Width="180"
@@ -530,7 +541,7 @@
                                                 HelpText="Opsiyonel — bakım dışarıda yapıldıysa seçin.">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PartyOptions}"
                                                     SelectedItem="{Binding EqmParty}"
-                                                    PlaceholderText="Cari seç... (boş olabilir)"/>
+                                                    PlaceholderText="Cari seç / ara..."/>
                                 </ctrl:FormField>
                             </StackPanel>
                             <SelectableTextBlock Classes="Helper"

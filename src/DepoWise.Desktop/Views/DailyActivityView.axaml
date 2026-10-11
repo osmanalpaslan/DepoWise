@@ -12,11 +12,16 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="700"
              x:Class="DepoWise.Desktop.Views.DailyActivityView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:DailyActivityViewModel">
+
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
 
     <!-- Sayfalama tablonun ALTINDA (sol) — kullanıcı isteği 2026-07-19 (tüm tablolu ekranlar). Tablo Row 2 (*),
          sayfalama Row 3 (Auto), durum Row 4. -->
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid x:Name="KokYerlesim" Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Günlük Faaliyet"
                       PrimaryActionText="Yeni Kayıt Oluştur" PrimaryActionCommand="{Binding NewRecordCommand}"/>
 
@@ -98,7 +103,10 @@
 
         <!-- Tek form — Kayıt Tipi'ne göre alanlar değişir -->
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
-            <ScrollViewer MaxHeight="440">
+            <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">

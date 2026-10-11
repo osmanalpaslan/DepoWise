@@ -9,14 +9,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1060" d:DesignHeight="660"
              x:Class="DepoWise.Desktop.Views.RequestsView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:RequestsViewModel">
+
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
         <TabControl Grid.Row="0" Classes="NoHeader" SelectedIndex="{Binding SelectedTab}">
 
             <!-- ═══════════ TALEP FORMU ═══════════ -->
             <TabItem Header="Talep Formu">
-                <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,12,0,0">
+                <Grid x:Name="TalepYerlesim" RowDefinitions="Auto,Auto,Auto,*" Margin="0,12,0,0">
                     <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Talep Formu"
                                   PrimaryActionText="Yeni Talep" PrimaryActionCommand="{Binding NewRequestCommand}"
                                   SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Belge no / açıklama ara...">
@@ -36,7 +41,10 @@
 
                     <!-- Yeni talep formu -->
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
-                        <ScrollViewer MaxHeight="640">   <!-- 2026-10-10: 440 → 640 (araç çipleri + kalem tablosu kaydırmadan görünsün) -->
+                        <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #TalepYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
                         <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
                             <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                             <SelectableTextBlock Text="Belge no otomatik (TLP-YYYY-NNNN). Kaydedince talep yöneticiye iletilir; sonra düzenlenemez."

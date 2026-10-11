@@ -127,7 +127,7 @@
                             <TextBox Classes="Field" Text="{Binding FName}" MaxLength="150"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Hesap Türü" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding KindOptions}"
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}"
                                       SelectedValue="{Binding FKind}" SelectedValueBinding="{Binding Key}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
@@ -135,7 +135,7 @@
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Şube">
-                            <ComboBox Classes="Field" ItemsSource="{Binding BranchOptions}"
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}"
                                       SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
                                       ToolTip.Tip="Boş bırakılırsa hesap firma geneli olur ve her şubede görünür.">
                                 <ComboBox.ItemTemplate>
@@ -168,10 +168,10 @@
                                   ToolTip.Tip="Yeni işlemlerde bu hesap önerilir."/>
                         <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
 
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0" HorizontalAlignment="Right">
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
                             <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveAccountCommand}"
                                     IsEnabled="{Binding !Saving}"/>
-                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
                         </StackPanel>
                         <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
                                              IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
@@ -205,10 +205,10 @@
                             <TextBox Classes="Field" Text="{Binding EDescription}" AcceptsReturn="True" MinHeight="60"/>
                         </ctrl:FormField>
 
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0" HorizontalAlignment="Right">
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseEntryCommand}"/>
                             <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveEntryCommand}"
                                     IsEnabled="{Binding !Saving}"/>
-                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseEntryCommand}"/>
                         </StackPanel>
                         <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
                                              IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
@@ -250,10 +250,10 @@
                             <TextBox Classes="Field" Text="{Binding TDescription}" AcceptsReturn="True" MinHeight="60"/>
                         </ctrl:FormField>
 
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0" HorizontalAlignment="Right">
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseTransferCommand}"/>
                             <Button Classes="Primary" Content="Transferi Kaydet" Command="{Binding SaveTransferCommand}"
                                     IsEnabled="{Binding !Saving}"/>
-                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseTransferCommand}"/>
                         </StackPanel>
                         <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
                                              IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>

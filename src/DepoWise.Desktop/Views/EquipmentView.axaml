@@ -52,7 +52,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Şube / Şantiye / Saha" Width="240">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Şube seç / ara... (boş olabilir)"/>
+                                        PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Seri No" Width="180">
                         <TextBox Classes="Field" Text="{Binding FormSerialNo}"/>

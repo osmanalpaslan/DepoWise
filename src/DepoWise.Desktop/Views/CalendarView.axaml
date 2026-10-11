@@ -73,17 +73,17 @@
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şantiye / Saha" Width="190">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Şantiye... (boş olabilir)"/>
+                                        PlaceholderText="Şantiye seç / ara..."/>
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Sorumlu Personel" Width="200">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormResponsible}"
-                                        PlaceholderText="Personel... (boş olabilir)"/>
+                                        PlaceholderText="Personel seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="İş Emri Bağı" Width="240" HelpText="Yalnız gezinme — iş emrinin durumunu DEĞİŞTİRMEZ.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding WorkOrderOptions}" SelectedItem="{Binding FormWorkOrder}"
-                                        PlaceholderText="İş emri... (boş olabilir)"/>
+                                        PlaceholderText="İş emri seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Açıklama / Not" Width="320">
                         <TextBox Classes="Field" Text="{Binding FormNote}"/>
@@ -117,7 +117,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Margin="0,6,0,0" FontSize="11"
+                    <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
                         Text="★ = el ile takvim kaydı · diğerleri mevcut kayıtlardan otomatik türetilir (salt-okunur). Gün seçmek ajandayı süzer."/>
                     <ScrollViewer>
                         <ItemsControl ItemsSource="{Binding DayCells}">

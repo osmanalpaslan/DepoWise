@@ -7,11 +7,16 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="620"
              x:Class="DepoWise.Desktop.Views.MaterialTemplatesView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:MaterialTemplatesViewModel">
+
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
 
     <!-- Malzeme Şablonları (2026-08-08): şablon oluştur/düzenle/sil. Şablon SEÇİMİ Malzemeler formundadır.
          Yapı, Araç Genel Tanım (VehicleTemplatesView) ekranıyla aynı desendedir. -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <Grid x:Name="KokYerlesim" RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
         <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Malzeme Şablonları"
                       SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Şablon ara (ad/kod)..."
@@ -27,11 +32,14 @@
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
             </Border.KeyBindings>
-            <ScrollViewer MaxHeight="420">
+            <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
-                <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Tanım" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="260"
                                     HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
@@ -46,7 +54,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <SelectableTextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kategori" Width="220">
                         <ctrl:LookupBox HorizontalAlignment="Stretch"
@@ -72,7 +80,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <SelectableTextBlock Text="Stok / Fiyat" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Stok / Fiyat" Classes="FormBolum"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Min. Stok" Width="150">
                         <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
@@ -117,7 +125,7 @@
 
                 <!-- B-5 (PRT-01 Grup 2b): Şablon fotoğrafları — web'de zaten vardı, masaüstüne eklendi.
                      Aynı FileService/Storage altyapısı ve AYNI varlık adı ("material_template") kullanılır. -->
-                <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Fotoğraflar" Classes="FormBolum"/>
                 <StackPanel Spacing="8">
                     <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
                             Command="{Binding AddPhotosCommand}"/>

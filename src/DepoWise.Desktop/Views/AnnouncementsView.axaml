@@ -32,7 +32,7 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="Başlık" IsRequired="True" Width="280">
                         <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
                     </ctrl:FormField>
@@ -41,7 +41,7 @@
                     </ctrl:FormField>
                     <ctrl:FormField Label="Hedef Şube" Width="200" HelpText="Boş = tüm firmaya.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Şube... (boş olabilir)"/>
+                                        PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
                     <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
                     <ctrl:FormField Label="Yayın Başlangıcı" Width="150" HelpText="Boş = hemen.">
@@ -50,7 +50,7 @@
                     <ctrl:FormField Label="Yayın Bitişi" Width="150" HelpText="Boş = süresiz.">
                         <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <ctrl:FormField Label="Duyuru Metni" Width="700">
                     <TextBox Classes="Field" Text="{Binding FormBody}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
                 </ctrl:FormField>

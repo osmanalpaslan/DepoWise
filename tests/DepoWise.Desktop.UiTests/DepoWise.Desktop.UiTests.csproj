@@ -27,6 +27,12 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- 2026-10-12 güvence: arayüz testleri CANLI sunucuya asla istek atmasın. İstemciler sunucu adresini
+       çıktı klasöründeki serverurl.txt'den okur (yoksa canlı bulut); burada erişilemez yerel adrese yönlenir. -->
+  <ItemGroup>
+    <None Include="serverurl.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\DepoWise.Desktop\DepoWise.Desktop.csproj" />
   </ItemGroup>

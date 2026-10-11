@@ -9,9 +9,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
              x:Class="DepoWise.Desktop.Views.UsersView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:UsersViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
+
+    <Grid x:Name="KokYerlesim" Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Kullanıcılar"
                       PrimaryActionText="Yeni Kullanıcı" PrimaryActionCommand="{Binding NewUserCommand}">
             <ctrl:Toolbar.FilterContent>
@@ -21,6 +26,10 @@
 
         <!-- Yeni kullanıcı formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <!-- 2026-10-12: form kaydırıcısızdı — dizüstü yüksekliğinde (760 px) "Oluştur/İptal" pencerenin altında
+                 kalıyor, ulaşılamıyordu. Artık ekran yüksekliğinin oranıyla sınırlı (Depo Giriş ile aynı), sığmazsa kayar. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="700">
                 <!-- Başlık ve düğme metni DÜZENLEME kipinde değişir: aynı form iki iş görür. -->
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
@@ -106,6 +115,7 @@
                     <Button Classes="Primary" Content="{Binding FormActionText}" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <!-- Seçili kullanıcı: şube ata + şifre değiştir + sil -->

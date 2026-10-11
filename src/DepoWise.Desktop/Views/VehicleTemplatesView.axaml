@@ -8,9 +8,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="620"
              x:Class="DepoWise.Desktop.Views.VehicleTemplatesView"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              x:DataType="vm:VehicleTemplatesViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
+
+    <Grid x:Name="KokYerlesim" RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
         <ctrl:Toolbar ShowSearch="True" Grid.Row="0" Title="Araç Genel Tanım (Şablonlar)"
                       SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Şablon ara..."
@@ -26,7 +31,10 @@
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
             </Border.KeyBindings>
-            <ScrollViewer MaxHeight="420">
+            <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
+                 büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
@@ -43,7 +51,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <SelectableTextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
                 <ctrl:FormField Label="Makine Tipi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
@@ -98,7 +106,7 @@
                 </ctrl:FormField>
 
                 <!-- Uyumlu malzemeler (araç oluşturulurken kopyalanır) -->
-                <SelectableTextBlock Text="Uyumlu Malzemeler" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Uyumlu Malzemeler" Classes="FormBolum"/>
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
