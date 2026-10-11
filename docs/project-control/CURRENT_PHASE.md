@@ -3,9 +3,10 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-12):** YAYINDA — API + Web bff079a, masaüstü **1.0.198**. Commit'te, YAYINDA DEĞİL: masaüstü yeni kayıt formları görsel iyileştirme (`TALEP_2026-10-12_gorsel.md`) — kullanıcı canlı pencerede kontrol edecek, yayın onu bekliyor.
+**Özet (2026-10-12):** YAYINDA — API + Web bff079a (değişmedi), masaüstü **1.0.199** (yeni kayıt formları, 9472fa2). Sıradaki öneriler: tablo başlığı dar pencerede kayma (ortak tablo yapısı); web `/parties/new` + `/finance/new` formu yetki sormadan açıyor (kayıt sunucuda reddediliyor).
 
-## ⏳ 2026-10-12 — masaüstü yeni kayıt formları görsel iyileştirme (commit; yayın kullanıcı kontrolünden sonra)
+## ✅ 2026-10-12 YAYINDA — masaüstü 1.0.199: yeni kayıt formları görsel iyileştirme
+- Kullanıcı kararı: testler tam geçince yayınla. Tam takım 4101/4101, arayüz 41/41, iki ortam denetimi engel yok. Paket temiz HEAD kopyasından; canlı indirme sağlaması yerelle aynı; API/Web /health 200.
 - Rapor: `docs/raporlar/GORSEL_IYILESTIRME_2026-10-12.md`. Yalnız masaüstü görünümü + menü yönlendirmesi; iş mantığı/şema/API değişmedi.
 - Form yüksekliği ekrana göre (sabit 380–640 px kutular kaldırıldı): Malzeme/Araç formu listenin esneyen satırında; liste görünen ekranlarda `FormListeOrani` (Depo Giriş kalıbı). Kullanıcılar formuna kaydırma.
 - Menü "Yeni Araç Ekle / Yeni Cari / Yeni Fatura / Yeni Hesap" artık formu açar (web zaten açıyordu), yetki yoksa açmaz.
