@@ -111,6 +111,14 @@ internal static class PostgresTestGuard
         // İşaret şeması ÖNCE yaratılır: sıfırlama yarıda kalsa bile "bu DB kapıdan geçmişti" izi kalır.
         cmd.CommandText = $"CREATE SCHEMA IF NOT EXISTS {MarkerSchema}; DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
         cmd.ExecuteNonQuery();
+
+        // ⭐ 2026-10-11: her sıfırlama ~100 tabloyu düşürüp kurar; sistem kataloğunda (pg_class/pg_attribute…) ölü
+        // satırlar birikir ve autovacuum yetişemez → tek TAM koşuda DB ~35 MB büyüyüp K4 (50 MB) eşiğini koşu
+        // ORTASINDA aşıyor, 20 PG testi reddediliyordu. VACUUM yalnız ölü satırları temizler (veri silmez, kapıyı
+        // gevşetmez); alan yeniden kullanılır ve büyüme durur. İşlem bloğu içinde çalışamaz → ayrı komut.
+        using var vac = conn.CreateCommand();
+        vac.CommandText = "VACUUM;";
+        vac.ExecuteNonQuery();
     }
 
     /// <summary>

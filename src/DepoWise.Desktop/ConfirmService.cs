@@ -87,6 +87,8 @@ public static class ConfirmService
             || desktop.MainWindow is null)
             return null;
 
+        // 2026-10-11 (iki ortam denetimi): web ReasonInputDialog açılışta uyarı sesi çalıyordu, masaüstü çalmıyordu.
+        DepoWise.Desktop.SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.DugmeUyarisi);
         var win = new ReasonWindow(title, message, label, okText, cancelText);
         return await win.ShowDialog<string?>(desktop.MainWindow);
     }
@@ -104,6 +106,7 @@ public static class ConfirmService
             || desktop.MainWindow is null)
             return null;
 
+        DepoWise.Desktop.SesServisi.Cal(DepoWise.Application.Notifications.SesTuru.DugmeUyarisi);   // web ile aynı
         var win = new ReasonWindow(title, message, label, okText, cancelText,
             isPassword: true, errorText: "Parola boş olamaz.",
             helperText: "Parolanız yalnız bu işlemi doğrulamak için kullanılır, hiçbir yere kaydedilmez.");
