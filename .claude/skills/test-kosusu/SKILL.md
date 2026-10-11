@@ -31,7 +31,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 > 
 ```
 | Belirti | Neden | Yapılacak |
 |---|---|---|
-| "GÜVENLİK: veritabanı 'depowise_test' boyutu NN MB (> 50 MB)" | yerel PG test DB şişti (ortam) | `scripts/pg_test_sunucu.ps1` 20 MB+ ise yeniden kurar; filtreyle PG testlerini tekrar koş |
+| "GÜVENLİK: veritabanı 'depowise_test' boyutu NN MB (> 50 MB)" | yerel PG test DB şişti (ortam) | 2026-10-11'den beri `ResetSchema` sonrası VACUUM büyümeyi durdurur; yine olursa `scripts/pg_test_sunucu.ps1` (20 MB+ ise yeniden kurar) + PG testlerini tekrar koş |
 | `Assert.Equal(N, …Count)` sayı farkı | bilinçli ekleme (rapor/ekran/filtre) | sayıyı + gerekçe yorumunu güncelle — körlemesine değil |
 | `FormatException ''` / yanlış değer, rapor testi | araya sütun eklendi, indeks kaydı | testteki `[n]` indekslerini kaydır |
 | Nöbetçi (`65536`, "yalnız X raporunda") | yeni bayrak/rapor bilinçli | listeyi güncelle, nöbetçiyi bir sonraki boş değere taşı |
@@ -45,6 +45,12 @@ Ortam hatası (PG boyutu, kilit, ağ) "geçti" sayılmaz → ortamı düzelt, o 
 3. Son log "SONUC: TUM TESTLER GECTI" ile bitmediyse koşu GEÇMEMİŞTİR: kırılanları düzelt → dar koşu → yarım kalan
    koşuyu (tam ise tam) BAŞTAN başlat. `docs/project-control/TALEP_*.md` faz tablosuna durumu yaz.
 4. Yayın yalnız eksiksiz biten + geçen koşudan sonra (`yayin` skill'i).
+
+## Test DB'sine elle bakmak (boyut vb.)
+PowerShell aracıyla çalıştır (Bash içinden kaçışlı PowerShell `$` değişkenlerini bozar → psql parola bekleyip ASILI kalır):
+`$kok="$env:LOCALAPPDATA\DepoWise"`, `scripts/pg_test_sunucu.ps1`'deki `$sifreDosya` satırını çalıştır, `$env:PGPASSWORD`
+ata, `pgsql17\pgsql\bin\psql.exe -h localhost -p 54329 -U postgres -Atc "..."`, sonra `Remove-Item Env:PGPASSWORD`.
+Askıda `psql` kalırsa `Stop-Process`.
 
 ## 5. Rapor
 Kullanıcıya: kaç test, kaç geçti, hangi bulgular nasıl düzeldi (sade dil), tekrar koşu sonucu. Bitince `scripts/temizlik.ps1`.
