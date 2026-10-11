@@ -1385,6 +1385,128 @@ WHERE sm.company_id = @c"
     }
 
     /// <summary>
+    /// ⭐ DEPO ÇIKIŞLARI (2026-10-11, kullanıcı isteği): "Giriş/Çıkış ekranında çıkışı yapılan malzemeleri listele;
+    /// malzeme(ler) ya da personel seçebileyim — personele hangi malzemeler teslim edilmiş görebileyim; hiçbir şey
+    /// seçmezsem tüm çıkışlar gelsin. En önemli sütun KİMİN TESLİM ALDIĞI."
+    ///
+    /// <b>Kaynak:</b> çıkış satırları (<c>stock_movements</c>: movement_type='out', direction&lt;0) + belgeleri
+    /// (<c>stock_documents</c>: personnel_id = <b>Teslim Alan</b>, vehicle_id, fatura/sipariş/veresiye no).
+    /// İPTAL edilen çıkış (is_reversed=1) ve iptalin ters kaydı (reverses_movement_id dolu) listelenmez.
+    /// Zimmet/Talep/İş Emri/Fatura da aynı çıkış kapısını kullanır → "Çıkış Kaynağı" sütunu işlem kimliği
+    /// önekinden türetilir (yeni kolon/şema YOK).
+    ///
+    /// <b>Filtreler:</b> tarih (işlem tarihi — Stok Hareketleri ile TEK kaynak) · depo (Location) · malzeme (çoklu) ·
+    /// teslim alan (çoklu). Şube kapsamı DIŞ SINIRDIR (<see cref="ReportScope"/>); filtreler yalnız AND ile daraltır.
+    /// <b>Performans:</b> TEK sorgu, tüm adlar JOIN ile; maliyet merkezi skaler alt sorgu (satır çoğalmaz); LIMIT SQL'de.
+    /// </summary>
+    public TableModel StockIssues(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var filtre = StockMovementFilterSql.Build(req.LocationIds, null, null, req.MaterialIds);
+        var alanIn = InList("d.personnel_id", "@rp", req.RecipientIds);
+
+        cmd.CommandText = @"
+SELECT " + StockMovementFilterSql.IslemTarihiSql + @", COALESCE(pr.full_name,'') AS alan,
+       COALESCE(d.doc_no,'') AS doc_no, COALESCE(sm.operation_id,'') AS op, COALESCE(d.note,'') AS dnote,
+       sm.branch_id, bl.name AS loc_name,
+       m.code, m.name, sm.quantity, COALESCE(u.name,'') AS unit, COALESCE(sm.unit_price,'') AS price,
+       COALESCE(v.internal_code,'') AS v_code, COALESCE(v.plate,'') AS v_plate,
+       COALESCE((SELECT MAX(cc.name) FROM cost_center_links l
+                 JOIN cost_centers cc ON cc.id = l.cost_center_id AND cc.company_id = l.company_id
+                 WHERE l.company_id = sm.company_id AND l.entity_type = 'stock_document'
+                   AND l.entity_id = d.id AND l.is_deleted = 0),'') AS cc_name,
+       COALESCE(d.invoice_no,'') AS inv, COALESCE(d.order_slip_no,'') AS ord, COALESCE(d.credit_slip_no,'') AS crd,
+       COALESCE(NULLIF(sm.note,''), COALESCE(d.note,'')) AS note
+FROM stock_movements sm
+JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
+LEFT JOIN units u ON u.id = m.unit_id
+LEFT JOIN stock_documents d ON d.id = sm.document_id AND d.company_id = sm.company_id
+LEFT JOIN personnel pr ON pr.id = d.personnel_id AND pr.company_id = sm.company_id
+LEFT JOIN vehicles v ON v.id = d.vehicle_id AND v.company_id = sm.company_id
+LEFT JOIN branches bl ON bl.id = sm.branch_id AND bl.company_id = sm.company_id
+WHERE sm.company_id = @c AND sm.movement_type = 'out' AND sm.direction < 0
+  AND sm.is_reversed = 0 AND sm.reverses_movement_id IS NULL"
+            + ReportScope.BranchSql(s, req, "sm.branch_id")
+            + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)
+            + filtre.Sql + alanIn
+            + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
+
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        filtre.Bind(cmd);
+        BindList(cmd, "@rp", req.RecipientIds);
+        cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        decimal tMiktar = 0m, tTutar = 0m;
+        var birimler = new HashSet<string>(StringComparer.Ordinal);
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var qty = Money.Parse(r.GetString(9));
+                var fiyatMetni = r.GetString(11);
+                decimal? fiyat = string.IsNullOrWhiteSpace(fiyatMetni) ? null : Money.Parse(fiyatMetni);
+                var tutar = fiyat is { } f ? qty * f : 0m;
+                var birim = r.GetString(10);
+                tMiktar += qty; tTutar += tutar; birimler.Add(birim);
+                var arac = string.Join(" · ", new[] { r.GetString(12), r.GetString(13) }.Where(x => x.Length > 0));
+                rows.Add(new object?[]
+                {
+                    DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
+                    r.GetString(1),                                                // Teslim Alan (en önemli sütun)
+                    r.GetString(7), r.GetString(8),                                // Malzeme Kodu · Malzeme Adı
+                    new NumCell((double)qty, qty.ToString("0.##", Tr)),            // Miktar
+                    birim,
+                    fiyat is { } fp ? Num((double)fp, FmtMoney) : "",              // Birim Fiyat
+                    fiyat is null ? "" : Num((double)tutar, FmtMoney),             // Tutar
+                    LocName(r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6)),   // Çıkış Deposu
+                    CikisKaynagi(r.GetString(3), r.GetString(4)),
+                    arac, r.GetString(14),                                         // Araç · Maliyet Merkezi
+                    r.GetString(2), r.GetString(15), r.GetString(16), r.GetString(17),   // Belge · Fatura · Sipariş · Veresiye
+                    r.GetString(18),                                               // Açıklama
+                });
+            }
+
+        var numeric = new[] { false, false, false, false, true, false, true, true, false, false, false, false, false, false, false, false, false };
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", $"{rows.Count} çıkış", "", "",
+            birimler.Count == 1 ? new NumCell((double)tMiktar, tMiktar.ToString("0.##", Tr)) : (object?)"",
+            birimler.Count == 1 ? birimler.First() : "",
+            "", Num((double)tTutar, FmtMoney),
+            "", "", "", "", "", "", "", "", "",
+        };
+
+        return new TableModel("Depo Çıkışları", new[]
+        {
+            "Tarih", DepoCikisTeslimAlanBaslik, "Malzeme Kodu", "Malzeme Adı", "Miktar", "Birim", "Birim Fiyat", "Tutar",
+            "Çıkış Deposu", "Çıkış Kaynağı", "Araç", "Maliyet Merkezi", "Belge No", "Fatura / İrsaliye No",
+            "Sipariş Fişi No", "Veresiye Fişi No", "Açıklama",
+        }, rows, numeric, totalRow);
+    }
+
+    public const string DepoCikisTeslimAlanBaslik = "Teslim Alan";
+
+    /// <summary>Çıkışın hangi ekrandan/işlemden yapıldığı — işlem kimliğinin ÖNEKİNDEN okunur (şema değişmez):
+    /// <c>assign:</c> Zimmet (AssignmentService) · <c>wo:</c> İş Emri (WorkOrderService) · <c>…:stock</c> ya da
+    /// <c>invoice:</c> Fatura (InvoiceService) · belge notu "Talep:" Talep (RequestService) · diğerleri Giriş/Çıkış ekranı.</summary>
+    public static string CikisKaynagi(string operationId, string belgeNotu)
+    {
+        var op = operationId ?? "";
+        if (op.StartsWith("assign:", StringComparison.Ordinal)) return "Zimmet";
+        if (op.StartsWith("wo:", StringComparison.Ordinal)) return "İş Emri";
+        if (op.StartsWith("invoice:", StringComparison.Ordinal) || op.Contains(":stock:", StringComparison.Ordinal)) return "Fatura";
+        if ((belgeNotu ?? "").StartsWith("Talep:", StringComparison.Ordinal)) return "Talep";
+        return "Giriş/Çıkış";
+    }
+
+    /// <summary>
     /// STOK HAREKETLERİ — GÜNLÜK (ARA İŞ 2 / S3 · ADR-182, ⭐ ADR-183 ile YENİDEN YAZILDI 2026-08-29).
     ///
     /// 🔴 <b>Düzeltilen hata.</b> İlk sürüm gün × tür ÖZETİ üretiyordu ("26.08.2026 · Giriş · 20 işlem").
@@ -2641,6 +2763,7 @@ ORDER BY br.name, p.full_name;";
             new DepoWise.Infrastructure.Accounting.CostCenterService(_factory).Summary(s, req.FromDate ?? 0, req.ToDate ?? long.MaxValue)),
 
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
+        "stock-issues" => StockIssues(s, req, maxRows),         // 2026-10-11: Depo Çıkışları (teslim alan)
         "stock-movements-daily" => StockMovementsDaily(s, req, maxRows),   // ADR-182 (PK-G2=A): gün×tür özeti
         "daily-activity" => DailyActivityDetail(s, req, maxRows),   // ADR-182 (PK-D1=A): faaliyet detayı
         "daily-activity-summary" => DailyActivitySummary(s, req, maxRows),   // 2026-09-02: donem (toplam)

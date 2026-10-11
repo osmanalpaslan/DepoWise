@@ -8,6 +8,7 @@
 ## ⏳ 2026-10-11 — kullanıcı talebi (6 iş, fazlı): `TALEP_2026-10-11.md`
 - Faz 1 ✅ web alt ekran geçiş hatası: ana yerleşim gövdeyi `WebSayfaAnahtari` ile @key'ler (Araç/Kiralık, Malzeme, Rapor/Yönetici, Talep/Onay, Yeni Cari/Fatura/Hesap).
 - Faz 2 ✅ ses adayları masaüstünde (kullanıcı seçecek) · Faz 3 ✅ yakıt tüketim raporlarına Yakıtı Teslim Alan / Teslim Eden.
+- Faz 4 ✅ yeni rapor «Depo Çıkışları» (stock-issues): teslim alan + çoklu malzeme filtresi; rapor sayısı 30.
 
 ## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
 - **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.

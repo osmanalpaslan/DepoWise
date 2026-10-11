@@ -152,7 +152,8 @@ public class StockMovementsMaterialFilterTests : IDisposable
         var d = ReportCatalog.ByKey(Rapor)!;
         Assert.True(d.UsesMaterial);
         // ADR-182 (PK-G2=A): günlük ÖZET rapor da aynı filtre kümesini kullanır (tek filtre kaynağı).
-        Assert.Equal(new[] { Rapor, "stock-movements-daily" }, ReportCatalog.All.Where(x => x.UsesMaterial).Select(x => x.Key));
+        // 2026-10-11: Depo Çıkışları (stock-issues) da malzeme (çoklu) filtresini kullanır — bilinçli ekleme.
+        Assert.Equal(new[] { Rapor, "stock-movements-daily", "stock-issues" }, ReportCatalog.All.Where(x => x.UsesMaterial).Select(x => x.Key));
 
         // Önceki bayraklar korunuyor (kapsam kayması nöbetçisi).
         Assert.True(d.UsesDate); Assert.True(d.UsesLocation);
@@ -171,13 +172,14 @@ public class StockMovementsMaterialFilterTests : IDisposable
     {
         var ctor = typeof(ReportRequest).GetConstructors().OrderByDescending(c => c.GetParameters().Length).First();
         var p = ctor.GetParameters();
-        Assert.Equal("SortKey", p[^1].Name);       // 2026-09-02 sıralama (en son eklenen — SIRA KAYDIRILDI, gevşetilmedi)
-        Assert.Equal("ActivityTypes", p[^2].Name); // ADR-182
-        Assert.Equal("PartyIds", p[^3].Name);      // G4-4
-        Assert.Equal("MaterialIds", p[^4].Name);   // STK-10b-3
-        Assert.Equal("SearchText", p[^5].Name);    // STK-10b-2
-        Assert.Equal("MovementTypes", p[^6].Name); // STK-10b-1
-        Assert.Equal("LocationIds", p[^7].Name);   // STK-06
+        Assert.Equal("RecipientIds", p[^1].Name);  // 2026-10-11 Depo Çıkışları teslim alan (en son eklenen — SIRA KAYDIRILDI)
+        Assert.Equal("SortKey", p[^2].Name);       // 2026-09-02 sıralama
+        Assert.Equal("ActivityTypes", p[^3].Name); // ADR-182
+        Assert.Equal("PartyIds", p[^4].Name);      // G4-4
+        Assert.Equal("MaterialIds", p[^5].Name);   // STK-10b-3
+        Assert.Equal("SearchText", p[^6].Name);    // STK-10b-2
+        Assert.Equal("MovementTypes", p[^7].Name); // STK-10b-1
+        Assert.Equal("LocationIds", p[^8].Name);   // STK-06
     }
 
     // ══════════════ 2. TEMEL DAVRANIŞ ══════════════
@@ -578,11 +580,11 @@ public class StockMovementsMaterialFilterTests : IDisposable
         // Web: MEVCUT /api/materials?search= ucu (yeni uç YOK) + autocomplete.
         Assert.Contains("/api/materials", razor, StringComparison.Ordinal);
         Assert.Contains("MudAutocomplete", razor, StringComparison.Ordinal);
-        Assert.Contains("_materialSel.Id", razor, StringComparison.Ordinal);
+        Assert.Contains("_materialSels.Select(x => x.Id)", razor, StringComparison.Ordinal);   // 2026-10-11: çoklu
 
         // Masaüstü: MEVCUT yerel arama (Materials.List) + seçilen kimlik.
         Assert.Contains("DesktopServices.Materials.List(", vm, StringComparison.Ordinal);
-        Assert.Contains("PickedMaterial.Id", vm, StringComparison.Ordinal);
+        Assert.Contains("PickedMaterials.Select(m => m.Id)", vm, StringComparison.Ordinal);   // 2026-10-11: çoklu
         Assert.Contains("MaterialIds:", vm, StringComparison.Ordinal);
 
         // Masaüstünde malzeme için HTTP/ağ çağrısı YOK (çevrimdışı kuralı).

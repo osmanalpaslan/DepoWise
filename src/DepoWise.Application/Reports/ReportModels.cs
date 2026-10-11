@@ -81,7 +81,12 @@ public sealed record ReportRequest(
     // anahtar VARSAYILANA düşer (fail-safe).
     // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek mevcut
     // çağrıların argümanlarını sessizce kaydırırdı).
-    string? SortKey = null);
+    string? SortKey = null,
+
+    // ⭐ 2026-10-11 (kullanıcı isteği — Depo Çıkışları): TESLİM ALAN PERSONEL filtresi. Boş/null = TÜM kişiler.
+    // Değerler `personnel.id`; yabancı firmanın kimliği eşleşmez (sorgu company_id'ye kilitli) → fail-closed.
+    // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor).
+    IReadOnlyList<string>? RecipientIds = null);
 
 public static class ReportGate
 {

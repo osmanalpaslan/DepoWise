@@ -3614,6 +3614,7 @@ static object ReportCatalogItem(DepoWise.Application.Reports.ReportDescriptor d)
     usesParty = d.UsesParty,   // G4-4b: cari filtresi (arama ile seçilir)
     usesActivityType = d.UsesActivityType,   // ADR-182: günlük faaliyet kayıt tipi (sabit liste)
     usesSort = d.UsesSort,   // 2026-09-02: siralama (sabit liste, ReportSortOptions)
+    usesRecipient = d.UsesRecipient,   // 2026-10-11: Depo Çıkışları — teslim alan personel (çoklu)
     requiresDate = d.RequiresDate, manager = d.IsManager,
     infoNote = d.InfoNote
 };
@@ -3861,7 +3862,7 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
     var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);   // RPR-07 + TNT-05
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes, d.SortKey);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi + 2026-09-02 siralama
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes, d.SortKey, d.RecipientIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi + 2026-09-02 siralama
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -3881,7 +3882,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes, d.SortKey);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi + 2026-09-02 siralama
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds, d.ActivityTypes, d.SortKey, d.RecipientIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari + ADR-182 kayıt tipi + 2026-09-02 siralama
     var tbl = BuildReport(s, type, req);
     // ⭐ 2026-09-06: rapor çıktısı Excel VEYA PDF (?format=pdf). Raporlar en çok yazdırılan çıktılardır.
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_');
@@ -5197,7 +5198,9 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     // TÜM izinli şubelerini topluyordu. Alan opsiyoneldir: gönderilmezse davranış eskisiyle BİREBİR aynıdır.
     // ⚠️ Kapsam GENİŞLETEMEZ: sunucu bu şubenin kullanıcının izinli kümesinde olduğunu DOĞRULAR (403) ve
     // BranchAccess kesişimi zaten uygulanır — yalnız DARALTMA amaçlıdır.
-    string? OperatingBranchId = null);
+    string? OperatingBranchId = null,
+    // ⭐ 2026-10-11 (Depo Çıkışları): TESLİM ALAN personel filtresi (personnel.id). Boş = tüm kişiler. SONA EKLENDİ.
+    List<string>? RecipientIds = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 // PRJ-01: ad dışında her alan opsiyonel (PK-C3). Version = düzenleme kilidi jetonu (null = kontrol yok).
 // EMR-01: iş emri gövdeleri.

@@ -47,6 +47,11 @@ public enum ReportFilters
     // iki platform da o dosyayı derler, /api/reports/scope'a alan EKLENMEDİ).
     // Seçim yapılmazsa rapor kendi VARSAYILAN sıralamasını kullanır (mevcut davranış korunur).
     Sort = 32768,
+    // ⭐ 2026-10-11 (kullanıcı isteği — Depo Çıkışları raporu): TESLİM ALAN PERSONEL çoklu filtre.
+    // Değerler `personnel.id`; seçenekler Teknisyen/Talep Eden ile AYNI personel listesinden gelir
+    // (web: /api/reports/scope personel listesi · masaüstü: Lookups.ListPersonnelForReportFilter).
+    // Boş = TÜM kişiler. Requester'dan AYRI bayraktır: anlamı "malzemeyi depodan teslim alan kişi".
+    Recipient = 65536,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -136,6 +141,7 @@ public sealed record ReportDescriptor(
     public bool UsesMaterial => Filters.HasFlag(ReportFilters.Material);   // STK-10b-3: malzeme (arama ile seçilir)
     public bool UsesParty => Filters.HasFlag(ReportFilters.Party);   // G4-4b: cari (arama ile seçilir)
     public bool UsesActivityType => Filters.HasFlag(ReportFilters.ActivityType);   // ADR-182: kayıt tipi (sabit liste)
+    public bool UsesRecipient => Filters.HasFlag(ReportFilters.Recipient);        // 2026-10-11: teslim alan (personel)
     public bool UsesSort => Filters.HasFlag(ReportFilters.Sort);                  // 2026-09-02: siralama (sabit liste)
     public bool IsManager => Group == ReportGroup.Manager;
 }
@@ -228,6 +234,14 @@ public static class ReportCatalog
             ReportCategory.Stock, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
             InfoNote: "Rapor gün gün ilerler ve o gün yapılan HER hareketi malzemesiyle TEK TEK listeler (o gün 20 giriş yapıldıysa 20 satır gelir). Sıralama: gün → hareket türü → malzeme kodu. «Stok Hareketleri» raporundan farkı sıralamadır: orada en son KAYDEDİLEN üstte, burada iş günü kronolojiktir. Miktar giriş için +, çıkış için − gösterilir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş). Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999).",
+            DataModule: "stock"),
+        // ⭐ 2026-10-11 (kullanıcı isteği) — DEPO ÇIKIŞLARI: depodan çıkışı yapılan malzemeler ve KİMİN TESLİM
+        // ALDIĞI. Önce malzeme(ler) ya da personel seçilebilir; hiçbiri seçilmezse dönemdeki TÜM çıkışlar gelir.
+        // Kaynak: stok çıkış belgeleri (stock_documents doc_type='out') + satırları; iptal edilenler girmez.
+        new ReportDescriptor("stock-issues", "Depo Çıkışları", "Depodan çıkan malzemeler ve teslim alan kişi (malzeme / personel seçilebilir)",
+            ReportCategory.Stock, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Location | ReportFilters.Material | ReportFilters.Recipient, true, ExportStandard,
+            InfoNote: "Her satır depodan yapılan bir malzeme çıkışıdır. «Teslim Alan» çıkış kaydında seçilen personeldir (seçilmemişse boş). Malzeme veya Teslim Alan seçilirse yalnız onlar listelenir; hiçbiri seçilmezse dönemdeki tüm çıkışlar gelir. «Çıkış Kaynağı» çıkışın nereden yapıldığını gösterir: Giriş/Çıkış ekranı, Zimmet, Talep, İş Emri ya da Fatura. İptal edilen çıkışlar listelenmez. Tutar = miktar × çıkıştaki birim fiyat.",
             DataModule: "stock"),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,

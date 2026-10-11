@@ -75,6 +75,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowTechnician))]
     [NotifyPropertyChangedFor(nameof(ShowSupplier))]
     [NotifyPropertyChangedFor(nameof(ShowRequester))]
+    [NotifyPropertyChangedFor(nameof(ShowRecipient))]
     [NotifyPropertyChangedFor(nameof(ShowStatus))]
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
@@ -112,6 +113,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool ShowTechnician => SelectedReport?.UsesTechnician == true;
     public bool ShowSupplier => SelectedReport?.UsesSupplier == true;
     public bool ShowRequester => SelectedReport?.UsesRequester == true;
+    /// <summary>2026-10-11 — Depo Çıkışları: TESLİM ALAN personel filtresi (çoklu işaret). Boş = tüm kişiler.</summary>
+    public bool ShowRecipient => SelectedReport?.UsesRecipient == true;
     public bool ShowStatus => SelectedReport?.UsesStatus == true;
     /// <summary>STK-06 — stok lokasyonu (depo/şantiye) filtresi. Şube seçici özel butonuna BAĞLI DEĞİLDİR:
     /// o filtre "kaydı işleyen şube", bu ise "stoğun fiziksel yeri". Rapor yetkisi zaten kapıda.</summary>
@@ -162,8 +165,12 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// <summary>Arama sonucu malzemeler (mevcut desen: ilk 30 kayıt). Seçim yapılınca liste temizlenir.</summary>
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
 
-    /// <summary>Seçili malzeme — null = TÜM malzemeler (filtre yok). Rapor isteğine <c>Id</c>'si gider.</summary>
+    /// <summary>Son seçilen malzeme (geriye uyumluluk). Rapor isteğine artık <see cref="PickedMaterials"/> gider.</summary>
     [ObservableProperty] private MaterialRefRow? _pickedMaterial;
+
+    /// <summary>⭐ 2026-10-11 (kullanıcı isteği — "malzeme veya malzemeler seçebilmeliyim"): ÇOKLU malzeme seçimi.
+    /// Boş = TÜM malzemeler. Rapor isteğine seçilenlerin kimlikleri (MaterialIds) gider; servis zaten liste alır.</summary>
+    public ObservableCollection<MaterialRefRow> PickedMaterials { get; } = new();
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -185,6 +192,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<BranchPick> Suppliers { get; } = new();
     /// <summary>Talep eden filtresi (Talep Raporu) — mevcut personel listesinden; Teknisyen'den AYRI işaret durumu.</summary>
     public ObservableCollection<BranchPick> Requesters { get; } = new();
+    /// <summary>2026-10-11 — Depo Çıkışları: teslim alan personel (Teknisyen/Talep Eden ile aynı kaynak, AYRI işaretler).</summary>
+    public ObservableCollection<BranchPick> Recipients { get; } = new();
     /// <summary>Durum filtresi (Talep Raporu) — sabit liste (RequestStatusOptions); Id = DB değeri.</summary>
     public ObservableCollection<BranchPick> Statuses { get; } = new();
     /// <summary>STK-10b-1 — stok hareket türü filtresi (Stok Hareketleri Raporu). Sabit liste;
@@ -287,6 +296,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadTechnicians();
         LoadSuppliers();
         LoadRequesters();
+        LoadRecipients();
         LoadStatuses();
         LoadMovementTypes();
         LoadActivityTypes();
@@ -363,6 +373,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
         catch { }
     }
 
+    /// <summary>Teslim alan listesi — aynı personel kaynağı, AYRI öğeler (işaret durumu karışmasın).</summary>
+    private void LoadRecipients()
+    {
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnelForReportFilter(_session)) Recipients.Add(new BranchPick(p.Id, p.Name)); }
+        catch { }
+    }
+
     /// <summary>Talep durumları — sabit liste (web ile AYNI kaynak: RequestStatusOptions). Sorgu yok.</summary>
     private void LoadStatuses()
     {
@@ -401,14 +418,25 @@ public sealed partial class ReportsViewModel : ViewModelBase
         catch { }
     }
 
-    /// <summary>Listeden malzeme seç → filtre bu malzemeye daralır; arama kutusu seçileni gösterir.</summary>
+    /// <summary>Listeden malzeme seç → seçilenlere EKLENİR (çoklu, 2026-10-11); kutu bir sonraki arama için boşalır.</summary>
     [RelayCommand]
     private void PickMaterial(MaterialRefRow? m)
     {
         if (m is null) return;
         PickedMaterial = m;
-        MaterialSearch = $"{m.Code} - {m.Name}";
+        if (PickedMaterials.All(x => x.Id != m.Id)) PickedMaterials.Add(m);
+        MaterialSearch = "";
         MaterialResults.Clear();
+    }
+
+    /// <summary>Seçilen tek malzemeyi çıkar (çip üzerindeki ✕).</summary>
+    [RelayCommand]
+    private void RemoveMaterial(MaterialRefRow? m)
+    {
+        if (m is null) return;
+        var x = PickedMaterials.FirstOrDefault(p => p.Id == m.Id);
+        if (x is not null) PickedMaterials.Remove(x);
+        if (PickedMaterial?.Id == m.Id) PickedMaterial = PickedMaterials.LastOrDefault();
     }
 
     /// <summary>Seçimi kaldır → filtre kalkar (TÜM malzemeler). Web'deki "Clearable" ile aynı davranış.</summary>
@@ -416,6 +444,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void ClearMaterial()
     {
         PickedMaterial = null;
+        PickedMaterials.Clear();
         MaterialSearch = "";
         MaterialResults.Clear();
     }
@@ -593,6 +622,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var statuses = ShowStatus
             ? Statuses.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        var recipientIds = ShowRecipient   // 2026-10-11: Depo Çıkışları — teslim alan
+            ? Recipients.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         // STK-06: seçili stok lokasyonları. Hiçbiri seçili değilse null → "Tüm Şubeler" (firma toplamı).
         var locationIds = ShowLocation
             ? Locations.Where(t => t.IsChecked).Select(t => t.Id).ToList()
@@ -608,9 +640,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
             : null;
         // STK-10b-2: serbest metin arama (skaler). Bayrak kapalıysa GÖNDERİLMEZ.
         var searchText = ShowSearch ? SearchText : null;
-        // STK-10b-3: seçili malzeme → TEK elemanlı liste. Seçim yoksa null → TÜM malzemeler.
-        var materialIds = ShowMaterial && PickedMaterial is not null
-            ? new List<string> { PickedMaterial.Id }
+        // STK-10b-3 + 2026-10-11: seçili malzemeler (ÇOKLU). Seçim yoksa null → TÜM malzemeler.
+        var materialIds = ShowMaterial && PickedMaterials.Count > 0
+            ? PickedMaterials.Select(m => m.Id).ToList()
             : null;
         var req = new ReportRequest(
             Executed: true,
@@ -638,7 +670,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             // ADR-182: seçili kayıt tipleri. Boş → null → TÜM tipler.
             ActivityTypes: activityTypes is { Count: > 0 } ? activityTypes : null,
             // 2026-09-02: SIRALAMA. Bos ise raporun VARSAYILAN siralamasi kullanilir.
-            SortKey: string.IsNullOrWhiteSpace(sortKey) ? null : sortKey);
+            SortKey: string.IsNullOrWhiteSpace(sortKey) ? null : sortKey,
+            RecipientIds: recipientIds is { Count: > 0 } ? recipientIds : null);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

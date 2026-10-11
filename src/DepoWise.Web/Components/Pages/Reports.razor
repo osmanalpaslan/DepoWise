@@ -165,6 +165,16 @@ else
                 </MudSelect>
             </MudItem>
         }
+        @* 2026-10-11 — Depo Çıkışları: TESLİM ALAN personel (çoklu). Aynı personel listesi; boş = tüm kişiler. *@
+        @if (_sel?.UsesRecipient == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_recipientSel" Label="Teslim Alan" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} kişi")" HelperText="Boş = tüm kişiler">
+                    @foreach (var pe in _technicians) { <MudSelectItem T="string" Value="@pe.Id">@pe.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
         @* STK-06 — STOK LOKASYONU filtresi (Stok Durumu + Stok Sayım). Boş = 🌐 Tüm Şubeler (firma toplamı,
            Atanmamış DAHİL). "📦 Atanmamış" AYRI bir seçenektir: lokasyonu bilinmeyen geçmiş stok — gerçek
            bir depo DEĞİLDİR. İki kavram bilinçli olarak ayrı gösterilir. *@
@@ -242,11 +252,21 @@ else
         @if (_sel?.UsesMaterial == true)
         {
             <MudItem xs="12" md="3">
-                <MudAutocomplete T="ApiClient.Opt" @bind-Value="_materialSel" Label="Malzeme (kod/ad ile ara)"
+                <MudAutocomplete T="ApiClient.Opt" Value="_materialPick" ValueChanged="OnMaterialPicked" Label="Malzeme (kod/ad ile ara, çoklu)"
                                  SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")"
                                  Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0"
-                                 CoerceText="true" Clearable="true"
-                                 HelperText="Boş = tüm malzemeler" />
+                                 CoerceText="false" Clearable="true"
+                                 HelperText="@(_materialSels.Count == 0 ? "Boş = tüm malzemeler · birden fazla seçilebilir" : $"{_materialSels.Count} malzeme seçili")" />
+                @if (_materialSels.Count > 0)
+                {
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        @foreach (var ms in _materialSels.ToList())
+                        {
+                            <MudChip T="string" Size="Size.Small" OnClose="@(() => RemoveMaterial(ms))">@ms.Name</MudChip>
+                        }
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _materialSels.Clear())">Temizle</MudButton>
+                    </div>
+                }
             </MudItem>
         }
         @* G4-4b — CARİ filtresi (ön muhasebe raporları). Malzeme (STK-10b-3) ile AYNI desen:
@@ -417,7 +437,7 @@ else
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
         bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
-        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool UsesParty, bool UsesActivityType, bool UsesSort, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool UsesParty, bool UsesActivityType, bool UsesSort, bool UsesRecipient, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -498,6 +518,26 @@ else
     /// <summary>STK-10b-3 — seçili malzeme (autocomplete ile ARAMA sonucundan seçilir; liste indirilmez).
     /// null = tüm malzemeler. İsteğe <c>materials.id</c> gider, kullanıcı malzeme ADINI görür.</summary>
     private ApiClient.Opt? _materialSel;
+    /// <summary>⭐ 2026-10-11 (kullanıcı isteği — "malzeme veya malzemeler seçebilmeliyim"): ÇOKLU malzeme.
+    /// Autocomplete'ten seçilen her malzeme bu listeye eklenir; isteğe hepsinin kimliği gider. Boş = tüm malzemeler.</summary>
+    private readonly List<ApiClient.Opt> _materialSels = new();
+    private ApiClient.Opt? _materialPick;
+    /// <summary>2026-10-11 — Depo Çıkışları: seçili teslim alan personel. Boş = tüm kişiler.</summary>
+    private IReadOnlyCollection<string> _recipientSel = new HashSet<string>();
+
+    private async Task OnMaterialPicked(ApiClient.Opt? o)
+    {
+        if (o is not null && _materialSels.All(x => x.Id != o.Id)) _materialSels.Add(o);
+        _materialSel = _materialSels.LastOrDefault();
+        _materialPick = null;   // kutu bir sonraki arama için boşalır
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void RemoveMaterial(ApiClient.Opt o)
+    {
+        _materialSels.RemoveAll(x => x.Id == o.Id);
+        _materialSel = _materialSels.LastOrDefault();
+    }
     /// <summary>G4-4b: seçili cari (null = tüm cariler). Malzeme ile aynı desen.</summary>
     private ApiClient.Opt? _partySel;
 
@@ -529,7 +569,7 @@ else
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
     {
-        var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+        var r = await Api.MaterialOptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"));   // 2026-10-11: "KOD — Ad"
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
     private string? _vehSearch;
@@ -700,6 +740,7 @@ else
                 Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"), Bool(e, "usesMovementType"), Bool(e, "usesSearch"), Bool(e, "usesMaterial"), Bool(e, "usesParty"),
                 Bool(e, "usesActivityType"),   // ADR-182: günlük faaliyet kayıt tipi
                 Bool(e, "usesSort"),           // 2026-09-02: sıralama (sabit liste)
+                Bool(e, "usesRecipient"),      // 2026-10-11: Depo Çıkışları — teslim alan
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (!_manager) _catalog = _catalog.Where(x => !x.Manager).ToList();   // RPR-07: operasyon ekranı
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
@@ -740,6 +781,8 @@ else
             _activityTypeSel = new HashSet<string>();   // ADR-182: kapsam yenilenince kayıt tipi seçimi de sıfırlanır
             _searchText = null;
             _materialSel = null;   // STK-10b-3: kapsam değişince (ör. süper adminde firma) malzeme seçimi düşer
+            _materialSels.Clear(); _materialPick = null;   // 2026-10-11: çoklu malzeme seçimi de düşer
+            _recipientSel = new HashSet<string>();         // 2026-10-11: teslim alan seçimi de düşer
             _partySel = null;      // G4-4b: kapsam değişince cari seçimi de DÜŞER (yabancı kapsam taşınmasın)
         }
         catch { }
@@ -792,9 +835,9 @@ else
                 locationIds = _sel?.UsesLocation == true ? _locationSel.ToList() : new List<string>(),
                 movementTypes = _sel?.UsesMovementType == true ? _movTypeSel.ToList() : new List<string>(),
                 searchText = _sel?.UsesSearch == true ? _searchText : null,
-                // STK-10b-3: seçili malzeme TEK elemanlı liste olarak gider (sözleşme liste; arayüz tek seçtirir).
-                materialIds = _sel?.UsesMaterial == true && _materialSel is not null
-                    ? new List<string> { _materialSel.Id } : new List<string>(),
+                // STK-10b-3 + 2026-10-11: seçili malzemeler liste olarak gider (arayüz artık ÇOKLU seçtirir).
+                materialIds = _sel?.UsesMaterial == true ? _materialSels.Select(x => x.Id).ToList() : new List<string>(),   // 2026-10-11: çoklu
+                recipientIds = _sel?.UsesRecipient == true ? _recipientSel.ToList() : new List<string>(),   // 2026-10-11: teslim alan
                 partyIds = _sel?.UsesParty == true && _partySel is not null
                     ? new List<string> { _partySel.Id } : new List<string>(),
                 // ADR-182: kayıt tipi — boş liste "TÜM tipler" demektir (sunucu da böyle yorumlar).
@@ -850,9 +893,9 @@ else
                 locationIds = _sel?.UsesLocation == true ? _locationSel.ToList() : new List<string>(),
                 movementTypes = _sel?.UsesMovementType == true ? _movTypeSel.ToList() : new List<string>(),
                 searchText = _sel?.UsesSearch == true ? _searchText : null,
-                // STK-10b-3: seçili malzeme TEK elemanlı liste olarak gider (sözleşme liste; arayüz tek seçtirir).
-                materialIds = _sel?.UsesMaterial == true && _materialSel is not null
-                    ? new List<string> { _materialSel.Id } : new List<string>(),
+                // STK-10b-3 + 2026-10-11: seçili malzemeler liste olarak gider (arayüz artık ÇOKLU seçtirir).
+                materialIds = _sel?.UsesMaterial == true ? _materialSels.Select(x => x.Id).ToList() : new List<string>(),   // 2026-10-11: çoklu
+                recipientIds = _sel?.UsesRecipient == true ? _recipientSel.ToList() : new List<string>(),   // 2026-10-11: teslim alan
                 partyIds = _sel?.UsesParty == true && _partySel is not null
                     ? new List<string> { _partySel.Id } : new List<string>(),
                 // ADR-182: kayıt tipi — boş liste "TÜM tipler" demektir (sunucu da böyle yorumlar).

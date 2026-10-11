@@ -59,7 +59,8 @@ public class ReportArchitectureTests : IDisposable
         // 27 → 28: A2 (2026-09-07) — acc-aging (Cari Yaşlandırma). Migration/yeni yetki GEREKMEDİ;
         // "Açık Faturalar / Vade" ile AYNI kaynaktan cari bazlı gecikme dağılımı üretir.
         // 28 → 29: 2026-10-10 rental-cost (Kiralık Araç Maliyeti).
-        Assert.Equal(29, ReportCatalog.All.Count);
+        // 29 → 30: 2026-10-11 stock-issues (Depo Çıkışları — teslim alan, kullanıcı isteği).
+        Assert.Equal(30, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

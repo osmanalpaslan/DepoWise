@@ -145,6 +145,21 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- 2026-10-11 — Depo Çıkışları: TESLİM ALAN personel (çoklu). Boş = tüm kişiler. -->
+                <ctrl:FormField Label="Teslim Alan (çoklu)" Width="200" IsVisible="{Binding ShowRecipient}"
+                                HelpText="Boş = tüm kişiler">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Recipients}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
                 <!-- STK-06: STOK LOKASYONU filtresi (Stok Durumu + Stok Sayım). Boş = tüm depoların toplamı
                      (Atanmamış dahil). "📦 Atanmamış" AYRI seçenektir: lokasyonu bilinmeyen geçmiş stok —
                      gerçek bir depo değildir. Liste YEREL veriden gelir → çevrimdışı çalışır. -->
@@ -218,8 +233,8 @@
                      yerel arama deseni (Materials.List(term), ilk 30) kullanılır: ağ YOK, çevrimdışı
                      çalışır. Seçilen malzemenin ADI kutuda görünür; isteğe materials.id gider.
                      "Temizle" seçimi kaldırır → filtre kalkar (web'deki Clearable ile aynı). -->
-                <ctrl:FormField Label="Malzeme (kod/ad ile ara)" Width="230" IsVisible="{Binding ShowMaterial}"
-                                HelpText="Boş = tüm malzemeler">
+                <ctrl:FormField Label="Malzeme (kod/ad ile ara, çoklu)" Width="260" IsVisible="{Binding ShowMaterial}"
+                                HelpText="Boş = tüm malzemeler · birden fazla seçilebilir">
                     <StackPanel Spacing="4">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
@@ -232,14 +247,36 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="m:MaterialRefRow">
                                             <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                    Content="{Binding Name}"
                                                     Command="{Binding $parent[ItemsControl].((vm:ReportsViewModel)DataContext).PickMaterialCommand}"
-                                                    CommandParameter="{Binding}"/>
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding Code}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </StackPanel>
+                                            </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
                         </Border>
+                        <!-- 2026-10-11: seçilen malzemeler (çip) — × ile tek tek çıkarılır; "Temizle" hepsini kaldırır. -->
+                        <ItemsControl ItemsSource="{Binding PickedMaterials}" IsVisible="{Binding PickedMaterials.Count}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:MaterialRefRow">
+                                    <Border Classes="Chip" Margin="0,0,6,6" Padding="10,3,4,3" CornerRadius="12"
+                                            Background="{DynamicResource SurfaceElevatedBrush}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <SelectableTextBlock Text="{Binding Code}" Classes="Helper" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Text="{Binding Name}" Classes="Helper" VerticalAlignment="Center" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                            <Button Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu malzemeyi çıkar"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ReportsViewModel)DataContext).RemoveMaterialCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ctrl:FormField>
                 <!-- G4-4b — CARİ filtresi (ön muhasebe raporları). Malzeme seçicisinin AYNI deseni:
