@@ -1807,6 +1807,12 @@ app.MapPost("/api/assignments/return", (HttpContext c, AssignmentOpDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Return(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId, d.Damaged == true) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/assignments/lost", (HttpContext c, AssignmentOpDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Lost(s, d.AssetType, d.AssetId, d.PersonnelId, d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem tek işlemde (ya hepsi ya hiçbiri).
+// Kapılar serviste (yetki, firma, şube kapsamı, negatif stok, ekipman tek kişide, idempotency).
+app.MapPost("/api/assignments/issue-many", (HttpContext c, AssignmentBatchDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Assignments.IssueMany(s, d.PersonnelId,
+        (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Assignments.AssignmentLine(l.AssetType, l.AssetId, l.Quantity)).ToList(),
+        d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/assignments/transfer", (HttpContext c, AssignmentOpDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Assignments.Transfer(s, d.AssetType, d.AssetId, d.PersonnelId, d.ToPersonnelId ?? "", d.Quantity, d.BranchId, d.DocDate, d.Note, d.OperationId) }) : Results.Unauthorized()).RequireAuthorization();
 // ⭐ PRT-02 (FAZ G, 2026-09-04) — PERSONEL ve MUAYENE "Excel'e Aktar" uçları.
@@ -5245,6 +5251,8 @@ record PurchaseReceiveDto(List<PurchaseReceiveLineDto>? Lines, string? Operation
 // MLY-01: maliyet merkezi tanımı. Version = düzenleme kilidi jetonu.
 record CostCenterDto(string Name, string? Code = null, string? Status = null, string? Description = null, long? Version = null);
 // ZMT-01: tek işlem gövdesi (teslim/iade/kayıp/devir). OperationId istemciden gelir → idempotent retry.
+record AssignmentLineDto(string AssetType, string AssetId, decimal Quantity);
+record AssignmentBatchDto(string PersonnelId, List<AssignmentLineDto>? Lines, string? BranchId, long? DocDate, string? Note, string OperationId);
 record AssignmentOpDto(string AssetType, string AssetId, string PersonnelId, decimal Quantity,
     string OperationId, string? BranchId = null, long? DocDate = null, string? Note = null,
     string? ToPersonnelId = null, bool? Damaged = null);

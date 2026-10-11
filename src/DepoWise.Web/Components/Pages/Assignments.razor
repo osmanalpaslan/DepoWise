@@ -26,7 +26,7 @@
         <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ İŞLEM</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3">
-                <MudSelect T="string" @bind-Value="_op" Label="İşlem" Margin="Margin.Dense" Variant="Variant.Outlined">
+                <MudSelect T="string" @bind-Value="_op" @bind-Value:after="OnOpChanged" Label="İşlem" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("issue")">Teslim</MudSelectItem>
                     <MudSelectItem T="string" Value="@("return")">İade</MudSelectItem>
                     <MudSelectItem T="string" Value="@("damaged")">Hasarlı İade</MudSelectItem>
@@ -70,14 +70,43 @@
                     <MudNumericField T="decimal" @bind-Value="_quantity" Label="Miktar" Min="0.0001m" Margin="Margin.Dense" Variant="Variant.Outlined" />
                 </MudItem>
             }
+            @* ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem — her kalem listeye eklenir, Kaydet hepsini
+               TEK işlemde teslim eder (ya hepsi ya hiçbiri). Liste boşsa eski tekli teslim aynen çalışır. *@
+            @if (_op == "issue")
+            {
+                <MudItem xs="12" md="3" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddLine">Listeye Ekle</MudButton>
+                </MudItem>
+            }
             <MudItem xs="6" md="3">
                 <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
                                Editable="true" Disabled="@(!CanBackDate)" />
             </MudItem>
             <MudItem xs="12" md="9"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
+        @if (_op == "issue" && _lines.Count > 0)
+        {
+            <MudSimpleTable Dense="true" Hover="true" Class="mt-2">
+                <thead><tr><th style="width:90px">TÜR</th><th>TESLİM EDİLECEK KALEM</th><th style="width:90px">MİKTAR</th><th style="width:48px"></th></tr></thead>
+                <tbody>
+                    @foreach (var k in _lines.ToList())
+                    {
+                        <tr>
+                            <td>@(k.AssetType == "equipment" ? "Ekipman" : "Malzeme")</td>
+                            <td>@k.Label</td>
+                            <td>@k.Quantity.ToString("0.####")</td>
+                            <td><MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Title="Bu kalemi listeden çıkar" OnClick="@(() => _lines.Remove(k))" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+        @if (_op == "issue")
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Birden fazla malzeme/ekipman teslim etmek için her birini «Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek işlemde kaydedilir.</MudText>
+        }
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_op == "issue" && _lines.Count > 0 ? $"Kaydet ({_lines.Count} kalem)" : "Kaydet")</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
@@ -150,6 +179,36 @@
     private List<ApiClient.Opt> _assetOptions = new(), _personnel = new(), _branches = new();
     private JsonElement[]? _rows, _history;
     private string? _msg; private bool _ok; private bool _busy;
+    /// <summary>2026-10-11: toplu teslim kalemleri (masaüstü ZimmetKalemi ile aynı anlam).</summary>
+    private sealed class Kalem { public string AssetType = ""; public string AssetId = ""; public string Label = ""; public decimal Quantity; }
+    private readonly List<Kalem> _lines = new();
+    private const int MaxTopluKalem = 100;   // sunucu: AssignmentService.MaxTopluKalem
+
+    /// <summary>Seçili varlığı teslim listesine ekler. Aynı malzeme tekrar eklenirse miktarı ARTAR; aynı ekipman
+    /// ikinci kez eklenemez. Ekledikten sonra varlık kutusu boşalır (sıradaki kalem için).</summary>
+    /// <summary>Kalem listesi yalnız Teslim içindir; başka işleme geçilince temizlenir (masaüstü ile aynı).</summary>
+    private void OnOpChanged() { if (_op != "issue") _lines.Clear(); }
+
+    private void AddLine()
+    {
+        _msg = null;
+        if (string.IsNullOrEmpty(_assetId)) { _msg = "Listeye eklemek için önce bir malzeme/ekipman seçin."; _ok = false; return; }
+        var qty = _assetType == "equipment" ? 1m : _quantity;
+        if (qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+        var var_ = _lines.FirstOrDefault(l => l.AssetType == _assetType && l.AssetId == _assetId);
+        if (var_ is not null)
+        {
+            if (_assetType == "equipment") { _msg = "Bu ekipman listede zaten var."; _ok = false; return; }
+            var_.Quantity += qty;
+        }
+        else
+        {
+            if (_lines.Count >= MaxTopluKalem) { _msg = $"Bir seferde en fazla {MaxTopluKalem} kalem."; _ok = false; return; }
+            _lines.Add(new Kalem { AssetType = _assetType, AssetId = _assetId!, Quantity = qty,
+                Label = _assetOptions.FirstOrDefault(o => o.Id == _assetId)?.Name ?? _assetId! });
+        }
+        _assetId = null; _quantity = 1m;
+    }
 
     /// <summary>TRH-01: tarih alanı yetki yoksa BUGÜNE kilitli (sunucu da normalleştirir).</summary>
     private bool CanBackDate => Auth.CanButton("btn-backdate");
@@ -169,7 +228,7 @@
         {
             _assetOptions = _assetType == "equipment"
                 ? await Api.OptionsAsync("/api/equipment", "id", "name")
-                : await Api.OptionsAsync("/api/materials", "id", "name");
+                : await Api.MaterialOptionsAsync("/api/materials");   // 2026-10-11: "KOD — Ad" (masaüstü ile aynı)
         }
         catch { _assetOptions = new(); }
         if (_assetType == "equipment") _quantity = 1m;
@@ -199,6 +258,35 @@
     private async Task Save()
     {
         _msg = null;
+        // ⭐ 2026-10-11: TOPLU TESLİM — listede kalem varsa (seçili ama eklenmemiş varlık da listeye katılır).
+        if (_op == "issue" && _lines.Count > 0)
+        {
+            if (string.IsNullOrEmpty(_personnelId)) { _msg = "Teslim alacak personeli seçin."; _ok = false; return; }
+            if (!string.IsNullOrEmpty(_assetId)) { AddLine(); if (_msg is not null) return; }
+            var kisi = _personnel.FirstOrDefault(p => p.Id == _personnelId)?.Name ?? "Personel";
+            if (!await Dialog.Confirm($"{kisi} kişisine {_lines.Count} kalem teslim kaydedilsin mi?")) return;
+            _busy = true;
+            try
+            {
+                var toplu = new
+                {
+                    personnelId = _personnelId,
+                    lines = _lines.Select(l => new { assetType = l.AssetType, assetId = l.AssetId, quantity = l.Quantity }).ToList(),
+                    branchId = _branchId,
+                    docDate = _docDate is null ? (long?)null
+                        : new DateTimeOffset(DateTime.SpecifyKind(_docDate.Value.Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds(),
+                    note = _note,
+                    operationId = "web-" + Guid.NewGuid().ToString("N"),
+                };
+                var adet = _lines.Count;
+                var hata = await Api.PostAsync("/api/assignments/issue-many", toplu);
+                _ok = hata is null; _msg = hata ?? $"{adet} kalem teslim kaydedildi.";
+                if (_ok) { _lines.Clear(); _note = ""; await Load(); _history = null; _historyTitle = null; }
+            }
+            catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+            finally { _busy = false; }
+            return;
+        }
         if (string.IsNullOrEmpty(_assetId) || string.IsNullOrEmpty(_personnelId)) { _msg = "Varlık ve personel seçin."; _ok = false; return; }
         if (_op == "transfer" && string.IsNullOrEmpty(_toPersonnelId)) { _msg = "Devir için alan personeli seçin."; _ok = false; return; }
         var opText = _op switch { "return" => "İade", "damaged" => "Hasarlı iade", "transfer" => "Devir", "lost" => "Kayıp kaydı", _ => "Teslim" };

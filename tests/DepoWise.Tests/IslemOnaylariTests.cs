@@ -43,6 +43,8 @@ public class IslemOnaylariTests
         "RemoveLine", "RemoveMntLine", "RemoveExitLine", "RemoveCountLine", "RemoveItem",
         // 2026-10-10: talep formunda eklenmekte olan kalemin ARAÇ ÇİPİNİ çıkarır — form içi, henüz kaydedilmemiş veri.
         "RemoveNewItemVehicle",
+        // 2026-10-11: rapor filtresinde seçilen malzeme ÇİPİNİ çıkarır — kayıt değil, henüz çalıştırılmamış filtre.
+        "RemoveMaterial",
         "RemoveEquivalentPick", "RemovePhoto",
         // Satır içi "+" ekleme kutusunu kapatır:
         "CancelAddSub", "CancelAddTechnician", "CancelAddMntSub", "CancelAddCategory",

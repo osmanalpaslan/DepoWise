@@ -65,6 +65,11 @@
                     <ctrl:FormField Label="Miktar" Width="110" IsVisible="{Binding IsMaterial}">
                         <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
                     </ctrl:FormField>
+                    <!-- ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem — her kalem listeye eklenir,
+                         Kaydet hepsini tek işlemde teslim eder. Liste boşsa eski tekli teslim aynen çalışır. -->
+                    <Button Classes="Secondary" Content="+ Listeye Ekle" Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
+                            IsVisible="{Binding IsIssue}"
+                            ToolTip.Tip="Seçili malzeme/ekipmanı teslim listesine ekler. Birden fazla kalem ekleyip tek seferde kaydedebilirsiniz."/>
                     <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
                     <ctrl:FormField Label="İşlem Tarihi" Width="150">
                         <ctrl:TarihKutusu SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
@@ -74,6 +79,36 @@
                     </ctrl:FormField>
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" VerticalAlignment="Bottom"/>
                 </WrapPanel>
+                <!-- Toplu teslim kalemleri -->
+                <Border Classes="Table" IsVisible="{Binding ShowLines}" MaxHeight="220">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ColumnDefinitions="90,*,90,40">
+                                <SelectableTextBlock Grid.Column="0" Text="TÜR"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TESLİM EDİLECEK KALEM"/>
+                                <SelectableTextBlock Grid.Column="2" Text="MİKTAR"/>
+                            </Grid>
+                        </Border>
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Lines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ZimmetKalemi">
+                                        <Grid ColumnDefinitions="90,*,90,40" Margin="12,4">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding TypeDisplay}" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="{Binding QuantityDisplay}" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="3" Classes="Icon" Content="×" Width="24" Height="24" Padding="0" ToolTip.Tip="Bu kalemi listeden çıkar"
+                                                    Command="{Binding $parent[ItemsControl].((vm:AssignmentsViewModel)DataContext).RemoveLineCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+                <SelectableTextBlock Classes="Helper" IsVisible="{Binding IsIssue}" TextWrapping="Wrap"
+                                     Text="Birden fazla malzeme/ekipman teslim etmek için her birini «+ Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek işlemde kaydedilir."/>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
             </StackPanel>

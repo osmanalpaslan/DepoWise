@@ -11,6 +11,21 @@ using DepoWise.Infrastructure.Assignments;
 
 namespace DepoWise.Desktop.ViewModels;
 
+/// <summary>Toplu zimmet teslim formundaki bir kalem (2026-10-11).</summary>
+public sealed partial class ZimmetKalemi : ObservableObject
+{
+    public ZimmetKalemi(string assetType, string assetId, string label, decimal quantity)
+    { AssetType = assetType; AssetId = assetId; Label = label; _quantity = quantity; }
+    public string AssetType { get; }
+    public string AssetId { get; }
+    public string Label { get; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(QuantityDisplay))]
+    private decimal _quantity;
+    public string TypeDisplay => AssetType == "equipment" ? "Ekipman" : "Malzeme";
+    public string QuantityDisplay => Quantity.ToString("0.####", System.Globalization.CultureInfo.CurrentCulture);
+}
+
 /// <summary>
 /// ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET (masaüstü) ═══
 ///
@@ -34,6 +49,14 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     public ObservableCollection<ProjectPick> BranchOptions { get; } = new();
     public ObservableCollection<string> OpOptions { get; } = new() { "Teslim", "İade", "Hasarlı İade", "Devir", "Kayıp" };
     public ObservableCollection<string> AssetTypeOptions { get; } = new() { "Malzeme", "Ekipman" };
+
+    /// <summary>⭐ 2026-10-11 (kullanıcı isteği): TOPLU TESLİM kalemleri. "Listeye Ekle" ile birikir, "Kaydet" hepsini
+    /// TEK işlemde teslim eder (ya hepsi ya hiçbiri — serviste <see cref="AssignmentService.IssueMany"/>).
+    /// Liste boşsa eski tekli akış AYNEN çalışır.</summary>
+    public ObservableCollection<ZimmetKalemi> Lines { get; } = new();
+    public bool HasLines => Lines.Count > 0;
+    public bool IsIssue => FormOp == "Teslim";
+    public bool ShowLines => IsIssue && HasLines;
 
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string _searchText = "";
@@ -66,7 +89,53 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
 
     public bool IsTransfer => FormOp == "Devir";
     public bool IsMaterial => FormAssetType == "Malzeme";
-    partial void OnFormOpChanged(string value) => OnPropertyChanged(nameof(IsTransfer));
+    partial void OnFormOpChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsTransfer));
+        OnPropertyChanged(nameof(IsIssue));
+        if (!IsIssue && Lines.Count > 0) { Lines.Clear(); LinesChanged(); }   // kalem listesi yalnız Teslim içindir
+        OnPropertyChanged(nameof(ShowLines));
+    }
+
+    private void LinesChanged()
+    {
+        OnPropertyChanged(nameof(HasLines));
+        OnPropertyChanged(nameof(ShowLines));
+    }
+
+    /// <summary>Seçili varlığı teslim listesine ekler. Aynı malzeme tekrar eklenirse miktarı ARTAR; aynı ekipman
+    /// ikinci kez eklenemez (ekipman tek kişide ve tek adettir).</summary>
+    [RelayCommand]
+    private void AddLine()
+    {
+        FormError = null;
+        if (FormAsset is null) { FormError = "Listeye eklemek için önce bir malzeme/ekipman seçin."; return; }
+        var tip = IsMaterial ? "material" : "equipment";
+        var qty = IsMaterial ? FormQuantity : 1m;
+        if (qty <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
+        var var_ = Lines.FirstOrDefault(l => l.AssetType == tip && l.AssetId == FormAsset.Id);
+        if (var_ is not null)
+        {
+            if (tip == "equipment") { FormError = "Bu ekipman listede zaten var."; return; }
+            var_.Quantity += qty;
+        }
+        else
+        {
+            if (Lines.Count >= AssignmentService.MaxTopluKalem) { FormError = $"Bir seferde en fazla {AssignmentService.MaxTopluKalem} kalem."; return; }
+            Lines.Add(new ZimmetKalemi(tip, FormAsset.Id, FormAsset.Name, qty));
+        }
+        FormAsset = null;
+        FormQuantity = 1m;
+        LinesChanged();
+    }
+
+    [RelayCommand]
+    private void RemoveLine(ZimmetKalemi? k)
+    {
+        if (k is null) return;
+        Lines.Remove(k);
+        LinesChanged();
+    }
     partial void OnFormAssetTypeChanged(string value)
     {
         OnPropertyChanged(nameof(IsMaterial));
@@ -154,6 +223,27 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+        // ⭐ 2026-10-11: TOPLU TESLİM — listede kalem varsa (seçili ama eklenmemiş varlık da listeye katılır).
+        if (IsIssue && Lines.Count > 0)
+        {
+            if (FormPersonnel is null) { FormError = "Teslim alacak personeli seçin."; return; }
+            if (FormAsset is not null) AddLine();
+            if (FormError is not null) return;
+            var kalemler = Lines.Select(l => new AssignmentLine(l.AssetType, l.AssetId, l.Quantity)).ToList();
+            if (!await ConfirmService.AskAsync($"{FormPersonnel.Name} kişisine {kalemler.Count} kalem teslim kaydedilsin mi?", "Zimmet")) return;
+            try
+            {
+                DesktopServices.Assignments.IssueMany(_session, FormPersonnel.Id, kalemler, FormBranch?.Id, DocDateMs, FormNote,
+                    "desk-" + Guid.NewGuid().ToString("N"));
+                Lines.Clear(); LinesChanged();
+                FormNote = "";
+                Load();
+                LoadHistory();
+                Status = $"{kalemler.Count} kalem teslim kaydedildi.";
+            }
+            catch (Exception ex) { FormError = ex.Message; }
+            return;
+        }
         if (FormAsset is null || FormPersonnel is null) { FormError = "Varlık ve personel seçin."; return; }
         var op = OpCode(FormOp);
         if (op == "transfer" && FormToPersonnel is null) { FormError = "Devir için alan personeli seçin."; return; }

@@ -26,6 +26,9 @@ public sealed record AssignmentMovementRow(string Id, string AssetType, string A
     public string DocDateDisplay => DateTimeOffset.FromUnixTimeMilliseconds(DocDate).UtcDateTime.ToString("dd.MM.yyyy");
 }
 
+/// <summary>Toplu teslim kalemi (2026-10-11). <c>AssetType</c>: "material" | "equipment".</summary>
+public sealed record AssignmentLine(string AssetType, string AssetId, decimal Quantity);
+
 /// <summary>
 /// ═══ ZMT-01 (ADR-167, 2026-08-28) — ZİMMET YÖNETİMİ ═══
 ///
@@ -117,6 +120,67 @@ public sealed class AssignmentService
         tx.Commit();
         return grup;
     }
+
+    /// <summary>
+    /// ⭐ TOPLU TESLİM (kullanıcı isteği 2026-10-11: "bir personele aynı anda birden fazla malzeme zimmetlenebilsin").
+    /// Bir personele N kalem (malzeme ve/veya ekipman) TEK işlemde teslim edilir — <b>ya hepsi ya hiçbiri</b>:
+    /// bir kalemde stok yetmezse ya da ekipman başkasındaysa tamamı geri alınır (yarım zimmet olmaz).
+    /// <list type="bullet">
+    /// <item>Malzemeler TEK stok çıkış belgesinde toplanır (<c>assign:{operationId}</c>) — Depo Çıkışları
+    ///   raporunda tek belge, kalem kalem görünür. Ekipman stok dışıdır (tekli teslimle aynı).</item>
+    /// <item>Defterde her kalem ayrı satırdır (<c>{operationId}:{i}</c>), hepsi aynı <c>group_id</c>'yi taşır.</item>
+    /// <item>İdempotent: aynı operationId ile tekrar → hiçbir şey yazılmaz (ikinci stok düşümü OLMAZ).</item>
+    /// <item>Tekli <see cref="Issue"/> DEĞİŞMEDİ; kapılar (yetki, firma, şube kapsamı, negatif stok, ekipman tek
+    ///   kişide) aynı yardımcılarla uygulanır.</item>
+    /// </list>
+    /// </summary>
+    public string IssueMany(SessionContext s, string personnelId, IReadOnlyList<AssignmentLine> lines,
+        string? branchId, long? docDate, string? note, string operationId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (lines is null || lines.Count == 0) throw new ArgumentException("En az bir kalem ekleyin.");
+        if (lines.Count > MaxTopluKalem) throw new ArgumentException($"Bir seferde en fazla {MaxTopluKalem} kalem teslim edilebilir.");
+        foreach (var l in lines) DogrulaOrtak(l.AssetType, l.Quantity);
+        var ekipmanlar = lines.Where(l => l.AssetType == "equipment").Select(l => l.AssetId).ToList();
+        if (ekipmanlar.Count != ekipmanlar.Distinct(StringComparer.Ordinal).Count())
+            throw new ArgumentException("Aynı ekipman listede birden fazla kez var.");
+        var malzemeler = lines.Where(l => l.AssetType == "material").ToList();
+        if (malzemeler.Count > 0 && string.IsNullOrWhiteSpace(branchId))
+            throw new ArgumentException("Malzeme zimmetinde depo (şube) seçimi zorunludur — stok oradan işler.");
+        var isGunu = IsGunu(s, docDate);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        if (Idempotent(conn, tx, s.CompanyId, operationId + ":0")) { tx.Commit(); return operationId; }
+        foreach (var l in lines)
+        {
+            KapsamVeSahiplik(s, conn, tx, l.AssetType, l.AssetId, branchId, personnelId);
+            if (l.AssetType == "equipment") EkipmanBoşta(conn, tx, s.CompanyId, l.AssetId);
+        }
+
+        string? stockOp = null;
+        if (malzemeler.Count > 0)
+        {
+            stockOp = "assign:" + operationId;
+            _stock.IssueOutTx(conn, tx, s, malzemeler.Select(m => new StockLine(m.AssetId, m.Quantity)).ToList(),
+                stockOp, branchId, personnelId, note: "Zimmet teslimi", docDate: isGunu);
+        }
+
+        var grup = Guid.NewGuid().ToString("N");
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var l = lines[i];
+            Satir(conn, tx, s, l.AssetType, l.AssetId, personnelId, branchId, "issue", +1, l.Quantity,
+                grup, l.AssetType == "material" ? stockOp : null, isGunu, note, $"{operationId}:{i}", now);
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "assignment_movement", grup, AuditActions.Create, s.UserId,
+            AfterJson: $"{{\"type\":\"issue\",\"lines\":{lines.Count}}}"), _clock);
+        tx.Commit();
+        return grup;
+    }
+
+    /// <summary>Toplu teslimde tek seferdeki en fazla kalem (kötüye kullanım / dev işlem kalkanı).</summary>
+    public const int MaxTopluKalem = 100;
 
     private enum StokYonu { Yok, Cikis, Giris }
 
