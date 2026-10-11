@@ -78,6 +78,11 @@ public class Talep1011ArayuzTests
     private static IEnumerable<T> Gorunen<T>(Control kok) where T : Control
         => kok.GetVisualDescendants().OfType<T>().Where(c => c.IsEffectivelyVisible);
 
+    /// <summary>Zimmet kalem tablosu başlığı. Sütun-çizgisi stili başlığı "Teslim Edilecek Kalem" biçiminde çizer → Türkçe
+    /// büyük/küçük harf duyarsız karşılaştırma (İ/i doğru eşleşsin diye tr-TR).</summary>
+    private static bool BaslikGorunur(Control kok)
+        => Gorunen<TextBlock>(kok).Any(t => string.Compare(t.Text, "TESLİM EDİLECEK KALEM",
+            System.Globalization.CultureInfo.GetCultureInfo("tr-TR"), System.Globalization.CompareOptions.IgnoreCase) == 0);
     private static bool MetinGorunur(Control kok, string metin)
         => Gorunen<TextBlock>(kok).Any(t => t.Text == metin);
 
@@ -90,7 +95,7 @@ public class Talep1011ArayuzTests
         var w = Ac(view);
         Assert.True(vm.IsIssue);
         Assert.Contains(Gorunen<Button>(view), b => (b.Content as string) == "+ Listeye Ekle");
-        Assert.False(MetinGorunur(view, "TESLİM EDİLECEK KALEM"));            // liste boşken tablo yok
+        Assert.False(BaslikGorunur(view));                                     // liste boşken tablo yok
 
         vm.FormAsset = vm.AssetOptions.First(a => a.Name.StartsWith("ZMT-A"));
         vm.FormQuantity = 2m;
@@ -105,8 +110,9 @@ public class Talep1011ArayuzTests
         Assert.Equal(2, vm.Lines.Count);
         Assert.Equal(5m, vm.Lines.Single(l => l.Label.StartsWith("ZMT-A")).Quantity);
         Assert.Null(vm.FormAsset);                                             // kutu bir sonraki kalem için boşaldı
-        Assert.True(MetinGorunur(view, "TESLİM EDİLECEK KALEM"));
-        Goruntu(w, "zimmet-toplu-teslim");
+        Goruntu(w, "zimmet-toplu-teslim");   // önce görüntü: kontrol düşerse de ekranda ne çizildiği görülebilsin
+        // Başlık sütun-çizgisi stiliyle "Teslim Edilecek Kalem" biçiminde çizilir → büyük/küçük harfe duyarsız.
+        Assert.True(BaslikGorunur(view));
 
         vm.RemoveLineCommand.Execute(vm.Lines[1]);
         Assert.Single(vm.Lines);
