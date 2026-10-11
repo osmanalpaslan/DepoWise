@@ -108,7 +108,8 @@ public class ReportFilterParityTests
         // desenini kullanır (web: /api/materials?search=… · masaüstü: yerel Materials.List(term)). Bu
         // yüzden /api/reports/scope'a malzeme listesi eklenmedi — parite "aynı ID sözleşmesi" üzerinden
         // kurulur (MaterialIds), aynı seçenek listesi üzerinden DEĞİL.
-        new Wiring(ReportFilters.Material,       "ShowMaterial",       new[] { "MaterialIds" },        "Malzeme (kod/ad ile ara)"),
+        // 2026-10-11: etiket "Malzeme (kod/ad ile ara, çoklu)" oldu (çoklu seçim) → ortak parça kapanış parantezsiz.
+        new Wiring(ReportFilters.Material,       "ShowMaterial",       new[] { "MaterialIds" },        "Malzeme (kod/ad ile ara"),
         // G4-4b — CARİ. Material ile AYNI gerekçe: seçenekler ÖNCEDEN YÜKLENMEZ; iki platform da kendi
         // MEVCUT cari arama desenini kullanır (web: /api/parties?search=… · masaüstü: yerel Parties.List).
         // Parite "aynı ID sözleşmesi" (PartyIds) üzerinden kurulur, aynı seçenek listesi üzerinden DEĞİL.
@@ -123,6 +124,9 @@ public class ReportFilterParityTests
         // SABİT listeden (ReportSortOptions) gelir, iki platform da aynı dosyayı derler. Kullanıcı
         // metni ASLA ORDER BY icine yazılmaz; servis anahtarı beyaz listeden çözer.
         new Wiring(ReportFilters.Sort,           "ShowSort",           new[] { "SortKey" },            "Sıralama"),
+        // 2026-10-11 (kullanıcı isteği) — Depo Çıkışları: TESLİM ALAN personel (çoklu). Seçenekler Teknisyen/Talep Eden ile
+        // AYNI personel listesinden gelir (web: scope technicians · masaüstü: Lookups.ListPersonnelForReportFilter).
+        new Wiring(ReportFilters.Recipient,      "ShowRecipient",      new[] { "RecipientIds" },       "Teslim Alan"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);

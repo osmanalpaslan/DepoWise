@@ -159,8 +159,8 @@ public class YakitTarihGunTests : IDisposable
     {
         var t = Rapor(Ag2, Ag2 + Gun - 1);
         var vb = t.Rows.Single(r => (string)r[1]! == "VB");
-        Assert.Equal(2.0, Deger(vb[6]), 3);        // iki fiş de (gün başı + gün sonu) sayıldı
-        Assert.Equal(50.0, Deger(vb[8]), 3);       // litre 30 + 20
+        Assert.Equal(2.0, Deger(vb[8]), 3);        // (2026-10-11: +2 kişi sütunu) iki fiş de (gün başı + gün sonu) sayıldı
+        Assert.Equal(50.0, Deger(vb[10]), 3);       // litre 30 + 20
     }
 
     /// <summary>Aralık dışında fişi olan araç listelenmez (fiş var ama bu aralıkta değil).</summary>

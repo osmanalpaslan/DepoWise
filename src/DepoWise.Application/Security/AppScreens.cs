@@ -465,6 +465,7 @@ public static class GuncellemeNotlari
             new("Raporlarda malzeme seçerken artık birden fazla malzeme seçebilirsiniz; seçtikleriniz kutunun altında görünür, istemediğinizi × ile çıkarabilirsiniz."),
             new("Yakıt Tüketim raporlarına «Yakıtı Teslim Alan» ve «Yakıtı Teslim Eden» sütunları eklendi."),
             new("Yeni «Güncelleme Notları» ekranı: yapılan yenilikleri Ayarlar menüsünden her zaman görebilirsiniz."),
+            new("Uygulama sesleri yenilendi: onay penceresi, bildirim ve mesaj sesleri artık daha yumuşak ve daha kısık. Sesleri Ayarlar › Tema ekranından açıp kapatabilirsiniz."),
             new("Kiralık Araçlar ile Araç Listesi arasında geçerken ekranın takılı kalıp aynı listeyi göstermesi düzeltildi. Aynı sorun Malzemeler, Raporlar ve Talepler ekranlarında da giderildi.", Web),
         }),
     };

@@ -321,7 +321,7 @@ public class StockReportLocationTests : IDisposable
         // filtre kümesini kullanır (özet, detayın aynı süzgeçleriyle daralır — StockMovementFilterSql tek
         // kaynak). Liste hâlâ TÜKETİCİDİR: başka bir rapora sızarsa bu kilit düşer.
         var lokasyonlu = ReportCatalog.All.Where(d => d.UsesLocation).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "stock", "stock-count", "stock-movements", "stock-movements-daily" }, lokasyonlu);
+        Assert.Equal(new[] { "stock", "stock-count", "stock-issues", "stock-movements", "stock-movements-daily" }, lokasyonlu);   // 2026-10-11: + Depo Çıkışları (çıkış deposu filtresi)
 
         // Branch ve Location AYRI bayraklardır: stok raporlarında Branch AÇILMADI.
         Assert.False(ReportCatalog.ByKey("stock")!.UsesBranch);
@@ -338,7 +338,7 @@ public class StockReportLocationTests : IDisposable
 
         // STK-10b-3: malzeme filtresi de yalnız hareket raporlarında (körlemesine yayılmadı).
         var malzemeliler = ReportCatalog.All.Where(d => d.UsesMaterial).Select(d => d.Key).ToList();
-        Assert.Equal(new[] { "stock-movements", "stock-movements-daily" }, malzemeliler);
+        Assert.Equal(new[] { "stock-movements", "stock-movements-daily", "stock-issues" }, malzemeliler);   // 2026-10-11: + Depo Çıkışları
 
         // G4-4b: CARİ filtresi (8192) BİLİNÇLİ olarak açıldı — yalnız ön muhasebe raporlarında.
         // Nöbetçi KALDIRILMADI: hangi raporlarda açıldığı kilitlenir + sıradaki boş bayrak korunur.
@@ -357,7 +357,9 @@ public class StockReportLocationTests : IDisposable
         var siralamalilar = ReportCatalog.All.Where(d => d.UsesSort).Select(d => d.Key).OrderBy(x => x).ToList();
         Assert.Equal(new[] { "daily-activity", "daily-activity-summary" }, siralamalilar);
         // Nöbetçi bir sıra İLERİ alındı: sıradaki boş bayrak (65536) hâlâ kullanılmamalı.
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)65536)));
+        // 2026-10-11: 65536 = Recipient (Teslim Alan) BİLİNÇLİ açıldı — yalnız Depo Çıkışları'nda. Nöbetçi bir sıra ileri.
+        Assert.Equal(new[] { "stock-issues" }, ReportCatalog.All.Where(d => d.UsesRecipient).Select(d => d.Key));
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)131072)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

@@ -83,7 +83,7 @@
                 <Border Classes="Table" IsVisible="{Binding ShowLines}" MaxHeight="220">
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ColumnDefinitions="90,*,90,40">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40">
                                 <SelectableTextBlock Grid.Column="0" Text="TÜR"/>
                                 <SelectableTextBlock Grid.Column="1" Text="TESLİM EDİLECEK KALEM"/>
                                 <SelectableTextBlock Grid.Column="2" Text="MİKTAR"/>
@@ -93,7 +93,7 @@
                             <ItemsControl ItemsSource="{Binding Lines}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ZimmetKalemi">
-                                        <Grid ColumnDefinitions="90,*,90,40" Margin="12,4">
+                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40" Margin="12,4">
                                             <SelectableTextBlock Grid.Column="0" Text="{Binding TypeDisplay}" VerticalAlignment="Center"/>
                                             <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}"/>
                                             <SelectableTextBlock Grid.Column="2" Text="{Binding QuantityDisplay}" VerticalAlignment="Center"/>
