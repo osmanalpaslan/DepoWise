@@ -35,6 +35,8 @@
 - Operasyonel kayıt fiziksel silinmez (iptal/ters kayıt + audit). Tek istisna: süper adminin web "Kalıcı Silme" ekranı (ADR-083).
 - Deny-by-default; menü/işlem/alan/buton yetkisi UI ve API'de aynı. Kayıt işlemleri `ConfirmService` onayı ister (form içi işlemler muaf listede).
 - Web ve masaüstü işlevsel eşit; önce masaüstü, web aynı iş biriminde tamamlanır. Tablo istekleri rapor dahil TÜM tablolara uygulanır.
+- **Her büyük işin sonunda** (birden fazla ekran/rapor/filtre/form/API) `iki-ortam-denetcisi` agent'ını ÇALIŞTIR (kullanıcı
+  kararı 2026-10-11), "eksik/ayrışan" bulgularını düzelt, sonra yayın. Küçük tek dosyalık işte gerekmez.
 
 ## 4. Test
 - **Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 [-Filter "..."] [-Bekle] [-PostgresAtla]`.
