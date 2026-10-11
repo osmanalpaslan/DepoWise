@@ -5,13 +5,17 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <!-- EXE dosya simgesi (Gezgin/görev çubuğu/kısayol). Eskiden ayarlı DEĞİLDİ → varsayılan .NET ikonu görünüyordu. -->
-    <ApplicationIcon>Assets\app-logo.ico</ApplicationIcon>
+    <!-- EXE dosya simgesi (Gezgin/görev çubuğu/kısayol). Eskiden ayarlı DEĞİLDİ → varsayılan .NET ikonu görünüyordu.
+         2026-10-11 (kullanıcı): görev çubuğunda ARKA PLANSIZ simge → exe simgesi şeffaf işaret (app-gorev.ico). Masaüstü
+         kısayolu ise arka planlı app-logo.ico'yu gösterir (aşağıda çıktıya kopyalanır; Setup + KisayolSimgesi ayarlar). -->
+    <ApplicationIcon>Assets\app-gorev.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
+    <!-- 2026-10-11: masaüstü kısayolunun arka planlı simgesi — kurulum klasöründe dosya olarak bulunmalı (kısayol IconLocation). -->
+    <None Include="Assets\app-logo.ico" Link="app-logo.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

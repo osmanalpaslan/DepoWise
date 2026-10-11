@@ -175,8 +175,7 @@ body {
    (eski logonun lacivert parçaları için konmuş beyaz plaka kaldırıldı). */
 .mud-appbar img[alt] {
     height: 36px !important; width: auto;
-    background: none; padding: 0;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+    background: none; padding: 0; box-shadow: none;   /* kullanıcı: arka plansız (gölge/plaka yok) */
 }
 
 /* Aktif firma seçici (süper admin) */
@@ -1684,6 +1683,16 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 /* 2026-10-11 — Güncelleme Notları maddeleri (ekran + Yenilikler penceresi) */
 .dw-not-maddeler { margin: 0; padding-left: 20px; }
 .dw-not-maddeler li { margin: 6px 0; }
+
+/* 2026-10-11 — Açılış animasyonu (App.razor dwAcilisOynat): şeffaf video, ARKA PLANSIZ, ortada; tıklayınca geçer. */
+.dw-acilis {
+    position: fixed; inset: 0; z-index: 3000;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; cursor: pointer;
+    transition: opacity .4s ease;
+}
+.dw-acilis video { width: min(854px, 92vw); height: auto; pointer-events: none; }
+.dw-acilis.dw-acilis-bitti { opacity: 0; }
 
 /* Menü satırı: ikon + etiket; "Bakım Takibi (x2)" biçimi ViewModel'den gelir. */
 .dw-diger-satir {

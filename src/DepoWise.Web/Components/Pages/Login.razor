@@ -4,6 +4,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
 @*  ============================================================================
@@ -206,7 +207,7 @@
 .dw-brand-top { display: flex; align-items: center; gap: 12px; animation: dwUp .55s cubic-bezier(.22,1,.36,1) both; }
 .dw-brand-logo {
     /* 2026-10-11: yeni şeffaf logo — beyaz plaka kaldırıldı, işaret koyu giriş panelinde doğrudan durur */
-    width: 48px; height: 48px; box-sizing: border-box; filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+    width: 48px; height: 48px; box-sizing: border-box;   /* kullanıcı: arka plansız (plaka/gölge yok) */
     animation: dwLogoIn .72s cubic-bezier(.34,1.56,.64,1) both;
 }
 @@keyframes dwLogoIn {
@@ -596,6 +597,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+        try { await JS.InvokeVoidAsync("dwAcilisOynat"); } catch { /* 2026-10-11 açılış animasyonu; hata girişi etkilemez */ }
         try
         {
             var r = await LocalStorage.GetAsync<string>("dw_remember_user");

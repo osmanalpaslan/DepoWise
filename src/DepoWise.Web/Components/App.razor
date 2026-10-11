@@ -243,6 +243,35 @@
             }
         });
 
+        // ⭐ 2026-10-11 (kullanıcı isteği): AÇILIŞ ANİMASYONU — giriş sayfasında, tarayıcı OTURUMU başına bir kez.
+        // Şeffaf WebM (VP9 + alfa, ~1,2 MB) sayfanın ortasında arka plansız oynar; tıklayınca / bitince kaybolur.
+        // Tarayıcı oynatamazsa (ör. eski Safari) sessizce atlanır — giriş ASLA engellenmez.
+        window.dwAcilisOynat = () => {
+            try {
+                if (sessionStorage.getItem('dw_acilis') === '1') return;
+                sessionStorage.setItem('dw_acilis', '1');
+            } catch (e) { return; }
+            const kat = document.createElement('div');
+            kat.className = 'dw-acilis';
+            kat.title = 'Geçmek için tıklayın';
+            const v = document.createElement('video');
+            v.src = 'acilis.webm'; v.muted = true; v.autoplay = true; v.playsInline = true;
+            kat.appendChild(v);
+            let bitti = false;
+            const kapat = () => {
+                if (bitti) return; bitti = true;
+                kat.classList.add('dw-acilis-bitti');
+                setTimeout(() => kat.remove(), 400);
+            };
+            v.addEventListener('ended', kapat);
+            v.addEventListener('error', kapat);
+            kat.addEventListener('click', kapat);
+            document.addEventListener('keydown', kapat, { once: true });
+            setTimeout(kapat, 12000);   // emniyet: video takılırsa en geç 12 sn
+            document.body.appendChild(kat);
+            const p = v.play(); if (p && p.catch) p.catch(kapat);
+        };
+
         window.dwDownload = (name, b64, mime) => {
             const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
             for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);

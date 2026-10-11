@@ -458,6 +458,12 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        new("2026-10-11-logo", new DateOnly(2026, 10, 11), "1.0.198", "Yeni Alpnex logosu ve açılış animasyonu", new GuncellemeMaddesi[]
+        {
+            new("Alpnex'in logosu yenilendi: uygulama içinde, görev çubuğunda ve masaüstü simgesinde yeni logo görünür."),
+            new("Uygulama açılırken kısa bir açılış animasyonu oynar. Beklemek istemezseniz animasyona tıklayın ya da bir tuşa basın, hemen geçilir.", Masaustu),
+            new("Giriş sayfası açılırken kısa bir açılış animasyonu oynar; tıklayınca geçilir. Tarayıcı sekmesindeki simge de yenilendi.", Web),
+        }),
         new("2026-10-11", new DateOnly(2026, 10, 11), "1.0.197", "Zimmette toplu teslim, Depo Çıkışları raporu ve daha fazlası", new GuncellemeMaddesi[]
         {
             new("Zimmet ekranında bir personele aynı anda birden fazla malzeme veya ekipman teslim edebilirsiniz: her birini «Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek seferde kaydedilir."),

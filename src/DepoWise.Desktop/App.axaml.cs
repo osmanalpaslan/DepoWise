@@ -40,7 +40,13 @@ public partial class App : Avalonia.Application
             // "Beni Hatırla" artık yalnız kullanıcı ADINI ön-doldurur (otomatik giriş YAPILMAZ). Kapanışta
             // (Exit) auto-login token'ı da temizlenir ki geçmiş token ile kimse otomatik girmesin.
             desktop.Exit += (_, _) => { try { RememberMeService.Clear(); } catch { } };
-            ShowLogin();
+            // 2026-10-11: masaüstü kısayolu arka planlı simgeyi göstersin (exe simgesi artık şeffaf) — bir kerelik, sessiz.
+            KisayolSimgesi.ArkaPlandaDuzelt();
+            // ⭐ 2026-10-11 (kullanıcı isteği): AÇILIŞ ANİMASYONU — giriş penceresinden önce bir kez; tıklayınca geçer.
+            // Yüklenemezse null döner ve doğrudan giriş açılır (açılış asla engellenmez).
+            var acilis = AcilisAnimasyonu.Goster(() => Avalonia.Threading.Dispatcher.UIThread.Post(ShowLogin));
+            if (acilis is not null) desktop.MainWindow = acilis;
+            else ShowLogin();
         }
 
         base.OnFrameworkInitializationCompleted();

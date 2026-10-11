@@ -50,7 +50,7 @@
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Image Source="/Assets/app-mark.png" Width="34" Height="34" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-mark-128.png" Width="34" Height="34" VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality"/>
                         <SelectableTextBlock Text="Alpnex" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>

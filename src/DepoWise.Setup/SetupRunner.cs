@@ -142,6 +142,9 @@ public sealed class SetupRunner
             sc.TargetPath = exePath;
             sc.WorkingDirectory = workingDir;
             sc.Description = "Alpnex";
+            // 2026-10-11 (kullanıcı): exe simgesi artık ŞEFFAF (görev çubuğu için); masaüstü kısayolu ARKA PLANLI simgeyi gösterir.
+            var ico = Path.Combine(workingDir, "app-logo.ico");
+            if (File.Exists(ico)) sc.IconLocation = ico + ",0";
             sc.Save();
         }
         catch { /* kısayol başarısız olsa da kurulum tamamdır */ }

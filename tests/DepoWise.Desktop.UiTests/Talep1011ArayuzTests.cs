@@ -170,6 +170,32 @@ public class Talep1011ArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT17 — 2026-10-11 açılış animasyonu: gömülü 240 kare yüklenir, kare tampona çözülür; şeffaflık korunur
+    /// (köşe saydam, ortada logo var). Pencerenin kendisi App açılışında gösterilir (burada kare zinciri sınanır).</summary>
+    [AvaloniaFact]
+    public void UIT17_Acilis_Animasyonu_Kareleri_Seffaf_Cozulur()
+    {
+        Ortam();
+        var kareler = AcilisAnimasyonu.KareleriYukle();
+        Assert.Equal(240, kareler.Count);                                   // 10 sn × 24 kare
+        var tampon = new Avalonia.Media.Imaging.WriteableBitmap(new Avalonia.PixelSize(AcilisAnimasyonu.Genislik, AcilisAnimasyonu.Yukseklik),
+            new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
+        Assert.True(AcilisAnimasyonu.KareCoz(kareler[200], tampon));          // logonun yerleştiği son bölüm
+        using var fb = tampon.Lock();
+        {
+            byte Alfa(int x, int y) => System.Runtime.InteropServices.Marshal.ReadByte(fb.Address, y * fb.RowBytes + x * 4 + 3);
+            Assert.True(Alfa(2, 2) < 10, "köşe şeffaf olmalı (arka plan yok)");
+            var dolu = 0;
+            for (int y = 150; y < 330; y += 6) for (int x = 300; x < 560; x += 6) if (Alfa(x, y) > 200) dolu++;
+            Assert.True(dolu > 20, "ortada logo görünmeli");
+        }
+        var pencere = new Window { Width = 900, Height = 520, Content = new Image { Source = tampon }, Background = Avalonia.Media.Brushes.DimGray };
+        pencere.Show();
+        Dispatcher.UIThread.RunJobs();
+        Goruntu(pencere, "acilis-animasyonu-kare200");
+        pencere.Close();
+    }
+
     [AvaloniaFact]
     public void UIT16_Yenilikler_Penceresi()
     {

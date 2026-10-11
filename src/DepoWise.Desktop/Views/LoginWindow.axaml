@@ -180,7 +180,7 @@
 
             <DockPanel Margin="32,30,32,24">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="11">
-                    <Image Source="/Assets/app-mark.png" Width="42" Height="42" VerticalAlignment="Center"/>
+                    <Image Source="/Assets/app-mark-128.png" Width="42" Height="42" VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality"/>
                     <SelectableTextBlock Text="Alpnex" FontSize="19" FontWeight="Bold"
                                          Foreground="#EAEEF7" VerticalAlignment="Center"/>
                 </StackPanel>
