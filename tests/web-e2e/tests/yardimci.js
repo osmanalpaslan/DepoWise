@@ -2,6 +2,9 @@
 const { expect } = require('@playwright/test');
 
 async function girisYap(page, user, pass, firmaAdi) {
+  // 2026-10-11: giriş sayfasında açılış animasyonu (oturum başına bir kez) formu örter → testlerde atlanır;
+  // animasyonun kendisi talep-1011.spec.js'te ayrıca sınanır.
+  await page.addInitScript(() => { try { sessionStorage.setItem('dw_acilis', '1'); } catch (e) {} });
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
   // Alanlar otomatik doldurmaya karşı TIKLANANA kadar kilitli (readonly) — önce tıkla, kilit açılsın.
