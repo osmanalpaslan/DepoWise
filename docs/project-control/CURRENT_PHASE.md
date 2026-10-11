@@ -3,9 +3,9 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-11):** web makinesi **512 MB** (kullanıcı onayı, ≈+1,2 $/ay) + 256 MB swap. Canlıda API+Web 36eb6d6+ (web bellek önlemleri), masaüstü **1.0.196**, şema 98, üretim DB Supabase. Sıradaki: kullanıcı talebi.
+**Özet (2026-10-11 akşam):** YAYINDA — API + Web 395e215, masaüstü **1.0.197**, şema 98, web 512 MB + swap. Kullanıcı talebi 2026-10-11 (8 faz) tamam: `TALEP_2026-10-11.md`. Yeni: proje skill'leri (yayin, guvenli-commit, yeni-rapor, yeni-ekran, test-kosusu, canli-olcum) + `iki-ortam-denetcisi` agent; yayın artık testler geçince otomatik (kullanıcı kararı). Sıradaki: kullanıcı talebi.
 
-## ⏳ 2026-10-11 — kullanıcı talebi (6 iş, fazlı): `TALEP_2026-10-11.md`
+## ✅ 2026-10-11 YAYINDA — kullanıcı talebi (6 iş, fazlı): `TALEP_2026-10-11.md`
 - Faz 1 ✅ web alt ekran geçiş hatası: ana yerleşim gövdeyi `WebSayfaAnahtari` ile @key'ler (Araç/Kiralık, Malzeme, Rapor/Yönetici, Talep/Onay, Yeni Cari/Fatura/Hesap).
 - Faz 2 ✅ ses adayları masaüstünde (kullanıcı seçecek) · Faz 3 ✅ yakıt tüketim raporlarına Yakıtı Teslim Alan / Teslim Eden.
 - Faz 4 ✅ yeni rapor «Depo Çıkışları» (stock-issues): teslim alan + çoklu malzeme filtresi; rapor sayısı 30.

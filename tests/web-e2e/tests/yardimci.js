@@ -46,6 +46,19 @@ async function girisYap(page, user, pass, firmaAdi) {
     await page.waitForTimeout(1500);
   }
   await page.waitForURL(u => !u.pathname.startsWith('/login'), { timeout: 30_000 });
+  return await yeniliklerKapat(page);   // true = "Yenilikler" penceresi açılmıştı
+}
+
+/** 2026-10-11: yayından sonra girişte bir kez "Yenilikler" penceresi açılır (her test temiz tarayıcıyla başladığı için
+ *  her girişte görünür) → varsa "Tamam" ile kapat ki sonraki tıklamaları örtmesin. Pencere açıldıysa true döner. */
+async function yeniliklerKapat(page) {
+  const pencere = page.locator('.mud-dialog', { hasText: 'Yenilikler:' });
+  const acildi = await pencere.waitFor({ timeout: 8_000 }).then(() => true).catch(() => false);
+  if (acildi) {
+    await pencere.getByRole('button', { name: 'Tamam' }).click();
+    await expect(pencere).toBeHidden({ timeout: 10_000 });
+  }
+  return acildi;
 }
 
 /** API'ye doğrudan giriş (sunucu tarafı yetki kapısını test etmek için) → Bearer token. */
@@ -57,4 +70,4 @@ async function apiToken(request, user, pass, companyId, branchId) {
   return { api, token: j.token ?? j.accessToken };
 }
 
-module.exports = { girisYap, apiToken };
+module.exports = { girisYap, apiToken, yeniliklerKapat };
