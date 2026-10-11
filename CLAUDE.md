@@ -52,6 +52,10 @@
   → zip `artifacts/rc/` içine → `node scripts/publish_release.mjs <zip> X.Y.Z "<not>"` (env `DEPOWISE_ADMIN_USER/PASS`).
 - Üretim DB'de yalnız salt okuma. Gerçek firma **Oze İnşaat**'a yıkıcı işlem yok; test firması *Alpnex Test* (`.env.test.local`).
 - Sır/şifre ekrana yazılmaz. Release/update mekanizması değişikliği onay ister.
+- **Bitmiş test/geçici veri temizliği (kullanıcı kuralı 2026-10-11):** her yayın ya da büyük iş bitince
+  `scripts/temizlik.ps1` çalıştır (+ Görev Zamanlayıcı "DepoWise Haftalik Temizlik", Pazar 05:00). Yalnız izin
+  listesine dokunur (TEMP test DB'leri, eski Claude oturum klasörleri, eski artifacts/publish, son 3 masaüstü paketi
+  dışındakiler). Yeni bir iş kalıcı geçici artık üretiyorsa desenini o betiğe EKLE; geçici dosyaları `dw_`/`depowise_` ile adlandır.
 
 ## 6. Araçlar
 - Serena: yalnız okuma (sembol/referans). Değişiklik Claude'un Edit/Write/Bash araçlarıyla.
