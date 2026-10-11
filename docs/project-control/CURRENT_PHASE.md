@@ -3,7 +3,7 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-10 gece):** canlıda API+Web 36eb6d6+ (web bellek önlemleri), masaüstü **1.0.196**, şema 98, üretim DB Supabase. Sıradaki: kullanıcı talebi.
+**Özet (2026-10-11):** web makinesi **512 MB** (kullanıcı onayı, ≈+1,2 $/ay) + 256 MB swap. Canlıda API+Web 36eb6d6+ (web bellek önlemleri), masaüstü **1.0.196**, şema 98, üretim DB Supabase. Sıradaki: kullanıcı talebi.
 
 ## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
 - **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.

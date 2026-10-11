@@ -21,3 +21,10 @@ swap_size_mb = 256
 [[mounts]]
   source = "depowise_web_keys"
   destination = "/dpkeys"
+
+# 2026-10-11 (kullanıcı onayı): web makinesi 256 → 512 MB (≈ +1,2 $/ay, yalnız açık kaldığı süre ücretlenir).
+# Burada tanımlı olduğu için sonraki yayınlar belleği 256'ya GERİ ÇEKMEZ.
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

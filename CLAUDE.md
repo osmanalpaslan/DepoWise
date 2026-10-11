@@ -18,7 +18,7 @@
 ## 2. Mimari (güncel gerçek)
 - **Masaüstü:** .NET 8 · Avalonia 12 · MVVM · yerel SQLite `%LOCALAPPDATA%\DepoWise\Data` (Cache=Private, WAL, foreign_keys, busy_timeout=5000).
   Çevrimdışı çalışır; anlık eşitleme `/api/sync/wait` + 60 sn güvenlik turu.
-- **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (256 MB, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
+- **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (512 MB + 256 MB swap, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
 - **API:** minimal API `/api/...` (sürüm öneki yok), `depowise-erp.fly.dev` (512 MB, tek makine). Hata gövdesi `{"error":"..."}`.
 - **Üretim DB:** Supabase PostgreSQL 17 (proje *Alpnex*, `depowise_prod`). API doğrudan bağlantı; yerel araçlar pooler
   (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 98.**
@@ -42,7 +42,7 @@
 - Test tipine (normal/kapsamlı) Claude karar verir, gerekçe tek satır. Flaky testi tekrarla gizleme.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
-  web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; 256 MB web → koşular arası ~3 dk bekle).
+  web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma).
 - Kritik alanlarda her zaman test: tenant, yetki, rollback, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı, eski şema.
 
 ## 5. Yayın ve üretim
