@@ -33,9 +33,13 @@ public class YeniEkranlarArayuzTests
         lock (Kilit)
         {
             if (_s is not null) return _s;
-            Environment.SetEnvironmentVariable("DEPOWISE_ENVIRONMENT", "UiTest_" + Guid.NewGuid().ToString("N")[..8]);
-            var boot = DesktopBootstrap.Run();
-            DesktopServices.Initialize(boot);
+            // 2026-10-11: arayüz test sınıfları AYNI test ortamını paylaşır — biri başlattıysa yeniden başlatılmaz
+            // (yoksa ikinci sınıf ortamı değiştirip birincinin tohum verisini görünmez kılardı).
+            if (DesktopServices.Factory is null)
+            {
+                Environment.SetEnvironmentVariable("DEPOWISE_ENVIRONMENT", "UiTest_" + Guid.NewGuid().ToString("N")[..8]);
+                DesktopServices.Initialize(DesktopBootstrap.Run());
+            }
             var uid = DesktopServices.Users.EnsureInitialAdmin("UI", "ui.admin", "ui123456", RoleKeys.CompanyAdmin);
             _s = new SessionContext(uid, "UI", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
             Tohumla(_s);
