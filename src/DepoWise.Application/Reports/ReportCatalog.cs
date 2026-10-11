@@ -242,7 +242,7 @@ public static class ReportCatalog
         new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç başına tüketim, ortalama fiyat ve birim maliyet (km/saat duyarlı)",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Seçilen tarih aralığında YAKIT FİŞİ OLAN araçlar listelenir; o aralıkta yakıt almayan araçlar rapora GİRMEZ (tüm filoyu 0 değerleriyle görmek için «Araç Raporu» ya da «Araç Raporu — Günlük» kullanın). Yakıt tüketimi ve mesafe, aralıktaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            InfoNote: "Seçilen tarih aralığında YAKIT FİŞİ OLAN araçlar listelenir; o aralıkta yakıt almayan araçlar rapora GİRMEZ (tüm filoyu 0 değerleriyle görmek için «Araç Raporu» ya da «Araç Raporu — Günlük» kullanın). Yakıt tüketimi ve mesafe, aralıktaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez. «Yakıtı Teslim Alan» ve «Yakıtı Teslim Eden» sütunları o satırdaki fişlerde seçilen kişileri (farklı kişiler virgülle) gösterir; kişi seçilmemiş fiş boş geçer.",
             DataModule: "fuel"),
         // Yakıt Tüketim — GÜNLÜK (ARA İŞ 2 / S3, ADR-182 · PK-G1=A): dönem raporunun gün gün kırılımı.
         // Yalnız FİŞİ OLAN (araç, gün) satırları listelenir (ADR-183 sonrası Araç Raporu — Günlük de
@@ -251,7 +251,7 @@ public static class ReportCatalog
         new ReportDescriptor("fuel-daily", "Yakıt Tüketim — Günlük", "Yakıt tüketiminin gün gün kırılımı (yalnız fiş olan araç/günler)",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Her satır bir ARAÇ ve bir GÜNDÜR; yalnız o gün yakıt fişi olan araçlar görünür. Oranlar (ortalama tüketim, ortalama fiyat, birim maliyet) her gün için o günün değerlerinden yeniden hesaplanır — günlük oranlar toplanmaz. TOPLAM satırı seçilen DÖNEMİN tamamını gösterir ve «Yakıt Tüketim» raporunun toplamıyla aynıdır. Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999, iki uç dahil).",
+            InfoNote: "Her satır bir ARAÇ ve bir GÜNDÜR; yalnız o gün yakıt fişi olan araçlar görünür. Oranlar (ortalama tüketim, ortalama fiyat, birim maliyet) her gün için o günün değerlerinden yeniden hesaplanır — günlük oranlar toplanmaz. TOPLAM satırı seçilen DÖNEMİN tamamını gösterir ve «Yakıt Tüketim» raporunun toplamıyla aynıdır. Gün sınırı UTC'dir (00:00:00.000 – 23:59:59.999, iki uç dahil). «Yakıtı Teslim Alan» ve «Yakıtı Teslim Eden» sütunları o gün o araca yapılan fişlerde seçilen kişileri (farklı kişiler virgülle) gösterir.",
             DataModule: "fuel"),
         // Bakım Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her bakım kaydı TEK satır (detay/işlem
         // listesi), işlenen şube (op_branch_id), km/saat duyarlı sayaç, malzeme maliyeti + kalem sayısı derived-table'dan

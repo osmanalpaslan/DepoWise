@@ -111,7 +111,7 @@ public class GunlukRaporlarTests : IDisposable
     {
         var t = YakitGunluk(G1, G3 - 1);
         Assert.Equal("Yakıt Tüketim — Günlük", t.Title);
-        Assert.Equal(14, t.Headers.Count);
+        Assert.Equal(16, t.Headers.Count);
         Assert.Equal("Tarih", t.Headers[0]);
         // VA(1 Ağu) · VA(2 Ağu) · VB(2 Ağu) = 3 satır; VC (fişsiz) HİÇ görünmez.
         Assert.Equal(3, t.Rows.Count);
@@ -123,17 +123,17 @@ public class GunlukRaporlarTests : IDisposable
     {
         var t = YakitGunluk(G1, G3 - 1);
         var va1 = Satir(t, "01.08.2026", "VA");
-        Assert.Equal(2.0, D(va1[7]), 3);            // işlem sayısı
-        Assert.Equal(300.0, D(va1[8]), 3);          // mesafe
-        Assert.Equal(150.0, D(va1[9]), 3);          // litre
-        Assert.Equal(150.0 / 300.0, D(va1[10]), 4); // ort. tüketim — GÜNÜN değerlerinden
-        Assert.Equal(6200.0 / 150.0, D(va1[11]), 4);// ağırlıklı ort. fiyat
-        Assert.Equal(6200.0, D(va1[12]), 3);        // maliyet
-        Assert.Equal(6200.0 / 300.0, D(va1[13]), 4);// birim maliyet
+        Assert.Equal(2.0, D(va1[9]), 3);            // işlem sayısı
+        Assert.Equal(300.0, D(va1[10]), 3);          // mesafe
+        Assert.Equal(150.0, D(va1[11]), 3);          // litre
+        Assert.Equal(150.0 / 300.0, D(va1[12]), 4); // ort. tüketim — GÜNÜN değerlerinden
+        Assert.Equal(6200.0 / 150.0, D(va1[13]), 4);// ağırlıklı ort. fiyat
+        Assert.Equal(6200.0, D(va1[14]), 3);        // maliyet
+        Assert.Equal(6200.0 / 300.0, D(va1[15]), 4);// birim maliyet
 
         var va2 = Satir(t, "02.08.2026", "VA");
-        Assert.Equal(100.0, D(va2[8]), 3);
-        Assert.Equal(1600.0, D(va2[12]), 3);
+        Assert.Equal(100.0, D(va2[10]), 3);
+        Assert.Equal(1600.0, D(va2[14]), 3);
     }
 
     /// <summary>⭐ EN KRİTİK: günlerin toplamı DÖNEM raporuyla BİREBİR aynıdır (TOPLAM satırı dahil).</summary>
@@ -146,19 +146,19 @@ public class GunlukRaporlarTests : IDisposable
         // Araç bazında: günlerin toplamı = dönem satırı
         foreach (var kod in new[] { "VA", "VB" })
         {
-            var gunlukLitre = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[9]));
-            var gunlukMaliyet = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[12]));
-            var gunlukKm = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[8]));
+            var gunlukLitre = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[11]));
+            var gunlukMaliyet = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[14]));
+            var gunlukKm = gunluk.Rows.Where(r => (string)r[2]! == kod).Sum(r => D(r[10]));
             var d = donem.Rows.First(r => (string)r[1]! == kod);
-            Assert.Equal(D(d[8]), gunlukLitre, 3);      // litre
-            Assert.Equal(D(d[11]), gunlukMaliyet, 3);   // toplam maliyet
-            Assert.Equal(D(d[7]), gunlukKm, 3);         // mesafe
+            Assert.Equal(D(d[10]), gunlukLitre, 3);      // litre
+            Assert.Equal(D(d[13]), gunlukMaliyet, 3);   // toplam maliyet
+            Assert.Equal(D(d[9]), gunlukKm, 3);         // mesafe
         }
 
         // TOPLAM satırları da eşit
-        Assert.Equal(D(donem.TotalRow![8]), D(gunluk.TotalRow![9]), 3);     // litre
-        Assert.Equal(D(donem.TotalRow![11]), D(gunluk.TotalRow![12]), 3);   // maliyet
-        Assert.Equal(D(donem.TotalRow![6]), D(gunluk.TotalRow![7]), 3);     // işlem sayısı
+        Assert.Equal(D(donem.TotalRow![10]), D(gunluk.TotalRow![11]), 3);     // litre
+        Assert.Equal(D(donem.TotalRow![13]), D(gunluk.TotalRow![14]), 3);   // maliyet
+        Assert.Equal(D(donem.TotalRow![8]), D(gunluk.TotalRow![9]), 3);     // işlem sayısı
     }
 
     [Fact]

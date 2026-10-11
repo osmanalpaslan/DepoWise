@@ -79,26 +79,26 @@ public class PostgresGunlukRaporlarTests
 
         // ── fuel-daily ──
         var gunluk = reports.Run(s, "fuel-daily", istek);
-        Assert.Equal(14, gunluk.Headers.Count);
+        Assert.Equal(16, gunluk.Headers.Count);
         Assert.Equal(2, gunluk.Rows.Count);                        // yalnız FİŞ OLAN günler: 1. ve 3. gün (2. gün YOK)
         Assert.All(gunluk.Rows, r => Assert.Equal("V1", (string)r[2]!));   // fişsiz V2 hiç listelenmez
 
         var g1 = gunluk.Rows.First();
-        Assert.Equal(2.0, Deger(g1[7]), 3);                        // 1. gün iki fiş — gün BAŞI sınırı dahil
-        Assert.Equal(300.0, Deger(g1[8]), 3);
-        Assert.Equal(150.0, Deger(g1[9]), 3);
-        Assert.Equal(6200.0, Deger(g1[12]), 3);
+        Assert.Equal(2.0, Deger(g1[9]), 3);                        // 1. gün iki fiş — gün BAŞI sınırı dahil
+        Assert.Equal(300.0, Deger(g1[10]), 3);
+        Assert.Equal(150.0, Deger(g1[11]), 3);
+        Assert.Equal(6200.0, Deger(g1[14]), 3);
 
         var g3 = gunluk.Rows.Last();
-        Assert.Equal(1.0, Deger(g3[7]), 3);                        // gün SONU 23:59:59.999 sınırı dahil
-        Assert.Equal(1000.0, Deger(g3[12]), 3);
+        Assert.Equal(1.0, Deger(g3[9]), 3);                        // gün SONU 23:59:59.999 sınırı dahil
+        Assert.Equal(1000.0, Deger(g3[14]), 3);
 
         // ── günlük ≡ dönem (fuel) ──
         var donem = reports.Run(s, "fuel", istek);
         Assert.Single(donem.Rows);                                 // ADR-182: yalnız fişi olan araç (V2 yok)
-        Assert.Equal(Deger(donem.Rows[0][8]), gunluk.Rows.Sum(r => Deger(r[9])), 3);    // litre
-        Assert.Equal(Deger(donem.Rows[0][11]), gunluk.Rows.Sum(r => Deger(r[12])), 3);  // maliyet
-        Assert.Equal(Deger(donem.TotalRow![8]), Deger(gunluk.TotalRow![9]), 3);
+        Assert.Equal(Deger(donem.Rows[0][10]), gunluk.Rows.Sum(r => Deger(r[11])), 3);    // litre
+        Assert.Equal(Deger(donem.Rows[0][13]), gunluk.Rows.Sum(r => Deger(r[14])), 3);  // maliyet
+        Assert.Equal(Deger(donem.TotalRow![10]), Deger(gunluk.TotalRow![11]), 3);
 
         // ── stock-movements-daily ──
         Exec("INSERT INTO materials(id,company_id,code,name,unit_id,min_stock,created_at,updated_at,version,is_deleted) " +

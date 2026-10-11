@@ -461,7 +461,7 @@ GROUP BY branch_id;";
 SELECT COALESCE(bch.name,'') AS branch_name, v.internal_code, COALESCE(v.plate,''),
        TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
        COALESCE(vt.name,'') AS type_name, v.meter_unit,
-       COALESCE(f.cnt,0), COALESCE(f.km,0), COALESCE(f.litre,0), COALESCE(f.fuelcost,0)
+       COALESCE(f.cnt,0), COALESCE(f.km,0), COALESCE(f.litre,0), COALESCE(f.fuelcost,0), v.id
 FROM vehicles v
 LEFT JOIN brands br ON br.id=v.brand_id
 LEFT JOIN vehicle_models vmd ON vmd.id=v.vehicle_model_id
@@ -489,11 +489,13 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan sir
         var rows = new List<IReadOnlyList<object?>>();
         double tCnt = 0, tKm = 0, tLitre = 0, tFuel = 0;
         var units = new HashSet<string>(StringComparer.Ordinal);
+        var kisiler = YakitKisileri(conn, companyId, req, gunluk: false);   // 2026-10-11: teslim alan / eden
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
                 var meterUnit = r.GetString(5);
                 var unitTr = meterUnit == "hour" ? "Saat" : "KM";
+                var (alan, veren) = KisiMetni(kisiler, r.GetString(10));
                 double cnt = r.GetDouble(6), km = r.GetDouble(7), litre = r.GetDouble(8), fuel = r.GetDouble(9);
                 double consumption = km > 0 ? litre / km : 0;   // L/birim (km ya da saat)
                 double avgPrice = litre > 0 ? fuel / litre : 0;  // ağırlıklı ort. ₺/L
@@ -501,6 +503,7 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan sir
                 rows.Add(new object?[]
                 {
                     r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3).Trim(), r.GetString(4), unitTr,
+                    alan, veren,
                     Num(cnt, FmtCount),
                     Num(km, x => FmtDistance(x, meterUnit)),
                     Num(litre, FmtLiter),
@@ -524,7 +527,7 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan sir
             double totPerUnit = tKm > 0 ? tFuel / tKm : 0;
             totalRow = new object?[]
             {
-                "TOPLAM", "", "", "", "", "",
+                "TOPLAM", "", "", "", "", "", "", "",
                 Num(tCnt, FmtCount),
                 homo ? Num(tKm, x => FmtDistance(x, unit)) : (object?)"",
                 Num(tLitre, FmtLiter),
@@ -535,16 +538,58 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan sir
             };
         }
 
-        // Kolon-tipi: ilk 6 metin (Şube/İç Kod/Plaka/Araç Adı/Araç Türü/Sayaç Birimi), kalan 7 sayısal.
-        var numeric = new[] { false, false, false, false, false, false, true, true, true, true, true, true, true };
+        // Kolon-tipi: ilk 8 metin (Şube/İç Kod/Plaka/Araç Adı/Araç Türü/Sayaç Birimi/Teslim Alan/Teslim Eden), kalan 7 sayısal.
+        var numeric = new[] { false, false, false, false, false, false, false, false, true, true, true, true, true, true, true };
 
         return new TableModel("Yakıt Tüketim", new[]
         {
             "Şube", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü", "Sayaç Birimi",
+            YakitTeslimAlanBaslik, YakitTeslimEdenBaslik,
             "İşlem Sayısı", "Mesafe", "Litre", "Ortalama Yakıt Tüketimi", "Ortalama Yakıt Fiyatı",
             "Toplam Yakıt Maliyeti", "Birim Başına Yakıt Maliyeti",
         }, rows, numeric, totalRow);
     }
+
+    /// <summary>⭐ 2026-10-11 (kullanıcı isteği: "kimin teslim aldığına raporlarda bakamıyorum"): yakıt tüketim
+    /// raporlarının kişi sütunları. Fişte <c>recipient_personnel_id</c> = Yakıtı Alan, <c>personnel_id</c> = Yakıtı
+    /// Veren (Migration052). Satır araç (ya da araç×gün) toplamı olduğundan o satırdaki fişlerin FARKLI kişileri
+    /// alfabetik ve virgülle listelenir; kişi seçilmemiş fiş boş geçilir.</summary>
+    public const string YakitTeslimAlanBaslik = "Yakıtı Teslim Alan";
+    public const string YakitTeslimEdenBaslik = "Yakıtı Teslim Eden";
+
+    /// <summary>Araç (gunluk: araç|gün) → (alanlar, verenler). TEK sorgu — satır başına sorgu YOK (N+1 yok). İsim
+    /// birleştirme C#'ta yapılır: lehçeye özel GROUP_CONCAT/string_agg kullanılmaz (SQLite + PG ortak).
+    /// Tarih/şirket filtresi ana sorguyla aynıdır; şube/araç kapsamı ana sorgudan gelen araç kimliğiyle uygulanır.</summary>
+    private static Dictionary<string, (SortedSet<string> Alan, SortedSet<string> Veren)> YakitKisileri(
+        System.Data.Common.DbConnection conn, string companyId, ReportRequest req, bool gunluk)
+    {
+        var d = new Dictionary<string, (SortedSet<string>, SortedSet<string>)>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT f.vehicle_id, f.distribution_date / 86400000, COALESCE(pr.full_name,''), COALESCE(pg.full_name,'')
+FROM fuel_distributions f
+LEFT JOIN personnel pr ON pr.id = f.recipient_personnel_id AND pr.company_id = f.company_id
+LEFT JOIN personnel pg ON pg.id = f.personnel_id AND pg.company_id = f.company_id
+WHERE f.company_id=@c AND f.is_deleted=0" + DateFilter(req, "f.distribution_date") + ";";
+        cmd.AddWithValue("@c", companyId);
+        BindDates(cmd, req);
+        var tr = StringComparer.Create(Tr, ignoreCase: false);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            if (r.IsDBNull(0)) continue;
+            var key = gunluk ? r.GetString(0) + "|" + Convert.ToInt64(r.GetValue(1)) : r.GetString(0);
+            if (!d.TryGetValue(key, out var k)) d[key] = k = (new SortedSet<string>(tr), new SortedSet<string>(tr));
+            var alan = r.GetString(2).Trim(); var veren = r.GetString(3).Trim();
+            if (alan.Length > 0) k.Item1.Add(alan);
+            if (veren.Length > 0) k.Item2.Add(veren);
+        }
+        return d;
+    }
+
+    private static (string Alan, string Veren) KisiMetni(
+        Dictionary<string, (SortedSet<string> Alan, SortedSet<string> Veren)> d, string key)
+        => d.TryGetValue(key, out var k) ? (string.Join(", ", k.Alan), string.Join(", ", k.Veren)) : ("", "");
 
     /// <summary>
     /// YAKIT TÜKETİM — GÜNLÜK (ARA İŞ 2 / S3, 2026-08-29 · ADR-182 · PK-G1=A).
@@ -584,7 +629,8 @@ SELECT f.distribution_date / 86400000 AS gun,
        COALESCE(SUM(CASE WHEN f.prev_meter IS NOT NULL AND f.current_meter IS NOT NULL
             THEN CAST(f.current_meter AS REAL)-CAST(f.prev_meter AS REAL) ELSE 0 END),0) AS km,
        COALESCE(SUM(CAST(f.liters AS REAL)),0) AS litre,
-       COALESCE(SUM(CAST(f.liters AS REAL)*CAST(f.unit_price AS REAL)),0) AS fuelcost
+       COALESCE(SUM(CAST(f.liters AS REAL)*CAST(f.unit_price AS REAL)),0) AS fuelcost,
+       v.id
 FROM fuel_distributions f
 JOIN vehicles v ON v.id = f.vehicle_id AND v.company_id = f.company_id AND v.is_deleted = 0
 LEFT JOIN brands br ON br.id = v.brand_id
@@ -605,6 +651,7 @@ ORDER BY gun, branch_name, veh_name, v.internal_code;";
         var rows = new List<IReadOnlyList<object?>>();
         double tCnt = 0, tKm = 0, tLitre = 0, tFuel = 0;
         var units = new HashSet<string>(StringComparer.Ordinal);
+        var kisiler = YakitKisileri(conn, companyId, req, gunluk: true);   // 2026-10-11: teslim alan / eden
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
@@ -625,6 +672,8 @@ ORDER BY gun, branch_name, veh_name, v.internal_code;";
                     DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr),
                     r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4).Trim(), r.GetString(5),
                     meterUnit == "hour" ? "Saat" : "KM",
+                    KisiMetni(kisiler, r.GetString(11) + "|" + gun).Alan,
+                    KisiMetni(kisiler, r.GetString(11) + "|" + gun).Veren,
                     Num(cnt, FmtCount),
                     Num(km, x => FmtDistance(x, meterUnit)),
                     Num(litre, FmtLiter),
@@ -646,7 +695,7 @@ ORDER BY gun, branch_name, veh_name, v.internal_code;";
             double totPerUnit = tKm > 0 ? tFuel / tKm : 0;
             totalRow = new object?[]
             {
-                "TOPLAM (DÖNEM)", "", "", "", "", "", "",
+                "TOPLAM (DÖNEM)", "", "", "", "", "", "", "", "",
                 Num(tCnt, FmtCount),
                 homo ? Num(tKm, x => FmtDistance(x, unit)) : (object?)"",
                 Num(tLitre, FmtLiter),
@@ -657,11 +706,12 @@ ORDER BY gun, branch_name, veh_name, v.internal_code;";
             };
         }
 
-        var numeric = new[] { false, false, false, false, false, false, false, true, true, true, true, true, true, true };
+        var numeric = new[] { false, false, false, false, false, false, false, false, false, true, true, true, true, true, true, true };
 
         return new TableModel("Yakıt Tüketim — Günlük", new[]
         {
             "Tarih", "Şube", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü", "Sayaç Birimi",
+            YakitTeslimAlanBaslik, YakitTeslimEdenBaslik,
             "İşlem Sayısı", "Mesafe", "Litre", "Ortalama Yakıt Tüketimi", "Ortalama Yakıt Fiyatı",
             "Toplam Yakıt Maliyeti", "Birim Başına Yakıt Maliyeti",
         }, rows, numeric, totalRow);
