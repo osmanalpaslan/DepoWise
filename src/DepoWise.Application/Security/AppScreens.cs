@@ -314,6 +314,8 @@ public static class AppScreens
         new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer", WebPermOverride: "@super"),
         new AppScreen("theme", "theme", "Ayarlar", "Tema", Both, "theme", "theme", WebPermOverride: ""),
         new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "soon/about", "about", WebPermOverride: ""),
+        // ⭐ 2026-10-11 (kullanıcı isteği): yapılan yenilikleri takip ekranı. "about" modülü HERKESE açıktır (deny-by-default istisnası).
+        new AppScreen("about.notes", "about", "Ayarlar", "Güncelleme Notları", Both, "update-notes", "about:notes", WebPermOverride: ""),
     };
 
     /// <summary>
@@ -421,4 +423,64 @@ public static class WebSayfaAnahtari
         var ilk = y.Split('/')[0];
         return AltEkrandaSifirlanan.Contains(ilk) ? y.ToLowerInvariant() : ilk.ToLowerInvariant();
     }
+}
+
+/// <summary>Bir güncelleme notundaki tek madde. <see cref="Platform"/>: hangi uygulamada geçerli
+/// (<see cref="GuncellemeNotlari.Ikisi"/> | <see cref="GuncellemeNotlari.Masaustu"/> | <see cref="GuncellemeNotlari.Web"/>).</summary>
+public sealed record GuncellemeMaddesi(string Metin, string Platform = GuncellemeNotlari.Ikisi);
+
+/// <summary>Bir yayının kullanıcıya dönük notu. <see cref="MasaustuSurumu"/> doluysa masaüstünde o sürüme
+/// geçildiğinde bir kez gösterilir; web'de her yeni web yayınında (Id değişince) bir kez gösterilir.</summary>
+public sealed record GuncellemeNotu(string Id, DateOnly Tarih, string? MasaustuSurumu, string Baslik,
+    IReadOnlyList<GuncellemeMaddesi> Maddeler)
+{
+    public IEnumerable<GuncellemeMaddesi> MaddelerIcin(bool web)
+        => Maddeler.Where(m => m.Platform == GuncellemeNotlari.Ikisi || m.Platform == (web ? GuncellemeNotlari.Web : GuncellemeNotlari.Masaustu));
+    public string TarihMetni => Tarih.ToString("dd.MM.yyyy");
+}
+
+/// <summary>
+/// ⭐ 2026-10-11 — GÜNCELLEME NOTLARI: TEK KAYNAK (kullanıcı isteği: "güncelleme notları teknik olmayacak, son kullanıcının
+/// anlayacağı şekilde; masaüstünde güncelleme öncesi ve sonrası, web'de deploy sonrası bir kez pop-up; iki ortamda da
+/// Güncelleme Notları ekranı — bugünden itibaren yaptıklarımızı takip edelim").
+///
+/// <para><b>Nasıl kullanılır (her yayında):</b> listenin EN BAŞINA yeni bir <see cref="GuncellemeNotu"/> eklenir —
+/// sade Türkçe, teknik terim yok, "ne değişti, kullanıcı ne yapabilir" dili. Masaüstü sürümü yayınlanıyorsa
+/// <c>MasaustuSurumu</c> o sürüm olur ve <c>scripts/publish_release.mjs</c>'e verilen not metni
+/// <see cref="MasaustuMetni"/> ile AYNI olmalıdır (güncelleme ÖNCESİ penceresi o metni sunucudan gösterir).</para>
+///
+/// <para>Bu dosya web'e de bağlıdır (DepoWise.Web.csproj Compile Include) → iki uygulama aynı notları okur.</para>
+/// </summary>
+public static class GuncellemeNotlari
+{
+    public const string Ikisi = "both", Masaustu = "desktop", Web = "web";
+
+    /// <summary>En yeni EN ÜSTTE.</summary>
+    public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
+    {
+        new("2026-10-11", new DateOnly(2026, 10, 11), "1.0.197", "Zimmette toplu teslim, Depo Çıkışları raporu ve daha fazlası", new GuncellemeMaddesi[]
+        {
+            new("Zimmet ekranında bir personele aynı anda birden fazla malzeme veya ekipman teslim edebilirsiniz: her birini «Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek seferde kaydedilir."),
+            new("Yeni rapor: «Depo Çıkışları». Depodan çıkan malzemeleri ve bunları KİMİN TESLİM ALDIĞINI gösterir. İsterseniz önce malzeme ya da personel seçin; hiçbir şey seçmezseniz tüm çıkışlar listelenir."),
+            new("Raporlarda malzeme seçerken artık birden fazla malzeme seçebilirsiniz; seçtikleriniz kutunun altında görünür, istemediğinizi × ile çıkarabilirsiniz."),
+            new("Yakıt Tüketim raporlarına «Yakıtı Teslim Alan» ve «Yakıtı Teslim Eden» sütunları eklendi."),
+            new("Yeni «Güncelleme Notları» ekranı: yapılan yenilikleri Ayarlar menüsünden her zaman görebilirsiniz."),
+            new("Kiralık Araçlar ile Araç Listesi arasında geçerken ekranın takılı kalıp aynı listeyi göstermesi düzeltildi. Aynı sorun Malzemeler, Raporlar ve Talepler ekranlarında da giderildi.", Web),
+        }),
+    };
+
+    /// <summary>Web'in gösterdiği en yeni not (web'e ait maddesi olan ilk kayıt).</summary>
+    public static GuncellemeNotu? SonWeb => Tumu.FirstOrDefault(n => n.MaddelerIcin(web: true).Any());
+
+    /// <summary>Masaüstünde verilen sürüme ait not (yoksa null).</summary>
+    public static GuncellemeNotu? MasaustuSurumuIcin(string? surum)
+        => string.IsNullOrWhiteSpace(surum) ? null
+         : Tumu.FirstOrDefault(n => string.Equals(n.MasaustuSurumu, surum, StringComparison.Ordinal) && n.MaddelerIcin(web: false).Any());
+
+    /// <summary>Bir platformun ekranında gösterilecek notlar (en yeni üstte).</summary>
+    public static IEnumerable<GuncellemeNotu> PlatformIcin(bool web) => Tumu.Where(n => n.MaddelerIcin(web).Any());
+
+    /// <summary>Masaüstü güncelleme penceresine (ve publish_release.mjs not metnine) giden düz metin.</summary>
+    public static string MasaustuMetni(GuncellemeNotu n)
+        => string.Join("\n", n.MaddelerIcin(web: false).Select(m => "• " + m.Metin));
 }

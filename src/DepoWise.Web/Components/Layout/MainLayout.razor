@@ -533,6 +533,29 @@
         UyariZamanlayiciyiKur();       // ⭐ SES: dakikada bir tazele → yeni uyarı/duyuru duyulsun
         await SekmeleriYukleAsync();   // 2026-09-03: açık ekran sekmeleri (sessionStorage'dan) geri gelir
         StateHasChanged();
+        await GuncellemeNotuGosterAsync();   // 2026-10-11: yeni yayından sonra "Yenilikler" bir kez
+    }
+
+    /// <summary>
+    /// ⭐ 2026-10-11 (kullanıcı isteği: "webte deploy edildiğinde bir kere pop-up çıksa yeterli"). Oturum açıkken, bu
+    /// tarayıcıda en son GÖRÜLEN not kimliği yayındaki en yeni web notundan farklıysa pencere BİR KEZ açılır.
+    /// Kimlik önce yazılır → pencere kapatılmadan sayfa yenilense bile tekrar tekrar açılmaz. Hata girişi etkilemez.
+    /// </summary>
+    private async Task GuncellemeNotuGosterAsync()
+    {
+        try
+        {
+            if (!Auth.IsAuthenticated) return;
+            var son = DepoWise.Application.Security.GuncellemeNotlari.SonWeb;
+            if (son is null) return;
+            var g = await LocalStorage.GetAsync<string>("dw_not_gorulen");
+            if (g.Success && g.Value == son.Id) return;
+            await LocalStorage.SetAsync("dw_not_gorulen", son.Id);
+            await DialogService.ShowAsync<GuncellemeNotuDialog>("",
+                new DialogParameters { ["Not"] = son },
+                new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        }
+        catch { }
     }
 
     // ═══ ARA-01 (ADR-174) — üst bar global arama ═══

@@ -138,6 +138,7 @@ public static class MenuIcons
         ["settings.developer"]        = "developer",
         ["theme"]                     = "theme",
         ["about"]                     = "info",
+        ["about.notes"]               = "update",            // 2026-10-11: Güncelleme Notları
     };
 
     // ═══════════ ÜST MENÜ (grup) → simge kavramı ═══════════

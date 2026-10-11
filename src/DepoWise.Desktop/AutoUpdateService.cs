@@ -26,6 +26,19 @@ public static class AutoUpdateService
     public static byte[]? PendingBytes { get; private set; }
     public static string? PendingVersion { get; private set; }
     public static string? PendingChecksum { get; private set; }
+    /// <summary>⭐ 2026-10-11: bekleyen sürümün KULLANICIYA DÖNÜK notu (sunucudaki yayın notu). Güncelleme ÖNCESİ
+    /// pencerelerinde "Bu sürümde neler var" olarak gösterilir. Boş olabilir.</summary>
+    public static string? PendingNotes { get; private set; }
+
+    /// <summary>Güncelleme penceresine eklenen "Bu sürümde neler var" bölümü (not yoksa boş). Çok uzun not
+    /// pencereyi taşırmasın diye kısaltılır — tamamı güncellemeden sonra "Yenilikler" penceresinde görünür.</summary>
+    public static string NotBolumu(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes)) return "";
+        var t = notes.Trim();
+        if (t.Length > 1200) t = t[..1200].TrimEnd() + " …";
+        return "\n\nBu sürümde neler var:\n" + t;
+    }
     /// <summary>Ertelenen güncellemenin tekrar sorulacağı zaman (UTC).</summary>
     public static DateTime SnoozeUntilUtc { get; set; } = DateTime.MinValue;
 
@@ -38,11 +51,11 @@ public static class AutoUpdateService
         catch { return true; }
     }
 
-    public static void SetPending(byte[] bytes, string version, string checksum)
-    { PendingBytes = bytes; PendingVersion = version; PendingChecksum = checksum; }
+    public static void SetPending(byte[] bytes, string version, string checksum, string? notes = null)
+    { PendingBytes = bytes; PendingVersion = version; PendingChecksum = checksum; PendingNotes = notes; }
 
     public static void ClearPending()
-    { PendingBytes = null; PendingVersion = null; PendingChecksum = null; }
+    { PendingBytes = null; PendingVersion = null; PendingChecksum = null; PendingNotes = null; }
 
     // ═══ İNDİRİLEN PAKET DİSKTE SAKLANIR (kullanıcı bildirimi 2026-09-07) ═══════════════════════
     //
@@ -109,14 +122,14 @@ public static class AutoUpdateService
             // Önceki oturumda inmiş ve DİSKTE duruyorsa yeniden indirme (checksum doğrulanır).
             if (OnbellektenOku(latest.Version, latest.ChecksumSha256) is { } saklanan)
             {
-                SetPending(saklanan, latest.Version, latest.ChecksumSha256);
+                SetPending(saklanan, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
                 return true;
             }
 
             status?.Invoke($"Güncelleme indiriliyor (sürüm {latest.Version})…");
             var bytes = await DesktopServices.UpdateDownload.DownloadAsync(
                 latest.DownloadUrl!, p => progress?.Invoke(p));
-            SetPending(bytes, latest.Version, latest.ChecksumSha256);
+            SetPending(bytes, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
             OnbellegeYaz(latest.Version, bytes);
             return true;
         }

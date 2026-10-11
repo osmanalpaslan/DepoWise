@@ -1681,6 +1681,10 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .fz-l2 { background: color-mix(in srgb, var(--mud-palette-success) 70%, transparent); color: #fff; }
 .fz-l3 { background: color-mix(in srgb, var(--mud-palette-success) 95%, transparent); color: #fff; }
 
+/* 2026-10-11 — Güncelleme Notları maddeleri (ekran + Yenilikler penceresi) */
+.dw-not-maddeler { margin: 0; padding-left: 20px; }
+.dw-not-maddeler li { margin: 6px 0; }
+
 /* Menü satırı: ikon + etiket; "Bakım Takibi (x2)" biçimi ViewModel'den gelir. */
 .dw-diger-satir {
     display: flex;
@@ -1688,6 +1692,7 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     gap: 10px;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
    18) MOB-W — MOBİL TARAYICI KATMANI (kullanıcı kararı 2026-09-04)
 
    AYRI MOBİL UYGULAMA YAPILMAYACAK. Kullanıcı telefonun tarayıcısından girip işi

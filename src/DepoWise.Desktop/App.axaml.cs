@@ -90,7 +90,8 @@ public partial class App : Avalonia.Application
                     {
                         var install = await ConfirmService.AskAsync(
                             $"Yeni sürüm {AutoUpdateService.PendingVersion} hazır.\n\n" +
-                            "Şimdi kurulsun mu? Uygulama yeniden başlatılır; veritabanınıza dokunulmaz.",
+                            "Şimdi kurulsun mu? Uygulama yeniden başlatılır; veritabanınıza dokunulmaz." +
+                            AutoUpdateService.NotBolumu(AutoUpdateService.PendingNotes),   // 2026-10-11: güncelleme ÖNCESİ notlar
                             "Güncelleme Hazır", "Kur ve Yeniden Başlat", "Ertele");
                         if (install)
                         {
@@ -114,6 +115,8 @@ public partial class App : Avalonia.Application
             main.WindowState = Avalonia.Controls.WindowState.Maximized;
             _desktop.MainWindow = main;
             main.Show();
+            // ⭐ 2026-10-11: yeni sürümle İLK açılışta "Yenilikler" penceresi bir kez (güncelleme SONRASI notlar).
+            _ = GuncellemeNotuGosterici.GosterGerekirseAsync(main);
             sync.Close();
         });
         _desktop.MainWindow = sync;

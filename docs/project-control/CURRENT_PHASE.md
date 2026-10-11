@@ -10,6 +10,7 @@
 - Faz 2 ✅ ses adayları masaüstünde (kullanıcı seçecek) · Faz 3 ✅ yakıt tüketim raporlarına Yakıtı Teslim Alan / Teslim Eden.
 - Faz 4 ✅ yeni rapor «Depo Çıkışları» (stock-issues): teslim alan + çoklu malzeme filtresi; rapor sayısı 30.
 - Faz 5 ✅ Zimmet toplu teslim: bir personele birden fazla kalem tek işlemde (masaüstü+web+API).
+- Faz 6 ✅ Güncelleme notları (masaüstü önce+sonra, web pop-up, iki ortamda ekran; tek kaynak `GuncellemeNotlari`). Ekran sayısı 73. Ek: app.css MOB-W yorum açılışı onarıldı.
 
 ## ✅ 2026-10-10 (akşam) — belge sadeleştirme · yakıt sapma + kira bitişi uyarıları · Kiralık Araç Maliyeti raporu · aylık yedek provası
 - **Belgeler (d4c63e4):** CLAUDE.md 217→70 satır (güncel mimari); her mesajda yüklenen ~461→171 satır; eski raporlar `docs/arsiv/`; harita `docs/README.md`.

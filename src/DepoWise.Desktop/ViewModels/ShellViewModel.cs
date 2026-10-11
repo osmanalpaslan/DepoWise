@@ -956,7 +956,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     private string AvailableMsg(DepoWise.Application.Update.UpdatePackage latest, string current)
         => $"Yeni sürüm mevcut: {latest.Version} (mevcut {current}).\n\n" +
            "Şimdi indirilip kurulsun mu? Uygulama otomatik kapanıp yeniden açılacak. Veritabanınıza dokunulmaz.\n\n" +
-           $"Ertelerseniz {SnoozeMinutes} dakika sonra tekrar hatırlatılır.";
+           $"Ertelerseniz {SnoozeMinutes} dakika sonra tekrar hatırlatılır." +
+           AutoUpdateService.NotBolumu(latest.ReleaseNotes);   // 2026-10-11: güncelleme ÖNCESİ notlar
 
     private async System.Threading.Tasks.Task CheckForUpdateAndPromptAsync()
     {
@@ -1003,14 +1004,15 @@ public sealed partial class ShellViewModel : ViewModelBase
                     SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
                     var dl = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
                         p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
-                    AutoUpdateService.SetPending(dl, latest.Version, latest.ChecksumSha256);
+                    AutoUpdateService.SetPending(dl, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
                     SetConn("#3B82F6", "İndirildi — yeniden başlatma bekleniyor.");
                 }
 
                 // (C) Yeniden başlatma onayı: Ertele (10 dk) / Şimdi Yeniden Başlat.
                 var restart = await ConfirmService.AskAsync(
                     $"Güncelleme indirildi (sürüm {AutoUpdateService.PendingVersion}). Kurulumun tamamlanması için uygulama yeniden başlatılmalı.\n\n" +
-                    $"Şimdi yeniden başlatabilir veya erteleyebilirsiniz. Her erteleme {SnoozeMinutes} dakikadır; süre dolunca tekrar sorulur.",
+                    $"Şimdi yeniden başlatabilir veya erteleyebilirsiniz. Her erteleme {SnoozeMinutes} dakikadır; süre dolunca tekrar sorulur." +
+                    AutoUpdateService.NotBolumu(AutoUpdateService.PendingNotes),
                     "Güncelleme Hazır — Yeniden Başlat", "Şimdi Yeniden Başlat", $"{SnoozeMinutes} Dakika Ertele");
                 if (!restart) { AutoUpdateService.Snooze(); return; }
 
@@ -1501,6 +1503,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             case "about":
                 CurrentPage = new AboutViewModel(_session);
                 CurrentTitle = "Hakkında";
+                CurrentContext = "";
+                break;
+            case "about:notes":   // ⭐ 2026-10-11: Güncelleme Notları
+                CurrentPage = new UpdateNotesViewModel(_session);
+                CurrentTitle = "Güncelleme Notları";
                 CurrentContext = "";
                 break;
             case "releases":

@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DepoWise.Desktop.Views.GuncellemeNotuWindow"
+        Width="560" SizeToContent="Height" MaxHeight="680" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="Yenilikler" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <!-- ⭐ 2026-10-11: güncelleme SONRASI ilk açılışta bir kez gösterilen "Yenilikler" penceresi. -->
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <DockPanel Margin="24">
+            <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
+                <SelectableTextBlock x:Name="UstText" Classes="Helper"/>
+                <SelectableTextBlock x:Name="BaslikText" Classes="PageTitle" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom" Spacing="12" Margin="0,16,0,0">
+                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                     Text="Tüm notlara Ayarlar › Güncelleme Notları ekranından her zaman ulaşabilirsiniz."/>
+                <Button x:Name="TamamBtn" Classes="Primary" Content="Tamam" HorizontalAlignment="Right" IsDefault="True" IsCancel="True"/>
+            </StackPanel>
+            <ScrollViewer MaxHeight="440">
+                <ItemsControl x:Name="Liste">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Grid ColumnDefinitions="18,*" Margin="0,4">
+                                <TextBlock Grid.Column="0" Text="•" Classes="Body" FontWeight="Bold"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding}" Classes="Body" TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>

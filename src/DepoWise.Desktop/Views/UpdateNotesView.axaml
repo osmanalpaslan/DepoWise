@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="DepoWise.Desktop.Views.UpdateNotesView"
+             x:DataType="vm:UpdateNotesViewModel">
+
+    <!-- ⭐ 2026-10-11: Güncelleme Notları — yapılan yenilikler, en yeni üstte (tek kaynak: GuncellemeNotlari). -->
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+        <ctrl:Toolbar Grid.Row="0" Title="Güncelleme Notları"/>
+        <ScrollViewer Grid.Row="1" Margin="0,16,0,0">
+            <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
+                <ctrl:StatePanel Mode="Empty" Title="Henüz not yok" Message="Yeni sürümlerin notları burada görünecek." IsVisible="{Binding Bos}"/>
+                <ItemsControl ItemsSource="{Binding Notlar}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:UpdateNotesViewModel+NotKarti">
+                            <Border Classes="Panel" Margin="0,0,0,14" Padding="20,16">
+                                <StackPanel Spacing="10">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <SelectableTextBlock Text="{Binding Ust}" Classes="Helper" VerticalAlignment="Center"/>
+                                        <Border Classes="Chip" CornerRadius="10" Padding="8,2" IsVisible="{Binding BuSurum}"
+                                                Background="{DynamicResource AccentBrush}">
+                                            <TextBlock Text="Kullandığınız sürüm" FontSize="11" Foreground="White"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <SelectableTextBlock Text="{Binding Baslik}" Classes="SectionTitle" TextWrapping="Wrap"/>
+                                    <ItemsControl ItemsSource="{Binding Maddeler}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Grid ColumnDefinitions="18,*" Margin="0,3">
+                                                    <TextBlock Grid.Column="0" Text="•" Classes="Body" FontWeight="Bold"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding}" Classes="Body" TextWrapping="Wrap"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

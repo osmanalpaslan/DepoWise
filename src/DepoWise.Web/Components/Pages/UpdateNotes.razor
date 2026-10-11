@@ -1,0 +1,45 @@
+@page "/update-notes"
+@using DepoWise.Application.Security
+@inject AuthState Auth
+
+@*
+    ⭐ 2026-10-11 — GÜNCELLEME NOTLARI (kullanıcı isteği: "iki ortamda da güncelleme notları ekranı olsun, neler yaptığımızı
+    takip edelim"). Tek kaynak GuncellemeNotlari (masaüstü ile aynı liste); yalnız web'e ait/ortak maddeler gösterilir.
+    Herkese açıktır ("about" modülü). Sunucu çağrısı yok — notlar uygulamanın içindedir.
+*@
+
+<MudText Typo="Typo.h5" Class="dw-pagetitle mb-4">Güncelleme Notları</MudText>
+
+@if (!_notlar.Any())
+{
+    <MudText Class="mud-text-secondary">Henüz not yok. Yeni sürümlerin notları burada görünecek.</MudText>
+}
+else
+{
+    <MudStack Spacing="3" Style="max-width:900px;">
+        @foreach (var n in _notlar)
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@n.TarihMetni</MudText>
+                    @if (n.Id == _sonWebId)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">Son güncelleme</MudChip>
+                    }
+                </MudStack>
+                <MudText Typo="Typo.h6" Class="mb-2">@n.Baslik</MudText>
+                <ul class="dw-not-maddeler">
+                    @foreach (var m in n.MaddelerIcin(web: true))
+                    {
+                        <li><MudText Typo="Typo.body2">@m.Metin</MudText></li>
+                    }
+                </ul>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private readonly List<GuncellemeNotu> _notlar = GuncellemeNotlari.PlatformIcin(web: true).ToList();
+    private readonly string? _sonWebId = GuncellemeNotlari.SonWeb?.Id;
+}

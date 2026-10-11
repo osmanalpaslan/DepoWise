@@ -375,7 +375,7 @@ public class AppScreensParityTests
             // "Yedekleme" grubu masaüstünde GÖRÜNMEZ: tek ekranı (Yedek Yönetimi) yalnız web'dedir.
             ("Çöp Kutusu", new[] { "trash" }),
             // 2026-09-03: Alan Ayarları (field_settings) bilinçli eklendi (ADR-198).
-            ("Ayarlar", new[] { "definitions", "field_settings", "import_export", "settings:developer", "theme", "about" }),
+            ("Ayarlar", new[] { "definitions", "field_settings", "import_export", "settings:developer", "theme", "about", "about:notes" }),   // 2026-10-11: Güncelleme Notları
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Desktop)
@@ -389,7 +389,7 @@ public class AppScreensParityTests
         // ⭐ Toplam: 47 + PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR = 56, + ARA İŞ 4 Rapor Tasarımcısı = 57,
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler = 58, + ALT FAZ 3 Onaylamalarım = 59 (ADR-187/189).
         // Ekran kaybı yok; yeni ekran BİLİNÇLİ olarak eklendi (ADR-186).
-        Assert.Equal(61, gercek.Sum(x => x.Item2.Length));   // 59 → 60: Alan Ayarları (2026-09-03, ADR-198) · 60 → 61: Kiralık Araçlar (2026-10-10)
+        Assert.Equal(62, gercek.Sum(x => x.Item2.Length));   // 59 → 60: Alan Ayarları (2026-09-03, ADR-198) · 60 → 61: Kiralık Araçlar (2026-10-10) · 61 → 62: Güncelleme Notları (2026-10-11)
     }
 
     /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
@@ -436,7 +436,7 @@ public class AppScreensParityTests
             // yapıldı. Ekran süper admin yetkilerini taklit ettiği için devredilemez; paylaşılan "settings"
             // modülü onu firma personeline de açıyordu. Bağlantı SAYISI değişmedi (ekran kaybı yok).
             // 2026-09-03: Alan Ayarları (field_settings) bilinçli eklendi (ADR-198).
-            ("Ayarlar", new[] { ("definitions", "definitions"), ("field_settings", "field-settings"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about") }),
+            ("Ayarlar", new[] { ("definitions", "definitions"), ("field_settings", "field-settings"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about"), ("", "update-notes") }),   // 2026-10-11: Güncelleme Notları
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Web)
@@ -453,7 +453,7 @@ public class AppScreensParityTests
         // PRJ/EVR/EKP/ZMT/MLY/STN/EMR/TKV/DYR → 63, + ARA İŞ 4 Rapor Tasarımcısı → 64 (ADR-186),
         // + ARA İŞ 5 / ALT FAZ 1 Ekipler → 65, + ALT FAZ 3 Onaylamalarım → 66 (ADR-187/189).
         // 67 → 68: Senkron Çakışmaları (2026-09-06, FAZ 4.4 — kullanıcı isteği).
-        Assert.Equal(69, gercek.Sum(x => x.Item2.Length));   // 68 → 69: Kiralık Araçlar (2026-10-10)
+        Assert.Equal(70, gercek.Sum(x => x.Item2.Length));   // 68 → 69: Kiralık Araçlar (2026-10-10) · 69 → 70: Güncelleme Notları (2026-10-11)
     }
 
     /// <summary>

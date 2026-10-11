@@ -50,6 +50,9 @@
   `git archive HEAD | tar -x -C %TEMP%/dw_deploy` → `flyctl deploy --config fly.toml --remote-only` (API, önce) → `fly.web.toml` (web).
 - Masaüstü: `dotnet publish src/DepoWise.Desktop -c Release -r win-x64 --self-contained -p:Version=X.Y.Z -o artifacts/rc/desktop-X.Y.Z`
   → zip `artifacts/rc/` içine → `node scripts/publish_release.mjs <zip> X.Y.Z "<not>"` (env `DEPOWISE_ADMIN_USER/PASS`).
+- **Güncelleme notu (kullanıcı kuralı 2026-10-11):** her yayında `GuncellemeNotlari.Tumu` (`Security/AppScreens.cs`) EN BAŞINA
+  sade Türkçe, teknik terimsiz not ekle (test teknik terimi yakalar). Masaüstü yayınında `MasaustuSurumu` = yeni sürüm ve
+  `publish_release.mjs` not metni = `GuncellemeNotlari.MasaustuMetni(...)` (güncelleme öncesi pencere onu gösterir).
 - Üretim DB'de yalnız salt okuma. Gerçek firma **Oze İnşaat**'a yıkıcı işlem yok; test firması *Alpnex Test* (`.env.test.local`).
 - Sır/şifre ekrana yazılmaz. Release/update mekanizması değişikliği onay ister.
 - **Bitmiş test/geçici veri temizliği (kullanıcı kuralı 2026-10-11):** her yayın ya da büyük iş bitince

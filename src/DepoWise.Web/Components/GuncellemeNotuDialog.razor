@@ -1,0 +1,31 @@
+@* ⭐ 2026-10-11 — web yayınından sonra BİR KEZ gösterilen "Yenilikler" penceresi (kullanıcı isteği).
+   İçerik tek kaynaktan: GuncellemeNotlari (masaüstü ile aynı liste); yalnız web'e ait/ortak maddeler. *@
+@using DepoWise.Application.Security
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">Uygulama güncellendi · @Not.TarihMetni</MudText>
+        <MudText Typo="Typo.h6">Yenilikler: @Not.Baslik</MudText>
+    </TitleContent>
+    <DialogContent>
+        <ul class="dw-not-maddeler">
+            @foreach (var m in Not.MaddelerIcin(web: true))
+            {
+                <li><MudText Typo="Typo.body2">@m.Metin</MudText></li>
+            }
+        </ul>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Tüm notlara Ayarlar › Güncelleme Notları ekranından her zaman ulaşabilirsiniz.</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="TumNotlar">Tüm Notlar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Kapat">Tamam</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public GuncellemeNotu Not { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private void Kapat() => Dialog.Close(DialogResult.Ok(true));
+    private void TumNotlar() { Dialog.Close(DialogResult.Ok(true)); Nav.NavigateTo("/update-notes"); }
+}
