@@ -3,9 +3,10 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-12):** masaüstü **1.0.200** (tablo başlığı hizası) + web (Cari/Hesap `/new` yetki kapısı) — yayın tam takım geçince. API değişmedi (bff079a).
+**Özet (2026-10-12):** YAYINDA — masaüstü **1.0.200** + Web f51c711 (tablo başlığı hizası, Cari/Hesap `/new` yetki kapısı). API değişmedi (bff079a). Sıradaki: kullanıcı talebi.
 
-## 2026-10-12 — masaüstü 1.0.200: tablo başlığı hizası · web: /new yetki kapısı
+## ✅ 2026-10-12 YAYINDA — masaüstü 1.0.200: tablo başlığı hizası · web: /new yetki kapısı
+- Tam takım 4103/4103, arayüz 47/47 (5×), iki ortam denetimi (2 risk yayından önce düzeltildi), canlı web Playwright 14/14, paket sağlaması canlıyla aynı.
 - `TableHeaderSync` sağlamlaştırıldı (geç/yeniden şablon, boş liste, satırın gerçek kolon genişliğini kopyalama) ve 34 tabloya bağlandı (toplam 39). İstisnalar: Malzeme/Araç/Günlük Faaliyet (ortak kaydırıcı), ItemsControl'lü 3 tablo.
 - Web `Parties.razor`/`Finance.razor`: `/new` yetkisiz kişiye form açmıyor (Invoices kalıbı).
 - Test: arayüz G31 (zorunlu piksel hizası, kaydırılmış dahil), tarama 30 ekran temiz; TH5 (tüm ekranlarda bağ), YKF7 (web /new yetki). İkisi de bozuk sürümde kırmızı olduğu kanıtlandı.
