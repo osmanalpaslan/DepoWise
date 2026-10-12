@@ -93,13 +93,13 @@
                         <Panel Grid.Column="0">
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDefs}">
                                 <DockPanel>
-                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloDefs}" DockPanel.Dock="Top">
                                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto">
                                             <SelectableTextBlock Grid.Column="0" Text="BAKIM TANIMI" MinWidth="180"/>
                                             <SelectableTextBlock Grid.Column="1" Text="PERİYOT" MinWidth="120" MaxWidth="120"/>
                                         </Grid>
                                     </Border>
-                                    <ListBox Classes="Table" ItemsSource="{Binding Defs}" SelectedItem="{Binding SelectedDef}">
+                                    <ListBox x:Name="TabloDefs" Classes="Table" ItemsSource="{Binding Defs}" SelectedItem="{Binding SelectedDef}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceDefinitionRow">
                                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto">
@@ -359,7 +359,7 @@
                                                     Command="{Binding BakimTemizleCommand}"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloMaintenances}" DockPanel.Dock="Top">
                                         <Grid ctrl:ColumnRules.Enabled="True">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m1"/>
@@ -393,7 +393,7 @@
                                         <ComboBox Width="90" ItemsSource="{Binding BakimSayfaBoyutlari}"
                                                   SelectedItem="{Binding BakimSayfaBoyutu}"/>
                                     </StackPanel>
-                                    <ListBox Classes="Table" ItemsSource="{Binding Maintenances}" SelectedItem="{Binding SelectedMaint}">
+                                    <ListBox x:Name="TabloMaintenances" Classes="Table" ItemsSource="{Binding Maintenances}" SelectedItem="{Binding SelectedMaint}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceRow">
                                                 <Grid ctrl:ColumnRules.Enabled="True">
@@ -588,7 +588,7 @@
                     <Panel Grid.Row="1" Margin="0,16,0,0">
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                             <DockPanel>
-                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
@@ -610,7 +610,7 @@
                                      geçer ve ilgili kayıt inceleme panelinde açılır. Tıklamanın satıra ulaşması
                                      için burada SelectableTextBlock DEĞİL, düz TextBlock kullanılır — aksi hâlde
                                      metin seçimi tıklamayı yutar ve köprü çalışmaz. -->
-                                <ListBox Classes="Table" ItemsSource="{Binding Items}"
+                                <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}"
                                          SelectedItem="{Binding SelectedAlert}" Cursor="Hand"
                                          ToolTip.Tip="Satıra tıklayın: ilgili araç bakım kaydı açılır.">
                                     <ListBox.ItemTemplate>

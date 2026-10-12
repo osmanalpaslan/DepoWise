@@ -32,7 +32,7 @@
 
         <Border Grid.Row="2" Classes="Table" Margin="0,16,0,0" IsVisible="{Binding HasRows}">
             <DockPanel>
-                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="MAKİNE" MinWidth="160"/>
                         <SelectableTextBlock Grid.Column="1" Text="DOSYA" MinWidth="220"/>
@@ -40,7 +40,7 @@
                         <SelectableTextBlock Grid.Column="3" Text="BOYUT" MinWidth="100" MaxWidth="100"/>
                     </Grid>
                 </Border>
-                <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:ServerBackupRowVm">
                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto">

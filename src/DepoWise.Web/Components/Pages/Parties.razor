@@ -493,6 +493,9 @@ else
 
     private void OpenNew()
     {
+        // 2026-10-12: "/parties/new" adresi (menüdeki "Yeni Cari") formu YETKİ SORMADAN açıyordu; düğme zaten
+        // yalnız yetkiliye görünür. Fatura sayfasıyla (Invoices.razor OpenNew) ve masaüstüyle aynı kapı.
+        if (!Auth.CanCreate("parties")) { _ok = false; _msg = "Cari ekleme yetkiniz yok."; return; }
         _editId = null;
         _f = new Form { PartyType = _types.FirstOrDefault(t => t.Key != "").Key ?? "customer" };
         _formOpen = true; _card = null; _msg = null;

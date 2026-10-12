@@ -414,6 +414,10 @@ else
 
     private async Task OpenAccount(string? id)
     {
+        // 2026-10-12: "/finance/new" adresi (menüdeki "Yeni Hesap") formu YETKİ SORMADAN açıyordu; düğmeler zaten
+        // yetkiye bağlı. Yeni hesap için Create, düzenleme için Edit yetkisi (Fatura sayfası ve masaüstüyle aynı kapı).
+        if (id is null ? !Auth.CanCreate("finance") : !Auth.CanEdit("finance"))
+        { _ok = false; _msg = id is null ? "Hesap oluşturma yetkiniz yok." : "Hesap düzenleme yetkiniz yok."; return; }
         _formError = null;
         _editId = id; _editVersion = null;
         _fCode = ""; _fName = ""; _fKind = "cash";

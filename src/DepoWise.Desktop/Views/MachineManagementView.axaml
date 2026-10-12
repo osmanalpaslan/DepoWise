@@ -36,7 +36,7 @@
             <Panel>
             <Border Classes="Table" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloDevices}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="MAKİNE" MinWidth="150"/>
                             <SelectableTextBlock Grid.Column="1" Text="ŞUBE" MinWidth="120" MaxWidth="120"/>
@@ -48,7 +48,7 @@
                             <SelectableTextBlock Grid.Column="7" Text="" MinWidth="190" MaxWidth="190"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Devices}">
+                    <ListBox x:Name="TabloDevices" Classes="Table" ItemsSource="{Binding Devices}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sync:DeviceRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">

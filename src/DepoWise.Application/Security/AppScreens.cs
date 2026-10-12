@@ -458,6 +458,12 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        new("2026-10-12-tablolar", new DateOnly(2026, 10, 12), "1.0.200", "Tablo başlıkları her pencere boyutunda hizalı", new GuncellemeMaddesi[]
+        {
+            new("Pencere daraldığında tablo başlıklarının sütunlardan kayması düzeltildi: başlıklar artık her zaman kendi sütununun tam üstünde durur, tablo yana kaydırıldığında da birlikte kayar.", Masaustu),
+            new("Liste boşken tablo başlıklarının üst üste binmesi düzeltildi.", Masaustu),
+            new("«Yeni Cari» ve «Yeni Hesap» sayfaları, bu işlem için yetkiniz yoksa boş form yerine açık bir uyarı gösterir.", Web),
+        }),
         new("2026-10-12-formlar", new DateOnly(2026, 10, 12), "1.0.199", "Yeni kayıt formları daha rahat", new GuncellemeMaddesi[]
         {
             new("Yeni kayıt formları artık ekrandaki boş alanı kullanır: Malzeme, Araç ve diğer formlar küçük bir kutuya sıkışmaz; yalnız ekrana sığmadığında fare tekerleğiyle kaydırılır.", Masaustu),

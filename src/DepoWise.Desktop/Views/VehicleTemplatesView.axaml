@@ -137,7 +137,7 @@
           <Panel Grid.Column="0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -151,7 +151,7 @@
                             <SelectableTextBlock Grid.Column="3" Text="MARKA/MODEL" MinWidth="150"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="inf:VehicleTemplateRow">
                                 <Grid ctrl:ColumnRules.Enabled="True">

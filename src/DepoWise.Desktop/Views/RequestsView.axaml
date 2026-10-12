@@ -204,7 +204,7 @@
                         <Panel Grid.Column="0">
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                                 <DockPanel>
-                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
                                             <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130" MaxWidth="130"/>
                                             <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
@@ -216,7 +216,7 @@
                                         </Grid>
                                     </Border>
                                     <!-- Tek tik = secim. Cift tik = duzenleme formu (Malzemeler/Araclar ile AYNI davranis). -->
-                                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                                              DoubleTapped="OnRowDoubleTapped">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
@@ -313,7 +313,7 @@
                         <Panel Grid.Column="0">
                             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasPending}">
                                 <DockPanel>
-                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloPendingItems}" DockPanel.Dock="Top">
                                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*">
                                             <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130" MaxWidth="130"/>
                                             <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
@@ -321,7 +321,7 @@
                                             <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
                                         </Grid>
                                     </Border>
-                                    <ListBox Classes="Table" ItemsSource="{Binding PendingItems}" SelectedItem="{Binding Selected}"
+                                    <ListBox x:Name="TabloPendingItems" Classes="Table" ItemsSource="{Binding PendingItems}" SelectedItem="{Binding Selected}"
                                              DoubleTapped="OnRowDoubleTapped">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">

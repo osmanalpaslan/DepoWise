@@ -38,7 +38,7 @@
                 <!-- MAS-04: baslik ve govde AYNI yatay kaydiriciyi paylasir -> yana kaydirinca hiza bozulmaz. -->
               <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <DockPanel HorizontalAlignment="Left">
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130" MaxWidth="130"/>
                             <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="140" MaxWidth="140"/>
@@ -50,7 +50,7 @@
                             <SelectableTextBlock Grid.Column="7" Text="UYARI" MinWidth="160" MaxWidth="160"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockChangeLogRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">

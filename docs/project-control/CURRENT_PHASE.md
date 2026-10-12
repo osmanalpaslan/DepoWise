@@ -3,7 +3,12 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-12):** YAYINDA — API + Web bff079a (değişmedi), masaüstü **1.0.199** (yeni kayıt formları, 9472fa2). Sıradaki öneriler: tablo başlığı dar pencerede kayma (ortak tablo yapısı); web `/parties/new` + `/finance/new` formu yetki sormadan açıyor (kayıt sunucuda reddediliyor).
+**Özet (2026-10-12):** masaüstü **1.0.200** (tablo başlığı hizası) + web (Cari/Hesap `/new` yetki kapısı) — yayın tam takım geçince. API değişmedi (bff079a).
+
+## 2026-10-12 — masaüstü 1.0.200: tablo başlığı hizası · web: /new yetki kapısı
+- `TableHeaderSync` sağlamlaştırıldı (geç/yeniden şablon, boş liste, satırın gerçek kolon genişliğini kopyalama) ve 34 tabloya bağlandı (toplam 39). İstisnalar: Malzeme/Araç/Günlük Faaliyet (ortak kaydırıcı), ItemsControl'lü 3 tablo.
+- Web `Parties.razor`/`Finance.razor`: `/new` yetkisiz kişiye form açmıyor (Invoices kalıbı).
+- Test: arayüz G31 (zorunlu piksel hizası, kaydırılmış dahil), tarama 30 ekran temiz; TH5 (tüm ekranlarda bağ), YKF7 (web /new yetki). İkisi de bozuk sürümde kırmızı olduğu kanıtlandı.
 
 ## ✅ 2026-10-12 YAYINDA — masaüstü 1.0.199: yeni kayıt formları görsel iyileştirme
 - Kullanıcı kararı: testler tam geçince yayınla. Tam takım 4101/4101, arayüz 41/41, iki ortam denetimi engel yok. Paket temiz HEAD kopyasından; canlı indirme sağlaması yerelle aynı; API/Web /health 200.

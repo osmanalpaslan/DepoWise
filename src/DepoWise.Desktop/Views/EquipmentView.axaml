@@ -81,7 +81,7 @@
             <Panel Grid.Column="0">
                 <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                     <DockPanel>
-                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="100" MaxWidth="100"/>
                                 <SelectableTextBlock Grid.Column="1" Text="AD" MinWidth="160"/>
@@ -91,7 +91,7 @@
                                 <SelectableTextBlock Grid.Column="5" Text="SERİ NO" MinWidth="110" MaxWidth="110"/>
                             </Grid>
                         </Border>
-                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                        <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="ekp:EquipmentRow">
                                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">

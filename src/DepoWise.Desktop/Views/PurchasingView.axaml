@@ -95,7 +95,7 @@
             <Panel Grid.Column="0">
                 <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                     <DockPanel>
-                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="NO" MinWidth="100" MaxWidth="100"/>
                                 <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90" MaxWidth="90"/>
@@ -107,7 +107,7 @@
                                                      IsVisible="{Binding FiyatGorunur}"/>
                             </Grid>
                         </Border>
-                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                        <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="pur:PurchaseOrderRow">
                                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">

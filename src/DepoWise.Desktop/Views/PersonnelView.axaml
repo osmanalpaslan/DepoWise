@@ -135,7 +135,7 @@
                 <DockPanel>
                     <TextBox Classes="Search" DockPanel.Dock="Top" Margin="0,0,0,8"
                              Text="{Binding Search}" PlaceholderText="Personel ara (ad / unvan / telefon)"/>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="AD SOYAD" MinWidth="180"/>
                             <SelectableTextBlock Grid.Column="1" Text="UNVAN" MinWidth="150"/>
@@ -145,7 +145,7 @@
                         </Grid>
                     </Border>
                     <!-- Tek tık = seçim. Çift tık = düzenleme formu (Malzemeler/Araçlar ile AYNI davranış). -->
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                              DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PersonnelRowVm">

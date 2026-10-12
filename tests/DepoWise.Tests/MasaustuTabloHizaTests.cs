@@ -133,6 +133,57 @@ public class MasaustuTabloHizaTests
     }
 
     /// <summary>
+    /// 🔴 REGRESYON (2026-10-12, TÜM EKRANLAR): yalnız ön muhasebe değil, masaüstündeki HER tablo başlığı — altında
+    /// kendi <c>ListBox.Table</c>'ı varsa — <c>TableHeaderSync</c>'e bağlı olmalı ve bağlandığı ad DOĞRU listeyi
+    /// göstermelidir (başlıktan sonraki ilk liste). Ölçülen hata: dar pencerede Personel 134 px, Şubeler 210 px,
+    /// Kullanıcılar 102 px, Yakıt dağıtım tablosu bir kolon kayıyordu.
+    ///
+    /// <b>Bilinçli istisnalar</b> (hizasızlık oluşamaz):
+    /// <list type="bullet">
+    ///   <item>Başlık + liste ORTAK yatay kaydırıcıda ve kolonlar sabit (Min=Max): Malzemeler, Araçlar, Günlük Faaliyet.</item>
+    ///   <item>Başlığın altında <c>ItemsControl</c> (yatay kaydırma yok → ikisi aynı genişliğe sığar): Zimmet kalemleri,
+    ///     Yetki ağacı, Sayım satırları.</item>
+    /// </list>
+    /// Gerçek piksel doğrulaması: <c>tests/DepoWise.Desktop.UiTests/GorselTaramaTests.G31</c>.
+    /// </summary>
+    [Fact]
+    public void TH5_Tum_Ekranlarda_Tablo_Basligi_Kendi_Listesine_Bagli()
+    {
+        var ortakKaydirici = new HashSet<string> { "MaterialsView.axaml", "VehiclesView.axaml", "DailyActivityView.axaml" };
+        var gorunumDizini = Path.GetDirectoryName(Yol("PartiesView.axaml"))!;
+        var sorunlar = new List<string>();
+        var bagliSayisi = 0;
+
+        foreach (var yol in Directory.GetFiles(gorunumDizini, "*.axaml"))
+        {
+            var dosya = Path.GetFileName(yol);
+            if (ortakKaydirici.Contains(dosya)) continue;
+            var metin = File.ReadAllText(yol);
+            foreach (Match m in Regex.Matches(metin, @"<Border[^>]*?Classes=""TableHeader""[^>]*?>", RegexOptions.Singleline))
+            {
+                // Başlıktan sonra, bir sonraki başlığa gelmeden ilk liste denetimi hangisi?
+                var sonrasi = metin[(m.Index + m.Length)..];
+                var sonrakiBaslik = sonrasi.IndexOf("Classes=\"TableHeader\"", StringComparison.Ordinal);
+                if (sonrakiBaslik >= 0) sonrasi = sonrasi[..sonrakiBaslik];
+                var liste = Regex.Match(sonrasi, @"<(ListBox|ItemsControl)\b[^>]*>", RegexOptions.Singleline);
+                if (!liste.Success || liste.Groups[1].Value == "ItemsControl") continue;   // istisna: ItemsControl
+                if (!liste.Value.Contains("Classes=\"Table\"")) continue;
+
+                var kaynak = Regex.Match(m.Value, @"TableHeaderSync\.Source=""\{Binding #(?<ad>[A-Za-z0-9_]+)\}""");
+                var listeAdi = Regex.Match(liste.Value, @"x:Name=""(?<ad>[A-Za-z0-9_]+)""");
+                if (!kaynak.Success) { sorunlar.Add($"{dosya}: başlık TableHeaderSync'e bağlı değil"); continue; }
+                if (!listeAdi.Success || listeAdi.Groups["ad"].Value != kaynak.Groups["ad"].Value)
+                    sorunlar.Add($"{dosya}: başlık «{kaynak.Groups["ad"].Value}» adına bağlı ama altındaki liste «{(listeAdi.Success ? listeAdi.Groups["ad"].Value : "adsız")}»");
+                else bagliSayisi++;
+            }
+        }
+
+        Assert.True(sorunlar.Count == 0, "Tablo başlığı ↔ liste hizalama bağı eksik/yanlış:\n  " + string.Join("\n  ", sorunlar));
+        // Anlamlılık: tarama gerçekten tabloları buldu (39 = 34 yeni + 5 ön muhasebe; yeni tablo eklenince artar).
+        Assert.True(bagliSayisi >= 39, $"Beklenenden az bağlı başlık bulundu ({bagliSayisi}) — tarama bozulmuş olabilir");
+    }
+
+    /// <summary>
     /// Hizalama kuralının SAYISAL çekirdeği: başlığın iç genişliği, listenin içerik genişliğinden
     /// başlığın yatay boşluğu düşülerek bulunur. Boşluk düşülmezse yıldız (*) kolon tam o kadar
     /// fazla alır — gerçek GUI'de 24 px olarak ölçülen hata buydu.

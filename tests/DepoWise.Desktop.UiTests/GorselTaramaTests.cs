@@ -77,7 +77,10 @@ public class GorselTaramaTests
 
     private static bool YatayKaydirmaIcinde(Control c)
         => c.GetVisualAncestors().OfType<ScrollViewer>().Any(s => s.HorizontalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
-                                                                 && s.Extent.Width > s.Viewport.Width + 1);
+                                                                 && s.Extent.Width > s.Viewport.Width + 1)
+           // Listeye HİZALI başlık (TableHeaderSync) listeyle birlikte kayar ve kenarda kırpılır → taşma değil.
+           || c.GetVisualAncestors().OfType<Border>().Any(b => b.Classes.Contains("TableHeader")
+                                                               && Controls.TableHeaderSync.GetSource(b) is not null && b.ClipToBounds);
 
     public static List<string> Olc(Window w)
     {
@@ -141,7 +144,76 @@ public class GorselTaramaTests
             if (r.Top > yukseklik + 1 && !kayar)
                 bulgu.Add($"ULAŞILAMAZ: {Ad(c)} pencere altında ({r.Top:0} > {yukseklik:0})");
         }
+        bulgu.AddRange(BaslikKaymalari(w));
         return bulgu.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// 6) TABLO BAŞLIĞI ↔ SATIR HİZASI (2026-10-12). Her görünür <c>Border.TableHeader</c> için başlık ızgarasındaki
+    /// her kolonun SOL KENARI, ilk satır ızgarasındaki aynı kolonun sol kenarıyla (pencere koordinatında) karşılaştırılır.
+    /// Fark &gt; 2 px → "BAŞLIK KAYMASI". Satır yoksa: başlık yazıları birbirinin üstüne biniyor mu → "BAŞLIK ÇAKIŞMASI".
+    /// Başlık ve liste ORTAK bir yatay kaydırıcıdaysa (Malzemeler/Araçlar/Günlük Faaliyet) de aynı ölçüm geçerlidir.
+    /// </summary>
+    public static List<string> BaslikKaymalari(Window w)
+    {
+        var bulgu = new List<string>();
+        foreach (var baslik in Gorunen<Border>(w).Where(b => b.Classes.Contains("TableHeader")))
+        {
+            if (baslik.Child is not Grid bIzgara || bIzgara.ColumnDefinitions.Count < 2) continue;
+            var liste = Controls.TableHeaderSync.GetSource(baslik) as ListBox
+                        ?? baslik.FindAncestorOfType<DockPanel>()?.GetVisualDescendants().OfType<ListBox>()
+                                 .FirstOrDefault(l => l.Classes.Contains("Table"));
+            var ilkBaslik = BaslikMetni(bIzgara);
+            var gorunurAlan = PencereKonumu(baslik, w);
+
+            var satir = liste?.GetVisualDescendants().OfType<ListBoxItem>().FirstOrDefault(i => i.IsEffectivelyVisible);
+            var sIzgara = satir?.GetVisualDescendants().OfType<Grid>()
+                               .FirstOrDefault(g => g.ColumnDefinitions.Count == bIzgara.ColumnDefinitions.Count);
+            if (sIzgara is null)
+            {
+                // Satır yok: başlık yazıları üst üste binmemeli (yalnız görünen alan içinde).
+                // Kolon çizgileri (ColumnRules'un eklediği ince Border'lar) yazı değildir → ölçüme girmez.
+                var hucreler = bIzgara.Children.OfType<Control>()
+                                      .Where(c => c is not Border && c is not Avalonia.Controls.Shapes.Shape
+                                                  && c.IsEffectivelyVisible && c.Bounds.Width > 0)
+                                      .Select(c => (c, r: PencereKonumu(c, w))).Where(x => x.r.Left < gorunurAlan.Right - 1).ToList();
+                for (int i = 0; i < hucreler.Count; i++)
+                    for (int j = i + 1; j < hucreler.Count; j++)
+                        if (hucreler[i].r.Intersect(hucreler[j].r).Width > 2)
+                            bulgu.Add($"BAŞLIK ÇAKIŞMASI: \"{ilkBaslik}…\" tablosunda \"{Metin(hucreler[i].c)}\" ↔ \"{Metin(hucreler[j].c)}\"");
+                continue;
+            }
+
+            double Sol(Grid g, int kolon)
+            {
+                var x = 0d;
+                for (int k = 0; k < kolon; k++) x += g.ColumnDefinitions[k].ActualWidth;
+                return g.TranslatePoint(new Point(x, 0), w)?.X ?? double.NaN;
+            }
+            for (int k = 0; k < bIzgara.ColumnDefinitions.Count; k++)
+            {
+                if (bIzgara.ColumnDefinitions[k].ActualWidth <= 0 && sIzgara.ColumnDefinitions[k].ActualWidth <= 0) continue;
+                var hb = Sol(bIzgara, k); var hs = Sol(sIzgara, k);
+                if (hb < gorunurAlan.Left - 1 || hb > gorunurAlan.Right - 1) continue;   // kırpılmış (kaydırma dışı) başlık
+                if (Math.Abs(hb - hs) > 2)
+                {
+                    static string G(Grid g) => string.Join("/", g.ColumnDefinitions.Select(c => c.ActualWidth.ToString("0")));
+                    bulgu.Add($"BAŞLIK KAYMASI: \"{ilkBaslik}…\" tablosu {k + 1}. kolon — başlık x={hb:0}, satır x={hs:0} ({hb - hs:+0;-0} px)"
+                              + $" · başlık kolonları {G(bIzgara)} (ızgara {bIzgara.Bounds.Width:0}, x0={Sol(bIzgara, 0):0})"
+                              + $" · satır kolonları {G(sIzgara)} (ızgara {sIzgara.Bounds.Width:0}, x0={Sol(sIzgara, 0):0})");
+                    break;   // ilk kayan kolon yeter (sonrakiler zincirleme kayar)
+                }
+            }
+        }
+        return bulgu;
+
+        static string Metin(Control c) => c switch
+        {
+            TextBlock t => t.Text ?? "",
+            ContentControl cc => cc.Content?.ToString() ?? "",
+            _ => c.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault()?.Text ?? c.GetType().Name,
+        };
+        static string BaslikMetni(Grid g) => g.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "?";
     }
 
     private static string Ad(Control c) => c switch
@@ -218,4 +290,101 @@ public class GorselTaramaTests
     [AvaloniaFact] public void G28_Zimmet() => Tara("zimmet", s => (new AssignmentsViewModel(s), new AssignmentsView()));
     [AvaloniaFact] public void G29_Kullanici_Yeni() => Tara("kullanici-yeni", s => { var vm = new UsersViewModel(s); vm.NewUserCommand.Execute(null); return (vm, new UsersView()); });
     [AvaloniaFact] public void G30_Sayim() => Tara("sayim", s => (new StockCountViewModel(s), new StockCountView()));
+
+    // ── TABLO BAŞLIĞI HİZASI — ZORUNLU (kayma görülürse test KIRMIZI). 2026-10-12 ─────────────────────────────
+    // Dar pencerede (560 px) kolonlar sığmaz → satırlar yatay kayar; başlık satırla aynı kalmalı. Satırlı ekranlar:
+    // tohumdaki kayıtlar (personel / şube / kullanıcı) her koşuda vardır. Boş listeli ekranlar (Cari, Kasa): başlıklar
+    // birbirinin üstüne binmemeli. Ayrıca normal genişlikte (1126) de aynı kural.
+    public static IEnumerable<object[]> HizaEkranlari() => new[]
+    {
+        new object[] { "personel" }, new object[] { "sube" }, new object[] { "kullanici" },
+        new object[] { "cari" }, new object[] { "kasa" },
+    };
+
+    private static (object vm, Control view) HizaEkrani(string ad, SessionContext s) => ad switch
+    {
+        "personel" => (new PersonnelViewModel(s), new PersonnelView()),
+        "sube" => (new BranchesViewModel(s), new BranchesView()),
+        "kullanici" => (new UsersViewModel(s), new UsersView()),
+        "cari" => (new PartiesViewModel(s), new PartiesView()),
+        "kasa" => (new FinanceViewModel(s), new FinanceView()),
+        _ => throw new ArgumentException(ad),
+    };
+
+    /// <summary>
+    /// Kolon kopyalama kuralları (iki ortam denetimi bulgusu, 2026-10-12):
+    /// SharedSizeGroup'lu kolona DOKUNULMAZ (gruba sabit piksel yazmak grubu kilitler, kolon daralamaz);
+    /// SON kolona dokunulmaz (satırda gizlenen son hücre — Stok Hareketleri "DURUM" — başlık yazısını yok etmesin);
+    /// diğerleri satırın GERÇEK genişliğini alır; satır yoksa her şey ÖZGÜN tanıma döner.
+    /// </summary>
+    [AvaloniaFact]
+    public void G32_Kolon_Kopyalama_Kurallari()
+    {
+        static Grid Izgara() => new()
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto) { SharedSizeGroup = "g1" },
+                new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),   // son kolon
+            },
+        };
+        var baslik = Izgara();
+        var satir = new Grid { ColumnDefinitions = { new(new GridLength(90)), new(new GridLength(210)), new(new GridLength(70)), new(new GridLength(0)) } };
+        var w = new Window { Width = 600, Height = 200, Content = new StackPanel { Children = { baslik, satir } } };
+        w.Show(); Dispatcher.UIThread.RunJobs();
+
+        GridLength[]? ozgun = null;
+        Controls.TableHeaderSync.KolonlariEsle(baslik, satir, ref ozgun);
+        Assert.Equal(GridLength.Auto, baslik.ColumnDefinitions[0].Width);                     // ortak grup: dokunulmadı
+        // yıldız ve Auto → satırın GERÇEK çizilen genişliği (yerleşim yuvarlaması dahil; tanımdaki sayı değil)
+        Assert.Equal(new GridLength(satir.ColumnDefinitions[1].ActualWidth, GridUnitType.Pixel), baslik.ColumnDefinitions[1].Width);
+        Assert.Equal(new GridLength(satir.ColumnDefinitions[2].ActualWidth, GridUnitType.Pixel), baslik.ColumnDefinitions[2].Width);
+        Assert.InRange(satir.ColumnDefinitions[1].ActualWidth, 209, 212);                     // ölçüm gerçekten yapıldı
+        Assert.Equal(GridLength.Auto, baslik.ColumnDefinitions[3].Width);                     // son kolon: dokunulmadı (satırda 0 px olsa da)
+
+        Controls.TableHeaderSync.KolonlariEsle(baslik, null, ref ozgun);                      // liste boşaldı
+        Assert.Equal(new GridLength(1, GridUnitType.Star), baslik.ColumnDefinitions[1].Width);
+        Assert.Equal(GridLength.Auto, baslik.ColumnDefinitions[2].Width);
+        w.Close();
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(HizaEkranlari))]
+    public void G31_Tablo_Basligi_Satirla_Hizali(string ad)
+    {
+        var s = Ortam();
+        foreach (var genislik in new[] { 560, 1126 })
+        {
+            var (vm, view) = HizaEkrani(ad, s);
+            view.DataContext = vm;
+            var w = new Window { Width = genislik, Height = 760, Content = view };
+            w.Show();
+            for (int i = 0; i < 4; i++) Dispatcher.UIThread.RunJobs();   // senkron, ertelenen (Loaded) işlerle oturur
+            try { w.CaptureRenderedFrame()?.Save(Path.Combine(Klasor(), $"hiza-{ad}-{genislik}.png")); } catch { }
+            var kayma = BaslikKaymalari(w);
+            var tabloVar = Gorunen<Border>(w).Any(b => b.Classes.Contains("TableHeader"));
+
+            // Yatay KAYDIRILMIŞ hâl: satırlar sola kayınca başlık da aynı miktarda kaymalı.
+            var kaydirilan = 0d;
+            foreach (var sv in Gorunen<ListBox>(w).Where(l => l.Classes.Contains("Table"))
+                                 .Select(l => l.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault())
+                                 .Where(sv => sv is not null && sv.Extent.Width > sv.Viewport.Width + 1))
+            {
+                sv!.Offset = new Vector(Math.Min(80, sv.Extent.Width - sv.Viewport.Width), 0);
+                kaydirilan = sv.Offset.X;
+            }
+            for (int i = 0; i < 3; i++) Dispatcher.UIThread.RunJobs();
+            var kaymaKaydirilmis = BaslikKaymalari(w);
+            w.Close();
+            Assert.True(tabloVar, $"{ad}: görünür tablo başlığı yok — test bir şey ölçmüyor");
+            Assert.True(kayma.Count == 0, $"{ad} @ {genislik}px:\n  " + string.Join("\n  ", kayma));
+            Assert.True(kaymaKaydirilmis.Count == 0, $"{ad} @ {genislik}px, {kaydirilan:0} px kaydırılmış:\n  " + string.Join("\n  ", kaymaKaydirilmis));
+            // Anlamlılık: satırlı ekranlarda dar pencerede kolonlar SIĞMAMALI ve kaydırma gerçekten yapılmış olmalı
+            // (yoksa "kaydırılmış hâl" denetimi hiçbir şey ölçmeden yeşil kalırdı).
+            if (genislik == 560 && ad is "personel" or "sube" or "kullanici")
+                Assert.True(kaydirilan > 0, $"{ad} @ 560px: tablo yatay kaydırılamadı — kaydırma denetimi ölçüm yapmadı");
+        }
+    }
 }

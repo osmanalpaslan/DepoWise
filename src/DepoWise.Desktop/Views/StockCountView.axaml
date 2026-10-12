@@ -135,7 +135,7 @@
         <Panel Grid.Row="2" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloAdjustments}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,*">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
                             <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
@@ -144,7 +144,7 @@
                             <SelectableTextBlock Grid.Column="4" Text="GEREKÇE" MinWidth="140"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Adjustments}">
+                    <ListBox x:Name="TabloAdjustments" Classes="Table" ItemsSource="{Binding Adjustments}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,*">

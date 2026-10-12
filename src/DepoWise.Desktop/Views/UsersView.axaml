@@ -167,7 +167,7 @@
         <Panel Grid.Row="3" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,*,*,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="KULLANICI" MinWidth="150" MaxWidth="150"/>
                             <SelectableTextBlock Grid.Column="1" Text="AD SOYAD" MinWidth="150"/>
@@ -177,7 +177,7 @@
                             <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="70" MaxWidth="70"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sec:UserRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,*,*,Auto,Auto">

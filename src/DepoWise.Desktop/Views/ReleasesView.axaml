@@ -76,7 +76,7 @@
         <Panel Grid.Row="2" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90" MaxWidth="90"/>
                             <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="90" MaxWidth="90"/>
@@ -86,7 +86,7 @@
                             <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="130" MaxWidth="130"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="upd:ReleaseRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">

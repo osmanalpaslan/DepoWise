@@ -340,7 +340,7 @@
                         <ComboBox Width="90" ItemsSource="{Binding HareketSayfaBoyutlari}"
                                   SelectedItem="{Binding HareketSayfaBoyutu}"/>
                     </StackPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloMovements}" DockPanel.Dock="Top">
                         <!-- 2026-09-30 (kullanıcı isteği): KOD kolonu + satırda "Düzenle" (işlem kolonu 150 px). -->
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
@@ -356,7 +356,7 @@
                             <SelectableTextBlock Grid.Column="8" Text="" MinWidth="150" MaxWidth="150"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Movements}">
+                    <ListBox x:Name="TabloMovements" Classes="Table" ItemsSource="{Binding Movements}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">

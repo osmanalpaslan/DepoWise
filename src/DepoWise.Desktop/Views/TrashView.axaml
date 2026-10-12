@@ -31,7 +31,7 @@
             </Border>
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TÜR" MinWidth="140" MaxWidth="140"/>
                             <SelectableTextBlock Grid.Column="1" Text="KAYIT" MinWidth="220"/>
@@ -39,7 +39,7 @@
                             <SelectableTextBlock Grid.Column="3" Text="" MinWidth="100" MaxWidth="100"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrashRowVm">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto">

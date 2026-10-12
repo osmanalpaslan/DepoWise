@@ -70,7 +70,7 @@
             <!-- ── SOL: İŞLEM LİSTESİ ───────────────────────────────────────────────────── -->
             <Border Grid.Column="0" Classes="Table">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloRows}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90" MaxWidth="90"/>
                             <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="90" MaxWidth="90"/>
@@ -80,7 +80,7 @@
                             <SelectableTextBlock Grid.Column="5" Text="ÇIKIŞ" MinWidth="90" MaxWidth="90"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                    <ListBox x:Name="TabloRows" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:FinanceTxnRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">

@@ -75,7 +75,7 @@
         <Border Grid.Row="4" Classes="Table" Margin="0,8,0,0" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <DockPanel HorizontalAlignment="Left">
-                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloLines}" DockPanel.Dock="Top">
                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110" MaxWidth="110"/>
                         <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="260" MaxWidth="260"/>
@@ -85,7 +85,7 @@
                         <SelectableTextBlock Grid.Column="5" Text="" MinWidth="80" MaxWidth="80"/>
                     </Grid>
                 </Border>
-                <ListBox Classes="Table" ItemsSource="{Binding Lines}">
+                <ListBox x:Name="TabloLines" Classes="Table" ItemsSource="{Binding Lines}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:StockDistributeViewModel+UnassignedLineVm">
                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">

@@ -100,6 +100,33 @@ public class MasaustuYeniKayitFormuTests
         Assert.Contains("<conv:FormUstSiniriConverter x:Key=\"FormUstSiniri\"/>", x);
     }
 
+    /// <summary>
+    /// WEB eşi (2026-10-12, iki ortam denetimi bulgusu): <c>/…/new</c> adresi formu açan sayfalarda, formu açan metot
+    /// YETKİ kapısı taşımalı. <c>/parties/new</c> ve <c>/finance/new</c> formu yetki sormadan açıyordu (kayıt sunucuda
+    /// yine reddediliyordu ama yetkisiz kişi boş formu görüyordu). Masaüstünde form yetki yoksa hiç açılmaz.
+    /// </summary>
+    [Fact]
+    public void YKF7_Web_New_Adresi_Formu_Yalniz_Yetkiliye_Acar()
+    {
+        var sayfalar = Directory.GetFiles(Path.Combine(RepoKok(), "src", "DepoWise.Web", "Components", "Pages"), "*.razor");
+        var denetlenen = new List<string>();
+        foreach (var yol in sayfalar)
+        {
+            var x = File.ReadAllText(yol);
+            var m = Regex.Match(x, @"if \(string\.Equals\(Section, ""new"", StringComparison\.OrdinalIgnoreCase\)\)\s*(?:await\s+)?(?<metot>\w+)\(");
+            if (!m.Success) continue;
+            var metot = m.Groups["metot"].Value;
+            var tanim = Regex.Match(x, @"private\s+(?:async\s+)?(?:void|Task)\s+" + metot + @"\([^)]*\)\s*\{(?<govde>.{0,600})", RegexOptions.Singleline);
+            Assert.True(tanim.Success, $"{Path.GetFileName(yol)}: '{metot}' tanımı bulunamadı");
+            Assert.Matches(@"Auth\.CanCreate\(""\w+""\)", tanim.Groups["govde"].Value);
+            denetlenen.Add(Path.GetFileName(yol));
+        }
+        // Anlamlılık: Cari, Fatura, Kasa/Banka bu kalıbı kullanır — tarama onları gerçekten bulmalı.
+        Assert.Contains("Parties.razor", denetlenen);
+        Assert.Contains("Invoices.razor", denetlenen);
+        Assert.Contains("Finance.razor", denetlenen);
+    }
+
     /// <summary>Liste formla birlikte GİZLENEN ekranlarda form, listenin esneyen (*) satırına yerleşir.</summary>
     [Theory]
     [InlineData("MaterialsView.axaml", "Grid.Row=\"3\"")]

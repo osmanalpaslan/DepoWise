@@ -134,7 +134,51 @@ Otomatik denetimler (`GorselTaramaTests.Olc`):
   görünebiliyor (ör. Yakıt'taki SRK-01).
 - Arayüz testleri sunucuya bağlanmıyor. Belgeler, Projeler, Takvim ve Kullanıcılar listeleri bu yüzden boş.
 
+## 6b. 4. tur (2026-10-12) — açık kalan iki konu kapatıldı
+**A) Masaüstü tablo başlığı kayması**
+- Ölçülen hata (560 px): başlık satırdan kayıyordu.
+  - Personel: 134 px.
+  - Şubeler: 210 px.
+  - Kullanıcılar: 102 px.
+  - Yakıt: 1 kolon kayıyordu.
+  - Boş Cari/Kasa listesi: başlıklar üst üste biniyordu.
+- Kök neden:
+  - Başlık ve satır ayrı ızgara.
+  - Liste yatay kayınca satırlar sınırsız, başlık sınırlı genişlikte ölçülüyor.
+  - `TableHeaderSync` vardı ama yalnız 3 ekrana bağlıydı.
+  - Bağlı olsa da yıldız kolon dağılımı (180/150 ↔ 165/165) ve elle farklı yazılmış MinWidth değerleri 10–15 px kayma
+    bırakıyordu.
+- Çözüm, `Controls/TableHeaderSync.cs`:
+  1. Liste şablonu geç ya da yeniden uygulanınca (gizli tablo, tema değişimi) yeniden bağlanır; çift abonelik yok.
+  2. Boş listede başlık doğal genişliğini alır; üst üste binme biter.
+  3. Her yerleşimden sonra ilk satırın GERÇEK kolon genişlikleri başlığa kopyalanır. Liste boşalınca özgün tanıma dönülür.
+- 34 tablo bağlandı; ön muhasebedeki 5 tablo zaten bağlıydı.
+- İstisnalar bilinçli:
+  - Malzemeler, Araçlar ve Günlük Faaliyet ortak kaydırıcı ve sabit kolon kullanıyor.
+  - Zimmet kalemleri, Yetki ağacı ve Sayım satırları `ItemsControl` kullanıyor; yatay kaydırma yok.
+- Testler:
+  - `GorselTaramaTests.G31` (ZORUNLU, 5 ekran × 560/1126 px × kaydırılmamış/80 px kaydırılmış): başlık x = satır x
+    (≤ 2 px). Düzeltmeden önce kırmızıydı (102–210 px), sonra yeşil.
+  - Taramaya "BAŞLIK KAYMASI / BAŞLIK ÇAKIŞMASI" denetimi eklendi; 30 ekran temiz.
+  - `MasaustuTabloHizaTests.TH5`: tüm ekranlarda her `ListBox.Table` başlığı kendi listesine bağlı olmalı. Bir bağ
+    silinince kırmızı olduğu kanıtlandı.
+
+- İki ortam denetimi (4. tur): engel yok. Bulunan iki risk yayından önce düzeltildi.
+  - SharedSizeGroup'lu kolona sabit piksel yazmak grubu kilitler; bu yüzden ortak gruplu kolonlara dokunulmuyor
+    (Yakıt, Bakım, Araç Şablonları).
+  - Son kolon kopyalanmıyor. Stok Hareketleri'nde "DURUM" hücresi yalnız ters kayıtta görünüyor; ilk satır 0 px olunca
+    başlık yazısı kayboluyordu.
+  - Bu kurallar `G32_Kolon_Kopyalama_Kurallari` testiyle kilitlendi. Arayüz takımı 5 kez üst üste 47/47 geçti.
+  - Bilinen küçük yan etki: kullanıcı kolonu sürükleyerek genişlettikten sonra liste boşalırsa başlık bir an özgün
+    genişliğe döner; satır gelince düzelir.
+- Web karşılığı gerekmiyor: web tabloları (MudTable) başlığı ve satırları tek HTML tablosunda tutar, doğal olarak hizalıdır.
+
+**B) Web yetki kapısı**
+- `Parties.razor` OpenNew ve `Finance.razor` OpenAccount başına `Auth.CanCreate` / `CanEdit` eklendi. Yetkisiz kişi
+  `/parties/new` ya da `/finance/new` adresinde boş form yerine uyarı görüyor; metinler masaüstüyle aynı.
+- Test: `MasaustuYeniKayitFormuTests.YKF7`. `/new` açan her web sayfasında yetki kapısı olmalı; eski Cari sayfasıyla
+  kırmızı olduğu kanıtlandı.
+
 ## 7. Kalan iş
-- Tablo başlığı kayması (§5): ortak tablo yapısında ayrı, testli iş.
+- ~~Tablo başlığı kayması~~ ve ~~web yetki kapısı~~: 4. turda kapatıldı (§6b).
 - Kullanıcının gerçek pencerede kontrolü, özellikle açık temada.
-- Yayın: kullanıcı kontrolünden sonra.

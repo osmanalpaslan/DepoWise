@@ -68,7 +68,7 @@
         <Panel Grid.Row="2" Margin="0,16,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,*,Auto,Auto">
                             <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="150"/>
                             <SelectableTextBlock Grid.Column="1" Text="BELGE" MinWidth="100" MaxWidth="100"/>
@@ -79,7 +79,7 @@
                             <SelectableTextBlock Grid.Column="6" Text="" MinWidth="90" MaxWidth="90"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="inf:InspectionRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,*,Auto,Auto">

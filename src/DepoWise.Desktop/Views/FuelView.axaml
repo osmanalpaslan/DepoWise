@@ -283,7 +283,7 @@
                                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
 
-                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloDistributions}" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
@@ -319,7 +319,7 @@
                                         <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
-                                <ListBox Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
+                                <ListBox x:Name="TabloDistributions" Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:FuelRow">
                                             <Grid ctrl:ColumnRules.Enabled="True">
@@ -445,7 +445,7 @@
                                                         Foreground="{DynamicResource TextSecondaryBrush}"
                                                         Text="{Binding DepoTotalCount, StringFormat='{}{0} depo girişi'}"/>
                                 </StackPanel>
-                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloDepotEntries}" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -463,7 +463,7 @@
                                         <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="90" MaxWidth="90" Margin="12,0,0,0"/>
                                     </Grid>
                                 </Border>
-                                <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}" SelectedItem="{Binding SelectedDepotEntry}">
+                                <ListBox x:Name="TabloDepotEntries" Classes="Table" ItemsSource="{Binding DepotEntries}" SelectedItem="{Binding SelectedDepotEntry}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="op:FuelDepotRow">
                                             <Grid ctrl:ColumnRules.Enabled="True">
