@@ -14,11 +14,11 @@
 |---|---|---|
 | A0 | Proje + araç denetimi, çalışma dalı, belge iskeleti | tamam |
 | A1 | Sektör ve rakip araştırması (dış kaynak) | tamam — 6 alan, 175 kaynak, 52 eksik adayı |
-| A2 | Mevcut sistem envanteri (mimari, modül, ekran/alan/buton, akış) | bekliyor |
-| A3 | Arka plan teknik süreçleri, güvenlik, performans, veri/senkron denetimi | bekliyor |
-| A4 | Test kapsamı ve doğrulama denetimi | bekliyor |
-| A5 | Avalonia tasarım araştırması → tasarım sistemi | bekliyor |
-| A6 | Fark analizi (8 kategori) + önceliklendirilmiş yol haritası | bekliyor |
+| A2 | Mevcut sistem envanteri (mimari, modül, ekran/alan/buton, akış) | tamam — 02, 03 |
+| A3 | Arka plan teknik süreçleri, güvenlik, performans, veri/senkron denetimi | tamam — 04, 07 (200/300 bin ölçüm) |
+| A4 | Test kapsamı ve doğrulama denetimi | tamam — 06 |
+| A5 | Avalonia tasarım araştırması → tasarım sistemi | tamam — 08 |
+| A6 | Fark analizi (8 kategori) + önceliklendirilmiş yol haritası | tamam — 05 (190 bulgu, 18 P0), 09 (22 karar + 85 madde) → KULLANICI SEÇİMİ BEKLENİYOR |
 | B* | Kontrollü geliştirme fazları (yol haritasından) | bekliyor |
 | Z | Nihai doğrulama, kalan riskler, yayın öncesi kontrol listesi | bekliyor |
 
