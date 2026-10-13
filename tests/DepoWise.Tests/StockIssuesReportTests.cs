@@ -171,6 +171,44 @@ public class StockIssuesReportTests : IDisposable
     public void Cikis_kaynagi_islem_kimliginden_turetilir(string op, string not, string beklenen)
         => Assert.Equal(beklenen, ReportService.CikisKaynagi(op, not));
 
+    // ⭐ 2026-10-13 (kullanıcı isteği): Stok Hareketleri + Günlük raporunda «Çıkış» seçilince «Teslim Alan» sütunu.
+
+    [Theory]
+    [InlineData("stock-movements")]
+    [InlineData("stock-movements-daily")]
+    public void Stok_hareketleri_cikis_secilince_teslim_alan_sutunu_gelir(string rapor)
+    {
+        var t = _reports.Run(_s, rapor, new ReportRequest(true, Gunes, Batis, MovementTypes: new[] { "out" }), ReportLimits.DefaultMaxRows);
+        var k = K(t, ReportService.DepoCikisTeslimAlanBaslik);
+        Assert.Equal(K(t, "Hedef") + 1, k);                                   // Hedef'ten hemen sonra
+        Assert.Equal(t.Headers.Count, t.Numeric!.Count);
+        Assert.All(t.Rows, r => Assert.Equal(t.Headers.Count, r.Count));
+        Assert.Equal(t.Headers.Count, t.TotalRow!.Count);
+        Assert.Contains(t.Rows, r => (string)r[K(t, "Kod")]! == "YF-1" && (string)r[k]! == "Ahmet Usta");
+        Assert.Contains(t.Rows, r => (string)r[K(t, "Kod")]! == "ELD-3" && (string)r[k]! == "Mehmet Şoför");
+        Assert.Contains(t.Rows, r => (string)r[k]! == "");                   // kişisiz çıkış boş geçer
+    }
+
+    [Theory]
+    [InlineData("stock-movements")]
+    [InlineData("stock-movements-daily")]
+    public void Stok_hareketleri_cikis_secilmezse_sutunlar_aynen_kalir(string rapor)
+    {
+        var filtresiz = _reports.Run(_s, rapor, new ReportRequest(true, Gunes, Batis), ReportLimits.DefaultMaxRows);
+        var giris = _reports.Run(_s, rapor, new ReportRequest(true, Gunes, Batis, MovementTypes: new[] { "in" }), ReportLimits.DefaultMaxRows);
+        Assert.DoesNotContain(ReportService.DepoCikisTeslimAlanBaslik, filtresiz.Headers);
+        Assert.DoesNotContain(ReportService.DepoCikisTeslimAlanBaslik, giris.Headers);
+        Assert.Equal(rapor == "stock-movements" ? 12 : 10, filtresiz.Headers.Count);
+    }
+
+    [Fact]
+    public void Stok_hareketleri_cikis_ve_giris_birlikte_secilince_giris_satirinda_teslim_alan_bos()
+    {
+        var t = _reports.Run(_s, "stock-movements", new ReportRequest(true, Gunes, Batis, MovementTypes: new[] { "in", "out" }), ReportLimits.DefaultMaxRows);
+        var k = K(t, ReportService.DepoCikisTeslimAlanBaslik);
+        Assert.All(t.Rows.Where(r => (string)r[K(t, "Tür")]! == "Giriş"), r => Assert.Equal("", (string)r[k]!));
+    }
+
     private void Exec(string sql)
     {
         using var c = _factory.Create();

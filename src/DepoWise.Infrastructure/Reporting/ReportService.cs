@@ -1304,11 +1304,12 @@ SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, sm.dire
        m.code, m.name, COALESCE(u.name,'') AS unit,
        sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
        COALESCE(d.doc_no,'') AS doc_no, COALESCE(d.invoice_no,'') AS invoice_no,
-       sm.is_reversed, COALESCE(sm.note,'') AS note
+       sm.is_reversed, COALESCE(sm.note,'') AS note, COALESCE(pr.full_name,'') AS alan
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN personnel pr ON pr.id = d.personnel_id AND pr.company_id = sm.company_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c"
@@ -1323,6 +1324,7 @@ WHERE sm.company_id = @c"
         filtre.Bind(cmd);
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
+        var teslimSutunu = TeslimAlanSutunuGerekir(req);
         var rows = new List<IReadOnlyList<object?>>();
         decimal toplamGiris = 0m, toplamCikis = 0m;
         using (var r = cmd.ExecuteReader())
@@ -1353,7 +1355,7 @@ WHERE sm.company_id = @c"
                 var signed = direction > 0 ? qty : -qty;
                 if (direction > 0) toplamGiris += qty; else toplamCikis += qty;
 
-                rows.Add(new object?[]
+                rows.Add(TeslimAlanEkle(teslimSutunu, new object?[]
                 {
                     DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
                     // STK-B1: hareket türü etiketi TEK KAYNAKTAN. İkinci bir harita KURULMAZ.
@@ -1365,23 +1367,39 @@ WHERE sm.company_id = @c"
                     r.GetString(11), r.GetString(12),
                     Convert.ToInt64(r.GetValue(13)) == 1 ? "İptal edildi" : "",
                     r.GetString(14),
-                });
+                }, type == MovementTypeOptions.Out ? r.GetString(15) : ""));
             }
 
-        var numeric = new[] { false, false, false, false, true, false, false, false, false, false, false, false };
-        var totalRow = rows.Count == 0 ? null : new object?[]
+        var numeric = TeslimAlanEkle(teslimSutunu, new[] { false, false, false, false, true, false, false, false, false, false, false, false }, false);
+        var totalRow = rows.Count == 0 ? null : TeslimAlanEkle(teslimSutunu, new object?[]
         {
             "TOPLAM", "", "", "",
             new NumCell((double)(toplamGiris - toplamCikis),
                 $"+{toplamGiris:0.##} / -{toplamCikis:0.##}"),
             "", "", "", "", "", "", "",
-        };
+        }, "");
 
-        return new TableModel("Stok Hareketleri Raporu", new[]
+        return new TableModel("Stok Hareketleri Raporu", TeslimAlanEkle(teslimSutunu, new[]
         {
             "Tarih", "Tür", "Kod", "Malzeme", "Miktar", "Birim",
             "Kaynak", "Hedef", "Belge No", "Fatura No", "Durum", "Açıklama",
-        }, rows, numeric, totalRow);
+        }, DepoCikisTeslimAlanBaslik), rows, numeric, totalRow);
+    }
+
+    /// <summary>⭐ 2026-10-13 (kullanıcı isteği): Stok Hareketleri ve Günlük raporunda hareket türü filtresinde
+    /// <b>Çıkış</b> seçildiğinde malzemenin kime verildiğini gösteren «Teslim Alan» sütunu eklenir (Hedef'ten
+    /// hemen sonra). Kaynak Depo Çıkışları raporuyla aynıdır: çıkış belgesinde seçilen personel
+    /// (<c>stock_documents.personnel_id</c>). Çıkış seçilmediğinde rapor eski sütunlarıyla birebir aynı kalır.</summary>
+    internal static bool TeslimAlanSutunuGerekir(ReportRequest req) =>
+        req.MovementTypes?.Any(t => string.Equals(t?.Trim(), MovementTypeOptions.Out, StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>«Teslim Alan» değerini Hedef sütunundan (indeks 7) hemen sonraya ekler; sütun gerekmiyorsa diziyi aynen döner.</summary>
+    private static T[] TeslimAlanEkle<T>(bool ekle, T[] satir, T deger)
+    {
+        if (!ekle) return satir;
+        var l = new List<T>(satir);
+        l.Insert(8, deger);
+        return l.ToArray();
     }
 
     /// <summary>
@@ -1543,11 +1561,12 @@ WHERE sm.company_id = @c AND sm.movement_type = 'out' AND sm.direction < 0
 SELECT " + gunSql + @" AS gun, sm.movement_type, sm.direction, sm.quantity,
        m.code, m.name, COALESCE(u.name,'') AS unit,
        sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
-       COALESCE(d.doc_no,'') AS doc_no, sm.is_reversed
+       COALESCE(d.doc_no,'') AS doc_no, sm.is_reversed, COALESCE(pr.full_name,'') AS alan
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN personnel pr ON pr.id = d.personnel_id AND pr.company_id = sm.company_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c"
@@ -1562,6 +1581,7 @@ ORDER BY gun, sm.movement_type, m.code LIMIT @lim;";
         filtre.Bind(cmd);
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
+        var teslimSutunu = TeslimAlanSutunuGerekir(req);
         var rows = new List<IReadOnlyList<object?>>();
         decimal tGiris = 0m, tCikis = 0m;
         using (var r = cmd.ExecuteReader())
@@ -1592,7 +1612,7 @@ ORDER BY gun, sm.movement_type, m.code LIMIT @lim;";
                 var signed = direction > 0 ? qty : -qty;
                 if (direction > 0) tGiris += qty; else tCikis += qty;
 
-                rows.Add(new object?[]
+                rows.Add(TeslimAlanEkle(teslimSutunu, new object?[]
                 {
                     DateTimeOffset.FromUnixTimeMilliseconds(gun * GunMs).UtcDateTime.ToString("dd.MM.yyyy", Tr),
                     MovementTypeOptions.Label(tur),          // STK-B1: etiket TEK KAYNAKTAN
@@ -1602,21 +1622,21 @@ ORDER BY gun, sm.movement_type, m.code LIMIT @lim;";
                     kaynak, hedef,
                     r.GetString(11),
                     Convert.ToInt64(r.GetValue(12)) == 1 ? "İptal edildi" : "",
-                });
+                }, tur == MovementTypeOptions.Out ? r.GetString(13) : ""));
             }
 
-        var numeric = new[] { false, false, false, false, true, false, false, false, false, false };
-        var totalRow = rows.Count == 0 ? null : new object?[]
+        var numeric = TeslimAlanEkle(teslimSutunu, new[] { false, false, false, false, true, false, false, false, false, false }, false);
+        var totalRow = rows.Count == 0 ? null : TeslimAlanEkle(teslimSutunu, new object?[]
         {
             "TOPLAM (DÖNEM)", "", "", "",
             new NumCell((double)(tGiris - tCikis), $"+{tGiris:0.##} / -{tCikis:0.##}"),
             "", "", "", "", "",
-        };
+        }, "");
 
-        return new TableModel("Stok Hareketleri — Günlük", new[]
+        return new TableModel("Stok Hareketleri — Günlük", TeslimAlanEkle(teslimSutunu, new[]
         {
             "Tarih", "Tür", "Kod", "Malzeme", "Miktar", "Birim", "Kaynak", "Hedef", "Belge No", "Durum",
-        }, rows, numeric, totalRow);
+        }, DepoCikisTeslimAlanBaslik), rows, numeric, totalRow);
     }
 
     /// <summary>
