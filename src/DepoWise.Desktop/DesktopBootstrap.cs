@@ -28,6 +28,10 @@ public static class DesktopBootstrap
         var result = new DatabaseHealth(factory).CheckAsync().GetAwaiter().GetResult();
         WriteLog(result);
 
+        // ⭐ M-20 (AR-GE 2026-10-17): sorgu planlayıcı istatistikleri — arka planda, açılışı bekletmeden; hata açılışı etkilemez.
+        if (result.Ok)
+            System.Threading.Tasks.Task.Run(() => { try { VeritabaniBakimi.IstatistikleriGuncelle(factory); } catch { } });
+
         var settings = new SettingsService(factory);
         // Oturum öncesi global tema/branding (firma override login sonrası uygulanır — Faz 05).
         return new BootstrapResult(result, settings.GetTheme(null), settings.GetBranding(null));

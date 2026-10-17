@@ -432,6 +432,13 @@ WHERE da.company_id = @c";
     public GridResult<DailyActivityGridRow> SearchGrid(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
         string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false,
         long? fromDateMs = null, long? toDateMs = null)
+        => SearchGridCore(s, filter, page, pageSize, sortColumn, sortDesc, includeCancelled, fromDateMs, toDateMs, tumu: false);
+
+    /// <summary>⭐ M-85 (AR-GE 2026-10-17): <paramref name="tumu"/> = true → sayım ve LIMIT/OFFSET YOK, tek sorguda tüm sonuç
+    /// (SearchGridAll). Eskiden 500'lük sayfalar hâlinde her sayfada yeniden COUNT + OFFSET çalışıyordu → süre satır sayısıyla
+    /// KARESEL büyüyordu (40 bin satırda 23–50 sn; 07 §4.2). Ayrıca kararsız sıralamada sayfalar arası kayma riski vardı.</summary>
+    private GridResult<DailyActivityGridRow> SearchGridCore(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
+        string? sortColumn, bool sortDesc, bool includeCancelled, long? fromDateMs, long? toDateMs, bool tumu)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -469,7 +476,8 @@ WHERE da.company_id = @c";
             // (enjeksiyon yüzeyi yok; Araçlar ekranındaki InList deseniyle aynı mantık).
             + AracIdSql(filter.VehicleIds);
 
-        int total;
+        int total = 0;
+        if (!tumu)
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
@@ -485,15 +493,18 @@ WHERE da.company_id = @c";
         var items = new List<DailyActivityGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}" + (tumu ? ";" : "LIMIT @lim OFFSET @off;");
             cmd.AddWithValue("@c", s.CompanyId);
             if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             if (fromDateMs is { } cf1) cmd.AddWithValue("@crFrom", cf1);
             if (toDateMs is { } ct1) cmd.AddWithValue("@crTo", ct1);
             AracIdBagla(cmd, filter.VehicleIds);
             GridQuery.AddParams(cmd, ps);
-            cmd.AddWithValue("@lim", pageSize);
-            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            if (!tumu)
+            {
+                cmd.AddWithValue("@lim", pageSize);
+                cmd.AddWithValue("@off", (page - 1) * pageSize);
+            }
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new DailyActivityGridRow(
@@ -512,22 +523,14 @@ WHERE da.company_id = @c";
             for (int i = 0; i < items.Count; i++)
                 if (items[i].MaintenanceId is { } mid && metinler.TryGetValue(mid, out var metin))
                     items[i] = items[i] with { Materials = metin };
+        if (tumu) return new GridResult<DailyActivityGridRow>(items, items.Count, 1, Math.Max(1, items.Count));
         return new GridResult<DailyActivityGridRow>(items, total, page, pageSize);
     }
 
     /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu için.</summary>
     public IReadOnlyList<DailyActivityGridRow> SearchGridAll(SessionContext s, DailyActivityGridFilter filter, string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false)
     {
-        var all = new List<DailyActivityGridRow>();
-        int page = 1;
-        while (true)
-        {
-            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc, includeCancelled);
-            all.AddRange(res.Items);
-            if (page >= res.TotalPages || res.Items.Count == 0) break;
-            page++;
-        }
-        return all;
+        return SearchGridCore(s, filter, 1, 500, sortColumn, sortDesc, includeCancelled, null, null, tumu: true).Items;
     }
 
     /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="DailyActivityListColumns.All"/> ile AYNIDIR.</summary>

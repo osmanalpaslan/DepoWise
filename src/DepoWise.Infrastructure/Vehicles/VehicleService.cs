@@ -531,6 +531,13 @@ WHERE v.company_id = @c AND v.is_deleted = 0 AND v.is_rental = @rent";
     /// kullanıcı isteği); true = Kiralık Araçlar ekranı.</param>
     public GridResult<VehicleGridRow> SearchGrid(SessionContext s, VehicleGridFilter filter, int page, int pageSize,
         string? sortColumn = null, bool sortDesc = false, bool rental = false)
+        => SearchGridCore(s, filter, page, pageSize, sortColumn, sortDesc, rental, tumu: false);
+
+    /// <summary>⭐ M-85 (AR-GE 2026-10-17): <paramref name="tumu"/> = true → sayım ve LIMIT/OFFSET YOK, tek sorguda tüm sonuç
+    /// (SearchGridAll). Eskiden 500'lük sayfalar hâlinde her sayfada yeniden COUNT + OFFSET çalışıyordu → süre satır sayısıyla
+    /// KARESEL büyüyordu (40 bin satırda 23–50 sn; 07 §4.2). Ayrıca kararsız sıralamada sayfalar arası kayma riski vardı.</summary>
+    private GridResult<VehicleGridRow> SearchGridCore(SessionContext s, VehicleGridFilter filter, int page, int pageSize,
+        string? sortColumn, bool sortDesc, bool rental, bool tumu)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -573,7 +580,8 @@ WHERE v.company_id = @c AND v.is_deleted = 0 AND v.is_rental = @rent";
             .Replace("{DAY:v.rental_end}", SqlDialect.DayText(conn, "v.rental_end"))
             + BranchScope.Sql(s, "v.branch_id");
 
-        int total;
+        int total = 0;
+        if (!tumu)
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
@@ -587,13 +595,16 @@ WHERE v.company_id = @c AND v.is_deleted = 0 AND v.is_rental = @rent";
         var items = new List<VehicleGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}" + (tumu ? ";" : "LIMIT @lim OFFSET @off;");
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@rent", rental ? 1 : 0);
             if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             GridQuery.AddParams(cmd, ps);
-            cmd.AddWithValue("@lim", pageSize);
-            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            if (!tumu)
+            {
+                cmd.AddWithValue("@lim", pageSize);
+                cmd.AddWithValue("@off", (page - 1) * pageSize);
+            }
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new VehicleGridRow(
@@ -604,6 +615,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0 AND v.is_rental = @rent";
                     r.GetString(15), r.GetString(16), r.GetString(17),
                     r.GetString(18), r.IsDBNull(20) ? null : r.GetString(20), r.IsDBNull(22) ? null : r.GetString(22), r.GetString(23)));
         }
+        if (tumu) return new GridResult<VehicleGridRow>(items, items.Count, 1, Math.Max(1, items.Count));
         return new GridResult<VehicleGridRow>(items, total, page, pageSize);
     }
 
@@ -612,16 +624,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0 AND v.is_rental = @rent";
     public IReadOnlyList<VehicleGridRow> SearchGridAll(SessionContext s, VehicleGridFilter filter, string? sortColumn = null, bool sortDesc = false,
         bool rental = false)
     {
-        var all = new System.Collections.Generic.List<VehicleGridRow>();
-        int page = 1;
-        while (true)
-        {
-            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc, rental);
-            all.AddRange(res.Items);
-            if (page >= res.TotalPages || res.Items.Count == 0) break;
-            page++;
-        }
-        return all;
+        return SearchGridCore(s, filter, 1, 500, sortColumn, sortDesc, rental, tumu: true).Items;
     }
 
     /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="VL"/>.All ile AYNIDIR

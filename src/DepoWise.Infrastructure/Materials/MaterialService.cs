@@ -822,6 +822,13 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
     public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
         string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
+        => SearchGridCore(s, filter, page, pageSize, sortColumn, sortDesc, criticalOnly, tumu: false);
+
+    /// <summary>⭐ M-85 (AR-GE 2026-10-17): <paramref name="tumu"/> = true → sayım ve LIMIT/OFFSET YOK, tek sorguda tüm sonuç
+    /// (SearchGridAll). Eskiden 500'lük sayfalar hâlinde her sayfada yeniden COUNT + OFFSET çalışıyordu → süre satır sayısıyla
+    /// KARESEL büyüyordu (40 bin satırda 23–50 sn; 07 §4.2). Ayrıca kararsız sıralamada sayfalar arası kayma riski vardı.</summary>
+    private GridResult<MaterialGridRow> SearchGridCore(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
+        string? sortColumn, bool sortDesc, bool criticalOnly, bool tumu)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -833,7 +840,8 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         using var conn = _factory.Create();
         var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly, fiyatGorunur);
 
-        int total;
+        int total = 0;
+        if (!tumu)
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
@@ -845,11 +853,14 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         var items = new List<MaterialGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}" + (tumu ? ";" : "LIMIT @lim OFFSET @off;");
             cmd.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
-            cmd.AddWithValue("@lim", pageSize);
-            cmd.AddWithValue("@off", (page - 1) * pageSize);
+            if (!tumu)
+            {
+                cmd.AddWithValue("@lim", pageSize);
+                cmd.AddWithValue("@off", (page - 1) * pageSize);
+            }
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new MaterialGridRow(
@@ -859,6 +870,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
                     Money.Parse(r.GetString(11)), Money.Parse(r.GetString(13)),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
         }
+        if (tumu) return new GridResult<MaterialGridRow>(items, items.Count, 1, Math.Max(1, items.Count));
         return new GridResult<MaterialGridRow>(items, total, page, pageSize);
     }
 
@@ -918,16 +930,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// SearchGrid'i 500'lük sayfalarla iç döngüde gezer (o metodun 500 sınırı BOZULMAZ).</summary>
     public IReadOnlyList<MaterialGridRow> SearchGridAll(SessionContext s, MaterialGridFilter filter, string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
     {
-        var all = new List<MaterialGridRow>();
-        int page = 1;
-        while (true)
-        {
-            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc, criticalOnly);
-            all.AddRange(res.Items);
-            if (page >= res.TotalPages || res.Items.Count == 0) break;
-            page++;
-        }
-        return all;
+        return SearchGridCore(s, filter, 1, 500, sortColumn, sortDesc, criticalOnly, tumu: true).Items;
     }
 
     /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="MaterialListColumns.All"/>
