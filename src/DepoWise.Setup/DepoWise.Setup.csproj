@@ -9,7 +9,7 @@
          Microsoft.WindowsDesktop.App çatısını taşıyor. ReadyToRun denendi ve REDDEDİLDİ
          (59 MB / 5851 ms — hem daha büyük hem daha yavaş).
          Ayrıca: uygulamayla aynı yığın → ortak tasarım dili, gerçek animasyon, tek teknoloji bakımı. -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AlpnexSetup</AssemblyName>

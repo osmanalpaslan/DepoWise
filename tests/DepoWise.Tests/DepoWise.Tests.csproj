@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -21,7 +21,7 @@
     <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
     <!-- Paket 1 (2026-08-09): API'yi bellek-içi ayağa kaldırıp GERÇEK HTTP hattı üzerinden test etmek için
          (çok-firmalı izolasyon testleri). Kimlik doğrulama + yetkilendirme + model bağlama dahil kapsanır. -->
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>
