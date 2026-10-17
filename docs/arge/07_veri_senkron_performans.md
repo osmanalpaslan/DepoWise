@@ -346,3 +346,24 @@ Senkron protokolü / migration değişiklikleri kullanıcı onayı ister (`.clau
 
 Ortam: Windows 11, Intel i7-1165G7 (4 çekirdek), 16 GB RAM, NVMe SSD, .NET 8.0.422, Microsoft.Data.Sqlite 10.0.9 (SQLite 3.4x),
 PostgreSQL 17 (yerel test sunucusu). Tüm geçici veritabanları ve `dw_perf` iş bitince silindi.
+
+## 7. Canlı ölçüm (2026-10-13, salt okuma) — imleç hatasının bugünkü gerçek etkisi
+**Yöntem:** üretim DB'de yalnız `SELECT` (oturum `default_transaction_read_only=on`), `flyctl logs` (son 100 satır, salt okuma).
+Hiçbir şey değiştirilmedi. Sorgular: oturum scratchpad'i `canli_imlec*.sql` (bağlantısız metin aşağıda özetlendi).
+
+| Ölçüm | Sonuç |
+|---|---|
+| Üretim DB toplam boyutu | 31 MB |
+| Oze İnşaat eşitlenen veri (ham, 13 ana tablo) | ≈ 1,9 MB (yakıt 1.469, stok hareketi 1.315, sayaç 1.266, belge 689, malzeme 555, bakım 491, günlük 439, araç 92, personel 126 satır) |
+| Tahmini tam paket (JSON, alan adları tekrarlı) | ≈ 4–5 MB (çıkarım: ham × 2–2,5) |
+| API günlüğü (35 dk, 16:28–17:02 UTC) | 6 `business-version` → **her birini** bir `business-pull` izliyor; pull 500–1.499 ms, version 22–34 ms |
+| `pg_stat_statements` | eklenti kurulu değil → sorgu sayacı alınamadı |
+
+**Değerlendirme:** pull süresi (0,5–1,5 sn) küçük bir delta ile değil büyük paketle uyumlu → masaüstleri her turda imleçten
+bugüne kadarki (imleç hiç yazılmadıysa tamamını) yeniden çekiyor (kodla tutarlı: `AlinanWatermark` atanmıyor,
+`ShellViewModel.cs:544-562`). Gözlenen tempo ≈ 10 pull/saat → iş günü ≈ 100 pull × ≈ 2 MB DB okuması ≈ **200 MB/gün**,
+**≈ 4–6 GB/ay** veritabanı çıkış trafiği → Supabase ücretsiz ≈ 5 GB/ay sınırına dayanır; veri ve açık masaüstü sayısıyla
+doğrusal büyür. Bugün arıza/bellek sorunu yok (günlükte OOM yok; veri küçük). **Kesinleştirmek için:** API günlüğüne
+yanıt boyutu + `since` değeri eklenmeli ya da Supabase panelinden aylık egress okunmalı (doğrulanmadı).
+**Sonuç:** M-03 (imleç + sunucu sıra numarası, birlikte) ve M-84 (gzip) acil; yalnız imleç atamasını düzeltmek
+sessiz veri kaybı başlatır (bkz. §2.1) — ikisi tek iş biriminde yapılmalı.
