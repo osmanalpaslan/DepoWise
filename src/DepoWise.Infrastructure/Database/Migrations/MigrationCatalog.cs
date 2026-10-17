@@ -106,6 +106,7 @@ public static class MigrationCatalog
         new Migration099_SyncTxid(),           // 2026-10-17 AR-GE M-03: sunucu işlem kimliği ufku (çekme imleci) — yalnız ekleme
         new Migration100_LocalChangeSeq(),     // 2026-10-17 AR-GE M-03 adım 3: masaüstü gönderme imleci = yerel değişiklik sayacı
         new Migration101_SyncRejections(),     // 2026-10-17 AR-GE M-15: masaüstü gönderilemeyen kayıtlar listesi (yalnız SQLite)
-        new Migration102_MachineCode(),        // 2026-10-17 AR-GE M-78/K-21: bilgisayar kodu (belge numarasına gömülür) — yalnız ekleme
+        new Migration102_MachineCode(),
+        new Migration103_AuditPush(),          // 2026-10-17 AR-GE M-06: masaüstü işlem geçmişi sunucuya (yalnız gönderim) — yalnız ekleme        // 2026-10-17 AR-GE M-78/K-21: bilgisayar kodu (belge numarasına gömülür) — yalnız ekleme
     };
 }

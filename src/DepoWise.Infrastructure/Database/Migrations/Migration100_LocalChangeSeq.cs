@@ -42,17 +42,29 @@ public sealed class Migration100_LocalChangeSeq : IMigration
         Exec("CREATE TABLE IF NOT EXISTS sync_apply_guard (id INTEGER PRIMARY KEY CHECK (id = 1));");
 
         foreach (var table in BusinessSyncService.Tables)
-        {
-            if (!DbIntrospect.TableExists(conn, tx, table)) continue;
-            if (!DbIntrospect.ColumnExists(conn, tx, table, "local_change_seq"))
-                Exec($"ALTER TABLE {table} ADD COLUMN local_change_seq INTEGER NULL;");
-            Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_lseq ON {table}(local_change_seq);");
+            YerelSayacKur(conn, tx, table);
+    }
 
-            var kosul = "WHEN NOT EXISTS (SELECT 1 FROM sync_server_role) AND NOT EXISTS (SELECT 1 FROM sync_apply_guard)";
-            var govde = $"BEGIN UPDATE sync_local_counter SET next = next + 1 WHERE id = 1; " +
-                        $"UPDATE {table} SET local_change_seq = (SELECT next - 1 FROM sync_local_counter WHERE id = 1) WHERE rowid = NEW.rowid; END;";
-            Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_lseq_ins AFTER INSERT ON {table} {kosul} {govde}");
-            Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_lseq_upd AFTER UPDATE ON {table} {kosul} {govde}");
+    /// <summary>Bir tabloya yerel değişiklik sayacını kurar (kolon + indeks + iki tetikleyici). Tekrar çağrılabilir (IF NOT
+    /// EXISTS); yalnız SQLite. Sonradan eşitlemeye eklenen tablolar için sonraki migration'lar da bunu çağırır (ör. 103).</summary>
+    internal static void YerelSayacKur(DbConnection conn, DbTransaction tx, string table)
+    {
+        if (!SqlDialect.IsSqlite(conn) || !DbIntrospect.TableExists(conn, tx, table)) return;
+        void Exec(string sql)
+        {
+            using var c = conn.CreateCommand();
+            c.Transaction = tx;
+            c.CommandText = sql;
+            c.ExecuteNonQuery();
         }
+        if (!DbIntrospect.ColumnExists(conn, tx, table, "local_change_seq"))
+            Exec($"ALTER TABLE {table} ADD COLUMN local_change_seq INTEGER NULL;");
+        Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_lseq ON {table}(local_change_seq);");
+
+        var kosul = "WHEN NOT EXISTS (SELECT 1 FROM sync_server_role) AND NOT EXISTS (SELECT 1 FROM sync_apply_guard)";
+        var govde = $"BEGIN UPDATE sync_local_counter SET next = next + 1 WHERE id = 1; " +
+                    $"UPDATE {table} SET local_change_seq = (SELECT next - 1 FROM sync_local_counter WHERE id = 1) WHERE rowid = NEW.rowid; END;";
+        Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_lseq_ins AFTER INSERT ON {table} {kosul} {govde}");
+        Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_lseq_upd AFTER UPDATE ON {table} {kosul} {govde}");
     }
 }

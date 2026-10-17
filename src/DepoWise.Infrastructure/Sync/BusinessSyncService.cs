@@ -160,6 +160,9 @@ public sealed class BusinessSyncService
         // bu yüzden listenin SONUNA eklendi. Eski istemciler bu tabloyu bilmez ve SESSİZCE atlar —
         // davranış gerçek testle kanıtlandı (CustomRaporSenkronOnDogrulamaTests, 5/5).
         "custom_report_defs",
+        // ⭐ M-06 (AR-GE 2026-10-17): masaüstü İŞLEM GEÇMİŞİ — yalnız GÖNDERİM yönünde (YalnizGonderim), sunucuda yalnız eklenir.
+        // En sonda: yabancı anahtarı yoktur, diğer kayıtlardan sonra gitmesi doğaldır.
+        "audit_logs",
     };
 
     /// <summary>Her iş tablosunun ait olduğu yetki modülü (business-push yetki kontrolü için).
@@ -591,6 +594,8 @@ public sealed class BusinessSyncService
         foreach (var table in Tables)
         {
             if (!TableExists(conn, table)) continue;
+            // ⭐ M-06: SUNUCU anlık görüntüsü (eski çekme ucu, machineId "server") işlem geçmişini taşımaz.
+            if (machineId == "server" && YalnizGonderim.Contains(table)) continue;
             var cols = ColumnNames(conn, table);
             var hasCompany = cols.Contains("company_id");
             var stamp = StampColumn(cols);
@@ -706,6 +711,7 @@ public sealed class BusinessSyncService
             if (!TableExists(conn, table)) continue;
             var cols = ColumnNames(conn, table);
             if (!cols.Contains("server_txid")) continue;   // migration 099 öncesi şema: v2 bu tabloyu taşımaz
+            if (YalnizGonderim.Contains(table)) continue;    // ⭐ M-06: işlem geçmişi masaüstüne inmez
             var hasCompany = cols.Contains("company_id");
             var where = new List<string>();
             if (hasCompany) where.Add($"{table}.company_id=@c");
@@ -1495,6 +1501,9 @@ public sealed class BusinessSyncService
     {
         bool CanWrite(string table)
         {
+            // ⭐ M-06: işlem geçmişi modül yetkisine bağlı DEĞİL — her kullanıcı kendi bilgisayarındaki geçmişi gönderebilir.
+            // Firma oturumdan zorlanır, satır yalnız eklenir (LedgerTables), kaynak bilgisayar sunucuda işaretlenir.
+            if (YalnizGonderim.Contains(table)) return true;
             if (!TableModule.TryGetValue(table, out var moduleKey)) return false; // eşlenmemiş tabloya izin yok
             return AccessControl.Can(session, moduleKey, PermissionAction.Create)
                 || AccessControl.Can(session, moduleKey, PermissionAction.Edit);
@@ -1606,7 +1615,7 @@ public sealed class BusinessSyncService
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
             var (tUp, tSk, tPerm) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
-                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session, rejected, renamed);
+                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session, rejected, renamed, machineId);
             upserted += tUp; skipped += tSk; permanentSkipped += tPerm;
         }
 
@@ -1648,7 +1657,7 @@ public sealed class BusinessSyncService
         List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
         JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
         bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null,
-        List<RejectedRow>? rejected = null, List<RenamedRow>? renamed = null)
+        List<RejectedRow>? rejected = null, List<RenamedRow>? renamed = null, string? kaynakCihaz = null)
     {
         // ⭐ K-22 b: kod çakışmasında satırı yeni kodla bir kez daha dene (yalnız PUSH; çekmede sunucu otoriterdir).
         var adBaslangic = renamed?.Count ?? 0;
@@ -1754,7 +1763,8 @@ public sealed class BusinessSyncService
                     return true;
                 }
             }
-            return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes);
+            return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes,
+                serverAuth ? null : kaynakCihaz);
         }
 
         if (!isPg)
@@ -2026,9 +2036,18 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
     }
 
     /// <summary>M-05: yalnız EKLENEN (append-only) defter tabloları. Mevcut satırda yalnız <see cref="LedgerMutableColumns"/>
-    /// push ile güncellenebilir.</summary>
+    /// push ile güncellenebilir. ⭐ M-06: <c>audit_logs</c> da burada — işlem geçmişi push ile HİÇ değiştirilemez (ortak kolon
+    /// yok → var olan satırda "DO NOTHING").</summary>
     internal static readonly HashSet<string> LedgerTables = new(StringComparer.Ordinal)
-        { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements" };
+        { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements", "audit_logs" };
+
+    /// <summary>
+    /// ⭐ M-06 (AR-GE 2026-10-17, 05 F-035) — YALNIZ GÖNDERİLEN tablolar: masaüstünden sunucuya gider, sunucudan masaüstüne
+    /// İNMEZ. İşlem geçmişi (audit_logs): yönetici web'den her bilgisayarın kaydını görür, bilgisayar bozulsa da kanıt
+    /// sunucuda kalır; ama firmanın TÜM geçmişi her bilgisayara indirilmez (hacim + gizlilik). Sunucu işlem kimliği ufku
+    /// (Migration099) bu tablolarda gerekmez.
+    /// </summary>
+    public static readonly IReadOnlySet<string> YalnizGonderim = new HashSet<string>(StringComparer.Ordinal) { "audit_logs" };
 
     /// <summary>M-05: defter satırında meşru yerinde güncellenen alanlar (iptal işareti + gerekçe + damga/sürüm).</summary>
     internal static readonly HashSet<string> LedgerMutableColumns = new(StringComparer.Ordinal)
@@ -2054,7 +2073,7 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
 
     private bool UpsertRow(DbConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
         bool hasUpdated, string companyId, JsonElement row, long now,
-        bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
+        bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false, string? kaynakCihaz = null)
     {
         // Satırın verdiği kolonlar ∩ gerçek tablo kolonları
         var values = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -2066,6 +2085,9 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         foreach (var k in pk)
             if (!values.TryGetValue(k, out var v) || v is null) return false;
         if (hasCompany) values["company_id"] = companyId; // tenant zorla
+        // ⭐ M-06: işlem geçmişinin hangi bilgisayardan geldiği SUNUCUDA işaretlenir (gelen değer yok sayılır).
+        if (YalnizGonderim.Contains(table) && tableCols.Contains("source_device"))
+            values["source_device"] = string.IsNullOrWhiteSpace(kaynakCihaz) ? null : kaynakCihaz;
 
         // ⭐ SNK-01 (denetim 2026-08-26) — ARAÇ SAYACI GERİYE GİDEMEZ.
         //

@@ -243,6 +243,7 @@ public class PostgresSenkronUfukTests
         foreach (var t in BusinessSyncService.Tables)
         {
             if (!DepoWise.Infrastructure.Database.DbIntrospect.TableExists(conn, null, t)) continue;
+            if (BusinessSyncService.YalnizGonderim.Contains(t)) continue;   // M-06: masaüstüne inmeyen tablo, ufuk gerekmez
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM pg_trigger WHERE tgname = @n AND NOT tgisinternal;";
             cmd.AddWithValue("@n", $"trg_{t}_txid");

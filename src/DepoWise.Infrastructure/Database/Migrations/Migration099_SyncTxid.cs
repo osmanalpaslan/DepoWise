@@ -70,6 +70,7 @@ public sealed class Migration099_SyncTxid : IMigration
         foreach (var table in BusinessSyncService.Tables)
         {
             if (!DbIntrospect.TableExists(conn, tx, table)) continue;
+            if (BusinessSyncService.YalnizGonderim.Contains(table)) continue;   // M-06: sunucudan inmeyen tabloda ufuk gerekmez
             if (!DbIntrospect.ColumnExists(conn, tx, table, "server_txid"))
                 Exec($"ALTER TABLE {table} ADD COLUMN server_txid BIGINT NULL;");
 

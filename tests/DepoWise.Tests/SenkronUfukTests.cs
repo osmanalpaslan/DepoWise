@@ -195,6 +195,7 @@ public class SenkronUfukTests : IDisposable
         foreach (var t in BusinessSyncService.Tables)
         {
             if (!DbIntrospect.TableExists(conn, null, t)) continue;
+            if (BusinessSyncService.YalnizGonderim.Contains(t)) continue;   // M-06: masaüstüne inmeyen tablo, ufuk gerekmez
             if (!DbIntrospect.ColumnExists(conn, null, t, "server_txid")) eksik.Add($"{t}: server_txid kolonu yok");
             foreach (var trg in new[] { $"trg_{t}_txid_ins", $"trg_{t}_txid_upd" })
             {
