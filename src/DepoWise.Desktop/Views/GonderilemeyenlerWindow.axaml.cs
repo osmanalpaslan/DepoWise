@@ -66,9 +66,15 @@ public partial class GonderilemeyenlerWindow : Window
         if (Avalonia.Application.Current?.ApplicationLifetime
             is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d
             || d.MainWindow is null) return;
+        await Olustur(companyId).ShowDialog(d.MainWindow);
+    }
+
+    /// <summary>Pencereyi kurar ve listeyi yükler (gösterme çağırana ait — arayüz testleri de bunu kullanır).</summary>
+    public static GonderilemeyenlerWindow Olustur(string companyId)
+    {
         var win = new GonderilemeyenlerWindow(companyId);
         win.Yukle();
-        await win.ShowDialog(d.MainWindow);
+        return win;
     }
 
     private void Yukle()
