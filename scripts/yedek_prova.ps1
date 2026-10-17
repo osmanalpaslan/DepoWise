@@ -39,12 +39,19 @@ try {
     if (-not $rclone) { throw "rclone bulunamadi" }
     if (-not (Test-Path "$bin\pg_restore.exe")) { throw "yerel PostgreSQL araclari yok ($bin)" }
 
-    # 1) Drive'daki en yeni yedek (adlar tarih sıralıdır: DepoWise_prod_yyyy-MM-dd_HHmm.dump)
-    $ad = & $rclone lsf "gdrive:DepoWise_Yedekler" --include "DepoWise_prod_*.dump" | Sort-Object | Select-Object -Last 1
+    # 1) Drive'daki en yeni yedek (adlar tarih sıralıdır: DepoWise_prod_yyyy-MM-dd_HHmm.dump[.enc])
+    # ⭐ M-08 (2026-10-17): şifreli (.dump.enc) yedek, felaket anındaki gibi anahtarla açılır — şifre çözmenin de çalıştığı sınanır.
+    $ad = & $rclone lsf "gdrive:DepoWise_Yedekler" --include "DepoWise_prod_*.dump" --include "DepoWise_prod_*.dump.enc" |
+          Sort-Object { $_ -replace '\.enc$', '' }, { $_ } | Select-Object -Last 1
     if (-not $ad) { throw "Drive'da veritabani yedegi bulunamadi" }
     $sonuc.yedek = $ad
     & $rclone copy "gdrive:DepoWise_Yedekler/$ad" $gecici --log-level ERROR
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $gecici $ad))) { throw "yedek Drive'dan indirilemedi" }
+    if ($ad.EndsWith(".enc")) {
+        . (Join-Path $PSScriptRoot "yedek_sifre.ps1")
+        $acik = Unprotect-YedekDosyasi (Join-Path $gecici $ad)
+        $ad = Split-Path $acik -Leaf
+    }
     $listeAd = [IO.Path]::ChangeExtension($ad, ".counts.json")
     & $rclone copy "gdrive:DepoWise_Yedekler/$listeAd" $gecici --log-level ERROR 2>$null
     $listeYol = Join-Path $gecici $listeAd

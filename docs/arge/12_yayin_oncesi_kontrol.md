@@ -15,9 +15,11 @@
 - [ ] Tam test takımı eksiksiz (PG dahil), arayüz testleri, iki ortam denetimi, canlı web duman testi
 - [ ] Senkron protokolü değişikliği: eski masaüstü sürümleriyle uyum + zorunlu güncelleme (M-12) birlikte
 - [ ] Migration'lar yalnız ekleme; gerçek boyutlu kopya üzerinde prova (M-70)
-- [ ] Yedek alındı ve geri yükleme provası (M-08)
+- [x] Yedek alındı ve geri yükleme provası (M-08) — 2026-10-17 şifreli günlük yedek + başarılı prova; yayından hemen önce bir kez daha elle al (`scripts/yedek_al.ps1`)
 - [x] .NET 10 geçişi canlıda (2026-10-17, masaüstü 1.0.201/1.0.202)
 - [ ] **Migration099 (M-03, çekme ufku):** canlıda ilk açılışta her eşitleme tablosuna kolon + indeks + tetikleyici ekler ve
   mevcut TÜM satırları bir kez damgalar (tek işlemde büyük UPDATE). Önce gerçek boyutlu kopyada süre ölç (M-70), ardından
   `VACUUM (ANALYZE)` çalıştır. Yayın sırası: API önce (yeni uç), sonra masaüstü; eski masaüstleri eski uçla çalışmaya devam eder.
   Yayından sonra ilk turda her masaüstü bir kez tam paket çeker (imleç sıfırdan başlar), sonra yalnız değişenler iner.
+- [ ] **M-81 + M-03 adım 3:** yayından sonra her masaüstü yeni sürüme geçişte BİR KEZ tam gönderim yapar (sayfalı, 2000 satır/sayfa).
+  Aynı gün çok bilgisayar güncellenirse sunucu yükü artar; güncellemeyi birkaç saate yaymak ya da mesai dışı yayınlamak önerilir.

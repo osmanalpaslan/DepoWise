@@ -1,13 +1,18 @@
-﻿# ⭐ 2026-10-10 — HAFTALIK ÜRETİM VERİTABANI YEDEĞİ → Google Drive (osmanalpaslan0101, klasör DepoWise_Yedekler)
+﻿# ⭐ 2026-10-10 — ÜRETİM VERİTABANI YEDEĞİ → Google Drive (osmanalpaslan0101, klasör DepoWise_Yedekler)
+# ⭐ 2026-10-17 (AR-GE M-08): GÜNLÜK + ŞİFRELİ. Yedek ve fotoğraf arşivi AES-256 ile şifrelenir (yedek_sifre.ps1), şifreli
+#            dosya geri açılıp özgünüyle karşılaştırılarak doğrulanır; Drive'a ve bu bilgisayara YALNIZ şifreli hâli kalır
+#            (Drive hesabı ele geçirilse bile okunamaz). Anahtar yoksa yedek YİNE alınır (düz) ve log'a UYARI düşer —
+#            yedeksiz kalmaktansa düz yedek. Sayım listesi (.counts.json) yalnız tablo sayıları içerir, şifrelenmez.
 #
 # Ne yapar:  Supabase'deki canlı veritabanının tam yedeğini (pg_dump, sıkıştırılmış) alır, yedeğin açılabildiğini
-#            doğrular (pg_restore -l), Google Drive'a yükler. Eski yedekleri temizler:
+#            doğrular (pg_restore -l), şifreler, Google Drive'a yükler. Eski yedekleri temizler:
 #            Drive'da 120 günden eski, bu bilgisayarda 30 günden eski yedekler silinir.
 # Gizli bilgi: bağlantı bilgisi .env.supabase.local'dan, Drive yetkisi rclone ayarından okunur. Hiçbiri
 #            ekrana/log'a yazılmaz, hiçbir yere gönderilmez. Canlı veritabanına YALNIZ OKUMA yapılır.
-# Çalıştıran: Windows Görev Zamanlayıcısı "DepoWise Haftalik Yedek" (Pazar 03:00; kaçarsa açılışta).
+# Çalıştıran: Windows Görev Zamanlayıcısı "DepoWise Haftalik Yedek" (2026-10-17'den beri HER GÜN 03:00; kaçarsa açılışta).
 # Elle:      powershell -NoProfile -ExecutionPolicy Bypass -File scripts\yedek_al.ps1
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "yedek_sifre.ps1")
 $kok = Split-Path $PSScriptRoot -Parent
 $log = Join-Path $env:LOCALAPPDATA "DepoWise\yedek_log.txt"
 $yerel = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "DepoWise_Yedekler"
@@ -47,15 +52,19 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "pg_dump basarisiz (kod $LASTEXITCODE)" }
     $tablo = (& "$pgbin\pg_restore.exe" -l $dosya | Select-String "TABLE DATA").Count
     if ($tablo -lt 50) { throw "yedek supheli: yalniz $tablo tablo verisi" }
+    $boyutKB = (Get-Item $dosya).Length / 1KB
+    $sifreli = $false
+    if (Test-YedekAnahtar) { $dosya = Protect-YedekDosyasi $dosya; $sifreli = $true }
+    else { Yaz "UYARI  yedek anahtari yok — yedek SIFRESIZ yukleniyor (scripts\yedek_anahtar_geri_yukle.ps1)" }
 
     & $rclone copy $dosya "gdrive:DepoWise_Yedekler" --log-level ERROR
     if ($LASTEXITCODE -ne 0) { throw "Drive yuklemesi basarisiz (kod $LASTEXITCODE)" }
     & $rclone copy $listeDosya "gdrive:DepoWise_Yedekler" --log-level ERROR
     Get-ChildItem $yerel -Filter "DepoWise_prod_*.counts.json" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
     & $rclone delete "gdrive:DepoWise_Yedekler" --min-age 120d --log-level ERROR
-    Get-ChildItem $yerel -Filter "DepoWise_prod_*.dump" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
+    Get-ChildItem $yerel -Filter "DepoWise_prod_*.dump*" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
 
-    Yaz ("BASARILI  {0}  {1:N0} KB  {2} tablo  -> Drive" -f (Split-Path $dosya -Leaf), ((Get-Item $dosya).Length / 1KB), $tablo)
+    Yaz ("BASARILI  {0}  {1:N0} KB  {2} tablo  {3}  -> Drive" -f (Split-Path $dosya -Leaf), $boyutKB, $tablo, $(if ($sifreli) { "sifreli" } else { "SIFRESIZ" }))
 
     # FOTOĞRAFLAR: veritabanında değil, sunucu diskinde (/data/files). Sunucuda geçici arşiv → indir → Drive.
     # Bu adım başarısız olursa veritabanı yedeği YİNE geçerlidir; yalnız log'a uyarı düşer.
@@ -67,9 +76,10 @@ try {
         flyctl ssh sftp get /tmp/dw_fotolar.tgz $foto -a depowise-erp 2>$null | Out-Null
         flyctl ssh console -a depowise-erp -C "rm -f /tmp/dw_fotolar.tgz" 2>$null | Out-Null
         if (-not (Test-Path $foto) -or (Get-Item $foto).Length -lt 1KB) { throw "foto arsivi inmedi" }
+        if (Test-YedekAnahtar) { $ErrorActionPreference = "Stop"; $foto = Protect-YedekDosyasi $foto; $ErrorActionPreference = "Continue" }
         & $rclone copy $foto "gdrive:DepoWise_Yedekler" --log-level ERROR
         if ($LASTEXITCODE -ne 0) { throw "foto Drive yuklemesi basarisiz" }
-        Get-ChildItem $yerel -Filter "DepoWise_fotolar_*.tgz" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
+        Get-ChildItem $yerel -Filter "DepoWise_fotolar_*.tgz*" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | Remove-Item -Force
         Yaz ("BASARILI  {0}  {1:N0} KB  -> Drive" -f (Split-Path $foto -Leaf), ((Get-Item $foto).Length / 1KB))
     }
     catch { Yaz "UYARI  fotograf yedegi alinamadi: $($_.Exception.Message)" }
