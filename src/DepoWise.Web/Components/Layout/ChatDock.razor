@@ -147,9 +147,19 @@
 }
 
 @code {
-    /// <summary>Pencere açıkken yoklama (sn). Kullanıcı kararı; geçici — gerçek sunucuda yeniden ele alınacak.</summary>
-    private const int AcikSaniye = 3;
-    /// <summary>Kapalıyken yoklama (sn) — yalnız okunmamış rozeti için.</summary>
+    // ═══ ANLIK SOHBET (kullanıcı isteği 2026-09-07) ═══
+    //
+    // Mesajlar artık SignalR ile ANINDA düşer (bkz. ChatHub). Yoklama KALDIRILMADI, YAVAŞLATILDI:
+    // anlık kanal koparsa (ağ, proxy, uyku, sunucu yeniden başlatma) sohbet sessizce ölmesin.
+    // Tek kanala bağlı kalmak, tekil arıza noktası olurdu.
+    //
+    // Eski değerler 3 sn / 20 sn idi; kullanıcı "3 saniye süreci zaten can sıkıcı" dedi.
+
+    /// <summary>Anlık kanal ÇALIŞIRKEN güvenlik ağı yoklaması (sn) — nadir ve ucuz.</summary>
+    private const int AnlikVarkenSaniye = 45;
+    /// <summary>Anlık kanal YOKKEN (bağlanamadı/koptu) pencere açıkken yoklama (sn).</summary>
+    private const int AcikSaniye = 5;
+    /// <summary>Anlık kanal YOKKEN pencere kapalıyken yoklama (sn) — yalnız okunmamış rozeti.</summary>
     private const int KapaliSaniye = 20;
 
     private sealed class Kisi

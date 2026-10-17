@@ -34,3 +34,13 @@ publish/
 # Claude ayar yedekleri - gizli deger tasiyabilir, depoya GIRMEZ
 .claude/*.bak
 *.bak
+
+# Serena (kod analiz araci) yerel calisma klasoru: LSP onbellegi, loglar, notlar.
+# Makineye ozeldir ve buyur; depoya GIRMEZ. Yapilandirma .serena/project.yml de dahil
+# yerelde kalir - her gelistirici kendi makinesinde "serena project create" ile uretir.
+.serena/
+
+# MCP sunucu tanimlari: icinde BU MAKINEYE ozel mutlak yollar var (serena.exe konumu gibi).
+# Depoya girerse ikinci PC'de "dosya bulunamadi" hatasi verir. Her makine kendi kurar;
+# adimlar: docs/ARAC_KURULUMU.md
+.mcp.json
