@@ -18,6 +18,8 @@ public sealed class GonderilemeyenSatiri
     public string Neden { get; init; } = "";
     public string Ipucu { get; init; } = "";
     public bool YereldeVar { get; init; }
+    public bool YenidenGonderilebilir { get; init; }
+    public bool KodBildirimi { get; init; }
     public ICommand? YenidenGonderCommand { get; init; }
     public ICommand? YoksayCommand { get; init; }
 
@@ -33,6 +35,8 @@ public sealed class GonderilemeyenSatiri
             Neden = k.NedenMetni,
             Ipucu = k.Ipucu,
             YereldeVar = k.YereldeVar,
+            YenidenGonderilebilir = k.YenidenGonderilebilir,
+            KodBildirimi = k.KodBildirimi,
             YenidenGonderCommand = yeniden,
             YoksayCommand = yoksay,
         };
@@ -88,7 +92,10 @@ public partial class GonderilemeyenlerWindow : Window
         try
         {
             foreach (var k in svc.Acik(_companyId)) satirlar.Add(GonderilemeyenSatiri.Olustur(k, yeniden, yoksay));
-            durum.Text = satirlar.Count == 0 ? "✓ Gönderilemeyen kayıt yok — her şey sunucuya ulaştı." : $"{satirlar.Count} kayıt gönderilemedi.";
+            var red = System.Linq.Enumerable.Count(satirlar, x => !x.KodBildirimi);
+            durum.Text = satirlar.Count == 0 ? "✓ Gönderilemeyen kayıt yok — her şey sunucuya ulaştı."
+                : red == satirlar.Count ? $"{red} kayıt gönderilemedi."
+                : $"{red} kayıt gönderilemedi · {satirlar.Count - red} kaydın kodu değiştirildi (bilgi).";
         }
         catch (Exception ex) { durum.Text = "Liste okunamadı: " + ex.Message; }
         liste.ItemsSource = satirlar;

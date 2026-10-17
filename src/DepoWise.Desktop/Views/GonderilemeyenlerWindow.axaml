@@ -11,7 +11,7 @@
         <Grid Margin="18" RowDefinitions="Auto,Auto,*,Auto">
             <SelectableTextBlock Grid.Row="0" Classes="PageTitle" Text="Gönderilemeyen Kayıtlar"/>
             <SelectableTextBlock Grid.Row="1" Classes="Helper" Margin="0,4,0,12" TextWrapping="Wrap"
-                Text="Bu kayıtlar bu bilgisayarda duruyor ama sunucu kabul etmedi; web'de ve diğer bilgisayarlarda görünmezler. Nedeni düzeltip kaydı yeniden kaydettiğinizde ya da 'Yeniden Gönder' dediğinizde tekrar gönderilir. 'Listeden Kaldır' yalnız bu listeden gizler, veriyi silmez."/>
+                Text="'Neden' yazan kayıtlar bu bilgisayarda duruyor ama sunucu kabul etmedi; web'de ve diğer bilgisayarlarda görünmezler. Nedeni düzeltip kaydı yeniden kaydettiğinizde ya da 'Yeniden Gönder' dediğinizde tekrar gönderilir. 'Bilgi' yazanlar sunucuya ulaştı, yalnız kodları başka bir kayıtla çakıştığı için değiştirildi. 'Listeden Kaldır' yalnız bu listeden gizler, veriyi silmez."/>
 
             <Border Grid.Row="2" Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="8" Padding="10">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -32,7 +32,7 @@
                                             <SelectableTextBlock Text="{Binding Ipucu}" Classes="Helper" TextWrapping="Wrap"/>
                                             <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
                                                 <Button Classes="Primary" Content="Yeniden Gönder" Margin="0,0,10,0"
-                                                        IsVisible="{Binding YereldeVar}"
+                                                        IsVisible="{Binding YenidenGonderilebilir}"
                                                         Command="{Binding YenidenGonderCommand}" CommandParameter="{Binding}"/>
                                                 <Button Classes="Ghost" Content="Listeden Kaldır"
                                                         Command="{Binding YoksayCommand}" CommandParameter="{Binding}"/>

@@ -34,7 +34,8 @@ public sealed class Migration101_SyncRejections : IMigration
                 first_at    INTEGER NOT NULL,
                 last_at     INTEGER NOT NULL,
                 attempts    INTEGER NOT NULL DEFAULT 1,
-                status      TEXT NOT NULL DEFAULT 'open'
+                status      TEXT NOT NULL DEFAULT 'open',
+                kind        TEXT NOT NULL DEFAULT 'red'     -- red = gönderilemedi · kod = K-22 kod değiştirildi (bilgi)
             );
             CREATE INDEX IF NOT EXISTS ix_sync_rejections_company ON sync_rejections(company_id, status);
             """;

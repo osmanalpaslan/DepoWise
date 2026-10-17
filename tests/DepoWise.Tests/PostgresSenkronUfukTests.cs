@@ -211,6 +211,29 @@ public class PostgresSenkronUfukTests
         Assert.Equal("TLP-2026-A2-0001", BelgeNumarasi.Sonraki(c, null, "material_requests", "doc_no", "B", "TLP-2026-", "A2"));
     }
 
+    /// <summary>PUF9 — K-22 b PostgreSQL'de: kod çakışması kurtarma yolunda (satır savepoint'i) yeni kodla kaydedilir,
+    /// aynı paketteki geçerli satır ve başka bir kalıcı hata etkilenmez.</summary>
+    [SkippableFact]
+    public void PUF9_Kod_Cakismasi_PG_Kurtarma_Yolunda_Yeni_Kodla_Kaydedilir()
+    {
+        var (f, sync) = Kur();
+        using (var c = f.Create()) Ekle(c, null, "MLZ-100");   // id = kod = MLZ-100
+        var paket = JsonDocument.Parse("""
+            { "tables": { "materials": [
+              { "id": "m_cakisan", "code": "MLZ-100", "name": "İkinci bilgisayar", "created_at": 1, "updated_at": 1 },
+              { "id": "m_fk", "code": "Z2", "name": "Kategori yok", "category_id": "OLMAYAN", "created_at": 1, "updated_at": 1 },
+              { "id": "m_iyi", "code": "Z3", "name": "Geçerli", "created_at": 1, "updated_at": 1 } ] } }
+            """).RootElement;
+        var res = sync.Apply("B", paket);
+        var ad = Assert.Single(res.Renamed!);
+        Assert.Equal(("m_cakisan", "MLZ-100-2"), (ad.Key, ad.New));
+        Assert.Single(res.Rejected!, r => r.Key == "m_fk");
+        using var conn = f.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT string_agg(id || '=' || code, ',' ORDER BY id) FROM materials WHERE company_id='B';";
+        Assert.Equal("MLZ-100=MLZ-100,m_cakisan=MLZ-100-2,m_iyi=Z3", cmd.ExecuteScalar() as string);
+    }
+
     [SkippableFact]
     public void PUF3_Her_Esitleme_Tablosunda_Tetikleyici_Var()
     {

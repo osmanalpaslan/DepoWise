@@ -110,7 +110,7 @@ public static class BusinessSyncPushService
                 LastPushResult = r;
                 // ⭐ M-15 (AR-GE 2026-10-17): HANGİ kayıt gitmedi → yerel "Gönderilemeyen kayıtlar" listesi (imleçten bağımsız,
                 // kaybolmaz); bu turda kabul edilenlerin eski kaydı silinir. Hata eşitlemeyi durdurmaz.
-                try { new GonderimRedleriService(DesktopServices.Factory).Isle(companyId!, snapshot, r.Rejected ?? System.Array.Empty<RejectedRow>()); }
+                try { new GonderimRedleriService(DesktopServices.Factory).Isle(companyId!, snapshot, r.Rejected ?? System.Array.Empty<RejectedRow>(), r.Renamed); }
                 catch (Exception ex) { SyncLog.Write("RED LİSTESİ yazılamadı", ex.Message); }
                 SonGonderilenSayisi = r.Upserted;   // 2026-10-04: üst bardaki "giden" sayacı
                 LastPushFailed = false;
@@ -169,7 +169,8 @@ public static class BusinessSyncPushService
     /// <summary>Sunucunun push yanıtı: kaç satır uygulandı / atlandı + hata mesajları (max 20). Z2 (2026-07-19):
     /// istemci eskiden bu yanıtı okumuyordu → atlanan kayıtlar sessizce kayboluyordu. Artık üst bar + log gösterir.</summary>
     public sealed record PushResult(int Upserted, int Skipped, System.Collections.Generic.IReadOnlyList<string> Errors,
-        int PermanentSkipped = 0, System.Collections.Generic.IReadOnlyList<RejectedRow>? Rejected = null)
+        int PermanentSkipped = 0, System.Collections.Generic.IReadOnlyList<RejectedRow>? Rejected = null,
+        System.Collections.Generic.IReadOnlyList<BusinessSyncService.RenamedRow>? Renamed = null)
     {
         /// <summary>
         /// ⭐ S1 (2026-08-19) — GERÇEKTEN yeniden denenecek satır sayısı.
@@ -341,6 +342,7 @@ public static class BusinessSyncPushService
         int upserted = 0, skipped = 0, permanent = 0;
         var errors = new System.Collections.Generic.List<string>();
         var rejected = new System.Collections.Generic.List<RejectedRow>();   // ⭐ M-15 (eski sunucuda yok → boş)
+        var renamed = new System.Collections.Generic.List<BusinessSyncService.RenamedRow>();   // ⭐ K-22 b
         try
         {
             using var doc = JsonDocument.Parse(json);
@@ -362,10 +364,17 @@ public static class BusinessSyncPushService
                         var kalici = it.TryGetProperty("permanent", out var pv) && pv.ValueKind == JsonValueKind.True;
                         if (S("table").Length > 0) rejected.Add(new RejectedRow(S("table"), S("key"), S("reason"), kalici));
                     }
+                if (root.TryGetProperty("renamed", out var rn) && rn.ValueKind == JsonValueKind.Array)
+                    foreach (var it in rn.EnumerateArray())
+                    {
+                        if (it.ValueKind != JsonValueKind.Object) continue;
+                        string S(string k) => it.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+                        if (S("table").Length > 0) renamed.Add(new BusinessSyncService.RenamedRow(S("table"), S("key"), S("column"), S("old"), S("new")));
+                    }
             }
         }
         catch { /* bozuk/boş gövde → sıfır sonuç */ }
-        return new PushResult(upserted, skipped, errors, permanent, rejected);
+        return new PushResult(upserted, skipped, errors, permanent, rejected, renamed);
     }
 
     private static string Truncate(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "…";

@@ -1067,7 +1067,69 @@ public sealed class BusinessSyncService
     /// akışa devam edebilir. <b>Eski istemciler alanı yok sayar → davranış değişmez.</b>
     /// </summary>
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors,
-        int PermanentSkipped = 0, IReadOnlyList<RejectedRow>? Rejected = null);
+        int PermanentSkipped = 0, IReadOnlyList<RejectedRow>? Rejected = null, IReadOnlyList<RenamedRow>? Renamed = null);
+
+    /// <summary>⭐ K-22 b: kod çakışması yüzünden sunucunun yeni kodla kaydettiği satır.</summary>
+    public sealed record RenamedRow(string Table, string Key, string Column, string Old, string New);
+
+    /// <summary>
+    /// ⭐ K-22 b (AR-GE 2026-10-17, kullanıcı kararı) — DOĞAL KOD ÇAKIŞMASI: iki bilgisayar çevrimdışıyken aynı kodu (ör. malzeme
+    /// <c>MLZ-100</c>) açarsa, ikinci gelen REDDEDİLMEZ; kod <c>MLZ-100-2</c> (boşsa) yapılarak kaydedilir ve gönderene bildirilir.
+    /// Sonraki çekimde gönderen bilgisayar da yeni kodu alır. Tablo → (kod kolonu, benzersiz indeks adı — PG hata metni için).
+    /// Belge numaraları da listede: kodsuz (eski sürüm) bilgisayarların ürettiği aynı numaralar böylece düşmez.
+    /// İsimle benzersiz tanımlar (birim, marka, tedarikçi…) BİLİNÇLİ olarak yok: "Adet-2" aynı şeyin mükerrer kaydıdır,
+    /// gönderilemeyen kayıtlar listesinde görünür.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Kolon, string Indeks)> DogalKodlar =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["materials"] = ("code", "ux_materials_code"),
+            ["vehicles"] = ("internal_code", "ux_vehicles_internal_code"),
+            ["equipment"] = ("code", "ux_equipment_code"),
+            ["parties"] = ("code", "ux_parties_code"),
+            ["finance_accounts"] = ("code", "ux_finance_accounts_code"),
+            ["purchase_orders"] = ("order_no", "ux_po_order_no"),
+            ["work_orders"] = ("wo_no", "ux_wo_no"),
+            ["stock_documents"] = ("doc_no", "ux_stock_documents_no"),
+            ["material_requests"] = ("doc_no", "ux_material_requests_no"),
+            ["invoices"] = ("invoice_no", "ux_invoices_no"),
+        };
+
+    /// <summary>Hata bu tablonun DOĞAL KOD benzersizliği mi (operation_id vb. değil)?</summary>
+    private static bool KodCakismasi(Exception ex, string table, out string kolon)
+    {
+        kolon = "";
+        if (!DogalKodlar.TryGetValue(table, out var d)) return false;
+        var m = ex.Message ?? "";
+        var sqlite = m.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) && m.Contains($"{table}.{d.Kolon}", StringComparison.Ordinal);
+        var pg = m.Contains("23505", StringComparison.Ordinal) && m.Contains(d.Indeks, StringComparison.Ordinal);
+        if (!sqlite && !pg) return false;
+        kolon = d.Kolon;
+        return true;
+    }
+
+    /// <summary>Satırın kodunu firma içinde boş ilk "KOD-n" (n = 2…99) ile değiştirilmiş KOPYASINI döner; bulunamazsa null.</summary>
+    private static (JsonElement Satir, string Eski, string Yeni)? KodDegistir(DbConnection conn, string table, string kolon,
+        string companyId, JsonElement rowEl)
+    {
+        if (!rowEl.TryGetProperty(kolon, out var v) || v.ValueKind != JsonValueKind.String) return null;
+        var eski = v.GetString();
+        if (string.IsNullOrWhiteSpace(eski)) return null;
+        for (int n = 2; n < 100; n++)
+        {
+            var aday = $"{eski}-{n}";
+            using var q = conn.CreateCommand();
+            q.CommandText = $"SELECT 1 FROM {table} WHERE company_id=@c AND {kolon}=@k LIMIT 1;";
+            q.AddWithValue("@c", companyId);
+            q.AddWithValue("@k", aday);
+            if (q.ExecuteScalar() is not null) continue;
+            var node = System.Text.Json.Nodes.JsonNode.Parse(rowEl.GetRawText())!.AsObject();
+            node[kolon] = aday;
+            using var doc = JsonDocument.Parse(node.ToJsonString());
+            return (doc.RootElement.Clone(), eski!, aday);
+        }
+        return null;
+    }
 
     /// <summary>⭐ M-15: yanıtta taşınan reddedilen satır üst sınırı (büyük ilk gönderimde yanıt şişmesin).</summary>
     public const int MaxRejected = 500;
@@ -1386,6 +1448,7 @@ public sealed class BusinessSyncService
         int permanentSkipped = 0;
         var errors = new List<string>();
         var rejected = new List<RejectedRow>();   // ⭐ M-15: HANGİ satır neden gitmedi (istemci listede gösterir)
+        var renamed = new List<RenamedRow>();     // ⭐ K-22 b: kod çakışması yüzünden yeni kodla kaydedilenler
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -1431,7 +1494,7 @@ public sealed class BusinessSyncService
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
             var (tUp, tSk, tPerm) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
-                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session, rejected);
+                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session, rejected, renamed);
             upserted += tUp; skipped += tSk; permanentSkipped += tPerm;
         }
 
@@ -1451,7 +1514,7 @@ public sealed class BusinessSyncService
             throw;
         }
 
-        return new ApplyResult(upserted, skipped, errors, permanentSkipped, rejected);
+        return new ApplyResult(upserted, skipped, errors, permanentSkipped, rejected, renamed);
     }
 
     /// <summary>Bir tablonun satırlarını uygular. Döner: (upserted, skipped).
@@ -1469,8 +1532,29 @@ public sealed class BusinessSyncService
         List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
         JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
         bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null,
-        List<RejectedRow>? rejected = null)
+        List<RejectedRow>? rejected = null, List<RenamedRow>? renamed = null)
     {
+        // ⭐ K-22 b: kod çakışmasında satırı yeni kodla bir kez daha dene (yalnız PUSH; çekmede sunucu otoriterdir).
+        var adBaslangic = renamed?.Count ?? 0;
+        bool YeniKodlaDene(JsonElement rowEl, Exception ex)
+        {
+            if (serverAuth || renamed is null || !KodCakismasi(ex, table, out var kolon)) return false;
+            if (KodDegistir(conn, table, kolon, companyId, rowEl) is not { } k) return false;
+            if (isPg) ExecRaw(conn, "SAVEPOINT dw_kod;");
+            try
+            {
+                var r = ApplyOne(k.Satir, errors);
+                if (isPg) ExecRaw(conn, "RELEASE SAVEPOINT dw_kod;");
+                if (r != true) return false;
+                renamed.Add(new RenamedRow(table, GonderimRedleriService.SatirAnahtari(rowEl, pk), kolon, k.Eski, k.Yeni));
+                return true;
+            }
+            catch
+            {
+                if (isPg) { ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_kod;"); ExecRaw(conn, "RELEASE SAVEPOINT dw_kod;"); }
+                return false;
+            }
+        }
         int up = 0, sk = 0;
         // ⭐ M-15: reddedilen satırın nedeni (ApplyOne'daki her ret dalı yazar) + kayıt yardımcıları.
         string? neden = null;
@@ -1550,11 +1634,18 @@ public sealed class BusinessSyncService
         if (!isPg)
         {
             // SQLite — mevcut davranış (satır başı try/catch, savepoint yok).
-            foreach (var rowEl in rowsEl.EnumerateArray())
+            // ⭐ K-22 b: ÇEKMEDE kod çakışması genelde aynı paketteki başka satırın (yerel kaydın sunucuda "-2" olmuş hâli)
+            // henüz uygulanmamasındandır → satır tablonun sonuna ertelenir ve bir kez daha denenir; yoksa sunucudaki kayıt bu
+            // bilgisayara HİÇ inmezdi (imleç ilerlediği için bir daha gelmezdi).
+            var ertelenen = new List<JsonElement>();
+            var ertelemeBitti = false;
+            foreach (var rowEl in rowsEl.EnumerateArray().Concat(ErtelenenleriSonraVer()))
             {
                 try { var r = ApplyOne(rowEl, errors); if (r == true) up++; else sk++; Sonuc(rowEl, r); }
                 catch (Exception ex)
                 {
+                    if (serverAuth && !ertelemeBitti && KodCakismasi(ex, table, out _)) { ertelenen.Add(rowEl); continue; }
+                    if (YeniKodlaDene(rowEl, ex)) { up++; continue; }
                     sk++;
                     if (IsPermanentDbError(ex)) perm++;   // ⭐ S1: tekrar denemek aynı sonucu verir
                     if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
@@ -1562,6 +1653,12 @@ public sealed class BusinessSyncService
                 }
             }
             return (up, sk, perm);
+
+            IEnumerable<JsonElement> ErtelenenleriSonraVer()
+            {
+                ertelemeBitti = true;
+                foreach (var e in ertelenen.ToList()) yield return e;
+            }
         }
 
         // PostgreSQL — HIZLI YOL: tüm tablo tek savepoint.
@@ -1592,6 +1689,7 @@ public sealed class BusinessSyncService
         up = 0; sk = 0; perm = 0;
         if (rejected is not null && rejected.Count > redBaslangic)   // hızlı yolun kayıtları da baştan (çift kayıt olmasın)
             rejected.RemoveRange(redBaslangic, rejected.Count - redBaslangic);
+        if (renamed is not null && renamed.Count > adBaslangic) renamed.RemoveRange(adBaslangic, renamed.Count - adBaslangic);
         foreach (var rowEl in rowsEl.EnumerateArray())
         {
             ExecRaw(conn, "SAVEPOINT dw_row;");
@@ -1606,6 +1704,7 @@ public sealed class BusinessSyncService
             {
                 ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_row;");
                 ExecRaw(conn, "RELEASE SAVEPOINT dw_row;");
+                if (YeniKodlaDene(rowEl, ex)) { up++; continue; }
                 sk++;
                 // ⭐ S1: yabancı anahtar / benzersizlik ihlali tekrar denendiğinde de aynı sonucu verir.
                 if (IsPermanentDbError(ex)) perm++;

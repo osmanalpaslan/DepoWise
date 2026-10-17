@@ -9,13 +9,17 @@ public sealed record RejectedRow(string Table, string Key, string Reason, bool P
 
 /// <summary>Ekranda gösterilen gönderilemeyen kayıt.</summary>
 public sealed record GonderilemeyenKayit(string Anahtar, string Tablo, string TabloEtiketi, string SatirAnahtari,
-    string Tanim, string Neden, bool Kalici, long IlkZaman, long SonZaman, int Deneme, bool YereldeVar)
+    string Tanim, string Neden, bool Kalici, long IlkZaman, long SonZaman, int Deneme, bool YereldeVar, string Tur = "red")
 {
+    /// <summary>K-22 b bildirimi mi (kayıt GİTTİ, yalnız kodu değişti) — "Yeniden Gönder" anlamsız.</summary>
+    public bool KodBildirimi => Tur == "kod";
+    public bool YenidenGonderilebilir => YereldeVar && !KodBildirimi;
+
     /// <summary>Kart başlığı: "Malzeme · R-1 · Çimento".</summary>
     public string Baslik => $"{TabloEtiketi} · {Tanim}";
 
     /// <summary>Sunucu nedeni "tablo: ..." biçimindedir; teknik tablo adı kullanıcıya gösterilmez.</summary>
-    public string NedenMetni => "Neden: " + (Neden.StartsWith(Tablo + ":", StringComparison.Ordinal) ? Neden[(Tablo.Length + 1)..].Trim() : Neden);
+    public string NedenMetni => (KodBildirimi ? "Bilgi: " : "Neden: ") + (Neden.StartsWith(Tablo + ":", StringComparison.Ordinal) ? Neden[(Tablo.Length + 1)..].Trim() : Neden);
 
     public string ZamanMetni
     {
@@ -26,7 +30,9 @@ public sealed record GonderilemeyenKayit(string Anahtar, string Tablo, string Ta
         }
     }
 
-    public string Ipucu => !YereldeVar
+    public string Ipucu => KodBildirimi
+        ? "Kayıt sunucuya ulaştı. Aynı kodla başka bir bilgisayarda da kayıt açılmıştı; gerekiyorsa iki kartı kontrol edip düzeltin. Bu bildirimi 'Listeden Kaldır' ile kapatabilirsiniz."
+        : !YereldeVar
         ? "Bu kayıt artık bu bilgisayarda yok; listeden kaldırabilirsiniz."
         : Kalici
             ? "Bu neden kendiliğinden düzelmez: kaydı açıp sorunu giderin (ör. kodu değiştirin, bağlı kaydı seçin) ve kaydedin."
@@ -83,7 +89,8 @@ public sealed class GonderimRedleriService
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString()) : ""));
 
     /// <summary>Bir gönderim turunun sonucunu işler. <paramref name="gonderilenPaket"/> = sunucuya giden JSON.</summary>
-    public void Isle(string companyId, string gonderilenPaket, IReadOnlyList<RejectedRow> redler)
+    public void Isle(string companyId, string gonderilenPaket, IReadOnlyList<RejectedRow> redler,
+        IReadOnlyList<BusinessSyncService.RenamedRow>? kodlar = null)
     {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
@@ -107,7 +114,8 @@ public sealed class GonderimRedleriService
                         if (redAnahtarlari.Contains(a)) continue;
                         using var del = conn.CreateCommand();
                         del.Transaction = tx;
-                        del.CommandText = "DELETE FROM sync_rejections WHERE anahtar=@a;";
+                        // Yalnız RED kaydı silinir; K-22 kod bildirimi kullanıcı kapatana kadar durur.
+                        del.CommandText = "DELETE FROM sync_rejections WHERE anahtar=@a AND kind='red';";
                         del.AddWithValue("@a", a);
                         del.ExecuteNonQuery();
                     }
@@ -134,16 +142,37 @@ public sealed class GonderimRedleriService
             up.AddWithValue("@n", now);
             up.ExecuteNonQuery();
         }
+
+        // 3) ⭐ K-22 b: kodu değiştirilerek kaydedilenler — BİLGİ bildirimi (kayıt gitti; kullanıcı haberdar olsun).
+        foreach (var k in kodlar ?? Array.Empty<BusinessSyncService.RenamedRow>())
+        {
+            using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText = """
+                INSERT INTO sync_rejections(anahtar, company_id, table_name, row_key, reason, permanent, first_at, last_at, attempts, status, kind)
+                VALUES(@a, @c, @t, @k, @r, 0, @n, @n, 1, 'open', 'kod')
+                ON CONFLICT(anahtar) DO UPDATE SET reason=excluded.reason, last_at=excluded.last_at, kind='kod', status='open';
+                """;
+            ins.AddWithValue("@a", Anahtar(companyId, k.Table, k.Key));
+            ins.AddWithValue("@c", companyId);
+            ins.AddWithValue("@t", k.Table);
+            ins.AddWithValue("@k", k.Key);
+            ins.AddWithValue("@r", $"\"{k.Old}\" kodu başka bir kayıtta kullanılıyordu; bu kayıt \"{k.New}\" koduyla kaydedildi.");
+            ins.AddWithValue("@n", now);
+            ins.ExecuteNonQuery();
+        }
         tx.Commit();
     }
 
-    public int AcikSayisi(string companyId)
+    /// <param name="tur">"red" (gönderilemeyen) ya da "kod" (K-22 bildirimi); null = hepsi.</param>
+    public int AcikSayisi(string companyId, string? tur = "red")
     {
         using var conn = _factory.Create();
         if (!DbIntrospect.TableExists(conn, null, "sync_rejections")) return 0;
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM sync_rejections WHERE company_id=@c AND status='open';";
+        cmd.CommandText = "SELECT COUNT(*) FROM sync_rejections WHERE company_id=@c AND status='open'" + (tur is null ? ";" : " AND kind=@k;");
         cmd.AddWithValue("@c", companyId);
+        if (tur is not null) cmd.AddWithValue("@k", tur);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
@@ -153,21 +182,21 @@ public sealed class GonderimRedleriService
         using var conn = _factory.Create();
         var liste = new List<GonderilemeyenKayit>();
         if (!DbIntrospect.TableExists(conn, null, "sync_rejections")) return liste;
-        var ham = new List<(string A, string T, string K, string R, bool P, long F, long L, int N)>();
+        var ham = new List<(string A, string T, string K, string R, bool P, long F, long L, int N, string Tur)>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT anahtar, table_name, row_key, reason, permanent, first_at, last_at, attempts " +
+            cmd.CommandText = "SELECT anahtar, table_name, row_key, reason, permanent, first_at, last_at, attempts, kind " +
                               "FROM sync_rejections WHERE company_id=@c AND status='open' ORDER BY last_at DESC;";
             cmd.AddWithValue("@c", companyId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 ham.Add((r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetInt64(4) != 0,
-                         r.GetInt64(5), r.GetInt64(6), r.GetInt32(7)));
+                         r.GetInt64(5), r.GetInt64(6), r.GetInt32(7), r.GetString(8)));
         }
         foreach (var h in ham)
         {
             var (yerelde, tanim) = Tanimla(conn, h.T, h.K);
-            liste.Add(new GonderilemeyenKayit(h.A, h.T, Etiket(h.T), h.K, tanim, h.R, h.P, h.F, h.L, h.N, yerelde));
+            liste.Add(new GonderilemeyenKayit(h.A, h.T, Etiket(h.T), h.K, tanim, h.R, h.P, h.F, h.L, h.N, yerelde, h.Tur));
         }
         return liste;
     }

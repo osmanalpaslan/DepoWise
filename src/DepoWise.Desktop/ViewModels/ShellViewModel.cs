@@ -240,15 +240,22 @@ public sealed partial class ShellViewModel : ViewModelBase
             SyncWarning = $"⚠ {redSayisi} kayıt gönderilemedi";
             return;
         }
+        // ⭐ K-22 b: kod çakışması yüzünden yeni kodla kaydedilen kayıtlar (bilgi; kullanıcı listeden kapatana kadar).
+        var kodSayisi = GonderilemeyenSayisi("kod");
+        if (kodSayisi > 0)
+        {
+            SyncWarning = $"ℹ {kodSayisi} kayıt kodu değiştirildi";
+            return;
+        }
         var r = BusinessSyncPushService.LastPushResult;
         SyncWarning = (r is not null && r.HasProblem)
             ? $"⟳ {r.Skipped} kayıt yeniden denenecek ({BusinessSyncPushService.RetryAttempts()}/5)"
             : "";
     }
 
-    private int GonderilemeyenSayisi()
+    private int GonderilemeyenSayisi(string? tur = "red")
     {
-        try { return new DepoWise.Infrastructure.Sync.GonderimRedleriService(DesktopServices.Factory).AcikSayisi(_session.CompanyId); }
+        try { return new DepoWise.Infrastructure.Sync.GonderimRedleriService(DesktopServices.Factory).AcikSayisi(_session.CompanyId, tur); }
         catch { return 0; }
     }
 
@@ -271,7 +278,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         }
 
         // ⭐ M-15: gönderilemeyen kayıt varsa önce LİSTE açılır (hangi kayıt, neden, yeniden gönder).
-        if (GonderilemeyenSayisi() > 0)
+        if (GonderilemeyenSayisi(null) > 0)
         {
             await DepoWise.Desktop.Views.GonderilemeyenlerWindow.GosterAsync(cid);
             RefreshSyncWarning();
