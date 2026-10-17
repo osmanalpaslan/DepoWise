@@ -7,7 +7,7 @@
        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_ui_tests.ps1 -->
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>

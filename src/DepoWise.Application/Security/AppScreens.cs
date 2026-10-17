@@ -458,6 +458,16 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        // 1.0.201 hotfix (2026-10-13, ayrı dalda yayınlandı) ile .NET 10 yayını birleşti → altyapı notu 1.0.202.
+        new("2026-10-17-altyapi", new DateOnly(2026, 10, 17), "1.0.202", "Güvenlik ve altyapı güncellemesi", new GuncellemeMaddesi[]
+        {
+            new("Uygulamanın altyapısı en güncel ve uzun süre desteklenen sürüme yükseltildi; güvenlik güncellemeleri kesintisiz almaya devam eder. Kullanım değişmedi."),
+            new("Veritabanı bileşenindeki bilinen bir güvenlik açığı kapatıldı.", Masaustu),
+        }),
+        new("2026-10-13-teslim-alan", new DateOnly(2026, 10, 13), "1.0.201", "Stok hareketleri raporunda teslim alan kişi", new GuncellemeMaddesi[]
+        {
+            new("Raporlar ekranında «Stok Hareketleri» ve «Stok Hareketleri — Günlük» raporlarında hareket türü olarak «Çıkış» seçildiğinde, malzemenin kime teslim edildiğini gösteren «Teslim Alan» sütunu eklendi.", Ikisi),
+        }),
         new("2026-10-12-tablolar", new DateOnly(2026, 10, 12), "1.0.200", "Tablo başlıkları her pencere boyutunda hizalı", new GuncellemeMaddesi[]
         {
             new("Pencere daraldığında tablo başlıklarının sütunlardan kayması düzeltildi: başlıklar artık her zaman kendi sütununun tam üstünde durur, tablo yana kaydırıldığında da birlikte kayar.", Masaustu),

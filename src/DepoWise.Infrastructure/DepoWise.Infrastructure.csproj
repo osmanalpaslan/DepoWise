@@ -11,7 +11,7 @@
          (PngByteQRCode System.Drawing kullanmaz → masaüstü/Linux sunucuda aynı çalışır). -->
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageReference Include="QuestPDF" Version="2026.6.1" />
     <!-- Foto optimizasyonu (resize/JPEG) — ImageSharp lisans maliyeti yerine ücretsiz SkiaSharp.
          Linux (Fly aspnet:8.0 Debian) için native NoDependencies (fontconfig gerektirmez). -->
@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

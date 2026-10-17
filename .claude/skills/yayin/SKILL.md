@@ -17,6 +17,11 @@ değiştirmek ve ücret çıkaran adımlar yine onay ister (bu skill yalnız mev
 - [ ] **Güncelleme notu:** `src/DepoWise.Application/Security/AppScreens.cs` → `GuncellemeNotlari.Tumu` EN BAŞINDA bu
       yayının notu var; sade Türkçe, teknik terimsiz (`GuncellemeNotlariTests.GN2` yakalar). Masaüstü yayınıysa
       `MasaustuSurumu` = yeni sürüm. Not commit'e girdikten SONRA yayınlanır (web pop-up ve masaüstü "Yenilikler" ondan okur).
+- [ ] **Canlıdaki her şey bu dalda mı?** (2026-10-17 dersi: hotfix dalı master'a girmeden yayınlanmıştı; master'dan açılan
+      dalın API yayını onun rapor değişikliğini canlıdan GERİ ALDI.) `git fetch` → her uzak dal için
+      `git log --oneline HEAD..origin/<dal>` — yayınlanmış ama bu dalda olmayan commit varsa ÖNCE birleştir (kullanıcı onayıyla).
+      Ayrıca `curl https://depowise-erp.fly.dev/api/releases/latest` → canlı masaüstü sürümü beklediğin önceki sürüm mü?
+      Değilse yeni sürüm numarasını ona göre seç.
 - [ ] Yeni migration varsa: yalnız ekleme (ADD COLUMN/CREATE) ve eski şemaya dayanıklı servis — API önce çıkar.
 
 ## 1. Temiz kopya (commitlenmemiş iş canlıya KARIŞMAZ)

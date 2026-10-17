@@ -103,7 +103,7 @@ public static class ScreenInfoBuilder
         try
         {
             var loc = typeof(ScreenInfoBuilder).Assembly.Location;
-            var dir = Path.GetDirectoryName(loc);            // ...\bin\Debug\net8.0
+            var dir = Path.GetDirectoryName(loc);            // ...\bin\Debug\net10.0
             for (int i = 0; i < 3 && dir is not null; i++) dir = Path.GetDirectoryName(dir);
             return dir is not null && Directory.Exists(Path.Combine(dir, "Views")) ? dir : null;
         }

@@ -3,7 +3,7 @@ paths:
   - "src/**/*.{cs,axaml,csproj,props}"
 ---
 # Masaüstü
-- .NET 8, nullable, async/await; UI thread DB/ağ ile bloklanmaz.
+- .NET 10, nullable, async/await; UI thread DB/ağ ile bloklanmaz.
 - MVVM; code-behind iş kuralı içermez.
 - Dapper parametreli; transaction aynı connection üzerinde taşınır.
 - NumericUpDown ve aranabilir seçim ortak bileşenleri kullanılır.
