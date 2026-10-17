@@ -19,8 +19,9 @@
 | 11 | Ana fazlar, alt fazlar ve kabul kriterleri | `09_yol_haritasi.md` | tamam |
 | 12 | Tamamlanan değişiklikler ve test sonuçları | `10_uygulama_gunlugu.md` | bekliyor |
 | 13 | Kalan sorunlar, teknik borç, açık riskler | `11_kalan_riskler.md` | bekliyor |
-| 14 | Yayın öncesi nihai doğrulama kontrol listesi | `12_yayin_oncesi_kontrol.md` | bekliyor |
+| 14 | Yayın öncesi nihai doğrulama kontrol listesi | `12_yayin_oncesi_kontrol.md` | başladı (hatırlatmalar) |
 | — | Araç/MCP değerlendirmesi | `00_araclar.md` | tamam |
+| — | Ürün sahibinin seçimleri (B fazlarının bağlayıcı kapsamı) | `13_kullanici_secimleri.md` + `Alpnex_Secim_Listesi.xlsx` | tamam (2026-10-13) |
 
 Mevcut belgelerle ilişki: güncel mimari için kök `CLAUDE.md` + `DECISIONS.md` (ADR) bağlayıcıdır; bu klasör onları
 TEKRARLAMAZ, yalnız bulgu ve önerileri ADR numarasıyla bağlar.

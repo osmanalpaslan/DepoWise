@@ -18,8 +18,8 @@
 | A3 | Arka plan teknik süreçleri, güvenlik, performans, veri/senkron denetimi | tamam — 04, 07 (200/300 bin ölçüm) |
 | A4 | Test kapsamı ve doğrulama denetimi | tamam — 06 |
 | A5 | Avalonia tasarım araştırması → tasarım sistemi | tamam — 08 |
-| A6 | Fark analizi (8 kategori) + önceliklendirilmiş yol haritası | tamam — 05 (190 bulgu, 18 P0), 09 (22 karar + 85 madde) → KULLANICI SEÇİMİ BEKLENİYOR |
-| B* | Kontrollü geliştirme fazları (yol haritasından) | bekliyor |
+| A6 | Fark analizi (8 kategori) + önceliklendirilmiş yol haritası | tamam — 05 (190 bulgu, 18 P0), 09 (22 karar + 85 madde) → kullanıcı seçimi alındı: `docs/arge/13_kullanici_secimleri.md` |
+| B* | Kontrollü geliştirme fazları (yol haritası + 13 seçimleri) | başlıyor |
 | Z | Nihai doğrulama, kalan riskler, yayın öncesi kontrol listesi | bekliyor |
 
 ---
