@@ -30,6 +30,10 @@ devam; (d) eski masaüstü eski uçla çalışmaya devam eder.
   devre dışı (`sync_ctx` geçici tablosu) → inen satır yeniden gönderilmez (yankı biter).
 - Push watermark = gönderilip **sunucunun kabul ettiği** son `local_change_seq` (saat bağımsız).
 **Kabul:** saat geri alınmış makinede yeni kayıt gönderilir; çekilen satır push paketinde yer almaz.
+**Uygulandı (2026-10-17, Migration100):** kolon `local_change_seq` + `sync_local_counter`; çekme koruması kalıcı tablo
+`sync_apply_guard` (SQLite'ta kalıcı tetikleyici geçici tabloya bakamaz; satır aynı işlemde eklenip silinir). Sunucu rolünde etkisiz;
+PG'de migration boştur. `BuildPushSnapshot`: değişen ebeveynin çocukları da gider. İstemci imleci `sync_push_seq`; tek seferlik
+geçişte "sayaçlı VEYA eski damga imlecinden yeni" paketi → güncelleme öncesi bekleyen kayıt kaybolmaz.
 
 ## 3. Bilgisayar kodlu numara ve kod çakışması (M-78 — K1; K-21 a, K-22 b)
 - Kurulumda makineye kısa kod (`A3` vb., sunucudan tekil atanır; çevrimdışı ilk kurulumda geçici kod + ilk bağlantıda kesinleşir).

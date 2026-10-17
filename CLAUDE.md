@@ -21,7 +21,7 @@
 - **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (512 MB + 256 MB swap, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
 - **API:** minimal API `/api/...` (sürüm öneki yok), `depowise-erp.fly.dev` (512 MB, tek makine). Hata gövdesi `{"error":"..."}`.
 - **Üretim DB:** Supabase PostgreSQL 17 (proje *Alpnex*, `depowise_prod`). API doğrudan bağlantı; yerel araçlar pooler
-  (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 99** (arge dalı; master 98).
+  (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 100** (arge dalı; master 98).
 - Migration kataloğu iki lehçede yürür; lehçe farkı `SqlDialect`/`DbIntrospect`. Yeni migration yalnız ekleme (ADD COLUMN/CREATE)
   ve kullanıcı onayıyla; servisler eski şemaya dayanıklı kalır (`DbIntrospect.ColumnExists`).
 - **Ortak dosya tuzağı:** Web, Application'daki bazı dosyaları csproj `Compile Include` ile bağlar (proje referansı yok). Web'de
@@ -41,7 +41,8 @@
 ## 4. Test
 - **Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 [-Filter "..."] [-Bekle] [-PostgresAtla]`.
   Tam takım ~4.000 test / ~60 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
-- Test tipine (normal/kapsamlı) Claude karar verir, gerekçe tek satır. Flaky testi tekrarla gizleme.
+- Test tipine Claude karar verir, gerekçe tek satır. **Düzen (kullanıcı kararı 2026-10-17):** adımda hedefli testler + riskli alan paketi
+  (senkron/migration/kopyalayıcı/PG/kaynak-metin); TAM takım yalnız faz sonunda, geniş arayüz işinde ve yayın öncesi (zorunlu). Flaky testi tekrarla gizleme.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
   web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma).

@@ -56,12 +56,37 @@ public static class BusinessSyncPushService
             // updated_at > watermark olan — yani GERÇEKTEN GÖNDERİLMEMİŞ — satırlar gönderilir. Sunucu global
             // max'ına HİÇ bakılmaz → başka bir kaydın zaman damgası yüzünden atlama İMKÂNSIZDIR.
             // (since=0 yalnız ilk kurulumda; sürekli full push YOK, her şeyi tekrar gönderme YOK.)
-            long pushWm = LoadPushWatermark(companyId!);
-            long localV = await Task.Run(() => svc.CompanyVersion(companyId!));
-            if (localV <= pushWm) return; // gönderilecek YENİ yerel değişiklik yok → boş push atma (bant israfı yok)
-            SyncLog.Write("PUSH başladı", $"since(watermark)={pushWm} localV={localV}");
+            //
+            // ⭐ M-03 adım 3 (AR-GE 2026-10-17) — İMLEÇ ARTIK SAAT DEĞİL, YEREL DEĞİŞİKLİK SAYACI (Migration100).
+            // Eski damga imleci, saati geri alınmış makinede yeni kaydı "gönderilmiş" sanıp HİÇ göndermiyordu; ayrıca
+            // sunucudan inen satırlar geri gönderiliyordu (yankı). Sayaç yalnız YEREL yazımda artar (çekme sırasında durur).
+            // GEÇİŞ (bir kez): sayaç imleci henüz yoksa paket = "sayaçlı yeni değişiklikler" VEYA "eski damga imlecinden
+            // yeni satırlar" → güncellemeden önce bekleyen kayıt kaybolmaz. Başarıdan sonra yalnız sayaç kullanılır.
+            long seqWm = LoadPushSeq(companyId!);                       // -1 = geçiş yapılmadı
+            long localSeq = await Task.Run(() => svc.LocalChangeSeq()); // önce oku: arada yazılan satır sonraki tura kalır
+            bool gecis = seqWm < 0 || localSeq < 0;
+            long pushWm = 0, localV = 0;
+            if (gecis)
+            {
+                pushWm = LoadPushWatermark(companyId!);
+                localV = await Task.Run(() => svc.CompanyVersion(companyId!));
+                if (localV <= pushWm && localSeq <= 0)
+                {   // eski imleçte bekleyen yok ve sayaçlı yeni yazım yok → geçişi sessizce tamamla
+                    if (localSeq >= 0) SavePushSeq(companyId!, localSeq);
+                    return;
+                }
+            }
+            else if (localSeq <= seqWm) return; // gönderilecek YENİ yerel değişiklik yok → boş push atma (bant israfı yok)
+            SyncLog.Write("PUSH başladı", gecis ? $"GEÇİŞ since(watermark)={pushWm} localV={localV} seq={localSeq}" : $"seq {seqWm}→{localSeq}");
             // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
-            var snapshot = await Task.Run(() => svc.BuildSnapshot(companyId!, machineName, pushWm));
+            var snapshot = await Task.Run(() => localSeq < 0
+                ? svc.BuildSnapshot(companyId!, machineName, pushWm)                       // sayaçsız eski şema (olmamalı)
+                : svc.BuildPushSnapshot(companyId!, machineName, gecis ? 0 : seqWm, gecis ? pushWm : null));
+            void Ilerlet()
+            {
+                if (localSeq >= 0) SavePushSeq(companyId!, localSeq);
+                if (gecis) SavePushWatermark(companyId!, localV);   // eski imleç (geri dönüş/eski sürüm için tutarlı kalsın)
+            }
             using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
             {
                 Content = new StringContent(snapshot, Encoding.UTF8, "application/json"),
@@ -89,7 +114,7 @@ public static class BusinessSyncPushService
                 // watermark ilerletilir (kuyruk kilitlenmez) ve KALICI uyarı bırakılır (kullanıcı görür).
                 if (!r.HasProblem)
                 {
-                    SavePushWatermark(companyId!, localV);
+                    Ilerlet();
                     SetInt(companyId!, StuckKey, 0);
                     SetText(companyId!, PoisonKey, "");            // sorun çözüldü → kalıcı uyarıyı temizle
                     SetText(companyId!, "sync_last_push_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString()); // Z5
@@ -111,7 +136,7 @@ public static class BusinessSyncPushService
                     {
                         // Poison: aynı kayıtlar ısrarla reddediliyor (kalıcı sebep). Kuyruğu kilitleme —
                         // watermark'ı ilerlet ki DİĞER kayıtlar gönderilebilsin; sorunu kalıcı uyarıya taşı.
-                        SavePushWatermark(companyId!, localV);
+                        Ilerlet();
                         SetInt(companyId!, StuckKey, 0);
                         SetText(companyId!, PoisonKey, $"{r.Retryable}|{errText}");
                         SyncLog.Write("PUSH poison", $"{r.Skipped} kayıt {tries} denemede gönderilemedi → otomatik deneme durduruldu. {errText}");
@@ -171,8 +196,11 @@ public static class BusinessSyncPushService
         if (string.IsNullOrWhiteSpace(companyId)) return false;
         try
         {
-            var localV = new BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!);
-            return localV > LoadPushWatermark(companyId!);
+            var svc = new BusinessSyncService(DesktopServices.Factory);
+            var seqWm = LoadPushSeq(companyId!);
+            var localSeq = svc.LocalChangeSeq();
+            if (seqWm >= 0 && localSeq >= 0) return localSeq > seqWm;               // M-03: saat bağımsız
+            return localSeq > 0 || svc.CompanyVersion(companyId!) > LoadPushWatermark(companyId!);   // geçiş
         }
         catch { return false; }
     }
@@ -204,6 +232,23 @@ public static class BusinessSyncPushService
             return long.TryParse(DesktopServices.Settings.Get(companyId, PushWatermarkKey), out var v) ? v : 0L;
         }
         catch { return 0L; }
+    }
+
+    // ⭐ M-03 adım 3: gönderme imleci = sunucunun kabul ettiği son YEREL DEĞİŞİKLİK SAYACI. Boş = geçiş yapılmadı (-1).
+    // "Yereli sıfırla" (LocalPurgeService.ResetSyncState) bunu da temizler; M-80 (sunucu yedekten döndü) 0'a çekmez,
+    // tam gönderim ister → BuildPushSnapshot(seqAfter: -1).
+    private const string PushSeqKey = "sync_push_seq";
+
+    private static long LoadPushSeq(string companyId)
+    {
+        try { return long.TryParse(DesktopServices.Settings.Get(companyId, PushSeqKey), out var v) ? v : -1L; }
+        catch { return -1L; }
+    }
+
+    private static void SavePushSeq(string companyId, long value)
+    {
+        try { DesktopServices.Settings.Set(companyId, PushSeqKey, value.ToString(), DesktopServices.Session?.UserId ?? ""); }
+        catch { /* yazılamazsa sonraki tur aynı satırları tekrar gönderir — kayıp değil, yalnız tekrar */ }
     }
 
     private static void SavePushWatermark(string companyId, long value)

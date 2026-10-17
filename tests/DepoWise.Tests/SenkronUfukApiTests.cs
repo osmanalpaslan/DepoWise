@@ -76,6 +76,52 @@ public class SenkronUfukApiTests : IAsyncLifetime
         Assert.Equal(new[] { m2 }, yeni);
     }
 
+    /// <summary>UFA3 — Tam döngü (masaüstü ↔ sunucu, gerçek HTTP): yerel kayıt sayaçla gönderilir; sunucudan çekilen
+    /// satırlar (başkasının kaydı + kendi kaydının sunucu kopyası) yerel sayacı ARTIRMAZ → sonraki gönderim paketi boş.</summary>
+    [Fact]
+    public async Task UFA3_Gonder_Cek_Yanki_Yok()
+    {
+        var yol = Path.Combine(Path.GetTempPath(), "dw_ufa3_" + Guid.NewGuid().ToString("N") + ".db");
+        var yerel = new SqliteConnectionFactory(yol);
+        try
+        {
+            new MigrationRunner(yerel).Run();
+            using (var conn = yerel.Create())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{Company}','{Company}',1,1,1,0);";
+                cmd.ExecuteNonQuery();
+            }
+            var ySync = new BusinessSyncService(yerel);
+            var benim = new MaterialService(yerel).Create(_s, new NewMaterial("UFA3-Y", "Masaüstünde açıldı"));
+            var baskasi = Svc.Materials.Create(_s, new NewMaterial("UFA3-S", "Web'de açıldı"));
+
+            var seq = ySync.LocalChangeSeq();
+            var r = await _client.PostAsync("/api/sync/business-push",
+                new StringContent(ySync.BuildPushSnapshot(Company, "pc", -1), System.Text.Encoding.UTF8, "application/json"));
+            r.EnsureSuccessStatusCode();
+            using (var sc = Svc.Factory.Create())
+            using (var cmd = sc.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=@id;";
+                cmd.AddWithValue("@id", benim);
+                Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));   // sunucuya ulaştı
+            }
+
+            var (body, gelen, _) = await V2(0);
+            Assert.Contains(benim, gelen);
+            Assert.Contains(baskasi, gelen);
+            using (var doc = JsonDocument.Parse(body))
+                ySync.ApplyPull(Company, doc.RootElement, new HashSet<string>(StringComparer.Ordinal) { "stock_balances" });
+
+            Assert.Equal(seq, ySync.LocalChangeSeq());   // çekme yerel sayacı kıpırdatmadı
+            using var paket = JsonDocument.Parse(ySync.BuildPushSnapshot(Company, "pc", seq));
+            var gidecek = paket.RootElement.GetProperty("tables").EnumerateObject().Sum(t => t.Value.GetArrayLength());
+            Assert.Equal(0, gidecek);                    // ⭐ yankı yok: inen satırlar geri gönderilmez
+        }
+        finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); try { File.Delete(yol); } catch { } }
+    }
+
     [Fact]
     public async Task UFA2_Paket_Masaustune_Uygulanir_Eski_Uc_Calisir()
     {

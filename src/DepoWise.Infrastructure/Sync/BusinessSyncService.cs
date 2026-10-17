@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -709,6 +709,91 @@ public sealed class BusinessSyncService
         return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk }), ufuk);
     }
 
+    /// <summary>
+    /// ⭐ M-03 (AR-GE 2026-10-17, B1 adım 3) — Bu makinenin YEREL değişiklik sayacının son değeri (Migration100).
+    /// Gönderme imleci bununla karşılaştırılır; saat önemsizdir. Sayaç tablosu yoksa (eski şema) -1.
+    /// </summary>
+    public long LocalChangeSeq()
+    {
+        using var conn = _factory.Create();
+        if (!TableExists(conn, "sync_local_counter")) return -1;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT next - 1 FROM sync_local_counter WHERE id = 1;";
+        var v = cmd.ExecuteScalar();
+        return v is null or DBNull ? -1 : Convert.ToInt64(v);
+    }
+
+    /// <summary>
+    /// ⭐ M-03 (AR-GE 2026-10-17, B1 adım 3) — GÖNDERME PAKETİ: yerel değişiklik sayacına göre (saat bağımsız).
+    ///
+    /// <paramref name="seqAfter"/> &lt; 0 → TAM paket. Aksi hâlde <c>local_change_seq &gt; seqAfter</c> satırlar (yerelde yazılmış ve
+    /// henüz gönderilmemiş). Çekmeyle inen satırların sayacı yoktur (NULL) → geri gönderilmez (yankı biter).
+    /// <paramref name="eskiDamgaAfter"/> yalnız TEK SEFERLİK GEÇİŞ içindir (Migration100 öncesi bekleyen kayıtlar): verilirse
+    /// eski damga koşulu da VEYA ile eklenir; 0 verilirse (hiç gönderim yapılmamış makine) tam paket.
+    /// <see cref="ParentReplaceChildren"/> tablolarında pakete giren her ebeveynin TÜM çocukları eklenir: sunucu ebeveyn
+    /// gelince çocuk kümesini paketteki hâliyle değiştirir; değişmemiş çocuk eksik kalsaydı sunucuda SİLİNİRDİ.
+    /// Firma ve çocuk-tablo kapsamı <see cref="BuildSnapshot"/> ile aynıdır. Paket biçimi aynıdır (sunucu ucu değişmez).
+    /// </summary>
+    public string BuildPushSnapshot(string companyId, string? machineId, long seqAfter, long? eskiDamgaAfter = null)
+    {
+        using var conn = _factory.Create();
+        var tam = seqAfter < 0 || eskiDamgaAfter == 0;
+        var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
+        foreach (var table in Tables)
+        {
+            if (!TableExists(conn, table)) continue;
+            var cols = ColumnNames(conn, table);
+            var hasCompany = cols.Contains("company_id");
+            var where = new List<string>();
+            if (hasCompany) where.Add($"{table}.company_id=@c");
+            var companyChildWhere = CompanyChildWhere(table, hasCompany);
+            if (companyChildWhere.Length > 0) where.Add(companyChildWhere.Substring(5));
+
+            // Satırın kendi "gönderilecek mi" koşulu (null = koşulsuz, tamamı).
+            string? Kosul(string alias, ICollection<string> c)
+            {
+                if (tam || !c.Contains("local_change_seq")) return null;   // eski şema: güvenli taraf, tamamı
+                var k = $"{alias}.local_change_seq > @s";
+                if (eskiDamgaAfter is > 0)
+                {
+                    var st = StampColumn(c);
+                    if (st is null) return null;                          // damgasız tablo eski yöntemde de hep gidiyordu
+                    k = $"({k} OR {st.Replace("updated_at", alias + ".updated_at").Replace("created_at", alias + ".created_at")} > @st)";
+                }
+                return k;
+            }
+
+            var kendi = Kosul(table, cols);
+            if (kendi is not null && ParentReplaceChildren.TryGetValue(table, out var pr) && TableExists(conn, pr.Parent))
+            {
+                var pcols = ColumnNames(conn, pr.Parent);
+                var ebeveyn = Kosul("pp3", pcols);
+                kendi = ebeveyn is null
+                    ? null   // ebeveyn tablosu tam gidiyorsa çocuklar da tam gider
+                    : $"({kendi} OR {table}.{pr.Fk} IN (SELECT pp3.id FROM {pr.Parent} pp3 WHERE {ebeveyn}" +
+                      (pcols.Contains("company_id") ? " AND pp3.company_id=@c" : "") + "))";
+            }
+            if (kendi is not null) where.Add(kendi);
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
+            if (hasCompany || companyChildWhere.Length > 0 || cmd.CommandText.Contains("@c")) cmd.AddWithValue("@c", companyId);
+            if (cmd.CommandText.Contains("@s")) cmd.AddWithValue("@s", seqAfter);
+            if (cmd.CommandText.Contains("@st")) cmd.AddWithValue("@st", eskiDamgaAfter ?? 0);
+            var rows = new List<Dictionary<string, object?>>();
+            using (var r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+                    for (int i = 0; i < r.FieldCount; i++)
+                        row[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i);
+                    rows.Add(row);
+                }
+            tables[table] = rows;
+        }
+        return JsonSerializer.Serialize(new { companyId, machineId, tables });
+    }
+
     /// <summary>Firmanın iş verisinin "sürümü": tüm iş tablolarındaki EN BÜYÜK updated_at. Ucuz tek sayı —
     /// istemci, tam snapshot çekmeden önce sunucu sürümü değişti mi diye bakar (sık yoklama + yalnız değişince
     /// aktarım). Kullanıcı isteği 2026-07-19: eşitleme 3 dk yerine anlık, ama sabit tam-snapshot bant israfı
@@ -1203,6 +1288,11 @@ public sealed class BusinessSyncService
         using (var begin = conn.CreateCommand()) { begin.CommandText = "BEGIN;"; begin.ExecuteNonQuery(); }
         try
         {
+        // ⭐ M-03 adım 3 (AR-GE 2026-10-17) — YANKI KESME: çekme (sunucu → masaüstü) uygulanırken yerel değişiklik sayacı
+        // tetikleyicisi çalışmasın (Migration100). Koruma satırı AYNI işlemdedir: başka bağlantı onu görmez, hata olursa
+        // ROLLBACK ile o da geri alınır; COMMIT öncesi silinir.
+        bool koruma = serverAuthoritativeDeletes && !isPg && TableExists(conn, "sync_apply_guard");
+        if (koruma) { using var g = conn.CreateCommand(); g.CommandText = "INSERT OR IGNORE INTO sync_apply_guard(id) VALUES (1);"; g.ExecuteNonQuery(); }
 
         // Cihaz baseline'ı: bu cihazın son iş-verisi push zamanı (çakışma penceresi). machineId payload'da.
         var machineId = payload.TryGetProperty("machineId", out var mEl) && mEl.ValueKind == JsonValueKind.String
@@ -1242,6 +1332,7 @@ public sealed class BusinessSyncService
         // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı)
         if (deviceId is not null) SetLastPush(conn, deviceId, now);
 
+        if (koruma) { using var g = conn.CreateCommand(); g.CommandText = "DELETE FROM sync_apply_guard;"; g.ExecuteNonQuery(); }
         using (var commit = conn.CreateCommand()) { commit.CommandText = "COMMIT;"; commit.ExecuteNonQuery(); }
         }
         catch
