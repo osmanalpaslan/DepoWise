@@ -61,64 +61,112 @@ public static class BusinessSyncPullService
     // hesaplanır. Eski yorum bunun tersini söylüyordu ve hatayı gizliyordu — RPR-V1.)
     private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
 
-    /// <summary>Sunucudan firmanın iş snapshot'ını çekip yerele uygular. Hata → sessiz (best-effort).
-    ///
-    /// ⚠️ PERFORMANS (bkz. BusinessSyncPushService.PushAsync üstteki not — aynı kök sebep): JSON ayrıştırma +
-    /// yerel upsert döngüsü (<c>ApplyPull</c>) SENKRON ve binlerce satırda yavaş olabilir; <see cref="Task.Run"/>
-    /// ile arka plana alındı ki periyodik zamanlayıcı/Eşitle butonu arayüzü dondurmasın.</summary>
-    /// <param name="sinceVersion">DELTA: >0 ise sunucudan yalnız updated_at&gt;sinceVersion satırlar çekilir
-    /// (rutin çekme küçük/hızlı). 0 ise TAM snapshot (ilk giriş / manuel tam eşitleme).</param>
-    /// <returns>true = başarıyla çekilip uygulandı (kabuk pull imlecini o zaman ilerletir); false = ulaşılamadı/hata.</returns>
-    /// <summary>
-    /// ⭐ SNK-09 — SON ÇEKİMDE GERÇEKTEN ALINAN EN BÜYÜK DAMGA (pull watermark).
-    /// <c>null</c> = paket boştu ya da damga okunamadı → çağıran imleci İLERLETMEZ.
-    /// </summary>
-    public static long? AlinanWatermark { get; private set; }
+    // Çekme hataları sessizdir (best-effort). ⚠️ PERFORMANS (bkz. BusinessSyncPushService.PushAsync üstteki not): JSON
+    // ayrıştırma + yerel upsert (ApplyPull) SENKRON ve binlerce satırda yavaş olabilir → Task.Run ile arka planda;
+    // periyodik zamanlayıcı/Eşitle butonu arayüzü dondurmasın.
+    // ⭐ M-03 (2026-10-17): SNK-09'un "alınan en büyük damga" imleci (AlinanWatermark/AlinanEnBuyukDamga) KALDIRILDI —
+    // değeri HİÇBİR YERDE atanmıyordu (e5d04f2'den beri) ve imleç hiç ilerlemiyordu. Yerine sunucu işlem-kimliği ufku
+    // (PullDeltaAsync / "sync_pull_txid") geldi; o, damga eşitliği ve saat sorunlarını kökten kaldırır.
 
-    /// <summary>
-    /// 🔴 SNK-09 — KAPATILAN SESSİZ VERİ KAYBI.
-    ///
-    /// <b>Eski davranış:</b> çekimden sonra imleç, sunucunun bildirdiği GLOBAL SÜRÜM
-    /// (<c>MAX(updated_at)</c>) olarak saklanıyordu. Sunucu sürümü okunduktan sonra <b>aynı
-    /// milisaniyede</b> yazılan bir satır bir daha ASLA gelmiyordu: bir sonraki çekim
-    /// <c>&gt; imleç</c> sorduğu için damgası eşit olan satır daima eleniyordu. Kayıt sunucuda
-    /// vardı, bu makinede hiç görünmüyordu ve hiçbir hata da üretmiyordu.
-    ///
-    /// <b>Bu, Z4'ün PUSH tarafında çözdüğü hatanın PULL karşılığıdır</b> ve aynı çözümle giderildi:
-    /// imleç artık "sunucunun global max'ı" değil, <b>gerçekten alınan satırların en büyük
-    /// damgası</b>dır. Böylece <c>&gt;</c> koşulu tam olarak alınanı dışlar — ne kayıp ne tekrar.
-    /// (<c>BuildSnapshot</c> içindeki <c>&gt;</c> bilinçli olarak DEĞİŞTİRİLMEDİ: aynı metot push'ta
-    /// da kullanılıyor ve orada watermark semantiği zaten doğruydu.)
-    /// </summary>
-    private static long? AlinanEnBuyukDamga(JsonElement payload)
+    // ═══ ⭐ M-03 (AR-GE 2026-10-17) — ÇEKME v2: SUNUCU İŞLEM KİMLİĞİ UFKU ═══
+    // İmleç artık istemci saatli damga DEĞİL, sunucunun bir önceki yanıtta verdiği ufuktur (nextAfter). Geç gelen/geri
+    // damgalı satır ve saati yanlış makine imleci bozamaz; değişmeyen veri tekrar inmez (eski hatada her tur tam paket).
+    // Sunucu v2 ucunu bilmiyorsa (404) bu oturumda eski yönteme dönülür → sürüm uyumsuzluğunda eşitleme kesilmez.
+    private const string TxidKey = "sync_pull_txid";
+
+    /// <summary>null = henüz bilinmiyor · true = sunucu v2 destekliyor · false = eski sunucu (eski yöntem).</summary>
+    public static bool? V2Destekli { get; private set; }
+
+    private static long OkuImlec(string companyId)
     {
-        if (payload.ValueKind != JsonValueKind.Object
-            || !payload.TryGetProperty("tables", out var tablolar)
-            || tablolar.ValueKind != JsonValueKind.Object) return null;
-
-        long enBuyuk = 0;
-        foreach (var tablo in tablolar.EnumerateObject())
-        {
-            if (tablo.Value.ValueKind != JsonValueKind.Array) continue;
-            foreach (var satir in tablo.Value.EnumerateArray())
-            {
-                if (satir.ValueKind != JsonValueKind.Object) continue;
-                // Damga sunucudaki kuralla AYNI: updated_at, yoksa created_at (StampColumn).
-                foreach (var alan in new[] { "updated_at", "created_at" })
-                {
-                    if (!satir.TryGetProperty(alan, out var v)) continue;
-                    long? d = v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n
-                            : v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out var sn) ? sn
-                            : null;
-                    if (d is { } dd && dd > enBuyuk) enBuyuk = dd;
-                    break;   // updated_at varsa created_at'a bakma (sunucu da böyle yapar)
-                }
-            }
-        }
-        return enBuyuk > 0 ? enBuyuk : null;
+        try { return long.TryParse(DesktopServices.Settings.Get(companyId, TxidKey), out var v) ? v : 0; }
+        catch { return 0; }
     }
 
+    private static void YazImlec(string companyId, long v)
+    {
+        try { DesktopServices.Settings.Set(companyId, TxidKey, v.ToString(), DesktopServices.Session?.UserId ?? ""); }
+        catch { /* yazılamazsa sonraki çekim eski imleçle tekrarlar — veri kaybı değil, yalnız tekrar */ }
+    }
+
+    /// <summary>v2 çekim: <paramref name="tam"/> = true ise ufuk 0'dan (tam paket), değilse saklı imleçten.
+    /// Döner: true başarı · false hata · null sunucu v2 bilmiyor (çağıran eski yönteme düşer).</summary>
+    private static async Task<bool?> PullV2Async(bool tam)
+    {
+        var url = ResolveServerUrl();
+        var companyId = DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return false;
+        await ServerAuthClient.EnsureFreshTokenAsync();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        var after = tam ? 0 : OkuImlec(companyId!);
+        using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-pull-v2?after=" + after);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var resp = await _http.SendAsync(req);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) { V2Destekli = false; return null; }
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        { LastFailure = SyncFailureKind.Permanent; await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
+        if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return false; }
+        V2Destekli = true;
+        var json = await resp.Content.ReadAsStringAsync();
+        long sonraki = 0;
+        await Task.Run(() =>
+        {
+            using var doc = JsonDocument.Parse(json);
+            var sonuc = new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
+            SonAlinanSayisi = sonuc.Upserted;
+            if (doc.RootElement.TryGetProperty("nextAfter", out var na) && na.TryGetInt64(out var n)) sonraki = n;
+        });
+        // İmleç YALNIZ uygulama BAŞARIYLA bittikten sonra ilerler (yarıda kalan uygulama → aynı aralık tekrar çekilir;
+        // satır kimliği + operation_id ile tekrar zararsızdır).
+        if (sonraki > 0) YazImlec(companyId!, sonraki);
+        try { DesktopServices.Settings.Set(companyId!, "sync_last_pull_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(), DesktopServices.Session?.UserId ?? ""); } catch { }
+        LastFailure = SyncFailureKind.None;
+        return true;
+    }
+
+    /// <summary>
+    /// Rutin (delta) çekim — 15 sn turu ve 60 sn güvenlik turu bunu çağırır. Sunucu v2 destekliyorsa saklı ufuktan
+    /// çeker; desteklemiyorsa (eski sunucu / geri dönüş) eski uçtan TAM paket çeker. Eski uca damga imleci VERİLMEZ:
+    /// "sunucu sürümü" imleci aynı milisaniyede yazılan satırı kaybettirir (SNK-09) — tam paket yavaş ama kayıpsızdır
+    /// ve M-03 öncesinin fiilî davranışıdır (eski imleç hiç ilerlemiyordu).
+    /// </summary>
+    public static async Task<bool> PullDeltaAsync()
+    {
+        LastFailure = SyncFailureKind.None;
+        if (V2Destekli != false)
+        {
+            try
+            {
+                var r = await PullV2Async(tam: false);
+                if (r is { } ok) return ok;
+            }
+            catch (Exception ex) { LastFailure = SyncFailureClassifier.FromException(ex); return false; }
+        }
+        return await PullLegacyAsync(0);
+    }
+
+    /// <summary>
+    /// Sunucudan çekip yerele uygular. <paramref name="sinceVersion"/> = 0 → TAM çekim (giriş, elle eşitle, yereli sıfırla):
+    /// v2 sunucuda ufuk 0'dan alınır ve imleç sıfırdan kurulur. &gt; 0 → eski delta (geriye uyum).
+    /// </summary>
     public static async Task<bool> PullAsync(long sinceVersion = 0)
+    {
+        if (sinceVersion == 0 && V2Destekli != false)
+        {
+            LastFailure = SyncFailureKind.None;
+            try
+            {
+                var r = await PullV2Async(tam: true);
+                if (r is { } ok) return ok;
+            }
+            catch (Exception ex) { LastFailure = SyncFailureClassifier.FromException(ex); return false; }
+        }
+        return await PullLegacyAsync(sinceVersion);
+    }
+
+    /// <summary>ESKİ yöntem (istemci damgası, <c>/api/sync/business-pull</c>) — yalnız v2 bilmeyen sunucuda.</summary>
+    private static async Task<bool> PullLegacyAsync(long sinceVersion)
     {
         LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın (istek denenmeden dönülebilir)
         var url = ResolveServerUrl();

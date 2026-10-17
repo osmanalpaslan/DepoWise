@@ -16,4 +16,8 @@
 - [ ] Senkron protokolü değişikliği: eski masaüstü sürümleriyle uyum + zorunlu güncelleme (M-12) birlikte
 - [ ] Migration'lar yalnız ekleme; gerçek boyutlu kopya üzerinde prova (M-70)
 - [ ] Yedek alındı ve geri yükleme provası (M-08)
-- [ ] .NET 10 geçişi canlıda (son tarih: .NET 8 desteği 2026-11-10'da biter) — yayın kullanıcı kararı
+- [x] .NET 10 geçişi canlıda (2026-10-17, masaüstü 1.0.201/1.0.202)
+- [ ] **Migration099 (M-03, çekme ufku):** canlıda ilk açılışta her eşitleme tablosuna kolon + indeks + tetikleyici ekler ve
+  mevcut TÜM satırları bir kez damgalar (tek işlemde büyük UPDATE). Önce gerçek boyutlu kopyada süre ölç (M-70), ardından
+  `VACUUM (ANALYZE)` çalıştır. Yayın sırası: API önce (yeni uç), sonra masaüstü; eski masaüstleri eski uçla çalışmaya devam eder.
+  Yayından sonra ilk turda her masaüstü bir kez tam paket çeker (imleç sıfırdan başlar), sonra yalnız değişenler iner.

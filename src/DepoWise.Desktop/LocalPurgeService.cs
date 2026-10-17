@@ -73,7 +73,9 @@ public static class LocalPurgeService
     public static void ResetSyncState(string companyId)
     {
         if (string.IsNullOrWhiteSpace(companyId)) return;
-        foreach (var key in new[] { "sync_push_poison", "sync_push_stuck", "sync_push_watermark" })
+        // ⭐ M-03 (AR-GE 2026-10-17): ÇEKME imleçleri de sıfırlanır. Sıfırlamadan sonraki tam çekme çevrimdışılık yüzünden
+        // başarısız olursa eski imleç kalır ve bir sonraki DELTA çekim silinen eski veriyi bir daha getirmezdi.
+        foreach (var key in new[] { "sync_push_poison", "sync_push_stuck", "sync_push_watermark", "sync_pull_txid", "sync_pull_cursor" })
         {
             try { DesktopServices.Settings.Set(companyId, key, "", DesktopServices.Session?.UserId ?? ""); }
             catch { /* best-effort */ }

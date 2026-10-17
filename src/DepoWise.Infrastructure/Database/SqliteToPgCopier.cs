@@ -23,7 +23,12 @@ public sealed record CopyReport(IReadOnlyDictionary<string, int> RowsPerTable, i
 public static class SqliteToPgCopier
 {
     private static readonly HashSet<string> Skip = new(StringComparer.OrdinalIgnoreCase)
-        { "schema_migrations", "sqlite_sequence" };
+        { "schema_migrations", "sqlite_sequence",
+          // M-03 (AR-GE 2026-10-17): yalnız SQLite'ta bulunan eşitleme yardımcı tabloları (Migration099/100).
+          "sync_server_role", "sync_txid_counter", "sync_local_counter", "sync_apply_guard" };
+
+    // M-03: yalnız SQLite'ta (masaüstü) bulunan kolonlar — PostgreSQL'de karşılığı yoktur, kopyalanmaz.
+    private static readonly HashSet<string> SkipColumns = new(StringComparer.OrdinalIgnoreCase) { "local_change_seq" };
 
     public static CopyReport Copy(IDbConnectionFactory sqliteFactory, IDbConnectionFactory pgFactory)
     {
@@ -76,12 +81,12 @@ public static class SqliteToPgCopier
         {
             read.CommandText = $"SELECT * FROM \"{table}\";";
             using var r = read.ExecuteReader();
-            colNames = new string[r.FieldCount];
-            for (int i = 0; i < r.FieldCount; i++) colNames[i] = r.GetName(i);
+            var idx = Enumerable.Range(0, r.FieldCount).Where(i => !SkipColumns.Contains(r.GetName(i))).ToArray();
+            colNames = idx.Select(i => r.GetName(i)).ToArray();
             while (r.Read())
             {
-                var vals = new object?[r.FieldCount];
-                for (int i = 0; i < r.FieldCount; i++) { var v = r.GetValue(i); vals[i] = v is DBNull ? null : v; }
+                var vals = new object?[idx.Length];
+                for (int k = 0; k < idx.Length; k++) { var v = r.GetValue(idx[k]); vals[k] = v is DBNull ? null : v; }
                 rows.Add(vals);
             }
         }

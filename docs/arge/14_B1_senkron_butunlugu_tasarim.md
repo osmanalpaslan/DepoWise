@@ -5,19 +5,22 @@
 > "onay gerekir" şartı kullanıcının bu maddeleri seçmesiyle karşılandı (`09` başlık notu). Yayın yok (AR-GE dalı).
 > Eski masaüstü sürümleriyle uyum zorunlu: yeni sunucu eski istemciyi bozmaz; eski istemci yeni uçları çağırmaz.
 
-## 1. Çekme imleci: sunucu sıra numarası (M-03 — R1, K3, K4)
+## 1. Çekme imleci: sunucu işlem kimliği ufku (M-03 — R1, K3, K4)
 **Sorun:** çekme `updated_at > since` (istemci saati) → geç gelen/geri damgalı satır kaçar; ayrıca `AlinanWatermark` hiç atanmıyor
 → her turda tam paket (canlıda ≈4–6 GB/ay DB trafiği, `07` §7).
-**Çözüm (PostgreSQL, yalnız ekleme migration'ı):**
-- Her senkron tablosuna `server_seq BIGINT NULL` + `(company_id, server_seq)` indeksi (çocuk tablolar: `server_seq` + ebeveyn kapsamı).
-- Tek global dizi `sync_seq`. PG tetikleyicisi `BEFORE INSERT OR UPDATE`: önce `pg_advisory_xact_lock(firma anahtarı)`, sonra
-  `NEW.server_seq := nextval('sync_seq')`. Aynı firmaya yazan işlemler kilitte sıraya girer → firma içinde **numara sırası = commit
-  sırası**; uzun işlemin satırı daha küçük numarayla sonradan görünür hâle gelemez. Web, API ve push yazımları aynı tetikleyiciden geçer.
-- Çekme: `GET /api/sync/business-pull-v2?after=<seq>&limit=2000` → `server_seq > after ORDER BY server_seq LIMIT n`, yanıtta
-  `nextAfter` + `hasMore` + sunucu `epoch`. Eski uç (`business-pull`) aynen kalır (eski istemciler).
-- Masaüstü: imleç = alınan son `server_seq` (`sync_pull_seq`, kalıcı), sayfa sayfa uygular, her sayfa kendi transaction'ında; koparsa
-  kaldığı sayfadan sürer (M-17). `AlinanWatermark` ölü kodu kaldırılır.
-- SQLite'ta da `server_seq` kolonu (çekilen satırın sunucu numarası, bilgi amaçlı).
+**Çözüm (UYGULANAN, 2026-10-17 — Migration099; ilk taslaktaki kilit+dizi fikrinin yerine):**
+- Her senkron tablosuna `server_txid BIGINT NULL` + `server_txid` indeksi (company_id katılmaz: Migration062 geri alma adımını bozuyordu).
+- PG tetikleyicisi `BEFORE INSERT OR UPDATE`: `NEW.server_txid := pg_current_xact_id()` (satırı yazan işlemin kimliği). Kilit YOK →
+  yazanlar birbirini beklemez (taslaktaki firma kilidi yoğun push'ta yazımları sıraya sokardı).
+- **Ufuk** = `pg_snapshot_xmin(pg_current_snapshot())`: hâlâ süren en eski işlem. Çekme yalnız `after ≤ server_txid < ufuk`
+  (ilk çekimde `server_txid IS NULL OR < ufuk`) satırları verir, yanıt `nextAfter = ufuk`. Süren işlemin satırı bir sonraki tura
+  kalır, asla atlanmaz (uzun işlem açıkken sonra başlayıp önce biten işlem de bekletilir).
+- Değişen ebeveynin (ParentReplaceChildren) değişmemiş çocukları da pakete girer — alıcı çocuk kümesini silmesin.
+- SQLite sunucu rolü (yerel/test API): satır başı sayaç `sync_txid_counter`, tetikleyiciler yalnız `sync_server_role` satırı varsa
+  çalışır; o satırı yalnız API (`ServerServices`) ekler → masaüstünde tetikleyici etkisiz, çekilen değer olduğu gibi saklanır.
+- Uç: `GET /api/sync/business-pull-v2?after=` (eski `business-pull` aynen kalır). Masaüstü imleci `sync_pull_txid`; uç yoksa
+  (404, eski sunucu) eski uca düşer. İmleç yalnız uygulama başarılı olunca ilerler. `AlinanWatermark` ölü kodu kaldırıldı.
+- Sayfalama (`limit/hasMore`, M-17) ve sunucu `epoch` (M-80) ayrı adımlarda bu uca eklenir.
 **Kabul:** (a) geriye damgalı geç satır başka makinede iner (test: A çevrimdışı eski damgalı satır gönderir, B'nin imleci ileridedir → B
 satırı alır); (b) değişiklik yokken çekme 0 satır; (c) 300 bin satırda ilk eşitleme sayfalı, bellek tavanı sabit, kesintiden sonra
 devam; (d) eski masaüstü eski uçla çalışmaya devam eder.

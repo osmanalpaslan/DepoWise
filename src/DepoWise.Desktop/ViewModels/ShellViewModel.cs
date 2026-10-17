@@ -540,27 +540,24 @@ public sealed partial class ShellViewModel : ViewModelBase
             // SNK-03: turun GEÇİCİ hata gördüğü an. (Z3'ün "skipped satır" durumu buraya GİRMEZ —
             // sunucu yanıt vermiştir, kendi retry'ı vardır; backoff konusu değildir.)
             var transient = BusinessSyncPushService.LastFailure == SyncFailureKind.Transient;
-            // PULL DELTA: sunucuda en son uyguladığımızdan yeni varsa çek + açık ekranı yenile.
-            if (sv > _lastServerVersionPulled)
+            // ⭐ M-03 (AR-GE 2026-10-17) — PULL: sunucu sürümü değiştiyse YA DA 60 sn güvenlik turunda çek.
+            // VERİ imleci artık sunucunun işlem-kimliği ufkudur (BusinessSyncPullService.PullDeltaAsync, kalıcı
+            // "sync_pull_txid"): geç gelen/geri damgalı satır kaçmaz, değişmeyen veri tekrar inmez. `sv` / _lastServerVersionPulled
+            // yalnız "değişiklik var mı" İPUCUDUR; damgası eski olduğu için sürümü yükseltmeyen geç satırı güvenlik turu yakalar.
+            // (Eski hata: SNK-09'daki "alınan en büyük damga" hiç atanmıyordu → imleç ilerlemiyor, her tur TAM paket iniyordu.)
+            if (sv > _lastServerVersionPulled || checkConflicts)
             {
-                var ok = await BusinessSyncPullService.PullAsync(sinceVersion: _lastServerVersionPulled > 0 ? _lastServerVersionPulled : 0);
+                var ok = await BusinessSyncPullService.PullDeltaAsync();
                 if (ok)
                 {
                     gelen = BusinessSyncPullService.SonAlinanSayisi;
-                    // ⭐ SNK-09 (2026-09-04) — İMLEÇ ARTIK "SUNUCU GLOBAL MAX'I" DEĞİL, GERÇEKTEN ALINAN
-                    // EN BÜYÜK DAMGA. Eskiden `sv` (sunucu sürümü) yazılıyordu; sunucu sürümü okunduktan
-                    // SONRA aynı milisaniyede yazılan satır bir daha ASLA gelmiyordu (sonraki çekim
-                    // "> imleç" sorar, damga eşit olduğu için elenir) — sessiz veri kaybı.
-                    // Bu, Z4'ün PUSH tarafında çözdüğü hatanın PULL karşılığıdır; aynı çözüm uygulandı.
-                    // Paket boşsa (watermark null) imleç İLERLETİLMEZ: ilerletmek, henüz görülmemiş
-                    // satırları atlamak demek olurdu.
-                    var imlec = BusinessSyncPullService.AlinanWatermark;
-                    if (imlec is { } w && w > _lastServerVersionPulled)
+                    if (sv > _lastServerVersionPulled)
                     {
-                        _lastServerVersionPulled = w;
-                        try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", w.ToString(), _session.UserId); } catch { }
+                        _lastServerVersionPulled = sv;   // ipucu: sunucu sürümünü gördük (veri imleci ayrı ve sunucu taraflı)
+                        try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", sv.ToString(), _session.UserId); } catch { }
                     }
-                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
+                    if (gelen > 0)   // yalnız gerçekten veri indiyse açık ekranı yenile (60 sn turunda boş yere titremesin)
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
                 }
                 else if (BusinessSyncPullService.LastFailure == SyncFailureKind.Transient) transient = true;
             }

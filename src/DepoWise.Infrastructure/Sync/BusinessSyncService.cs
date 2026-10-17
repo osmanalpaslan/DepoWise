@@ -636,6 +636,79 @@ public sealed class BusinessSyncService
         return JsonSerializer.Serialize(new { companyId, machineId, tables });
     }
 
+    /// <summary>
+    /// ⭐ M-03 (AR-GE 2026-10-17) — ÇEKME v2: İŞLEM KİMLİĞİ UFKU (bkz. Migration099_SyncTxid).
+    ///
+    /// <paramref name="after"/> = istemcinin bir önceki çekimde aldığı ufuk (ilk çekim 0). Dönen <c>NextAfter</c> = bu çekimin
+    /// ufku; istemci onu saklar. Bir satır, onu son yazan işlem BİTTİĞİNDE ve kimliği [after, ufuk) aralığındaysa gelir:
+    /// süren işlemin satırları sonraki tura kalır (atlanmaz), saat/damga önemsizdir. Firma, şube ve çocuk-tablo kapsamı
+    /// <see cref="BuildSnapshot"/> ile BİREBİR aynıdır. <see cref="ParentReplaceChildren"/> tablolarında, pakete giren her
+    /// ebeveynin TÜM çocukları da eklenir (alıcı ebeveyn gelince çocuk kümesini paketteki hâliyle değiştirir; eksik gönderim
+    /// çocukları sildirirdi). Paket biçimi eski snapshot ile aynıdır (+ <c>nextAfter</c>) → <see cref="ApplyPull"/> değişmez.
+    /// </summary>
+    public (string Json, long NextAfter) BuildDeltaV2(string companyId, long after, SessionContext? session = null)
+    {
+        var eff = session is null ? null : BranchAccess.Effective(session);
+        using var conn = _factory.Create();
+        var sqlite = SqlDialect.IsSqlite(conn);
+        long ufuk;
+        using (var u = conn.CreateCommand())
+        {
+            u.CommandText = sqlite
+                ? "SELECT next FROM sync_txid_counter WHERE id = 1;"
+                : "SELECT pg_snapshot_xmin(pg_current_snapshot())::text::bigint;";
+            ufuk = Convert.ToInt64(u.ExecuteScalar() ?? 0L);
+        }
+        if (after < 0) after = 0;
+
+        // Satır aralığı koşulu. İlk çekimde (after=0) damgasız (NULL) satırlar da alınır — güvenlik ağı.
+        string Aralik(string alias) => after == 0
+            ? $"({alias}.server_txid IS NULL OR {alias}.server_txid < @u)"
+            : $"({alias}.server_txid >= @a AND {alias}.server_txid < @u)";
+
+        var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
+        foreach (var table in Tables)
+        {
+            if (!TableExists(conn, table)) continue;
+            var cols = ColumnNames(conn, table);
+            if (!cols.Contains("server_txid")) continue;   // migration 099 öncesi şema: v2 bu tabloyu taşımaz
+            var hasCompany = cols.Contains("company_id");
+            var where = new List<string>();
+            if (hasCompany) where.Add($"{table}.company_id=@c");
+            var companyChildWhere = CompanyChildWhere(table, hasCompany);
+            if (companyChildWhere.Length > 0) where.Add(companyChildWhere.Substring(5));
+            var branchWhere = BranchWhere(session, table, eff);
+            if (branchWhere.Length > 0) where.Add(branchWhere);
+
+            var aralik = Aralik(table);
+            if (ParentReplaceChildren.TryGetValue(table, out var pr) && TableExists(conn, pr.Parent)
+                && ColumnNames(conn, pr.Parent).Contains("server_txid"))
+            {
+                var ebeveynFirma = ColumnNames(conn, pr.Parent).Contains("company_id") ? " AND pv2.company_id=@c" : "";
+                aralik = $"({aralik} OR {table}.{pr.Fk} IN (SELECT pv2.id FROM {pr.Parent} pv2 WHERE {Aralik("pv2")}{ebeveynFirma}))";
+            }
+            where.Add(aralik);
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT * FROM {table} WHERE " + string.Join(" AND ", where) + ";";
+            cmd.AddWithValue("@c", companyId);
+            cmd.AddWithValue("@u", ufuk);
+            if (after > 0) cmd.AddWithValue("@a", after);
+            if (branchWhere.Length > 0) BindBranch(cmd, eff);
+            var rows = new List<Dictionary<string, object?>>();
+            using (var r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+                    for (int i = 0; i < r.FieldCount; i++)
+                        row[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i);
+                    rows.Add(row);
+                }
+            if (rows.Count > 0) tables[table] = rows;
+        }
+        return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk }), ufuk);
+    }
+
     /// <summary>Firmanın iş verisinin "sürümü": tüm iş tablolarındaki EN BÜYÜK updated_at. Ucuz tek sayı —
     /// istemci, tam snapshot çekmeden önce sunucu sürümü değişti mi diye bakar (sık yoklama + yalnız değişince
     /// aktarım). Kullanıcı isteği 2026-07-19: eşitleme 3 dk yerine anlık, ama sabit tam-snapshot bant israfı

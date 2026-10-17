@@ -491,6 +491,16 @@ app.MapGet("/api/sync/business-pull", (HttpContext c, long? since) =>
     return Results.Content(snapshot, "application/json");
 }).RequireAuthorization();
 
+// ⭐ M-03 (AR-GE 2026-10-17) — ÇEKME v2: işlem kimliği UFKU (Migration099). İstemci bir önceki yanıttaki nextAfter'ı
+// "after" olarak gönderir; yanıt yalnız o ufuktan bu yana BİTMİŞ işlemlerin yazdığı satırları taşır (geç gelen/geri damgalı
+// satır kaçmaz, istemci saati önemsizdir). Paket biçimi eski uçla aynı (+ nextAfter). Eski uç (business-pull) aynen durur.
+app.MapGet("/api/sync/business-pull-v2", (HttpContext c, long? after) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var (json, _) = svc.BusinessSync.BuildDeltaV2(s.CompanyId, after ?? 0, s);
+    return Results.Content(json, "application/json");
+}).RequireAuthorization();
+
 // İş verisi SÜRÜMÜ (ucuz): firmanın tüm iş tablolarındaki en büyük updated_at. Masaüstü sık yoklar; sürüm
 // değişmediyse tam snapshot ÇEKMEZ (kullanıcı isteği 2026-07-19: anlık ama bant israfsız).
 app.MapGet("/api/sync/business-version", (HttpContext c) =>

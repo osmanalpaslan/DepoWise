@@ -151,6 +151,15 @@ public sealed class ServerServices
             ? new SqliteConnectionFactory(Path.Combine(dataDir, "depowise-server.db"))
             : new PostgresConnectionFactory(pgUrl);
         new MigrationRunner(Factory).Run();
+        // ⭐ M-03 (Migration099): SQLite SUNUCU rolünde (testler / API yedek modu) işlem-ufku tetikleyicileri çalışsın.
+        // Masaüstü bu satırı HİÇ oluşturmaz → oradaki tetikleyiciler etkisiz kalır. PostgreSQL'de tetikleyici koşulsuzdur.
+        if (Factory is SqliteConnectionFactory)
+        {
+            using var rc = Factory.Create();
+            using var rcmd = rc.CreateCommand();
+            rcmd.CommandText = "INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);";
+            rcmd.ExecuteNonQuery();
+        }
 
         var clock = new SystemClock();
         // F0 (YET-01): yetki fotoğrafı önbelleği — okuyan (Auth) ve geçersiz kılan (Users, Permissions,
