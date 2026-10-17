@@ -981,6 +981,22 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         if (EqmDef is null) { Status = "Bakım tanımı seçin."; return; }
         if (EqmLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }
 
+        // ⭐ K-05 (AR-GE, kullanıcı kararı): bakım malzemesi stoğu eksiye düşürebilir (sahada parça stoğa girmeden takılır)
+        // ama kullanıcı UYARILIR — araç bakımıyla aynı kural ve aynı depo (BKM-04). Ekip stoğu satırları merkezden düşmez.
+        var eqmKonum = MntLocation?.Id ?? StockBalanceWriter.Unassigned;
+        var eqmEksik = new List<string>();
+        foreach (var l in EqmLines)
+        {
+            if (l.FromTeamStock) continue;
+            decimal bal;
+            try { bal = DesktopServices.Stock.GetBalanceAt(_session, l.MaterialId, eqmKonum); } catch { bal = 0m; }
+            if (l.Quantity > bal) eqmEksik.Add($"• {l.Code} — {l.Name}: eksik {l.Quantity - bal:0.##}");
+        }
+        if (eqmEksik.Count > 0 && !await ConfirmService.AskAsync(
+                "İlgili malzeme için yeterli stok bulunmamaktadır; kayıt stoğu eksiye düşürecek. İşleme devam edebilirsiniz.\n\n" +
+                string.Join("\n", eqmEksik), "Yetersiz Stok", okText: "Devam Et", cancelText: "Vazgeç", danger: true))
+            return;
+
         try
         {
             var mats = EqmLines

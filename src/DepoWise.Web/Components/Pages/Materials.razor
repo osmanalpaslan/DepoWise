@@ -864,7 +864,11 @@
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
         // Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05) — şablon dışı uyarısı yok; düz onay.
-        if (!await Dialog.Confirm(_editId is null ? "Malzeme kaydedilsin mi?" : "Malzeme güncellensin mi?")) return;
+        // ⭐ K-05 (AR-GE, kullanıcı kararı): açılış stoğu EKSİ olabilir (devralınan eksik stok) ama kullanıcı UYARILIR — masaüstüyle aynı metin.
+        var kayitSorusu = _editId is not null ? "Malzeme güncellensin mi?"
+            : _opening < 0 ? $"Açılış stoğu EKSİ girildi ({_opening:0.##}). Malzemenin stoğu eksiden başlayacak (devralınan eksik stok olarak kaydedilir).\n\nYeni malzeme yine de kaydedilsin mi?"
+            : "Malzeme kaydedilsin mi?";
+        if (!await Dialog.Confirm(kayitSorusu)) return;
         _busy = true;
         try
         {

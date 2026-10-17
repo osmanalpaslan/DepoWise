@@ -110,6 +110,28 @@ public sealed class DashboardService
                 alerts.Add(new DashboardAlert(AlertKind.LowStock, m.Name,
                     $"{m.Code} · stok {m.Quantity:0.##} / kritik {m.MinStock:0.##}", "materials", true, m.Id));
 
+        // ⭐ M-16 / K-06 (AR-GE 2026-10-17, kullanıcı kararı): EKSİ STOK — bir depoda bakiye sıfırın altına düştüyse (iki bilgisayar
+        // çevrimdışıyken aynı stoğu düşürdü, ya da K-05 istisnası: bakım malzemesi / eksi açılış) kayıtlar KABUL edilir ama
+        // görünür bir uyarı oluşur → kaynağı hemen bulunur. Depo bazlıdır (firma toplamı artıda olsa da o depo eksidir).
+        // İmza = miktar → eksi tutar değişince okunmuş uyarı yeniden açılır.
+        if (AccessControl.Can(s, "materials", PermissionAction.View))
+        {
+            try
+            {
+                foreach (var e in NegativeStockList(conn, s.CompanyId))
+                {
+                    // Şube kapsamı: kullanıcı yalnız erişebildiği depoların eksi stoğunu görür (Atanmamış depo herkese açık).
+                    if (e.LocationId.Length > 0 && !BranchAccess.CanAccess(s, e.LocationId)) continue;
+                    alerts.Add(new DashboardAlert(AlertKind.LowStock, "Eksi stok: " + e.Name,
+                        $"{e.Code} · {e.Location} · stok {e.Quantity:0.##}", "materials", true, e.MaterialId,
+                        SignatureOverride: e.LocationId + ":" + e.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        Note: "Kayıtlar kabul edildi ama bu depoda stok eksiye düştü. Stok hareketlerinden kaynağını bulun; " +
+                              "eksik giriş varsa girişi yapın ya da sayımla düzeltin."));
+                }
+            }
+            catch { /* eski şema → uyarı yok, ana ekran çalışır */ }
+        }
+
         // Yakıt — depo kalanı toplam alınanın %20'si ve altına düşünce (Özet'te kalanı gör)
         if (AccessControl.Can(s, "fuel", PermissionAction.View))
         {
@@ -353,6 +375,33 @@ ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=@sig, created_at=@now;";
 
     /// <summary>Düşük stok satırı — 2026-09-03: uyarıda asıl veri gösterilsin diye KOD + mevcut/kritik eklendi.</summary>
     internal sealed record LowStockRow(string Id, string Code, string Name, double Quantity, double MinStock);
+
+    public sealed record NegativeStockRow(string MaterialId, string Code, string Name, string LocationId, string Location, decimal Quantity);
+
+    /// <summary>⭐ M-16: depo bazlı eksi bakiyeler (en eksi önce, en fazla 20). Tutar METİN saklanır → C#'ta decimal ile
+    /// karşılaştırılır (kayan nokta yok, proje para kuralı).</summary>
+    public static IReadOnlyList<NegativeStockRow> NegativeStockList(DbConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT b.material_id, m.code, m.name, b.location_id, COALESCE(br.name, ''), b.quantity
+FROM stock_balances b
+JOIN materials m ON m.id = b.material_id AND m.company_id = b.company_id AND m.is_deleted = 0
+LEFT JOIN branches br ON br.id = b.location_id
+WHERE b.company_id = @c AND b.quantity LIKE '-%';";
+        cmd.AddWithValue("@c", companyId);
+        var list = new List<NegativeStockRow>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var q = Money.Parse(r.GetString(5));
+                if (q >= 0m) continue;
+                var konum = r.GetString(4);
+                list.Add(new NegativeStockRow(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                    konum.Length > 0 ? konum : "Depo atanmamış", q));
+            }
+        return list.OrderBy(x => x.Quantity).ThenBy(x => x.Name, StringComparer.CurrentCulture).Take(20).ToList();
+    }
 
     private static IReadOnlyList<LowStockRow> LowStockList(DbConnection conn, string companyId, string? branch = null)
     {

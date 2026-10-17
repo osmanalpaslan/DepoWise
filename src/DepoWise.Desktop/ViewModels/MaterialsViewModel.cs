@@ -548,7 +548,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         if (eksikAlanlar.Count > 0)
         { Status = "Firmanızın ayarı gereği zorunlu alanlar boş: " + string.Join(", ", eksikAlanlar) + "."; return; }
         // Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05) — şablon dışı uyarısı yok; yeni kayıtta düz onay.
-        if (!editing && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
+        // ⭐ K-05 (AR-GE, kullanıcı kararı): açılış stoğu EKSİ olabilir (devralınan eksik stok) ama kullanıcı UYARILIR.
+        var kayitSorusu = !editing && NewOpeningStock < 0
+            ? $"Açılış stoğu EKSİ girildi ({NewOpeningStock:0.##}). Malzemenin stoğu eksiden başlayacak (devralınan eksik stok olarak kaydedilir).\n\nYeni malzeme yine de kaydedilsin mi?"
+            : "Yeni malzeme kaydedilsin mi?";
+        if (!editing && !await ConfirmService.AskAsync(kayitSorusu, NewOpeningStock < 0 ? "Eksi Açılış Stoğu" : "Kaydet", danger: NewOpeningStock < 0)) return;
 
         // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
         var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;

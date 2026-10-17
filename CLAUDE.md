@@ -32,6 +32,9 @@
 ## 3. Değişmez iş kuralları
 - `company_id` yalnız oturumdan; her sorguda firma filtresi. Para/miktar `decimal` (metin saklanır), zaman UTC ms; tarih alanı UTC gün başı (`IsGunuTarihi`).
 - Stok hareket defteri ana kaynak; bakiye doğrudan değişmez. Stok/sayaç/yakıt/bakım/onayda LWW yasak; operation id + transaction + idempotency.
+  **Negatif stok yasaktır; bilinçli istisnalar (kullanıcı kararı K-05, 2026-10-13):** bakım malzemesi tüketimi ve açılış stoğu eksiye
+  düşebilir (sahada parça stoğa girmeden takılabiliyor) — ama kayıt anında kullanıcıya UYARI verilir. Çevrimdışı iki bilgisayarın aynı stoğu
+  düşmesi kabul edilir + "eksi stok oluştu" uyarısı/listesi (K-06).
 - Operasyonel kayıt fiziksel silinmez (iptal/ters kayıt + audit). Tek istisna: süper adminin web "Kalıcı Silme" ekranı (ADR-083).
 - Deny-by-default; menü/işlem/alan/buton yetkisi UI ve API'de aynı. Kayıt işlemleri `ConfirmService` onayı ister (form içi işlemler muaf listede).
 - Web ve masaüstü işlevsel eşit; önce masaüstü, web aynı iş biriminde tamamlanır. Tablo istekleri rapor dahil TÜM tablolara uygulanır.
