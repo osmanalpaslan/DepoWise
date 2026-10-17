@@ -137,6 +137,25 @@ public class SenkronUfukApiTests : IAsyncLifetime
         Assert.False(string.IsNullOrWhiteSpace(red.GetProperty("reason").GetString()));
     }
 
+    /// <summary>UFA5 — M-17: uç sayfa boyunu SINIRLAR (limit=1 → 100; limitsiz istek bile sınırsız paket alamaz) ve bozuk
+    /// imleci 400 ile reddeder.</summary>
+    [Fact]
+    public async Task UFA5_Sayfa_Siniri_Ve_Bozuk_Imlec()
+    {
+        for (int i = 0; i < 150; i++) Svc.Materials.Create(_s, new NewMaterial($"UFA5-{i:D3}", "Sayfa"));
+        foreach (var q in new[] { "after=0&limit=1", "after=0&limit=100000" })
+        {
+            var r = await _client.GetAsync("/api/sync/business-pull-v2?" + q);
+            r.EnsureSuccessStatusCode();
+            using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync());
+            var n = doc.RootElement.GetProperty("tables").GetProperty("materials").GetArrayLength();
+            if (q.EndsWith("=1")) { Assert.Equal(100, n); Assert.Equal(JsonValueKind.String, doc.RootElement.GetProperty("nextPage").ValueKind); }
+            else Assert.True(n <= 5000);
+        }
+        var bozuk = await _client.GetAsync("/api/sync/business-pull-v2?after=0&page=bozuk");
+        Assert.Equal(HttpStatusCode.BadRequest, bozuk.StatusCode);
+    }
+
     [Fact]
     public async Task UFA2_Paket_Masaustune_Uygulanir_Eski_Uc_Calisir()
     {

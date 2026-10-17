@@ -75,6 +75,8 @@ public static class BusinessSyncPullService
     private const string TxidKey = "sync_pull_txid";
     /// <summary>⭐ M-80: son görülen sunucu dönem kimliği (SunucuDonemi).</summary>
     private const string EpochKey = "sync_server_epoch";
+    /// <summary>⭐ M-17: yarıda kalan sayfalı çekimin ilerlemesi (SayfaIlerlemesi).</summary>
+    private const string SayfaKey = "sync_pull_page";
 
     /// <summary>null = henüz bilinmiyor · true = sunucu v2 destekliyor · false = eski sunucu (eski yöntem).</summary>
     public static bool? V2Destekli { get; private set; }
@@ -102,43 +104,58 @@ public static class BusinessSyncPullService
         var token = ServerAuthClient.Token;
         if (string.IsNullOrWhiteSpace(token)) return false;
         var after = tam ? 0 : OkuImlec(companyId!);
-        using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-pull-v2?after=" + after);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var resp = await _http.SendAsync(req);
-        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) { V2Destekli = false; return null; }
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        { LastFailure = SyncFailureKind.Permanent; await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
-        if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return false; }
+        var taban = url!.TrimEnd('/') + "/api/sync/business-pull-v2?";
+        SayfaIlerlemesi? devam = null;
+        try { devam = SayfaIlerlemesi.Oku(DesktopServices.Settings.Get(companyId!, SayfaKey)); } catch { }
+
+        // ⭐ M-17 (AR-GE 2026-10-17): SAYFALI ve KALDIĞI YERDEN SÜREN çekim (SayfaliCekim). Her sayfa ayrı uygulanır, ilerleme
+        // kalıcıdır; bağlantı koparsa sonraki tur aynı sayfadan sürer. Bakiye yeniden hesabı her sayfada değil, sonda bir kez.
+        var svc = new BusinessSyncService(DesktopServices.Factory);
+        bool sunucuDegisti = false;
+        var sonuc = await SayfaliCekim.CalistirAsync(after, devam,
+            getir: async q =>
+            {
+                await ServerAuthClient.EnsureFreshTokenAsync();   // yüzlerce sayfalık ilk eşitlemede jeton süresi dolmasın
+                using var req = new HttpRequestMessage(HttpMethod.Get, taban + q);
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ServerAuthClient.Token ?? token);
+                using var resp = await _http.SendAsync(req);
+                return ((int)resp.StatusCode, resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync() : null);
+            },
+            ilkSayfa: (af, next, epoch) =>
+            {
+                // ⭐ M-80: sunucu yedekten döndü / değişti mi? (SunucuDonemi). Öyleyse bu delta anlamsızdır: uygulanmaz; bu
+                // makinenin TÜM kayıtları yeniden gönderilir (yedekten sonra girilenler sunucuya geri döner) ve tam çekilir.
+                string eskiEpoch = "";
+                try { eskiEpoch = DesktopServices.Settings.Get(companyId!, EpochKey) ?? ""; } catch { }
+                var karar = SunucuDonemi.Degerlendir(eskiEpoch, epoch, af, next);
+                if (karar != SunucuDonemi.Karar.Devam && epoch.Length > 0)
+                    try { DesktopServices.Settings.Set(companyId!, EpochKey, epoch, DesktopServices.Session?.UserId ?? ""); } catch { }
+                if (karar != SunucuDonemi.Karar.SunucuDegisti) return true;
+                SyncLog.Write("SUNUCU DÖNEMİ DEĞİŞTİ", $"epoch {eskiEpoch}→{epoch} after={af} nextAfter={next} → tam gönderim + tam çekme");
+                BusinessSyncPushService.TamGonderimIste(companyId!);
+                YazImlec(companyId!, 0);
+                sunucuDegisti = true;
+                return af == 0;   // tam çekimse aynı yanıtla devam edilebilir
+            },
+            uygula: kok => svc.ApplyPull(companyId!, kok, Exclude, bakiyeHesapla: false).Upserted,
+            ilerlemeYaz: i => { try { DesktopServices.Settings.Set(companyId!, SayfaKey, i?.Yaz() ?? "", DesktopServices.Session?.UserId ?? ""); } catch { } });
+
+        if (sonuc.Uygulanan > 0)
+            try { await Task.Run(() => new DepoWise.Infrastructure.Materials.StockService(DesktopServices.Factory).RecomputeBalances(companyId!)); }
+            catch { /* defter doğrudur; sonraki çekme yeniden hesaplar */ }
+        SonAlinanSayisi = sonuc.Uygulanan;
+
+        if (sonuc.Durum == SayfaliDurum.SunucuReddetti && sunucuDegisti) return await PullV2Async(tam: true);
+        if (sonuc.Durum != SayfaliDurum.Tamam)
+        {
+            if (sonuc.HttpDurum == 404 && sonuc.Sayfa == 0) { V2Destekli = false; return null; }
+            if (sonuc.HttpDurum == 401) { LastFailure = SyncFailureKind.Permanent; await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
+            LastFailure = SyncFailureClassifier.FromStatus((System.Net.HttpStatusCode)sonuc.HttpDurum);
+            return false;
+        }
         V2Destekli = true;
-        var json = await resp.Content.ReadAsStringAsync();
-        long sonraki = 0;
-        string epoch = "";
-        using (var bas = JsonDocument.Parse(json))
-        {
-            if (bas.RootElement.TryGetProperty("nextAfter", out var na) && na.TryGetInt64(out var n)) sonraki = n;
-            if (bas.RootElement.TryGetProperty("epoch", out var ep) && ep.ValueKind == JsonValueKind.String) epoch = ep.GetString() ?? "";
-        }
-        // ⭐ M-80 (AR-GE 2026-10-17): sunucu yedekten döndü / değişti mi? (SunucuDonemi). Öyleyse bu delta anlamsızdır:
-        // uygulanmaz; bu makinenin TÜM kayıtları yeniden gönderilir (yedekten sonra girilenler sunucuya geri döner) ve tam çekilir.
-        string eskiEpoch = "";
-        try { eskiEpoch = DesktopServices.Settings.Get(companyId!, EpochKey) ?? ""; } catch { }
-        var karar = SunucuDonemi.Degerlendir(eskiEpoch, epoch, after, sonraki);
-        if (karar != SunucuDonemi.Karar.Devam && epoch.Length > 0)
-            try { DesktopServices.Settings.Set(companyId!, EpochKey, epoch, DesktopServices.Session?.UserId ?? ""); } catch { }
-        if (karar == SunucuDonemi.Karar.SunucuDegisti)
-        {
-            SyncLog.Write("SUNUCU DÖNEMİ DEĞİŞTİ", $"epoch {eskiEpoch}→{epoch} after={after} nextAfter={sonraki} → tam gönderim + tam çekme");
-            BusinessSyncPushService.TamGonderimIste(companyId!);
-            YazImlec(companyId!, 0);
-            if (!tam) return await PullV2Async(tam: true);
-        }
-        await Task.Run(() =>
-        {
-            using var doc = JsonDocument.Parse(json);
-            var sonuc = new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
-            SonAlinanSayisi = sonuc.Upserted;
-        });
-        // İmleç YALNIZ uygulama BAŞARIYLA bittikten sonra ilerler (yarıda kalan uygulama → aynı aralık tekrar çekilir;
+        var sonraki = sonuc.NextAfter;
+        // İmleç YALNIZ son sayfa da BAŞARIYLA uygulandıktan sonra ilerler (yarıda kalan çekim → ilerleme kaydından sürer;
         // satır kimliği + operation_id ile tekrar zararsızdır).
         if (sonraki > 0) YazImlec(companyId!, sonraki);
         try { DesktopServices.Settings.Set(companyId!, "sync_last_pull_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(), DesktopServices.Session?.UserId ?? ""); } catch { }

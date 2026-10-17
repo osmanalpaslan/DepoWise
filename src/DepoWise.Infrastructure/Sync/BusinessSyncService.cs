@@ -646,7 +646,8 @@ public sealed class BusinessSyncService
     /// ebeveynin TÜM çocukları da eklenir (alıcı ebeveyn gelince çocuk kümesini paketteki hâliyle değiştirir; eksik gönderim
     /// çocukları sildirirdi). Paket biçimi eski snapshot ile aynıdır (+ <c>nextAfter</c>) → <see cref="ApplyPull"/> değişmez.
     /// </summary>
-    public (string Json, long NextAfter) BuildDeltaV2(string companyId, long after, SessionContext? session = null)
+    public (string Json, long NextAfter) BuildDeltaV2(string companyId, long after, SessionContext? session = null,
+        int limit = 0, string? sayfa = null, long? ufukSabit = null)
     {
         var eff = session is null ? null : BranchAccess.Effective(session);
         using var conn = _factory.Create();
@@ -668,15 +669,40 @@ public sealed class BusinessSyncService
             epoch = ur.IsDBNull(1) ? "" : Convert.ToString(ur.GetValue(1)) ?? "";
         }
         if (after < 0) after = 0;
+        // ⭐ M-17: sayfalı çekimde TÜM sayfalar ilk sayfanın ufkunu kullanır (tutarlı kesit). İstemcinin verdiği değer şimdiki
+        // ufku AŞAMAZ (aşarsa süren işlemin satırı atlanabilirdi) → küçüğü alınır. Sayfalama sırasında değişen satırlar
+        // ufuktan büyük kimlik alır ve bir sonraki delta çekimde gelir — kaybolmaz.
+        if (ufukSabit is > 0) ufuk = Math.Min(ufuk, ufukSabit.Value);
+
+        var (sayfaTablo, sayfaAnahtar) = SayfaCoz(sayfa);
+        var kalan = limit > 0 ? limit : int.MaxValue;
+        string? sonrakiSayfa = null;
 
         // Satır aralığı koşulu. İlk çekimde (after=0) damgasız (NULL) satırlar da alınır — güvenlik ağı.
         string Aralik(string alias) => after == 0
             ? $"({alias}.server_txid IS NULL OR {alias}.server_txid < @u)"
             : $"({alias}.server_txid >= @a AND {alias}.server_txid < @u)";
 
-        var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
-        foreach (var table in Tables)
+        static List<Dictionary<string, object?>> Oku(DbCommand cmd)
         {
+            var rows = new List<Dictionary<string, object?>>();
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+                for (int i = 0; i < r.FieldCount; i++)
+                    row[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i);
+                rows.Add(row);
+            }
+            return rows;
+        }
+
+        var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
+        for (int ti = 0; ti < Tables.Length; ti++)
+        {
+            var table = Tables[ti];
+            if (ti < sayfaTablo) continue;                       // önceki sayfalarda bitmiş tablolar
+            if (kalan <= 0) { sonrakiSayfa = SayfaYaz(ti, null); break; }
             if (!TableExists(conn, table)) continue;
             var cols = ColumnNames(conn, table);
             if (!cols.Contains("server_txid")) continue;   // migration 099 öncesi şema: v2 bu tabloyu taşımaz
@@ -698,23 +724,94 @@ public sealed class BusinessSyncService
             where.Add(aralik);
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = $"SELECT * FROM {table} WHERE " + string.Join(" AND ", where) + ";";
+            var pk = limit > 0 ? PrimaryKey(conn, table) : new List<string>();
+            if (limit > 0 && pk.Count > 0 && ti == sayfaTablo && sayfaAnahtar is { } sk && sk.Count == pk.Count)
+            {
+                // Anahtar sırasıyla kaldığı yerden (keyset): (k1, k2) > (@s0, @s1)
+                where.Add(pk.Count == 1
+                    ? $"{table}.{pk[0]} > @s0"
+                    : $"({string.Join(", ", pk.Select(k => table + "." + k))}) > ({string.Join(", ", pk.Select((_, i) => "@s" + i))})");
+                for (int i = 0; i < sk.Count; i++) cmd.AddWithValue("@s" + i, sk[i] ?? (object)DBNull.Value);
+            }
+            cmd.CommandText = $"SELECT * FROM {table} WHERE " + string.Join(" AND ", where) +
+                (limit > 0 && pk.Count > 0 ? $" ORDER BY {string.Join(", ", pk.Select(k => table + "." + k))} LIMIT {kalan + 1}" : "") + ";";
             cmd.AddWithValue("@c", companyId);
             cmd.AddWithValue("@u", ufuk);
             if (after > 0) cmd.AddWithValue("@a", after);
             if (branchWhere.Length > 0) BindBranch(cmd, eff);
-            var rows = new List<Dictionary<string, object?>>();
-            using (var r = cmd.ExecuteReader())
-                while (r.Read())
+            var rows = Oku(cmd);
+
+            if (limit > 0 && pk.Count > 0 && rows.Count > kalan)
+            {
+                rows.RemoveRange(kalan, rows.Count - kalan);
+                sonrakiSayfa = SayfaYaz(ti, pk.Select(k => rows[^1][k]).ToList());
+            }
+            if (rows.Count > 0) tables[table] = tables.TryGetValue(table, out var vardi) ? vardi.Concat(rows).ToList() : rows;
+            kalan -= rows.Count;
+
+            // ⭐ M-17: sayfalı çekimde bir EBEVEYN pakete girerse çocuklarının TAMAMI aynı sayfaya eklenir. Alıcı, gelen
+            // ebeveynin çocuk kümesini paketteki hâliyle değiştirir (SNK-A6); çocuklar sonraki sayfada kalsaydı arada silinirdi.
+            if (limit > 0 && rows.Count > 0)
+                foreach (var (child, map) in ParentReplaceChildren)
                 {
-                    var row = new Dictionary<string, object?>(StringComparer.Ordinal);
-                    for (int i = 0; i < r.FieldCount; i++)
-                        row[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i);
-                    rows.Add(row);
+                    if (map.Parent != table || !TableExists(conn, child)) continue;
+                    var ids = rows.Select(r => r.TryGetValue("id", out var v) ? v : null).Where(v => v is not null).ToList();
+                    for (int b = 0; b < ids.Count; b += 500)
+                    {
+                        var parti = ids.Skip(b).Take(500).ToList();
+                        using var cc = conn.CreateCommand();
+                        var cBranch = BranchWhere(session, child, eff);
+                        cc.CommandText = $"SELECT * FROM {child} WHERE {child}.{map.Fk} IN ({string.Join(",", parti.Select((_, i) => "@p" + i))})" +
+                                         (cBranch.Length > 0 ? " AND " + cBranch : "") + ";";
+                        for (int i = 0; i < parti.Count; i++) cc.AddWithValue("@p" + i, parti[i]!);
+                        if (cBranch.Length > 0) BindBranch(cc, eff);
+                        var cocuk = Oku(cc);
+                        if (cocuk.Count > 0) tables[child] = tables.TryGetValue(child, out var cv) ? cv.Concat(cocuk).ToList() : cocuk;
+                    }
                 }
-            if (rows.Count > 0) tables[table] = rows;
+
+            if (sonrakiSayfa is not null) break;
         }
-        return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk, epoch }), ufuk);
+        return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk, epoch, nextPage = sonrakiSayfa }), ufuk);
+    }
+
+    /// <summary>M-17 sayfa imleci: "tabloSırası:base64url(JSON anahtar dizisi)". Anahtar yoksa tablo baştan.</summary>
+    private static string SayfaYaz(int tabloSirasi, List<object?>? anahtar)
+    {
+        if (anahtar is null) return tabloSirasi.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
+        var b = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(anahtar)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return tabloSirasi.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + b;
+    }
+
+    /// <summary>Sayfa imlecini çözer; bozuksa <see cref="ArgumentException"/> (uç 400 döner).</summary>
+    private static (int Tablo, List<object?>? Anahtar) SayfaCoz(string? sayfa)
+    {
+        if (string.IsNullOrWhiteSpace(sayfa)) return (0, null);
+        var i = sayfa.IndexOf(':');
+        if (i <= 0 || !int.TryParse(sayfa[..i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ti)
+            || ti < 0 || ti > Tables.Length)
+            throw new ArgumentException("Geçersiz sayfa imleci.");
+        var govde = sayfa[(i + 1)..];
+        if (govde.Length == 0) return (ti, null);
+        try
+        {
+            var s = govde.Replace('-', '+').Replace('_', '/');
+            s = s.PadRight(s.Length + (4 - s.Length % 4) % 4, '=');
+            using var doc = JsonDocument.Parse(Convert.FromBase64String(s));
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) throw new ArgumentException("Geçersiz sayfa imleci.");
+            var l = new List<object?>();
+            foreach (var e in doc.RootElement.EnumerateArray())
+                l.Add(e.ValueKind switch
+                {
+                    JsonValueKind.Number => e.TryGetInt64(out var n) ? n : e.GetDouble(),
+                    JsonValueKind.String => e.GetString(),
+                    JsonValueKind.Null => null,
+                    _ => throw new ArgumentException("Geçersiz sayfa imleci."),
+                });
+            return (ti, l);
+        }
+        catch (FormatException) { throw new ArgumentException("Geçersiz sayfa imleci."); }
+        catch (JsonException) { throw new ArgumentException("Geçersiz sayfa imleci."); }
     }
 
     /// <summary>
@@ -1243,7 +1340,8 @@ public sealed class BusinessSyncService
     /// SİLMEDE SUNUCU (WEB) TAM OTORİTERDİR: gelen satır <c>is_deleted=1</c> ise LWW koşulu ATLANIR ve silme
     /// yerelde koşulsuz uygulanır. Aksi halde makinede daha yeni bir düzenleme, web'de silinmiş kaydı "diriltiyordu".
     /// (Bu yalnız PULL yönünde geçerlidir; push'ta normal LWW korunur.)</summary>
-    public ApplyResult ApplyPull(string companyId, JsonElement payload, ISet<string>? excludeTables = null)
+    public ApplyResult ApplyPull(string companyId, JsonElement payload, ISet<string>? excludeTables = null,
+        bool bakiyeHesapla = true)   // M-17: sayfalı çekimde çağıran bakiyeyi SONDA bir kez hesaplar
     {
         var sonuc = ApplyCore(companyId, payload, null, excludeTables, serverAuthoritativeDeletes: true);
 
@@ -1266,7 +1364,7 @@ public sealed class BusinessSyncService
         //
         // <b>Neden koşullu:</b> hesaplama defterin tamamını okur; her boş turda çalıştırmak gereksiz
         // yüktür. Yalnız gerçekten satır uygulandıysa çalışır.
-        if (sonuc.Upserted > 0)
+        if (bakiyeHesapla && sonuc.Upserted > 0)
         {
             try { new Materials.StockService(_factory, _clock).RecomputeBalances(companyId); }
             catch { /* defter yine doğrudur; bir sonraki çekme düzeltir — senkron turu bu yüzden kırılmaz */ }

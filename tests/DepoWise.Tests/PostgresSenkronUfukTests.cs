@@ -158,6 +158,41 @@ public class PostgresSenkronUfukTests
         Assert.NotEqual(d1, Donem());
     }
 
+    /// <summary>PUF7 — M-17: PostgreSQL'de sayfalama (tek ve ÇOK kolonlu birincil anahtar — muadil tablosu) eksiksiz.</summary>
+    [SkippableFact]
+    public void PUF7_Sayfalama_Cok_Kolonlu_Anahtarla_Eksiksiz()
+    {
+        var (f, sync) = Kur();
+        using (var c = f.Create())
+        {
+            for (int i = 0; i < 60; i++) Ekle(c, null, $"m_{i:D3}");
+            for (int i = 1; i < 60; i++)
+            {
+                using var cmd = c.CreateCommand();
+                cmd.CommandText = "INSERT INTO material_equivalents(material_id, equivalent_material_id) VALUES(@a, @b);";
+                cmd.AddWithValue("@a", $"m_{i:D3}");
+                cmd.AddWithValue("@b", $"m_{i - 1:D3}");
+                cmd.ExecuteNonQuery();
+            }
+        }
+        var malzeme = new HashSet<string>(); var muadil = new HashSet<string>();
+        string? sayfa = null; long? u = null; int n = 0;
+        do
+        {
+            using var doc = JsonDocument.Parse(sync.BuildDeltaV2("B", 0, null, 100, sayfa, u).Json);
+            var kok = doc.RootElement;
+            u ??= kok.GetProperty("nextAfter").GetInt64();
+            var t = kok.GetProperty("tables");
+            if (t.TryGetProperty("materials", out var ms)) foreach (var r in ms.EnumerateArray()) malzeme.Add(r.GetProperty("id").GetString()!);
+            if (t.TryGetProperty("material_equivalents", out var es))
+                foreach (var r in es.EnumerateArray()) muadil.Add(r.GetProperty("material_id").GetString() + "|" + r.GetProperty("equivalent_material_id").GetString());
+            sayfa = kok.TryGetProperty("nextPage", out var np) && np.ValueKind == JsonValueKind.String ? np.GetString() : null;
+            n++;
+        } while (sayfa is not null && n < 50);
+        Assert.Equal(60, malzeme.Count);
+        Assert.Equal(59, muadil.Count);
+    }
+
     [SkippableFact]
     public void PUF3_Her_Esitleme_Tablosunda_Tetikleyici_Var()
     {

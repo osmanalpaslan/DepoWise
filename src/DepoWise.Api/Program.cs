@@ -497,11 +497,19 @@ app.MapGet("/api/sync/business-pull", (HttpContext c, long? since) =>
 // ⭐ M-03 (AR-GE 2026-10-17) — ÇEKME v2: işlem kimliği UFKU (Migration099). İstemci bir önceki yanıttaki nextAfter'ı
 // "after" olarak gönderir; yanıt yalnız o ufuktan bu yana BİTMİŞ işlemlerin yazdığı satırları taşır (geç gelen/geri damgalı
 // satır kaçmaz, istemci saati önemsizdir). Paket biçimi eski uçla aynı (+ nextAfter). Eski uç (business-pull) aynen durur.
-app.MapGet("/api/sync/business-pull-v2", (HttpContext c, long? after) =>
+// ⭐ M-17 (AR-GE 2026-10-17): SAYFALI. Yanıt en fazla "limit" satır (100–5000, varsayılan 2000) + "nextPage" imleci taşır;
+// istemci nextPage boşalana kadar page=<imleç>&u=<ilk sayfanın nextAfter'ı> ile devam eder. Eskiden ilk eşitleme tek paketti
+// (büyük firmada 567 MB, sunucuda ~4,9 GB bellek → 512 MB makinede çökme).
+app.MapGet("/api/sync/business-pull-v2", (HttpContext c, long? after, int? limit, string? page, long? u) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var (json, _) = svc.BusinessSync.BuildDeltaV2(s.CompanyId, after ?? 0, s);
-    return Results.Content(json, "application/json");
+    var n = Math.Clamp(limit ?? 2000, 100, 5000);
+    try
+    {
+        var (json, _) = svc.BusinessSync.BuildDeltaV2(s.CompanyId, after ?? 0, s, n, page, u);
+        return Results.Content(json, "application/json");
+    }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
 
 // İş verisi SÜRÜMÜ (ucuz): firmanın tüm iş tablolarındaki en büyük updated_at. Masaüstü sık yoklar; sürüm

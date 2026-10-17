@@ -67,3 +67,9 @@
 - **Bulgu:** API sıkıştırması (SNK-08) açıktı ama hiçbir istemci `Accept-Encoding` göndermiyordu (düz `HttpClient`) → masaüstü eşitleme paketleri ve web listeleri hep sıkıştırmasız iniyordu.
 - **Değişiklik:** `Infrastructure/Net/HttpIstemci` (gzip/Brotli/deflate ister + açar, bağlantı ömrü 10 dk); masaüstündeki 11 istemci buna geçti (süreler aynı); web `HttpClient` aynı işleyiciyle. İstek gövdesi sıkıştırması BİLİNÇLİ eklenmedi (1 GB gövde sınırı + 512 MB sunucu → açılan paket belleği taşırabilir; M-17 parçalı gönderimle ele alınacak).
 - **Testler:** `SikistirmaTests` SKS1 (200 malzemelik v2 paketi gzip ile iner, ≥%70 küçülür), SKS2, SKS3 (düz HttpClient kalmadı — kaynak kilidi); `LoginMachineSyncTests.L1` aynı süreleri yeni yazımla denetler. 10/10 + ilgili 31.
+
+### B1 — M-17 sayfalı, kaldığı yerden süren çekme
+- **Sorun:** ilk eşitleme tek paket (büyük firmada 567 MB, sunucuda ~4,9 GB bellek → 512 MB makinede çökme); kopunca baştan.
+- **Sunucu:** `BuildDeltaV2(limit, sayfa, ufukSabit)` tablo sırası + birincil anahtar (çok kolonlu dahil) ile keyset sayfalama; tüm sayfalar ilk sayfanın ufkuyla (şimdiki ufku aşamaz); sayfaya giren ebeveynin TÜM çocukları aynı sayfada (alıcı arada silmesin). Uç `limit` 100–5000 (varsayılan 2000, her zaman sınırlı), bozuk imleç 400.
+- **Masaüstü:** `SayfaliCekim` döngüsü (ağdan bağımsız): sayfa → uygula → ilerlemeyi kalıcı yaz (`sync_pull_page`); kopunca aynı ufukla kaldığı sayfadan; imleç yalnız son sayfadan sonra; bakiye yeniden hesabı sonda bir kez (`ApplyPull(bakiyeHesapla:false)`); her sayfada jeton tazeleme; sıfırlama ilerlemeyi de temizler.
+- **Testler:** `SayfaliCekimTests` SAY1–7 (birleşim = tam paket, sınır, aynı ufuk, çocuklar aynı sayfada, arada eklenen kayıt deltada gelir, bozuk imleç 5 durum, kopma+devam, ilk sayfa reddi, 1 satırlık sayfalarla masaüstü tam veri), PG `PUF7` (çok kolonlu anahtar), API `UFA5` (sınır + 400). 54/54. Mutasyon: çocukları aynı sayfaya ekleme kapatılınca SAY2 kırmızı.
