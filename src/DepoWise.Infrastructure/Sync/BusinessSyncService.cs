@@ -899,6 +899,85 @@ public sealed class BusinessSyncService
         return JsonSerializer.Serialize(new { companyId, machineId, tables });
     }
 
+    /// <summary>
+    /// ⭐ AR-GE 2026-10-17 (M-17'nin gönderim tarafı, M-81 önkoşulu) — GÖNDERİM PAKETİNİ SAYFALARA BÖLER.
+    ///
+    /// Büyük bir gönderim (ilk kurulum, tam yeniden gönderim) tek paketken sunucu JSON'u belleğe tek parça alıyordu (512 MB
+    /// makinede çökme riski). Satırlar tablo sırası KORUNARAK en fazla <paramref name="sayfaBoyu"/> satırlık sayfalara bölünür
+    /// (ebeveyn tablolar önce gelir → yabancı anahtar sırası sayfalar arasında da doğru). <see cref="ParentReplaceChildren"/>:
+    /// sayfadaki her ebeveynin çocukları AYNI sayfaya eklenir (sunucu ebeveyn gelince çocuk kümesini paketteki hâliyle
+    /// değiştirir; çocuk sonraki sayfada kalsaydı arada silinirdi). Her sayfa <c>pushPage</c> taşır; çakışma tabanı yalnız son
+    /// sayfadan sonra ilerler. Tek sayfaya sığan paket AYNEN döner (davranış değişmez).
+    /// </summary>
+    public static IReadOnlyList<string> GonderimSayfalari(string paket, int sayfaBoyu = 2000)
+    {
+        using var doc = JsonDocument.Parse(paket);
+        var kok = doc.RootElement;
+        if (!kok.TryGetProperty("tables", out var tablolar) || tablolar.ValueKind != JsonValueKind.Object) return new[] { paket };
+        int toplam = 0;
+        foreach (var tb in tablolar.EnumerateObject()) if (tb.Value.ValueKind == JsonValueKind.Array) toplam += tb.Value.GetArrayLength();
+        if (toplam <= sayfaBoyu) return new[] { paket };
+
+        string? companyId = kok.TryGetProperty("companyId", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+        string? machineId = kok.TryGetProperty("machineId", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+
+        // Çocuk satırlarını ebeveyn kimliğine göre önceden grupla.
+        var cocuklar = new Dictionary<string, Dictionary<string, List<JsonElement>>>(StringComparer.Ordinal);   // çocuk tablo → ebeveynId → satırlar
+        foreach (var (child, map) in ParentReplaceChildren)
+        {
+            if (!tablolar.TryGetProperty(child, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
+            var g = new Dictionary<string, List<JsonElement>>(StringComparer.Ordinal);
+            foreach (var r in rows.EnumerateArray())
+            {
+                if (!r.TryGetProperty(map.Fk, out var fk)) continue;
+                var k = fk.ValueKind == JsonValueKind.String ? fk.GetString() ?? "" : fk.ToString();
+                if (!g.TryGetValue(k, out var l)) g[k] = l = new List<JsonElement>();
+                l.Add(r);
+            }
+            cocuklar[child] = g;
+        }
+
+        var sayfalar = new List<Dictionary<string, List<JsonElement>>>();
+        var aktif = new Dictionary<string, List<JsonElement>>(StringComparer.Ordinal);
+        int sayi = 0;
+        var tasindi = new HashSet<string>(StringComparer.Ordinal);   // ebeveyniyle önceden taşınan çocuk satırlar (tekrar gönderilmez)
+        void Ekle(string tablo, JsonElement r)
+        {
+            if (!aktif.TryGetValue(tablo, out var l)) aktif[tablo] = l = new List<JsonElement>();
+            l.Add(r);
+        }
+        foreach (var tablo in Tables)
+        {
+            if (!tablolar.TryGetProperty(tablo, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
+            foreach (var r in rows.EnumerateArray())
+            {
+                if (tasindi.Contains(tablo + "\u0001" + r.GetRawText())) continue;
+                if (sayi >= sayfaBoyu) { sayfalar.Add(aktif); aktif = new(StringComparer.Ordinal); sayi = 0; }
+                Ekle(tablo, r); sayi++;
+                // Ebeveyn → çocuklarının TAMAMI bu sayfaya (sayıya katılmaz; sınır ebeveyn başına çocuk sayısı kadar aşılabilir).
+                foreach (var (child, map) in ParentReplaceChildren)
+                {
+                    if (map.Parent != tablo || !cocuklar.TryGetValue(child, out var g)) continue;
+                    if (!r.TryGetProperty("id", out var idEl)) continue;
+                    var id = idEl.ValueKind == JsonValueKind.String ? idEl.GetString() ?? "" : idEl.ToString();
+                    if (g.TryGetValue(id, out var cs))
+                        foreach (var cr in cs) { Ekle(child, cr); tasindi.Add(child + "\u0001" + cr.GetRawText()); }
+                }
+            }
+        }
+        if (aktif.Count > 0) sayfalar.Add(aktif);
+
+        var sonuc = new List<string>(sayfalar.Count);
+        for (int i = 0; i < sayfalar.Count; i++)
+            sonuc.Add(JsonSerializer.Serialize(new
+            {
+                companyId, machineId,
+                tables = sayfalar[i],
+                pushPage = new { no = i + 1, total = sayfalar.Count, last = i == sayfalar.Count - 1 },
+            }));
+        return sonuc;
+    }
+
     /// <summary>Firmanın iş verisinin "sürümü": tüm iş tablolarındaki EN BÜYÜK updated_at. Ucuz tek sayı —
     /// istemci, tam snapshot çekmeden önce sunucu sürümü değişti mi diye bakar (sık yoklama + yalnız değişince
     /// aktarım). Kullanıcı isteği 2026-07-19: eşitleme 3 dk yerine anlık, ama sabit tam-snapshot bant israfı
@@ -1535,8 +1614,12 @@ public sealed class BusinessSyncService
         // (silme yayılımı). Tüm tablolar uygulandıktan SONRA çalışır ki yeni gelen çocuklar zaten yazılmış olsun.
         ReconcileParentReplacedChildren(conn, tablesEl, companyId, errors);
 
-        // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı)
-        if (deviceId is not null) SetLastPush(conn, deviceId, now);
+        // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı).
+        // ⭐ Sayfalı gönderimde (paket "pushPage": { "last": false }) yalnız SON sayfadan sonra ilerler — aksi hâlde 2. sayfadaki
+        // kayıtların çakışma tabanı ilk sayfanın anına kayar, eşzamanlı düzenlemeler (M-18) kaçardı. Alan yoksa eskisi gibi.
+        var sonSayfa = !payload.TryGetProperty("pushPage", out var ppEl) || ppEl.ValueKind != JsonValueKind.Object
+            || !ppEl.TryGetProperty("last", out var lastEl) || lastEl.ValueKind != JsonValueKind.False;
+        if (deviceId is not null && sonSayfa) SetLastPush(conn, deviceId, now);
 
         if (koruma) { using var g = conn.CreateCommand(); g.CommandText = "DELETE FROM sync_apply_guard;"; g.ExecuteNonQuery(); }
         using (var commit = conn.CreateCommand()) { commit.CommandText = "COMMIT;"; commit.ExecuteNonQuery(); }

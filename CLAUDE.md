@@ -46,6 +46,9 @@
   Tam takım ~4.000 test / ~60 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
 - Test tipine Claude karar verir, gerekçe tek satır. **Düzen (kullanıcı kararı 2026-10-17):** adımda hedefli testler + riskli alan paketi
   (senkron/migration/kopyalayıcı/PG/kaynak-metin); TAM takım yalnız faz sonunda, geniş arayüz işinde ve yayın öncesi (zorunlu). Flaky testi tekrarla gizleme.
+- **Süre bildirimi + süreyi aşan koşu kontrolü (kullanıcı kuralı 2026-10-17):** her koşuda ortalama süre ve tahmini bitiş saati
+  söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~60 dk, senkron paketi ~22 dk…). Ortalamanın ~1,3 katı/+10 dk
+  aşılırsa sormadan durum kontrol edilir ve bildirilir. `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
   web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma).

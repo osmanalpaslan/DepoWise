@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -68,6 +69,10 @@ public static class BusinessSyncPushService
             bool tamGonderim = TamGonderimBekliyor(companyId!) && localSeq >= 0;
             if (tamGonderim) seqWm = -1;
             bool gecis = !tamGonderim && (seqWm < 0 || localSeq < 0);
+            // ⭐ M-81 (AR-GE 2026-10-17, F-181): sayaç imlecine geçişte bir kez TAM gönderim. Eski damga imleci, eşitlemeye
+            // SONRADAN eklenen tabloların (muayene, şablonlar, ekipman, zimmet…) eklenmeden önceki yerel satırlarını hiç
+            // göndermemiş olabilir; tam gönderim onları da taşır (sayfalı; kimlik + operation_id + LWW ile tekrar zararsız).
+            if (gecis && localSeq >= 0) { tamGonderim = true; gecis = false; seqWm = -1; }
             long pushWm = 0, localV = 0;
             if (gecis)
             {
@@ -91,27 +96,41 @@ public static class BusinessSyncPushService
                 if (tamGonderim) { SetText(companyId!, TamGonderimKey, ""); SyncLog.Write("TAM YENİDEN GÖNDERİM bitti"); }
                 if (gecis) SavePushWatermark(companyId!, localV);   // eski imleç (geri dönüş/eski sürüm için tutarlı kalsın)
             }
-            using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
+            // ⭐ AR-GE 2026-10-17: SAYFALI GÖNDERİM — büyük paket (ilk kurulum / tam yeniden gönderim) en fazla 2000 satırlık
+            // sayfalarla gider (sunucu belleği). Bir sayfa HTTP hatası verirse tur durur; imleç İLERLEMEZ → sonraki tur aynı
+            // satırları baştan gönderir (kimlik + operation_id ile tekrar zararsız). Tek sayfaya sığan paket eskisi gibi tek istek.
+            var sayfalar = BusinessSyncService.GonderimSayfalari(snapshot);
+            if (sayfalar.Count > 1) SyncLog.Write("PUSH sayfalı", $"{sayfalar.Count} sayfa");
+            var parcalar = new System.Collections.Generic.List<PushResult>();
+            var durum = System.Net.HttpStatusCode.OK;
+            var bodyText = "";
+            foreach (var sayfa in sayfalar)
             {
-                Content = new StringContent(snapshot, Encoding.UTF8, "application/json"),
-            };
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using var resp = await _http.SendAsync(req);
-            // 401 → token beklenmedik şekilde geçersiz; bir kez yenilemeyi dene (yine olmazsa SessionExpired sinyali).
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                await ServerAuthClient.EnsureFreshTokenAsync();
-
-            // Z2 (2026-07-19): sunucu yanıtını OKU — "eşitlendi" sanılan sessiz atlamayı bitir.
-            // Sunucu {upserted, skipped, errors} döndürür; eskiden yalnız HTTP durumuna bakılıp gövde atılıyordu.
-            var bodyText = await resp.Content.ReadAsStringAsync();
-            if (resp.IsSuccessStatusCode)
-            {
-                var r = ParseResult(bodyText);
-                LastPushResult = r;
+                if (sayfalar.Count > 1) await ServerAuthClient.EnsureFreshTokenAsync();   // uzun gönderimde jeton dolmasın
+                using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
+                {
+                    Content = new StringContent(sayfa, Encoding.UTF8, "application/json"),
+                };
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ServerAuthClient.Token ?? token);
+                using var resp = await _http.SendAsync(req);
+                // 401 → token beklenmedik şekilde geçersiz; bir kez yenilemeyi dene (yine olmazsa SessionExpired sinyali).
+                if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    await ServerAuthClient.EnsureFreshTokenAsync();
+                // Z2 (2026-07-19): sunucu yanıtını OKU — "eşitlendi" sanılan sessiz atlamayı bitir.
+                bodyText = await resp.Content.ReadAsStringAsync();
+                durum = resp.StatusCode;
+                if (!resp.IsSuccessStatusCode) break;
+                var pr = ParseResult(bodyText);
+                parcalar.Add(pr);
                 // ⭐ M-15 (AR-GE 2026-10-17): HANGİ kayıt gitmedi → yerel "Gönderilemeyen kayıtlar" listesi (imleçten bağımsız,
-                // kaybolmaz); bu turda kabul edilenlerin eski kaydı silinir. Hata eşitlemeyi durdurmaz.
-                try { new GonderimRedleriService(DesktopServices.Factory).Isle(companyId!, snapshot, r.Rejected ?? System.Array.Empty<RejectedRow>(), r.Renamed); }
+                // kaybolmaz); bu sayfada kabul edilenlerin eski kaydı silinir. Hata eşitlemeyi durdurmaz.
+                try { new GonderimRedleriService(DesktopServices.Factory).Isle(companyId!, sayfa, pr.Rejected ?? System.Array.Empty<RejectedRow>(), pr.Renamed); }
                 catch (Exception ex) { SyncLog.Write("RED LİSTESİ yazılamadı", ex.Message); }
+            }
+            if ((int)durum >= 200 && (int)durum < 300)
+            {
+                var r = Birlestir(parcalar);
+                LastPushResult = r;
                 SonGonderilenSayisi = r.Upserted;   // 2026-10-04: üst bardaki "giden" sayacı
                 LastPushFailed = false;
 
@@ -159,8 +178,9 @@ public static class BusinessSyncPushService
             else
             {
                 LastPushFailed = true;
-                LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode);   // SNK-03: 5xx/429 → backoff, 4xx → hayır
-                SyncLog.Write("PUSH reddedildi", $"HTTP {(int)resp.StatusCode} {resp.StatusCode}; gövde: {Truncate(bodyText, 500)}");
+                LastFailure = SyncFailureClassifier.FromStatus(durum);   // SNK-03: 5xx/429 → backoff, 4xx → hayır
+                SyncLog.Write("PUSH reddedildi", $"HTTP {(int)durum} {durum}; gövde: {Truncate(bodyText, 500)}" +
+                    (sayfalar.Count > 1 ? $" (sayfa {parcalar.Count + 1}/{sayfalar.Count})" : ""));
             }
         }
         catch (Exception ex) { LastPushFailed = true; LastFailure = SyncFailureClassifier.FromException(ex); SyncLog.Write("PUSH hata", ex.Message); /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
@@ -209,6 +229,7 @@ public static class BusinessSyncPushService
             if (TamGonderimBekliyor(companyId!)) return true;                         // M-80
             var seqWm = LoadPushSeq(companyId!);
             var localSeq = svc.LocalChangeSeq();
+            if (seqWm < 0 && localSeq >= 0) return true;                             // M-81: geçiş tam gönderimi bekliyor
             if (seqWm >= 0 && localSeq >= 0) return localSeq > seqWm;               // M-03: saat bağımsız
             return localSeq > 0 || svc.CompanyVersion(companyId!) > LoadPushWatermark(companyId!);   // geçiş
         }
@@ -375,6 +396,16 @@ public static class BusinessSyncPushService
         }
         catch { /* bozuk/boş gövde → sıfır sonuç */ }
         return new PushResult(upserted, skipped, errors, permanent, rejected, renamed);
+    }
+
+    /// <summary>Sayfaların sunucu sonuçlarını tek sonuçta toplar (hata metinleri en fazla 20).</summary>
+    internal static PushResult Birlestir(System.Collections.Generic.IReadOnlyList<PushResult> parcalar)
+    {
+        if (parcalar.Count == 1) return parcalar[0];
+        return new PushResult(parcalar.Sum(p => p.Upserted), parcalar.Sum(p => p.Skipped),
+            parcalar.SelectMany(p => p.Errors).Take(20).ToList(), parcalar.Sum(p => p.PermanentSkipped),
+            parcalar.SelectMany(p => p.Rejected ?? System.Array.Empty<RejectedRow>()).ToList(),
+            parcalar.SelectMany(p => p.Renamed ?? System.Array.Empty<BusinessSyncService.RenamedRow>()).ToList());
     }
 
     private static string Truncate(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "…";
