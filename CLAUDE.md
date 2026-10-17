@@ -21,7 +21,7 @@
 - **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (512 MB + 256 MB swap, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
 - **API:** minimal API `/api/...` (sürüm öneki yok), `depowise-erp.fly.dev` (512 MB, tek makine). Hata gövdesi `{"error":"..."}`.
 - **Üretim DB:** Supabase PostgreSQL 17 (proje *Alpnex*, `depowise_prod`). API doğrudan bağlantı; yerel araçlar pooler
-  (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 101** (arge dalı; master 98).
+  (`$TEMP/pgconn.txt`). `DEPOWISE_PG_URL` tanımsızsa API SQLite'a düşer. Neon 2026-10'da kaldırıldı. **Şema sürümü: 102** (arge dalı; master 98).
 - Migration kataloğu iki lehçede yürür; lehçe farkı `SqlDialect`/`DbIntrospect`. Yeni migration yalnız ekleme (ADD COLUMN/CREATE)
   ve kullanıcı onayıyla; servisler eski şemaya dayanıklı kalır (`DbIntrospect.ColumnExists`).
 - **Ortak dosya tuzağı:** Web, Application'daki bazı dosyaları csproj `Compile Include` ile bağlar (proje referansı yok). Web'de

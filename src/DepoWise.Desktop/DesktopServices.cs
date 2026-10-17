@@ -123,7 +123,19 @@ public static class DesktopServices
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
 
     /// <summary>Aktif oturum (login sonrası). Çıkışta null.</summary>
-    public static SessionContext? Session { get; set; }
+    // ⭐ M-78 / K-21 (AR-GE 2026-10-17): oturum atanırken bu bilgisayarın firma içindeki kodu (sunucunun verdiği, önbellekteki)
+    // eklenir → belge/talep/fatura numaraları TLP-2026-A3-0042 biçiminde ve çevrimdışı iki bilgisayar arasında çakışmasız.
+    // Tek atama noktası burası olduğu için hiçbir giriş yolu (normal, çevrimdışı, otomatik) kodu atlayamaz.
+    private static SessionContext? _session;
+    public static SessionContext? Session
+    {
+        get => _session;
+        set
+        {
+            if (value is not null && value.MachineCode is null) value.MachineCode = MachineGate.MakineKodu(value.CompanyId);
+            _session = value;
+        }
+    }
     /// <summary>Login'de seçilen şube (branch_id) — yeni kayıtlar bununla etiketlenecek + okuma buna göre filtrelenecek.</summary>
     public static string? CurrentBranchId { get; set; }
     /// <summary>Login'de seçilen şube adı (ana ekranda gösterim).</summary>

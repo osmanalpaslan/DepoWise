@@ -54,6 +54,12 @@ public static class MachineGate
                     branchId = Str(root, "branchId"); branchName = Str(root, "branchName");
                     mCompanyId = Str(root, "companyId"); mCompanyName = Str(root, "companyName");
                     if (status is not null) TryWrite(StatusFile, status);
+                    // ⭐ M-78 / K-21: firma içindeki bilgisayar kodu (A1, A2…) — çevrimdışı numaralandırma için kalıcı.
+                    if (Str(root, "machineCode") is { } kod && DepoWise.Infrastructure.Database.BelgeNumarasi.GecerliKod(kod))
+                    {
+                        TryWrite(KodFile(companyId), kod);
+                        if (DesktopServices.Session is { } aktif && aktif.CompanyId == companyId) aktif.MachineCode = kod;
+                    }
                     // çevrimdışı için önbelleğe al: branchId|branchName|companyId|companyName
                     TryWrite(BranchFile, $"{branchId}|{branchName}|{mCompanyId}|{mCompanyName}");
                 }
@@ -81,6 +87,18 @@ public static class MachineGate
 
         // status 'active' → izin. Çevrimdışı ve hiç durum yoksa (null) engelleme (ilk kurulum senaryosu).
         return new MachineCheck(true, "", status, branchId, branchName, online, mCompanyId, mCompanyName);
+    }
+
+    private static string KodFile(string companyId) => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex",
+        "machine_code_" + string.Concat(System.Linq.Enumerable.Where(companyId, char.IsLetterOrDigit)) + ".txt");
+
+    /// <summary>⭐ M-78 / K-21: bu bilgisayarın bu firmadaki kodu (önbellekten; hiç alınmamışsa null → eski numara biçimi).</summary>
+    public static string? MakineKodu(string companyId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return null;
+        var kod = TryRead(KodFile(companyId));
+        return DepoWise.Infrastructure.Database.BelgeNumarasi.GecerliKod(kod) ? kod : null;
     }
 
     private static (string? BranchId, string? BranchName, string? CompanyId, string? CompanyName) ReadInfoCache()

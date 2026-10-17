@@ -189,7 +189,13 @@ public sealed class InvoiceService
             throw new ArgumentException("Fatura genel toplamı sıfırdan büyük olmalıdır.");
 
         var series = ResolveSeries(conn, tx, s, dto.SeriesId, dto.Direction, now);
-        var invoiceNo = NextInvoiceNo(conn, tx, s.CompanyId, series, now);
+        var invoiceNo = BelgeNumarasi.GecerliKod(s.MachineCode)
+            // ⭐ M-78 / K-21: masaüstünde A-A3-00000042 — sıra bu bilgisayarın faturaları içinde; ortak seri sayacı
+            // İLERLETİLMEZ (iki çevrimdışı bilgisayar aynı sayaçtan aynı numarayı alırdı). Sunucu/web eski yolda kalır.
+            ? BelgeNumarasi.Sonraki(conn, tx, "invoices", "invoice_no", s.CompanyId, (series.Prefix ?? series.Code) + "-",
+                s.MachineCode, "AND direction=@d", c => c.AddWithValue("@d", dto.Direction),
+                series.Padding <= 0 ? 1 : Math.Min(series.Padding, 18))
+            : NextInvoiceNo(conn, tx, s.CompanyId, series, now);
 
         var invoiceId = Guid.NewGuid().ToString("N");
 

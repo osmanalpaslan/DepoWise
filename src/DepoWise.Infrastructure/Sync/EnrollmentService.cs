@@ -12,7 +12,8 @@ public sealed record EnrollResult(string DeviceId, string Status);
 /// Masaüstü bunları önbelleğe alır (çevrimdışı otomatik giriş + ana ekran + farklı-şube uyarısı + süper admin
 /// "makine firması/şubesi ile giriş" seçenekleri için).</summary>
 public sealed record RegisterResult(string DeviceId, string Status, string? BranchId, string? BranchName,
-    string? CompanyId = null, string? CompanyName = null);
+    string? CompanyId = null, string? CompanyName = null,
+    string? MachineCode = null);   // ⭐ M-78/K-21: belge numarasına gömülen bilgisayar kodu (A1, A2…)
 public sealed record DeviceToken(string DeviceId, string Token);
 
 /// <summary>
@@ -166,8 +167,9 @@ public sealed class EnrollmentService
             upd.AddWithValue("@id", existingId);
             upd.ExecuteNonQuery();
             var (exBid, exBname, exCid, exCname) = ReadDeviceInfo(conn, tx, existingId);
+            var exKod = MakineKoduAta(conn, tx, companyId, existingId);
             tx.Commit();
-            return new RegisterResult(existingId, newStatus, exBid, exBname, exCid, exCname);
+            return new RegisterResult(existingId, newStatus, exBid, exBname, exCid, exCname, exKod);
         }
 
         var status = ActiveCount(null) < quota ? "active" : "pending";
@@ -190,8 +192,45 @@ public sealed class EnrollmentService
             ins.ExecuteNonQuery();
         }
         var (_, _, nCid, nCname) = ReadDeviceInfo(conn, tx, deviceId);
+        var nKod = MakineKoduAta(conn, tx, companyId, deviceId);
         tx.Commit();
-        return new RegisterResult(deviceId, status, null, null, nCid, nCname); // yeni makine → şubesiz (firma bilinir)
+        return new RegisterResult(deviceId, status, null, null, nCid, nCname, nKod); // yeni makine → şubesiz (firma bilinir)
+    }
+
+    /// <summary>
+    /// ⭐ M-78 / K-21 (AR-GE 2026-10-17): bilgisayarın kodu yoksa firma içindeki İLK BOŞ kodu (A1, A2… — BelgeNumarasi.Kod)
+    /// atar; varsa aynen döner (aynı bilgisayar hep aynı kodu taşır, numaraları karışmaz). Kayıt işleminin içinde çalışır;
+    /// benzersizlik ayrıca indeksle korunur (Migration102). Eski şemada (kolon yok) null.
+    /// </summary>
+    private static string? MakineKoduAta(DbConnection conn, DbTransaction tx, string companyId, string deviceId)
+    {
+        if (!DbIntrospect.ColumnExists(conn, tx, "sync_devices", "machine_code")) return null;
+        var kullanilan = new HashSet<string>(StringComparer.Ordinal);
+        string? mevcut = null;
+        using (var q = conn.CreateCommand())
+        {
+            q.Transaction = tx;
+            q.CommandText = "SELECT id, machine_code FROM sync_devices WHERE company_id=@c AND machine_code IS NOT NULL;";
+            q.AddWithValue("@c", companyId);
+            using var r = q.ExecuteReader();
+            while (r.Read())
+            {
+                var kod = r.GetString(1);
+                kullanilan.Add(kod);
+                if (r.GetString(0) == deviceId) mevcut = kod;
+            }
+        }
+        if (mevcut is not null) return mevcut;
+        var n = 0;
+        while (kullanilan.Contains(BelgeNumarasi.Kod(n))) n++;
+        var yeni = BelgeNumarasi.Kod(n);
+        using var u = conn.CreateCommand();
+        u.Transaction = tx;
+        u.CommandText = "UPDATE sync_devices SET machine_code=@k WHERE id=@id AND machine_code IS NULL;";
+        u.AddWithValue("@k", yeni);
+        u.AddWithValue("@id", deviceId);
+        u.ExecuteNonQuery();
+        return yeni;
     }
 
     /// <summary>Bir makinenin firması + atanmış şubesi (id + ad) bilgisini okur.</summary>

@@ -67,6 +67,13 @@ public sealed class SessionContext : ITenantContext
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>>? BranchDescendants { get; set; }
 
+    /// <summary>
+    /// ⭐ M-78 / K-21 (AR-GE 2026-10-17) — Bu BİLGİSAYARIN sunucunun atadığı kısa kodu (A1, A2…). Masaüstü girişte doldurur;
+    /// belge/talep/fatura numaraları bunu gömer (<c>TLP-2026-A3-0042</c>) → iki çevrimdışı bilgisayar aynı numarayı üretemez.
+    /// <b>null = eski biçim</b> (sunucu/web oturumları ve kodu henüz alınmamış kurulum) — davranış değişmez.
+    /// </summary>
+    public string? MachineCode { get; set; }
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {

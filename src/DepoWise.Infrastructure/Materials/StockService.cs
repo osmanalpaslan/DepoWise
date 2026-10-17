@@ -1164,7 +1164,7 @@ LIMIT @take;";
         EnsureLocationOwned(conn, tx, s.CompanyId, primaryBranch);
 
         var docId = Guid.NewGuid().ToString("N");
-        var docNo = NextDocNo(conn, tx, s.CompanyId, docType, date);
+        var docNo = NextDocNo(conn, tx, s.CompanyId, docType, date, s.MachineCode);
         InsertDocument(conn, tx, docId, s.CompanyId, docType, docNo, date, fromBranch, toBranch, personnelId, vehicleId, note, groupId, now,
             invoiceNo, orderSlipNo, creditSlipNo);
 
@@ -1446,22 +1446,15 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         cmd.ExecuteNonQuery();
     }
 
-    private static string NextDocNo(DbConnection conn, DbTransaction tx, string companyId, string docType, long docDateMs)
+    // ⭐ M-78 / K-21 (AR-GE 2026-10-17): bilgisayar kodu varsa GIR-2026-A3-0042 (sıra bu bilgisayara özel; çevrimdışı iki
+    // bilgisayar aynı numarayı üretemez), yoksa eski biçim GIR-2026-0042 — bkz. BelgeNumarasi.
+    private static string NextDocNo(DbConnection conn, DbTransaction tx, string companyId, string docType, long docDateMs,
+        string? makineKodu = null)
     {
         var year = DateTimeOffset.FromUnixTimeMilliseconds(docDateMs).Year;
         var prefix = docType switch { "in" => "GIR", "out" => "CIK", "transfer" => "TRF", "count" => "SAY", _ => "DOC" };
-        var like = $"{prefix}-{year}-%";
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText =
-            "SELECT COALESCE(MAX(CAST(substr(doc_no, length(@p)+1) AS INTEGER)),0) FROM stock_documents " +
-            "WHERE company_id=@c AND doc_type=@t AND doc_no LIKE @like;";
-        cmd.AddWithValue("@p", $"{prefix}-{year}-");
-        cmd.AddWithValue("@c", companyId);
-        cmd.AddWithValue("@t", docType);
-        cmd.AddWithValue("@like", like);
-        var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
-        return $"{prefix}-{year}-{next:0000}";
+        return BelgeNumarasi.Sonraki(conn, tx, "stock_documents", "doc_no", companyId, $"{prefix}-{year}-", makineKodu,
+            "AND doc_type=@t", c => c.AddWithValue("@t", docType));
     }
 
     // ⭐ FIN-B1 (ADR-185, Migration082 ile birlikte): idempotency FİRMA KAPSAMINDADIR. Eskiden company_id

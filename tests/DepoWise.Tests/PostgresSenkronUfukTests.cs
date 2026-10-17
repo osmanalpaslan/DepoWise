@@ -193,6 +193,24 @@ public class PostgresSenkronUfukTests
         Assert.Equal(59, muadil.Count);
     }
 
+    /// <summary>PUF8 — M-78/K-21: PostgreSQL'de kodsuz (sunucu/web) numaralandırma, kodlu numaralar varken ÇÖKMEZ
+    /// ("A1-0009"u sayıya çevirmeye çalışmak PG'de hata verirdi) ve kodlu sıra kendi içinde artar.</summary>
+    [SkippableFact]
+    public void PUF8_Kodsuz_Numara_Kodlu_Numaralarla_Cokmez()
+    {
+        var (f, _) = Kur();
+        using var c = f.Create();
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "INSERT INTO material_requests(id, company_id, doc_no, status, request_date, created_at, updated_at, version, is_deleted) VALUES " +
+                "('r1','B','TLP-2026-A1-0009','draft',1,1,1,1,0), ('r2','B','TLP-2026-0003','draft',1,1,1,1,0);";
+            cmd.ExecuteNonQuery();
+        }
+        Assert.Equal("TLP-2026-0004", BelgeNumarasi.Sonraki(c, null, "material_requests", "doc_no", "B", "TLP-2026-", null));
+        Assert.Equal("TLP-2026-A1-0010", BelgeNumarasi.Sonraki(c, null, "material_requests", "doc_no", "B", "TLP-2026-", "A1"));
+        Assert.Equal("TLP-2026-A2-0001", BelgeNumarasi.Sonraki(c, null, "material_requests", "doc_no", "B", "TLP-2026-", "A2"));
+    }
+
     [SkippableFact]
     public void PUF3_Her_Esitleme_Tablosunda_Tetikleyici_Var()
     {

@@ -121,7 +121,7 @@ public sealed class RequestService
 
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
-        var docNo = NextDocNo(conn, tx, s.CompanyId, dto.RequestDate ?? now);
+        var docNo = NextDocNo(conn, tx, s.CompanyId, dto.RequestDate ?? now, s.MachineCode);
 
         using (var cmd = conn.CreateCommand())
         {
@@ -689,19 +689,11 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
         cmd.ExecuteNonQuery();
     }
 
-    private static string NextDocNo(DbConnection conn, DbTransaction tx, string companyId, long dateMs)
+    // ⭐ M-78 / K-21 (AR-GE 2026-10-17): TLP-2026-A3-0042 (bilgisayar kodlu) ya da eski TLP-2026-0042 — bkz. BelgeNumarasi.
+    private static string NextDocNo(DbConnection conn, DbTransaction tx, string companyId, long dateMs, string? makineKodu = null)
     {
         var year = DateTimeOffset.FromUnixTimeMilliseconds(dateMs).Year;
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText =
-            "SELECT COALESCE(MAX(CAST(substr(doc_no, length(@p)+1) AS INTEGER)),0) FROM material_requests " +
-            "WHERE company_id=@c AND doc_no LIKE @like;";
-        cmd.AddWithValue("@p", $"TLP-{year}-");
-        cmd.AddWithValue("@c", companyId);
-        cmd.AddWithValue("@like", $"TLP-{year}-%");
-        var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
-        return $"TLP-{year}-{next:0000}";
+        return BelgeNumarasi.Sonraki(conn, tx, "material_requests", "doc_no", companyId, $"TLP-{year}-", makineKodu);
     }
 
     private static void EnsureMaterialOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
