@@ -476,7 +476,10 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     try { svc.Stock.RecomputeBalances(s.CompanyId); } catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
     // ⭐ S1: permanentSkipped = hiçbir denemede başarılı olamayacak satırlar. İstemci bunları
     // "yeniden denenecek" saymaz → kuyruk kalıcı hatalara takılıp kilitlenmez. Eski istemciler alanı yok sayar.
-    return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, permanentSkipped = res.PermanentSkipped, errors = res.Errors });
+    // ⭐ M-15 (AR-GE 2026-10-17): rejected = HANGİ satır neden uygulanmadı (en fazla 500) → masaüstü listede gösterir.
+    return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, permanentSkipped = res.PermanentSkipped, errors = res.Errors,
+        rejected = (res.Rejected ?? Array.Empty<DepoWise.Infrastructure.Sync.RejectedRow>())
+            .Select(x => new { table = x.Table, key = x.Key, reason = x.Reason, permanent = x.Permanent }) });
 }).RequireAuthorization();
 
 // İş verisi GERİ-ÇEKME (server → masaüstü): firmanın iş tablolarını snapshot olarak döndürür → masaüstü

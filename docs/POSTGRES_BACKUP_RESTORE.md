@@ -167,6 +167,11 @@ edilerek elle yapılır.
 4. `DEPOWISE_PG_URL` secret'ını **yeni veritabanına** yönlendir + redeploy.
    (Eski veritabanı **silinmez**; bir süre saklanır.)
 5. Kullanıcılara veri kaybı penceresini bildir.
+6. **Masaüstleri kendiliğinden yeniden gönderir (M-80, şema ≥ 101 sunucu + yeni masaüstü).** Her masaüstü ilk çekmede sunucunun
+   "veri dönemi"nin değiştiğini (yeni veritabanı → `epoch` farklı) ya da ufkun gerilediğini (PITR) görür; o makinedeki TÜM
+   kayıtları bir kez yeniden gönderir ve tam çeker (`sync.log`: "SUNUCU DÖNEMİ DEĞİŞTİ"). Böylece yedekten sonra masaüstünde
+   girilmiş kayıtlar sunucuya geri gelir. Ek adım gerekmez; yalnız tüm masaüstlerinin bir kez çevrimiçi olması beklenir.
+   Web'den doğrudan girilmiş (masaüstünde kopyası olmayan) kayıtlar bu yolla geri GELMEZ — onlar için PITR tercih edilir.
 
 > Neon tarafında PITR/branch ile geri dönüş daha hızlı olabilir; iki seçenek olay anında karşılaştırılır.
 > Bu prosedür, sağlayıcıya erişilemediğinde de elimizde bir yol olması içindir.

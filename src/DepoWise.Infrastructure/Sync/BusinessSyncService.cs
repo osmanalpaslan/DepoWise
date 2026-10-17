@@ -652,12 +652,20 @@ public sealed class BusinessSyncService
         using var conn = _factory.Create();
         var sqlite = SqlDialect.IsSqlite(conn);
         long ufuk;
+        string epoch;
         using (var u = conn.CreateCommand())
         {
+            // ⭐ M-80: dönem kimliği = veritabanının + companies tablosunun iç kimliği. Dökümden geri yükleme / yeni sunucu
+            // bunları değiştirir → masaüstü tam yeniden gönderir (SunucuDonemi). SQLite sunucu rolünde (test/yedek mod)
+            // dönem sabittir; geri sarmayı ufkun gerilemesi yakalar.
             u.CommandText = sqlite
-                ? "SELECT next FROM sync_txid_counter WHERE id = 1;"
-                : "SELECT pg_snapshot_xmin(pg_current_snapshot())::text::bigint;";
-            ufuk = Convert.ToInt64(u.ExecuteScalar() ?? 0L);
+                ? "SELECT next, 'sqlite' FROM sync_txid_counter WHERE id = 1;"
+                : "SELECT pg_snapshot_xmin(pg_current_snapshot())::text::bigint, " +
+                  "(SELECT oid FROM pg_database WHERE datname = current_database())::text || '-' || 'companies'::regclass::oid::text;";
+            using var ur = u.ExecuteReader();
+            ur.Read();
+            ufuk = ur.IsDBNull(0) ? 0 : Convert.ToInt64(ur.GetValue(0));
+            epoch = ur.IsDBNull(1) ? "" : Convert.ToString(ur.GetValue(1)) ?? "";
         }
         if (after < 0) after = 0;
 
@@ -706,7 +714,7 @@ public sealed class BusinessSyncService
                 }
             if (rows.Count > 0) tables[table] = rows;
         }
-        return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk }), ufuk);
+        return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk, epoch }), ufuk);
     }
 
     /// <summary>
@@ -962,7 +970,10 @@ public sealed class BusinessSyncService
     /// akışa devam edebilir. <b>Eski istemciler alanı yok sayar → davranış değişmez.</b>
     /// </summary>
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors,
-        int PermanentSkipped = 0);
+        int PermanentSkipped = 0, IReadOnlyList<RejectedRow>? Rejected = null);
+
+    /// <summary>⭐ M-15: yanıtta taşınan reddedilen satır üst sınırı (büyük ilk gönderimde yanıt şişmesin).</summary>
+    public const int MaxRejected = 500;
 
     public sealed record ConflictRow(string Id, string EntityType, string EntityId, string Winner,
         string? AdminName, long ServerUpdatedAt, long DeviceUpdatedAt, bool PersonnelSeen, long CreatedAt,
@@ -1276,6 +1287,7 @@ public sealed class BusinessSyncService
         // ⭐ S1: hiçbir denemede başarılı olamayacak satırlar ayrı sayılır (istemci kuyruğu kilitlemesin).
         int permanentSkipped = 0;
         var errors = new List<string>();
+        var rejected = new List<RejectedRow>();   // ⭐ M-15: HANGİ satır neden gitmedi (istemci listede gösterir)
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -1321,7 +1333,7 @@ public sealed class BusinessSyncService
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
             var (tUp, tSk, tPerm) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
-                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session);
+                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session, rejected);
             upserted += tUp; skipped += tSk; permanentSkipped += tPerm;
         }
 
@@ -1341,7 +1353,7 @@ public sealed class BusinessSyncService
             throw;
         }
 
-        return new ApplyResult(upserted, skipped, errors, permanentSkipped);
+        return new ApplyResult(upserted, skipped, errors, permanentSkipped, rejected);
     }
 
     /// <summary>Bir tablonun satırlarını uygular. Döner: (upserted, skipped).
@@ -1358,9 +1370,23 @@ public sealed class BusinessSyncService
     private (int Up, int Sk, int Perm) ApplyTableRows(DbConnection conn, bool isPg, string table, HashSet<string> cols,
         List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
         JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
-        bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null)
+        bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null,
+        List<RejectedRow>? rejected = null)
     {
         int up = 0, sk = 0;
+        // ⭐ M-15: reddedilen satırın nedeni (ApplyOne'daki her ret dalı yazar) + kayıt yardımcıları.
+        string? neden = null;
+        var redBaslangic = rejected?.Count ?? 0;
+        void RedKaydet(JsonElement rowEl, string sebep, bool kalici)
+        {
+            if (rejected is null || rejected.Count >= MaxRejected || rowEl.ValueKind != JsonValueKind.Object) return;
+            rejected.Add(new RejectedRow(table, GonderimRedleriService.SatirAnahtari(rowEl, pk), sebep, kalici));
+        }
+        void Sonuc(JsonElement rowEl, bool? r)
+        {
+            if (r == true) return;
+            RedKaydet(rowEl, r is null ? (neden ?? "geçersiz satır") : "sunucudaki kayıt korundu (sunucuda daha yeni sürüm var ya da kayıt sunucuda silinmiş)", r is null);
+        }
         // ⭐ S1: bu tabloda KALICI olarak elenen satır sayısı (tekrar denemek anlamsız).
         int perm = 0;
         // ⭐ TNT-02: ikincil referansın sahip firması için tablo-ömürlü bellek (aynı malzeme çok satırda geçer).
@@ -1371,11 +1397,12 @@ public sealed class BusinessSyncService
         bool? ApplyOne(JsonElement rowEl, List<string> errSink)
         {
             if (rowEl.ValueKind != JsonValueKind.Object) return null;
+            neden = null;
             // ⭐ GAP-6 PUSH KAPISI: kapsam dışı şubenin satırı UYGULANMAZ. Cihaz manipüle edilmiş bir
             // branch_id gönderse bile yetkisiz şubeye finansal veri yazılamaz.
             if (!RowBranchAllowed(session, table, rowEl))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: şube kapsam dışı (atlandı).");
+                neden = $"{table}: şube kapsam dışı (atlandı)."; if (errSink.Count < 20) errSink.Add(neden);
                 perm++;   // S1: kapsam kararı deterministik → tekrar denemek aynı sonucu verir
                 return null;
             }
@@ -1387,7 +1414,7 @@ public sealed class BusinessSyncService
             // mesajı belirler, güvenliği değil.
             if (!ParentExists(conn, table, rowEl))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: bağlı olduğu kayıt sunucuda yok — kalıcı olarak atlandı.");
+                neden = $"{table}: bağlı olduğu kayıt sunucuda yok — kalıcı olarak atlandı."; if (errSink.Count < 20) errSink.Add(neden);
                 perm++;
                 return null;
             }
@@ -1395,7 +1422,7 @@ public sealed class BusinessSyncService
             // Manipüle edilmiş yabancı anahtarla başka firmanın kaydına çocuk satır bağlanamaz (fail-closed).
             if (!RowCompanyChildAllowed(conn, table, hasCompany, companyId, rowEl))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: ebeveyn kaydı bu firmada değil (atlandı).");
+                neden = $"{table}: ebeveyn kaydı bu firmada değil (atlandı)."; if (errSink.Count < 20) errSink.Add(neden);
                 perm++;
                 return null;
             }
@@ -1403,7 +1430,7 @@ public sealed class BusinessSyncService
             // yalnız bir ucu koruyordu; muadil/uyumlu araç gibi tablolarda diğer uç serbestti.
             if (!RowCrossRefAllowed(conn, table, companyId, rowEl, crossRefCache))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: bağlantının karşı ucu başka firmaya ait (atlandı).");
+                neden = $"{table}: bağlantının karşı ucu başka firmaya ait (atlandı)."; if (errSink.Count < 20) errSink.Add(neden);
                 perm++;
                 return null;
             }
@@ -1412,12 +1439,12 @@ public sealed class BusinessSyncService
             // bu firmaya TAŞIYIP ezebiliyordu (koruma yalnız GUID'in tahmin edilemezliğiydi). Fail-closed: reddet.
             if (hasCompany && RowOwnedByOtherCompany(conn, table, pk, companyId, rowEl))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: kayıt kimliği başka bir firmaya ait (atlandı).");
+                neden = $"{table}: kayıt kimliği başka bir firmaya ait (atlandı)."; if (errSink.Count < 20) errSink.Add(neden);
                 perm++;
                 return null;
             }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
-            if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); perm++; return null; }
+            if (!okRow) { neden = $"{table}: {reason}"; if (errSink.Count < 20) errSink.Add(neden); perm++; return null; }
             if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
             return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes);
         }
@@ -1427,12 +1454,13 @@ public sealed class BusinessSyncService
             // SQLite — mevcut davranış (satır başı try/catch, savepoint yok).
             foreach (var rowEl in rowsEl.EnumerateArray())
             {
-                try { var r = ApplyOne(rowEl, errors); if (r == true) up++; else sk++; }
+                try { var r = ApplyOne(rowEl, errors); if (r == true) up++; else sk++; Sonuc(rowEl, r); }
                 catch (Exception ex)
                 {
                     sk++;
                     if (IsPermanentDbError(ex)) perm++;   // ⭐ S1: tekrar denemek aynı sonucu verir
                     if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
+                    RedKaydet(rowEl, $"{table}: {ex.Message}", IsPermanentDbError(ex));
                 }
             }
             return (up, sk, perm);
@@ -1447,6 +1475,7 @@ public sealed class BusinessSyncService
             {
                 var r = ApplyOne(rowEl, fErr);   // hatalı satır → fırlatır → catch (kurtarma yoluna geç)
                 if (r == true) fUp++; else fSk++;
+                Sonuc(rowEl, r);
             }
             ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");
             foreach (var e in fErr) { if (errors.Count >= 20) break; errors.Add(e); }
@@ -1463,6 +1492,8 @@ public sealed class BusinessSyncService
         // "yeniden denenecek satır yok" sonucunu doğurur → gerçekten yeniden denenmesi gereken satırlar
         // sessizce düşerdi (veri kaybı). Üç sayaç birlikte sıfırlanmalıdır.
         up = 0; sk = 0; perm = 0;
+        if (rejected is not null && rejected.Count > redBaslangic)   // hızlı yolun kayıtları da baştan (çift kayıt olmasın)
+            rejected.RemoveRange(redBaslangic, rejected.Count - redBaslangic);
         foreach (var rowEl in rowsEl.EnumerateArray())
         {
             ExecRaw(conn, "SAVEPOINT dw_row;");
@@ -1471,6 +1502,7 @@ public sealed class BusinessSyncService
                 var r = ApplyOne(rowEl, errors);
                 ExecRaw(conn, "RELEASE SAVEPOINT dw_row;");
                 if (r == true) up++; else sk++;
+                Sonuc(rowEl, r);
             }
             catch (Exception ex)
             {
@@ -1480,6 +1512,7 @@ public sealed class BusinessSyncService
                 // ⭐ S1: yabancı anahtar / benzersizlik ihlali tekrar denendiğinde de aynı sonucu verir.
                 if (IsPermanentDbError(ex)) perm++;
                 if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
+                RedKaydet(rowEl, $"{table}: {ex.Message}", IsPermanentDbError(ex));
             }
         }
         ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");

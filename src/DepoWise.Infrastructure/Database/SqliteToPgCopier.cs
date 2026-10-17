@@ -25,7 +25,7 @@ public static class SqliteToPgCopier
     private static readonly HashSet<string> Skip = new(StringComparer.OrdinalIgnoreCase)
         { "schema_migrations", "sqlite_sequence",
           // M-03 (AR-GE 2026-10-17): yalnız SQLite'ta bulunan eşitleme yardımcı tabloları (Migration099/100).
-          "sync_server_role", "sync_txid_counter", "sync_local_counter", "sync_apply_guard" };
+          "sync_server_role", "sync_txid_counter", "sync_local_counter", "sync_apply_guard", "sync_rejections" };
 
     // M-03: yalnız SQLite'ta (masaüstü) bulunan kolonlar — PostgreSQL'de karşılığı yoktur, kopyalanmaz.
     private static readonly HashSet<string> SkipColumns = new(StringComparer.OrdinalIgnoreCase) { "local_change_seq" };

@@ -73,6 +73,8 @@ public static class BusinessSyncPullService
     // damgalı satır ve saati yanlış makine imleci bozamaz; değişmeyen veri tekrar inmez (eski hatada her tur tam paket).
     // Sunucu v2 ucunu bilmiyorsa (404) bu oturumda eski yönteme dönülür → sürüm uyumsuzluğunda eşitleme kesilmez.
     private const string TxidKey = "sync_pull_txid";
+    /// <summary>⭐ M-80: son görülen sunucu dönem kimliği (SunucuDonemi).</summary>
+    private const string EpochKey = "sync_server_epoch";
 
     /// <summary>null = henüz bilinmiyor · true = sunucu v2 destekliyor · false = eski sunucu (eski yöntem).</summary>
     public static bool? V2Destekli { get; private set; }
@@ -110,12 +112,31 @@ public static class BusinessSyncPullService
         V2Destekli = true;
         var json = await resp.Content.ReadAsStringAsync();
         long sonraki = 0;
+        string epoch = "";
+        using (var bas = JsonDocument.Parse(json))
+        {
+            if (bas.RootElement.TryGetProperty("nextAfter", out var na) && na.TryGetInt64(out var n)) sonraki = n;
+            if (bas.RootElement.TryGetProperty("epoch", out var ep) && ep.ValueKind == JsonValueKind.String) epoch = ep.GetString() ?? "";
+        }
+        // ⭐ M-80 (AR-GE 2026-10-17): sunucu yedekten döndü / değişti mi? (SunucuDonemi). Öyleyse bu delta anlamsızdır:
+        // uygulanmaz; bu makinenin TÜM kayıtları yeniden gönderilir (yedekten sonra girilenler sunucuya geri döner) ve tam çekilir.
+        string eskiEpoch = "";
+        try { eskiEpoch = DesktopServices.Settings.Get(companyId!, EpochKey) ?? ""; } catch { }
+        var karar = SunucuDonemi.Degerlendir(eskiEpoch, epoch, after, sonraki);
+        if (karar != SunucuDonemi.Karar.Devam && epoch.Length > 0)
+            try { DesktopServices.Settings.Set(companyId!, EpochKey, epoch, DesktopServices.Session?.UserId ?? ""); } catch { }
+        if (karar == SunucuDonemi.Karar.SunucuDegisti)
+        {
+            SyncLog.Write("SUNUCU DÖNEMİ DEĞİŞTİ", $"epoch {eskiEpoch}→{epoch} after={after} nextAfter={sonraki} → tam gönderim + tam çekme");
+            BusinessSyncPushService.TamGonderimIste(companyId!);
+            YazImlec(companyId!, 0);
+            if (!tam) return await PullV2Async(tam: true);
+        }
         await Task.Run(() =>
         {
             using var doc = JsonDocument.Parse(json);
             var sonuc = new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
             SonAlinanSayisi = sonuc.Upserted;
-            if (doc.RootElement.TryGetProperty("nextAfter", out var na) && na.TryGetInt64(out var n)) sonraki = n;
         });
         // İmleç YALNIZ uygulama BAŞARIYLA bittikten sonra ilerler (yarıda kalan uygulama → aynı aralık tekrar çekilir;
         // satır kimliği + operation_id ile tekrar zararsızdır).

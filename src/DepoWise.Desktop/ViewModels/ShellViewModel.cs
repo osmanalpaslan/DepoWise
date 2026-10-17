@@ -232,10 +232,24 @@ public sealed partial class ShellViewModel : ViewModelBase
             SyncWarning = $"⚠ {p.Count} kayıt gönderilemiyor";
             return;
         }
+        // ⭐ M-15 (AR-GE 2026-10-17): sunucunun reddettiği kayıtlar KALICI listede — sorun çözülene ya da kullanıcı listeden
+        // kaldırana kadar rozet görünür (eskiden yalnız son turun sayısıydı, kayıt adı hiçbir yerde yoktu).
+        var redSayisi = GonderilemeyenSayisi();
+        if (redSayisi > 0)
+        {
+            SyncWarning = $"⚠ {redSayisi} kayıt gönderilemedi";
+            return;
+        }
         var r = BusinessSyncPushService.LastPushResult;
         SyncWarning = (r is not null && r.HasProblem)
             ? $"⟳ {r.Skipped} kayıt yeniden denenecek ({BusinessSyncPushService.RetryAttempts()}/5)"
             : "";
+    }
+
+    private int GonderilemeyenSayisi()
+    {
+        try { return new DepoWise.Infrastructure.Sync.GonderimRedleriService(DesktopServices.Factory).AcikSayisi(_session.CompanyId); }
+        catch { return 0; }
     }
 
     /// <summary>Z5 — SENKRON DURUMU paneli: "her şey gönderildi mi?" sorusunun tek yerden cevabı.
@@ -256,6 +270,13 @@ public sealed partial class ShellViewModel : ViewModelBase
             return "—";
         }
 
+        // ⭐ M-15: gönderilemeyen kayıt varsa önce LİSTE açılır (hangi kayıt, neden, yeniden gönder).
+        if (GonderilemeyenSayisi() > 0)
+        {
+            await DepoWise.Desktop.Views.GonderilemeyenlerWindow.GosterAsync(cid);
+            RefreshSyncWarning();
+            return;
+        }
         var poison = BusinessSyncPushService.Poison();
         var tries = BusinessSyncPushService.RetryAttempts();
         var durum = poison is { } p && p.Count > 0
@@ -357,6 +378,24 @@ public sealed partial class ShellViewModel : ViewModelBase
         try
         {
             var cid = companyId;
+            // ⭐ M-79 (AR-GE 2026-10-17, F-175): SİLMEDEN ÖNCE GÖNDER. Eskiden gönderilmemiş kayıtlar sıfırlamada sessizce
+            // kayboluyordu. Gönderilemeyen (bekleyen ya da reddedilen) kayıt kalırsa sayılı uyarıyla AYRICA onay istenir.
+            await BusinessSyncPushService.PushAsync();
+            var bekleyen = BusinessSyncPushService.YerelBekleyenVar();
+            var reddedilen = GonderilemeyenSayisi();
+            if (bekleyen || reddedilen > 0)
+            {
+                var metin = "Sıfırlamadan önce bu bilgisayardaki kayıtlar sunucuya gönderilmeye çalışıldı, ancak:\n\n" +
+                    (bekleyen ? "• Henüz gönderilemeyen değişiklikler var (internet bağlantısı olmayabilir).\n" : "") +
+                    (reddedilen > 0 ? $"• {reddedilen} kayıt sunucu tarafından kabul edilmedi (üst bardaki uyarıdan listesini görebilirsiniz).\n" : "") +
+                    "\nŞimdi sıfırlarsanız bu kayıtlar KALICI OLARAK KAYBOLUR — web'de ve diğer bilgisayarlarda hiç görünmezler.\n\n" +
+                    "Yine de sıfırlansın mı?";
+                if (!await ConfirmService.AskAsync(metin, "Gönderilmemiş Kayıtlar Var", "Yine de Sıfırla", "Vazgeç", danger: true))
+                {
+                    RefreshSyncWarning();
+                    return;
+                }
+            }
             await System.Threading.Tasks.Task.Run(() => { DepoWise.Desktop.LocalPurgeService.PurgeBusinessData(cid); DepoWise.Desktop.LocalPurgeService.ResetSyncState(cid); });   // 1) yerel iş verisi HARD sil + eşitleme defterini sıfırla
             var ok = await BusinessSyncPullService.PullAsync(0);                                                       // 2) sunucudan TAM çek
             var sv = await BusinessSyncPullService.GetServerVersionAsync();                                            // 3) imleci güncelle

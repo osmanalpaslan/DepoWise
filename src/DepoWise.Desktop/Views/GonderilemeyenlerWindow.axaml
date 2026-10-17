@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:DepoWise.Desktop.Views"
+        x:Class="DepoWise.Desktop.Views.GonderilemeyenlerWindow"
+        Width="860" Height="620" MinWidth="520" MinHeight="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="Gönderilemeyen Kayıtlar" Icon="/Assets/app-gorev.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <!-- ⭐ M-15 (AR-GE 2026-10-17) — sunucunun kabul etmediği kayıtlar: hangisi, neden, ne zamandan beri. -->
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <Grid Margin="18" RowDefinitions="Auto,Auto,*,Auto">
+            <SelectableTextBlock Grid.Row="0" Classes="PageTitle" Text="Gönderilemeyen Kayıtlar"/>
+            <SelectableTextBlock Grid.Row="1" Classes="Helper" Margin="0,4,0,12" TextWrapping="Wrap"
+                Text="Bu kayıtlar bu bilgisayarda duruyor ama sunucu kabul etmedi; web'de ve diğer bilgisayarlarda görünmezler. Nedeni düzeltip kaydı yeniden kaydettiğinizde ya da 'Yeniden Gönder' dediğinizde tekrar gönderilir. 'Listeden Kaldır' yalnız bu listeden gizler, veriyi silmez."/>
+
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="8" Padding="10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="0">
+                        <SelectableTextBlock x:Name="StatusText" Classes="Helper" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="List">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="v:GonderilemeyenSatiri">
+                                    <Border Margin="0,0,0,10" Padding="14,12" CornerRadius="8"
+                                            Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                                        <StackPanel Spacing="6">
+                                            <WrapPanel Orientation="Horizontal">
+                                                <SelectableTextBlock Text="{Binding Baslik}" FontWeight="SemiBold" Margin="0,0,12,0" TextWrapping="Wrap"/>
+                                                <SelectableTextBlock Text="{Binding Zaman}" Classes="Helper"/>
+                                            </WrapPanel>
+                                            <SelectableTextBlock Text="{Binding Neden}" TextWrapping="Wrap"/>
+                                            <SelectableTextBlock Text="{Binding Ipucu}" Classes="Helper" TextWrapping="Wrap"/>
+                                            <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                <Button Classes="Primary" Content="Yeniden Gönder" Margin="0,0,10,0"
+                                                        IsVisible="{Binding YereldeVar}"
+                                                        Command="{Binding YenidenGonderCommand}" CommandParameter="{Binding}"/>
+                                                <Button Classes="Ghost" Content="Listeden Kaldır"
+                                                        Command="{Binding YoksayCommand}" CommandParameter="{Binding}"/>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button x:Name="RefreshBtn" Classes="Secondary" Content="Yenile"/>
+                <Button x:Name="CloseBtn" Classes="Primary" Content="Kapat" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

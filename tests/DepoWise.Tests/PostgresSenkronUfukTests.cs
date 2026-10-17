@@ -118,6 +118,46 @@ public class PostgresSenkronUfukTests
         Assert.Equal(new[] { "m_ayni" }, dolu);
     }
 
+    /// <summary>PUF5 — M-15: PostgreSQL KURTARMA YOLUNDA (bir satır veritabanı hatasıyla patlar, tablo baştan satır satır
+    /// uygulanır) red listesi ÇİFT kayıt içermez ve veritabanı hatası da kimliğiyle listelenir.</summary>
+    [SkippableFact]
+    public void PUF5_Kurtarma_Yolunda_Red_Listesi_Tekil()
+    {
+        var (f, sync) = Kur();
+        using (var c = f.Create()) Ekle(c, null, "m_baskasi");
+        using (var c = f.Create())
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "UPDATE materials SET company_id='A' WHERE id='m_baskasi';";
+            cmd.ExecuteNonQuery();
+        }
+        var paket = JsonDocument.Parse("""
+            { "tables": { "materials": [
+              { "id": "m_baskasi", "code": "Z1", "name": "Ele geçirme", "created_at": 1, "updated_at": 9 },
+              { "id": "m_fk", "code": "Z2", "name": "Kategori yok", "category_id": "OLMAYAN", "created_at": 1, "updated_at": 1 },
+              { "id": "m_iyi", "code": "Z3", "name": "Geçerli", "created_at": 1, "updated_at": 1 } ] } }
+            """).RootElement;
+        var res = sync.Apply("B", paket);
+        var red = res.Rejected!;
+        Assert.Equal(2, red.Count);
+        Assert.Single(red, r => r.Key == "m_baskasi");
+        Assert.Single(red, r => r.Key == "m_fk" && r.Permanent);
+        Assert.DoesNotContain(red, r => r.Key == "m_iyi");
+    }
+
+    [SkippableFact]
+    public void PUF6_Donem_Kimligi_Sabit_Sema_Yeniden_Kurulunca_Degisir()
+    {
+        var (f, sync) = Kur();
+        string Donem() { using var d = JsonDocument.Parse(sync.BuildDeltaV2("B", 0).Json); return d.RootElement.GetProperty("epoch").GetString()!; }
+        var d1 = Donem();
+        Assert.Matches(@"^\d+-\d+$", d1);
+        Assert.Equal(d1, Donem());                    // aynı sunucu → aynı dönem
+        PostgresTestGuard.ResetSchema(f);             // "yedekten geri yükleme" benzeri: tablolar yeniden kurulur
+        new MigrationRunner(f).Run();
+        Assert.NotEqual(d1, Donem());
+    }
+
     [SkippableFact]
     public void PUF3_Her_Esitleme_Tablosunda_Tetikleyici_Var()
     {

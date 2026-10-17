@@ -122,6 +122,21 @@ public class SenkronUfukApiTests : IAsyncLifetime
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); try { File.Delete(yol); } catch { } }
     }
 
+    /// <summary>UFA4 — M-15: push yanıtı reddedilen satırı kimliği + nedeniyle taşır (masaüstü listesi bunu okur).</summary>
+    [Fact]
+    public async Task UFA4_Push_Yaniti_Reddedilen_Satiri_Tasir()
+    {
+        var govde = """{ "tables": { "material_equivalents": [ { "material_id": "YOK-A", "equivalent_material_id": "YOK-B" } ] } }""";
+        var r = await _client.PostAsync("/api/sync/business-push", new StringContent(govde, System.Text.Encoding.UTF8, "application/json"));
+        r.EnsureSuccessStatusCode();
+        var res = await ApiTestHost.JsonAsync(r);
+        var red = Assert.Single(res.GetProperty("rejected").EnumerateArray());
+        Assert.Equal("material_equivalents", red.GetProperty("table").GetString());
+        Assert.Equal("YOK-A|YOK-B", red.GetProperty("key").GetString());
+        Assert.True(red.GetProperty("permanent").GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(red.GetProperty("reason").GetString()));
+    }
+
     [Fact]
     public async Task UFA2_Paket_Masaustune_Uygulanir_Eski_Uc_Calisir()
     {

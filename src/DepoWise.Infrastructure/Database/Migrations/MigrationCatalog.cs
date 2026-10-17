@@ -103,7 +103,8 @@ public static class MigrationCatalog
         new Migration096_Chat(),                  // 2026-09-06 kullanıcı isteği: uygulama içi sohbet — CREATE TABLE (boş doğar) + ADD COLUMN
         new Migration097_RequestItemVehicles(),   // 2026-10-10 kullanıcı isteği: talep kaleminde birden fazla araç — yalnız ADD COLUMN
         new Migration098_RentalVehicles(),        // 2026-10-10 kullanıcı isteği: kiralık araçlar + araç değişimi — yalnız ADD COLUMN
-        new Migration099_SyncTxid(),
-        new Migration100_LocalChangeSeq(),     // 2026-10-17 AR-GE M-03 adım 3: masaüstü gönderme imleci = yerel değişiklik sayacı              // 2026-10-17 AR-GE M-03: sunucu işlem kimliği ufku (çekme imleci) — yalnız ekleme
+        new Migration099_SyncTxid(),           // 2026-10-17 AR-GE M-03: sunucu işlem kimliği ufku (çekme imleci) — yalnız ekleme
+        new Migration100_LocalChangeSeq(),     // 2026-10-17 AR-GE M-03 adım 3: masaüstü gönderme imleci = yerel değişiklik sayacı
+        new Migration101_SyncRejections(),     // 2026-10-17 AR-GE M-15: masaüstü gönderilemeyen kayıtlar listesi (yalnız SQLite)
     };
 }

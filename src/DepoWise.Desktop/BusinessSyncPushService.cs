@@ -64,7 +64,10 @@ public static class BusinessSyncPushService
             // yeni satırlar" → güncellemeden önce bekleyen kayıt kaybolmaz. Başarıdan sonra yalnız sayaç kullanılır.
             long seqWm = LoadPushSeq(companyId!);                       // -1 = geçiş yapılmadı
             long localSeq = await Task.Run(() => svc.LocalChangeSeq()); // önce oku: arada yazılan satır sonraki tura kalır
-            bool gecis = seqWm < 0 || localSeq < 0;
+            // ⭐ M-80: sunucu yedekten döndüyse bu makinedeki HER kayıt bir kez yeniden gönderilir (TamGonderimIste).
+            bool tamGonderim = TamGonderimBekliyor(companyId!) && localSeq >= 0;
+            if (tamGonderim) seqWm = -1;
+            bool gecis = !tamGonderim && (seqWm < 0 || localSeq < 0);
             long pushWm = 0, localV = 0;
             if (gecis)
             {
@@ -76,15 +79,16 @@ public static class BusinessSyncPushService
                     return;
                 }
             }
-            else if (localSeq <= seqWm) return; // gönderilecek YENİ yerel değişiklik yok → boş push atma (bant israfı yok)
+            else if (!tamGonderim && localSeq <= seqWm) return; // gönderilecek YENİ yerel değişiklik yok → boş push atma (bant israfı yok)
             SyncLog.Write("PUSH başladı", gecis ? $"GEÇİŞ since(watermark)={pushWm} localV={localV} seq={localSeq}" : $"seq {seqWm}→{localSeq}");
             // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
             var snapshot = await Task.Run(() => localSeq < 0
                 ? svc.BuildSnapshot(companyId!, machineName, pushWm)                       // sayaçsız eski şema (olmamalı)
-                : svc.BuildPushSnapshot(companyId!, machineName, gecis ? 0 : seqWm, gecis ? pushWm : null));
+                : svc.BuildPushSnapshot(companyId!, machineName, tamGonderim ? -1 : gecis ? 0 : seqWm, gecis ? pushWm : null));
             void Ilerlet()
             {
                 if (localSeq >= 0) SavePushSeq(companyId!, localSeq);
+                if (tamGonderim) { SetText(companyId!, TamGonderimKey, ""); SyncLog.Write("TAM YENİDEN GÖNDERİM bitti"); }
                 if (gecis) SavePushWatermark(companyId!, localV);   // eski imleç (geri dönüş/eski sürüm için tutarlı kalsın)
             }
             using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
@@ -104,6 +108,10 @@ public static class BusinessSyncPushService
             {
                 var r = ParseResult(bodyText);
                 LastPushResult = r;
+                // ⭐ M-15 (AR-GE 2026-10-17): HANGİ kayıt gitmedi → yerel "Gönderilemeyen kayıtlar" listesi (imleçten bağımsız,
+                // kaybolmaz); bu turda kabul edilenlerin eski kaydı silinir. Hata eşitlemeyi durdurmaz.
+                try { new GonderimRedleriService(DesktopServices.Factory).Isle(companyId!, snapshot, r.Rejected ?? System.Array.Empty<RejectedRow>()); }
+                catch (Exception ex) { SyncLog.Write("RED LİSTESİ yazılamadı", ex.Message); }
                 SonGonderilenSayisi = r.Upserted;   // 2026-10-04: üst bardaki "giden" sayacı
                 LastPushFailed = false;
 
@@ -161,7 +169,7 @@ public static class BusinessSyncPushService
     /// <summary>Sunucunun push yanıtı: kaç satır uygulandı / atlandı + hata mesajları (max 20). Z2 (2026-07-19):
     /// istemci eskiden bu yanıtı okumuyordu → atlanan kayıtlar sessizce kayboluyordu. Artık üst bar + log gösterir.</summary>
     public sealed record PushResult(int Upserted, int Skipped, System.Collections.Generic.IReadOnlyList<string> Errors,
-        int PermanentSkipped = 0)
+        int PermanentSkipped = 0, System.Collections.Generic.IReadOnlyList<RejectedRow>? Rejected = null)
     {
         /// <summary>
         /// ⭐ S1 (2026-08-19) — GERÇEKTEN yeniden denenecek satır sayısı.
@@ -197,6 +205,7 @@ public static class BusinessSyncPushService
         try
         {
             var svc = new BusinessSyncService(DesktopServices.Factory);
+            if (TamGonderimBekliyor(companyId!)) return true;                         // M-80
             var seqWm = LoadPushSeq(companyId!);
             var localSeq = svc.LocalChangeSeq();
             if (seqWm >= 0 && localSeq >= 0) return localSeq > seqWm;               // M-03: saat bağımsız
@@ -238,6 +247,15 @@ public static class BusinessSyncPushService
     // "Yereli sıfırla" (LocalPurgeService.ResetSyncState) bunu da temizler; M-80 (sunucu yedekten döndü) 0'a çekmez,
     // tam gönderim ister → BuildPushSnapshot(seqAfter: -1).
     private const string PushSeqKey = "sync_push_seq";
+
+    // ⭐ M-80 (AR-GE 2026-10-17): sunucunun veri dönemi değişti (yedekten geri yükleme / yeni sunucu) → bir sonraki gönderim
+    // TAM paket olur; başarıyla bitince bayrak kalkar. Kimlik + operation_id + LWW sayesinde tekrar gönderim zararsızdır.
+    private const string TamGonderimKey = "sync_push_full";
+    public static void TamGonderimIste(string companyId) => SetText(companyId, TamGonderimKey, "1");
+    private static bool TamGonderimBekliyor(string companyId)
+    {
+        try { return DesktopServices.Settings.Get(companyId, TamGonderimKey) == "1"; } catch { return false; }
+    }
 
     private static long LoadPushSeq(string companyId)
     {
@@ -322,6 +340,7 @@ public static class BusinessSyncPushService
     {
         int upserted = 0, skipped = 0, permanent = 0;
         var errors = new System.Collections.Generic.List<string>();
+        var rejected = new System.Collections.Generic.List<RejectedRow>();   // ⭐ M-15 (eski sunucuda yok → boş)
         try
         {
             using var doc = JsonDocument.Parse(json);
@@ -335,10 +354,18 @@ public static class BusinessSyncPushService
                 if (root.TryGetProperty("errors", out var e) && e.ValueKind == JsonValueKind.Array)
                     foreach (var it in e.EnumerateArray())
                         if (it.ValueKind == JsonValueKind.String) errors.Add(it.GetString() ?? "");
+                if (root.TryGetProperty("rejected", out var rj) && rj.ValueKind == JsonValueKind.Array)
+                    foreach (var it in rj.EnumerateArray())
+                    {
+                        if (it.ValueKind != JsonValueKind.Object) continue;
+                        string S(string k) => it.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+                        var kalici = it.TryGetProperty("permanent", out var pv) && pv.ValueKind == JsonValueKind.True;
+                        if (S("table").Length > 0) rejected.Add(new RejectedRow(S("table"), S("key"), S("reason"), kalici));
+                    }
             }
         }
         catch { /* bozuk/boş gövde → sıfır sonuç */ }
-        return new PushResult(upserted, skipped, errors, permanent);
+        return new PushResult(upserted, skipped, errors, permanent, rejected);
     }
 
     private static string Truncate(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "…";

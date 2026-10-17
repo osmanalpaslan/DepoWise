@@ -50,6 +50,9 @@ geçişte "sayaçlı VEYA eski damga imlecinden yeni" paketi → güncelleme ön
 - Sunucu `epoch` (yedekten dönüşte yeni kimlik): istemci epoch değişimini görünce push watermark'ını sıfırlar → tam yeniden gönderim
   (id + operation_id ile tekrar zararsız) (M-80).
 **Kabul:** UNIQUE çakışması/ebeveyn yok kaydı listede görünür; sıfırlama gönderilmemiş kaydı silmez; epoch değişince kayıtlar geri gelir.
+**Uygulandı (2026-10-17, Migration101):** red listesi + pencere; sıfırlamada önce gönder + sayılı onay (yalnız kullanıcı sıfırlaması;
+yönetici komutu bilinçli olarak göndermez); dönem = PG veritabanı+companies iç kimliği, ayrıca ufuk gerilemesi (PITR) — ikisi de tam
+yeniden gönderim + tam çekme tetikler.
 
 ## 5. Firma ve defter korumaları (M-02, M-05)
 - `UpsertRow`: mevcut satırın `company_id`'si oturumdakinden farklıysa yazma reddedilir + güvenlik günlüğü (M-02).
