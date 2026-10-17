@@ -16,7 +16,7 @@
 - Çalışan kodu yeniden yazma; küçük, geri alınabilir değişiklik (ayrıntı: `.claude/rules/gelistirme-protokolu.md`).
 
 ## 2. Mimari (güncel gerçek)
-- **Masaüstü:** .NET 10 (2026-10-17, .NET 8 desteği 2026-11-10 bitti) · Avalonia 12 · MVVM · yerel SQLite `%LOCALAPPDATA%\DepoWise\Data` (Cache=Private, WAL, foreign_keys, busy_timeout=5000).
+- **Masaüstü:** .NET 10 (2026-10-17'den; .NET 8 desteği 2026-11-10'da biter) · Avalonia 12 · MVVM · yerel SQLite `%LOCALAPPDATA%\DepoWise\Data` (Cache=Private, WAL, foreign_keys, busy_timeout=5000).
   Çevrimdışı çalışır; anlık eşitleme `/api/sync/wait` + 60 sn güvenlik turu.
 - **Web:** Blazor Server + MudBlazor, `depowise-web.fly.dev` (512 MB + 256 MB swap, boşta uyur). `apps/web` (Next.js) terk edildi — dokunma.
 - **API:** minimal API `/api/...` (sürüm öneki yok), `depowise-erp.fly.dev` (512 MB, tek makine). Hata gövdesi `{"error":"..."}`.

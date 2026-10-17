@@ -5,6 +5,11 @@
 
 **Özet (2026-10-12):** YAYINDA — masaüstü **1.0.200** + Web f51c711 (tablo başlığı hizası, Cari/Hesap `/new` yetki kapısı). API değişmedi (bff079a). Sıradaki: kullanıcı talebi.
 
+## ✅ 2026-10-17 YAYIN — .NET 10 geçişi (masaüstü 1.0.201 + API + Web), dal `net10-gecis`
+- Yalnız çerçeve yükseltmesi (net8.0 → net10.0, Microsoft paketleri 10.0.13, Docker 10.0); iş mantığı değişmedi. .NET 8 desteği
+  2026-11-10'da biter. SQLite paket açığı (GHSA-2m69-gcr7-jv3q) kapandı. AR-GE çalışmasının (yayın yasağı) kullanıcı onaylı istisnası.
+- Kapı: tam takım 4103/4103 (atlanan 0), arayüz 47/47, self-contained masaüstü açılış testi. AR-GE dalı (`arge/2026-10-kapsamli`) yayına GİRMEDİ.
+
 ## ✅ 2026-10-12 YAYINDA — masaüstü 1.0.200: tablo başlığı hizası · web: /new yetki kapısı
 - Tam takım 4103/4103, arayüz 47/47 (5×), iki ortam denetimi (2 risk yayından önce düzeltildi), canlı web Playwright 14/14, paket sağlaması canlıyla aynı.
 - `TableHeaderSync` sağlamlaştırıldı (geç/yeniden şablon, boş liste, satırın gerçek kolon genişliğini kopyalama) ve 34 tabloya bağlandı (toplam 39). İstisnalar: Malzeme/Araç/Günlük Faaliyet (ortak kaydırıcı), ItemsControl'lü 3 tablo.
