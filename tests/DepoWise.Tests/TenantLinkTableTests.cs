@@ -148,6 +148,42 @@ public class TenantLinkTableTests : IDisposable
     }
 
     // ═════════════════════════════════════════════════════════════════════════════════════════
+    // TNT-03 · SATIRIN KENDİSİ BAŞKA FİRMANIN (M-02, AR-GE 2026-10-17 — 04 G4-2)
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ TNT-03 — A firmasının paketi, B firmasının mevcut kaydının KİMLİĞİYLE gelirse B'nin kaydı
+    /// ne değişir ne de A'ya taşınır. Eskiden ON CONFLICT DO UPDATE satırı A'ya taşıyıp eziyordu
+    /// (tek koruma GUID'in tahmin edilemezliğiydi).
+    /// </summary>
+    [Fact]
+    public void TNT03_Baska_Firmanin_Kaydi_Kimlikle_Ezilemez()
+    {
+        var res = Push(A, $$"""
+        { "materials": [ { "id": "{{_matB}}", "code": "ELE-GECIRILDI", "name": "Ezildi", "created_at": 1,
+                           "updated_at": 1900000000000, "version": 99, "is_deleted": 0 } ] }
+        """);
+
+        Assert.Equal(0, res.Upserted);
+        Assert.Equal(1, res.PermanentSkipped);
+        Assert.Contains(res.Errors, e => e.Contains("başka bir firmaya ait"));
+        Assert.Equal(1, Scalar($"SELECT COUNT(*) FROM materials WHERE id='{_matB}' AND company_id='{B}' AND code='B-GIZLI';"));
+    }
+
+    /// <summary>TNT-03b — kendi kaydını güncelleme ETKİLENMEZ.</summary>
+    [Fact]
+    public void TNT03b_Kendi_Kaydini_Guncelleyebilir()
+    {
+        var res = Push(A, $$"""
+        { "materials": [ { "id": "{{_matA}}", "code": "A-KOD", "name": "A Malzeme Yeni Ad", "created_at": 1,
+                           "updated_at": 1900000000000, "version": 2, "is_deleted": 0 } ] }
+        """);
+
+        Assert.Equal(0, res.PermanentSkipped);
+        Assert.Equal(1, Scalar($"SELECT COUNT(*) FROM materials WHERE id='{_matA}' AND company_id='{A}' AND name='A Malzeme Yeni Ad';"));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
     // TNT-02 · İKİNCİL REFERANS (bağlantının KARŞI ucu)
     // ═════════════════════════════════════════════════════════════════════════════════════════
 

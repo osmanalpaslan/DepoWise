@@ -594,44 +594,47 @@
                 // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
                 if (!await Dialog.Confirm(_lines.Count == 0 ? "Bakım kaydı eklensin mi?"
                         : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/maintenance", new
+                err = await Api.PostAsync("/api/daily/maintenance", _dailyOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                     description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
                     materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                     branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
-                });
+                }));
             }
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
             {
                 // Masaüstüyle birebir aynı metin — parite.
                 if (!await Dialog.Confirm(_lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
                         : $"{_kind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/extra", new
+                err = await Api.PostAsync("/api/daily/extra", _dailyOp.Ekle(new   // ⭐ M-04
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
                     description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
                     materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                     branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
-                });
+                }));
             }
             else
             {
                 var isTransfer = _kind == "Transfer";
                 if (!await Dialog.Confirm(isTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/movement", new
+                err = await Api.PostAsync("/api/daily/movement", _dailyOp.Ekle(new   // ⭐ M-04
                 {
                     movementKind = isTransfer ? "transfer" : "movement", vehicleId = _vehicle.Id,
                     fromLocationId = _from, toLocationId = _to, operatorId = _operator, durationDays = _duration,
                     description = Empty(_desc), activityDate = Ms(_date)
-                });
+                }));
             }
             _ok = err is null; _msg = err ?? "Kaydedildi.";
-            if (_ok) { Clear(); await Load(); }
+            if (_ok) { _dailyOp.Tamamlandi(); Clear(); await Load(); }   // M-04: başarılı kayıttan sonra yeni kimlik
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
+
+    // ⭐ M-04 (AR-GE 2026-10-17): form başına işlem kimliği (Services/IslemKimligi) — çift tık/tekrar = tek kayıt.
+    private readonly DepoWise.Web.Services.IslemKimligi _dailyOp = new();
 
     // ── İş #5: metadata düzenleme (yan etkisiz alanlar) ─────────────────────────────────────
     private string? _editId, _editOperator, _editError, _editDescription;

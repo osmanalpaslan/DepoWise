@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using DepoWise.Api;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
@@ -214,19 +215,35 @@ public class FazKUctanUcaApiTests : IAsyncLifetime
     // ══════════════════════ §12 — ÇİFT GÖNDERİM ══════════════════════
 
     /// <summary>
-    /// ⭐ ÖLÇÜM (protokol §12). Web ucu her istekte YENİ bir operation id üretir; bu yüzden aynı
-    /// bakım iki AYRI HTTP isteğiyle gönderilirse iki kayıt oluşur. Bu bilinçli bir sınırdır:
+    /// ⭐ M-04 (AR-GE 2026-10-17, kullanıcı kararı K-08) — WEB ÇİFT TIKLAMA = TEK KAYIT.
+    /// Eskiden web ucu her istekte YENİ operation id üretiyordu → aynı bakım iki AYRI HTTP isteğiyle iki kayıt
+    /// oluyordu (bu test o davranışı "bilinçli sınır" olarak kayıt altına almıştı; zaman aşımından sonra "tekrar dene"
+    /// çift kayıt + çift stok düşümü üretebiliyordu). Artık istemci kimliği gönderir (Web: Services/IslemKimligi):
     /// <list type="bullet">
-    ///   <item>arayüzde kaydet düğmesi kayıt sürerken <c>Disabled</c>'dır (çift tık engellenir),</item>
-    ///   <item>öncesinde onay penceresi vardır,</item>
-    ///   <item>masaüstü kendi operation id'sini üretir → çevrimdışı kuyruk tekrarı ikinci kayıt YARATMAZ.</item>
+    ///   <item><b>Aynı operationId ile iki istek → TEK kayıt</b> (yeni kural, burada zorunlu).</item>
+    ///   <item>operationId GÖNDERMEYEN eski istemci → eski davranış (sunucu üretir; iki istek iki kayıt). Bilinçli geriye
+    ///     uyumluluk; güncel web her zaman kimlik gönderir.</item>
     /// </list>
-    /// Bu test davranışı KAYIT ALTINA alır: değişirse (ör. istemci kaynaklı operation id eklenirse)
-    /// burada görülür ve bilinçli olarak güncellenir. Sessiz bir varsayım bırakılmaz.
     /// </summary>
     [Fact]
     public async Task UUA6_Ayni_Bakim_Iki_Kez_Gonderilirse_Davranis_Kayitlidir()
     {
+        // (1) YENİ KURAL: aynı istemci kimliğiyle iki HTTP isteği → TEK kayıt, aynı id döner.
+        object KimlikliGovde() => new
+        {
+            vehicleId = _aracA, definitionId = _tanimA,
+            performedKm = 100m, performedDate = 1_700_000_000_000L, branchId = _subeA,
+            operationId = "web-form-op-1",
+        };
+        var k1 = await _adminA.PostAsJsonAsync("/api/maintenance", KimlikliGovde());
+        var k2 = await _adminA.PostAsJsonAsync("/api/maintenance", KimlikliGovde());
+        Assert.Equal(HttpStatusCode.OK, k1.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, k2.StatusCode);
+        Assert.Equal(1L, Oku<long>("SELECT COUNT(*) FROM vehicle_maintenances WHERE company_id=@c;", ("@c", CoA)));
+        Assert.Equal((await k1.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetString(),
+                     (await k2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetString());
+
+        // (2) ESKİ İSTEMCİ (kimliksiz): eski davranış korunur — iki AYRI istek = iki kayıt.
         object Govde() => new
         {
             vehicleId = _aracA, definitionId = _tanimA,
@@ -240,11 +257,11 @@ public class FazKUctanUcaApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, iki.StatusCode);
 
         var adet = Oku<long>("SELECT COUNT(*) FROM vehicle_maintenances WHERE company_id=@c;", ("@c", CoA));
-        Assert.Equal(2L, adet);   // ← MEVCUT davranış: iki AYRI istek = iki kayıt
+        Assert.Equal(3L, adet);   // 1 (kimlikli) + 2 (eski istemci, kimliksiz)
 
         // Kayıtlar BOZUK değil: ikisi de eksiksiz ve birbirinden bağımsız kimliğe sahip.
         var farkliKimlik = Oku<long>("SELECT COUNT(DISTINCT id) FROM vehicle_maintenances WHERE company_id=@c;", ("@c", CoA));
-        Assert.Equal(2L, farkliKimlik);
+        Assert.Equal(3L, farkliKimlik);
 
         // ⭐ Asıl idempotency kapısı operation id'dedir; AYNI operation id ikinci kaydı YARATMAZ.
         var maint = new DepoWise.Infrastructure.Maintenance.MaintenanceService(_svc.Factory);
@@ -252,7 +269,7 @@ public class FazKUctanUcaApiTests : IAsyncLifetime
             PerformedDate: 1_700_000_100_000L, StockLocationId: _subeA);
         maint.Save(_sessionA, yeni, "sabit-op-id");
         maint.Save(_sessionA, yeni, "sabit-op-id");
-        Assert.Equal(3L, Oku<long>("SELECT COUNT(*) FROM vehicle_maintenances WHERE company_id=@c;", ("@c", CoA)));
+        Assert.Equal(4L, Oku<long>("SELECT COUNT(*) FROM vehicle_maintenances WHERE company_id=@c;", ("@c", CoA)));
     }
 
     // ══════════════════════ §11 — YENİ GÖVDE ══════════════════════

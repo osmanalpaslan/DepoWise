@@ -1243,6 +1243,15 @@ public sealed class BusinessSyncService
                 perm++;
                 return null;
             }
+            // ⭐ M-02 (AR-GE 2026-10-17, 04 G4-2) — SATIRIN KENDİSİ BAŞKA FİRMANIN OLAMAZ. Yukarıdaki kapılar
+            // ebeveyni ve karşı ucu koruyordu; satırın KENDİ kimliği başka firmada varsa ON CONFLICT DO UPDATE onu
+            // bu firmaya TAŞIYIP ezebiliyordu (koruma yalnız GUID'in tahmin edilemezliğiydi). Fail-closed: reddet.
+            if (hasCompany && RowOwnedByOtherCompany(conn, table, pk, companyId, rowEl))
+            {
+                if (errSink.Count < 20) errSink.Add($"{table}: kayıt kimliği başka bir firmaya ait (atlandı).");
+                perm++;
+                return null;
+            }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
             if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); perm++; return null; }
             if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
@@ -1493,6 +1502,33 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         return cmd.ExecuteScalar() as string;
     }
 
+    /// <summary>M-05: yalnız EKLENEN (append-only) defter tabloları. Mevcut satırda yalnız <see cref="LedgerMutableColumns"/>
+    /// push ile güncellenebilir.</summary>
+    internal static readonly HashSet<string> LedgerTables = new(StringComparer.Ordinal)
+        { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements" };
+
+    /// <summary>M-05: defter satırında meşru yerinde güncellenen alanlar (iptal işareti + gerekçe + damga/sürüm).</summary>
+    internal static readonly HashSet<string> LedgerMutableColumns = new(StringComparer.Ordinal)
+        { "is_reversed", "reversal_reason", "updated_at", "version" };
+
+    /// <summary>M-02: satırın birincil anahtarıyla eşleşen mevcut kayıt BAŞKA bir firmaya mı ait?
+    /// Satır yoksa ya da aynı firmanınsa false. PK kolonlarından biri eksikse false (UpsertRow zaten atlar).</summary>
+    private static bool RowOwnedByOtherCompany(DbConnection conn, string table, List<string> pk, string companyId, JsonElement row)
+    {
+        if (pk.Count == 0) return false;
+        using var cmd = conn.CreateCommand();
+        var where = new List<string>();
+        for (int i = 0; i < pk.Count; i++)
+        {
+            if (!row.TryGetProperty(pk[i], out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return false;
+            where.Add($"{pk[i]}=@k{i}");
+            cmd.AddWithValue("@k" + i, JsonToDb(v) ?? DBNull.Value);
+        }
+        cmd.CommandText = $"SELECT company_id FROM {table} WHERE {string.Join(" AND ", where)} LIMIT 1;";
+        var mevcut = cmd.ExecuteScalar();
+        return mevcut is not null and not DBNull && !string.Equals(Convert.ToString(mevcut), companyId, StringComparison.Ordinal);
+    }
+
     private bool UpsertRow(DbConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
         bool hasUpdated, string companyId, JsonElement row, long now,
         bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
@@ -1541,6 +1577,20 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         var conflictTarget = string.Join(", ", pk);
         var updateSet = string.Join(", ", colList.Where(c => !pk.Contains(c)).Select(c => $"{c}=excluded.{c}"));
 
+        // ⭐ M-05 (AR-GE 2026-10-17, 04 B1-4) — DEFTER SATIRI EŞİTLEMEYLE DEĞİŞTİRİLEMEZ (yalnız PUSH).
+        // CLAUDE.md §3: operasyonel kayıt fiziksel silinmez/değişmez; düzeltme = iptal + ters kayıt. Eskiden var olan
+        // defter satırının miktar/tutar/malzeme/tarih alanları push ile iz bırakmadan değiştirilebiliyordu.
+        // Kodda meşru yerinde güncelleme YALNIZ iptal işaretidir (StockService:1524, PartyLedgerService:253,
+        // FinanceService:904, EquipmentMaintenanceService:202) → güncellenebilir alanlar yalnız bunlar; iptal geri alınamaz.
+        // PULL (serverAuthoritativeDeletes) etkilenmez: masaüstü sunucunun aynası kalır.
+        if (!serverAuthoritativeDeletes && LedgerTables.Contains(table))
+        {
+            var izinli = colList.Where(c => !pk.Contains(c) && LedgerMutableColumns.Contains(c)).ToList();
+            updateSet = string.Join(", ", izinli.Select(c => c == "is_reversed"
+                ? $"is_reversed = CASE WHEN {table}.is_reversed = 1 THEN 1 ELSE excluded.is_reversed END"
+                : $"{c}=excluded.{c}"));
+        }
+
         bool hasDeleted = tableCols.Contains("is_deleted");
 
         // (A) PULL — SİLME SUNUCU-OTORİTELİ: gelen satır silinmişse LWW koşulu uygulanmaz; silme her zaman kazanır.
@@ -1551,6 +1601,9 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
 
         // LWW: updated_at varsa yalnız gelen >= mevcut ise güncelle (sunucudan gelen silme hariç — yukarı bak)
         var conds = new List<string>();
+        // ⭐ M-02 ikinci güvence (veritabanı düzeyi): mevcut satır başka firmanınsa GÜNCELLEME YAPILMAZ.
+        // Asıl kapı ApplyOne'daki RowOwnedByOtherCompany; bu koşul yarış/atlanmış kapıya karşı son savunmadır.
+        if (hasCompany) conds.Add($"{table}.company_id = excluded.company_id");
         if (hasUpdated && !incomingDeleted) conds.Add($"excluded.updated_at >= {table}.updated_at");
 
         // (B) PUSH — DİRİLTME YASAK: sunucuda silinmiş kayıt, cihazın "silinmemiş" satırıyla geri getirilemez.

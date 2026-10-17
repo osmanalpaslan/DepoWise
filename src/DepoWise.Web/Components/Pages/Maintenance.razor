@@ -578,22 +578,26 @@
         try
         {
             // Firma gövdeye KONMAZ; sunucu oturumdan alır. Ekipman sahipliği serviste doğrulanır.
-            var hata = await Api.PostAsync("/api/equipment-maintenance", new
+            var hata = await Api.PostAsync("/api/equipment-maintenance", _eqmOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide
             {
                 equipmentId = _eqmEquipmentId,
                 definitionId = _eqmDefId,
                 description = string.IsNullOrWhiteSpace(_eqmDescription) ? null : _eqmDescription.Trim(),
-                performedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                performedDate = _eqmTarih ??= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),   // tekrarda aynı an (kimlik karşılaştırması)
                 costCenterId = Empty(_eqmCostCenterId),   // ⭐ MUH-01a
                 invoiceNo = Empty(_eqmInvoiceNo),         // ⭐ MUH-01b
                 partyId = Empty(_eqmPartyId),             // ⭐ MUH-01c
-            });
+            }));
             _eqmHata = hata;
-            if (hata is null) { _eqmDescription = ""; _eqmCostCenterId = null; _eqmInvoiceNo = ""; _eqmPartyId = null; }
+            if (hata is null) { _eqmOp.Tamamlandi(); _eqmTarih = null; _eqmDescription = ""; _eqmCostCenterId = null; _eqmInvoiceNo = ""; _eqmPartyId = null; }
         }
         finally { _eqmBusy = false; }
         await EqmYukle();
     }
+
+    // ⭐ M-04 (AR-GE 2026-10-17): form başına işlem kimliği (Services/IslemKimligi) — çift tık/tekrar = tek kayıt.
+    private readonly DepoWise.Web.Services.IslemKimligi _mntOp = new(), _eqmOp = new();
+    private long? _eqmTarih;   // ekipman bakımı "şimdi" damgası: başarısız denemenin tekrarında AYNI kalır
 
     private List<ApiClient.Opt> _defOpts = new(), _mSubOpts = new(), _technicians = new();
 
@@ -1003,7 +1007,7 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/maintenance", new
+            var err = await Api.PostAsync("/api/maintenance", _mntOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide
             {
                 vehicleId = _mVehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                 description = Empty(_mDesc), performedKm = MeterKm, performedHour = MeterHour,
@@ -1015,7 +1019,8 @@
                 costCenterId = Empty(_mCostCenterId),   // MLY-01
                 invoiceNo = Empty(_mInvoiceNo),         // ⭐ MUH-01b
                 partyId = Empty(_mPartyId)              // ⭐ MUH-01c
-            });
+            }));
+            if (err is null) _mntOp.Tamamlandi();       // M-04: başarılı kayıttan sonra yeni kimlik
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
             if (err is null && !string.IsNullOrEmpty(_mVehStatus))

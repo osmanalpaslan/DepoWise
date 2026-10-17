@@ -542,13 +542,20 @@
                 govde["note"] = _editNote;              // formda alanı yok → düzeltmede korunur
                 govde["prevMeter"] = _prevMeter;        // Y2: başlangıç sayacı taşınır (rapor km'si bozulmasın)
                 govde["reason"] = duzeltmeGerekcesi;
+                govde["editOf"] = duzeltilen;           // (yalnız kimlik karşılaştırması için; API bilinmeyen alanı yok sayar)
+                govde["operationId"] = _distOp.Icin(govde);   // ⭐ M-04
                 err = await Api.PutAsync($"/api/fuel/{duzeltilen}", govde);
             }
-            else err = await Api.PostAsync("/api/fuel/distribute", govde);
+            else
+            {
+                govde["operationId"] = _distOp.Icin(govde);   // ⭐ M-04: aynı bilgiyle tekrar = TEK kayıt
+                err = await Api.PostAsync("/api/fuel/distribute", govde);
+            }
             var duzeltmeMi = _editDistId is not null;
             _ok = err is null; _msg = err ?? (duzeltmeMi ? "Dağıtım düzeltildi (eski kayıt iptal edildi)." : "Dağıtım kaydedildi.");
             if (_ok)
             {
+                _distOp.Tamamlandi();                      // M-04: başarılı kayıttan sonra yeni işlem kimliği
                 var veren = _person;                       // YKT-VEREN (ADR-182): ClearDist alanı boşaltmadan ÖNCE al
                 await SonVereniKaydet(veren);
                 ClearDist();
@@ -560,6 +567,11 @@
         finally { _busy = false; }
     }
 
+    // ⭐ M-04 (AR-GE 2026-10-17): form başına işlem kimliği (bkz. Services/IslemKimligi). Aynı bilgiyle tekrar → aynı
+    // kimlik (tek kayıt); bilgi değişti → yeni kimlik; başarılı kayıttan sonra yenilenir.
+    private readonly DepoWise.Web.Services.IslemKimligi _distOp = new();
+    private readonly DepoWise.Web.Services.IslemKimligi _depotOp = new();
+
     private async Task AddDepot()
     {
         _dMsg = null;
@@ -570,11 +582,13 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/fuel/depot", new { liters = _dLiters, unitPrice = _dPrice, supplierId = _dSupplier,
-                invoiceNo = Empty(_dInvoice), entryDate = _depotDateMs,   // TRH-01: iş günü
-                costCenterId = string.IsNullOrEmpty(_depotCostCenterId) ? null : _depotCostCenterId });   // MLY-01
+            var depoGovde = new Dictionary<string, object?> { ["liters"] = _dLiters, ["unitPrice"] = _dPrice, ["supplierId"] = _dSupplier,
+                ["invoiceNo"] = Empty(_dInvoice), ["entryDate"] = _depotDateMs,   // TRH-01: iş günü
+                ["costCenterId"] = string.IsNullOrEmpty(_depotCostCenterId) ? null : _depotCostCenterId };   // MLY-01
+            depoGovde["operationId"] = _depotOp.Icin(depoGovde);   // ⭐ M-04
+            var err = await Api.PostAsync("/api/fuel/depot", depoGovde);
             _dOk = err is null; _dMsg = err ?? "Depo girişi kaydedildi.";
-            if (_dOk) { ClearDepot(); await LoadDepot(); await LoadSummary(); }
+            if (_dOk) { _depotOp.Tamamlandi(); ClearDepot(); await LoadDepot(); await LoadSummary(); }
         }
         catch (Exception ex) { _dOk = false; _dMsg = "Hata: " + ex.Message; }
         finally { _busy = false; }

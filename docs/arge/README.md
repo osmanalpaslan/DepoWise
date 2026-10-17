@@ -17,7 +17,7 @@
 | 9 | Avalonia tasarım araştırması ve tasarım sistemi | `08_avalonia_tasarim_sistemi.md` | tamam |
 | 10 | Önceliklendirilmiş sorun ve iyileştirme listesi | `05_fark_analizi.md` (§öncelik) + `09_yol_haritasi.md` SEÇİM LİSTESİ | tamam |
 | 11 | Ana fazlar, alt fazlar ve kabul kriterleri | `09_yol_haritasi.md` | tamam |
-| 12 | Tamamlanan değişiklikler ve test sonuçları | `10_uygulama_gunlugu.md` | bekliyor |
+| 12 | Tamamlanan değişiklikler ve test sonuçları | `10_uygulama_gunlugu.md` | sürüyor |
 | 13 | Kalan sorunlar, teknik borç, açık riskler | `11_kalan_riskler.md` | bekliyor |
 | 14 | Yayın öncesi nihai doğrulama kontrol listesi | `12_yayin_oncesi_kontrol.md` | başladı (hatırlatmalar) |
 | — | Araç/MCP değerlendirmesi | `00_araclar.md` | tamam |
