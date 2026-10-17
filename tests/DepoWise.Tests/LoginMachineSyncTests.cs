@@ -44,8 +44,8 @@ public class LoginMachineSyncTests
     [Fact]
     public void L1_Giris_Zaman_Asimlari_Yeterince_Uzun()
     {
-        Assert.Contains("Timeout = TimeSpan.FromSeconds(20)", Read("src/DepoWise.Desktop/MachineGate.cs"));
-        Assert.Contains("Timeout = TimeSpan.FromSeconds(25)", Read("src/DepoWise.Desktop/ServerAuthClient.cs"));
+        Assert.Contains("HttpIstemci.Yeni(TimeSpan.FromSeconds(20))", Read("src/DepoWise.Desktop/MachineGate.cs"));   // M-84: sıkıştırmalı istemci, süre aynı
+        Assert.Contains("HttpIstemci.Yeni(TimeSpan.FromSeconds(25))", Read("src/DepoWise.Desktop/ServerAuthClient.cs"));
         // İlk deneme başarısız olursa bir kez daha denenir (uyandırma isteği sunucuyu ayağa kaldırır).
         Assert.Contains("deneme <= 2", Read("src/DepoWise.Desktop/MachineGate.cs"));
     }

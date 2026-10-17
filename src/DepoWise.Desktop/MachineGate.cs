@@ -19,7 +19,7 @@ public static class MachineGate
     // GÜNÜN İLK isteği birkaç saniye sürebiliyor; 6 sn aşılınca uygulama kendini ÇEVRİMDIŞI sanıyor,
     // makine şubesini önbellekten okuyor ve giriş akışı yanlış dala giriyordu. Süre 20 sn'ye çıkarıldı
     // ve ilk deneme başarısız olursa BİR KEZ daha denenir (uyanma isteği zaten sunucuyu ayağa kaldırır).
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(20));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>Makine durum + firma + atanmış şube kontrolü sonucu.</summary>
     public sealed record MachineCheck(bool Allowed, string Reason, string? Status, string? BranchId, string? BranchName, bool Online, string? CompanyId = null, string? CompanyName = null);

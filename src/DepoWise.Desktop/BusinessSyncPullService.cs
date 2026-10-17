@@ -50,7 +50,7 @@ internal static class SyncFailureClassifier
 public static class BusinessSyncPullService
 {
     // ⚠️ 300sn — bkz. BusinessSyncPushService (delta ile rutin çekme küçük; ilk/tam çekme büyük olabilir).
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(300) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(300));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>SNK-03 — son <see cref="PullAsync"/> / <see cref="GetServerVersionAsync"/> çağrısının
     /// başarısızlık türü. Metot imzaları DEĞİŞMEDİ (5 çağıran etkilenmesin); bilgi bu özellikle taşınır.

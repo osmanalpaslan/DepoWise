@@ -20,7 +20,7 @@ public static class ServerAuthClient
 {
     // ⭐ B1: 10 sn'ydi — sunucu veritabanı boşta uyuduğunda günün ilk girişi bu süreyi aşıp
     // "çevrimdışı" sanılıyordu (bkz. MachineGate'teki aynı düzeltme).
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(25) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(25));   // M-84: sıkıştırmalı yanıt
 
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 

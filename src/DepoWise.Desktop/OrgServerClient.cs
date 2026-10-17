@@ -24,7 +24,7 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class OrgServerClient
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(20));   // M-84: sıkıştırmalı yanıt
 
     /// <summary><paramref name="Status"/> = sunucunun HTTP kodu (0 = ulaşılamadı). 409 → DÜZENLEME KİLİDİ:
     /// kayıt biz formu açtıktan sonra değişti. Sona eklendi → mevcut çağrılar bozulmaz.</summary>

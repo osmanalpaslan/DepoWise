@@ -20,7 +20,7 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class ServerUserClient
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(20));   // M-84: sıkıştırmalı yanıt
 
     public static async Task<List<LinkableUser>?> GetLinkableUsersAsync()
     {

@@ -19,7 +19,7 @@ public static class BusinessSyncPushService
     // ⚠️ 300sn: rutin push artık DELTA (yalnız değişenler, aşağıya bak) → küçük ve hızlı; ama ilk kurulum/
     // manuel TAM eşitleme büyük firmada (2508+ kayıt) uzun sürebilir → geniş zaman aşımı (kullanıcı bulgusu
     // 2026-07-19: DESKTOP-SIKIB3U'da tam snapshot 120sn'yi aşıp zaman aşımına uğruyordu).
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(300) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(300));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>Saklı JWT (ServerAuthClient.Token) ile firmanın iş snapshot'ını sunucuya gönderir. Hata → sessiz.
     /// Giriş, "Eşitle" butonu ve periyodik döngü buradan çağırır (çevrimdışıysa token yoktur → atlar).

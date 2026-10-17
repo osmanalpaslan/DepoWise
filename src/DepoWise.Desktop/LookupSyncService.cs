@@ -18,7 +18,7 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class LookupSyncService
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(12));   // M-84: sıkıştırmalı yanıt
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>Giriş bilgileriyle sunucudan tanımları çeker ve yerele upsert eder. Hata olursa sessiz.</summary>

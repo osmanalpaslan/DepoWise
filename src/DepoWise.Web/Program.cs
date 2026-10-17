@@ -38,7 +38,10 @@ builder.Services.AddMudServices();
 // API tabanı (appsettings: Api:BaseUrl) — web yalnız bu API'yi tüketir (iş kuralı taşımaz).
 var apiBase = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5224";
 builder.Services.AddScoped<AuthState>();
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
+// ⭐ M-84 (AR-GE 2026-10-17): API yanıt sıkıştırması açıktı ama düz HttpClient onu istemiyordu → büyük listeler/raporlar
+// sıkıştırılmadan geliyordu. İşleyici gzip/Brotli ister ve kendiliğinden açar (çağıran kod değişmez).
+builder.Services.AddScoped(_ => new HttpClient(new SocketsHttpHandler { AutomaticDecompression = System.Net.DecompressionMethods.All })
+    { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<DepoWise.Web.Services.ThemeState>();
 // STK-04: stok lokasyonu seçenekleri — oturumda BİR KEZ indirilir, tüm stok ekranları paylaşır (N+1 yok).

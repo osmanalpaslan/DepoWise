@@ -26,7 +26,7 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class OnlineApprovalClient
 {
-    private static readonly HttpClient _http = new() { Timeout = System.TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(System.TimeSpan.FromSeconds(20));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>Kullanıcıya gösterilen tek tip çevrimdışı uyarısı.</summary>
     public const string CevrimdisiUyari =

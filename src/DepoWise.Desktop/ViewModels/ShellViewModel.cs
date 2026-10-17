@@ -145,7 +145,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty] private string _connectionText = "Bağlanıyor…";
     [ObservableProperty] private Avalonia.Media.IBrush _connectionBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#F59E0B"));
     private Avalonia.Threading.DispatcherTimer? _connTimer;
-    private static readonly System.Net.Http.HttpClient _pingHttp = new() { Timeout = TimeSpan.FromSeconds(6) };
+    private static readonly System.Net.Http.HttpClient _pingHttp = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(6));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>serverurl.txt / ayar yoksa (ör. kaynaktan çalıştırma) varsayılan bulut adresi.</summary>
     private const string DefaultServerUrl = "https://depowise-erp.fly.dev";

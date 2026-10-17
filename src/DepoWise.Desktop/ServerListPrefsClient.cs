@@ -34,7 +34,7 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class ServerListPrefsClient
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly HttpClient _http = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(15));   // M-84: sıkıştırmalı yanıt
 
     /// <summary>Sunucu adresi — diğer istemcilerle AYNI kural (serverurl.txt varsa o, yoksa üretim).</summary>
     private static string? SunucuAdresi()
