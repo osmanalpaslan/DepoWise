@@ -19,3 +19,8 @@
   kart oluşur; birleştirme aracı henüz yok (K-22 kararında "birleştirme ileride").
 - **Masaüstünde pull sırasında yerel kod çakışması** (kullanıcı yerelde elle `MLZ-100-2` açmışsa) çekilen satır o bilgisayarda
   reddedilebilir — çok düşük olasılık.
+- **M-18 talep geçmişi:** talepte kaybeden (sonra gelen) onay/ret kararı talep satırına yazılmaz, ama o bilgisayarın ürettiği
+  `request_status_history` satırı (yalnız ekleme) sunucuya gider → geçmişte "reddedildi" olayı görünür, güncel durum "onaylandı" kalır.
+  Çakışma ekranı doğruyu gösterir. Düzeltme (kaybeden kararın geçmiş satırını işaretleme) B3 çakışma işinde.
+- **Çakışma tespiti saat bazlı:** "eşzamanlı" kararı bilgisayarın son gönderim zamanı ile kayıt damgalarını karşılaştırır (mevcut
+  tasarım). Saati çok yanlış bilgisayarda çakışma kaçabilir ya da fazladan çıkabilir; veri kaybolmaz (kaybeden sürüm saklanır).

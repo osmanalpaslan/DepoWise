@@ -1159,7 +1159,9 @@ public sealed class BusinessSyncService
         public string EntityLabel => EntityType switch
         {
             "materials" => "Malzeme", "vehicles" => "Araç", "personnel" => "Personel",
-            "material_requests" => "Talep", "vehicle_maintenances" => "Bakım", _ => EntityType,
+            "material_requests" => "Talep", "vehicle_maintenances" => "Bakım",
+            "fuel_distributions" => "Yakıt dağıtımı", "fuel_depot_entries" => "Yakıt deposu girişi",
+            "equipment_maintenances" => "Ekipman bakımı", _ => EntityType,
         };
 
         /// <summary>Log varlık tipi — kaydın KENDİ geçmişini açmak için (FAZ 4.3 ekranı).</summary>
@@ -1370,7 +1372,38 @@ public sealed class BusinessSyncService
     private static readonly HashSet<string> ConflictTracked = new(StringComparer.Ordinal)
     {
         "materials", "vehicles", "personnel", "material_requests", "vehicle_maintenances",
+        // ⭐ M-18 (AR-GE 2026-10-17): yakıt ve ekipman bakımı da izlenir (K-07 a).
+        "fuel_distributions", "fuel_depot_entries", "equipment_maintenances",
     };
+
+    /// <summary>
+    /// ⭐ M-18 (AR-GE 2026-10-17, kullanıcı kararları K-04 a + K-07 a) — EZME YASAK tabloları. Bunlarda eşzamanlı düzenleme
+    /// (sunucu ve bilgisayar son gönderimden beri aynı kaydı değiştirdi) "son yazan kazanır" ile ÇÖZÜLMEZ: sunucudaki sürüm
+    /// KORUNUR, gelen sürüm çakışma listesine "kaybeden" olarak yazılır, yönetici isterse "Üzerine Yazılanı Kazanan Yap"
+    /// ile seçer. Talepte bu "ilk onay kazanır" demektir (K-04: onay/ret durumu talep satırındadır). CLAUDE.md §3: stok/
+    /// sayaç/yakıt/bakım/onayda LWW yasak.
+    /// </summary>
+    private static readonly HashSet<string> EzmeYasak = new(StringComparer.Ordinal)
+    {
+        "fuel_distributions", "fuel_depot_entries", "vehicle_maintenances", "equipment_maintenances", "material_requests",
+    };
+
+    /// <summary>
+    /// ⭐ M-18: sunucu sürümü korunduğunda gönderen bilgisayarın da onu ALMASI için kaydın zamanı gelen sürümün ÜSTÜNE taşınır
+    /// (+1 ms) ve sürümü artırılır → kayıt yeniden "değişti" sayılır (Migration099), bilgisayar sonraki çekimde sunucu
+    /// sürümünü alır ve kendi kopyasının üzerine yazar. Aksi hâlde iki taraf sessizce farklı kalırdı.
+    /// </summary>
+    private static void SunucuSurumunuYenidenYay(DbConnection conn, string table, string companyId, string id, long gelenZaman)
+    {
+        var surumVar = ColumnNames(conn, table).Contains("version");
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"UPDATE {table} SET updated_at = (CASE WHEN updated_at > @g THEN updated_at ELSE @g END) + 1" +
+                          (surumVar ? ", version = version + 1" : "") + " WHERE id = @id AND company_id = @c;";
+        cmd.AddWithValue("@g", gelenZaman);
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.ExecuteNonQuery();
+    }
 
     /// <summary>Yetki-farkında uygulama: oturumun yazma (Create/Edit) yetkisi olmayan modüllerin tabloları
     /// UYGULANMAZ (Y3 — en yetkisiz kullanıcının tüm firma verisini ezmesi engellenir). Admin/SüperAdmin tam yetkili.
@@ -1627,7 +1660,17 @@ public sealed class BusinessSyncService
             }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
             if (!okRow) { neden = $"{table}: {reason}"; if (errSink.Count < 20) errSink.Add(neden); perm++; return null; }
-            if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
+            if (trackConflict)
+            {
+                var ezmeYasak = !serverAuth && EzmeYasak.Contains(table);
+                if (DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now, sunucuKorunur: ezmeYasak) && ezmeYasak)
+                {
+                    // ⭐ M-18: sunucu sürümü korunur; gelen sürüm çakışma listesinde. Satır "işlendi" sayılır (yeniden deneme
+                    // döngüsüne ve gönderilemeyen kayıtlar listesine girmez — yeri çakışma ekranıdır).
+                    SunucuSurumunuYenidenYay(conn, table, companyId, rowEl.GetProperty("id").GetString()!, ReadLong(rowEl, "updated_at"));
+                    return true;
+                }
+            }
             return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes);
         }
 
@@ -1746,10 +1789,12 @@ public sealed class BusinessSyncService
 
     /// <summary>Sunucudaki kayıt VE gelen kayıt SON push'tan sonra değişmiş + içerik farklıysa → çakışma.
     /// LWW kazananı (device/admin) ve admin kimliği (audit_logs'tan) ile data_conflicts'e yazılır (open, tek kayıt).</summary>
-    private void DetectConflict(DbConnection conn, string table, string companyId, string? deviceBranchId,
-        long lastPush, JsonElement row, long now)
+    /// <summary>Eşzamanlı düzenleme varsa çakışma kaydı yazar ve true döner. <paramref name="sunucuKorunur"/> = true (M-18 ezme
+    /// yasak tablosu) ise kazanan her zaman sunucu ("admin") sürümüdür.</summary>
+    private bool DetectConflict(DbConnection conn, string table, string companyId, string? deviceBranchId,
+        long lastPush, JsonElement row, long now, bool sunucuKorunur = false)
     {
-        if (!row.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String) return;
+        if (!row.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String) return false;
         var id = idEl.GetString()!;
         long incomingUpdated = ReadLong(row, "updated_at");
 
@@ -1760,16 +1805,16 @@ public sealed class BusinessSyncService
             cmd.CommandText = $"SELECT updated_at FROM {table} WHERE id=@id;";
             cmd.AddWithValue("@id", id);
             var v = cmd.ExecuteScalar();
-            if (v is null || v is DBNull) return; // sunucuda yok → yeni kayıt, çakışma değil
+            if (v is null || v is DBNull) return false; // sunucuda yok → yeni kayıt, çakışma değil
             serverUpdated = Convert.ToInt64(v);
         }
 
         // İkisi de son push'tan sonra değiştiyse ve zaman damgaları farklıysa → eşzamanlı düzenleme
         bool serverChanged = serverUpdated > lastPush;
         bool deviceChanged = incomingUpdated > lastPush;
-        if (!serverChanged || !deviceChanged || serverUpdated == incomingUpdated) return;
+        if (!serverChanged || !deviceChanged || serverUpdated == incomingUpdated) return false;
 
-        var winner = incomingUpdated >= serverUpdated ? "device" : "admin";
+        var winner = sunucuKorunur ? "admin" : incomingUpdated >= serverUpdated ? "device" : "admin";
         var (adminUserId, adminName) = LastServerEditor(conn, companyId, id);
 
         // ⭐ FAZ 4.4 (kullanıcı isteği 2026-09-06) — İKİ SÜRÜMÜN DE ANLIK GÖRÜNTÜSÜ SAKLANIR.
@@ -1806,6 +1851,7 @@ ON CONFLICT(company_id, entity_id) WHERE status='open' DO UPDATE SET
         up.AddWithValue("@wj", (object?)kazananJson ?? DBNull.Value);
         up.AddWithValue("@lj", (object?)kaybedenJson ?? DBNull.Value);
         up.ExecuteNonQuery();
+        return true;
     }
 
     /// <summary>
