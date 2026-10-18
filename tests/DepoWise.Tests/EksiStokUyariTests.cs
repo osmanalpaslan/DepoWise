@@ -34,6 +34,7 @@ public class EksiStokUyariTests
         Assert.Contains("_editId is not null ? \"Malzeme güncellensin mi?\"", web);   // düzenlemede açılış stoğu yok
         // Uyarı kayıttan ÖNCE: masaüstünde Create çağrısından önce gelir.
         Assert.True(masa.IndexOf(AcilisMetni, StringComparison.Ordinal) < masa.IndexOf("DesktopServices.Materials.Create(", StringComparison.Ordinal));
+        Assert.Contains("danger: _editId is null && _opening < 0", web);   // web de tehlike görünümünde (iki ortam denetimi)
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public class EksiStokUyariTests
                 new DepoWise.Infrastructure.Maintenance.InspectionService(f));
 
             var u = Assert.Single(dash.GetSummary(Oturum(null)).Alerts, a => a.Title.StartsWith("Eksi stok", StringComparison.Ordinal));
-            Assert.Equal("Eksi stok: Çimento", u.Title);
+            Assert.Equal("Eksi stok: Çimento (Şantiye 1)", u.Title);   // depo başlıkta → uyarı anahtarı depo başına ayrı
             Assert.Equal("CMT-1 · Şantiye 1 · stok -3", u.Detail);
             Assert.True(u.IsCritical);
 

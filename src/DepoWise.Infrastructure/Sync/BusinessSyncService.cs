@@ -1227,17 +1227,25 @@ public sealed class BusinessSyncService
         [property: System.Text.Json.Serialization.JsonIgnore] string? LoserJson = null,
         string? Resolution = null, string Status = "open")
     {
-        public string WinnerText => Winner == "device" ? "Personel (masaüstü) kazandı" : "Admin (web) kazandı";
+        /// <summary>⭐ M-18: ezme yasağı olan tabloda sunucudaki (ilk ulaşan) sürüm KORUNDU — "son yazan kazandı" değil.
+        /// Sunucudaki sürüm başka bir masaüstünden de gelmiş olabilir; "admin (web)" demek yanlış olurdu (iki ortam denetimi).</summary>
+        public bool SunucuKorundu => EzmeYasak.Contains(EntityType);
+
+        public string WinnerText => SunucuKorundu ? "Sunucudaki (ilk ulaşan) sürüm korundu"
+            : Winner == "device" ? "Personel (masaüstü) kazandı" : "Admin (web) kazandı";
 
         /// <summary>⭐ FAZ 4.4 — "kimin kaybettiği" açıkça yazar (kullanıcı isteği).</summary>
-        public string LoserText => Winner == "device"
+        public string LoserText => SunucuKorundu ? "Sonra gelen masaüstü sürümü uygulanmadı — isterseniz kazanan yapabilirsiniz"
+            : Winner == "device"
             ? "Admin (web) sürümü üzerine yazıldı"
             : "Personel (masaüstü) sürümü üzerine yazıldı";
 
         /// <summary>Kazanan tarafın adı (varsa kişi adı).</summary>
-        public string WinnerWho => Winner == "device" ? "Masaüstü (personel)"
+        public string WinnerWho => SunucuKorundu ? "Sunucu (ilk ulaşan)"
+            : Winner == "device" ? "Masaüstü (personel)"
             : (string.IsNullOrWhiteSpace(AdminName) ? "Web (admin)" : AdminName! + " (web)");
-        public string LoserWho => Winner == "device"
+        public string LoserWho => SunucuKorundu ? "Masaüstü (sonra gelen)"
+            : Winner == "device"
             ? (string.IsNullOrWhiteSpace(AdminName) ? "Web (admin)" : AdminName! + " (web)")
             : "Masaüstü (personel)";
 

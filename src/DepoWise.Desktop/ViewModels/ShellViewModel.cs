@@ -685,7 +685,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             // senkron çakışma ekranını açar; orada kim kazandı/kim kaybetti görünür ve üzerine yazılan
             // sürüm geri getirilebilir. Uyarının kendisi eskisi gibi bir kez gösterilir.
             var msg = "Aşağıdaki kayıtlarda admin (web) ile aynı anda değişiklik yapıldı.\n" +
-                      "En son düzenleyen geçerli oldu; kayıt tekrar düzenlenene kadar bu geçerlidir:\n\n" +
+                      "Çoğu kayıtta en son düzenleyen geçerli olur; yakıt, bakım ve talep kayıtlarında ise sunucuya ilk ulaşan sürüm korunur (sonra gelen burada bekler). Kayıt tekrar düzenlenene kadar bu geçerlidir:\n\n" +
                       string.Join("\n", items) +
                       "\n\nAyrıntıları açarak kimin kazandığını görebilir, üzerine yazılan sürümü geri getirebilirsiniz.";
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>

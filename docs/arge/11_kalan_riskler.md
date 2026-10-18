@@ -24,3 +24,7 @@
   Çakışma ekranı doğruyu gösterir. Düzeltme (kaybeden kararın geçmiş satırını işaretleme) B3 çakışma işinde.
 - **Çakışma tespiti saat bazlı:** "eşzamanlı" kararı bilgisayarın son gönderim zamanı ile kayıt damgalarını karşılaştırır (mevcut
   tasarım). Saati çok yanlış bilgisayarda çakışma kaçabilir ya da fazladan çıkabilir; veri kaybolmaz (kaybeden sürüm saklanır).
+- **Çakışmada "Üzerine Yazılanı Kazanan Yap" yalnız ana kaydı geri yazar** (`PromoteLoser`): bakım/ekipman bakımı çakışmasında
+  kaybeden sürümün malzeme satırları ve stok hareketleri buna göre DÜZELTİLMEZ (iki platformda aynı; FAZ 4.4 tasarımı). Bakım
+  kaydında malzeme farkı varsa yönetici stok düzeltmesini ayrıca yapmalı. Kalıcı çözüm (bağlı satırlarla birlikte geri yazma) B3 çakışma işinde.
+  Kaynak: iki ortam denetimi 2026-10-18.

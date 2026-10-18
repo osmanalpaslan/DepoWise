@@ -122,7 +122,9 @@ public sealed class DashboardService
                 {
                     // Şube kapsamı: kullanıcı yalnız erişebildiği depoların eksi stoğunu görür (Atanmamış depo herkese açık).
                     if (e.LocationId.Length > 0 && !BranchAccess.CanAccess(s, e.LocationId)) continue;
-                    alerts.Add(new DashboardAlert(AlertKind.LowStock, "Eksi stok: " + e.Name,
+                    // Başlıkta DEPO da var: uyarı anahtarı (tür|kayıt|başlık) depo başına ayrı olsun — aynı malzeme iki depoda eksiye
+                    // düşerse "okundu" durumları birbirini ezmesin (iki ortam denetimi 2026-10-18).
+                    alerts.Add(new DashboardAlert(AlertKind.LowStock, $"Eksi stok: {e.Name} ({e.Location})",
                         $"{e.Code} · {e.Location} · stok {e.Quantity:0.##}", "materials", true, e.MaterialId,
                         SignatureOverride: e.LocationId + ":" + e.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         Note: "Kayıtlar kabul edildi ama bu depoda stok eksiye düştü. Stok hareketlerinden kaynağını bulun; " +

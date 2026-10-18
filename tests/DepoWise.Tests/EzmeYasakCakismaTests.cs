@@ -94,6 +94,10 @@ public class EzmeYasakCakismaTests : IDisposable
         var c = Assert.Single(sync.ListConflicts(Co));
         Assert.Equal(("fuel_distributions", "admin"), (c.EntityType, c.Winner));
         Assert.Equal("Yakıt dağıtımı", c.EntityLabel);
+        // Ekran "son yazan kazandı / admin (web)" DEMEZ: sunucudaki ilk ulaşan sürüm korundu (iki ortam denetimi 2026-10-18).
+        Assert.True(c.SunucuKorundu);
+        Assert.Equal("Sunucudaki (ilk ulaşan) sürüm korundu", c.WinnerText);
+        Assert.Equal("Masaüstü (sonra gelen)", c.LoserWho);
         Assert.Contains("55", c.LoserJson);
 
         // EZY2: sunucu sürümü bilgisayarın sürümünün ÜSTÜNE taşındı ve yeniden "değişti" sayıldı.
@@ -139,7 +143,9 @@ public class EzmeYasakCakismaTests : IDisposable
               "created_at": 1, "updated_at": 300, "version": 1, "is_deleted": 0 } ] } }
             """).RootElement);
         Assert.Equal("Masaüstü adı", Tek(_srv, "SELECT name FROM materials WHERE id='M1';"));   // son yazan kazanır (bilinçli)
-        Assert.Contains(new BusinessSyncService(_srv).ListConflicts(Co), x => x.EntityId == "M1" && x.Winner == "device");
+        var m = Assert.Single(new BusinessSyncService(_srv).ListConflicts(Co), x => x.EntityId == "M1" && x.Winner == "device");
+        Assert.False(m.SunucuKorundu);
+        Assert.Equal("Personel (masaüstü) kazandı", m.WinnerText);   // kart tablolarında metin aynen
     }
 
     [Fact]

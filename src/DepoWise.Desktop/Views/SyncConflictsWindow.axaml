@@ -13,7 +13,7 @@
         <Grid Margin="18" RowDefinitions="Auto,Auto,*,Auto">
             <SelectableTextBlock Grid.Row="0" Classes="PageTitle" Text="Senkron Çakışmaları"/>
             <SelectableTextBlock Grid.Row="1" Classes="Helper" Margin="0,4,0,12" TextWrapping="Wrap"
-                Text="Bu kayıtlar aynı anda hem web'de hem masaüstünde değiştirildi. En son düzenleyen geçerli oldu. İsterseniz üzerine yazılan sürümü geri getirip kazanan yapabilirsiniz."/>
+                Text="Bu kayıtlar aynı anda hem web'de hem masaüstünde değiştirildi. Çoğu kayıtta en son düzenleyen geçerli olur; yakıt, bakım ve talep kayıtlarında ise sunucuya ilk ulaşan sürüm korunur (sonra gelen burada bekler). İsterseniz üzerine yazılan sürümü geri getirip kazanan yapabilirsiniz."/>
 
             <Border Grid.Row="2" Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="8" Padding="10">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

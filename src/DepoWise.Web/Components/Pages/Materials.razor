@@ -868,7 +868,7 @@
         var kayitSorusu = _editId is not null ? "Malzeme güncellensin mi?"
             : _opening < 0 ? $"Açılış stoğu EKSİ girildi ({_opening:0.##}). Malzemenin stoğu eksiden başlayacak (devralınan eksik stok olarak kaydedilir).\n\nYeni malzeme yine de kaydedilsin mi?"
             : "Malzeme kaydedilsin mi?";
-        if (!await Dialog.Confirm(kayitSorusu)) return;
+        if (!await Dialog.Confirm(kayitSorusu, danger: _editId is null && _opening < 0)) return;   // masaüstüyle aynı tehlike görünümü
         _busy = true;
         try
         {
