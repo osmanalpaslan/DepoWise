@@ -96,6 +96,47 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
 
     public bool CanEdit => AccessControl.Can(_session, FieldRequirementService.Module, PermissionAction.Edit);
 
+    // ═══ M-30 (AR-GE 2026-10-18) — DÖNEM KİLİDİ (ay kapanışı) ═══════════════════════════════════════════
+    // Firma tercihi olduğu için "+" ayarı gibi bu ekranda; yalnız yönetici değiştirir, kayıt SUNUCUDA yapılır.
+    public bool DonemKilidiDuzenlenebilir => AccessControl.IsAdmin(_session);
+    [ObservableProperty] private DateTimeOffset? _donemKilidiTarihi;
+    [ObservableProperty] private string _donemKilidiDurumu = "";
+
+    private void DonemKilidiniGoster()
+    {
+        if (_session.DonemKilidi is { } k)
+        {
+            var g = DateTimeOffset.FromUnixTimeMilliseconds(k).UtcDateTime.Date;
+            DonemKilidiTarihi = new DateTimeOffset(g, TimeZoneInfo.Local.GetUtcOffset(g));
+            DonemKilidiDurumu = $"Kilitli: {DonemKilidi.Tarih(k)} dahil öncesine kayıt girilemez, o dönemin kayıtları iptal edilemez.";
+        }
+        else { DonemKilidiTarihi = null; DonemKilidiDurumu = "Kilit yok: tüm tarihlere kayıt girilebilir."; }
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task DonemKilidiKaydet()
+    {
+        if (DonemKilidiTarihi is null) { DonemKilidiDurumu = "Önce kapanış tarihini seçin."; return; }
+        var ms = DepoWise.Application.Common.IsGunuTarihi.Ms(DonemKilidiTarihi);
+        if (!await ConfirmService.AskAsync(
+                $"{DonemKilidi.Tarih(ms!.Value)} dahil öncesi kapatılsın mı? Bu tarihlere hiçbir kullanıcı kayıt giremez, " +
+                "o dönemin kayıtları iptal edilemez (kilidi sonradan kaldırabilirsiniz).", "Dönem Kilidi")) return;
+        var hata = await DonemKilidiIstemci.AyarlaAsync(_session, ms);
+        if (hata is not null) { DonemKilidiDurumu = hata; return; }
+        DonemKilidiniGoster();
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task DonemKilidiKaldir()
+    {
+        if (_session.DonemKilidi is null) { DonemKilidiDurumu = "Zaten kilit yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                "Dönem kilidi kaldırılsın mı? Geçmiş tarihlere yeniden kayıt girilebilir.", "Dönem Kilidi")) return;
+        var hata = await DonemKilidiIstemci.AyarlaAsync(_session, null);
+        if (hata is not null) { DonemKilidiDurumu = hata; return; }
+        DonemKilidiniGoster();
+    }
+
     public FieldSettingsViewModel(SessionContext session)
     {
         _session = session;
@@ -107,6 +148,7 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
     {
         _yukleniyor = true;
         ArtiAyarlariniYukle();   // FAZ 4.6
+        DonemKilidiniGoster();   // M-30
         try
         {
             Groups.Clear();

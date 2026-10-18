@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 @* ═══ ALAN AYARLARI (kullanıcı isteği 2026-09-03) — masaüstü FieldSettingsView'in web karşılığı ═══
    Formlardaki OPSİYONEL alanlar firma bazında ZORUNLU yapılır; sistem zorunluları kilitli görünür.
@@ -23,6 +24,29 @@ else if (_rows is null)
 }
 else
 {
+    @* ⭐ M-30 (AR-GE 2026-10-18) — DÖNEM KİLİDİ (ay kapanışı); masaüstüyle aynı yer/aynı kural. Kayıt sunucuda,
+       yalnız yönetici. Kontrolün kendisi servistedir (DonemKilidi.Dogrula) — burası yalnız ayar ekranıdır. *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
+        <MudText Typo="Typo.h6" Class="mb-1">Dönem kilidi (ay kapanışı)</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Seçilen gün dahil öncesine fatura, para, stok, yakıt ve bakım kaydı girilemez; o dönemin kayıtları iptal edilemez.
+            Kapanmış ayın raporu böylece sonradan değişmez.
+        </MudText>
+        <div class="d-flex flex-wrap align-center gap-2">
+            <MudDatePicker @bind-Date="_kilitTarihi" Label="Kapanış günü" Style="max-width:200px"
+                           ReadOnly="@(!Auth.IsAdmin)" title="Kapatılacak dönemin son günü (bu gün DAHİL öncesi kilitlenir)." />
+            @if (Auth.IsAdmin)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="KilitKaydet"
+                           title="Seçilen gün dahil öncesini kapatır (tüm kullanıcılar ve bilgisayarlar için).">Kilitle</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="KilitKaldir"
+                           title="Dönem kilidini kaldırır; geçmiş tarihlere yeniden kayıt girilebilir.">Kilidi Kaldır</MudButton>
+            }
+        </div>
+        <MudText Typo="Typo.caption" Color="@(_kilitHata ? Color.Error : Color.Default)" Class="mud-text-secondary">@_kilitMesaj</MudText>
+        @if (!Auth.IsAdmin) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Bu ayarı yalnız firma yöneticisi değiştirebilir.</MudText> }
+    </MudPaper>
+
     @* ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" YÖNETİMİ (masaüstüyle aynı yer/aynı kural).
        Kapatılan tanımın yanında "+" görünmez; hızlı ekleme sunucuda da reddedilir. Tanım, "Tanım Düzenle"
        ekranından her zaman eklenebilir → firma kendi tanımını ekleyemez duruma DÜŞMEZ. *@
@@ -88,7 +112,52 @@ else
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok;
 
-    protected override async Task OnInitializedAsync() { await Load(); await ArtiYukle(); }
+    protected override async Task OnInitializedAsync() { await Load(); await ArtiYukle(); await KilitYukle(); }
+
+    // ═══ M-30 — DÖNEM KİLİDİ ═══
+    private DateTime? _kilitTarihi;
+    private long? _kilit;
+    private string _kilitMesaj = "";
+    private bool _kilitHata;
+
+    private async Task KilitYukle()
+    {
+        try
+        {
+            var o = await Api.GetObjectAsync("/api/company/period-lock");
+            KilitGoster(o.TryGetProperty("tarih", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt64() : null);
+        }
+        catch { _kilitMesaj = "Dönem kilidi okunamadı."; _kilitHata = true; }
+    }
+
+    private void KilitGoster(long? k)
+    {
+        _kilit = k; _kilitHata = false;
+        _kilitTarihi = k is { } kk ? DateTimeOffset.FromUnixTimeMilliseconds(kk).UtcDateTime.Date : null;
+        _kilitMesaj = k is { } g
+            ? $"Kilitli: {DateTimeOffset.FromUnixTimeMilliseconds(g).UtcDateTime:dd.MM.yyyy} dahil öncesine kayıt girilemez, o dönemin kayıtları iptal edilemez."
+            : "Kilit yok: tüm tarihlere kayıt girilebilir.";
+    }
+
+    private async Task KilitKaydet()
+    {
+        if (_kilitTarihi is null) { _kilitMesaj = "Önce kapanış gününü seçin."; _kilitHata = true; return; }
+        var ms = DepoWise.Web.Services.FieldChecks.ToUnixMs(_kilitTarihi);
+        if (!await Dialog.Confirm($"{_kilitTarihi:dd.MM.yyyy} dahil öncesi kapatılsın mı? Bu tarihlere hiçbir kullanıcı kayıt giremez, " +
+                                  "o dönemin kayıtları iptal edilemez (kilidi sonradan kaldırabilirsiniz).", "Kilitle")) return;
+        var hata = await Api.PutAsync("/api/company/period-lock", new { tarih = ms });
+        if (hata is not null) { _kilitMesaj = hata; _kilitHata = true; return; }
+        await KilitYukle();
+    }
+
+    private async Task KilitKaldir()
+    {
+        if (_kilit is null) { _kilitMesaj = "Zaten kilit yok."; _kilitHata = false; return; }
+        if (!await Dialog.Confirm("Dönem kilidi kaldırılsın mı? Geçmiş tarihlere yeniden kayıt girilebilir.", "Kaldır")) return;
+        var hata = await Api.PutAsync("/api/company/period-lock", new { tarih = (long?)null });
+        if (hata is not null) { _kilitMesaj = hata; _kilitHata = true; return; }
+        await KilitYukle();
+    }
 
     // ═══ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" AYARI ════════════════════════════
     private sealed class ArtiSatir { public string Table = ""; public string Label = ""; public string Screen = ""; public bool Enabled = true; }

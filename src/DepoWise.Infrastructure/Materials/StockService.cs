@@ -494,6 +494,18 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
     /// <see cref="ReverseDocumentOnce"/> ve <see cref="CorrectDocument"/> AYNI gövdeyi kullanır.</summary>
     private void ReverseInTx(DbConnection conn, DbTransaction tx, SessionContext s, string documentId, string reason, long now)
     {
+        // ⭐ M-30: kapanmış dönemin belgesi iptal/düzeltme edilemez — üç yol (iptal, sipariş mal kabulü geri alma,
+        // düzeltme) bu gövdeden geçtiği için kapı burada tektir.
+        if (s.DonemKilidi is not null)
+        {
+            using var dc = conn.CreateCommand();
+            dc.Transaction = tx;
+            dc.CommandText = "SELECT doc_date FROM stock_documents WHERE id=@id AND company_id=@c;";
+            dc.AddWithValue("@id", documentId);
+            dc.AddWithValue("@c", s.CompanyId);
+            var v = dc.ExecuteScalar();
+            DonemKilidi.Dogrula(s, v is null or DBNull ? null : Convert.ToInt64(v), "stok belgesi iptali");
+        }
         foreach (var mv in ActiveMovements(conn, tx, documentId))
         {
             // Ters yön uygula (negatif guard ters kayıtta da geçerli).

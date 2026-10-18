@@ -74,6 +74,10 @@ public sealed class SessionContext : ITenantContext
     /// </summary>
     public string? MachineCode { get; set; }
 
+    /// <summary>⭐ M-30 (AR-GE 2026-10-18): firmanın dönem kilidi (bu gün DAHİL öncesine kayıt yok; UTC gün başı ms).
+    /// null = kilit yok (bugünkü davranış). Bkz. <see cref="Security.DonemKilidi"/>.</summary>
+    public long? DonemKilidi { get; set; }
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {

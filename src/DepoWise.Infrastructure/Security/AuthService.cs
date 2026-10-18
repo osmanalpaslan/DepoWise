@@ -33,7 +33,9 @@ public sealed record RemoteUserBundle(
     // ScopeBranchIds daima boş kaldığı için BranchAccess.Allowed admin'i KISITSIZ sayıyor, kullanıcı
     // yetkisi OLMAYAN şubeyi görebiliyor ve o şubeye giriş yapabiliyordu (web'de kapsam uygulanırken
     // masaüstünde uygulanmıyordu). Kapsam artık kullanıcı paketiyle birlikte yerele yazılır.
-    IReadOnlyList<string>? ScopeBranchIds = null);
+    IReadOnlyList<string>? ScopeBranchIds = null,
+    // ⭐ M-30 (AR-GE 2026-10-18): firmanın dönem kilidi — masaüstü yerel firma satırına yazar (çevrimdışı da uygulanır).
+    long? DonemKilidi = null);
 
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
@@ -55,7 +57,11 @@ public sealed class AuthService
         _factory = factory;
         _clock = clock ?? new SystemClock();
         _snapshots = snapshots;
+        _donemKilidi = new DonemKilidiService(factory, _clock);
     }
+
+    /// <summary>⭐ M-30: oturuma firmanın dönem kilidi yüklenir (her oturum kurulumunda; 30 sn önbellekli).</summary>
+    private readonly DonemKilidiService _donemKilidi;
 
     public LoginResult Login(string companyId, string username, string password)
     {
@@ -102,6 +108,7 @@ public sealed class AuthService
             // ⭐ FAZ 3b (ADR-223): firmanın KORUMALI alanları. Tablo boşsa küme boş kalır →
             // hiçbir alan korunmaz, davranış bugünküyle birebir aynıdır (fail-safe taraf).
             ProtectedFields = LoadProtectedFields(conn, companyId),
+            DonemKilidi = _donemKilidi.Oku(companyId),   // ⭐ M-30
         };
         return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
     }
@@ -215,8 +222,12 @@ public sealed class AuthService
         // F0 (YET-01): fotoğraf önbellekten gelir; yoksa veritabanından okunup saklanır. Önbellek verilmemişse
         // (null) doğrudan okunur → F0 öncesi davranış. Oturum nesnesi HER ÇAĞRIDA yeniden kurulur:
         // OperatingBranchId isteğe özeldir, paylaşılamaz (bkz. PermissionSnapshot.ToSession).
-        if (_snapshots is null) return LoadSnapshot(companyId, userId)?.ToSession();
-        return _snapshots.GetOrLoad(companyId, userId, () => LoadSnapshot(companyId, userId))?.ToSession();
+        var oturum = _snapshots is null
+            ? LoadSnapshot(companyId, userId)?.ToSession()
+            : _snapshots.GetOrLoad(companyId, userId, () => LoadSnapshot(companyId, userId))?.ToSession();
+        // ⭐ M-30: dönem kilidi yetki fotoğrafının DIŞINDA okunur (değişince fotoğraf beklenmeden anında geçerli olsun).
+        if (oturum is not null) oturum.DonemKilidi = _donemKilidi.Oku(companyId);
+        return oturum;
     }
 
     /// <summary>F0: oturum kurmak için gereken TÜM yetki verisini tek okumada toplar.
@@ -370,7 +381,7 @@ public sealed class AuthService
         var scopes = LoadUserScopes(conn, coId, userId);
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
             roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId, mustChange,
-            scopes);
+            scopes, _donemKilidi.Oku(coId));
     }
 
     /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
@@ -470,7 +481,18 @@ public sealed class AuthService
         }
         // 6) ŞUBE KAPSAMI — user_scopes (tam değiştir).
         WriteUserScopes(conn, tx, b);
+        // 7) ⭐ M-30: DÖNEM KİLİDİ — sunucu otoriteli; yerel firma satırına yazılır (çevrimdışı kayıt da kapalı döneme açılamaz).
+        if (DbIntrospect.ColumnExists(conn, tx, "companies", "period_lock_date"))
+        {
+            using var k = conn.CreateCommand();
+            k.Transaction = tx;
+            k.CommandText = "UPDATE companies SET period_lock_date=@k WHERE id=@id;";
+            k.AddWithValue("@k", (object?)b.DonemKilidi ?? DBNull.Value);
+            k.AddWithValue("@id", b.CompanyId);
+            k.ExecuteNonQuery();
+        }
         tx.Commit();
+        DonemKilidiService.Unut(b.CompanyId);
     }
 
     /// <summary>

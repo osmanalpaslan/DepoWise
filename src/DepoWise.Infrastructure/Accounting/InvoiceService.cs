@@ -181,6 +181,7 @@ public sealed class InvoiceService
         // ── IDEMPOTENCY: aynı operation_id daha önce işlendiyse MEVCUT faturayı döndür ──
         var existing = FindByOperation(conn, tx, s.CompanyId, dto.OperationId);
         if (existing is not null) return existing;
+        DonemKilidi.Dogrula(s, date, "fatura");   // ⭐ M-30: kapanmış döneme fatura kesilmez (tekrar gönderim yukarıda döner)
 
         EnsurePartyOwned(conn, tx, s.CompanyId, dto.PartyId);
 
@@ -352,6 +353,7 @@ public sealed class InvoiceService
         BranchAccess.Require(s, head.BranchId, "fatura iptali");
         if (head.Status == InvoiceStatuses.Cancelled)
             throw new ArgumentException("Fatura zaten iptal edilmiş; ikinci kez iptal edilemez.");
+        DonemKilidi.Dogrula(s, head.InvoiceDate, "fatura iptali");   // ⭐ M-30: kapanmış dönemin faturası iptal edilemez
 
         // ── Ters stok belgesi: alışın tersi çıkış, satışın tersi giriş ──
         string? cancelStockDoc = null;
@@ -670,21 +672,21 @@ VALUES(@id,@c,@inv,@no,@mat,@desc,@unit,@qty,@price,@dr,@da,@vr,@va,@wr,@wa,@net
     }
 
     private sealed record CancelHead(string InvoiceNo, string Direction, string PartyId, string? BranchId,
-        string Currency, decimal GrandTotal, string Status, string? StockDocumentId, long Version);
+        string Currency, decimal GrandTotal, string Status, string? StockDocumentId, long Version, long InvoiceDate);
 
     private static CancelHead ReadHeadForCancel(DbConnection conn, DbTransaction tx, string companyId, string invoiceId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT invoice_no, direction, party_id, branch_id, currency_code, grand_total, " +
-                          "status, stock_document_id, version FROM invoices WHERE id=@id AND company_id=@c;";
+                          "status, stock_document_id, version, invoice_date FROM invoices WHERE id=@id AND company_id=@c;";
         cmd.AddWithValue("@id", invoiceId);
         cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) throw new ForbiddenException("Fatura bulunamadı veya başka firmaya ait.");
         return new CancelHead(r.GetString(0), r.GetString(1), r.GetString(2),
             r.IsDBNull(3) ? null : r.GetString(3), r.GetString(4), Money.Parse(r.GetString(5)),
-            r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7), Convert.ToInt64(r.GetValue(8)));
+            r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7), Convert.ToInt64(r.GetValue(8)), Convert.ToInt64(r.GetValue(9)));
     }
 
     private static List<StockLine> ReadStockLines(DbConnection conn, DbTransaction tx, string companyId, string invoiceId)

@@ -196,3 +196,17 @@
 - **Sorun:** mal kabul stok belgesi hangi siparişten geldiğini tutmuyordu; stok ekranı düzeltmeyi "Satın Alma ekranından yapın" diye reddediyor ama orada kabulü geri alma yoktu; stok ekranından doğrudan iptal edilirse siparişin teslim alınan miktarı düşmüyordu (sipariş ↔ defter ayrışması). İrsaliye no girilemiyordu.
 - **Değişiklik:** Migration105 `stock_documents.purchase_order_id` (yalnız ekleme) + eski kabuller işlem geçmişindeki kabul kaydından eşlenir (tek tarama). Mal kabul irsaliye no'yu belgenin "Fatura/İrsaliye No" alanına yazar ve belgeyi siparişe bağlar. `PurchaseOrderService.Receipts` (kabul listesi) + `ReverseReceipt` (TEK işlem: ters stok kaydı — eksi stok kalkanı geçerli, mal kullanıldıysa yapılmaz — + teslim alınan miktar düşer + tamamlanan sipariş yeniden açılır + gerekçeli işlem geçmişi; tekrar zararsız). Siparişe bağlı kabul stok ekranından iptal edilemez (bağsız eski belgelerde eski davranış). İki platformda irsaliye alanı, "MAL KABULLERİ" listesi ve gerekçeli "Geri Al" (yetki: mal kabul + stok düzenleme; aynı metinler). API: `GET /api/purchasing/{id}/receipts`, `POST /api/purchasing/{id}/receipts/{doc}/reverse`.
 - **Testler:** `MalKabulGeriAlmaTests` MKG1–6 + satınalma/iptal testleri 101/101; mutasyon: stok ekranı engeli ve teslim düşüşü kaldırılınca MKG4/MKG2 kırmızı; arayüz 48/48. Riskli alan paketi (senkron/migration/kopyalayıcı/PG/stok/defter/satınalma/fatura/firma ayrımı) **1017/1017** (37 dk).
+
+### B5 — M-30 dönem kilidi / ay kapanışı (F-076; Migration106, şema 106)
+- **Sorun:** kapanmış bir ayın raporu sonradan değişebiliyordu: geri tarih yetkisi olan kullanıcı eski aya kayıt açabiliyor,
+  eski ayın faturası/para hareketi/stok belgesi iptal edilebiliyordu.
+- **Değişiklik:** Migration106 `companies.period_lock_date` (yalnız ekleme; mevcut firmalarda kilit yok → davranış aynı).
+  Tek kontrol noktası `DonemKilidi.Dogrula` (kilit günü DAHİL öncesi reddedilir); oturum kilidi taşır (`SessionContext.DonemKilidi`,
+  giriş + sunucu oturumu; ayar değişince önbellek beklenmez). Bağlanan yollar: tarih kapısı `DateEntryPolicy` (stok, yakıt, sipariş,
+  iş emri, zimmet), fatura kesme/iptal, finans hareketi/virman/iptal, stok belgesi iptali/düzeltmesi/sipariş kabulü geri alma
+  (ortak gövde), yakıt iptal/düzeltme, bakım kaydı/iptali (Günlük Faaliyet iptali dahil). Tekrar gönderilen (aynı işlem kimlikli)
+  kayıt hata vermez, mevcut sonucu döner. Ayar yalnız yönetici, bugünden önce bir gün, işlem geçmişine yazılır; masaüstü giriş
+  paketiyle yerel firma satırına iner (çevrimdışı da uygulanır). API `GET/PUT /api/company/period-lock`; iki platformda
+  "Alan Ayarları" ekranında "Dönem Kilidi" kartı (masaüstü ayarı sunucuya yazar, çevrimdışıyken anlaşılır uyarı).
+- **Testler:** `DonemKilidiTests` DK1–9 9/9; mutasyon 8/8 yakalandı (sınır, stok iptali, sunucu oturumu, paket yazımı, önbellek,
+  fatura iptali, yakıt, finans iptali). Riskli alan paketi (migration/PG/kopyalayıcı/stok/fatura/finans/yakıt/bakım/giriş-oturum/tarih/satınalma) **1234/1234** (36 dk).

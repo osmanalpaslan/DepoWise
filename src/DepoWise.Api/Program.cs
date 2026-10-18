@@ -4081,6 +4081,21 @@ app.MapPost("/api/import/undo", (HttpContext c, ImportUndoDto d) =>
         tanimBirakilan = r.TanimBirakilan, birakilanlar = r.Birakilanlar });
 }).RequireAuthorization();
 
+// ⭐ M-30 (AR-GE 2026-10-18): DÖNEM KİLİDİ (ay kapanışı) — okuma herkese (ekranlar uyarı gösterir), ayarlama yalnız yönetici.
+app.MapGet("/api/company/period-lock", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var k = svc.DonemKilidi.Oku(s.CompanyId);
+    return Results.Ok(new { tarih = k, metin = k is { } kk ? DepoWise.Application.Security.DonemKilidi.Tarih(kk) : null });
+}).RequireAuthorization();
+app.MapPut("/api/company/period-lock", (HttpContext c, DonemKilidiDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.DonemKilidi.Ayarla(s, d.Tarih);
+    var k = svc.DonemKilidi.Oku(s.CompanyId);
+    return Results.Ok(new { tarih = k, metin = k is { } kk ? DepoWise.Application.Security.DonemKilidi.Tarih(kk) : null });
+}).RequireAuthorization();
+
 // ═══ EXL-01 (ADR-176) — EXCEL MERKEZİ: MERKEZİ DIŞA AKTARIM ═══
 // Çift kapı: `export` modül yetkisi BURADA + kaynak modülün kendi yetkisi/tenant/BranchAccess/silinmiş
 // süzmesi SERVİSTE (ExcelCenterService ham SQL yazmaz — yetkisiz kaynak 403'e düşer, sızamaz).
@@ -5259,6 +5274,7 @@ app.Run();
 record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
 record SelectCompanyDto(string? CompanyId);
 record ImportUndoDto(string? PartiKimligi);   // ⭐ M-14
+record DonemKilidiDto(long? Tarih);           // ⭐ M-30: null = kilidi kaldır
 record AssignBranchDto(string? BranchId);
 record AssignCompanyDto(string? CompanyId);
 record SelfAssignDto(string? MachineName, string? BranchId);

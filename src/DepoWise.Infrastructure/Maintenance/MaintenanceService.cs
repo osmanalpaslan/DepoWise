@@ -131,6 +131,7 @@ public sealed class MaintenanceService
 
         var existing = FindByOperation(conn, tx, s.CompanyId, operationId);
         if (existing is not null) { tx.Commit(); return existing; } // idempotent
+        DonemKilidi.Dogrula(s, dto.PerformedDate, "bakım kaydı");   // ⭐ M-30: kapanmış döneme bakım (ve malzeme düşümü) girilmez
 
         EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
         var def = LoadDefinition(conn, tx, s.CompanyId, dto.DefinitionId)
@@ -241,6 +242,16 @@ public sealed class MaintenanceService
         var status = LoadMaintenanceStatus(conn, tx, s.CompanyId, maintenanceId)
             ?? throw new ForbiddenException("Bakım kaydı bulunamadı veya başka firmaya ait.");
         if (status) return; // zaten iptal — idempotent (stok İKİNCİ KEZ geri eklenmez)
+        if (s.DonemKilidi is not null)   // ⭐ M-30: kapanmış dönemin bakımı iptal edilemez (Günlük Faaliyet iptali de buradan geçer)
+        {
+            using var dc = conn.CreateCommand();
+            dc.Transaction = tx;
+            dc.CommandText = "SELECT performed_date FROM vehicle_maintenances WHERE id=@id AND company_id=@c;";
+            dc.AddWithValue("@id", maintenanceId);
+            dc.AddWithValue("@c", s.CompanyId);
+            var v = dc.ExecuteScalar();
+            DonemKilidi.Dogrula(s, v is null or DBNull ? null : Convert.ToInt64(v), "bakım iptali");
+        }
 
         // ── Malzemeleri geri ekle (ters hareket) ──────────────────────────────────────────────────
         // BKM-04 / KARAR-9 — İPTAL SİMETRİSİ (en kritik kabul kriteri):

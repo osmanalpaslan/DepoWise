@@ -19,6 +19,27 @@
 
         <ScrollViewer Grid.Row="2" Margin="0,12,0,0">
           <StackPanel>
+            <!-- ⭐ M-30 (AR-GE 2026-10-18): DÖNEM KİLİDİ (ay kapanışı) — yalnız yönetici; kayıt sunucuda yapılır. -->
+            <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" CornerRadius="6"
+                    MaxWidth="640" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="DÖNEM KİLİDİ (AY KAPANIŞI)" Classes="SectionTitle"/>
+            </Border>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,4,0,6"
+                Text="Seçilen gün dahil öncesine fatura, para, stok, yakıt ve bakım kaydı girilemez; o dönemin kayıtları iptal edilemez. Kapanmış ayın raporu böylece sonradan değişmez. Ayar için internet bağlantısı gerekir."/>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4" MaxWidth="640" HorizontalAlignment="Left">
+                <CalendarDatePicker Classes="Field" Width="180" SelectedDate="{Binding DonemKilidiTarihi}"
+                                    IsEnabled="{Binding DonemKilidiDuzenlenebilir}"
+                                    ToolTip.Tip="Kapatılacak dönemin son günü (bu gün DAHİL öncesi kilitlenir)."/>
+                <Button Classes="Primary" Content="Kilitle" Command="{Binding DonemKilidiKaydetCommand}"
+                        IsVisible="{Binding DonemKilidiDuzenlenebilir}"
+                        ToolTip.Tip="Seçilen gün dahil öncesini kapatır (tüm kullanıcılar ve bilgisayarlar için)."/>
+                <Button Classes="Secondary" Content="Kilidi Kaldır" Command="{Binding DonemKilidiKaldirCommand}"
+                        IsVisible="{Binding DonemKilidiDuzenlenebilir}"
+                        ToolTip.Tip="Dönem kilidini kaldırır; geçmiş tarihlere yeniden kayıt girilebilir."/>
+            </StackPanel>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,0,16"
+                Text="{Binding DonemKilidiDurumu}"/>
+
             <!-- ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06): hangi sabit tanımın yanında "+" (satır içi
                  hızlı ekleme) çıkacağı firma bazında seçilir. Kapatmak tanımı SİLMEZ ve "Tanım
                  Düzenle" ekranından eklemeyi engellemez — yalnız formlardaki kısayolu kaldırır. -->

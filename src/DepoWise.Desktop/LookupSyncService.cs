@@ -484,7 +484,7 @@ public static class LookupSyncService
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
 
 
-    private static string? ResolveServerUrl()
+    internal static string? ResolveServerUrl()   // ⭐ M-30: DonemKilidiIstemci de kullanır
     {
         try
         {

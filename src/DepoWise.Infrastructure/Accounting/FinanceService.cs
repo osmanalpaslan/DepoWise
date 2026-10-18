@@ -353,6 +353,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
         // ── IDEMPOTENCY: aynı operation_id daha önce işlendiyse MEVCUT sonucu döndür ──
         var existing = FindByOperation(conn, tx, s.CompanyId, dto.OperationId);
         if (existing is not null) return existing;
+        DonemKilidi.Dogrula(s, date, "finans hareketi");   // ⭐ M-30: kapanmış döneme para hareketi girilmez
 
         var account = ReadAccount(conn, tx, s.CompanyId, dto.AccountId);
         if (!account.IsActive)
@@ -482,6 +483,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
             var pair = ReadTransferPair(conn, tx, s.CompanyId, existing.TransactionId);
             return new FinanceTransferResult(pair.GroupId, pair.OutId, pair.InId, AlreadyExisted: true);
         }
+        DonemKilidi.Dogrula(s, date, "virman");   // ⭐ M-30
 
         var from = ReadAccount(conn, tx, s.CompanyId, dto.FromAccountId);
         var to = ReadAccount(conn, tx, s.CompanyId, dto.ToAccountId);
@@ -540,6 +542,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
         var head = ReadTransaction(conn, tx, s.CompanyId, transactionId);
         if (head.IsReversed) throw new InvalidOperationException("Bu hareket zaten iptal edilmiş; ikinci kez iptal edilemez.");
         if (head.ReversalOf is not null) throw new InvalidOperationException("Ters kayıt hareketi ayrıca iptal edilemez.");
+        DonemKilidi.Dogrula(s, head.TxnDate, "finans iptali");   // ⭐ M-30: kapanmış dönemin hareketi iptal edilemez
 
         // Transferde iki bacak birlikte geri alınır — yarım transfer para yaratır/yok eder.
         var legs = head.TransferGroupId is null
@@ -853,18 +856,18 @@ VALUES(@id,@c,@acc,@br,@date,@type,@dir,@amt,@cur,@p,@desc,@doc,@pm,@ref,@stype,
 
     private sealed record TxnHead(string Id, string AccountId, string? BranchId, string TxnType, int Direction,
         decimal Amount, string Currency, string? PartyId, string? DocNo, string? TransferGroupId,
-        string? CounterAccountId, bool IsReversed, string? ReversalOf);
+        string? CounterAccountId, bool IsReversed, string? ReversalOf, long TxnDate);
 
     private const string TxnSelect =
         "SELECT id, account_id, branch_id, txn_type, direction, amount, currency_code, party_id, doc_no, " +
-        "transfer_group_id, counter_account_id, is_reversed, reversal_of FROM finance_transactions";
+        "transfer_group_id, counter_account_id, is_reversed, reversal_of, txn_date FROM finance_transactions";
 
     private static TxnHead ReadTxn(DbDataReader r) => new(
         r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetString(3),
         Convert.ToInt32(r.GetValue(4)), Money.Parse(r.GetString(5)), r.GetString(6),
         r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8),
         r.IsDBNull(9) ? null : r.GetString(9), r.IsDBNull(10) ? null : r.GetString(10),
-        Convert.ToInt64(r.GetValue(11)) != 0, r.IsDBNull(12) ? null : r.GetString(12));
+        Convert.ToInt64(r.GetValue(11)) != 0, r.IsDBNull(12) ? null : r.GetString(12), Convert.ToInt64(r.GetValue(13)));
 
     private static TxnHead ReadTransaction(DbConnection conn, DbTransaction tx, string companyId, string id)
     {

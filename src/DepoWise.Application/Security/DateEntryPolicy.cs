@@ -35,7 +35,9 @@ public static class DateEntryPolicy
     public static long? Uygula(SessionContext s, long? istenen)
     {
         if (istenen is null) return null;                                   // zaten "şimdi"
-        return AccessControl.CanUseButton(s, SpecialButtons.BackDate) ? istenen : null;
+        if (!AccessControl.CanUseButton(s, SpecialButtons.BackDate)) return null;
+        DonemKilidi.Dogrula(s, istenen);   // ⭐ M-30: geri tarih yetkisi de kapanmış döneme kayıt açamaz
+        return istenen;
     }
 
     /// <summary>Kullanıcı işlem tarihini değiştirebilir mi — arayüz alanı buna göre kilitlenir.

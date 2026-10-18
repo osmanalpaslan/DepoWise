@@ -125,6 +125,9 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.AktarimGeriAlmaService AktarimGeriAlma
         => _aktarimGeriAlma ??= new(Factory, Materials, Vehicles, Personnel, Fuel, Maintenance, Inspection);
     private DepoWise.Infrastructure.Reporting.AktarimGeriAlmaService? _aktarimGeriAlma;
+    /// <summary>⭐ M-30: dönem kilidi (ay kapanışı) okuma/ayarlama.</summary>
+    public DepoWise.Infrastructure.Security.DonemKilidiService DonemKilidi => _donemKilidi ??= new(Factory);
+    private DepoWise.Infrastructure.Security.DonemKilidiService? _donemKilidi;
     public DepoWise.Infrastructure.Reporting.VehicleImportService VehicleImport { get; }
     public DepoWise.Infrastructure.Reporting.PersonnelImportService PersonnelImport { get; }
     public DepoWise.Infrastructure.Reporting.MaintenanceImportService MaintenanceImport { get; }

@@ -316,6 +316,7 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
 
         var (_, zatenIptal) = LoadForCancel(conn, tx, "fuel_distributions", "liters", s.CompanyId, id);
         if (zatenIptal) throw new InvalidOperationException("Bu yakıt kaydı iptal edilmiş; düzeltilemez.");
+        DonemKilidiKapisi(conn, tx, s, "fuel_distributions", "distribution_date", id, "yakıt düzeltmesi");
 
         var eskiPrev = ReadPrevMeter(conn, tx, s.CompanyId, id);
 
@@ -409,6 +410,7 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
 
         var (liters, cancelled) = LoadForCancel(conn, tx, "fuel_depot_entries", "liters", s.CompanyId, id);
         if (cancelled) throw new InvalidOperationException("Bu yakıt kaydı zaten iptal edilmiş.");
+        DonemKilidiKapisi(conn, tx, s, "fuel_depot_entries", "entry_date", id, "yakıt iptali");
 
         // Y1 — bakiye eksiye düşecek mi?
         var balance = DepotBalance(conn, tx, s.CompanyId);
@@ -439,6 +441,7 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
 
         var (_, cancelled) = LoadForCancel(conn, tx, "fuel_distributions", "liters", s.CompanyId, id);
         if (cancelled) throw new InvalidOperationException("Bu yakıt kaydı zaten iptal edilmiş.");
+        DonemKilidiKapisi(conn, tx, s, "fuel_distributions", "distribution_date", id, "yakıt iptali");
 
         var iptalEdilenArac = ReadVehicleId(conn, tx, s.CompanyId, id);
         MarkCancelled(conn, tx, "fuel_distributions", s.CompanyId, id, now);
@@ -469,6 +472,20 @@ VALUES(@id,@c,@v,@prev,@cur,@lt,@pr,@ccur,@fx,@pers,@rec,@dt,@note,@inv,@op,@opb
     }
 
     /// <summary>Kaydı iptal için okur: (litre, zaten iptal mi). Bulunamazsa fail-closed.</summary>
+    /// <summary>⭐ M-30: kapanmış dönemin yakıt kaydı iptal/düzeltme edilemez (kilit yoksa sorgu bile yapılmaz).</summary>
+    private static void DonemKilidiKapisi(DbConnection conn, DbTransaction tx, SessionContext s, string table, string dateCol,
+        string id, string islem)
+    {
+        if (s.DonemKilidi is null) return;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"SELECT {dateCol} FROM {table} WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", s.CompanyId);
+        var v = cmd.ExecuteScalar();
+        DonemKilidi.Dogrula(s, v is null or DBNull ? null : Convert.ToInt64(v), islem);
+    }
+
     private static (decimal Liters, bool Cancelled) LoadForCancel(DbConnection conn, DbTransaction tx,
         string table, string litersCol, string companyId, string id)
     {

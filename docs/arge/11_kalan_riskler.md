@@ -50,6 +50,12 @@
   bağlanamaz: bunlar stok ekranından eskisi gibi iptal edilebilir ama siparişin teslim alınan miktarı kendiliğinden düşmez.
 - Kısmi geri alma yok: bir kabul belgesi bütün olarak geri alınır (yanlış miktar → geri al + doğru miktarla yeniden kabul).
 
+## Dönem kilidi (M-30)
+- Çevrimdışı bilgisayarda kilitten ÖNCE girilmiş ama kilitten SONRA gönderilen eski tarihli kayıt sunucuda reddedilmez (senkron
+  uygulaması iş kurallarını yeniden çalıştırmaz). Bilgisayar bir sonraki girişte kilidi alır; aradaki pencere kabul edildi.
+- Kilitle kapanmayan alanlar: günlük faaliyet hareket kaydı (stok/para etkisi yok), cari açılış/elle cari hareketi, sayım.
+  Fatura bilgi alanları (not, vade, karşı belge no) kapalı dönemde de düzeltilebilir — tutar/stok değişmez.
+
 ## Performans (M-22)
 - Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
   sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri
