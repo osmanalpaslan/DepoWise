@@ -36,8 +36,9 @@ public static class SyncLog
         var path = PathOrNull();
         if (path is null) return;
         var machine = Environment.MachineName;
+        // ⭐ M-13 / F-050 (AR-GE 2026-10-18): ayrıntı sunucu yanıtı/istisna metni taşıyabilir → jeton/parola maskelenir.
         var line = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff} [{machine}] {@event}" +
-                   (string.IsNullOrWhiteSpace(detail) ? "" : " | " + detail) + Environment.NewLine;
+                   (string.IsNullOrWhiteSpace(detail) ? "" : " | " + DepoWise.Application.Security.LogRedactor.Redact(detail)) + Environment.NewLine;
         lock (_lock)
         {
             try

@@ -37,11 +37,21 @@ if (string.IsNullOrWhiteSpace(jwtKey))
             "DEPOWISE_JWT_KEY tanımlı değil. Üretimde JWT imza anahtarı zorunludur. " +
             "Örnek: fly secrets set DEPOWISE_JWT_KEY=<rastgele-64-karakter>");
 }
+// ⭐ M-13 / F-110 (AR-GE 2026-10-18): HS256 imzası en az 256 bit (32 bayt) anahtar ister; kısa anahtar tahmin edilebilir.
+// Kütüphane zaten kısa anahtarla jeton imzalamaz → canlıdaki anahtar bunu karşılıyor; burada açık mesajla erken durdurulur.
+if (System.Text.Encoding.UTF8.GetByteCount(jwtKey) < 32)
+    throw new InvalidOperationException("DEPOWISE_JWT_KEY en az 32 bayt olmalı (rastgele 64 karakter önerilir).");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o => o.TokenValidationParameters = JwtTokens.ValidationParameters(jwtKey));
 builder.Services.AddAuthorization();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+// ⭐ M-13 / F-110 (AR-GE 2026-10-18): CORS yalnız web kökenine. Tarayıcıdan API'yi doğrudan çağıran ekran YOK (web Blazor
+// Server isteklerini sunucudan yapar, sohbet de .NET istemcisiyle bağlanır; masaüstü tarayıcı değildir) → herkese açık
+// köken gereksiz bir kapıydı. Başka köken gerekirse: DEPOWISE_CORS_ORIGINS="https://a,https://b".
+var corsKokenleri = (builder.Configuration["Cors:Origins"] ?? Environment.GetEnvironmentVariable("DEPOWISE_CORS_ORIGINS")
+        ?? "https://depowise-web.fly.dev")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(corsKokenleri).AllowAnyHeader().AllowAnyMethod()));
 
 // ⭐ SNK-08 (FAZ E, 2026-09-04) — YANIT SIKIŞTIRMA.
 //
@@ -147,7 +157,8 @@ app.Use(async (ctx, next) =>
     catch (Exception ex)
     {
         // Ham exception mesajı client'a SIZDIRILMAZ (dosya yolu/SQL detayı içerebilir) — sunucu loguna yazılır.
-        Console.Error.WriteLine($"[500] {DateTimeOffset.UtcNow:O} {ctx.Request.Method} {ctx.Request.Path} → {ex}");
+        // ⭐ M-13 / F-050: istisna metni bağlantı dizesi/jeton taşıyabilir → maskelenerek yazılır.
+        Console.Error.WriteLine($"[500] {DateTimeOffset.UtcNow:O} {ctx.Request.Method} {ctx.Request.Path} → {DepoWise.Application.Security.LogRedactor.Redact(ex.ToString())}");
         await Write(ctx, 500, "Sunucuda beklenmeyen bir hata oluştu. Sorun devam ederse yöneticinize bildirin.");
     }
 });
@@ -490,7 +501,7 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     // ⭐ M-21 (AR-GE 2026-10-18): yalnız paketteki stok hareketlerinin malzemeleri yeniden hesaplanır (hareket yoksa hiç);
     // eskiden her gönderimde tüm defter okunuyordu (büyük firmada 12,1 sn + yazma kilidi).
     try { svc.Stock.RecomputeBalances(s.CompanyId, DepoWise.Infrastructure.Materials.StockService.PakettekiMalzemeler(doc.RootElement)); }
-    catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
+    catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {DepoWise.Application.Security.LogRedactor.Redact(ex.Message)}"); }
     // ⭐ S1: permanentSkipped = hiçbir denemede başarılı olamayacak satırlar. İstemci bunları
     // "yeniden denenecek" saymaz → kuyruk kalıcı hatalara takılıp kilitlenmez. Eski istemciler alanı yok sayar.
     // ⭐ M-15 (AR-GE 2026-10-17): rejected = HANGİ satır neden uygulanmadı (en fazla 500) → masaüstü listede gösterir.

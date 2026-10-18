@@ -80,6 +80,7 @@ public sealed class AuthService
 
         if (!ok)
             return new LoginResult(false, false, 0, null, "Kullanıcı adı veya parola hatalı.");
+        YenidenOzetle(conn, user!.Value.Id, password, user.Value.PasswordHash);   // ⭐ M-13 / F-107
 
         // 3) Oturum + yetkiler
         var roles = LoadRoleKeys(conn, user!.Value.Id);
@@ -122,6 +123,23 @@ public sealed class AuthService
         RecordAttempt(conn, companyId, username, true);
         CreateSession(conn, userId, companyId, now);
         return true;
+    }
+
+    /// <summary>
+    /// ⭐ M-13 / F-107 (AR-GE 2026-10-18): şifre az önce DOĞRULANDI ve özet eski (düşük tur) ise yeni turla yeniden yazar.
+    /// Yalnız özet o arada değişmediyse güncellenir (eşzamanlı şifre değişimi ezilmez). updated_at/oturum dönemi değişmez
+    /// (şifre aynı; kullanıcıya görünmez). Döndürülen: güncel özet.
+    /// </summary>
+    private static string YenidenOzetle(DbConnection conn, string userId, string password, string eskiOzet)
+    {
+        if (!PasswordHasher.YenidenOzetlenmeli(eskiOzet)) return eskiOzet;
+        var yeni = PasswordHasher.Hash(password);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE users SET password_hash=@yeni WHERE id=@u AND password_hash=@eski;";
+        cmd.AddWithValue("@yeni", yeni);
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@eski", eskiOzet);
+        return cmd.ExecuteNonQuery() == 1 ? yeni : eskiOzet;
     }
 
     /// <summary>Kullanıcı ilk giriş(ler)inde şifre belirlemek zorunda mı (Migration042).</summary>
@@ -337,6 +355,7 @@ public sealed class AuthService
             }
         }
         if (userId is null || coId is null || hash is null) return null;
+        hash = YenidenOzetle(conn, userId, password, hash);   // ⭐ M-13 / F-107: masaüstü yeni özeti yerele yazar
 
         var roles = LoadRoleKeys(conn, userId);
         var perms = LoadPermissions(conn, companyId, userId);

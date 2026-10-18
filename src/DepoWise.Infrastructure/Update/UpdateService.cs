@@ -138,7 +138,8 @@ public sealed class UpdateService
 
     private void Log(string message)
     {
-        try { File.AppendAllText(_logPath, $"{DateTimeOffset.UtcNow:O}\t{message}{Environment.NewLine}"); }
+        // ⭐ M-13 / F-050: jeton/parola/bağlantı dizesi günlüğe düz yazılmaz.
+        try { File.AppendAllText(_logPath, $"{DateTimeOffset.UtcNow:O}\t{DepoWise.Application.Security.LogRedactor.Redact(message)}{Environment.NewLine}"); }
         catch { /* log hatası akışı durdurmaz */ }
     }
 
