@@ -279,6 +279,49 @@ public static class BusinessSyncPullService
         catch { return null; }
     }
 
+    /// <summary>⭐ M-23: sunucu ucuz ufuk ucunu (business-version-v2) biliyor mu — null bilinmiyor, false eski sunucu.</summary>
+    public static bool? UfukUcuDestekli { get; private set; }
+
+    /// <summary>
+    /// ⭐ M-23 (AR-GE 2026-10-18) — "Sunucuda bu bilgisayarın henüz almadığı değişiklik var mı?" Yeni sunucuda tek ucuz sorgu:
+    /// sunucu ufku &gt; bu makinenin çekme imleci (sync_pull_txid). Eski sunucuda (uç yok) eski yöntem: firma sürümü (en büyük
+    /// damga) &gt; <paramref name="eskiSurum"/>. Döner: null = ulaşılamadı; Surum = eski yöntemde saklanacak ipucu (yeni yöntemde
+    /// kullanılmaz, imleç sunucu taraflıdır).
+    /// </summary>
+    public static async Task<(bool Ileri, long Surum, bool EskiYontem)?> SunucuDurumuAsync(long eskiSurum)
+    {
+        if (UfukUcuDestekli != false)
+        {
+            LastFailure = SyncFailureKind.None;
+            var url = ResolveServerUrl();
+            var companyId = DesktopServices.Session?.CompanyId;
+            if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return null;
+            await ServerAuthClient.EnsureFreshTokenAsync();
+            var token = ServerAuthClient.Token;
+            if (string.IsNullOrWhiteSpace(token)) return null;
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-version-v2");
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                using var resp = await _http.SendAsync(req);
+                if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) UfukUcuDestekli = false;   // eski sunucu → aşağıda eski yöntem
+                else if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return null; }
+                else
+                {
+                    using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+                    if (!doc.RootElement.TryGetProperty("ufuk", out var u) || !u.TryGetInt64(out var ufuk)) return null;
+                    UfukUcuDestekli = true;
+                    LastFailure = SyncFailureKind.None;
+                    // İmleç hiç yoksa (0) ilk çekim gerekir → ileri.
+                    return (ufuk > OkuImlec(companyId!) || OkuImlec(companyId!) == 0, ufuk, false);
+                }
+            }
+            catch (Exception ex) { LastFailure = SyncFailureClassifier.FromException(ex); return null; }
+        }
+        var sv = await GetServerVersionAsync();
+        return sv is { } v ? (v > eskiSurum, v, true) : null;
+    }
+
     public static async Task<long?> GetServerVersionAsync()
     {
         LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın

@@ -781,6 +781,24 @@ public sealed class BusinessSyncService
         return (JsonSerializer.Serialize(new { companyId, tables, nextAfter = ufuk, epoch, nextPage = sonrakiSayfa }), ufuk);
     }
 
+    /// <summary>
+    /// ⭐ M-23 (AR-GE 2026-10-18, 05 F-179) — SUNUCUNUN ŞU ANKİ ÇEKME UFKU (tek ucuz sorgu, tablo TARAMAZ). Masaüstü "sunucuda
+    /// yeni bir şey var mı?" sorusunu buna sorar: ufuk kendi çekme imlecinden büyükse son çekiminden beri biten işlemler vardır.
+    /// Eskiden aynı soru <see cref="CompanyVersion"/> ile TÜM eşitleme tablolarında en büyük damga aranarak cevaplanıyordu
+    /// (300 bin satırda yoklama başına 5,1 sn; her masaüstü 15 sn'de bir). PostgreSQL'de ufuk sunucu geneli olduğu için başka
+    /// firmanın yazımı da "ileri" der — sonuç yalnız boş (ucuz) bir çekimdir, veri yanlışlığı değil.
+    /// </summary>
+    public long SunucuUfku()
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = SqlDialect.IsSqlite(conn)
+            ? "SELECT next FROM sync_txid_counter WHERE id = 1;"
+            : "SELECT pg_snapshot_xmin(pg_current_snapshot())::text::bigint;";
+        var v = cmd.ExecuteScalar();
+        return v is null or DBNull ? 0 : Convert.ToInt64(v);
+    }
+
     /// <summary>M-17 sayfa imleci: "tabloSırası:base64url(JSON anahtar dizisi)". Anahtar yoksa tablo baştan.</summary>
     private static string SayfaYaz(int tabloSirasi, List<object?>? anahtar)
     {

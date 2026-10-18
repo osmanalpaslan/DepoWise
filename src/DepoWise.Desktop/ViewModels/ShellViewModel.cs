@@ -549,8 +549,10 @@ public sealed partial class ShellViewModel : ViewModelBase
         int giden = 0, gelen = 0;
         try
         {
-            var serverV = await BusinessSyncPullService.GetServerVersionAsync();
-            if (serverV is not { } sv)
+            // ⭐ M-23 (AR-GE 2026-10-18): "sunucuda yeni bir şey var mı?" artık tek ucuz sorgu (sunucu ufku > çekme imleci);
+            // eskiden sunucu her yoklamada tüm tabloları tarıyordu (300 bin satırda 5,1 sn). Eski sunucuda eski yönteme düşer.
+            var durum = await BusinessSyncPullService.SunucuDurumuAsync(_lastServerVersionPulled);
+            if (durum is not { } d)
             {
                 // SNK-03: yalnız GEÇİCİ hatada geri çekil. Kalıcı (401/403/4xx/JSON) ya da hiç istek
                 // denenmediyse (token/URL yok) kadans bozulmaz — normal hata akışı sürer.
@@ -558,7 +560,9 @@ public sealed partial class ShellViewModel : ViewModelBase
                 return true;                           // çevrimdışı → sessiz
             }
             // 2026-10-04: gerçekten veri akacaksa (yerelde gönderilmemiş var / sunucu ileride) animasyon döner.
-            var akacak = BusinessSyncPushService.YerelBekleyenVar() || sv > _lastServerVersionPulled;
+            var sunucuIleri = d.Ileri;
+            var sv = d.Surum;
+            var akacak = BusinessSyncPushService.YerelBekleyenVar() || sunucuIleri;
             if (akacak) await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => AktarimVar = true);
             var oncekiPush = BusinessSyncPushService.LastPushResult;
             // PUSH: bu makinenin GÖNDERİLMEMİŞ yerel değişikliklerini gönder. Gönderilecekler PushAsync içinde,
@@ -591,13 +595,13 @@ public sealed partial class ShellViewModel : ViewModelBase
             // "sync_pull_txid"): geç gelen/geri damgalı satır kaçmaz, değişmeyen veri tekrar inmez. `sv` / _lastServerVersionPulled
             // yalnız "değişiklik var mı" İPUCUDUR; damgası eski olduğu için sürümü yükseltmeyen geç satırı güvenlik turu yakalar.
             // (Eski hata: SNK-09'daki "alınan en büyük damga" hiç atanmıyordu → imleç ilerlemiyor, her tur TAM paket iniyordu.)
-            if (sv > _lastServerVersionPulled || checkConflicts)
+            if (sunucuIleri || checkConflicts)
             {
                 var ok = await BusinessSyncPullService.PullDeltaAsync();
                 if (ok)
                 {
                     gelen = BusinessSyncPullService.SonAlinanSayisi;
-                    if (sv > _lastServerVersionPulled)
+                    if (d.EskiYontem && sv > _lastServerVersionPulled)   // ipucu yalnız eski yöntemde saklanır
                     {
                         _lastServerVersionPulled = sv;   // ipucu: sunucu sürümünü gördük (veri imleci ayrı ve sunucu taraflı)
                         try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", sv.ToString(), _session.UserId); } catch { }

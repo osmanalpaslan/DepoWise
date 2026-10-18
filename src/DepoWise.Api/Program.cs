@@ -520,6 +520,14 @@ app.MapGet("/api/sync/business-pull-v2", (HttpContext c, long? after, int? limit
 
 // İş verisi SÜRÜMÜ (ucuz): firmanın tüm iş tablolarındaki en büyük updated_at. Masaüstü sık yoklar; sürüm
 // değişmediyse tam snapshot ÇEKMEZ (kullanıcı isteği 2026-07-19: anlık ama bant israfsız).
+// ⭐ M-23 (AR-GE 2026-10-18): YENİ masaüstleri için ucuz "değişiklik var mı" — sunucu çekme ufku (tek sorgu, tablo taramaz).
+// Masaüstü ufuk > kendi çekme imleci ise çeker. Eski uç (aşağıda, tüm tabloların en büyük damgası) eski masaüstleri için durur.
+app.MapGet("/api/sync/business-version-v2", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { ufuk = svc.BusinessSync.SunucuUfku() });
+}).RequireAuthorization();
+
 app.MapGet("/api/sync/business-version", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(new { version = svc.BusinessSync.CompanyVersion(s.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
 
