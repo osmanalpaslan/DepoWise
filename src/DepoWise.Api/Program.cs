@@ -3181,6 +3181,15 @@ app.MapPost("/api/finance/entries", (HttpContext c, FinanceEntryDto d) =>
                             allocationIds = r.AllocationIds, alreadyExisted = r.AlreadyExisted });
 }).RequireAuthorization();
 
+// ⭐ M-51 (AR-GE 2026-10-18, K-13 a): kayıt ÖNCESİ onay metni — hiçbir şey yazmaz; masaüstüyle aynı cümle.
+app.MapPost("/api/finance/entries/check", (HttpContext c, FinanceEntryDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var kapatilan = (d.Allocations ?? Array.Empty<AllocationDto>()).Count(a => a.Amount > 0);
+    return Results.Ok(new { onayMetni = DepoWise.Infrastructure.Accounting.FinanceTxnTypes.KayitOnayMetni(
+        d.TxnType, d.Amount, d.Currency ?? "TRY", kapatilan) });
+}).RequireAuthorization();
+
 // ── İÇ TRANSFER (kasa↔banka) — cari ETKİLENMEZ, net 0 ──
 app.MapPost("/api/finance/transfers", (HttpContext c, FinanceTransferDto d) =>
 {
