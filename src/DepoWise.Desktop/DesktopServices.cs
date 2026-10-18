@@ -99,6 +99,8 @@ public static class DesktopServices
     public static FuelImportService FuelImport { get; private set; } = null!;
     /// <summary>Yakıt DEPO GİRİŞİ içe aktarımı (satın alma) — dağıtımların kaynağı; depo yetersizse dağıtım reddedilir.</summary>
     public static FuelDepotImportService FuelDepotImport { get; private set; } = null!;
+    /// <summary>⭐ M-14: Excel içe aktarımını geri alma (web/API ile aynı servis).</summary>
+    public static AktarimGeriAlmaService AktarimGeriAlma { get; private set; } = null!;
     /// <summary>Personel içe aktarımı — "Saha Personeli" + MEVCUT hesabı bağlama ("Kullanıcı Adı").</summary>
     public static PersonnelImportService PersonnelImport { get; private set; } = null!;
     /// <summary>EXL-01 — Excel Merkezi: merkezi dışa aktarım üreticisi (15 kaynak; API/web ile ORTAK).</summary>
@@ -249,6 +251,7 @@ public static class DesktopServices
         FuelImport = new FuelImportService(Fuel, Vehicles, Lookups);
         FuelDepotImport = new FuelDepotImportService(Fuel, Lookups);
         PersonnelImport = new PersonnelImportService(Personnel, PersonnelTitles, Users, Lookups);
+        AktarimGeriAlma = new AktarimGeriAlmaService(Factory, Materials, Vehicles, Personnel, Fuel, Maintenance, Inspection, clock);   // ⭐ M-14
         Storage = new LocalFileStorageProvider();
         Files = new FileService(Factory, Storage, clock);
         Equipment = new DepoWise.Infrastructure.Equipment.EquipmentService(Factory, clock);

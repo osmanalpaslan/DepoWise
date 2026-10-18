@@ -170,6 +170,15 @@
                 <MudChip T="string" Color="@(_result.Failed > 0 ? Color.Error : Color.Default)">Hatalı: @_result.Failed</MudChip>
             </div>
 
+            @* ⭐ M-14 (AR-GE 2026-10-18): az önceki aktarımda oluşan kayıtları geri alır — masaüstüyle aynı servis ve kurallar. *@
+            @if (!_resultIsPreview && _sonParti is not null)
+            {
+                <MudTooltip Text="Son içe aktarımda oluşturulan kayıtları siler/iptal eder. Kullanılmış kayıtlar (ör. stok hareketi olan malzeme) bırakılır ve nedeni yazılır.">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Undo" Class="mt-3"
+                               OnClick="UndoImport" Disabled="_busy">Bu Aktarımı Geri Al</MudButton>
+                </MudTooltip>
+            }
+
             @if (_result.Errors.Count > 0)
             {
                 <MudDivider Class="my-3" />
@@ -330,7 +339,7 @@
     }
 
     private void OnEntityChanged() { _file = null; _fileBytes = null; ResetResult(); }
-    private void ResetResult() { _result = null; _msg = null; }
+    private void ResetResult() { _result = null; _msg = null; _sonParti = null; }
 
     /// <summary>
     /// Dosya SEÇİLİR SEÇİLMEZ okunur ve bellekte tutulur.
@@ -420,11 +429,45 @@
             // ⭐ FAZ 4.15: sunucu şube şifresini reddettiyse buton yeniden kilitlenir.
             if (err is not null) { _ok = false; _msg = err; _branchPasswordRejected = SifreHatasiMi(err); return; }
             _result = Parse(data!.Value); _resultIsPreview = false;
+            _sonParti = Str(data.Value, "partiKimligi") is { Length: > 0 } p ? p : null;   // M-14
             _ok = true;
             // PK-M5: hiçbir import mevcut kaydı GÜNCELLEMEZ — "Updated" alanı atlanan sayıyı taşır (R17 düzeltmesi).
             _msg = $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, zaten mevcut (atlandı) {_result.Updated}, hatalı {_result.Failed}.";
         }
         catch (Exception ex) { _ok = false; _msg = "İçe aktarılamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    // ═══ M-14 — İÇE AKTARIMI GERİ AL ═══════════════════════════════════════════════════════════════
+    /// <summary>Son aktarımın parti kimliği (kayıt eklendiyse). Sayfadan çıkınca unutulur; masaüstüyle aynı davranış.</summary>
+    private string? _sonParti;
+
+    private async Task UndoImport()
+    {
+        if (_sonParti is not { } parti) return;
+        if (!await Dialog.Confirm(
+                "Son içe aktarımda oluşturulan kayıtlar silinecek / iptal edilecek.\n\n" +
+                "• Kullanılmış kayıtlar (ör. stok hareketi olan malzeme, depo bakiyesini eksiye düşürecek yakıt girişi) bırakılır ve nedeni yazılır.\n" +
+                "• Otomatik oluşan tanımlar (birim, marka, kategori…) bırakılır.\n\nDevam edilsin mi?",
+                okText: "Evet, Geri Al", danger: true))
+            return;
+        _busy = true;
+        try
+        {
+            var d = await Api.PostJsonAsync("/api/import/undo", new { partiKimligi = parti });
+            if (d is null) { _ok = false; _msg = "Geri alınamadı (yetkiniz olmayabilir ya da aktarım bulunamadı)."; return; }
+            var v = d.Value;
+            var birakilan = new List<string>();
+            if (v.TryGetProperty("birakilanlar", out var bs) && bs.ValueKind == JsonValueKind.Array)
+                foreach (var b in bs.EnumerateArray()) if (b.ValueKind == JsonValueKind.String) birakilan.Add(b.GetString() ?? "");
+            int geri = Int(v, "geriAlinan"), zaten = Int(v, "zatenGeriAlinmis"), tanim = Int(v, "tanimBirakilan");
+            _msg = $"Geri alma: {geri} kayıt geri alındı" + (zaten > 0 ? $", {zaten} kayıt zaten geri alınmıştı" : "") +
+                   (tanim > 0 ? $", {tanim} tanım bırakıldı" : "") + "." +
+                   (birakilan.Count > 0 ? $" Geri alınamayan kayıtlar ({birakilan.Count}): " + string.Join(" · ", birakilan) : "");
+            _ok = birakilan.Count == 0;
+            if (birakilan.Count == 0) _sonParti = null;   // tamamı geri alındı → düğme kalkar
+        }
+        catch (Exception ex) { _ok = false; _msg = "Geri alınamadı: " + ex.Message; }
         finally { _busy = false; }
     }
 

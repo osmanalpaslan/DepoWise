@@ -121,6 +121,10 @@ public sealed class ServerServices
     // ── Excel İÇE AKTARIM (İş #7, 2026-08-09) — masaüstünde zaten vardı, web'e taşındı.
     // Aynı servisler kullanılır → iki platform BİREBİR aynı doğrulama ve iş kurallarını uygular.
     public DepoWise.Infrastructure.Reporting.MaterialImportService MaterialImport { get; }
+    /// <summary>⭐ M-14: Excel içe aktarımını geri alma (masaüstüyle aynı servis).</summary>
+    public DepoWise.Infrastructure.Reporting.AktarimGeriAlmaService AktarimGeriAlma
+        => _aktarimGeriAlma ??= new(Factory, Materials, Vehicles, Personnel, Fuel, Maintenance, Inspection);
+    private DepoWise.Infrastructure.Reporting.AktarimGeriAlmaService? _aktarimGeriAlma;
     public DepoWise.Infrastructure.Reporting.VehicleImportService VehicleImport { get; }
     public DepoWise.Infrastructure.Reporting.PersonnelImportService PersonnelImport { get; }
     public DepoWise.Infrastructure.Reporting.MaintenanceImportService MaintenanceImport { get; }

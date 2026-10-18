@@ -345,6 +345,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             // kullanıcı bu listeye bakıp hatayı görebilmeli.
             IReadOnlyList<string> createdLookups = System.Array.Empty<string>();
             ImportResult res;
+            // ⭐ M-14 (AR-GE 2026-10-18): aktarım bir PARTİ içinde çalışır → oluşan kayıtlar işlem geçmişinde damgalanır ve
+            // "Bu Aktarımı Geri Al" ile geri alınabilir (web ile aynı servis).
+            using var parti = DepoWise.Infrastructure.Database.AktarimPartisi.Baslat(ImportKey(SelectedImport));
             switch (SelectedImport)
             {
                 case "Araçlar":
@@ -362,6 +365,8 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 default:
                     (res, createdLookups) = DesktopServices.MaterialImport.CommitWithLookups(s, rows); break;
             }
+            parti.Dispose();   // gönderim ve sonrası partiye yazılmaz
+            SonParti = res.Added > 0 ? parti.Kimlik : null;
             // EXL-01 (PK-M5): HİÇBİR import mevcut kaydı GÜNCELLEMEZ — tüm servislerde "zaten var → atla".
             // "Updated" alanı atlanan sayıyı taşır; eski "güncellenen" etiketi yanıltıcıydı (R17), düzeltildi.
             ImportResult = $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, zaten mevcut (atlandı) {res.Updated}, hatalı {res.Failed}.";
@@ -392,6 +397,59 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             Status = "İçe aktarım tamamlandı.";
         }
         catch (Exception ex) { ImportResult = "İçe aktarılamadı: " + ex.Message; }
+    }
+
+    // ═══ M-14 — İÇE AKTARIMI GERİ AL ═══════════════════════════════════════════════════════════════
+    /// <summary>Son aktarımın parti kimliği (kayıt eklendiyse). Ekran değişince unutulur; web ile aynı davranış.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanUndoImport))]
+    private string? _sonParti;
+
+    public bool CanUndoImport => SonParti is not null;
+
+    /// <summary>Ekrandaki tür adı → API/parti tür anahtarı (web ile aynı anahtarlar).</summary>
+    private static string ImportKey(string entity) => entity switch
+    {
+        "Araçlar" => "vehicles",
+        "Bakım" => "maintenance",
+        "Personel" => "personnel",
+        "Muayene / Sigorta" => "inspection",
+        "Yakıt Dağıtım" => "fuel",
+        "Yakıt Depo Girişi" => "fuel-depot",
+        _ => "materials",
+    };
+
+    [RelayCommand]
+    private async Task UndoImport()
+    {
+        if (SonParti is not { } parti) return;
+        if (!await ConfirmService.AskAsync(
+                "Son içe aktarımda oluşturulan kayıtlar silinecek / iptal edilecek.\n\n" +
+                "• Kullanılmış kayıtlar (ör. stok hareketi olan malzeme, depo bakiyesini eksiye düşürecek yakıt girişi) bırakılır ve nedeni yazılır.\n" +
+                "• Otomatik oluşan tanımlar (birim, marka, kategori…) bırakılır.\n\nDevam edilsin mi?",
+                "İçe Aktarımı Geri Al", "Evet, Geri Al", "Vazgeç", danger: true))
+            return;
+        try
+        {
+            var r = DesktopServices.AktarimGeriAlma.GeriAl(_session, parti);
+            var metin = $"Geri alma: {r.GeriAlinan} kayıt geri alındı" +
+                        (r.ZatenGeriAlinmis > 0 ? $", {r.ZatenGeriAlinmis} kayıt zaten geri alınmıştı" : "") +
+                        (r.TanimBirakilan > 0 ? $", {r.TanimBirakilan} tanım bırakıldı" : "") + ".";
+            if (r.Birakilanlar.Count > 0)
+                metin += $"\n\nGeri alınamayan kayıtlar ({r.Birakilanlar.Count}):\n" + string.Join("\n", r.Birakilanlar.Select(x => "• " + x));
+            else SonParti = null;   // tamamı geri alındı → düğme kalkar (bırakılan varsa nedeni giderilip yeniden denenebilir)
+            ImportResult = metin;
+            if (r.GeriAlinan > 0)
+            {
+                Status = "Geri alındı — değişiklikler sunucuya gönderiliyor…";
+                await BusinessSyncPushService.PushAsync();
+                ImportResult += BusinessSyncPushService.LastPushFailed
+                    ? "\n\n⚠️ Değişiklikler sunucuya GÖNDERİLEMEDİ. İnternet bağlanınca üst bardaki “Eşitle”ye basın."
+                    : "\n\n✔ Değişiklikler sunucuya gönderildi.";
+            }
+            Status = "Geri alma tamamlandı.";
+        }
+        catch (Exception ex) { ImportResult = "Geri alınamadı: " + ex.Message; }
     }
 
     private static IReadOnlyList<string> TemplateHeaders(string entity) => entity switch

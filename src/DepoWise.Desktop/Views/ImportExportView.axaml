@@ -79,6 +79,10 @@
                             <TextBlock Text="Excel'den İçe Aktar" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <!-- ⭐ M-14 (AR-GE 2026-10-18): az önceki aktarımda oluşan kayıtları geri alır (kuralları atlamaz). -->
+                    <Button Classes="Danger" Content="Bu Aktarımı Geri Al" Command="{Binding UndoImportCommand}"
+                            IsVisible="{Binding CanUndoImport}"
+                            ToolTip.Tip="Son içe aktarımda oluşturulan kayıtları siler/iptal eder. Kullanılmış kayıtlar (ör. stok hareketi olan malzeme) bırakılır ve nedeni yazılır."/>
                 </WrapPanel>
                 <!-- ⭐ FAZ 4.15: engelin SEBEBİ ekranda yazar (buton neden pasif belli olsun). -->
                 <SelectableTextBlock Text="{Binding ImportEngeli}" IsVisible="{Binding HasImportEngeli}"

@@ -37,3 +37,11 @@
   açık oturumlar kapanır). İlk giriş şifre belirlemede düşme yok (yeni jeton verilir).
 - **M-10 önbellek:** dönem 30 sn önbellekte tutulur; aynı süreçte değişim anında görülür. API birden fazla makineye çıkarsa
   diğer makinede eski jeton en çok 30 sn daha geçerli kalabilir (bugün tek makine).
+
+## Excel içe aktarma (M-14)
+- **Açılış stoğu girilmiş malzeme geri alınamaz** (stok defteri değişmez, MLZ-01): geri almada "bırakıldı" olarak listelenir;
+  stok düzeltmesiyle sıfırlanıp elle silinmeli. Otomatik oluşan tanımlar (birim, marka, kategori, bakım tanımı) da bırakılır.
+- **"Geri Al" düğmesi yalnız aktarımın hemen ardından** görünür (ekrandan çıkınca parti kimliği unutulur). Eski bir aktarımı
+  geri almak için liste ekranı yok — ileride "son aktarımlar" listesi eklenebilir (kimlikler işlem geçmişinde duruyor).
+- Parti araması `audit_logs.correlation_id` üzerinde indekssiz (firma filtresiyle); seyrek yapılan bir yönetici işlemi olduğu için
+  kabul edildi. Büyük geçmişte yavaşlarsa yalnız ekleme bir indeks yeterli.

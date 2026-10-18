@@ -4004,8 +4004,26 @@ app.MapPost("/api/import/{entity}/commit", async (HttpContext ctx, string entity
 {
     var (s, rows, err) = await ReadImportAsync(ctx, svc, entity);
     if (err is not null) return err;
-    var (res, created) = ImportCommit(svc, entity, s!, rows!);
-    return Results.Ok(ImportPayload(res, created));
+    // ⭐ M-14 (AR-GE 2026-10-18): aktarım bir PARTİ içinde çalışır → oluşan kayıtlar işlem geçmişinde damgalanır ve
+    // "Bu aktarımı geri al" ile tek seferde geri alınabilir (masaüstüyle aynı servis).
+    string parti;
+    (DepoWise.Application.Reports.ImportResult Result, IReadOnlyList<string> CreatedLookups) sonuc;
+    using (var kapsam = DepoWise.Infrastructure.Database.AktarimPartisi.Baslat(entity))
+    {
+        sonuc = ImportCommit(svc, entity, s!, rows!);
+        parti = kapsam.Kimlik;
+    }
+    return Results.Ok(ImportPayload(sonuc.Result, sonuc.CreatedLookups, sonuc.Result.Added > 0 ? parti : null));
+}).RequireAuthorization();
+
+// ⭐ M-14: içe aktarımı geri al. Her kayıt KENDİ servisinin silme/iptal kuralıyla geri alınır (yetki + firma servis içinde);
+// geri alınamayanlar nedeniyle döner. Tekrar çağrılabilir (geri alınmış kayıt atlanır).
+app.MapPost("/api/import/undo", (HttpContext c, ImportUndoDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.AktarimGeriAlma.GeriAl(s, d.PartiKimligi ?? "");
+    return Results.Ok(new { geriAlinan = r.GeriAlinan, zatenGeriAlinmis = r.ZatenGeriAlinmis,
+        tanimBirakilan = r.TanimBirakilan, birakilanlar = r.Birakilanlar });
 }).RequireAuthorization();
 
 // ═══ EXL-01 (ADR-176) — EXCEL MERKEZİ: MERKEZİ DIŞA AKTARIM ═══
@@ -4201,11 +4219,12 @@ static (DepoWise.Application.Reports.ImportResult Result, IReadOnlyList<string> 
     _ => throw new ArgumentException($"Bilinmeyen içe aktarım türü: {entity}"),
 };
 
-static object ImportPayload(DepoWise.Application.Reports.ImportResult r, IReadOnlyList<string> created) => new
+static object ImportPayload(DepoWise.Application.Reports.ImportResult r, IReadOnlyList<string> created, string? partiKimligi = null) => new
 {
     dryRun = r.DryRun, total = r.Total, valid = r.Valid, added = r.Added, updated = r.Updated, failed = r.Failed,
     errors = r.Errors.Select(e => new { rowNumber = e.RowNumber, message = e.Message }),
     createdLookups = created,
+    partiKimligi,   // ⭐ M-14: kayıt eklendiyse geri alma için (yoksa null)
 };
 
 // ── Bakım (Bakım Takibi) — masaüstüyle birebir ──
@@ -5184,6 +5203,7 @@ app.Run();
 // ── İstek gövde tipleri ──
 record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
 record SelectCompanyDto(string? CompanyId);
+record ImportUndoDto(string? PartiKimligi);   // ⭐ M-14
 record AssignBranchDto(string? BranchId);
 record AssignCompanyDto(string? CompanyId);
 record SelfAssignDto(string? MachineName, string? BranchId);

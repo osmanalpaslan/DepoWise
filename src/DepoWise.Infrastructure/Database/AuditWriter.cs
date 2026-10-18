@@ -33,7 +33,8 @@ VALUES(@id, @company, @user, @etype, @eid, @action, @before, @after, @corr, @ts)
         cmd.AddWithValue("@action", e.Action);
         cmd.AddWithValue("@before", (object?)e.BeforeJson ?? DBNull.Value);
         cmd.AddWithValue("@after", (object?)after ?? DBNull.Value);
-        cmd.AddWithValue("@corr", (object?)e.CorrelationId ?? DBNull.Value);
+        // ⭐ M-14: Excel içe aktarımı sürerken oluşan kayıtlar parti kimliğiyle damgalanır (geri alınabilsin diye).
+        cmd.AddWithValue("@corr", (object?)(e.CorrelationId ?? AktarimPartisi.Gecerli) ?? DBNull.Value);
         cmd.AddWithValue("@ts", (clock?.UtcNow ?? DateTimeOffset.UtcNow).ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
