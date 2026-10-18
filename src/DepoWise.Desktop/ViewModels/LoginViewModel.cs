@@ -494,6 +494,7 @@ public sealed partial class LoginViewModel : ViewModelBase
             //    kendi watermark'ından yeni satırlar gider; sunucuda eksik olanlar tamamlanır. İlk kurulumda
             //    watermark=0 → tam gönderim (tek sefer). Sunucu apply TEK transaction (hızlı) → zaman aşımı yok.
             await BusinessSyncPushService.PushAsync();
+            BusinessSyncPullService.YerelKapsamiUygula();   // ⭐ M-09: şube kapsamı daraldıysa kapsam dışı yerel veri temizlenir
             await BusinessSyncPullService.PullAsync();  // sonra diğer makinelerin verisini çek
             }
             finally { SyncGate.Exit(); }

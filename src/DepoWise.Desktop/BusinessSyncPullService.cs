@@ -93,6 +93,44 @@ public static class BusinessSyncPullService
         catch { /* yazılamazsa sonraki çekim eski imleçle tekrarlar — veri kaybı değil, yalnız tekrar */ }
     }
 
+    /// <summary>⭐ M-09: bu bilgisayardaki yerel verinin şube kapsamı (YerelKapsamTemizligi.Imza).</summary>
+    private const string YerelKapsamKey = "sync_local_scope";
+
+    /// <summary>
+    /// ⭐ M-09 (AR-GE 2026-10-18, F-040): girişte, GÖNDERİMDEN SONRA ve çekmeden ÖNCE çağrılır. Kullanıcının şube kapsamı yerel
+    /// veriden darsa kapsam dışı satırlar silinir (gönderilmemiş kayıtlar korunur); genişse çekme imleci sıfırlanır (tam çekim).
+    /// Hata girişi asla engellemez (günlüğe yazılır).
+    /// </summary>
+    public static void YerelKapsamiUygula()
+    {
+        var s = DesktopServices.Session;
+        var companyId = s?.CompanyId;
+        if (s is null || string.IsNullOrWhiteSpace(companyId)) return;
+        try
+        {
+            string? onceki = null;
+            try { onceki = DesktopServices.Settings.Get(companyId!, YerelKapsamKey); } catch { }
+            long gs = -1;
+            try { if (!long.TryParse(DesktopServices.Settings.Get(companyId!, "sync_push_seq"), out gs)) gs = -1; } catch { }
+            var r = DepoWise.Infrastructure.Sync.YerelKapsamTemizligi.Uygula(DesktopServices.Factory, companyId!, onceki,
+                DepoWise.Application.Security.BranchAccess.Allowed(s), gs);
+            if (r.Ertelendi) { SyncLog.Write("KAPSAM temizliği ertelendi", "gönderim sayacı henüz yok"); return; }
+            DesktopServices.Settings.Set(companyId!, YerelKapsamKey, r.YeniImza, s.UserId);
+            if (r.TamCekimGerekli)
+            {
+                YazImlec(companyId!, 0);
+                try { DesktopServices.Settings.Set(companyId!, SayfaKey, "", s.UserId); } catch { }
+                SyncLog.Write("KAPSAM genişledi", $"{onceki ?? "*"} → {r.YeniImza}: tam çekim");
+            }
+            if (r.Silinen > 0)
+            {
+                SyncLog.Write("KAPSAM daraldı", $"{onceki ?? "*"} → {r.YeniImza}: {r.Silinen} kapsam dışı satır silindi, {r.BekleyenKorunan} gönderilmemiş korundu");
+                try { DesktopServices.Stock.RecomputeBalances(companyId!); } catch (Exception ex) { SyncLog.Write("KAPSAM bakiye hesabı", ex.Message); }
+            }
+        }
+        catch (Exception ex) { SyncLog.Write("KAPSAM temizliği hata", ex.Message); }
+    }
+
     /// <summary>v2 çekim: <paramref name="tam"/> = true ise ufuk 0'dan (tam paket), değilse saklı imleçten.
     /// Döner: true başarı · false hata · null sunucu v2 bilmiyor (çağıran eski yönteme düşer).</summary>
     private static async Task<bool?> PullV2Async(bool tam)

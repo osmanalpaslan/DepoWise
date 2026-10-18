@@ -324,6 +324,12 @@ public sealed class BusinessSyncService
             ["request_status_history"] = ("material_requests", "request_id"),
         };
 
+    /// <summary>⭐ M-09: şube kapsamlı tablolar (tablo → şube kolonu) — çekmeyle AYNI liste (yerel kapsam temizliği kullanır).</summary>
+    public static IReadOnlyDictionary<string, string> SubeKapsamliTablolar => BranchScopedTables;
+
+    /// <summary>⭐ M-09: ebeveyni üzerinden kapsanan çocuk tablolar (tablo → (ebeveyn, yabancı anahtar)).</summary>
+    public static IReadOnlyDictionary<string, (string Parent, string Fk)> SubeKapsamliCocuklar => BranchScopedChildren;
+
     /// <summary>Bu tablo şube kapsamına tabi mi (doğrudan ya da ebeveyni üzerinden)?</summary>
     public static bool IsBranchScoped(string table)
         => BranchScopedTables.ContainsKey(table) || BranchScopedChildren.ContainsKey(table);
