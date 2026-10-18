@@ -85,7 +85,11 @@ public partial class App : Avalonia.Application
             // Otomatik güncelleme AÇIKSA: ana pencere AÇILMADAN önce, eşitleme ekranında en son paketi
             // SESSİZCE indir → "Kur / Ertele" sor. Kur → kurar + yeniden başlatır (uygulama kapanır).
             // Ertele → uygulama açılır; ShellViewModel 10 dk sonra tekrar sorar (paket saklanır, tekrar inmez).
-            if (AutoUpdateService.IsEnabled(session.CompanyId))
+            // ⭐ M-12 (K-17 a): zorunlu güncelleme (en düşük sürümün altı ya da 7 günü geçen erteleme) otomatik güncelleme
+            // KAPALI olsa bile uygulanır; "Ertele" seçeneği sunulmaz.
+            var karar = await AutoUpdateService.KararAsync(session.CompanyId);
+            var zorunlu = karar.Karar == DepoWise.Application.Update.GuncellemeKarari.Zorunlu;
+            if (AutoUpdateService.IsEnabled(session.CompanyId) || zorunlu)
             {
                 try
                 {
@@ -94,9 +98,13 @@ public partial class App : Avalonia.Application
                         p => Avalonia.Threading.Dispatcher.UIThread.Post(() => vm.SetDownloadProgress(p)));
                     if (ready)
                     {
-                        var install = await ConfirmService.AskAsync(
+                        if (zorunlu)
+                            await ConfirmService.InfoAsync(AutoUpdateService.ZorunluMetin(karar, AutoUpdateService.PendingVersion ?? "", AutoUpdateService.PendingNotes),
+                                "Zorunlu Güncelleme", "Kur ve Yeniden Başlat");
+                        var install = zorunlu || await ConfirmService.AskAsync(
                             $"Yeni sürüm {AutoUpdateService.PendingVersion} hazır.\n\n" +
                             "Şimdi kurulsun mu? Uygulama yeniden başlatılır; veritabanınıza dokunulmaz." +
+                            AutoUpdateService.ZorunlulukNotu(karar) +
                             AutoUpdateService.NotBolumu(AutoUpdateService.PendingNotes),   // 2026-10-11: güncelleme ÖNCESİ notlar
                             "Güncelleme Hazır", "Kur ve Yeniden Başlat", "Ertele");
                         if (install)

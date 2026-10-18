@@ -48,6 +48,15 @@ public sealed class MigrationRunner
         return justApplied;
     }
 
+    /// <summary>⭐ M-83 (AR-GE 2026-10-18): henüz uygulanmamış sürümler (artan) — masaüstü bunlar varsa önce yedek alır.</summary>
+    public IReadOnlyList<int> Pending()
+    {
+        using var conn = _factory.Create();
+        EnsureHistoryTable(conn);
+        var applied = AppliedVersions(conn);
+        return _migrations.Where(m => !applied.Contains(m.Version)).Select(m => m.Version).ToList();
+    }
+
     public int CurrentVersion()
     {
         using var conn = _factory.Create();

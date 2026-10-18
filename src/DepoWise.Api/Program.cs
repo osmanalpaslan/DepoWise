@@ -494,6 +494,14 @@ app.MapPost("/sync/enroll", (HttpContext http, EnrollDto dto) =>
 app.MapPost("/api/sync/business-push", async (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    // ⭐ M-12 (AR-GE 2026-10-18, K-17 a): en son yayının "en düşük desteklenen sürümü"nün altındaki masaüstü ESKİ KURALLARLA
+    // veri yazmasın → 426. Okuma (çekme) serbest; masaüstündeki veri korunur, güncellemeden sonra gönderilir.
+    // En düşük sürüm tanımsızsa ya da başlık bozuksa herkes yazar (bugünkü davranış).
+    var enDusuk = svc.Releases.Latest()?.MinSupportedVersion;
+    if (!DepoWise.Application.Update.GuncellemePolitikasi.YazmaIzinli(
+            c.Request.Headers[DepoWise.Application.Update.GuncellemePolitikasi.SurumBasligi].ToString(), enDusuk))
+        return Results.Json(new { error = $"Bu program sürümü artık desteklenmiyor (en düşük {enDusuk}). Lütfen programı güncelleyin; " +
+            "kayıtlarınız bu bilgisayarda korunuyor ve güncellemeden sonra gönderilecek.", minVersion = enDusuk }, statusCode: 426);
     using var doc = await System.Text.Json.JsonDocument.ParseAsync(c.Request.Body);
     // Yetki-farkında: kullanıcının yazamadığı modüllerin tabloları uygulanmaz + içerik doğrulaması yapılır.
     var res = svc.BusinessSync.Apply(s, doc.RootElement);

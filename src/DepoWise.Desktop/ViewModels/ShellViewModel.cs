@@ -358,6 +358,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             if (allOk) ResetSyncBackoff();
             await ConfirmService.InfoAsync(
                 (ok && !BusinessSyncPushService.LastPushFailed && !hasSkips) ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
+                BusinessSyncPushService.SurumUyarisi is { } surumUyarisi ? surumUyarisi :   // M-12: desteklenmeyen sürüm (426)
                 BusinessSyncPushService.LastPushFailed ? "Veri gönderimi başarısız oldu (sunucuya ulaşılamadı ya da zaman aşımı). İnternet bağlantısını kontrol edip tekrar deneyin." :
                 hasSkips ? "Eşitleme yapıldı ama BAZI KAYITLAR sunucuya uygulanamadı." + PushResultDetail() :
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
@@ -1010,14 +1011,17 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         try
         {
-            // Otomatik güncelleme kapalıysa oto-uyarı atlanır (kullanıcı ana ekrandan elle kurar).
-            if (DesktopServices.Settings.Get(_session.CompanyId, DashboardViewModel.AutoUpdateKey) == "0") return;
             var url = ResolveServerUrl();
             if (string.IsNullOrWhiteSpace(url)) return;
             var latest = await DesktopServices.UpdateApi.GetLatestAsync(url!);
             if (latest is null || string.IsNullOrWhiteSpace(latest.DownloadUrl)) return;
             var res = DesktopServices.Update.Check(latest);
             if (!res.UpdateAvailable) return;
+            // ⭐ M-12 (K-17 a): zorunlu güncellemede erteleme ve "otomatik güncelleme kapalı" ayarı uygulanmaz.
+            var karar = AutoUpdateService.Karar(_session.CompanyId, latest);
+            var zorunlu = karar.Karar == DepoWise.Application.Update.GuncellemeKarari.Zorunlu;
+            // Otomatik güncelleme kapalıysa oto-uyarı atlanır (kullanıcı ana ekrandan elle kurar) — zorunlu değilse.
+            if (!zorunlu && DesktopServices.Settings.Get(_session.CompanyId, DashboardViewModel.AutoUpdateKey) == "0") return;
 
             // (D) Pencere zaten açıksa: yeni sürüm geldiyse SADECE mesajı güncelle, yeni pencere AÇMA.
             if (_availableWindow is not null)
@@ -1026,8 +1030,9 @@ public sealed partial class ShellViewModel : ViewModelBase
                 _availableWindow.SetMessage(AvailableMsg(latest, res.CurrentVersion));
                 return;
             }
-            // Erteleme süresi dolmadıysa sessiz geç.
-            if (DateTime.UtcNow < AutoUpdateService.SnoozeUntilUtc) return;
+            // Erteleme süresi dolmadıysa sessiz geç (zorunlu güncellemede erteleme yok).
+            // Zorunluda da kurulum az önce BAŞARISIZ olduysa her dakika aynı pencere çıkmasın: bekleme yine uygulanır.
+            if ((!zorunlu || AutoUpdateService.SonKurulumHatasi is not null) && DateTime.UtcNow < AutoUpdateService.SnoozeUntilUtc) return;
             // İndir/kur akışı zaten sürüyorsa tekrar başlatma.
             if (_updateBusy) return;
             _updateBusy = true;
@@ -1036,14 +1041,21 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 // Erteleme sonrası: paket zaten indirilmiş ve sürüm değişmemişse doğrudan yeniden-başlat onayına git.
                 bool havePending = AutoUpdateService.HasPending && AutoUpdateService.PendingVersion == latest.Version;
+                if (zorunlu)
+                    await ConfirmService.InfoAsync(AutoUpdateService.ZorunluMetin(karar, latest.Version, latest.ReleaseNotes),
+                        "Zorunlu Güncelleme", "İndir ve Kur");
                 if (!havePending)
                 {
                     _latestForPrompt = latest;
-                    var win = new Views.ConfirmWindow("Güncelleme Mevcut", AvailableMsg(latest, res.CurrentVersion), "İndir ve Kur", $"{SnoozeMinutes} Dakika Ertele", false);
-                    _availableWindow = win;
-                    bool install;
-                    try { var owner = MainWin(); install = owner is null ? false : await win.ShowDialog<bool>(owner); }
-                    finally { _availableWindow = null; }
+                    bool install = zorunlu;
+                    if (!zorunlu)
+                    {
+                        var win = new Views.ConfirmWindow("Güncelleme Mevcut", AvailableMsg(latest, res.CurrentVersion) + AutoUpdateService.ZorunlulukNotu(karar),
+                            "İndir ve Kur", $"{SnoozeMinutes} Dakika Ertele", false);
+                        _availableWindow = win;
+                        try { var owner = MainWin(); install = owner is null ? false : await win.ShowDialog<bool>(owner); }
+                        finally { _availableWindow = null; }
+                    }
                     if (!install) { AutoUpdateService.Snooze(); return; }
 
                     // Kullanıcı beklerken yeni paket gelmiş olabilir → en güncel hedefi kullan.
@@ -1055,8 +1067,8 @@ public sealed partial class ShellViewModel : ViewModelBase
                     SetConn("#3B82F6", "İndirildi — yeniden başlatma bekleniyor.");
                 }
 
-                // (C) Yeniden başlatma onayı: Ertele (10 dk) / Şimdi Yeniden Başlat.
-                var restart = await ConfirmService.AskAsync(
+                // (C) Yeniden başlatma onayı: Ertele (10 dk) / Şimdi Yeniden Başlat. Zorunluda sorulmaz.
+                var restart = zorunlu || await ConfirmService.AskAsync(
                     $"Güncelleme indirildi (sürüm {AutoUpdateService.PendingVersion}). Kurulumun tamamlanması için uygulama yeniden başlatılmalı.\n\n" +
                     $"Şimdi yeniden başlatabilir veya erteleyebilirsiniz. Her erteleme {SnoozeMinutes} dakikadır; süre dolunca tekrar sorulur." +
                     AutoUpdateService.NotBolumu(AutoUpdateService.PendingNotes),
@@ -1068,6 +1080,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 {
                     // Kurulum yapılamadı: çalışmaya devam edilir, sebep söylenir (2026-09-07).
                     SetConn("#EF4444", "Güncelleme kurulamadı");
+                    AutoUpdateService.Snooze();   // M-12: başarısız kurulum hemen tekrar denenmez
                     await ConfirmService.InfoAsync(
                         "Güncelleme kurulamadı, bu sürümle devam ediliyor.\n\nSebep: " +
                         (AutoUpdateService.SonKurulumHatasi ?? "bilinmiyor"),

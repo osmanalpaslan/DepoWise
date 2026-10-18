@@ -223,6 +223,14 @@ public static class DesktopServices
         Releases = new ReleaseService(Factory, clock);
         Update = new UpdateService(System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "update"));
+        // ⭐ M-12: sunucuya giden her isteğe program sürümü eklenir (desteklenmeyen sürüm veri yazamasın). Geçersizse başlık yok.
+        try
+        {
+            var surum = Update.CurrentVersion();
+            if (DepoWise.Application.Update.SemVer.TryParse(surum, out var sv) && sv.CompareTo(default) > 0)
+                DepoWise.Infrastructure.Net.HttpIstemci.UygulamaSurumu = sv.ToString();
+        }
+        catch { }
         UpdateDownload = new UpdateDownloadService();
         UpdateApi = new UpdateApiClient();
         Enrollment = new DepoWise.Infrastructure.Sync.EnrollmentService(Factory, clock);

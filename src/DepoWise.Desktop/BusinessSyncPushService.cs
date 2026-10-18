@@ -133,6 +133,7 @@ public static class BusinessSyncPushService
                 LastPushResult = r;
                 SonGonderilenSayisi = r.Upserted;   // 2026-10-04: üst bardaki "giden" sayacı
                 LastPushFailed = false;
+                SurumUyarisi = null;
 
                 // ── Z3 (2026-07-22) RETRY: sunucu HTTP-başarılı dönse bile bazı satırları UYGULAMAMIŞ olabilir
                 // (skipped/errors). Eskiden watermark yine de ilerliyordu → o kayıtlar bir daha GÖNDERİLMİYORDU
@@ -178,6 +179,8 @@ public static class BusinessSyncPushService
             else
             {
                 LastPushFailed = true;
+                // ⭐ M-12: 426 = bu program sürümü artık desteklenmiyor → kayıtlar yerelde kalır (imleç ilerlemez); neden kullanıcıya.
+                SurumUyarisi = (int)durum == 426 ? SunucuHataMetni(bodyText) ?? "Bu program sürümü artık desteklenmiyor. Lütfen güncelleyin." : null;
                 LastFailure = SyncFailureClassifier.FromStatus(durum);   // SNK-03: 5xx/429 → backoff, 4xx → hayır
                 SyncLog.Write("PUSH reddedildi", $"HTTP {(int)durum} {durum}; gövde: {Truncate(bodyText, 500)}" +
                     (sayfalar.Count > 1 ? $" (sayfa {parcalar.Count + 1}/{sayfalar.Count})" : ""));
@@ -207,6 +210,19 @@ public static class BusinessSyncPushService
 
         /// <summary>Kalıcı olarak atlanan satır var mı (bilgilendirme; uyarı değil).</summary>
         public bool HasPermanentSkips => PermanentSkipped > 0;
+    }
+
+    /// <summary>⭐ M-12: sunucu bu program sürümünün veri göndermesini reddettiyse (426) kullanıcıya gösterilecek metin; yoksa null.</summary>
+    public static string? SurumUyarisi { get; private set; }
+
+    private static string? SunucuHataMetni(string govde)
+    {
+        try
+        {
+            using var d = System.Text.Json.JsonDocument.Parse(govde);
+            return d.RootElement.TryGetProperty("error", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String ? e.GetString() : null;
+        }
+        catch { return null; }
     }
 
     /// <summary>Son BAŞARILI push'un sunucu sonucu (upserted/skipped/errors). Ağ hatasında değişmez (bkz. LastPushFailed).</summary>

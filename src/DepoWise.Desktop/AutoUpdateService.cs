@@ -104,6 +104,63 @@ public static class AutoUpdateService
 
     public static void Snooze() => SnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes);
 
+    // ═══ M-12 (AR-GE 2026-10-18, K-17 a) — ZORUNLU GÜNCELLEME ══════════════════════════════════════
+    // Ertele en fazla 7 gün: sayaç, BU BİLGİSAYARDA ÇALIŞAN SÜRÜMÜN güncelleme varken ilk görüldüğü andan başlar
+    // ("<mevcut sürüm>|<UTC ms>"). Yayın sürümüne bağlansaydı 7 günden sık yayın sayacı her seferinde sıfırlardı.
+    // Program güncellenince mevcut sürüm değişir → sayaç kendiliğinden yenilenir. Kural: GuncellemePolitikasi.
+    public const string IlkGorulmeKey = "update_outdated_since";
+
+    /// <summary>En son yayın için karar (Yok / Serbest + kalan gün / Zorunlu + neden). Ağ çağrısı yapmaz.</summary>
+    public static DepoWise.Application.Update.GuncellemeDurumu Karar(string companyId, DepoWise.Application.Update.UpdatePackage? latest)
+    {
+        string mevcut;
+        try { mevcut = DesktopServices.Update.CurrentVersion(); } catch { return new(DepoWise.Application.Update.GuncellemeKarari.Yok, 0, null); }
+        var ilk = DepoWise.Application.Update.GuncellemePolitikasi.Karar(mevcut, latest, null, DateTimeOffset.UtcNow).Karar
+                  == DepoWise.Application.Update.GuncellemeKarari.Yok ? (DateTimeOffset?)null : EskiSurumBaslangici(companyId, mevcut);
+        return DepoWise.Application.Update.GuncellemePolitikasi.Karar(mevcut, latest, ilk, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>Sunucuya sorup karar verir (indirme yapmaz). Ulaşılamazsa Yok (giriş asla engellenmez).</summary>
+    public static async Task<DepoWise.Application.Update.GuncellemeDurumu> KararAsync(string companyId)
+    {
+        try
+        {
+            var url = ResolveServerUrl(companyId);
+            if (string.IsNullOrWhiteSpace(url)) return new(DepoWise.Application.Update.GuncellemeKarari.Yok, 0, null);
+            var latest = await DesktopServices.UpdateApi.GetLatestAsync(url!);
+            if (latest is null || string.IsNullOrWhiteSpace(latest.DownloadUrl)) return new(DepoWise.Application.Update.GuncellemeKarari.Yok, 0, null);
+            return Karar(companyId, latest);
+        }
+        catch { return new(DepoWise.Application.Update.GuncellemeKarari.Yok, 0, null); }
+    }
+
+    private static DateTimeOffset EskiSurumBaslangici(string companyId, string mevcut)
+    {
+        try
+        {
+            var v = DesktopServices.Settings.Get(companyId, IlkGorulmeKey);
+            var p = v?.Split('|');
+            if (p is { Length: 2 } && p[0] == mevcut && long.TryParse(p[1], out var ms))
+                return DateTimeOffset.FromUnixTimeMilliseconds(ms);
+            var simdi = DateTimeOffset.UtcNow;
+            DesktopServices.Settings.Set(companyId, IlkGorulmeKey, $"{mevcut}|{simdi.ToUnixTimeMilliseconds()}", DesktopServices.Session?.UserId ?? "");
+            return simdi;
+        }
+        catch { return DateTimeOffset.UtcNow; }
+    }
+
+    /// <summary>Ertelenebilir güncellemede mesaja eklenen kalan süre notu (zorunlu olmadan önce).</summary>
+    public static string ZorunlulukNotu(DepoWise.Application.Update.GuncellemeDurumu d)
+        => d.Karar == DepoWise.Application.Update.GuncellemeKarari.Serbest
+            ? $"\n\nBu güncelleme en fazla {DepoWise.Application.Update.GuncellemePolitikasi.AzamiErtelemeGun} gün ertelenebilir; " +
+              $"{d.KalanGun} gün sonra zorunlu olacak."
+            : "";
+
+    /// <summary>Zorunlu güncelleme penceresinin metni.</summary>
+    public static string ZorunluMetin(DepoWise.Application.Update.GuncellemeDurumu d, string surum, string? notlar)
+        => $"Zorunlu güncelleme: sürüm {surum}.\n\n{d.Neden}\n\nUygulama güncellenip yeniden başlatılacak; veritabanınıza dokunulmaz " +
+           "(güncellemeden önce otomatik yedek alınır)." + NotBolumu(notlar);
+
     /// <summary>Güncelleme var mı bakar; varsa indirir ve <see cref="PendingBytes"/>'i doldurur (true döner).
     /// Zaten indirilmiş ve sürüm aynıysa yeniden indirmez. Güncelleme yoksa bekleyeni temizler (false).
     /// Hata olursa mevcut bekleyen durumu korur ve girişi ASLA engellemez (sessiz).</summary>

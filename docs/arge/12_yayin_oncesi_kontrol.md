@@ -27,5 +27,9 @@
   Yayın günü: rastgele ≥32 karakter üret (ekrana yazma) → `flyctl secrets set DEPOWISE_ISTEMCI_IP_ANAHTARI=… -a depowise-erp`
   ve aynısı `-a depowise-web` (makineler yeniden başlar; API önce). Doğrulama: web'den iki farklı ağdan giriş; birinde 30 hatalı
   deneme yapılınca diğeri girmeye devam eder. Anahtar ayrıca özel hafıza deposuna (`claude-ortak-hafiza/anahtarlar`) yazılır.
+- [ ] **M-12 (zorunlu güncelleme):** AR-GE masaüstü sürümü yayınlanınca (yeni senkron protokolü) `publish_release.mjs` ile
+  **en düşük desteklenen sürüm = o sürüm** verilirse eski masaüstleri hemen zorunlu güncellemeye girer ve 426 ile veri yazamaz
+  (çekme serbest). Karar: bilinçli olarak yükseltilsin mi (önerilen: evet, senkron protokolü değiştiği için) — kullanıcıya sor.
+  Sonraki rutin yayınlarda en düşük sürüm DEĞİŞTİRİLMEZ (7 günlük erteleme yeter).
 - [ ] **M-10 (oturum dönemi):** Migration104 yalnız ekleme (`users.token_epoch`, 0). Yayından önce alınmış jetonlar geçerli kalır;
   yayından sonra şifre değişen/sıfırlanan kullanıcının açık oturumları düşer (beklenen).

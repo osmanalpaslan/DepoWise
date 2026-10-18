@@ -147,6 +147,33 @@ public sealed class BackupService
         return true;
     }
 
+    /// <summary>
+    /// ⭐ M-19 / M-83 (AR-GE 2026-10-18): mevcut veritabanının ADLANDIRILMIŞ, doğrulanmış kopyası
+    /// (<c>depowise_yedek_&lt;tarih&gt;_&lt;etiket&gt;.db</c>; yedek listesinde görünür, 30 gün saklanır). Geri yüklemeden ve
+    /// masaüstünde veritabanı güncellemesinden (migration) önce alınır. Doğrulanamazsa dosya silinir ve hata atılır.
+    /// </summary>
+    public string EtiketliYedek(string etiket)
+    {
+        using (var on = _factory.Create()) SqliteGerekir(on, "yedeği");
+        var yol = Path.Combine(_folder, $"depowise_yedek_{_clock.UtcNow:yyyy-MM-dd_HHmmss}_{etiket}.db");
+        try
+        {
+            if (File.Exists(yol)) File.Delete(yol);
+            using var conn = _factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "VACUUM INTO @p;";
+            cmd.AddWithValue("@p", yol);
+            cmd.ExecuteNonQuery();
+        }
+        catch { TryDelete(yol); throw; }
+        if (!YedekGecerliMi(yol, out var hata))
+        {
+            TryDelete(yol);
+            throw new InvalidOperationException("kopya doğrulanamadı: " + hata);
+        }
+        return yol;
+    }
+
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { /* silinemezse de hata atılıyor */ }
@@ -170,25 +197,11 @@ public sealed class BackupService
             throw new InvalidOperationException("Yedek geri yüklenemez: " + gecersiz);
 
         // ⭐ M-19: güvenlik kopyası. Alınamazsa geri yükleme YAPILMAZ (mevcut veri tek kopya kalmasın).
-        var oncesi = Path.Combine(_folder, $"depowise_yedek_{_clock.UtcNow:yyyy-MM-dd_HHmmss}_geri_yukleme_oncesi.db");
-        try
-        {
-            if (File.Exists(oncesi)) File.Delete(oncesi);
-            using var conn = _factory.Create();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "VACUUM INTO @p;";
-            cmd.AddWithValue("@p", oncesi);
-            cmd.ExecuteNonQuery();
-        }
+        string oncesi;
+        try { oncesi = EtiketliYedek("geri_yukleme_oncesi"); }
         catch (Exception ex)
         {
-            TryDelete(oncesi);
             throw new InvalidOperationException("Geri yükleme yapılmadı: mevcut verinin güvenlik kopyası alınamadı. Ayrıntı: " + ex.Message, ex);
-        }
-        if (!YedekGecerliMi(oncesi, out var kopyaHatasi))
-        {
-            TryDelete(oncesi);
-            throw new InvalidOperationException("Geri yükleme yapılmadı: mevcut verinin güvenlik kopyası doğrulanamadı: " + kopyaHatasi);
         }
 
         var target = _factory.DatabasePath;

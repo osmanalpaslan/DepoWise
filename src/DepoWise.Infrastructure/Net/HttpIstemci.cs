@@ -21,5 +21,15 @@ public static class HttpIstemci
         PooledConnectionLifetime = TimeSpan.FromMinutes(10),
     };
 
-    public static HttpClient Yeni(TimeSpan zamanAsimi) => new(Isleyici()) { Timeout = zamanAsimi };
+    /// <summary>⭐ M-12 (AR-GE 2026-10-18): masaüstü açılışta kendi program sürümünü yazar; bundan sonra oluşturulan her istemci
+    /// isteğe sürüm başlığını ekler → sunucu desteklenmeyen sürümün veri yazmasını durdurabilir. Null → başlık yok.</summary>
+    public static string? UygulamaSurumu { get; set; }
+
+    public static HttpClient Yeni(TimeSpan zamanAsimi)
+    {
+        var c = new HttpClient(Isleyici()) { Timeout = zamanAsimi };
+        if (!string.IsNullOrWhiteSpace(UygulamaSurumu))
+            c.DefaultRequestHeaders.TryAddWithoutValidation(DepoWise.Application.Update.GuncellemePolitikasi.SurumBasligi, UygulamaSurumu);
+        return c;
+    }
 }
