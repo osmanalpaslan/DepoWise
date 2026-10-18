@@ -44,8 +44,11 @@
 ## 4. Test
 - **Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 [-Filter "..."] [-Bekle] [-PostgresAtla]`.
   Tam takım ~4.000 test / ~60 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
-- Test tipine Claude karar verir, gerekçe tek satır. **Düzen (kullanıcı kararı 2026-10-17):** adımda hedefli testler + riskli alan paketi
-  (senkron/migration/kopyalayıcı/PG/kaynak-metin); TAM takım yalnız faz sonunda, geniş arayüz işinde ve yayın öncesi (zorunlu). Flaky testi tekrarla gizleme.
+- Test tipine Claude karar verir, gerekçe tek satır. **Nihai düzen (kullanıcı onayı 2026-10-18; genel kural `~/.claude/CLAUDE.md`
+  "TEST DÜZENİ", ayrıntı `.claude/rules/testing.md`):** her işte hedefli testler + kritik alanda mutasyon + riskli alan paketi
+  (senkron/migration/kopyalayıcı/PG/kaynak-metin), her iş ayrı commit. TAM takım **iki fazda bir** (AR-GE: B3 sonu · B5+B6 · B7+B8 ·
+  B9+Z), geniş arayüz/ortak altyapı işinde ve **yayın öncesi (zorunlu, atlanmaz)**. Tam koşu sırasında başka test/derleme yok.
+  Yavaş test kontrolü gevşetmeden hızlandırılır; flaky testi tekrarla gizleme.
 - **Süre bildirimi + süreyi aşan koşu kontrolü (kullanıcı kuralı 2026-10-17):** her koşuda ortalama süre ve tahmini bitiş saati
   söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~60 dk, senkron paketi ~22 dk…). Ortalamanın ~1,3 katı/+10 dk
   aşılırsa sormadan durum kontrol edilir ve bildirilir. `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
