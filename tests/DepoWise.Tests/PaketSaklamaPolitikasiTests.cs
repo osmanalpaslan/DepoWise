@@ -30,16 +30,21 @@ public class PaketSaklamaPolitikasiTests : IDisposable
         _depo = new ReleaseStore(_kok);
     }
 
+    private int _sira;
+
     private async Task Yayinla(string surum)
     {
         using var ms = new MemoryStream(Encoding.UTF8.GetBytes("paket-" + surum));
-        await _depo.SaveAsync(surum, ms, CancellationToken.None);
-        // ⚠️ Windows sistem saatinin varsayılan adımı ~15,6 ms'dir. 15 ms beklemek bazen saati HİÇ
-        // ilerletmez → iki paket AYNI `LastWriteTimeUtc` alır ve "en yeni" sıralaması belirsizleşir
-        // (kırılgan test). 40 ms bir saat adımının güvenle üstündedir. Kırılganlık retry ile
-        // gizlenmedi; kök neden (zaman damgası çözünürlüğü) kurguda kapatıldı.
-        await Task.Delay(40);
+        var yol = await _depo.SaveAsync(surum, ms, CancellationToken.None);
+        // ⚠️ "En yeni" = en son yazılan (LastWriteTimeUtc). Eskiden iki yayın arasında 40 ms GERÇEK bekleme vardı (Windows saat
+        // adımı ~15,6 ms → aynı damga riski); tam koşuda iş parçacığı havuzu doluyken bu bekleme dakikalara uzuyordu
+        // (PKT3 ≈ 20 dk, AR-GE 2026-10-18). Artık beklenmez: SaveAsync içindeki temizlik yeni dosyayı "şimdi" damgasıyla görür
+        // (öncekilerin hepsinden yeni), ardından dosyaya geçmişte, KESİN ARTAN bir damga verilir → sonraki yayında da sıra
+        // birebir "yayın sırası"dır. Doğrulanan kural (en yeni KeepCount kalır) değişmedi; saat çözünürlüğü kırılganlığı da kalktı.
+        File.SetLastWriteTimeUtc(yol, Taban.AddSeconds(++_sira));
     }
+
+    private static readonly DateTime Taban = DateTime.UtcNow.AddDays(-1);
 
     private string[] Paketler() => Directory.GetFiles(_kok, "DepoWise-*.pkg")
         .Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal).ToArray()!;
