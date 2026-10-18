@@ -532,8 +532,36 @@ else
         _saving = true;
         try
         {
-            var body = new
+            // ⭐ M-24 (K-09 a) + M-51 (K-13 a): kayıt ÖNCESİ kontrol — çift stok riski ve para işlemi onayı. Metinler masaüstüyle
+            // AYNI servisten (API) gelir. Öneri kabul edilirse fatura stoğu etkilemeden kaydedilir (cari etkisi yine oluşur).
+            var (kontrolHata, kontrol) = await Api.PostJsonWithErrorAsync("/api/invoices/check", Govde(_fAffectsStock));
+            if (kontrolHata is not null || kontrol is null) { _formError = kontrolHata ?? "Kayıt öncesi kontrol yapılamadı."; return; }
+            var k = kontrol.Value;
+            var stokEtkiler = _fAffectsStock;
+            if (k.TryGetProperty("ciftStokMetni", out var cs) && cs.ValueKind == JsonValueKind.String)
             {
+                if (await Dialog.Confirm(cs.GetString()!, "Stoğu Etkilemeden Kaydet", "Diğer Seçenek", danger: true))
+                { stokEtkiler = false; _fAffectsStock = false; }
+                else if (!await Dialog.Confirm(Str(k, "zorlaMetni"), "Evet, Stoğa Girsin", "Vazgeç", danger: true))
+                    return;
+            }
+            else if (!await Dialog.Confirm(Str(k, "onayMetni"), "Kaydet", "Vazgeç"))
+                return;
+
+            var err = await Api.PostAsync("/api/invoices", Govde(stokEtkiler));
+            if (err is not null) { _formError = err; return; }
+
+            _formOpen = false;
+            _ok = true; _msg = "Fatura kaydedildi.";
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    /// <summary>Fatura gövdesi (kontrol ve kayıt AYNI gövdeyi gönderir; yalnız "stoğu etkilesin" farklı olabilir).</summary>
+    private object Govde(bool affectsStock) => new
+    {
                 direction = _fDirection,
                 partyId = _fPartyId,
                 operationId = _operationId,
@@ -544,7 +572,7 @@ else
                 dueDate = Ms(_fDueDate),
                 currency = "TRY",
                 note = string.IsNullOrWhiteSpace(_fNote) ? null : _fNote,
-                affectsStock = _fAffectsStock,
+                affectsStock = affectsStock,
                 lines = _fLines.Select(l => new
                 {
                     materialId = l.MaterialId,
@@ -556,18 +584,7 @@ else
                     vatRate = l.VatRate,
                     withholdingRate = l.WithholdingRate,
                 }).ToArray(),
-            };
-
-            var err = await Api.PostAsync("/api/invoices", body);
-            if (err is not null) { _formError = err; return; }
-
-            _formOpen = false;
-            _ok = true; _msg = "Fatura kaydedildi.";
-            await Load();
-        }
-        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
-        finally { _saving = false; }
-    }
+    };
 
     // ── İPTAL (SİLME DEĞİL) ───────────────────────────────────────────────────────
 

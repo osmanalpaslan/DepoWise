@@ -341,12 +341,38 @@ public sealed partial class InvoicesViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(FPartyId)) { FormError = "Cari seçin."; return; }
         if (FormLines.Count == 0) { FormError = "En az bir satır ekleyin."; return; }
 
-        Busy = true; FormError = null;
+        FormError = null;
+        // ⭐ M-24 (K-09 a): alış faturası stoğu etkileyecekse çift stok riski kontrol edilir; ⭐ M-51 (K-13 a): para işlemi onayı.
+        // Metinler servisten gelir — web aynı metni API'den alır (iki platform aynı cümle).
+        var satirlar = FormLines.Select(x => x.ToDto()).ToList();
+        var stokEtkiler = FAffectsStock;
+        try
+        {
+            var uyarilar = stokEtkiler
+                ? DesktopServices.Invoices.CiftStokUyarilari(_session, FDirection, FPartyId!, FExternalNo,
+                    satirlar.Where(l => !string.IsNullOrWhiteSpace(l.MaterialId)).Select(l => l.MaterialId!).ToList(),
+                    IsGunuTarihi.Ms(FInvoiceDate))
+                : System.Array.Empty<string>();
+            if (uyarilar.Count > 0)
+            {
+                if (await ConfirmService.AskAsync(InvoiceService.CiftStokMetni(uyarilar), "Çift Stok Riski",
+                        "Stoğu Etkilemeden Kaydet", "Diğer Seçenek", danger: true))
+                { stokEtkiler = false; FAffectsStock = false; }
+                else if (!await ConfirmService.AskAsync(InvoiceService.CiftStokZorlaMetni, "Çift Stok Riski",
+                             "Evet, Stoğa Girsin", "Vazgeç", danger: true))
+                    return;
+            }
+            else if (!await ConfirmService.AskAsync(InvoiceService.KayitOnayMetni(FDirection, satirlar, "TRY"), "Fatura Kaydı", "Kaydet", "Vazgeç"))
+                return;
+        }
+        catch (Exception ex) { FormError = ex.Message; return; }
+
+        Busy = true;
         try
         {
             var dto = new NewInvoice(
                 FDirection, FPartyId!,
-                FormLines.Select(x => x.ToDto()).ToList(),
+                satirlar,
                 _operationId,
                 SeriesId: null,
                 ExternalNo: string.IsNullOrWhiteSpace(FExternalNo) ? null : FExternalNo,
@@ -355,7 +381,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase
                 DueDate: IsGunuTarihi.Ms(FDueDate),           // ADR-184
                 Currency: "TRY",
                 Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote,
-                AffectsStock: FAffectsStock);
+                AffectsStock: stokEtkiler);
 
             var r = DesktopServices.Invoices.Create(_session, dto);
             Status = r.AlreadyExisted

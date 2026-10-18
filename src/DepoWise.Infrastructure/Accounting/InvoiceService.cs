@@ -249,6 +249,91 @@ public sealed class InvoiceService
     }
 
     /// <summary>
+    /// ⭐ M-24 (AR-GE 2026-10-18, 05 F-045, kullanıcı kararı K-09 a) — ÇİFT STOK GİRİŞİ UYARISI.
+    ///
+    /// Alış faturası "stoğu etkilesin" açıkken mal stoğa İKİNCİ kez girebilir: aynı mal önce siparişle mal kabul ya da stok
+    /// girişiyle girdiyse fatura stoğu yeniden artırır (stok fazla görünür). Bu kontrol kayıttan ÖNCE çağrılır ve uyarı
+    /// metinleri döndürür (boş liste = risk görülmedi). Kayıt engellenmez; ekran kullanıcıya "stoğu etkilemeden kaydet" önerir.
+    /// • Aynı tedarikçi fatura numarasıyla (dış no) daha önce yapılmış, iptal edilmemiş stok girişi.
+    /// • Cari, Tanımlar'daki tedarikçiye bağlıysa (<c>parties.supplier_id</c>): son 60 günde aynı malzemeler için o
+    ///   tedarikçiden SİPARİŞLE mal kabul (K-09: siparişe bağlı malda stok mal kabulle girer).
+    /// </summary>
+    public IReadOnlyList<string> CiftStokUyarilari(SessionContext s, string direction, string partyId, string? externalNo,
+        IReadOnlyCollection<string> materialIds, long? invoiceDate = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        var uyarilar = new List<string>();
+        if (direction != InvoiceDirections.Purchase) return uyarilar;
+        using var conn = _factory.Create();
+
+        var dis = externalNo?.Trim();
+        if (!string.IsNullOrEmpty(dis))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT doc_no, doc_date FROM stock_documents WHERE company_id=@c AND doc_type='in' AND is_deleted=0 " +
+                              "AND COALESCE(status,'active')<>'cancelled' AND LOWER(TRIM(invoice_no))=LOWER(@no) ORDER BY doc_date DESC LIMIT 3;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@no", dis);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                uyarilar.Add($"Bu fatura numarasıyla ({dis}) {Tarih(r.GetInt64(1))} tarihinde stok girişi yapılmış (belge {r.GetString(0)}).");
+        }
+
+        var mats = materialIds.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.Ordinal).Take(200).ToList();
+        if (mats.Count > 0 && DbIntrospect.TableExists(conn, null, "purchase_orders")
+            && DbIntrospect.ColumnExists(conn, null, "parties", "supplier_id"))
+        {
+            string? tedarikci;
+            using (var p = conn.CreateCommand())
+            {
+                p.CommandText = "SELECT supplier_id FROM parties WHERE id=@p AND company_id=@c;";
+                p.AddWithValue("@p", partyId);
+                p.AddWithValue("@c", s.CompanyId);
+                tedarikci = p.ExecuteScalar() as string;
+            }
+            if (!string.IsNullOrWhiteSpace(tedarikci))
+            {
+                var simdi = invoiceDate ?? _clock.UtcNow.ToUnixTimeMilliseconds();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    "SELECT po.order_no, MAX(l.updated_at) FROM purchase_order_lines l JOIN purchase_orders po ON po.id = l.order_id " +
+                    "WHERE po.company_id=@c AND po.supplier_id=@sup AND po.is_deleted=0 AND po.status<>'cancelled' AND l.is_deleted=0 " +
+                    "AND CAST(l.received_qty AS REAL) > 0 AND l.updated_at >= @since AND l.material_id IN (" +
+                    string.Join(",", mats.Select((_, i) => "@m" + i)) + ") GROUP BY po.order_no ORDER BY 2 DESC LIMIT 5;";
+                cmd.AddWithValue("@c", s.CompanyId);
+                cmd.AddWithValue("@sup", tedarikci);
+                cmd.AddWithValue("@since", simdi - 60L * 24 * 3600 * 1000);
+                for (int i = 0; i < mats.Count; i++) cmd.AddWithValue("@m" + i, mats[i]);
+                using var r = cmd.ExecuteReader();
+                var siparisler = new List<string>();
+                while (r.Read()) siparisler.Add(r.GetString(0));
+                if (siparisler.Count > 0)
+                    uyarilar.Add($"Bu tedarikçiden aynı malzemeler için siparişle mal kabul yapılmış (sipariş {string.Join(", ", siparisler)}). " +
+                                 "Mal stoğa mal kabulle girdiyse fatura stoğu ikinci kez artırır.");
+            }
+        }
+        return uyarilar;
+    }
+
+    private static string Tarih(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime().ToString("dd.MM.yyyy");
+
+    // ═══ M-24 / M-51 — KAYIT ONAY METİNLERİ (iki platform AYNI metni gösterir; web bunları API'den alır) ═══
+
+    /// <summary>⭐ M-51 (K-13 a): para işleminde kayıt öncesi onay metni.</summary>
+    public static string KayitOnayMetni(string direction, IReadOnlyList<NewInvoiceLine> lines, string currency)
+        => $"{InvoiceDirections.Label(direction)} faturası kaydedilsin mi?\n\nGenel toplam: " +
+           $"{Totals(lines).GrandTotal.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} {currency}";
+
+    /// <summary>⭐ M-24: çift stok riski metni (önerilen: stoğu etkilemeden kaydet).</summary>
+    public static string CiftStokMetni(IReadOnlyList<string> uyarilar)
+        => "⚠️ Bu mal stoğa İKİNCİ kez girebilir:\n" + string.Join("\n", uyarilar.Select(u => "• " + u)) +
+           "\n\nÖnerilen: faturayı STOĞU ETKİLEMEDEN kaydedin (cari etkisi yine oluşur).";
+
+    /// <summary>⭐ M-24: kullanıcı öneriyi kabul etmezse ikinci, açık onay.</summary>
+    public const string CiftStokZorlaMetni =
+        "Fatura STOĞA GİRİLEREK mi kaydedilsin? Mal stoğa iki kez girebilir ve stok fazla görünür.";
+
+    /// <summary>
     /// İPTAL — faturayı SİLMEZ. Ters stok belgesi + ters cari hareketi üretir, başlığı
     /// <c>cancelled</c> işaretler. İkinci kez çağrılırsa hata verir (çift iptal yok).
     /// </summary>

@@ -419,7 +419,7 @@ else
                 .Select(x => new { invoiceId = x.Id, amount = x.Amount })
                 .ToArray();
 
-            var err = await Api.PostAsync("/api/finance/entries", new
+            var govde = new
             {
                 accountId = _fAccountId,
                 txnType = _fType,
@@ -433,7 +433,14 @@ else
                 referenceNo = Nz(_fReferenceNo),
                 currency = "TRY",
                 allocations,
-            });
+            };
+            // ⭐ M-51 (K-13 a): para işlemi onayı — metin masaüstüyle aynı servisten (API) gelir.
+            var (kontrolHata, kontrol) = await Api.PostJsonWithErrorAsync("/api/finance/entries/check", govde);
+            if (kontrolHata is not null || kontrol is null) { _formError = kontrolHata ?? "Kayıt öncesi kontrol yapılamadı."; return; }
+            var onayMetni = kontrol.Value.TryGetProperty("onayMetni", out var om) ? om.GetString() ?? "" : "";
+            if (!await Dialog.Confirm(onayMetni, "Kaydet", "Vazgeç")) return;
+
+            var err = await Api.PostAsync("/api/finance/entries", govde);
             if (err is not null) { _formError = err; return; }
 
             _formOpen = false;

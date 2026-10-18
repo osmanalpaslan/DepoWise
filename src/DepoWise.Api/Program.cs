@@ -2931,6 +2931,28 @@ app.MapPost("/api/invoices", (HttpContext c, InvoiceDto d) =>
                             ledgerEntryId = r.LedgerEntryId, alreadyExisted = r.AlreadyExisted });
 }).RequireAuthorization();
 
+// ⭐ M-24 + M-51 (AR-GE 2026-10-18, K-09 a / K-13 a): kayıt ÖNCESİ kontrol — hiçbir şey yazmaz. Çift stok uyarıları ve
+// onay metinleri masaüstüyle AYNI servisten gelir (iki platform aynı cümleyi gösterir).
+app.MapPost("/api/invoices/check", (HttpContext c, InvoiceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var lines = (d.Lines ?? Array.Empty<InvoiceLineDto>())
+        .Select(l => new NewInvoiceLine(l.MaterialId, l.Description, l.Unit, l.Quantity, l.UnitPrice,
+            l.DiscountRate, l.VatRate, l.WithholdingRate))
+        .ToList();
+    var uyarilar = (d.AffectsStock ?? true)
+        ? svc.Invoices.CiftStokUyarilari(s, d.Direction, d.PartyId, d.ExternalNo,
+            lines.Where(l => !string.IsNullOrWhiteSpace(l.MaterialId)).Select(l => l.MaterialId!).ToList(), d.InvoiceDate)
+        : Array.Empty<string>();
+    return Results.Ok(new
+    {
+        uyarilar,
+        onayMetni = DepoWise.Infrastructure.Accounting.InvoiceService.KayitOnayMetni(d.Direction, lines, d.Currency ?? "TRY"),
+        ciftStokMetni = uyarilar.Count > 0 ? DepoWise.Infrastructure.Accounting.InvoiceService.CiftStokMetni(uyarilar) : null,
+        zorlaMetni = DepoWise.Infrastructure.Accounting.InvoiceService.CiftStokZorlaMetni,
+    });
+}).RequireAuthorization();
+
 // Yalnız BİLGİ alanları — tutar/satır değişmez (değişmesi gerekiyorsa: iptal + yeni fatura).
 app.MapPut("/api/invoices/{id}", (HttpContext c, string id, InvoiceInfoDto d) =>
 {

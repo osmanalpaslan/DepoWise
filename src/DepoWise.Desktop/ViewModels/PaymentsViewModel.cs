@@ -292,14 +292,18 @@ public sealed partial class PaymentsViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(FPartyId)) { FormError = "Cari seçin."; return; }
         if (FAmount <= 0) { FormError = "Tutar sıfırdan büyük olmalıdır."; return; }
 
+        var allocations = OpenInvoices
+            .Where(x => x.Selected && x.Amount > 0)
+            .Select(x => new InvoiceAllocationInput(x.Row.Id, x.Amount))
+            .ToList();
+        // ⭐ M-51 (K-13 a): para işlemi onayı — metin ortak servisten (web aynı metni API'den alır).
+        if (!await ConfirmService.AskAsync(FinanceTxnTypes.KayitOnayMetni(FType, FAmount, "TRY", allocations.Count),
+                FinanceTxnTypes.Label(FType), "Kaydet", "Vazgeç"))
+            return;
+
         Saving = true;
         try
         {
-            var allocations = OpenInvoices
-                .Where(x => x.Selected && x.Amount > 0)
-                .Select(x => new InvoiceAllocationInput(x.Row.Id, x.Amount))
-                .ToList();
-
             var r = DesktopServices.Finance.Add(_session, new NewFinanceEntry(
                 FAccountId!, FType, FAmount, _operationId,
                 PartyId: FPartyId,

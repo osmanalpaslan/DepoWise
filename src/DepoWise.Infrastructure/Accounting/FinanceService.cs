@@ -30,6 +30,11 @@ public static class FinanceAccountKinds
 /// </summary>
 public static class FinanceTxnTypes
 {
+    /// <summary>⭐ M-51 (AR-GE 2026-10-18, K-13 a): para işleminde kayıt öncesi onay metni (masaüstü doğrudan, web API'den alır).</summary>
+    public static string KayitOnayMetni(string type, decimal amount, string currency, int kapatilanFatura)
+        => $"{Label(type)} kaydedilsin mi?\n\nTutar: {amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} {currency}" +
+           (kapatilanFatura > 0 ? $"\n{kapatilanFatura} fatura bu işlemle kapatılacak." : "");
+
     /// <summary>TAHSİLAT — müşteriden para ALINDI: hesap +, cari alacağı AZALIR.</summary>
     public const string Receipt = Migration068_Finance.TxnReceipt;
 
