@@ -38,6 +38,11 @@
 - **M-10 önbellek:** dönem 30 sn önbellekte tutulur; aynı süreçte değişim anında görülür. API birden fazla makineye çıkarsa
   diğer makinede eski jeton en çok 30 sn daha geçerli kalabilir (bugün tek makine).
 
+## Performans (M-22)
+- Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
+  sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri
+  için eşdeğerlik testi (MGH deseni) şart. Ada göre sıralama ve `%…%` arama indekssiz (SQLite FTS5 / PG pg_trgm orta vadede).
+
 ## Excel içe aktarma (M-14)
 - **Açılış stoğu girilmiş malzeme geri alınamaz** (stok defteri değişmez, MLZ-01): geri almada "bırakıldı" olarak listelenir;
   stok düzeltmesiyle sıfırlanıp elle silinmeli. Otomatik oluşan tanımlar (birim, marka, kategori, bakım tanımı) da bırakılır.

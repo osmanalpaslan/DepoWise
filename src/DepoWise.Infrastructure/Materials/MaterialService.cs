@@ -840,6 +840,16 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         using var conn = _factory.Create();
         var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly, fiyatGorunur);
 
+        // ⭐ M-22 / F-178 (AR-GE 2026-10-18) — HIZLI YOL. Filtre/sıralama yalnız malzeme kartının KENDİ kolonlarındaysa sayım ve
+        // sayfa kimlikleri doğrudan materials tablosundan (indeksle) alınır; stok toplamı, tanım adları, uyumlu araç/muadil gibi
+        // türetilmiş kolonlar YALNIZ o sayfanın satırları için hesaplanır. Eskiden her sayfa tüm firmanın türetilmiş kümesini
+        // (tüm stock_balances gruplaması dahil) iki kez üretiyordu. Sonuç birebir aynıdır (MaterialGridHizTests: her sayfa
+        // değişmemiş tam liste yolunun aynı dilimiyle karşılaştırılır).
+        if (!tumu && !criticalOnly && HizliYolIfadesi(whereSql, orderSql) is { } hizli)
+            return HizliSayfa(conn, s, hizli.Where, hizli.Order, orderSql, ps, page, pageSize, fiyatGorunur);
+        if (!tumu)
+            return GenelSayfa(conn, s, inner, whereSql, orderSql, ps, page, pageSize, fiyatGorunur);
+
         int total = 0;
         if (!tumu)
         using (var cnt = conn.CreateCommand())
@@ -872,6 +882,113 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         }
         if (tumu) return new GridResult<MaterialGridRow>(items, items.Count, 1, Math.Max(1, items.Count));
         return new GridResult<MaterialGridRow>(items, total, page, pageSize);
+    }
+
+    /// <summary>M-22: hızlı yolda kart kolonu takma adı → materials ifadesi (iç sorgudaki tanımın AYNISI).</summary>
+    private static readonly (System.Text.RegularExpressions.Regex Re, string Ifade)[] KartKolonlari =
+    {
+        (new(@"\bt\.code\b"), "m.code"),
+        (new(@"\bt\.name\b"), "m.name"),
+        (new(@"\bt\.type\b"), "COALESCE(m.type,'')"),
+        (new(@"\bt\.currency\b"), "m.currency_code"),
+        (new(@"\bt\.description\b"), "COALESCE(m.description,'')"),
+    };
+
+    /// <summary>WHERE/ORDER yalnız kart kolonlarını kullanıyorsa materials'a çevrilmiş hâllerini, değilse null döndürür.</summary>
+    private static (string Where, string Order)? HizliYolIfadesi(string whereSql, string orderSql)
+    {
+        string Cevir(string sql)
+        {
+            foreach (var (re, ifade) in KartKolonlari) sql = re.Replace(sql, ifade);
+            return sql;
+        }
+        var w = Cevir(whereSql); var o = Cevir(orderSql);
+        // Çeviriden sonra hâlâ "t." kalıyorsa türetilmiş bir kolon kullanılıyor (stok, durum, kategori…) → eski yol.
+        if (System.Text.RegularExpressions.Regex.IsMatch(w + " " + o, @"\bt\.")) return null;
+        return (w.Length == 0 ? "" : "AND " + w.Substring("WHERE ".Length), o);
+    }
+
+    private GridResult<MaterialGridRow> HizliSayfa(System.Data.Common.DbConnection conn, SessionContext s, string kartWhere, string kartOrder,
+        string orderSql, List<(string Name, object Value)> ps, int page, int pageSize, bool fiyatGorunur)
+    {
+        const string Kapsam = "FROM materials m WHERE m.company_id = @c AND m.is_deleted = 0 ";
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = $"SELECT COUNT(*) {Kapsam}{kartWhere};";
+            cnt.AddWithValue("@c", s.CompanyId);
+            GridQuery.AddParams(cnt, ps);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+        var kimlikler = new List<string>();
+        using (var idc = conn.CreateCommand())
+        {
+            idc.CommandText = $"SELECT m.id {Kapsam}{kartWhere} {kartOrder}LIMIT @lim OFFSET @off;";
+            idc.AddWithValue("@c", s.CompanyId);
+            GridQuery.AddParams(idc, ps);
+            idc.AddWithValue("@lim", pageSize);
+            idc.AddWithValue("@off", (page - 1) * pageSize);
+            using var r = idc.ExecuteReader();
+            while (r.Read()) kimlikler.Add(r.GetString(0));
+        }
+        return new GridResult<MaterialGridRow>(SayfaSatirlari(conn, s, kimlikler, orderSql, ps, fiyatGorunur), total, page, pageSize);
+    }
+
+    /// <summary>M-22: türetilmiş kolonlu (stok/durum/kategori…) filtre veya "yalnız kritik" — sayım ve sayfa kimlikleri TEK
+    /// geçişte (<c>COUNT(*) OVER ()</c>), türetilmiş kolonların tamamı yalnız sayfa satırları için hesaplanır.</summary>
+    private GridResult<MaterialGridRow> GenelSayfa(System.Data.Common.DbConnection conn, SessionContext s, string inner, string whereSql,
+        string orderSql, List<(string Name, object Value)> ps, int page, int pageSize, bool fiyatGorunur)
+    {
+        var kimlikler = new List<string>();
+        int total = -1;
+        using (var idc = conn.CreateCommand())
+        {
+            idc.CommandText = $"SELECT t.id, COUNT(*) OVER () FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            idc.AddWithValue("@c", s.CompanyId);
+            GridQuery.AddParams(idc, ps);
+            idc.AddWithValue("@lim", pageSize);
+            idc.AddWithValue("@off", (page - 1) * pageSize);
+            using var r = idc.ExecuteReader();
+            while (r.Read()) { kimlikler.Add(r.GetString(0)); total = Convert.ToInt32(r.GetValue(1)); }
+        }
+        if (total < 0)   // sayfa boş (son sayfadan ileri ya da sonuç yok) → sayım ayrıca
+            using (var cnt = conn.CreateCommand())
+            {
+                cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
+                cnt.AddWithValue("@c", s.CompanyId);
+                GridQuery.AddParams(cnt, ps);
+                total = Convert.ToInt32(cnt.ExecuteScalar());
+            }
+        return new GridResult<MaterialGridRow>(SayfaSatirlari(conn, s, kimlikler, orderSql, ps, fiyatGorunur), total, page, pageSize);
+    }
+
+    /// <summary>M-22: verilen sayfa kimliklerinin TAM satırları (iç sorgunun aynısı; stok toplamı yalnız bu malzemeler için).</summary>
+    private static List<MaterialGridRow> SayfaSatirlari(System.Data.Common.DbConnection conn, SessionContext s, List<string> kimlikler,
+        string orderSql, List<(string Name, object Value)> ps, bool fiyatGorunur)
+    {
+        var items = new List<MaterialGridRow>();
+        if (kimlikler.Count > 0)
+        {
+            var adlar = string.Join(",", kimlikler.Select((_, i) => "@hk" + i));
+            // Stok toplamı da YALNIZ bu sayfanın malzemeleri için gruplanır (tablonun tamamı değil).
+            var sayfaIci = GridInnerSql.Replace(SqlDialect.StockTotalsToken,
+                SqlDialect.StockTotalSubquery(conn, $" AND company_id = @c AND material_id IN ({adlar})"), StringComparison.Ordinal);
+            sayfaIci = SqlDialect.PortableSql(conn, sayfaIci) + $" AND m.id IN ({adlar})";
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT * FROM ({sayfaIci}) t {orderSql};";
+            cmd.AddWithValue("@c", s.CompanyId);
+            GridQuery.AddParams(cmd, ps);   // sıralamadaki "başlangıca göre" parametreleri
+            for (int i = 0; i < kimlikler.Count; i++) cmd.AddWithValue("@hk" + i, kimlikler[i]);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                items.Add(new MaterialGridRow(
+                    r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                    r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
+                    fiyatGorunur ? Money.Parse(r.GetString(8)) : 0m, r.GetString(10),
+                    Money.Parse(r.GetString(11)), Money.Parse(r.GetString(13)),
+                    r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
+        }
+        return items;
     }
 
     /// <summary>
