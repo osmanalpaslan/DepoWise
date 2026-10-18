@@ -285,10 +285,11 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
         Assert.ThrowsAny<InvalidOperationException>(() => req.Reject(_a, reqId, "geç kalan ret")); // onay sonrası ret REDDEDİLİR
     }
 
-    /// <summary>⭐ SNK-05/OFFLINE (KARAR: a — ADR-179): çevrimdışı çakışmada senkron LWW'dir — daha YENİ
-    /// updated_at kazanır, daha eski gelen değişiklik uygulanmaz (kaybeden, mevcut data_conflicts
-    /// mekanizmasına düşer). Bu MEVCUT sözleşmedir; "offline ilk-onay-kazanır"a çevrilmesi bilinçli olarak
-    /// YAPILMADI (senkron protokolü değişikliği ister — kullanıcı kararı). SNK-13'e dokunulmadı.</summary>
+    /// <summary>⭐ SNK-05/OFFLINE — SÖZLEŞME DEĞİŞTİ (AR-GE 2026-10-17, kullanıcı kararı K-04 a / M-18): eskiden çevrimdışı
+    /// çakışmada LWW geçerliydi (daha YENİ ret, önceki onayı eziyordu — ADR-179). Artık talep "ezme yasak" tablosudur:
+    /// sunucuya İLK ulaşan karar korunur; sonra gelen (daha yeni damgalı olsa bile) karar UYGULANMAZ, çakışma listesine
+    /// "kaybeden" olarak yazılır ve yönetici isterse "Üzerine Yazılanı Kazanan Yap" ile onu seçer. Daha ESKİ gelen
+    /// değişikliğin kazanamaması aynen geçerlidir.</summary>
     [Fact]
     public void FIN10_Snk05_Offline_LWW_Sozlesmesi()
     {
@@ -329,7 +330,12 @@ VALUES(@id,'FIN-A','TAL-FIN-1',1,'pending',1,1,1,0);";
         sync.Apply("FIN-A", Paket("rejected", 1000));                              // makine 2: DAHA ESKİ ret
         Assert.Equal("approved", Durum());                                         // eski gelen KAZANAMAZ
         sync.Apply("FIN-A", Paket("rejected", 3000));                              // makine 2: DAHA YENİ ret
-        Assert.Equal("rejected", Durum());                                         // LWW: son yazan kazanır
+        Assert.Equal("approved", Durum());                                         // ⭐ K-04: ilk ulaşan onay KORUNUR (ezme yok)
+        var c = Assert.Single(sync.ListConflicts("FIN-A"), x => x.EntityId == reqId);
+        Assert.True(c.SunucuKorundu);                                              // ret çakışma listesinde, kaybeden olarak
+        Assert.Contains("rejected", c.LoserJson);
+        sync.PromoteLoser(new SessionContext("u-fin", "FIN-A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty), c.Id);
+        Assert.Equal("rejected", Durum());                                         // yönetici seçerse ret geçerli olur
     }
 
     // ══════════════ ⭐ FIN-B1 / PK-FIN-02=B — sync_inbox FİRMA KAPSAMI (ADR-185) ══════════════

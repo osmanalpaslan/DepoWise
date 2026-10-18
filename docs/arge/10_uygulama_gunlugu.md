@@ -112,3 +112,7 @@
 ### B1 faz sonu — iki ortam denetimi (2026-10-18) ve düzeltmeler
 - Denetçi (salt okuma, 14 commit): işlevi kıran eşitlik açığı YOK; bilinçli istisnalar (yalnız masaüstü senkron araçları, kodlu numara, yedek betikleri, web ekipman bakımı malzeme açığı) doğrulandı. 3 bulgu düzeltildi: (1) eksi stok uyarı başlığına depo eklendi — aynı malzeme iki depoda eksiyken uyarı anahtarları ayrışır (okundu durumu karışmaz, web'de tek tıkla ikisi gizlenmez); (2) ezme yasaklı tablolarda çakışma metinleri "Sunucudaki (ilk ulaşan) sürüm korundu" (`ConflictRow.SunucuKorundu`), iki platformun sabit açıklamaları güncellendi; (3) web eksi açılış onayı tehlike görünümünde. "Kazanan yap" bağlı stok satırlarını düzeltmiyor → `11`'e risk olarak yazıldı.
 - Testler: hedefli 62/62, arayüz 48/48.
+
+### ✅ B1 KAPANIŞ (2026-10-18 12:23)
+- **Tam takım:** 4203/4204 (2 sa 1 dk). Tek başarısız `FinalStabilizasyonTests.FIN10` — eski "çevrimdışı LWW" sözleşmesini sabitliyordu; K-04/M-18 kararıyla bilinçli olarak değişti (yol haritası B0'da öngörülmüştü). Test yeni kurala göre yeniden yazıldı (ilk ulaşan onay korunur, ret çakışma listesinde kaybeden, yönetici "kazanan yap" ile reddi seçebilir) ve geçti. **Arayüz 48/48. İki ortam denetimi:** eşitlik açığı yok, 3 bulgu düzeltildi.
+- **Süre notu:** tam takım ~2 sa sürüyor; en uzun test `PaketSaklamaPolitikasiTests.PKT3` tek başına 20 dk (B3'te incelenecek).

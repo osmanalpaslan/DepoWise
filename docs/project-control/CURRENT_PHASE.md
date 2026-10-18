@@ -5,6 +5,10 @@
 
 **Özet (2026-10-12):** YAYINDA — masaüstü **1.0.200** + Web f51c711 (tablo başlığı hizası, Cari/Hesap `/new` yetki kapısı). API değişmedi (bff079a). Sıradaki: kullanıcı talebi.
 
+## 🔧 2026-10-17/18 AR-GE B1 (dal `arge/2026-10-kapsamli`, YAYIN YOK) — veri güvenliği ve senkron bütünlüğü
+- Biten (her biri testli + mutasyonla kanıtlı, ayrıntı `docs/arge/10_uygulama_gunlugu.md`): M-02 firma ezme kapısı · M-05 defter değişmezliği · M-04 web işlem kimliği · M-03 çekme ufku (Migration099) + yerel değişiklik sayacı/yankı kesme (100) · M-15 gönderilemeyen kayıtlar (101) · M-79 sıfırlamadan önce gönder · M-80 sunucu dönemi · M-17 sayfalı çekme + sayfalı gönderim · M-84 gzip · M-85 tek geçiş · M-20 istatistik · M-78/K-21 bilgisayar kodlu numara (102) · K-22 KOD-2 · K-05 eksi stok uyarıları · M-16 eksi stok uyarısı · M-18 ezme yasağı · M-81 geçişte tam gönderim · M-06 işlem geçmişi sunucuya (103) · M-08 şifreli günlük yedek (+ prova başarılı).
+- Şema 103 (master 98). **B1 KAPANDI (2026-10-18 12:23):** tam takım 4203/4204 (FIN10 yeni K-04 sözleşmesine güncellendi → geçti), arayüz 48/48, iki ortam denetimi 3 bulgu düzeltildi. Sıradaki: B3.
+
 ## ✅ 2026-10-17 YAYIN — .NET 10 geçişi (masaüstü 1.0.201 + API + Web), dal `net10-gecis`
 - Yalnız çerçeve yükseltmesi (net8.0 → net10.0, Microsoft paketleri 10.0.13, Docker 10.0); iş mantığı değişmedi. .NET 8 desteği
   2026-11-10'da biter. SQLite paket açığı (GHSA-2m69-gcr7-jv3q) kapandı. AR-GE çalışmasının (yayın yasağı) kullanıcı onaylı istisnası.
