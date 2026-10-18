@@ -219,13 +219,14 @@ public sealed partial class WorkOrdersViewModel : ViewModelBase
     private async Task Save()
     {
         FormError = null;
-        if (string.IsNullOrWhiteSpace(FormWoNo) || string.IsNullOrWhiteSpace(FormTitle2))
-        { FormError = "No ve başlık zorunlu."; return; }
         var editing = EditId is not null;
+        // ⭐ M-29: yeni iş emrinde no boş bırakılırsa otomatik verilir (IE-yıl-…); düzenlemede no zorunlu.
+        if (string.IsNullOrWhiteSpace(FormTitle2) || (editing && string.IsNullOrWhiteSpace(FormWoNo)))
+        { FormError = editing ? "No ve başlık zorunlu." : "Başlık zorunlu."; return; }
         if (!await ConfirmService.AskAsync(editing ? "İş emri güncellensin mi?" : "İş emri oluşturulsun mu?", "İş Emri")) return;
         try
         {
-            var dto = new NewWorkOrder(FormWoNo.Trim(), FormTitle2.Trim(),
+            var dto = new NewWorkOrder((FormWoNo ?? "").Trim(), FormTitle2.Trim(),
                 string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
                 PriorityCode(FormPriority), FormBranch?.Id, FormCostCenter?.Id, FormAssignee?.Id,
                 Ms(FormPlannedStart), Ms(FormPlannedEnd));

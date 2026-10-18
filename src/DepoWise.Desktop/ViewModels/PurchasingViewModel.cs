@@ -203,7 +203,7 @@ public sealed partial class PurchasingViewModel : ViewModelBase
     private async Task Save()
     {
         FormError = null;
-        if (string.IsNullOrWhiteSpace(FormOrderNo)) { FormError = "Sipariş no zorunlu."; return; }
+        // ⭐ M-29: sipariş no boş bırakılırsa otomatik verilir (SIP-yıl-…).
         var satirlar = FormLines.Where(l => l.Material is not null && l.Quantity > 0)
             .Select(l => new NewPurchaseOrderLine(l.Material!.Id, l.Quantity,
                 l.UnitPrice > 0 ? l.UnitPrice : null)).ToList();
@@ -212,7 +212,7 @@ public sealed partial class PurchasingViewModel : ViewModelBase
         try
         {
             DesktopServices.Purchasing.Create(_session, new NewPurchaseOrder(
-                FormOrderNo.Trim(), FormSupplier?.Id, FormRequest?.Id, FormBranch?.Id, FormCostCenter?.Id,
+                (FormOrderNo ?? "").Trim(), FormSupplier?.Id, FormRequest?.Id, FormBranch?.Id, FormCostCenter?.Id,
                 DocDateMs(FormOrderDate), FormNote, satirlar));
             ShowAdd = false;
             Load();

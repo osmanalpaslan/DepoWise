@@ -187,3 +187,7 @@
 - **M-24:** `InvoiceService.CiftStokUyarilari`: alış faturası "stoğu etkilesin" açıkken (1) aynı tedarikçi fatura numarasıyla (dış no, büyük/küçük harf ve boşluk duyarsız) yapılmış iptal edilmemiş stok girişi, (2) cari Tanımlar'daki tedarikçiye bağlıysa (`parties.supplier_id`) son 60 günde aynı malzemeler için o tedarikçiden SİPARİŞLE mal kabul → uyarı. Kayıt öncesi iki platformda: uyarı varsa "Stoğu Etkilemeden Kaydet" (önerilen, tek tık) ya da ikinci açık onayla "Evet, Stoğa Girsin". Metinler servisten (web: `POST /api/invoices/check`, hiçbir şey yazmaz). Uyarı yoksa M-51 onayı.
 - **M-51:** fatura (genel toplamla) ve tahsilat/ödeme (tutar + kapatılacak fatura sayısıyla) kaydı onay sorar; metin ortak (`InvoiceService.KayitOnayMetni`, `FinanceTxnTypes.KayitOnayMetni`; web `POST /api/finance/entries/check`).
 - **Testler:** `CiftStokUyariTests` CSU1–5 + fatura/ödeme/finans/satınalma testleri 95/95; mutasyon: iki kontrol kapatılınca CSU1/2/3 kırmızı; arayüz 48/48.
+
+### B5 — M-29 sipariş ve iş emri numarası otomatik (F-073)
+- Yeni satın alma siparişinde no boşsa `SIP-<yıl>-0001`, iş emrinde `IE-<yıl>-0001`; masaüstünde bilgisayar kodlu (`SIP-2026-A3-0001`, çevrimdışı iki bilgisayar çakışmaz) — talep/fatura ile aynı `BelgeNumarasi`. Numara üretilecekse işlem IMMEDIATE (eşzamanlı iki kayıt aynı numarayı almasın). Elle yazılan numara aynen kalır; iş emri DÜZENLEMEDE no zorunlu. İki platformda alan "Otomatik" ipucuyla isteğe bağlı.
+- **Testler:** `OtomatikBelgeNoTests` OBN1–4 + satınalma/iş emri/belge numarası testleri 35/35; arayüz 48/48.

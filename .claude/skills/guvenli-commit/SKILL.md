@@ -20,6 +20,9 @@ edilmez. Örnek dosyalar: `src/DepoWise.Api/Program.cs` (sohbet bölümleri), `C
      → `git hash-object -w <geçici>` → `git update-index --cacheinfo 100644,<sha>,<dosya>`.
    - Hazır araç: `node scripts/kismi_stage.mjs <dosya> <yama.mjs> work|stage` (yama dosyasını scratchpad'e yaz).
    - Bir yamayı HEAD'e iki kez uygulama: önceki commit'te girdiyse yalnız YENİ yamayı stage et.
+   - **Aynı commit'e iki ayrı yama girecekse** `stage` her çağrıda HEAD'den başlar → ikinci çağrı ilkini SİLER. İki yamayı
+     tek dosyada birleştir (`export default [...a, ...b]`) ve stage'den sonra her yamanın imza satırını
+     `git diff --cached <dosya> | Select-String` ile index'te doğrula (2026-10-18'de bir uç commit dışında kaldı).
 4. `git diff --cached --stat` + karışık dosyada `git diff --cached <dosya>` → yalnız benim satırlarım mı? Kontrol ŞART.
 5. Commit mesajı: Türkçe, ne + neden; sonunda attribution satırı (sistem hatırlatmasındaki). Mesajı dosyaya yazıp
    `git commit -F` ile ver (heredoc içi kaçış tuzakları). Push öncesi `CURRENT_PHASE.md`'ye kısa girdi.

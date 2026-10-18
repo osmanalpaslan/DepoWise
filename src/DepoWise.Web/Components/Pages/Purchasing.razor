@@ -24,7 +24,7 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2">
         <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ SİPARİŞ</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="2"><MudTextField @bind-Value="_orderNo" Label="Sipariş No *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="2"><MudTextField @bind-Value="_orderNo" Label="Sipariş No" Placeholder="Otomatik" HelperText="Boş bırakılırsa otomatik verilir" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="3">
                 <LookupSelect Label="Tedarikçi" @bind-Value="_supplierId" Items="_suppliers"
                               CreatePath="/api/lookups/suppliers" CreateField="name" OnAdded="ReloadSuppliers" />
@@ -276,7 +276,7 @@
     private async Task Save()
     {
         _msg = null;
-        if (string.IsNullOrWhiteSpace(_orderNo)) { _msg = "Sipariş no zorunlu."; _ok = false; return; }
+        // ⭐ M-29: sipariş no boş bırakılırsa sunucu otomatik verir (SIP-yıl-…) — masaüstüyle aynı.
         var satirlar = _lines.Where(l => !string.IsNullOrEmpty(l.MaterialId) && l.Quantity > 0).ToList();
         if (satirlar.Count == 0) { _msg = "En az bir satır girin."; _ok = false; return; }
         if (!await Dialog.Confirm("Sipariş oluşturulsun mu?")) return;

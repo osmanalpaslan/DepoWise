@@ -34,8 +34,9 @@
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="İş Emri No" IsRequired="True" Width="130">
-                        <TextBox Classes="Field" Text="{Binding FormWoNo}"/>
+                    <!-- ⭐ M-29: yeni iş emrinde boş bırakılırsa otomatik (IE-yıl-…) -->
+                    <ctrl:FormField Label="İş Emri No" Width="130" ToolTip.Tip="Yeni iş emrinde boş bırakılırsa otomatik verilir (IE-yıl-…).">
+                        <TextBox Classes="Field" Text="{Binding FormWoNo}" PlaceholderText="Otomatik"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Başlık" IsRequired="True" Width="260">
                         <TextBox Classes="Field" Text="{Binding FormTitle2}"/>

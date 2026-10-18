@@ -24,7 +24,7 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ İŞ EMRİ" : "İŞ EMRİ DÜZENLE")</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="2"><MudTextField @bind-Value="_woNo" Label="İş Emri No *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="2"><MudTextField @bind-Value="_woNo" Label="İş Emri No" Placeholder="Otomatik" HelperText="Yeni kayıtta boş = otomatik" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="4"><MudTextField @bind-Value="_title" Label="Başlık *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="2">
                 <MudSelect T="string" @bind-Value="_priority" Label="Öncelik" Margin="Margin.Dense" Variant="Variant.Outlined">
@@ -291,7 +291,9 @@
     private async Task Save()
     {
         _msg = null;
-        if (string.IsNullOrWhiteSpace(_woNo) || string.IsNullOrWhiteSpace(_title)) { _msg = "No ve başlık zorunlu."; _ok = false; return; }
+        // ⭐ M-29: yeni iş emrinde no boş bırakılırsa sunucu otomatik verir (IE-yıl-…); düzenlemede no zorunlu (masaüstüyle aynı).
+        if (string.IsNullOrWhiteSpace(_title) || (_editId is not null && string.IsNullOrWhiteSpace(_woNo)))
+        { _msg = _editId is not null ? "No ve başlık zorunlu." : "Başlık zorunlu."; _ok = false; return; }
         if (!await Dialog.Confirm(_editId is null ? "İş emri oluşturulsun mu?" : "İş emri güncellensin mi?")) return;
         _busy = true;
         try

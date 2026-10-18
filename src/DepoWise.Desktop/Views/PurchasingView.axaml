@@ -33,8 +33,9 @@
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="YENİ SİPARİŞ" Classes="SectionTitle"/>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="Sipariş No" IsRequired="True" Width="140">
-                        <TextBox Classes="Field" Text="{Binding FormOrderNo}"/>
+                    <!-- ⭐ M-29: boş bırakılırsa otomatik (SIP-yıl-…) -->
+                    <ctrl:FormField Label="Sipariş No" Width="140" ToolTip.Tip="Boş bırakılırsa otomatik verilir (SIP-yıl-…).">
+                        <TextBox Classes="Field" Text="{Binding FormOrderNo}" PlaceholderText="Otomatik"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Tedarikçi" Width="200">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}" SelectedItem="{Binding FormSupplier}"

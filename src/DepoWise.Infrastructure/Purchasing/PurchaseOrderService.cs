@@ -196,7 +196,6 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
     public string Create(SessionContext s, NewPurchaseOrder dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        if (string.IsNullOrWhiteSpace(dto.OrderNo)) throw new ArgumentException("Sipariş no zorunlu.");
         if (dto.Lines is not { Count: > 0 }) throw new ArgumentException("En az bir sipariş satırı girin.");
         foreach (var l in dto.Lines)
             if (l.Quantity <= 0) throw new ArgumentException("Satır miktarı pozitif olmalı.");
@@ -208,7 +207,13 @@ WHERE o.company_id=@c AND o.is_deleted=0" +
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction();
+        // Numara üretilecekse IMMEDIATE: eşzamanlı iki kayıt aynı sıradaki numarayı almasın.
+        using var tx = string.IsNullOrWhiteSpace(dto.OrderNo) ? conn.BeginImmediate() : conn.BeginTransaction();
+        // ⭐ M-29 (AR-GE 2026-10-18, F-073): sipariş no boşsa otomatik — SIP-2026-A3-0042 (bilgisayar kodlu, çevrimdışı
+        // çakışmaz; masaüstü dışında SIP-2026-0042). Talep/fatura numaralarıyla aynı yardımcı (BelgeNumarasi).
+        if (string.IsNullOrWhiteSpace(dto.OrderNo))
+            dto = dto with { OrderNo = DepoWise.Infrastructure.Database.BelgeNumarasi.Sonraki(conn, tx, "purchase_orders", "order_no",
+                s.CompanyId, $"SIP-{DateTimeOffset.FromUnixTimeMilliseconds(isGunu).Year}-", s.MachineCode) };
         EnsureRefs(s, conn, tx, dto);
         EnsureOrderNoFree(conn, tx, s.CompanyId, dto.OrderNo, excludeId: null);
         using (var cmd = conn.CreateCommand())

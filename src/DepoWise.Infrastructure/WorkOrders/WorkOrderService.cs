@@ -175,11 +175,17 @@ WHERE w.company_id=@c AND w.is_deleted=0" +
     public string Create(SessionContext s, NewWorkOrder dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        Dogrula(dto);
+        Dogrula(dto, numaraZorunlu: false);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction();
+        // Numara üretilecekse IMMEDIATE: eşzamanlı iki kayıt aynı sıradaki numarayı almasın.
+        using var tx = string.IsNullOrWhiteSpace(dto.WoNo) ? conn.BeginImmediate() : conn.BeginTransaction();
+        // ⭐ M-29 (AR-GE 2026-10-18, F-073): numara boşsa otomatik — IE-2026-A3-0042 (bilgisayar kodlu, çevrimdışı çakışmaz;
+        // masaüstü dışında IE-2026-0042). Talep/fatura numaralarıyla aynı yardımcı (BelgeNumarasi).
+        if (string.IsNullOrWhiteSpace(dto.WoNo))
+            dto = dto with { WoNo = DepoWise.Infrastructure.Database.BelgeNumarasi.Sonraki(conn, tx, "work_orders", "wo_no", s.CompanyId,
+                $"IE-{DateTimeOffset.FromUnixTimeMilliseconds(now).Year}-", s.MachineCode) };
         EnsureRefs(s, conn, tx, dto);
         EnsureNoFree(conn, tx, s.CompanyId, dto.WoNo, null);
         using (var cmd = conn.CreateCommand())
@@ -584,9 +590,9 @@ WHERE l.company_id=@c AND l.work_order_id=@w AND l.entity_type='equipment_mainte
 
     private static bool Terminal(string s) => s is "completed" or "cancelled";
 
-    private static void Dogrula(NewWorkOrder dto)
+    private static void Dogrula(NewWorkOrder dto, bool numaraZorunlu = true)
     {
-        if (string.IsNullOrWhiteSpace(dto.WoNo)) throw new ArgumentException("İş emri no zorunlu.");
+        if (numaraZorunlu && string.IsNullOrWhiteSpace(dto.WoNo)) throw new ArgumentException("İş emri no zorunlu.");
         if (string.IsNullOrWhiteSpace(dto.Title)) throw new ArgumentException("Başlık zorunlu.");
         if (dto.PlannedStart is { } a && dto.PlannedEnd is { } b && b < a)
             throw new ArgumentException("Planlanan bitiş başlangıçtan önce olamaz.");
