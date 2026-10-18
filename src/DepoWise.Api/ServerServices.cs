@@ -331,6 +331,10 @@ public sealed class ServerServices
     }
 
     /// <summary>JWT'den (userId+companyId) tam oturumu SUNUCUDA yeniden kurar — yetkiler token'dan değil DB'den.</summary>
+    /// <summary>⭐ M-10: kullanıcı oturum dönemi (jeton iptali).</summary>
+    public DepoWise.Infrastructure.Security.OturumDonemi OturumDonemi => _oturumDonemi ??= new(Factory);
+    private DepoWise.Infrastructure.Security.OturumDonemi? _oturumDonemi;
+
     public SessionContext? SessionFor(string? companyId, string? userId)
         => string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId)
             ? null : Auth.CreateSessionForUser(companyId, userId);

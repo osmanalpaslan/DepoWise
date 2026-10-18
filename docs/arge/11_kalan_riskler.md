@@ -28,3 +28,12 @@
   kaybeden sürümün malzeme satırları ve stok hareketleri buna göre DÜZELTİLMEZ (iki platformda aynı; FAZ 4.4 tasarımı). Bakım
   kaydında malzeme farkı varsa yönetici stok düzeltmesini ayrıca yapmalı. Kalıcı çözüm (bağlı satırlarla birlikte geri yazma) B3 çakışma işinde.
   Kaynak: iki ortam denetimi 2026-10-18.
+
+## Güvenlik
+- **M-10 sohbet bağlantısı:** şifre değişince eski jetonlar API'de 401 olur, ama sohbet merkezi (`ChatHub.cs`, kullanıcının
+  commitlenmemiş sohbet çalışması) jetonu doğrudan okur → iptal edilen jetonla sohbete bağlanılabilir. Dosya kullanıcıya ait
+  olduğu için değiştirilmedi; sohbet commitlenirken `svc.OturumDonemi.Gecerli(...)` kontrolü eklenmeli.
+- **M-10 kendi şifresini Kullanıcılar ekranından değiştiren yönetici** o oturumdan düşer, yeniden giriş yapar (bilinçli: tüm
+  açık oturumlar kapanır). İlk giriş şifre belirlemede düşme yok (yeni jeton verilir).
+- **M-10 önbellek:** dönem 30 sn önbellekte tutulur; aynı süreçte değişim anında görülür. API birden fazla makineye çıkarsa
+  diğer makinede eski jeton en çok 30 sn daha geçerli kalabilir (bugün tek makine).

@@ -194,6 +194,14 @@ SessionContext? Session(HttpContext ctx)
 {
     var userId = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
     var company = ctx.User.FindFirstValue(JwtTokens.CompanyClaim);
+    // ⭐ M-10 (AR-GE 2026-10-18): şifre değişince/sıfırlanınca kullanıcının dönemi artar → önceki jetonlar burada reddedilir
+    // (401). Dönem bilgisi olmayan eski jeton 0 sayılır: şifre değişene kadar geçerli kalır.
+    if (!string.IsNullOrEmpty(userId))
+    {
+        long.TryParse(ctx.User.FindFirstValue(JwtTokens.DonemClaim), System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var jetonDonemi);
+        if (!svc.OturumDonemi.Gecerli(userId, jetonDonemi)) return null;
+    }
     return svc.SessionFor(company, userId);
 }
 
@@ -320,7 +328,7 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
     if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId)
         && girisIzinli is not null && !girisIzinli.Contains(dto.BranchId!, StringComparer.Ordinal))
         return Results.Json(new { error = "Bu şube için yetkiniz yok." }, statusCode: 403);
-    var token = JwtTokens.Issue(jwtKey, res.Session.UserId, res.Session.CompanyId);
+    var token = JwtTokens.Issue(jwtKey, res.Session.UserId, res.Session.CompanyId, svc.OturumDonemi.Oku(res.Session.UserId));
     // 2 aşamalı login: kullanıcının KENDİ firmasının adı + şubeleri döner (kullanıcı firma listesini görmez).
     // Süper admin: firma seçebilsin diye tüm firmalar da döner (Adım 1b: /api/auth/select-company ile firma seçilir).
     var companyName = svc.Companies.GetName(res.Session.CompanyId);
@@ -352,7 +360,8 @@ app.MapPost("/api/auth/change-initial-password", (HttpContext c, ChangeInitialPw
     try { svc.Users.ChangeOwnPassword(s, d.NewPassword!); }
     catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
     // Şifre belirlendi → normal login akışına devam (firma/şube seçimi). Taze token + firma bağlamı döner.
-    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId);
+    // ⭐ M-10: şifre değişimi dönemi artırdı → yeni jeton YENİ dönemle (eski jeton bundan sonra 401).
+    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId, svc.OturumDonemi.Oku(s.UserId));
     var companyName = svc.Companies.GetName(s.CompanyId);
     var branches = LoginBranchesFor(s);
     object? companies = null;
@@ -381,7 +390,7 @@ app.MapPost("/api/auth/select-company", (HttpContext c, SelectCompanyDto d) =>
     if (string.IsNullOrWhiteSpace(d.CompanyId)) return Results.Json(new { error = "Firma seçilmedi." }, statusCode: 400);
     var name = svc.Companies.GetName(d.CompanyId!);
     if (string.IsNullOrEmpty(name)) return Results.Json(new { error = "Firma bulunamadı." }, statusCode: 404);
-    var token = JwtTokens.Issue(jwtKey, s.UserId, d.CompanyId!);
+    var token = JwtTokens.Issue(jwtKey, s.UserId, d.CompanyId!, svc.OturumDonemi.Oku(s.UserId));
     var branches = svc.Branches.ListForLogin(d.CompanyId!)
         .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
     return Results.Ok(new { token, userId = s.UserId, companyId = d.CompanyId, companyName = name,
@@ -394,7 +403,7 @@ app.MapPost("/api/auth/select-company", (HttpContext c, SelectCompanyDto d) =>
 app.MapPost("/api/auth/refresh", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized(); // süresi dolmuş/geçersiz token → 401
-    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId);
+    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId, svc.OturumDonemi.Oku(s.UserId));
     return Results.Ok(new { token, expiresInSeconds = JwtTokens.ExpiryHours * 3600 });
 }).RequireAuthorization();
 

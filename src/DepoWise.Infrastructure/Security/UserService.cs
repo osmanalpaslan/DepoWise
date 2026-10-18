@@ -163,8 +163,10 @@ ORDER BY u.username;");
         var companyId = AffectUser(conn, tx, actor, userId,
             "UPDATE users SET password_hash=@h, must_change_password=@mcp, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
             now, cmd => { cmd.AddWithValue("@h", PasswordHasher.Hash(newPassword)); cmd.AddWithValue("@mcp", self ? 0 : 1); });
+        OturumDonemi.Arttir(conn, tx, userId);   // ⭐ M-10: eski jetonlar (çalınmış olabilir) artık geçersiz
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        OturumDonemi.Unut(userId);
     }
 
     /// <summary>ŞİFRE SIFIRLAMA (2026-07-25): admin, kullanıcının şifresini KULLANICI ADINA sıfırlar +
@@ -189,8 +191,10 @@ ORDER BY u.username;");
         var companyId = AffectUser(conn, tx, actor, userId,
             "UPDATE users SET password_hash=@h, must_change_password=1, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
             now, cmd => cmd.AddWithValue("@h", PasswordHasher.Hash(username)));
+        OturumDonemi.Arttir(conn, tx, userId);   // ⭐ M-10: sıfırlanan kullanıcının açık oturumları düşer
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        OturumDonemi.Unut(userId);
         return username;
     }
 
@@ -263,8 +267,10 @@ ORDER BY u.username;");
             cmd.AddWithValue("@u", actor.UserId);
             cmd.ExecuteNonQuery();
         }
+        OturumDonemi.Arttir(conn, tx, actor.UserId);   // ⭐ M-10: kendi şifresini değiştiren kişiye yeni jeton verilir (API)
         AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "user", actor.UserId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        OturumDonemi.Unut(actor.UserId);
     }
 
     /// <summary>Boş/boşluk metni <c>null</c>'a çevirir — veritabanında "" ile NULL karışmasın.</summary>

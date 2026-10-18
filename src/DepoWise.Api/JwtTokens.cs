@@ -13,11 +13,14 @@ public static class JwtTokens
 {
     public const string CompanyClaim = "company";
 
+    /// <summary>⭐ M-10: jetonun üretildiği andaki kullanıcı oturum dönemi (users.token_epoch). Yoksa 0 sayılır.</summary>
+    public const string DonemClaim = "te";
+
     /// <summary>Erişim token'ı ömrü (saat). Masaüstü, süresi dolmadan /api/auth/refresh ile yeniler
     /// (uzun oturumda sync'in sessizce durmasını önler).</summary>
     public const int ExpiryHours = 12;
 
-    public static string Issue(string signingKey, string userId, string companyId)
+    public static string Issue(string signingKey, string userId, string companyId, long donem = 0)
     {
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)), SecurityAlgorithms.HmacSha256);
@@ -25,6 +28,7 @@ public static class JwtTokens
         {
             new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(CompanyClaim, companyId),
+            new Claim(DonemClaim, donem.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         };
         var token = new JwtSecurityToken(
             claims: claims,
