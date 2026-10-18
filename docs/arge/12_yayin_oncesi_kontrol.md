@@ -31,5 +31,8 @@
   **en düşük desteklenen sürüm = o sürüm** verilirse eski masaüstleri hemen zorunlu güncellemeye girer ve 426 ile veri yazamaz
   (çekme serbest). Karar: bilinçli olarak yükseltilsin mi (önerilen: evet, senkron protokolü değiştiği için) — kullanıcıya sor.
   Sonraki rutin yayınlarda en düşük sürüm DEĞİŞTİRİLMEZ (7 günlük erteleme yeter).
+- [ ] **Yetki/şifre imzası biçimi değişti (B3 denetimi):** yayın anında açık olan masaüstleri bir kez "kullanıcınızda güncelleme
+  yapıldı" uyarısıyla yeniden giriş ister (imza parola özeti yerine şifre dönemini kullanıyor). Masaüstü güncellemesiyle aynı anda
+  olduğu için ek kesinti beklenmez; kullanıcıya duyuru notunda söylenmeli.
 - [ ] **M-10 (oturum dönemi):** Migration104 yalnız ekleme (`users.token_epoch`, 0). Yayından önce alınmış jetonlar geçerli kalır;
   yayından sonra şifre değişen/sıfırlanan kullanıcının açık oturumları düşer (beklenen).

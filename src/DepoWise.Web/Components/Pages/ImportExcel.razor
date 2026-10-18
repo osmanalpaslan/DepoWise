@@ -454,8 +454,8 @@
         _busy = true;
         try
         {
-            var d = await Api.PostJsonAsync("/api/import/undo", new { partiKimligi = parti });
-            if (d is null) { _ok = false; _msg = "Geri alınamadı (yetkiniz olmayabilir ya da aktarım bulunamadı)."; return; }
+            var (hata, d) = await Api.PostJsonWithErrorAsync("/api/import/undo", new { partiKimligi = parti });
+            if (hata is not null || d is null) { _ok = false; _msg = "Geri alınamadı: " + (hata ?? "sunucu yanıtı okunamadı."); return; }
             var v = d.Value;
             var birakilan = new List<string>();
             if (v.TryGetProperty("birakilanlar", out var bs) && bs.ValueKind == JsonValueKind.Array)
@@ -465,7 +465,8 @@
                    (tanim > 0 ? $", {tanim} tanım bırakıldı" : "") + "." +
                    (birakilan.Count > 0 ? $" Geri alınamayan kayıtlar ({birakilan.Count}): " + string.Join(" · ", birakilan) : "");
             _ok = birakilan.Count == 0;
-            if (birakilan.Count == 0) _sonParti = null;   // tamamı geri alındı → düğme kalkar
+            // Tamamı geri alındı → düğme ve artık geçersiz "İÇE AKTARIM SONUCU" kartı kalkar (masaüstünde sonuç metni değişir).
+            if (birakilan.Count == 0) { _sonParti = null; _result = null; }
         }
         catch (Exception ex) { _ok = false; _msg = "Geri alınamadı: " + ex.Message; }
         finally { _busy = false; }

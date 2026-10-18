@@ -119,6 +119,28 @@ public class GuvenlikKucukDuzeltmeTests : IAsyncLifetime
         Assert.True(PasswordHasher.Verify(Pass, paket.PasswordHash));
     }
 
+    /// <summary>GKD7 (B3 iki ortam denetimi) — yetki/şifre imzası, parola özeti YENİDEN YAZILINCA (şifre aynı) değişmez; şifre
+    /// gerçekten değişince değişir. Aksi hâlde yayından sonra ilk girişte, aynı kullanıcıyla açık diğer masaüstleri yersiz
+    /// "şifre değişti" çıkışı yaşardı.</summary>
+    [Fact]
+    public async Task GKD7_Ozet_Yenilenince_Imza_Degismez_Sifre_Degisince_Degisir()
+    {
+        OzetYaz(EskiOzet(Pass));
+        var c = await _host.LoginAsync(User, Pass, Company);   // bu giriş özeti 600.000 tura yeniden yazar
+        Assert.Equal(600_000, Tur(DbOzet()));
+        async Task<string> Imza() => (await ApiTestHost.JsonAsync(await c.GetAsync("/api/me/authsig"))).GetProperty("sig").GetString()!;
+        var once = await Imza();
+        OzetYaz(EskiOzet(Pass));                                // başka bir bilgisayarın girişi gibi: özet yine eski
+        Assert.True(Svc.Auth.Login(Company, User, Pass).Success);   // → yeniden özetlenir (şifre aynı)
+        Assert.Equal(once, await Imza());
+
+        var s = new SessionContext(_uid, Company, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        Svc.Users.ChangePassword(s, _uid, "Yeni!2026");          // gerçek değişiklik (eski jeton da düşer — M-10)
+        var c2 = await _host.LoginAsync(User, "Yeni!2026", Company);
+        var sonra = (await ApiTestHost.JsonAsync(await c2.GetAsync("/api/me/authsig"))).GetProperty("sig").GetString();
+        Assert.NotEqual(once, sonra);
+    }
+
     [Theory]
     [InlineData("https://depowise-web.fly.dev", true)]
     [InlineData("https://kotu-site.example", false)]

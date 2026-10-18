@@ -206,7 +206,9 @@ public class AktarimGeriAlmaTests : IAsyncLifetime
         Assert.Contains("UndoImportCommand", Oku("src", "DepoWise.Desktop", "Views", "ImportExportView.axaml"));
         var web = Oku("src", "DepoWise.Web", "Components", "Pages", "ImportExcel.razor");
         Assert.Contains("Str(data.Value, \"partiKimligi\")", web);
-        Assert.Contains("Api.PostJsonAsync(\"/api/import/undo\"", web);
+        Assert.Contains("Api.PostJsonWithErrorAsync(\"/api/import/undo\"", web);   // sunucunun hata nedeni gösterilir
+        Assert.Contains("SonParti = null;   // M-14: yeni deneme", vm);             // yeni denemede eski "Geri Al" kalkar
+        Assert.Contains("partial void OnSelectedImportChanged(string value) => SonParti = null;", vm);
         Assert.Contains("AktarimPartisi.Baslat(entity)", Oku("src", "DepoWise.Api", "Program.cs"));
         Assert.Contains("AktarimPartisi.Gecerli", Oku("src", "DepoWise.Infrastructure", "Database", "AuditWriter.cs"));
     }

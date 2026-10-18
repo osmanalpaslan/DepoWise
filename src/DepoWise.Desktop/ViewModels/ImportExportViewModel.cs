@@ -280,6 +280,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     private async Task Import()
     {
         ImportResult = null;
+        SonParti = null;   // M-14: yeni deneme başlarken önceki aktarımın "Geri Al" düğmesi kalkar (web ResetResult ile aynı)
         // Deny-by-default: içe aktarım yetkisi (2026-07-26 — export'tan ayrı).
         if (!AccessControl.Can(_session, "import_export", PermissionAction.View))
         { ImportResult = "İçe aktarım (import) yetkiniz yok."; return; }
@@ -406,6 +407,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     private string? _sonParti;
 
     public bool CanUndoImport => SonParti is not null;
+
+    // Tür değişince önceki aktarımın "Geri Al" düğmesi kalkar (web OnEntityChanged → ResetResult ile aynı).
+    partial void OnSelectedImportChanged(string value) => SonParti = null;
 
     /// <summary>Ekrandaki tür adı → API/parti tür anahtarı (web ile aynı anahtarlar).</summary>
     private static string ImportKey(string entity) => entity switch

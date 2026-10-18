@@ -469,6 +469,17 @@ public sealed class ApiClient
         return await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
 
+    /// <summary>⭐ M-14 (AR-GE 2026-10-18): POST edip JSON gövdesini verir; başarısızsa sunucunun hata metnini (WEB-01) döndürür —
+    /// kullanıcı "neden olmadı"yı görür (ör. aktarım bulunamadı / yetki yok), masaüstüyle aynı mesaj.</summary>
+    public async Task<(string? Err, System.Text.Json.JsonElement? Data)> PostJsonWithErrorAsync(string path, object body)
+    {
+        var req = Req(HttpMethod.Post, path);
+        req.Content = JsonContent.Create(body);
+        var r = await Gonder(req);
+        if (!r.IsSuccessStatusCode) return (await ErrorMessageAsync(r, path), null);
+        return (null, await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>());
+    }
+
     public async Task<string?> DeleteAsync(string path)
     {
         var r = await Gonder(Req(HttpMethod.Delete, path));

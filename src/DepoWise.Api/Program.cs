@@ -743,12 +743,19 @@ app.MapGet("/api/me/authsig", (HttpContext ctx) =>
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     using var conn = svc.Factory.Create();
     string ph = ""; int active = 1;
+    // ⭐ AR-GE 2026-10-18 (B3 iki ortam denetimi): imzada ham parola ÖZETİ yerine şifre değişim DÖNEMİ (users.token_epoch, M-10).
+    // Özet, şifre DEĞİŞMEDEN de değişebilir (M-13: girişte 100.000 → 600.000 tur yeniden özetleme) → o kullanıcıyla açık diğer
+    // masaüstleri yersiz "şifre değişti" çıkışı yaşardı. Şifre değiştirme/sıfırlama dönemi artırdığı için gerçek değişiklik yine
+    // yakalanır. Kolon yoksa (eski şema) eski davranış: özet.
+    var donemVar = DepoWise.Infrastructure.Database.DbIntrospect.ColumnExists(conn, null, "users", "token_epoch");
     using (var c = conn.CreateCommand())
     {
-        c.CommandText = "SELECT password_hash, is_active FROM users WHERE id=@u;";
+        c.CommandText = donemVar
+            ? "SELECT CAST(token_epoch AS TEXT), is_active FROM users WHERE id=@u;"
+            : "SELECT password_hash, is_active FROM users WHERE id=@u;";
         c.AddWithValue("@u", s.UserId);
         using var r = c.ExecuteReader();
-        if (r.Read()) { ph = r.GetString(0); active = r.GetInt32(1); }
+        if (r.Read()) { ph = (donemVar ? "te:" : "") + Convert.ToString(r.GetValue(0), System.Globalization.CultureInfo.InvariantCulture); active = Convert.ToInt32(r.GetValue(1)); }
     }
     var roles = new List<string>();
     using (var c = conn.CreateCommand())
