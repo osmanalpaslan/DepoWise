@@ -38,6 +38,13 @@
 - **M-10 önbellek:** dönem 30 sn önbellekte tutulur; aynı süreçte değişim anında görülür. API birden fazla makineye çıkarsa
   diğer makinede eski jeton en çok 30 sn daha geçerli kalabilir (bugün tek makine).
 
+- **M-11 web gerçek adres:** gizli anahtar iki uygulamaya tanımlanmadıkça özellik kapalı (yayın günü işi, `12`).
+- **M-12 sürüm kapısı yalnız `business-push`'ta:** masaüstünün diğer yazma uçları (firma kuyruğu, tanım, kullanıcı) eski
+  sürüme açık kalır; ana veri yolu kapalı olduğu için kabul edildi. İlk zorunlu yayında en düşük sürüm bilinçli yükseltilmeli.
+- **M-09 kapsam temizliği:** yalnız çekmenin süzdüğü şube kapsamlı tablolar temizlenir; malzeme kartı, cari, yakıt, bakım,
+  günlük faaliyet şube kapsamında değil (çekme de süzmüyor — KARAR-7). Bunları kapsama almak ayrı bir ürün kararıdır.
+  Bilgisayarın kendisi şifrelenmediyse (BitLocker) veritabanı dosyası yine okunabilir → kurulum kılavuzunda önerilmeli.
+
 ## Performans (M-22)
 - Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
   sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri

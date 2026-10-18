@@ -19,6 +19,7 @@ namespace DepoWise.Tests;
 /// Bu sınıf o boşluğu kapatır. Kapsam bilinçli olarak dardır: **davranış değiştirilmemiştir**, yalnız
 /// mevcut davranış kilitlenmiştir.
 /// </summary>
+[Collection("PaketSaklamaTekBasina")]
 public class PaketSaklamaPolitikasiTests : IDisposable
 {
     private readonly string _kok = Path.Combine(Path.GetTempPath(), $"dw_paket_{Guid.NewGuid():N}");
@@ -122,3 +123,11 @@ public class PaketSaklamaPolitikasiTests : IDisposable
         try { Directory.Delete(_kok, recursive: true); } catch { }
     }
 }
+
+/// <summary>
+/// ⭐ AR-GE 2026-10-18 (B3 tam koşu ölçümü): PKT3 tek başına 0,03 sn, tam koşuda 9,5 dk sürdü — sınıfın diğer 5 testi aynı anda
+/// milisaniyelerde bitti. Süre, testin başlamak için boş iş parçacığı BEKLEMESİYDİ (yoğun anda havuz dolu); test kendisi yavaş
+/// değil. Paralel olmayan koleksiyon xUnit'te diğerleri bittikten sonra TEK BAŞINA çalışır → bekleme yok. Doğrulama değişmedi.
+/// </summary>
+[CollectionDefinition("PaketSaklamaTekBasina", DisableParallelization = true)]
+public sealed class PaketSaklamaTekBasinaKoleksiyonu { }
