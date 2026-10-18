@@ -415,9 +415,14 @@ app.MapPost("/api/auth/sync-login", (HttpContext http, LoginDto dto) =>
     if (!rl.Allowed)
         return Results.Json(new { error = $"Çok fazla giriş denemesi. {rl.RetrySeconds} sn sonra tekrar deneyin." }, statusCode: 429);
     var bundle = svc.Auth.ExportForSync(dto.CompanyId ?? "", dto.Username, dto.Password);
-    return bundle is null
-        ? Results.Json(new { error = "Kullanıcı adı veya parola hatalı." }, statusCode: 401)
-        : Results.Ok(bundle);
+    if (bundle is null) return Results.Json(new { error = "Kullanıcı adı veya parola hatalı." }, statusCode: 401);
+    // ⭐ M-11 / F-051 (AR-GE 2026-10-18): oturum jetonu da AYNI yanıtta döner → masaüstü şifreyi ikinci/üçüncü kez
+    // göndermez (her doğrulama pahalı + giriş sınırından hak yer). Kilit kuralı /login ile aynı; kilitliyse jeton yok.
+    // Alanlar paketle aynı düzeyde kalır (eski masaüstleri "token"ı yok sayar).
+    var paket = System.Text.Json.JsonSerializer.SerializeToNode(bundle, System.Text.Json.JsonSerializerOptions.Web)!.AsObject();
+    if (svc.Auth.SenkronGirisiniOnayla(bundle.CompanyId, dto.Username, bundle.UserId))
+        paket["token"] = JwtTokens.Issue(jwtKey, bundle.UserId, bundle.CompanyId, svc.OturumDonemi.Oku(bundle.UserId));
+    return Results.Json(paket);
 });
 
 // ── Login ekranı için PUBLIC firma + şube listesi (anonim; kod+şifre-var-mı) ──
@@ -970,6 +975,12 @@ static IReadOnlyList<string>? AracIdListesi(string? csv)
 }
 static string? ClientIp(HttpContext c)
 {
+    // ⭐ M-11 (AR-GE 2026-10-18): web sunucusu kullanıcının gerçek adresini imzalı başlıkla iletir. Yalnız imza tutarsa
+    // güvenilir (anahtar tanımlı değilse/imza tutmazsa yok sayılır) → web kullanıcıları tek adres sayılıp birbirini kilitlemez.
+    var ileten = DepoWise.Application.Common.IstemciAdresiImzasi.Dogrula(DepoWise.Application.Common.IstemciAdresiImzasi.Anahtar(),
+        c.Request.Headers[DepoWise.Application.Common.IstemciAdresiImzasi.AdresBasligi].ToString(),
+        c.Request.Headers[DepoWise.Application.Common.IstemciAdresiImzasi.ImzaBasligi].ToString());
+    if (ileten is not null) return ileten;
     var fly = c.Request.Headers["Fly-Client-IP"].ToString();
     if (!string.IsNullOrWhiteSpace(fly)) return fly;
     var xff = c.Request.Headers["X-Forwarded-For"].ToString();

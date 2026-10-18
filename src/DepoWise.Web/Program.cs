@@ -40,7 +40,12 @@ var apiBase = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5224";
 builder.Services.AddScoped<AuthState>();
 // ⭐ M-84 (AR-GE 2026-10-17): API yanıt sıkıştırması açıktı ama düz HttpClient onu istemiyordu → büyük listeler/raporlar
 // sıkıştırılmadan geliyordu. İşleyici gzip/Brotli ister ve kendiliğinden açar (çağıran kod değişmez).
-builder.Services.AddScoped(_ => new HttpClient(new SocketsHttpHandler { AutomaticDecompression = System.Net.DecompressionMethods.All })
+// ⭐ M-11 (AR-GE 2026-10-18): her isteğe kullanıcının gerçek adresi + imzası eklenir → API giriş sınırını kişi başına uygular
+// (tüm web kullanıcıları tek adres sayılıp birbirini kilitlemez). Anahtar (DEPOWISE_ISTEMCI_IP_ANAHTARI) yoksa hiçbir şey eklenmez.
+builder.Services.AddScoped<IstemciBaglami>();
+var istemciAnahtari = DepoWise.Application.Common.IstemciAdresiImzasi.Anahtar();
+builder.Services.AddScoped(sp => new HttpClient(new IstemciAdresiIsleyici(sp.GetRequiredService<IstemciBaglami>(), istemciAnahtari,
+        new SocketsHttpHandler { AutomaticDecompression = System.Net.DecompressionMethods.All }))
     { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<DepoWise.Web.Services.ThemeState>();

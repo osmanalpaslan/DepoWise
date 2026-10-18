@@ -23,3 +23,9 @@
   Yayından sonra ilk turda her masaüstü bir kez tam paket çeker (imleç sıfırdan başlar), sonra yalnız değişenler iner.
 - [ ] **M-81 + M-03 adım 3:** yayından sonra her masaüstü yeni sürüme geçişte BİR KEZ tam gönderim yapar (sayfalı, 2000 satır/sayfa).
   Aynı gün çok bilgisayar güncellenirse sunucu yükü artar; güncellemeyi birkaç saate yaymak ya da mesai dışı yayınlamak önerilir.
+- [ ] **M-11 (web gerçek adres):** iki uygulamaya AYNI gizli anahtar tanımlanmadıkça özellik kapalıdır (bugünkü davranış sürer).
+  Yayın günü: rastgele ≥32 karakter üret (ekrana yazma) → `flyctl secrets set DEPOWISE_ISTEMCI_IP_ANAHTARI=… -a depowise-erp`
+  ve aynısı `-a depowise-web` (makineler yeniden başlar; API önce). Doğrulama: web'den iki farklı ağdan giriş; birinde 30 hatalı
+  deneme yapılınca diğeri girmeye devam eder. Anahtar ayrıca özel hafıza deposuna (`claude-ortak-hafiza/anahtarlar`) yazılır.
+- [ ] **M-10 (oturum dönemi):** Migration104 yalnız ekleme (`users.token_epoch`, 0). Yayından önce alınmış jetonlar geçerli kalır;
+  yayından sonra şifre değişen/sıfırlanan kullanıcının açık oturumları düşer (beklenen).

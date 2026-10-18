@@ -105,6 +105,25 @@ public sealed class AuthService
         return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
     }
 
+    /// <summary>
+    /// ⭐ M-11 / F-051 (AR-GE 2026-10-18): masaüstü senkron girişi (<see cref="ExportForSync"/>) şifreyi zaten doğruladı;
+    /// aynı yanıtta oturum jetonu da verilebilsin diye <see cref="Login"/> ile AYNI kilit kuralı uygulanır, başarı ve oturum
+    /// kaydedilir — şifre İKİNCİ kez doğrulanmaz (eskiden masaüstü girişi şifreyi 3 kez doğruluyordu). Kilitliyse false
+    /// (jeton verilmez; masaüstü eski yoldan dener, o da kilide takılır).
+    /// </summary>
+    public bool SenkronGirisiniOnayla(string companyId, string username, string userId)
+    {
+        TenantGuard.Require(companyId);
+        var now = _clock.UtcNow;
+        using var conn = _factory.Create();
+        var (failCount, lastFailMs) = ConsecutiveFailures(conn, companyId, username);
+        if (failCount >= MaxFailures && lastFailMs is long lf && now < DateTimeOffset.FromUnixTimeMilliseconds(lf).Add(LockWindow))
+            return false;
+        RecordAttempt(conn, companyId, username, true);
+        CreateSession(conn, userId, companyId, now);
+        return true;
+    }
+
     /// <summary>Kullanıcı ilk giriş(ler)inde şifre belirlemek zorunda mı (Migration042).</summary>
     private static bool MustChangePassword(DbConnection conn, string userId)
     {

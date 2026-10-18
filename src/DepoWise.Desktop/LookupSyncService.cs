@@ -29,14 +29,19 @@ public static class LookupSyncService
         try
         {
             var baseUrl = url!.TrimEnd('/');
-            // 1) JWT al
-            using var loginContent = new StringContent(
-                JsonSerializer.Serialize(new { username, password }), Encoding.UTF8, "application/json");
-            using var loginResp = await _http.PostAsync(baseUrl + "/api/auth/login", loginContent);
-            if (!loginResp.IsSuccessStatusCode) return;
-            using var loginDoc = JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync());
-            var token = loginDoc.RootElement.TryGetProperty("token", out var t) ? t.GetString() : null;
-            if (string.IsNullOrWhiteSpace(token)) return;
+            // 1) JWT — ⭐ M-11/F-051: girişte alınmış jeton bu kullanıcıya aitse o kullanılır (şifre yeniden gönderilmez:
+            //    her gönderim pahalı doğrulama + giriş sınırından bir hak). Yoksa eskisi gibi giriş yapılır.
+            var token = ServerAuthClient.JetonFor(baseUrl, DesktopServices.Session?.UserId);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                using var loginContent = new StringContent(
+                    JsonSerializer.Serialize(new { username, password }), Encoding.UTF8, "application/json");
+                using var loginResp = await _http.PostAsync(baseUrl + "/api/auth/login", loginContent);
+                if (!loginResp.IsSuccessStatusCode) return;
+                using var loginDoc = JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync());
+                token = loginDoc.RootElement.TryGetProperty("token", out var t) ? t.GetString() : null;
+                if (string.IsNullOrWhiteSpace(token)) return;
+            }
 
             // 2) Tanımları çek
             using var req = new HttpRequestMessage(HttpMethod.Get, baseUrl + "/api/lookups/sync");

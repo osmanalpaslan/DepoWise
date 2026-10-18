@@ -1,6 +1,14 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+﻿@inject DepoWise.Web.Services.IstemciBaglami Istemci
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    /// <summary>⭐ M-11: App.razor'ın ilk istekte okuduğu kullanıcı adresi → devre boyunca API isteklerine eklenir.</summary>
+    [Parameter] public string? IstemciAdresi { get; set; }
+
+    protected override void OnInitialized() => Istemci.Adres = IstemciAdresi;
+}

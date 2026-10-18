@@ -81,7 +81,7 @@
 </head>
 
 <body class="notranslate">
-    <Routes @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
+    <Routes IstemciAdresi="@IstemciAdresi" @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
@@ -319,4 +319,20 @@
     /// </summary>
     private static readonly string StilSurumu =
         System.IO.File.GetLastWriteTimeUtc(typeof(App).Assembly.Location).Ticks.ToString("x");
+
+    /// <summary>
+    /// ⭐ M-11 (AR-GE 2026-10-18): kullanıcının gerçek adresi. Yalnız bu ilk sayfa isteğinde bilinir (etkileşimli devrede
+    /// HttpContext yok) → <c>Routes</c>'a parametre olarak geçer. Bileşen parametreleri sunucu tarafından korunur
+    /// (tarayıcı değiştiremez). Fly önündeyken gerçek adres <c>Fly-Client-IP</c> başlığındadır.
+    /// </summary>
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private string? IstemciAdresi
+    {
+        get
+        {
+            var fly = HttpContext?.Request.Headers["Fly-Client-IP"].ToString();
+            return !string.IsNullOrWhiteSpace(fly) ? fly.Trim() : HttpContext?.Connection.RemoteIpAddress?.ToString();
+        }
+    }
 }

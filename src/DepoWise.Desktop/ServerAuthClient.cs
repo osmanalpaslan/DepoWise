@@ -133,6 +133,38 @@ public static class ServerAuthClient
     /// <summary>Token süresinin dolmasına bu süreden az kaldıysa proaktif yenilenir.</summary>
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromHours(2);
 
+    /// <summary>⭐ M-11/F-051: senkron girişi yanıtındaki jeton (yoksa null).</summary>
+    private static string? YanittakiJeton(string govde)
+    {
+        try
+        {
+            using var d = JsonDocument.Parse(govde);
+            return d.RootElement.TryGetProperty("token", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>⭐ M-11/F-051: saklanan jeton bu sunucu ve BU kullanıcı için geçerliyse onu döndürür (tanım eşitlemesi şifreyi
+    /// yeniden göndermesin). Başka kullanıcıdan kalmış (ör. çevrimdışı giriş sonrası) ya da süresi dolmuş jeton KULLANILMAZ.</summary>
+    public static string? JetonFor(string baseUrl, string? userId)
+    {
+        var token = Token;
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(userId) || SessionExpired) return null;
+        if (!string.Equals(BaseUrl?.TrimEnd('/'), baseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)) return null;
+        if (TokenExpiresUtc is DateTime exp && exp <= DateTime.UtcNow.AddMinutes(5)) return null;
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2) return null;
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4) { case 2: payload += "=="; break; case 3: payload += "="; break; }
+            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(payload)));
+            return doc.RootElement.TryGetProperty("sub", out var s) && string.Equals(s.GetString(), userId, StringComparison.Ordinal)
+                ? token : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>JWT'nin exp alanından son geçerlilik anını okur (doğrulama yapmadan; zamanlama için).</summary>
     private static DateTime? ReadJwtExpiry(string token)
     {
@@ -317,7 +349,7 @@ public static class ServerAuthClient
                     DesktopServices.Auth.ImportUserScopes(bundle); // şube kapsamı
                 }
                 catch { /* yerel ayna eksik kalabilir; oturum yine de ÇEVRİMİÇİ kurulur */ }
-                await StoreTokenAsync(baseUrl, username, password); // Eşitle için JWT sakla
+                await StoreTokenAsync(baseUrl, username, password, YanittakiJeton(body)); // Eşitle için JWT sakla
                 return new(AuthState.Ok, bundle.CompanyId, bundle.BranchId, bundle.ScopeBranchIds);
             }
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -344,16 +376,21 @@ public static class ServerAuthClient
         catch { return false; }
     }
 
-    /// <summary>/api/auth/login ile JWT alıp saklar (Eşitle vb. için). Hata olursa token null kalır.</summary>
-    private static async Task StoreTokenAsync(string baseUrl, string username, string password)
+    /// <summary>JWT'yi saklar (Eşitle vb. için). ⭐ M-11/F-051: senkron girişi yanıtı jeton taşıyorsa (yeni sunucu) o kullanılır,
+    /// şifre ikinci kez gönderilmez; taşımıyorsa (eski sunucu / kilit) eskisi gibi /api/auth/login. Hata olursa token null kalır.</summary>
+    private static async Task StoreTokenAsync(string baseUrl, string username, string password, string? hazirJeton = null)
     {
         try
         {
-            using var content = new StringContent(JsonSerializer.Serialize(new { username, password }), Encoding.UTF8, "application/json");
-            using var resp = await _http.PostAsync(baseUrl + "/api/auth/login", content);
-            if (!resp.IsSuccessStatusCode) return;
-            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            Token = doc.RootElement.TryGetProperty("token", out var t) ? t.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(hazirJeton)) Token = hazirJeton;
+            else
+            {
+                using var content = new StringContent(JsonSerializer.Serialize(new { username, password }), Encoding.UTF8, "application/json");
+                using var resp = await _http.PostAsync(baseUrl + "/api/auth/login", content);
+                if (!resp.IsSuccessStatusCode) return;
+                using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+                Token = doc.RootElement.TryGetProperty("token", out var t) ? t.GetString() : null;
+            }
             BaseUrl = baseUrl;
             TokenExpiresUtc = Token is null ? null : ReadJwtExpiry(Token);
             SessionExpired = false; // taze giriş
