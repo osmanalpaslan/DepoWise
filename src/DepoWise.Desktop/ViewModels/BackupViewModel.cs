@@ -150,14 +150,44 @@ public sealed partial class BackupViewModel : ViewModelBase
         row ??= Selected;
         if (row is null) { Status = "Yedek seçin."; return; }
         if (!await ConfirmService.AskAsync(
-                $"'{row.FileName}' yedeği GERİ YÜKLENSİN mi?\nMevcut veriler bu yedekle değiştirilir; uygulama yeniden başlatılmalı.",
+                $"'{row.FileName}' yedeği GERİ YÜKLENSİN mi?\nMevcut veriler bu yedekle değiştirilir; uygulama yeniden başlatılmalı.\n\n" +
+                "Önce bu bilgisayarda bekleyen değişiklikler sunucuya gönderilir ve mevcut verinin güvenlik kopyası alınır.",
                 "Yedek Geri Yükle", "Evet, Geri Yükle", "Vazgeç", danger: true)) return;
+
+        // ⭐ M-19 (AR-GE 2026-10-18, 05 F-043): geri yükleme sırasında arka plan eşitlemesi veritabanına YAZMAMALI →
+        // eşitleme kapısı tutulur; başarılı geri yüklemeden sonra BIRAKILMAZ (yeniden başlatana kadar eşitleme durur,
+        // eski oturum yeni dosyaya yazmaz).
+        if (!await SyncGate.EnterAsync())
+        { Status = "Eşitleme sürüyor; birazdan tekrar deneyin."; return; }
+        var basarili = false;
         try
         {
-            DesktopServices.Backup.Restore(_session, row.Path, reauthenticated: true);
-            Status = "Geri yüklendi. Lütfen uygulamayı kapatıp yeniden açın.";
+            // 1) Yedekten sonra yapılıp henüz gönderilmemiş işler: önce sunucuya gönder (orada kalırlar; geri yüklemeden
+            //    sonraki ilk eşitleme onları bu bilgisayara geri getirir).
+            if (BusinessSyncPushService.YerelBekleyenVar() || CompanySyncService.PendingCount() > 0)
+            {
+                Status = "Bekleyen değişiklikler sunucuya gönderiliyor…";
+                await CompanySyncService.TryFlushAsync();
+                await BusinessSyncPushService.PushAsync();
+            }
+            // 2) Hâlâ gönderilemeyen varsa (çevrimdışı vb.) kullanıcı AÇIKÇA onaylamadan devam edilmez.
+            if (BusinessSyncPushService.YerelBekleyenVar() || CompanySyncService.PendingCount() > 0)
+            {
+                if (!await ConfirmService.AskAsync(
+                        "⚠️ Bu bilgisayarda sunucuya GÖNDERİLEMEYEN değişiklikler var (internet yok ya da sunucu reddetti).\n\n" +
+                        "Geri yüklerseniz bu değişiklikler bu bilgisayardaki veriden çıkar. Kaybolmazlar: mevcut veri " +
+                        "\"…_geri_yukleme_oncesi\" adlı güvenlik kopyasına kaydedilir — ama sunucuya ulaşmazlar.\n\n" +
+                        "Önerilen: internete bağlanıp \"Eşitle\"ye basın, sonra geri yükleyin. Yine de devam edilsin mi?",
+                        "Gönderilmemiş Değişiklikler", "Yine de Geri Yükle", "Vazgeç", danger: true))
+                { Status = "Geri yükleme iptal edildi (gönderilmemiş değişiklikler korundu)."; return; }
+            }
+            // 3) Geri yükle (servis önce güvenlik kopyası alır; alamazsa geri yüklemez).
+            var oncesi = DesktopServices.Backup.Restore(_session, row.Path, reauthenticated: true);
+            basarili = true;
+            Status = "Geri yüklendi. Lütfen uygulamayı kapatıp yeniden açın. Önceki veri kopyası: " + System.IO.Path.GetFileName(oncesi);
         }
         catch (Exception ex) { Status = "Geri yüklenemedi: " + ex.Message; }
+        finally { if (!basarili) SyncGate.Exit(); }
     }
 
     [RelayCommand]

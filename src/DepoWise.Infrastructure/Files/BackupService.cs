@@ -152,15 +152,44 @@ public sealed class BackupService
         try { if (File.Exists(path)) File.Delete(path); } catch { /* silinemezse de hata atılıyor */ }
     }
 
-    /// <summary>Yedeği canlı DB üzerine geri yükler (-wal/-shm temizlenir). Admin + reauth zorunlu.</summary>
-    public void Restore(SessionContext s, string backupPath, bool reauthenticated)
+    /// <summary>
+    /// Yedeği canlı DB üzerine geri yükler (-wal/-shm temizlenir). Admin + reauth zorunlu.
+    /// ⭐ M-19 (AR-GE 2026-10-18, 05 F-043): üzerine yazmadan ÖNCE mevcut veritabanının "geri yükleme öncesi" kopyası alınır
+    /// (yedekten sonra yapılıp sunucuya gönderilmemiş işler geri dönüşsüz kaybolmasın); döndürülen değer bu kopyanın yoludur.
+    /// Yedek, yalnız bütünlük değil <see cref="YedekGecerliMi"/> ile doğrulanır (boş veritabanı bütünlük kontrolünü geçer
+    /// ve geri yüklenince tüm veriyi silerdi).
+    /// </summary>
+    public string Restore(SessionContext s, string backupPath, bool reauthenticated)
     {
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Geri yükleme yalnız admin yetkisindedir.");
         if (!reauthenticated) throw new ForbiddenException("Geri yükleme için yeniden kimlik doğrulama gerekli.");
         // ⭐ YED-01: PostgreSQL'de bu yol YIKICI olurdu — yedek dosyası, veritabanı OLMAYAN bir hedefin
         // üzerine kopyalanmaya çalışılırdı. Yetkiden hemen sonra, hiçbir dosyaya dokunmadan durdurulur.
         using (var on = _factory.Create()) SqliteGerekir(on, "geri yükleme");
-        if (!IntegrityCheck(backupPath)) throw new InvalidOperationException("Yedek bütünlük kontrolünden geçemedi.");
+        if (!YedekGecerliMi(backupPath, out var gecersiz))
+            throw new InvalidOperationException("Yedek geri yüklenemez: " + gecersiz);
+
+        // ⭐ M-19: güvenlik kopyası. Alınamazsa geri yükleme YAPILMAZ (mevcut veri tek kopya kalmasın).
+        var oncesi = Path.Combine(_folder, $"depowise_yedek_{_clock.UtcNow:yyyy-MM-dd_HHmmss}_geri_yukleme_oncesi.db");
+        try
+        {
+            if (File.Exists(oncesi)) File.Delete(oncesi);
+            using var conn = _factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "VACUUM INTO @p;";
+            cmd.AddWithValue("@p", oncesi);
+            cmd.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            TryDelete(oncesi);
+            throw new InvalidOperationException("Geri yükleme yapılmadı: mevcut verinin güvenlik kopyası alınamadı. Ayrıntı: " + ex.Message, ex);
+        }
+        if (!YedekGecerliMi(oncesi, out var kopyaHatasi))
+        {
+            TryDelete(oncesi);
+            throw new InvalidOperationException("Geri yükleme yapılmadı: mevcut verinin güvenlik kopyası doğrulanamadı: " + kopyaHatasi);
+        }
 
         var target = _factory.DatabasePath;
         // Bağlantı havuzunu boşalt → dosya kilidi kalmaz (aksi halde File.Copy "kullanımda" hatası)
@@ -168,6 +197,7 @@ public sealed class BackupService
         foreach (var ext in new[] { "-wal", "-shm" })
             if (File.Exists(target + ext)) File.Delete(target + ext);
         File.Copy(backupPath, target, overwrite: true);
+        return oncesi;
     }
 
     public IReadOnlyList<BackupInfo> ListBackups()
