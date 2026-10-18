@@ -56,6 +56,11 @@
 - Kilitle kapanmayan alanlar: günlük faaliyet hareket kaydı (stok/para etkisi yok), cari açılış/elle cari hareketi, sayım.
   Fatura bilgi alanları (not, vade, karşı belge no) kapalı dönemde de düzeltilebilir — tutar/stok değişmez.
 
+## Fatura ↔ mal kabul (M-25)
+- Bir fatura TEK mal kabulüne bağlanır; birden çok kabulü tek faturada birleştirme (toplu fatura) yok — her kabul ayrı faturalanır.
+- Siparişsiz (doğrudan stok girişi) mallar için eşleştirme yok; M-24 çift stok uyarısı orada geçerli kalır.
+- Fiyat farkı (fatura fiyatı ≠ sipariş fiyatı) engellenmez, yalnız miktar kontrol edilir; fiyat farkı uyarısı istenirse ayrı iş.
+
 ## Performans (M-22)
 - Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
   sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri

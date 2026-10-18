@@ -32,7 +32,7 @@ namespace DepoWise.Desktop.ViewModels;
 /// olana kadar SABİT kalır. Kullanıcı iki kez kaydete basarsa ikinci istek aynı anahtarla gider →
 /// ikinci fatura, ikinci cari borcu ve ikinci stok hareketi OLUŞMAZ.
 /// </summary>
-public sealed partial class InvoicesViewModel : ViewModelBase
+public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
     // ═══ FAZ 3b-5 (ADR-223) — ALAN GÖRÜNÜRLÜĞÜ ══════════════════════════════════════════════
@@ -248,6 +248,53 @@ public sealed partial class InvoicesViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? _fDueDate;
     [ObservableProperty] private string _fNote = "";
     [ObservableProperty] private bool _fAffectsStock = true;
+
+    // ═══ M-25 (AR-GE 2026-10-18, F-072) — MAL KABULDEN FATURA ═══════════════════════════════════════════
+    // Satın Alma ekranındaki "Faturalaştır" buraya "kabul:<belge>" ile gelir; form kabulden dolar, stok kutusu kapalı
+    // ve kilitlidir (mal kabulle stoğa girdi). Eşleştirme kuralları (ikinci fatura yok, miktar ≤ kabul) serviste.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KabulBagli))]
+    [NotifyPropertyChangedFor(nameof(StokKutusuAcik))]
+    private string? _kabulBelgesi;
+    [ObservableProperty] private string? _kabulNotu;
+    public bool KabulBagli => KabulBelgesi is not null;
+    public bool StokKutusuAcik => KabulBelgesi is null;
+
+    public void OpenEntity(string entityId)
+    {
+        if (entityId.StartsWith("kabul:", StringComparison.Ordinal)) _ = KabuldenFormAc(entityId["kabul:".Length..]);
+    }
+
+    internal async Task KabuldenFormAc(string belgeId)
+    {
+        if (!CanCreate) { Status = "Fatura oluşturma yetkiniz yok."; return; }
+        KabulFaturaTaslagi t;
+        try { t = DesktopServices.Invoices.KabulTaslagi(_session, belgeId); }
+        catch (Exception ex) { Status = ex.Message; return; }
+        await NewInvoiceForm();
+        // LoadLookups listeleri arayüz kuyruğuna bırakır → önce onlar dolsun, yoksa cari seçimi sonradan temizlenirdi.
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { });
+        FDirection = InvoiceDirections.Purchase;
+        FAffectsStock = false;
+        KabulBelgesi = t.ReceiptDocumentId;
+        KabulNotu = "Mal kabulden fatura: " + t.Not + ". Stok mal kabulle girdi; bu fatura stoğa İKİNCİ kez girmez. " +
+                    "KDV oranını ve satıcının fatura numarasını kontrol edin." + (t.Uyari is null ? "" : " ⚠ " + t.Uyari);
+        if (t.PartyId is not null)
+        {
+            if (PartyOptions.All(o => o.Key != t.PartyId)) PartyOptions.Add(new Option(t.PartyId, t.PartyText ?? t.PartyId));
+            FPartyId = t.PartyId;
+        }
+        if (!string.IsNullOrWhiteSpace(t.BranchId)) FBranchId = t.BranchId;
+        FNote = t.Not;
+        FormLines.Clear();
+        foreach (var l in t.Lines)
+            FormLines.Add(new InvoiceLineEditor(_session, RecalcTotals)
+            {
+                MaterialId = l.MaterialId, MaterialText = $"{l.MaterialCode} — {l.MaterialName}", Unit = l.Unit ?? "",
+                Quantity = l.Quantity, UnitPrice = l.UnitPrice,
+            });
+        RecalcTotals();
+    }
     [ObservableProperty] private string _formTotals = "—";
 
     /// <summary>Kayıt tamamlanana kadar SABİT idempotency anahtarı (çift tıklama koruması).</summary>
@@ -269,6 +316,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase
         // Varsayılan: AKTİF ÇALIŞMA ŞUBESİ (tekil). Çoklu seçim yazmada kullanılmaz.
         FBranchId = BranchScope.ActiveWriteBranchId;
         FInvoiceDate = DateTimeOffset.Now; FDueDate = null; FAffectsStock = true;
+        KabulBelgesi = null; KabulNotu = null;   // M-25: elle açılan form bağsızdır
         FormLines.Clear();
         AddLine();
         FormOpen = true;
@@ -345,7 +393,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase
         // ⭐ M-24 (K-09 a): alış faturası stoğu etkileyecekse çift stok riski kontrol edilir; ⭐ M-51 (K-13 a): para işlemi onayı.
         // Metinler servisten gelir — web aynı metni API'den alır (iki platform aynı cümle).
         var satirlar = FormLines.Select(x => x.ToDto()).ToList();
-        var stokEtkiler = FAffectsStock;
+        var stokEtkiler = FAffectsStock && KabulBelgesi is null;   // M-25: kabulden fatura stok yazmaz
         try
         {
             var uyarilar = stokEtkiler
@@ -381,7 +429,8 @@ public sealed partial class InvoicesViewModel : ViewModelBase
                 DueDate: IsGunuTarihi.Ms(FDueDate),           // ADR-184
                 Currency: "TRY",
                 Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote,
-                AffectsStock: stokEtkiler);
+                AffectsStock: stokEtkiler,
+                ReceiptDocumentId: KabulBelgesi);   // ⭐ M-25
 
             var r = DesktopServices.Invoices.Create(_session, dto);
             Status = r.AlreadyExisted

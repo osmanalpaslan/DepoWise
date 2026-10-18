@@ -242,8 +242,13 @@ else
                                    Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
                 </MudItem>
                 <MudItem xs="12">
-                    <MudCheckBox T="bool" @bind-Value="_fAffectsStock" Dense="true"
+                    <MudCheckBox T="bool" @bind-Value="_fAffectsStock" Dense="true" Disabled="@(_kabulBelgesi is not null)"
                                  Label="Stoğu etkilesin (kapatılırsa hizmet/masraf faturası olur — cari etkisi yine oluşur)" />
+                    @if (_kabulNotu is not null)
+                    {
+                        @* ⭐ M-25: mal kabulden açılan fatura (masaüstüyle aynı metin) *@
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-1">@_kabulNotu</MudAlert>
+                    }
                 </MudItem>
             </MudGrid>
 
@@ -330,6 +335,9 @@ else
     private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
 
     [Parameter] public string? Section { get; set; }
+    /// <summary>⭐ M-25: Satın Alma ekranındaki "Faturalaştır" → /invoices?kabul=&lt;mal kabul belgesi&gt;.</summary>
+    [SupplyParameterFromQuery(Name = "kabul")] public string? Kabul { get; set; }
+    private string? _kabulBelgesi, _kabulNotu;
 
     private sealed class Opt
     {
@@ -408,6 +416,42 @@ else
         catch { }
         await Load();
         if (string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase)) await OpenNew();
+        else if (!string.IsNullOrWhiteSpace(Kabul)) await KabuldenAc(Kabul!);
+    }
+
+    // ═══ M-25 (AR-GE 2026-10-18, F-072) — MAL KABULDEN FATURA ═══
+    // Form kabulden dolar; stok kutusu kapalı ve kilitli (mal kabulle girdi). Eşleştirme kuralları sunucuda.
+    private async Task KabuldenAc(string belgeId)
+    {
+        JsonElement t;
+        try { t = await Api.GetObjectAsync($"/api/invoices/from-receipt/{Uri.EscapeDataString(belgeId)}"); }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; return; }
+        if (t.ValueKind != JsonValueKind.Object || !t.TryGetProperty("lines", out var satirlar))
+        { _ok = false; _msg = Str(t, "error") is { Length: > 0 } e ? e : "Mal kabul bilgisi alınamadı."; return; }
+        await OpenNew();
+        if (!_formOpen) return;
+        _fDirection = "purchase";
+        _fAffectsStock = false;
+        _kabulBelgesi = Str(t, "receiptDocumentId");
+        var uyari = Str(t, "uyari");
+        _kabulNotu = "Mal kabulden fatura: " + Str(t, "not") + ". Stok mal kabulle girdi; bu fatura stoğa İKİNCİ kez girmez. " +
+                     "KDV oranını ve satıcının fatura numarasını kontrol edin." + (uyari.Length == 0 ? "" : " ⚠ " + uyari);
+        var cari = Str(t, "partyId");
+        if (cari.Length > 0)
+        {
+            if (_parties.All(p => p.Key != cari)) _parties.Add(new Opt { Key = cari, Label = Str(t, "partyText") });
+            _fPartyId = cari;
+        }
+        var sube = Str(t, "branchId");
+        if (sube.Length > 0) _fBranchId = sube;
+        _fNote = Str(t, "not");
+        _fLines = satirlar.EnumerateArray().Select(l => new FormLine
+        {
+            Material = new Opt { Key = Str(l, "materialId"), Label = $"{Str(l, "materialCode")} — {Str(l, "materialName")}" },
+            MaterialId = Str(l, "materialId"),
+            Quantity = l.TryGetProperty("quantity", out var q) && q.ValueKind == JsonValueKind.Number ? q.GetDecimal() : 0m,
+            UnitPrice = l.TryGetProperty("unitPrice", out var p) && p.ValueKind == JsonValueKind.Number ? p.GetDecimal() : 0m,
+        }).ToList();
     }
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
@@ -477,6 +521,7 @@ else
         _operationId = "inv-" + Guid.NewGuid().ToString("N");
         _fDirection = "purchase"; _fPartyId = ""; _fBranchId = ""; _fExternalNo = ""; _fNote = "";
         _fInvoiceDate = DateTime.Today; _fDueDate = null; _fAffectsStock = true;
+        _kabulBelgesi = null; _kabulNotu = null;   // M-25: elle açılan form bağsızdır
         _fLines = new List<FormLine> { new() };
         _formOpen = true;
         await LoadLookups();
@@ -537,7 +582,7 @@ else
             var (kontrolHata, kontrol) = await Api.PostJsonWithErrorAsync("/api/invoices/check", Govde(_fAffectsStock));
             if (kontrolHata is not null || kontrol is null) { _formError = kontrolHata ?? "Kayıt öncesi kontrol yapılamadı."; return; }
             var k = kontrol.Value;
-            var stokEtkiler = _fAffectsStock;
+            var stokEtkiler = _fAffectsStock && _kabulBelgesi is null;   // M-25: kabulden fatura stok yazmaz
             if (k.TryGetProperty("ciftStokMetni", out var cs) && cs.ValueKind == JsonValueKind.String)
             {
                 if (await Dialog.Confirm(cs.GetString()!, "Stoğu Etkilemeden Kaydet", "Diğer Seçenek", danger: true))
@@ -572,7 +617,8 @@ else
                 dueDate = Ms(_fDueDate),
                 currency = "TRY",
                 note = string.IsNullOrWhiteSpace(_fNote) ? null : _fNote,
-                affectsStock = affectsStock,
+                affectsStock = affectsStock && _kabulBelgesi is null,
+                receiptDocumentId = _kabulBelgesi,   // ⭐ M-25
                 lines = _fLines.Select(l => new
                 {
                     materialId = l.MaterialId,

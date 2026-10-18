@@ -210,3 +210,17 @@
   "Alan Ayarları" ekranında "Dönem Kilidi" kartı (masaüstü ayarı sunucuya yazar, çevrimdışıyken anlaşılır uyarı).
 - **Testler:** `DonemKilidiTests` DK1–9 9/9; mutasyon 8/8 yakalandı (sınır, stok iptali, sunucu oturumu, paket yazımı, önbellek,
   fatura iptali, yakıt, finans iptali). Riskli alan paketi (migration/PG/kopyalayıcı/stok/fatura/finans/yakıt/bakım/giriş-oturum/tarih/satınalma) **1234/1234** (36 dk).
+
+### B5 — M-25 faturayı mal kabulden oluştur + sipariş-kabul-fatura eşleştirme (F-072, F-148, F-059; Migration107, şema 107)
+- **Sorun:** alış faturası sipariş/kabul bağı taşımıyordu; mal kabulle stoğa giren mal, "stoğu etkilesin" açık faturayla ikinci kez
+  girebiliyor (M-24 yalnız uyarıyordu), aynı mal iki kez faturalanabiliyor, faturalanan miktar kabulü aşabiliyordu (fazla ödeme).
+- **Değişiklik:** Migration107 `invoices.receipt_document_id` (yalnız ekleme). `InvoiceService.KabulTaslagi`: cari, tedarikçiye bağlı
+  cari karttan (`parties.supplier_id` — tedarikçi ↔ cari eşlemesi, F-059); satırlar kabulden (miktar + kabul fiyatı); not sipariş/kabul/
+  irsaliye. Kayıtta (`NewInvoice.ReceiptDocumentId`): yalnız alış, stok YAZILMAZ (istemci ne derse desin), aynı kabule ikinci fatura
+  yok (iptal edilince yeniden kesilebilir), malzeme başına faturalanan ≤ kabul (kısmi fatura ve hizmet satırı serbest), geri alınmış
+  kabul ve başka firmanın kabulü reddedilir. Faturalı kabul geri alınamaz ("önce faturayı iptal edin"). Kabul listesinde fatura no.
+  İki platformda kabul satırında "Faturalaştır" → fatura formu dolu açılır (KDV ve satıcı fatura no kullanıcıda; stok kutusu kilitli).
+  API `GET /api/invoices/from-receipt/{belge}`, fatura gövdesinde `receiptDocumentId`, kabul listesinde `invoiceNo`/`canInvoice`.
+- **Testler:** `KabuldenFaturaTests` KF1–8 + `MalKabulGeriAlmaTests` 14/14; mutasyon 7/7 (stok kapatma, ikinci fatura, miktar, geri alma
+  engeli, firma, bağ yazımı, geri alınmış kabul — sonuncusu ilk denemede yakalanmadı, test hata nedenini doğrulayacak şekilde sıkılaştırıldı).
+  Riskli alan paketi (senkron/migration/kopyalayıcı/PG/stok/fatura/satınalma/cari/firma ayrımı) **1187/1187** (42,5 dk).

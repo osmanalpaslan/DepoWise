@@ -156,9 +156,15 @@
                         <ItemsControl ItemsSource="{Binding Receipts}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="pur:PurchaseReceiptRow">
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
                                         <SelectableTextBlock Grid.Column="0" Classes="Helper" Text="{Binding Ozet}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="Geri Al" Margin="8,0,0,0"
+                                        <!-- ⭐ M-25: kabulden fatura (formu doldurur; stok ikinci kez girmez) -->
+                                        <Button Grid.Column="1" Classes="Primary" Content="Faturalaştır" Margin="8,0,0,0"
+                                                Command="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).InvoiceReceiptCommand}"
+                                                CommandParameter="{Binding}" IsEnabled="{Binding Faturalanabilir}"
+                                                IsVisible="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).CanInvoiceReceipt}"
+                                                ToolTip.Tip="Bu mal kabulünden alış faturası formunu doldurur (KDV ve fatura no kontrol edilip kaydedilir; stok ikinci kez girmez)."/>
+                                        <Button Grid.Column="2" Classes="Secondary" Content="Geri Al" Margin="8,0,0,0"
                                                 Command="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).ReverseReceiptCommand}"
                                                 CommandParameter="{Binding}" IsEnabled="{Binding !IptalMi}"
                                                 IsVisible="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).CanReverseReceipt}"

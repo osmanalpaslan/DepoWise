@@ -154,8 +154,11 @@
                             <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDueDate}"/>
                         </ctrl:FormField>
 
-                        <CheckBox Content="Stoğu etkilesin" IsChecked="{Binding FAffectsStock}"
+                        <CheckBox Content="Stoğu etkilesin" IsChecked="{Binding FAffectsStock}" IsEnabled="{Binding StokKutusuAcik}"
                                   ToolTip.Tip="Kapatılırsa stok hareketi oluşmaz (hizmet/masraf faturası). Cari etkisi yine oluşur."/>
+                        <!-- ⭐ M-25: mal kabulden açılan fatura -->
+                        <SelectableTextBlock Text="{Binding KabulNotu}" Classes="Helper" TextWrapping="Wrap"
+                                             IsVisible="{Binding KabulBagli}"/>
 
                         <!-- ── SATIRLAR ── -->
                         <SelectableTextBlock Text="Satırlar" Classes="SectionTitle" Margin="0,8,0,0"/>

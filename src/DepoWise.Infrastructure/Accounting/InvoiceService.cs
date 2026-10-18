@@ -61,7 +61,22 @@ public sealed record NewInvoice(
     long? DueDate = null,
     string Currency = "TRY",
     string? Note = null,
-    bool AffectsStock = true);
+    bool AffectsStock = true,
+    // ⭐ M-25 (AR-GE 2026-10-18): faturanın oluşturulduğu siparişli MAL KABUL belgesi — verilirse stok yazılmaz (mal kabulle
+    // girdi), aynı kabul ikinci kez faturalanamaz ve faturalanan miktar kabulden fazla olamaz.
+    string? ReceiptDocumentId = null);
+
+/// <summary>⭐ M-25: mal kabulden fatura taslağının bir satırı (miktar kabulden, fiyat sipariş/kabul fiyatı).</summary>
+public sealed record KabulFaturaSatiri(string MaterialId, string MaterialCode, string MaterialName, string? Unit,
+    decimal Quantity, decimal UnitPrice);
+
+/// <summary>⭐ M-25: mal kabulden fatura TASLAĞI — ekran formu bununla doldurur, kullanıcı KDV/fatura no'yu kontrol edip kaydeder.
+/// <see cref="PartyId"/> boşsa tedarikçi bir cariyle eşlenmemiştir (<see cref="Uyari"/> ne yapılacağını söyler).</summary>
+public sealed record KabulFaturaTaslagi(string ReceiptDocumentId, string? PartyId, string? PartyText, string? BranchId,
+    string? IrsaliyeNo, string? SiparisNo, string BelgeNo, IReadOnlyList<KabulFaturaSatiri> Lines, string? Uyari)
+{
+    public string Not => $"Sipariş {SiparisNo} · mal kabul {BelgeNo}" + (string.IsNullOrWhiteSpace(IrsaliyeNo) ? "" : $" · irsaliye {IrsaliyeNo}");
+}
 
 /// <summary>Hesaplanmış fatura toplamları — hiçbiri kullanıcıdan alınmaz, satırlardan TÜRETİLİR.</summary>
 public sealed record InvoiceTotals(
@@ -182,6 +197,7 @@ public sealed class InvoiceService
         var existing = FindByOperation(conn, tx, s.CompanyId, dto.OperationId);
         if (existing is not null) return existing;
         DonemKilidi.Dogrula(s, date, "fatura");   // ⭐ M-30: kapanmış döneme fatura kesilmez (tekrar gönderim yukarıda döner)
+        if (!string.IsNullOrWhiteSpace(dto.ReceiptDocumentId)) dto = KabulBaginiDogrula(conn, tx, s, dto);   // ⭐ M-25
 
         EnsurePartyOwned(conn, tx, s.CompanyId, dto.PartyId);
 
@@ -241,12 +257,141 @@ public sealed class InvoiceService
         // ── 3) FATURA BAŞLIĞI + SATIRLAR ──
         InsertHeader(conn, tx, invoiceId, s, dto, invoiceNo, series.Id, date, totals, stockDocId, ledgerId, now);
         InsertLines(conn, tx, invoiceId, s.CompanyId, dto.Lines, now);
+        if (dto.ReceiptDocumentId is { } kabul)   // ⭐ M-25: kabul bağı (kolon KabulBaginiDogrula'da doğrulandı)
+            using (var kb = conn.CreateCommand())
+            {
+                kb.Transaction = tx;
+                kb.CommandText = "UPDATE invoices SET receipt_document_id=@r WHERE id=@id AND company_id=@c;";
+                kb.AddWithValue("@r", kabul);
+                kb.AddWithValue("@id", invoiceId);
+                kb.AddWithValue("@c", s.CompanyId);
+                kb.ExecuteNonQuery();
+            }
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "invoices", invoiceId, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"no\":\"{invoiceNo}\",\"dir\":\"{dto.Direction}\",\"total\":\"{Money.Serialize(totals.GrandTotal)}\"}}"), _clock);
 
         tx.Commit();
         return new InvoiceResult(invoiceId, invoiceNo, stockDocId, ledgerId, AlreadyExisted: false);
+    }
+
+    // ═══ M-25 (AR-GE 2026-10-18, 05 F-072 / F-148) — FATURAYI MAL KABULDEN OLUŞTUR + EŞLEŞTİRME ═══════════════════════
+    // Sipariş → mal kabul → fatura zinciri: fatura kabulden doldurulur, stok YAZMAZ (mal kabulle girdi → çift stok kökten biter),
+    // aynı kabul iki kez faturalanamaz, faturalanan miktar kabul miktarını aşamaz (fazla ödeme yakalanır). Fiyat ve KDV
+    // kullanıcıya açıktır (sipariş KDV taşımaz; tedarikçi faturasındaki rakam girilir).
+
+    private sealed record KabulBelgesi(string Id, string DocNo, string? BranchId, string? IrsaliyeNo, string Status,
+        string OrderId, string OrderNo, string? SupplierId);
+
+    private static KabulBelgesi KabulOku(DbConnection conn, DbTransaction? tx, string companyId, string documentId)
+    {
+        if (!DbIntrospect.ColumnExists(conn, tx, "stock_documents", "purchase_order_id"))
+            throw new InvalidOperationException("Veritabanı mal kabul bağını henüz desteklemiyor (güncelleme bekleniyor).");
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT d.id, d.doc_no, d.to_branch_id, d.invoice_no, COALESCE(d.status,'active'), o.id, o.order_no, o.supplier_id " +
+                          "FROM stock_documents d JOIN purchase_orders o ON o.id=d.purchase_order_id AND o.company_id=d.company_id " +
+                          "WHERE d.id=@d AND d.company_id=@c AND d.doc_type='in';";
+        cmd.AddWithValue("@d", documentId);
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new ForbiddenException("Siparişe bağlı mal kabul belgesi bulunamadı veya başka firmaya ait.");
+        return new KabulBelgesi(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3),
+            r.GetString(4), r.GetString(5), r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7));
+    }
+
+    /// <summary>Kabulün geçerli (iptal edilmemiş) giriş hareketleri — malzeme başına toplam miktar + ağırlıklı fiyat.</summary>
+    private static List<KabulFaturaSatiri> KabulSatirlari(DbConnection conn, DbTransaction? tx, string companyId, string documentId)
+    {
+        var sira = new List<string>();
+        var toplam = new Dictionary<string, (string Kod, string Ad, string? Birim, decimal Miktar, decimal Tutar)>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT sm.material_id, m.code, m.name, u.name, sm.quantity, sm.unit_price FROM stock_movements sm " +
+                          "JOIN materials m ON m.id=sm.material_id AND m.company_id=sm.company_id LEFT JOIN units u ON u.id=m.unit_id " +
+                          "WHERE sm.document_id=@d AND sm.company_id=@c AND sm.movement_type='in' AND sm.is_reversed=0 ORDER BY sm.created_at, sm.id;";
+        cmd.AddWithValue("@d", documentId);
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var id = r.GetString(0);
+            var q = Money.Parse(r.GetString(4));
+            var p = r.IsDBNull(5) ? 0m : Money.Parse(r.GetString(5));
+            if (!toplam.TryGetValue(id, out var v)) { sira.Add(id); v = (r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), 0m, 0m); }
+            toplam[id] = (v.Kod, v.Ad, v.Birim, v.Miktar + q, v.Tutar + q * p);
+        }
+        return sira.Select(id =>
+        {
+            var v = toplam[id];
+            return new KabulFaturaSatiri(id, v.Kod, v.Ad, v.Birim, v.Miktar, v.Miktar == 0 ? 0m : Math.Round(v.Tutar / v.Miktar, 4));
+        }).ToList();
+    }
+
+    /// <summary>Kabule bağlı İPTAL EDİLMEMİŞ faturanın numarası (yoksa ya da kolon yoksa null).</summary>
+    internal static string? KabulFaturasi(DbConnection conn, DbTransaction? tx, string companyId, string documentId)
+    {
+        if (!DbIntrospect.ColumnExists(conn, tx, "invoices", "receipt_document_id")) return null;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT invoice_no FROM invoices WHERE company_id=@c AND receipt_document_id=@d AND status=@a LIMIT 1;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@d", documentId);
+        cmd.AddWithValue("@a", InvoiceStatuses.Active);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>Mal kabulden fatura TASLAĞI (hiçbir şey yazmaz). Cari, tedarikçiye bağlı cariden bulunur (<c>parties.supplier_id</c>).</summary>
+    public KabulFaturaTaslagi KabulTaslagi(SessionContext s, string documentId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        using var conn = _factory.Create();
+        var k = KabulOku(conn, null, s.CompanyId, documentId);
+        BranchAccess.Require(s, k.BranchId, "mal kabulü faturalaştırma");
+        if (k.Status == "cancelled") throw new ArgumentException("Bu mal kabulü geri alınmış; faturalaştırılamaz.");
+        if (KabulFaturasi(conn, null, s.CompanyId, documentId) is { } no)
+            throw new ArgumentException($"Bu mal kabulü zaten faturalandı ({no}). Aynı malın ikinci faturası kesilemez.");
+        string? partyId = null, partyText = null, uyari = null;
+        if (k.SupplierId is null) uyari = "Siparişte tedarikçi yok; faturanın carisini seçin.";
+        else
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, code, title FROM parties WHERE company_id=@c AND supplier_id=@s AND is_deleted=0 " +
+                              "ORDER BY is_active DESC, code LIMIT 1;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@s", k.SupplierId);
+            using var r = cmd.ExecuteReader();
+            if (r.Read()) { partyId = r.GetString(0); partyText = $"{r.GetString(1)} — {r.GetString(2)}"; }
+            else uyari = "Siparişin tedarikçisi bir cari karta bağlı değil: Cari Hesaplar'da cari kartının «Tedarikçi» alanını seçin ya da faturanın carisini elle seçin.";
+        }
+        var satirlar = KabulSatirlari(conn, null, s.CompanyId, documentId);
+        if (satirlar.Count == 0) throw new ArgumentException("Mal kabulünde faturalanacak kalem yok.");
+        return new KabulFaturaTaslagi(k.Id, partyId, partyText, k.BranchId, k.IrsaliyeNo, k.OrderNo, k.DocNo, satirlar, uyari);
+    }
+
+    /// <summary>Kabul bağlı fatura kuralları — <see cref="Create"/> içinde, kayıt işleminde. Stok etkisi kapatılmış dto döner.</summary>
+    private static NewInvoice KabulBaginiDogrula(DbConnection conn, DbTransaction tx, SessionContext s, NewInvoice dto)
+    {
+        var docId = dto.ReceiptDocumentId!.Trim();
+        if (!DbIntrospect.ColumnExists(conn, tx, "invoices", "receipt_document_id"))
+            throw new InvalidOperationException("Veritabanı fatura ↔ mal kabul bağını henüz desteklemiyor (güncelleme bekleniyor).");
+        if (dto.Direction != InvoiceDirections.Purchase) throw new ArgumentException("Mal kabulden yalnız ALIŞ faturası oluşturulur.");
+        var k = KabulOku(conn, tx, s.CompanyId, docId);
+        BranchAccess.Require(s, k.BranchId, "mal kabulü faturalaştırma");
+        if (k.Status == "cancelled") throw new ArgumentException("Bu mal kabulü geri alınmış; faturalaştırılamaz.");
+        if (KabulFaturasi(conn, tx, s.CompanyId, docId) is { } no)
+            throw new ArgumentException($"Bu mal kabulü zaten faturalandı ({no}). Aynı malın ikinci faturası kesilemez.");
+        var kabul = KabulSatirlari(conn, tx, s.CompanyId, docId).ToDictionary(x => x.MaterialId, StringComparer.Ordinal);
+        foreach (var g in dto.Lines.Where(l => !string.IsNullOrWhiteSpace(l.MaterialId)).GroupBy(l => l.MaterialId!))
+        {
+            var faturalanan = g.Sum(l => l.Quantity);
+            if (!kabul.TryGetValue(g.Key, out var ks))
+                throw new ArgumentException("Faturadaki bir malzeme bu mal kabulünde yok; kabul edilmeyen mal faturalanamaz.");
+            if (faturalanan > ks.Quantity)
+                throw new ArgumentException($"{ks.MaterialName}: faturalanan miktar ({faturalanan:0.####}) mal kabulden " +
+                                            $"({ks.Quantity:0.####}) fazla. Fazla ödemeyi önlemek için miktarı düzeltin.");
+        }
+        return dto with { ReceiptDocumentId = docId, AffectsStock = false };   // mal kabulle stoğa girdi → ikinci giriş YOK
     }
 
     /// <summary>

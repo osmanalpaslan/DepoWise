@@ -45,12 +45,15 @@ public sealed record ReceiveLine(string LineId, decimal Quantity);
 
 /// <summary>⭐ M-32: siparişin bir mal kabulü (stok giriş belgesi).</summary>
 public sealed record PurchaseReceiptRow(string DocumentId, string DocNo, long DocDate, string? IrsaliyeNo, string Status,
-    decimal ToplamMiktar, int KalemSayisi)
+    decimal ToplamMiktar, int KalemSayisi, string? FaturaNo = null)   // ⭐ M-25: kabulden kesilen (iptal edilmemiş) fatura
 {
     public bool IptalMi => Status == "cancelled";
+    /// <summary>⭐ M-25: "Faturalaştır" düğmesi yalnız geri alınmamış ve henüz faturalanmamış kabulde görünür.</summary>
+    public bool Faturalanabilir => !IptalMi && string.IsNullOrEmpty(FaturaNo);
     public string TarihDisplay => DateTimeOffset.FromUnixTimeMilliseconds(DocDate).ToLocalTime().ToString("dd.MM.yyyy");
     public string Ozet => $"{DocNo} · {TarihDisplay}" + (string.IsNullOrWhiteSpace(IrsaliyeNo) ? "" : $" · İrsaliye {IrsaliyeNo}") +
-                          $" · {KalemSayisi} kalem, {ToplamMiktar:0.####}" + (IptalMi ? " · GERİ ALINDI" : "");
+                          $" · {KalemSayisi} kalem, {ToplamMiktar:0.####}" + (IptalMi ? " · GERİ ALINDI" : "") +
+                          (string.IsNullOrEmpty(FaturaNo) ? "" : $" · Fatura {FaturaNo}");
 }
 
 /// <summary>
@@ -505,7 +508,8 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
             cmd.AddWithValue("@c", s.CompanyId);
             decimal toplam = 0; int adet = 0;
             using (var r = cmd.ExecuteReader()) while (r.Read()) { toplam += D(r.GetString(0)); adet++; }
-            sonuc.Add(new PurchaseReceiptRow(b.Id, b.No, b.Tarih, b.Irs, b.Durum, toplam, adet));
+            sonuc.Add(new PurchaseReceiptRow(b.Id, b.No, b.Tarih, b.Irs, b.Durum, toplam, adet,
+                DepoWise.Infrastructure.Accounting.InvoiceService.KabulFaturasi(conn, null, s.CompanyId, b.Id)));
         }
         return sonuc;
     }
@@ -532,6 +536,9 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
         var (durum, _) = EnsureOrderVisible(s, conn, tx, orderId);
         if (StockService.SiparisBagi(conn, tx, s.CompanyId, documentId) != orderId)
             throw new ForbiddenException("Bu stok belgesi bu siparişin mal kabulü değil.");
+        // ⭐ M-25: faturalanmış kabul geri alınırsa fatura (borç) kalır ama mal stoktan çıkar → önce fatura iptal edilmeli.
+        if (DepoWise.Infrastructure.Accounting.InvoiceService.KabulFaturasi(conn, tx, s.CompanyId, documentId) is { } fatura)
+            throw new InvalidOperationException($"Bu mal kabulü faturalandı ({fatura}). Önce Faturalar ekranından faturayı iptal edin.");
 
         // Geri alınacak miktarlar (iptal edilmemiş giriş hareketleri) — ters kayıttan ÖNCE okunur.
         var miktarlar = new Dictionary<string, decimal>(StringComparer.Ordinal);

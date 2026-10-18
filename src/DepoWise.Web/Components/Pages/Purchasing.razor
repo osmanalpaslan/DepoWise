@@ -4,6 +4,7 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @*
     ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA ═══
@@ -175,6 +176,15 @@
                         var iptal = r.TryGetProperty("isCancelled", out var ic) && ic.ValueKind == JsonValueKind.True;
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="py-1">
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(r, "summary")</MudText>
+                            @if (CanInvoiceReceipt)
+                            {
+                                @* ⭐ M-25: kabulden fatura (masaüstüyle aynı düğme ve açıklama) *@
+                                <MudTooltip Text="Bu mal kabulünden alış faturası formunu doldurur (KDV ve fatura no kontrol edilip kaydedilir; stok ikinci kez girmez).">
+                                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                               Disabled="@(!(r.TryGetProperty("canInvoice", out var ci) && ci.ValueKind == JsonValueKind.True) || _busy)"
+                                               OnClick="@(() => Nav.NavigateTo($"/invoices?kabul={Uri.EscapeDataString(Str(r, "documentId"))}"))">Faturalaştır</MudButton>
+                                </MudTooltip>
+                            }
                             @if (CanReverseReceipt)
                             {
                                 <MudTooltip Text="Bu mal kabulünü ters kayıtla geri alır; siparişin teslim alınan miktarı düşer.">
@@ -217,6 +227,7 @@
     private bool CanReceive => Auth.CanEdit("purchasing") && Auth.CanCreate("stock");
     /// <summary>⭐ M-32: geri alma = mal kabul yetkisi + stok düzenleme (servis zorlar; masaüstüyle aynı kapı).</summary>
     private bool CanReverseReceipt => CanReceive && Auth.CanEdit("stock");
+    private bool CanInvoiceReceipt => Auth.CanCreate("invoices");   // ⭐ M-25 (asıl kapı sunucuda)
     private JsonElement[]? _receipts;
     private string _irsaliyeNo = "";
 

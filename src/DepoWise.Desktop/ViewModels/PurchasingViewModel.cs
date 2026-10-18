@@ -97,6 +97,16 @@ public sealed partial class PurchasingViewModel : ViewModelBase
     public bool HasReceipts => Receipts.Count > 0;
     /// <summary>Geri alma = sipariş Edit + stok iptal (servis zorlar; düğme yalnız mal kabul yetkisi olana görünür).</summary>
     public bool CanReverseReceipt => CanReceive && AccessControl.Can(_session, "stock", PermissionAction.Edit);
+    /// <summary>⭐ M-25: kabulden fatura — fatura oluşturma yetkisi gerekir (asıl kapı InvoiceService'te).</summary>
+    public bool CanInvoiceReceipt => AccessControl.Can(_session, DepoWise.Infrastructure.Accounting.InvoiceService.Module, PermissionAction.Create);
+
+    /// <summary>⭐ M-25: Faturalar ekranına geçer ve formu bu mal kabulünden doldurur.</summary>
+    [RelayCommand]
+    private void InvoiceReceipt(PurchaseReceiptRow? r)
+    {
+        if (r is null || !r.Faturalanabilir) return;
+        ShellViewModel.Current?.NavigateTo("invoices", "kabul:" + r.DocumentId);
+    }
 
     [RelayCommand]
     private async Task ReverseReceipt(PurchaseReceiptRow? r)

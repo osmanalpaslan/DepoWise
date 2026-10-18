@@ -1839,6 +1839,7 @@ app.MapGet("/api/purchasing/{id}/receipts", (HttpContext c, string id) =>
     {
         documentId = r.DocumentId, docNo = r.DocNo, docDate = r.DocDate, irsaliyeNo = r.IrsaliyeNo, status = r.Status,
         isCancelled = r.IptalMi, totalQty = r.ToplamMiktar, lineCount = r.KalemSayisi, summary = r.Ozet,
+        invoiceNo = r.FaturaNo, canInvoice = r.Faturalanabilir,   // ⭐ M-25
     })) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/purchasing/{id}/receipts/{documentId}/reverse", (HttpContext c, string id, string documentId, ReceiptReverseDto? d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Purchasing.ReverseReceipt(s, id, documentId, d?.Reason ?? "")) }) : Results.Unauthorized()).RequireAuthorization();
@@ -2934,10 +2935,24 @@ app.MapPost("/api/invoices", (HttpContext c, InvoiceDto d) =>
         .ToList();
     var r = svc.Invoices.Create(s, new NewInvoice(d.Direction, d.PartyId, lines, d.OperationId,
         d.SeriesId, d.ExternalNo, d.BranchId, d.InvoiceDate, d.DueDate, d.Currency ?? "TRY", d.Note,
-        d.AffectsStock ?? true));
+        d.AffectsStock ?? true, d.ReceiptDocumentId));   // ⭐ M-25: mal kabul bağı
     // alreadyExisted: istemci aynı işlemi tekrar gönderdiyse YENİ kayıt oluşmadığını bilir.
     return Results.Ok(new { id = r.Id, invoiceNo = r.InvoiceNo, stockDocumentId = r.StockDocumentId,
                             ledgerEntryId = r.LedgerEntryId, alreadyExisted = r.AlreadyExisted });
+}).RequireAuthorization();
+
+// ⭐ M-25 (AR-GE 2026-10-18, F-072): mal kabulden fatura TASLAĞI — hiçbir şey yazmaz; form bununla dolar.
+app.MapGet("/api/invoices/from-receipt/{documentId}", (HttpContext c, string documentId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var t = svc.Invoices.KabulTaslagi(s, documentId);
+    return Results.Ok(new
+    {
+        receiptDocumentId = t.ReceiptDocumentId, partyId = t.PartyId, partyText = t.PartyText, branchId = t.BranchId,
+        irsaliyeNo = t.IrsaliyeNo, siparisNo = t.SiparisNo, belgeNo = t.BelgeNo, not = t.Not, uyari = t.Uyari,
+        lines = t.Lines.Select(l => new { materialId = l.MaterialId, materialCode = l.MaterialCode, materialName = l.MaterialName,
+            unit = l.Unit, quantity = l.Quantity, unitPrice = l.UnitPrice }),
+    });
 }).RequireAuthorization();
 
 // ⭐ M-24 + M-51 (AR-GE 2026-10-18, K-09 a / K-13 a): kayıt ÖNCESİ kontrol — hiçbir şey yazmaz. Çift stok uyarıları ve
@@ -2949,7 +2964,7 @@ app.MapPost("/api/invoices/check", (HttpContext c, InvoiceDto d) =>
         .Select(l => new NewInvoiceLine(l.MaterialId, l.Description, l.Unit, l.Quantity, l.UnitPrice,
             l.DiscountRate, l.VatRate, l.WithholdingRate))
         .ToList();
-    var uyarilar = (d.AffectsStock ?? true)
+    var uyarilar = (d.AffectsStock ?? true) && string.IsNullOrWhiteSpace(d.ReceiptDocumentId)   // ⭐ M-25: kabulden fatura stok yazmaz
         ? svc.Invoices.CiftStokUyarilari(s, d.Direction, d.PartyId, d.ExternalNo,
             lines.Where(l => !string.IsNullOrWhiteSpace(l.MaterialId)).Select(l => l.MaterialId!).ToList(), d.InvoiceDate)
         : Array.Empty<string>();
@@ -5664,7 +5679,8 @@ record InvoiceLineDto(string? MaterialId, string? Description, string? Unit, dec
     decimal UnitPrice, decimal DiscountRate = 0m, decimal VatRate = 0m, decimal WithholdingRate = 0m);
 record InvoiceDto(string Direction, string PartyId, string OperationId, InvoiceLineDto[]? Lines,
     string? SeriesId = null, string? ExternalNo = null, string? BranchId = null, long? InvoiceDate = null,
-    long? DueDate = null, string? Currency = null, string? Note = null, bool? AffectsStock = null);
+    long? DueDate = null, string? Currency = null, string? Note = null, bool? AffectsStock = null,
+    string? ReceiptDocumentId = null);   // ⭐ M-25
 record InvoiceInfoDto(string? ExternalNo = null, long? DueDate = null, string? Note = null, long? Version = null);
 record InvoiceCancelDto(string Reason);
 record InvoiceSeriesDto(string Code, string Direction, string? Id = null, string? Name = null,
