@@ -74,28 +74,57 @@ public sealed class Migration099_SyncTxid : IMigration
             if (!DbIntrospect.ColumnExists(conn, tx, table, "server_txid"))
                 Exec($"ALTER TABLE {table} ADD COLUMN server_txid BIGINT NULL;");
 
-            // Yalnız server_txid: delta aralığı dar olduğundan yeterli; company_id'yi indekse KATMAK, Migration062'nin
-            // belgelenmiş geri alma adımını (company_id kolonunu düşürme) bozuyordu (CompanyIdMigrationTests yakaladı).
-            Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_txid ON {table}(server_txid);");
-
             if (sqlite)
             {
                 // Bir kez damga (rol satırı migration sırasında YOK → tetikleyici yazmaz; sabit 1 = "ilk çekimde gelsin").
+                // ⭐ 2026-10-18: SQLite'ta indeks + tetikleyiciler ARTIK BURADA KURULMAZ — yalnız sunucu rolünde gerekirler
+                // (SunucuRoluKur). Masaüstünde hiç çalışmıyorlardı; her kurulumda 174 şema komutu (~150 ms) ekliyor ve test
+                // takımını yavaşlatıyordu (her test kendi veritabanını kurar).
                 Exec($"UPDATE {table} SET server_txid = 1 WHERE server_txid IS NULL;");
-                var govde = $"BEGIN UPDATE sync_txid_counter SET next = next + 1 WHERE id = 1; " +
-                            $"UPDATE {table} SET server_txid = (SELECT next - 1 FROM sync_txid_counter WHERE id = 1) WHERE rowid = NEW.rowid; END;";
-                Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_txid_ins AFTER INSERT ON {table} " +
-                     $"WHEN EXISTS (SELECT 1 FROM sync_server_role) {govde}");
-                Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_txid_upd AFTER UPDATE ON {table} " +
-                     $"WHEN EXISTS (SELECT 1 FROM sync_server_role) {govde}");
             }
             else
             {
+                // Yalnız server_txid: delta aralığı dar olduğundan yeterli; company_id'yi indekse KATMAK, Migration062'nin
+                // belgelenmiş geri alma adımını (company_id kolonunu düşürme) bozuyordu (CompanyIdMigrationTests yakaladı).
+                Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_txid ON {table}(server_txid);");
                 Exec($"DROP TRIGGER IF EXISTS trg_{table}_txid ON {table};");
                 Exec($"CREATE TRIGGER trg_{table}_txid BEFORE INSERT OR UPDATE ON {table} " +
                      "FOR EACH ROW EXECUTE FUNCTION dw_set_server_txid();");
                 Exec($"UPDATE {table} SET server_txid = pg_current_xact_id()::text::bigint WHERE server_txid IS NULL;");
             }
         }
+    }
+
+    /// <summary>
+    /// SQLite veritabanını SUNUCU rolüne alır (API'nin SQLite modu ve testler): rol satırı + her eşitleme tablosunda
+    /// <c>server_txid</c> indeksi ve iki tetikleyici (satırı son yazan "işlemin" sayaç numarası). Tekrar çağrılabilir; tek işlem.
+    /// PostgreSQL'de hiçbir şey yapmaz (orada tetikleyici migration'da kurulur). Masaüstü bunu ASLA çağırmaz.
+    /// </summary>
+    public static void SunucuRoluKur(IDbConnectionFactory factory)
+    {
+        using var conn = factory.Create();
+        if (!SqlDialect.IsSqlite(conn)) return;
+        using var tx = conn.BeginTransaction();
+        void Exec(string sql)
+        {
+            using var c = conn.CreateCommand();
+            c.Transaction = tx;
+            c.CommandText = sql;
+            c.ExecuteNonQuery();
+        }
+        Exec("INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);");
+        foreach (var table in BusinessSyncService.Tables)
+        {
+            if (BusinessSyncService.YalnizGonderim.Contains(table) || !DbIntrospect.TableExists(conn, tx, table)
+                || !DbIntrospect.ColumnExists(conn, tx, table, "server_txid")) continue;
+            Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_txid ON {table}(server_txid);");
+            var govde = $"BEGIN UPDATE sync_txid_counter SET next = next + 1 WHERE id = 1; " +
+                        $"UPDATE {table} SET server_txid = (SELECT next - 1 FROM sync_txid_counter WHERE id = 1) WHERE rowid = NEW.rowid; END;";
+            Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_txid_ins AFTER INSERT ON {table} " +
+                 $"WHEN EXISTS (SELECT 1 FROM sync_server_role) {govde}");
+            Exec($"CREATE TRIGGER IF NOT EXISTS trg_{table}_txid_upd AFTER UPDATE ON {table} " +
+                 $"WHEN EXISTS (SELECT 1 FROM sync_server_role) {govde}");
+        }
+        tx.Commit();
     }
 }

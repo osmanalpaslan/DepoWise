@@ -44,7 +44,7 @@ public class GonderimRedleriTests : IDisposable
         _masa = new SqliteConnectionFactory(_masaYol);
         new MigrationRunner(_sunucu).Run();
         new MigrationRunner(_masa).Run();
-        Calistir(_sunucu, "INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);");
+        Migration099_SyncTxid.SunucuRoluKur(_sunucu);
         foreach (var f in new[] { _sunucu, _masa })
             foreach (var c in new[] { Co, Yabanci })
                 Calistir(f, $"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{c}','{c}',1,1,1,0);");

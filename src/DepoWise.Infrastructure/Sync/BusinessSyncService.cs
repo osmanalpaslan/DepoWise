@@ -1557,7 +1557,8 @@ public sealed class BusinessSyncService
         // yüktür. Yalnız gerçekten satır uygulandıysa çalışır.
         if (bakiyeHesapla && sonuc.Upserted > 0)
         {
-            try { new Materials.StockService(_factory, _clock).RecomputeBalances(companyId); }
+            // ⭐ M-21: yalnız paketteki stok hareketlerinin malzemeleri (hareket yoksa hiç).
+            try { new Materials.StockService(_factory, _clock).RecomputeBalances(companyId, Materials.StockService.PakettekiMalzemeler(payload)); }
             catch { /* defter yine doğrudur; bir sonraki çekme düzeltir — senkron turu bu yüzden kırılmaz */ }
         }
 

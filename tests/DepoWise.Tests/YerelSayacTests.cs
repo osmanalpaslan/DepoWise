@@ -159,7 +159,7 @@ public class YerelSayacTests : IDisposable
     [Fact]
     public void YRL6_Sunucu_Rolunde_Yerel_Sayac_Calismaz()
     {
-        Calistir("INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);");
+        Migration099_SyncTxid.SunucuRoluKur(_f);
         var once = _sync.LocalChangeSeq();
         _materials.Create(_admin, new NewMaterial("Y-50", "Sunucuda"));
         Assert.Equal(once, _sync.LocalChangeSeq());

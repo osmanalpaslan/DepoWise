@@ -473,7 +473,10 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     // Yetki-farkında: kullanıcının yazamadığı modüllerin tabloları uygulanmaz + içerik doğrulaması yapılır.
     var res = svc.BusinessSync.Apply(s, doc.RootElement);
     // Senkron 2b: hareketler uygulandıktan sonra stok bakiyesini SUNUCU yeniden hesaplar (birleşik, otoriteli).
-    try { svc.Stock.RecomputeBalances(s.CompanyId); } catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
+    // ⭐ M-21 (AR-GE 2026-10-18): yalnız paketteki stok hareketlerinin malzemeleri yeniden hesaplanır (hareket yoksa hiç);
+    // eskiden her gönderimde tüm defter okunuyordu (büyük firmada 12,1 sn + yazma kilidi).
+    try { svc.Stock.RecomputeBalances(s.CompanyId, DepoWise.Infrastructure.Materials.StockService.PakettekiMalzemeler(doc.RootElement)); }
+    catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
     // ⭐ S1: permanentSkipped = hiçbir denemede başarılı olamayacak satırlar. İstemci bunları
     // "yeniden denenecek" saymaz → kuyruk kalıcı hatalara takılıp kilitlenmez. Eski istemciler alanı yok sayar.
     // ⭐ M-15 (AR-GE 2026-10-17): rejected = HANGİ satır neden uygulanmadı (en fazla 500) → masaüstü listede gösterir.

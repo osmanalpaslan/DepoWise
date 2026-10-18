@@ -1280,8 +1280,27 @@ LIMIT @take;";
     /// çağrı zaten düzeltir) ve loga AYRI bir etiketle yazılır (yarış ≠ sistem hatası).
     /// SQLite'ta aynı anda tek yazar olduğu için özet hiç değişmez → davranış değişmez.
     /// </remarks>
-    public void RecomputeBalances(string companyId)
+    public void RecomputeBalances(string companyId) => RecomputeBalances(companyId, null);
+
+    /// <summary>
+    /// ⭐ M-21 (AR-GE 2026-10-18, 05 F-108) — ARTIMLI yeniden hesap: <paramref name="malzemeler"/> verilirse YALNIZ o malzemelerin
+    /// (tüm lokasyonlardaki) bakiyesi defterden yeniden kurulur; boş küme → hiçbir şey yapılmaz. null → eskisi gibi firmanın
+    /// TAMAMI. Neden: her gönderimden sonra tüm defteri okumak büyük firmada 12,1 sn sürüyor ve bu sırada yazma kilidi tutuyordu
+    /// ("veritabanı kilitli"); oysa bir gönderim genelde birkaç malzemeye dokunur (çoğu hiç stok hareketi taşımaz).
+    /// Formül, yarış koruması ve hayalet bakiye temizliği tam hesapla AYNIDIR — yalnız kapsam daralır.
+    /// </summary>
+    public void RecomputeBalances(string companyId, IReadOnlyCollection<string>? malzemeler)
     {
+        if (malzemeler is { Count: 0 }) return;
+        // Çok büyük kümede tam hesap daha ucuz ve basittir (IN listesi parametre sınırı da aşılmaz).
+        if (malzemeler is { Count: > 400 }) malzemeler = null;
+        var kapsam = malzemeler is null ? "" : " AND material_id IN (" + string.Join(",", malzemeler.Select((_, i) => "@m" + i)) + ")";
+        void Bagla(DbCommand cmd)
+        {
+            if (malzemeler is null) return;
+            int i = 0;
+            foreach (var m in malzemeler) cmd.AddWithValue("@m" + i++, m);
+        }
         const int maxRecomputes = 2;   // ilk deneme + en fazla 2 yeniden hesaplama
         for (int attempt = 0; attempt <= maxRecomputes; attempt++)
         {
@@ -1297,8 +1316,9 @@ LIMIT @take;";
             {
                 read.Transaction = tx;
                 read.CommandText =
-                    "SELECT material_id, branch_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
+                    "SELECT material_id, branch_id, direction, quantity FROM stock_movements WHERE company_id=@c" + kapsam + ";";
                 read.AddWithValue("@c", companyId);
+                Bagla(read);
                 using var r = read.ExecuteReader();
                 while (r.Read())
                 {
@@ -1327,8 +1347,9 @@ LIMIT @take;";
             using (var del = conn.CreateCommand())
             {
                 del.Transaction = tx;
-                del.CommandText = "DELETE FROM stock_balances WHERE company_id=@c;";
+                del.CommandText = "DELETE FROM stock_balances WHERE company_id=@c" + kapsam + ";";
                 del.AddWithValue("@c", companyId);
+                Bagla(del);
                 del.ExecuteNonQuery();
             }
 
@@ -1349,6 +1370,23 @@ LIMIT @take;";
             tx.Commit();
             return;
         }
+    }
+
+    /// <summary>
+    /// ⭐ M-21: eşitleme paketindeki stok hareketlerinin malzemeleri (artımlı yeniden hesabın kapsamı). Paket
+    /// <c>{"tables":{"stock_movements":[...]}}</c> biçimindedir; hareket yoksa boş küme → yeniden hesap gerekmez.
+    /// </summary>
+    public static HashSet<string> PakettekiMalzemeler(System.Text.Json.JsonElement paket)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        if (paket.ValueKind == System.Text.Json.JsonValueKind.Object
+            && paket.TryGetProperty("tables", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.Object
+            && t.TryGetProperty("stock_movements", out var rows) && rows.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var r in rows.EnumerateArray())
+                if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("material_id", out var m)
+                    && m.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrEmpty(m.GetString()))
+                    set.Add(m.GetString()!);
+        return set;
     }
 
     /// <summary>Hareket defterinin ucuz "mührü": (satır sayısı, en büyük created_at). Defter append-only

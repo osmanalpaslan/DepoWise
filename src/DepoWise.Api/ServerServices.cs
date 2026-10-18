@@ -153,13 +153,8 @@ public sealed class ServerServices
         new MigrationRunner(Factory).Run();
         // ⭐ M-03 (Migration099): SQLite SUNUCU rolünde (testler / API yedek modu) işlem-ufku tetikleyicileri çalışsın.
         // Masaüstü bu satırı HİÇ oluşturmaz → oradaki tetikleyiciler etkisiz kalır. PostgreSQL'de tetikleyici koşulsuzdur.
-        if (Factory is SqliteConnectionFactory)
-        {
-            using var rc = Factory.Create();
-            using var rcmd = rc.CreateCommand();
-            rcmd.CommandText = "INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);";
-            rcmd.ExecuteNonQuery();
-        }
+        // 2026-10-18: rol satırı + SQLite'ta tetikleyiciler/indeks tek yardımcıda (PostgreSQL'de hiçbir şey yapmaz).
+        DepoWise.Infrastructure.Database.Migrations.Migration099_SyncTxid.SunucuRoluKur(Factory);
 
         var clock = new SystemClock();
         // F0 (YET-01): yetki fotoğrafı önbelleği — okuyan (Auth) ve geçersiz kılan (Users, Permissions,

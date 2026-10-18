@@ -112,6 +112,7 @@ public static class BusinessSyncPullService
         // kalıcıdır; bağlantı koparsa sonraki tur aynı sayfadan sürer. Bakiye yeniden hesabı her sayfada değil, sonda bir kez.
         var svc = new BusinessSyncService(DesktopServices.Factory);
         bool sunucuDegisti = false;
+        var dokunulanMalzemeler = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);   // M-21
         var sonuc = await SayfaliCekim.CalistirAsync(after, devam,
             getir: async q =>
             {
@@ -137,11 +138,16 @@ public static class BusinessSyncPullService
                 sunucuDegisti = true;
                 return af == 0;   // tam çekimse aynı yanıtla devam edilebilir
             },
-            uygula: kok => svc.ApplyPull(companyId!, kok, Exclude, bakiyeHesapla: false).Upserted,
+            uygula: kok =>
+            {
+                dokunulanMalzemeler.UnionWith(DepoWise.Infrastructure.Materials.StockService.PakettekiMalzemeler(kok));
+                return svc.ApplyPull(companyId!, kok, Exclude, bakiyeHesapla: false).Upserted;
+            },
             ilerlemeYaz: i => { try { DesktopServices.Settings.Set(companyId!, SayfaKey, i?.Yaz() ?? "", DesktopServices.Session?.UserId ?? ""); } catch { } });
 
-        if (sonuc.Uygulanan > 0)
-            try { await Task.Run(() => new DepoWise.Infrastructure.Materials.StockService(DesktopServices.Factory).RecomputeBalances(companyId!)); }
+        // ⭐ M-21: yalnız inen stok hareketlerinin malzemeleri yeniden hesaplanır (hareket yoksa hiç).
+        if (dokunulanMalzemeler.Count > 0)
+            try { await Task.Run(() => new DepoWise.Infrastructure.Materials.StockService(DesktopServices.Factory).RecomputeBalances(companyId!, dokunulanMalzemeler)); }
             catch { /* defter doğrudur; sonraki çekme yeniden hesaplar */ }
         SonAlinanSayisi = sonuc.Uygulanan;
 

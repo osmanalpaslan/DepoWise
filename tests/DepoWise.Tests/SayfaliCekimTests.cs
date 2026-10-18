@@ -36,7 +36,7 @@ public class SayfaliCekimTests : IDisposable
         _dbPath = Path.Combine(Path.GetTempPath(), "dw_say_" + Guid.NewGuid().ToString("N") + ".db");
         _f = new SqliteConnectionFactory(_dbPath);
         new MigrationRunner(_f).Run();
-        Calistir(_f, "INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);");
+        Migration099_SyncTxid.SunucuRoluKur(_f);
         Calistir(_f, $"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{Co}','{Co}',1,1,1,0);");
         var uid = new UserService(_f).EnsureInitialAdmin(Co, "admin_say", "admin123", RoleKeys.CompanyAdmin);
         _admin = new SessionContext(uid, Co, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);

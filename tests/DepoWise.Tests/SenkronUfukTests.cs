@@ -38,7 +38,7 @@ public class SenkronUfukTests : IDisposable
         _dbPath = Path.Combine(Path.GetTempPath(), "dw_ufk_" + Guid.NewGuid().ToString("N") + ".db");
         _f = new SqliteConnectionFactory(_dbPath);
         new MigrationRunner(_f).Run();
-        Calistir("INSERT OR IGNORE INTO sync_server_role(id) VALUES (1);");   // API'nin yaptığı gibi: SUNUCU rolü
+        Migration099_SyncTxid.SunucuRoluKur(_f);   // API'nin yaptığı gibi: SUNUCU rolü (tetikleyiciler dahil)
         _admin = Firma(Co, "admin_ufk");
         _yabanciAdmin = Firma(Yabanci, "admin_ufk2");
         _sync = new BusinessSyncService(_f);

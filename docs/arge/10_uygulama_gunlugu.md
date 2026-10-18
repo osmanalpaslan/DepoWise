@@ -116,3 +116,10 @@
 ### ✅ B1 KAPANIŞ (2026-10-18 12:23)
 - **Tam takım:** 4203/4204 (2 sa 1 dk). Tek başarısız `FinalStabilizasyonTests.FIN10` — eski "çevrimdışı LWW" sözleşmesini sabitliyordu; K-04/M-18 kararıyla bilinçli olarak değişti (yol haritası B0'da öngörülmüştü). Test yeni kurala göre yeniden yazıldı (ilk ulaşan onay korunur, ret çakışma listesinde kaybeden, yönetici "kazanan yap" ile reddi seçebilir) ve geçti. **Arayüz 48/48. İki ortam denetimi:** eşitlik açığı yok, 3 bulgu düzeltildi.
 - **Süre notu:** tam takım ~2 sa sürüyor; en uzun test `PaketSaklamaPolitikasiTests.PKT3` tek başına 20 dk (B3'te incelenecek).
+
+## 2026-10-18 — B3 (senkron sağlamlığı, performans, operasyon)
+
+### B3 — M-21 artımlı bakiye + test süresi iyileştirmesi
+- **M-21:** `StockService.RecomputeBalances(companyId, malzemeler)` — yalnız verilen malzemeler (boş küme → hiçbir şey; 400'den fazla → tam). Gönderim ucu ve masaüstü çekmesi paketteki `stock_movements` malzemelerini verir (`PakettekiMalzemeler`): stok hareketi taşımayan gönderim/çekim bakiyeye HİÇ dokunmaz (eskiden her seferinde tüm defter: büyük firmada 12,1 sn + yazma kilidi). Formül, yarış koruması, hayalet bakiye temizliği aynı. `ArtimliBakiyeTests` ART1–5 (kapsam dışı bozuk bakiyeye dokunulmaz; artımlı = tam; paket çıkarımı; çekme).
+- **Test süresi:** ölçüm — boş veritabanı kurulumu 722 ms, bunun 458 ms'si Migration099/100. SQLite'ta sunucu rolü indeks + tetikleyicileri migration'dan `Migration099_SyncTxid.SunucuRoluKur` yardımcısına taşındı (yalnız sunucu rolünde kurulur: API SQLite modu + testler; masaüstünde hiç işe yaramıyordu). Kurulum ~530 ms; 914 testlik riskli alan paketi **24 dk** (benzer kapsam önce ~45 dk). Şablon veritabanı fikri reddedildi (rol kimlikleri tüm test DB'lerinde aynı olurdu → gerçeklik kaybı).
+- **Testler:** riskli alan paketi (senkron/stok/migration/PG/kopyalayıcı) **914/914**.

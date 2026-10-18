@@ -47,8 +47,8 @@ public class EzmeYasakCakismaTests : IDisposable
         var yol = Path.Combine(Path.GetTempPath(), $"dw_ezy_{ad}_" + Guid.NewGuid().ToString("N") + ".db");
         _yollar.Add(yol);
         var f = new SqliteConnectionFactory(yol);
-        new MigrationRunner(f).Run();
-        Exec(f, (sunucu ? "INSERT OR IGNORE INTO sync_server_role(id) VALUES (1); " : "") +
+        new MigrationRunner(f).Run(); if (sunucu) Migration099_SyncTxid.SunucuRoluKur(f);
+        Exec(f, 
                 $"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{Co}','{Co}',1,1,1,0);");
         return f;
     }
