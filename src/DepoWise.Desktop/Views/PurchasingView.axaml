@@ -139,12 +139,34 @@
                             <Run Text="{Binding Selected.SupplierDisplay}"/><Run Text=" · "/><Run Text="{Binding Selected.BranchDisplay}"/><Run Text=" · MM: "/><Run Text="{Binding Selected.CostCenterDisplay}"/>
                         </SelectableTextBlock>
                         <StackPanel Orientation="Horizontal" Spacing="10">
+                            <!-- ⭐ M-32: irsaliye no stok belgesinin "Fatura/İrsaliye No" alanına yazılır -->
+                            <TextBox Classes="Field" Width="150" Text="{Binding ReceiveIrsaliyeNo}" PlaceholderText="İrsaliye No"
+                                     IsVisible="{Binding CanReceiveNow}" ToolTip.Tip="Teslimatın irsaliye numarası (isteğe bağlı)"/>
                             <Button Classes="Primary" Content="Mal Kabul" Command="{Binding ReceiveCommand}" IsVisible="{Binding CanReceiveNow}"
                                     ToolTip.Tip="Seçilen miktarlar teslim deposuna STOK GİRİŞİ olarak işlenir."/>
                             <Button Classes="Danger" Content="İptal Et" Command="{Binding CancelCommand}" IsVisible="{Binding SelectedOpen}"/>
                         </StackPanel>
                         <Border Classes="Divider"/>
                         <SelectableTextBlock Text="SATIRLAR / MAL KABUL" Classes="SectionTitle"/>
+                    </StackPanel>
+                    <!-- ⭐ M-32: yapılmış mal kabulleri + geri alma (ters kayıt + teslim alınan miktar düşer) -->
+                    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,10,0,0" IsVisible="{Binding HasReceipts}">
+                        <Border Classes="Divider"/>
+                        <SelectableTextBlock Text="MAL KABULLERİ" Classes="SectionTitle"/>
+                        <ItemsControl ItemsSource="{Binding Receipts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="pur:PurchaseReceiptRow">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                        <SelectableTextBlock Grid.Column="0" Classes="Helper" Text="{Binding Ozet}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="Secondary" Content="Geri Al" Margin="8,0,0,0"
+                                                Command="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).ReverseReceiptCommand}"
+                                                CommandParameter="{Binding}" IsEnabled="{Binding !IptalMi}"
+                                                IsVisible="{Binding $parent[ItemsControl].((vm:PurchasingViewModel)DataContext).CanReverseReceipt}"
+                                                ToolTip.Tip="Bu mal kabulünü ters kayıtla geri alır; siparişin teslim alınan miktarı düşer."/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                     <ScrollViewer>
                         <ItemsControl ItemsSource="{Binding DetailLines}">

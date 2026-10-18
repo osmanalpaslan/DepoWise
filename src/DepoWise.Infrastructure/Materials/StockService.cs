@@ -454,9 +454,40 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
         if (doc.DocType == "transfer")
             throw new ForbiddenException("Transfer geri alınamaz. Hedef şubeden kaynağa yeni bir ters transfer yapın.");
         if (doc.Status == "cancelled") { tx.Commit(); return; } // idempotent
+        // ⭐ M-32 (AR-GE 2026-10-18): siparişe BAĞLI mal kabul belgesi burada iptal edilemez — siparişin "teslim alınan"
+        // miktarı düşmez ve sipariş ile defter ayrışırdı. Geri alma Satın Alma ekranındadır (PurchaseOrderService.ReverseReceipt).
+        if (SiparisBagi(conn, tx, s.CompanyId, documentId) is not null)
+            throw new ForbiddenException("Bu kayıt Satın Alma mal kabulünden oluşturuldu; geri almayı Satın Alma ekranından yapın " +
+                                         "(siparişin teslim alınan miktarı da düzelsin).");
 
         ReverseInTx(conn, tx, s, documentId, reason, now);
         tx.Commit();
+    }
+
+    /// <summary>⭐ M-32: mal kabul belgesinin bağlı olduğu sipariş (yoksa ya da kolon yoksa null).</summary>
+    internal static string? SiparisBagi(DbConnection conn, DbTransaction? tx, string companyId, string documentId)
+    {
+        if (!DbIntrospect.ColumnExists(conn, tx, "stock_documents", "purchase_order_id")) return null;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT purchase_order_id FROM stock_documents WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", documentId);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>⭐ M-32: belge iptali ÇAĞIRANIN işleminde (sipariş mal kabulünü geri alma). Yetki ve eksi stok kalkanı
+    /// <see cref="ReverseDocument"/> ile AYNI; belge zaten iptalse false.</summary>
+    internal bool ReverseDocumentInTx(DbConnection conn, DbTransaction tx, SessionContext s, string documentId, string reason)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        AccessControl.RequireButton(s, SpecialButtons.Reverse);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("İptal gerekçesi zorunlu.");
+        var doc = LoadDocument(conn, tx, s.CompanyId, documentId)
+            ?? throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+        if (doc.Status == "cancelled") return false;
+        ReverseInTx(conn, tx, s, documentId, reason, _clock.UtcNow.ToUnixTimeMilliseconds());
+        return true;
     }
 
     /// <summary>İptal gövdesi (ters kayıtlar + belge 'cancelled' + denetim) — çağıranın transaction'ında.

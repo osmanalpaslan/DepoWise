@@ -90,6 +90,36 @@ public sealed partial class PurchasingViewModel : ViewModelBase
     }
     public bool CanReceiveNow => CanReceive && SelectedOpen && DetailLines.Any(l => l.Remaining > 0);
 
+    // ═══ M-32 (AR-GE 2026-10-18) — irsaliye no + kabulü geri al ═══
+    /// <summary>Mal kabulde girilen irsaliye numarası (stok belgesinin "Fatura/İrsaliye No" alanına yazılır).</summary>
+    [ObservableProperty] private string _receiveIrsaliyeNo = "";
+    public ObservableCollection<PurchaseReceiptRow> Receipts { get; } = new();
+    public bool HasReceipts => Receipts.Count > 0;
+    /// <summary>Geri alma = sipariş Edit + stok iptal (servis zorlar; düğme yalnız mal kabul yetkisi olana görünür).</summary>
+    public bool CanReverseReceipt => CanReceive && AccessControl.Can(_session, "stock", PermissionAction.Edit);
+
+    [RelayCommand]
+    private async Task ReverseReceipt(PurchaseReceiptRow? r)
+    {
+        if (Selected is null || r is null || r.IptalMi) return;
+        var gerekce = await ConfirmService.AskReasonAsync(
+            $"'{r.DocNo}' mal kabulü geri alınsın mı?\n\n• Stok girişi ters kayıtla iptal edilir (kayıt silinmez).\n" +
+            "• Siparişin teslim alınan miktarı aynı kadar düşer; tamamlanan sipariş yeniden açılır.\n" +
+            "• Mal kullanıldıysa (stok yetmiyorsa) geri alma yapılmaz.",
+            "Mal Kabulünü Geri Al", "Geri alma gerekçesi", "Evet, Geri Al");
+        if (gerekce is null) return;
+        try
+        {
+            DesktopServices.Purchasing.ReverseReceipt(_session, Selected.Id, r.DocumentId, gerekce);
+            var id = Selected.Id;
+            Load();
+            Selected = Items.FirstOrDefault(x => x.Id == id);
+            LoadDetail();
+            Status = $"'{r.DocNo}' mal kabulü geri alındı.";
+        }
+        catch (Exception ex) { Status = "Geri alınamadı: " + ex.Message; }
+    }
+
     // ── Form ──
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string _formOrderNo = "";
@@ -148,7 +178,12 @@ public sealed partial class PurchasingViewModel : ViewModelBase
     private void LoadDetail()
     {
         DetailLines.Clear();
+        Receipts.Clear();
+        ReceiveIrsaliyeNo = "";
+        OnPropertyChanged(nameof(HasReceipts));
         if (Selected is null) return;
+        try { foreach (var r in DesktopServices.Purchasing.Receipts(_session, Selected.Id)) Receipts.Add(r); } catch { }
+        OnPropertyChanged(nameof(HasReceipts));
         try
         {
             foreach (var l in DesktopServices.Purchasing.Lines(_session, Selected.Id))
@@ -234,7 +269,8 @@ public sealed partial class PurchasingViewModel : ViewModelBase
         try
         {
             DesktopServices.Purchasing.Receive(_session, Selected.Id, secilen,
-                "desk-" + Guid.NewGuid().ToString("N"));   // idempotent: retry ikinci stok girişi üretmez
+                "desk-" + Guid.NewGuid().ToString("N"),   // idempotent: retry ikinci stok girişi üretmez
+                irsaliyeNo: string.IsNullOrWhiteSpace(ReceiveIrsaliyeNo) ? null : ReceiveIrsaliyeNo.Trim());   // ⭐ M-32
             Load();
             LoadDetail();
             Status = "Mal kabul kaydedildi — stok girişi oluştu.";

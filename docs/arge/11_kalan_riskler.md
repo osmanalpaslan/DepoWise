@@ -45,6 +45,11 @@
   günlük faaliyet şube kapsamında değil (çekme de süzmüyor — KARAR-7). Bunları kapsama almak ayrı bir ürün kararıdır.
   Bilgisayarın kendisi şifrelenmediyse (BitLocker) veritabanı dosyası yine okunabilir → kurulum kılavuzunda önerilmeli.
 
+## Satın alma (M-32)
+- Migration105 öncesi mal kabullerinden işlem geçmişinde kabul kaydı bulunmayanlar (çok eski / geçmişi silinmiş) siparişe
+  bağlanamaz: bunlar stok ekranından eskisi gibi iptal edilebilir ama siparişin teslim alınan miktarı kendiliğinden düşmez.
+- Kısmi geri alma yok: bir kabul belgesi bütün olarak geri alınır (yanlış miktar → geri al + doğru miktarla yeniden kabul).
+
 ## Performans (M-22)
 - Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
   sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri

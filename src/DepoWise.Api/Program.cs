@@ -1832,7 +1832,16 @@ app.MapPost("/api/purchasing/{id}/cancel", (HttpContext c, string id, IdReasonDt
 app.MapPost("/api/purchasing/{id}/receive", (HttpContext c, string id, PurchaseReceiveDto d) =>
     S(c) is { } s ? Results.Ok(new { documentId = svc.Purchasing.Receive(s, id,
         (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Purchasing.ReceiveLine(l.LineId, l.Quantity)).ToList(),
-        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.DocDate, d.Note) }) : Results.Unauthorized()).RequireAuthorization();
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.DocDate, d.Note, d.IrsaliyeNo) }) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-32 (AR-GE 2026-10-18): siparişin mal kabulleri + kabulü geri al (ters stok kaydı + teslim alınan miktar düşer, tek işlem).
+app.MapGet("/api/purchasing/{id}/receipts", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Purchasing.Receipts(s, id).Select(r => new
+    {
+        documentId = r.DocumentId, docNo = r.DocNo, docDate = r.DocDate, irsaliyeNo = r.IrsaliyeNo, status = r.Status,
+        isCancelled = r.IptalMi, totalQty = r.ToplamMiktar, lineCount = r.KalemSayisi, summary = r.Ozet,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/purchasing/{id}/receipts/{documentId}/reverse", (HttpContext c, string id, string documentId, ReceiptReverseDto? d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Purchasing.ReverseReceipt(s, id, documentId, d?.Reason ?? "")) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/purchasing/export", (HttpContext c, string? search, string? status, string? format) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -5382,7 +5391,9 @@ record PurchaseOrderDto(string OrderNo, string? SupplierId = null, string? Reque
             Lines?.Select(l => new DepoWise.Infrastructure.Purchasing.NewPurchaseOrderLine(l.MaterialId, l.Quantity, l.UnitPrice, l.Currency, l.Note)).ToList());
 }
 record PurchaseReceiveLineDto(string LineId, decimal Quantity);
-record PurchaseReceiveDto(List<PurchaseReceiveLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null);
+record PurchaseReceiveDto(List<PurchaseReceiveLineDto>? Lines, string? OperationId = null, long? DocDate = null, string? Note = null,
+    string? IrsaliyeNo = null);   // ⭐ M-32
+record ReceiptReverseDto(string? Reason);   // ⭐ M-32: mal kabulünü geri alma gerekçesi
 // MLY-01: maliyet merkezi tanımı. Version = düzenleme kilidi jetonu.
 record CostCenterDto(string Name, string? Code = null, string? Status = null, string? Description = null, long? Version = null);
 // ZMT-01: tek işlem gövdesi (teslim/iade/kayıp/devir). OperationId istemciden gelir → idempotent retry.

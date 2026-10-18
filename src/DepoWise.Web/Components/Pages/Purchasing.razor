@@ -156,10 +156,32 @@
                     }
                     @if (CanReceive && _detailLines.Any(x => x.Remaining > 0))
                     {
-                        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd">
+                        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center" Spacing="2">
+                            @* ⭐ M-32: irsaliye no stok belgesinin "Fatura/İrsaliye No" alanına yazılır (masaüstüyle aynı) *@
+                            <MudTextField @bind-Value="_irsaliyeNo" Label="İrsaliye No" Placeholder="İsteğe bağlı" Margin="Margin.Dense"
+                                          Variant="Variant.Outlined" Style="max-width:170px;" UserAttributes="_noAuto" />
                             <MudTooltip Text="Seçilen miktarlar teslim deposuna STOK GİRİŞİ olarak işlenir (tek işlemde, tekrar gönderim kopya üretmez).">
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Receive" Disabled="_busy">Mal Kabul</MudButton>
                             </MudTooltip>
+                        </MudStack>
+                    }
+                }
+                @* ⭐ M-32: yapılmış mal kabulleri + geri alma (ters kayıt + teslim alınan miktar düşer) — masaüstüyle aynı *@
+                @if (_receipts is { Length: > 0 })
+                {
+                    <MudText Typo="Typo.subtitle2" Class="mt-3">MAL KABULLERİ</MudText>
+                    @foreach (var r in _receipts)
+                    {
+                        var iptal = r.TryGetProperty("isCancelled", out var ic) && ic.ValueKind == JsonValueKind.True;
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="py-1">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@Str(r, "summary")</MudText>
+                            @if (CanReverseReceipt)
+                            {
+                                <MudTooltip Text="Bu mal kabulünü ters kayıtla geri alır; siparişin teslim alınan miktarı düşer.">
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(iptal || _busy)"
+                                               OnClick="@(() => ReverseReceipt(Str(dd, "id"), Str(r, "documentId"), Str(r, "docNo")))">Geri Al</MudButton>
+                                </MudTooltip>
+                            }
                         </MudStack>
                     }
                 }
@@ -193,6 +215,10 @@
     private bool CanBackDate => Auth.CanButton("btn-backdate");
     /// <summary>Mal kabul = sipariş düzenleme + STOK girişi: iki yetki de aranır (stok yan kapısı yok).</summary>
     private bool CanReceive => Auth.CanEdit("purchasing") && Auth.CanCreate("stock");
+    /// <summary>⭐ M-32: geri alma = mal kabul yetkisi + stok düzenleme (servis zorlar; masaüstüyle aynı kapı).</summary>
+    private bool CanReverseReceipt => CanReceive && Auth.CanEdit("stock");
+    private JsonElement[]? _receipts;
+    private string _irsaliyeNo = "";
 
     // FAZ 3c-2 — karar SUNUCUDAN gelir (/api/field-access → FieldAccess); ekran yetki hesaplamaz.
     private bool _fiyatGorunur = true;
@@ -259,7 +285,8 @@
 
     private async Task OpenDetail(JsonElement row)
     {
-        _detail = row; _detailLines = null; _dMsg = null;
+        _detail = row; _detailLines = null; _dMsg = null; _receipts = null; _irsaliyeNo = "";
+        try { _receipts = await Api.GetArrayAsync($"/api/purchasing/{Str(row, "id")}/receipts"); } catch { _receipts = Array.Empty<JsonElement>(); }
         try
         {
             var arr = await Api.GetArrayAsync($"/api/purchasing/{Str(row, "id")}/lines");
@@ -310,12 +337,38 @@
         _busy = true;
         try
         {
-            var body = new { lines = secilen, operationId = "web-" + Guid.NewGuid().ToString("N") };
+            var body = new { lines = secilen, operationId = "web-" + Guid.NewGuid().ToString("N"),
+                irsaliyeNo = string.IsNullOrWhiteSpace(_irsaliyeNo) ? null : _irsaliyeNo.Trim() };   // ⭐ M-32
             var err = await Api.PostAsync($"/api/purchasing/{Str(_detail.Value, "id")}/receive", body);
             _dOk = err is null; _dMsg = err ?? "Mal kabul kaydedildi — stok girişi oluştu.";
             if (_dOk) { await Load(); _detail = null; _detailLines = null; }
         }
         catch (Exception ex) { _dOk = false; _dMsg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>⭐ M-32: mal kabulünü geri al — gerekçe zorunlu, metin masaüstüyle aynı.</summary>
+    private async Task ReverseReceipt(string orderId, string documentId, string docNo)
+    {
+        var gerekce = await Dialog.AskReason(
+            $"'{docNo}' mal kabulü geri alınsın mı?\n\n• Stok girişi ters kayıtla iptal edilir (kayıt silinmez).\n" +
+            "• Siparişin teslim alınan miktarı aynı kadar düşer; tamamlanan sipariş yeniden açılır.\n" +
+            "• Mal kullanıldıysa (stok yetmiyorsa) geri alma yapılmaz.",
+            "Mal Kabulünü Geri Al", "Geri alma gerekçesi", "Evet, Geri Al");
+        if (gerekce is null) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/purchasing/{orderId}/receipts/{documentId}/reverse", new { reason = gerekce });
+            _dOk = err is null; _dMsg = err is null ? $"'{docNo}' mal kabulü geri alındı." : "Geri alınamadı: " + err;
+            if (_dOk)
+            {
+                await Load();
+                var guncel = _rows?.FirstOrDefault(x => Str(x, "id") == orderId);
+                if (guncel is { } g) { var m = _dMsg; await OpenDetail(g); _dMsg = m; _dOk = true; }
+            }
+        }
+        catch (Exception ex) { _dOk = false; _dMsg = "Geri alınamadı: " + ex.Message; }
         finally { _busy = false; }
     }
 

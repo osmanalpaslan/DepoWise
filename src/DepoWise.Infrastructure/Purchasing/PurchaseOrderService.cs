@@ -43,6 +43,16 @@ public sealed record NewPurchaseOrder(string OrderNo, string? SupplierId = null,
 /// <summary>Mal kabul satırı: sipariş satırı + kabul edilen miktar.</summary>
 public sealed record ReceiveLine(string LineId, decimal Quantity);
 
+/// <summary>⭐ M-32: siparişin bir mal kabulü (stok giriş belgesi).</summary>
+public sealed record PurchaseReceiptRow(string DocumentId, string DocNo, long DocDate, string? IrsaliyeNo, string Status,
+    decimal ToplamMiktar, int KalemSayisi)
+{
+    public bool IptalMi => Status == "cancelled";
+    public string TarihDisplay => DateTimeOffset.FromUnixTimeMilliseconds(DocDate).ToLocalTime().ToString("dd.MM.yyyy");
+    public string Ozet => $"{DocNo} · {TarihDisplay}" + (string.IsNullOrWhiteSpace(IrsaliyeNo) ? "" : $" · İrsaliye {IrsaliyeNo}") +
+                          $" · {KalemSayisi} kalem, {ToplamMiktar:0.####}" + (IptalMi ? " · GERİ ALINDI" : "");
+}
+
 /// <summary>
 /// ═══ STN-01 (ADR-169, 2026-08-28) — SATIN ALMA / SİPARİŞ ═══
 ///
@@ -338,7 +348,7 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
     /// İKİNCİ stok hareketi de İKİNCİ received_qty artışı da OLMAZ.
     /// </summary>
     public string Receive(SessionContext s, string orderId, IReadOnlyList<ReceiveLine> lines,
-        string operationId, long? docDate = null, string? note = null)
+        string operationId, long? docDate = null, string? note = null, string? irsaliyeNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (lines is not { Count: > 0 }) throw new ArgumentException("Kabul edilecek satır seçin.");
@@ -404,7 +414,19 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
         // fiyatı hareketten silerdi (sessiz veri kaybı).
         var doc = _stock.ReceiveInTx(conn, tx, s, stockLines, stockOp, branchId,
             note: string.IsNullOrWhiteSpace(note) ? "Mal kabul" : note, docDate: docDate,
+            invoiceNo: string.IsNullOrWhiteSpace(irsaliyeNo) ? null : irsaliyeNo.Trim(),   // ⭐ M-32: belgenin "Fatura/İrsaliye No" alanı
             fiyatSunucuKaynakli: true);
+        // ⭐ M-32: belge siparişe bağlanır (geri alma ve "bu kabul hangi siparişten" sorusu için; Migration105).
+        if (DbIntrospect.ColumnExists(conn, tx, "stock_documents", "purchase_order_id"))
+            using (var bag = conn.CreateCommand())
+            {
+                bag.Transaction = tx;
+                bag.CommandText = "UPDATE stock_documents SET purchase_order_id=@o WHERE id=@d AND company_id=@c;";
+                bag.AddWithValue("@o", orderId);
+                bag.AddWithValue("@d", doc.DocumentId);
+                bag.AddWithValue("@c", s.CompanyId);
+                bag.ExecuteNonQuery();
+            }
 
         // 2) received_qty artışı (aynı tx — defterle birlikte).
         foreach (var l in lines)
@@ -455,6 +477,121 @@ VALUES(@id,@o,@c,@m,@q,@p,@cur,'0',@n,@now,@now,1,0);";
             catch { /* bağ sonradan Maliyet Merkezleri üzerinden kurulabilir */ }
         }
         return doc.DocumentId;
+    }
+
+    /// <summary>⭐ M-32 (AR-GE 2026-10-18): siparişin mal kabulleri (en yeni önce), iptal edilenler dahil.</summary>
+    public IReadOnlyList<PurchaseReceiptRow> Receipts(SessionContext s, string orderId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        EnsureOrderVisible(s, conn, null, orderId);
+        if (!DbIntrospect.ColumnExists(conn, null, "stock_documents", "purchase_order_id")) return Array.Empty<PurchaseReceiptRow>();
+        var belgeler = new List<(string Id, string No, long Tarih, string? Irs, string Durum)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id, doc_no, doc_date, invoice_no, COALESCE(status,'active') FROM stock_documents " +
+                              "WHERE company_id=@c AND purchase_order_id=@o AND doc_type='in' ORDER BY doc_date DESC, created_at DESC;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@o", orderId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) belgeler.Add((r.GetString(0), r.GetString(1), r.GetInt64(2), r.IsDBNull(3) ? null : r.GetString(3), r.GetString(4)));
+        }
+        var sonuc = new List<PurchaseReceiptRow>();
+        foreach (var b in belgeler)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT quantity FROM stock_movements WHERE document_id=@d AND company_id=@c AND movement_type='in';";
+            cmd.AddWithValue("@d", b.Id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            decimal toplam = 0; int adet = 0;
+            using (var r = cmd.ExecuteReader()) while (r.Read()) { toplam += D(r.GetString(0)); adet++; }
+            sonuc.Add(new PurchaseReceiptRow(b.Id, b.No, b.Tarih, b.Irs, b.Durum, toplam, adet));
+        }
+        return sonuc;
+    }
+
+    /// <summary>
+    /// ⭐ M-32 (AR-GE 2026-10-18, F-113) — MAL KABULÜNÜ GERİ AL (düzeltme izi). TEK işlemde: stok belgesi ters kayıtla iptal
+    /// (defter silinmez; eksi stok kalkanı geçerli — mal kullanıldıysa geri alınamaz), siparişin "teslim alınan" miktarı aynı
+    /// kadar düşer, tamamlanmış sipariş yeniden açılır, gerekçe işlem geçmişine yazılır. Belge bu siparişe bağlı değilse reddedilir.
+    /// Tekrar çağrı zararsız (zaten iptalse hiçbir şey yapmaz). Yetki: sipariş Edit + stok iptal (stok ekranındaki iptalle aynı).
+    /// </summary>
+    public void ReverseReceipt(SessionContext s, string orderId, string documentId, string reason)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Geri alma gerekçesi zorunlu.");
+        DepoWise.Infrastructure.Materials.StockBalanceWriter.Run(() => ReverseReceiptOnce(s, orderId, documentId, reason.Trim()),
+            $"po-reverse:{documentId}");
+    }
+
+    private void ReverseReceiptOnce(SessionContext s, string orderId, string documentId, string reason)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate();
+        var (durum, _) = EnsureOrderVisible(s, conn, tx, orderId);
+        if (StockService.SiparisBagi(conn, tx, s.CompanyId, documentId) != orderId)
+            throw new ForbiddenException("Bu stok belgesi bu siparişin mal kabulü değil.");
+
+        // Geri alınacak miktarlar (iptal edilmemiş giriş hareketleri) — ters kayıttan ÖNCE okunur.
+        var miktarlar = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT material_id, quantity FROM stock_movements WHERE document_id=@d AND company_id=@c " +
+                              "AND movement_type='in' AND is_reversed=0;";
+            cmd.AddWithValue("@d", documentId);
+            cmd.AddWithValue("@c", s.CompanyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) miktarlar[r.GetString(0)] = miktarlar.GetValueOrDefault(r.GetString(0)) + D(r.GetString(1));
+        }
+        if (!_stock.ReverseDocumentInTx(conn, tx, s, documentId, reason)) { tx.Commit(); return; }   // zaten geri alınmış
+
+        // Teslim alınan miktar düşer: aynı malzemeli satırlarda, önce en çok teslim alınandan.
+        foreach (var (malzeme, kalanIade) in miktarlar)
+        {
+            var iade = kalanIade;
+            var satirlar = new List<(string Id, decimal Received)>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "SELECT id, received_qty FROM purchase_order_lines WHERE order_id=@o AND company_id=@c AND material_id=@m AND is_deleted=0;";
+                cmd.AddWithValue("@o", orderId);
+                cmd.AddWithValue("@c", s.CompanyId);
+                cmd.AddWithValue("@m", malzeme);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) satirlar.Add((r.GetString(0), D(r.GetString(1))));
+            }
+            foreach (var (id, received) in satirlar.OrderByDescending(x => x.Received))
+            {
+                if (iade <= 0) break;
+                var dus = Math.Min(iade, received);
+                if (dus <= 0) continue;
+                using var u = conn.CreateCommand();
+                u.Transaction = tx;
+                u.CommandText = "UPDATE purchase_order_lines SET received_qty=@q, updated_at=@now, version=version+1 WHERE id=@id AND company_id=@c;";
+                u.AddWithValue("@q", S(received - dus));
+                u.AddWithValue("@now", now);
+                u.AddWithValue("@id", id);
+                u.AddWithValue("@c", s.CompanyId);
+                u.ExecuteNonQuery();
+                iade -= dus;
+            }
+            if (iade > 0) throw new InvalidOperationException("Sipariş satırlarının teslim alınan miktarı bu kabulden az; geri alma yapılamadı.");
+        }
+        if (durum == "closed")
+            using (var u = conn.CreateCommand())
+            {
+                u.Transaction = tx;
+                u.CommandText = "UPDATE purchase_orders SET status='open', updated_at=@now, version=version+1 WHERE id=@id AND company_id=@c;";
+                u.AddWithValue("@now", now);
+                u.AddWithValue("@id", orderId);
+                u.AddWithValue("@c", s.CompanyId);
+                u.ExecuteNonQuery();
+            }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "purchase_order", orderId, AuditActions.Reverse, s.UserId,
+            AfterJson: $"{{\"receiveReversed\":\"{documentId}\",\"reason\":\"{reason.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"}}"), _clock);
+        tx.Commit();
     }
 
     /// <summary>Excel (liste kuralı 2): filtrelenmiş TÜM sipariş listesi.</summary>
