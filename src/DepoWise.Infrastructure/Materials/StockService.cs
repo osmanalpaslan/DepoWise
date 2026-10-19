@@ -1244,14 +1244,6 @@ LIMIT @take;";
             }, invoiceNo: invoiceNo);
     }
 
-    /// <summary>Fatura/belge kaynaklı ÇIKIŞ — çağıranın transaction'ı içinde. Negatif stok kalkanı ve
-    /// şube bakiyesi kontrolü AYNEN çalışır (yetersiz stokta istisna → çağıran geri alır).</summary>
-    public StockDocResult IssueOutTx(DbConnection conn, DbTransaction tx, SessionContext s,
-        IReadOnlyList<StockLine> lines, string operationId, string? branchId = null,
-        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null)
-    {
-        AccessControl.Require(s, Module, PermissionAction.Create);
-        branchId = EnforceOwnBranch(s, branchId, "çıkış");   // şubeye bağlı kullanıcı yalnız kendi şubesinden
     /// <summary>⭐ M-26: çok malzemeli TRANSFER — çağıranın transaction'ında (talepten "Stoktan Gönder"). Kurallar
     /// <see cref="Transfer(SessionContext, IReadOnlyList{StockLine}, string, string, string, string?, long?, string?, string?, string?, string?, string?)"/>
     /// ile AYNI: kaynak kullanıcının şubesi, hedef boş/aynı olamaz, eksi stok kalkanı, hareket idempotency anahtarları.</summary>
@@ -1279,6 +1271,14 @@ LIMIT @take;";
             }, groupId);
     }
 
+    /// <summary>Fatura/belge kaynaklı ÇIKIŞ — çağıranın transaction'ı içinde. Negatif stok kalkanı ve
+    /// şube bakiyesi kontrolü AYNEN çalışır (yetersiz stokta istisna → çağıran geri alır).</summary>
+    public StockDocResult IssueOutTx(DbConnection conn, DbTransaction tx, SessionContext s,
+        IReadOnlyList<StockLine> lines, string operationId, string? branchId = null,
+        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        branchId = EnforceOwnBranch(s, branchId, "çıkış");   // şubeye bağlı kullanıcı yalnız kendi şubesinden
         return RunDocumentInTx(conn, tx, s, "out", operationId, branchId, branchId, null, personnelId, null, note, docDate,
             (c, t, docId) =>
             {
@@ -1581,6 +1581,10 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         return r.Read() ? new StockDocResult(r.GetString(0), r.GetString(1)) : null;
     }
 
+    /// <summary>⭐ M-26: bu işlem kimliğiyle oluşmuş belge (tekrar gönderimde aynı sonucu döndürmek için).</summary>
+    internal static StockDocResult? BelgeIslemden(DbConnection conn, DbTransaction tx, string companyId, string operationId)
+        => FindDocumentByOperation(conn, tx, companyId, operationId);
+
     private sealed record MovementRow(string Id, string MaterialId, int Direction, decimal Quantity,
         string OperationId, string? BranchId, string? BranchFromId, string? GroupId);
 
@@ -1589,10 +1593,6 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-    /// <summary>⭐ M-26: bu işlem kimliğiyle oluşmuş belge (tekrar gönderimde aynı sonucu döndürmek için).</summary>
-    internal static StockDocResult? BelgeIslemden(DbConnection conn, DbTransaction tx, string companyId, string operationId)
-        => FindDocumentByOperation(conn, tx, companyId, operationId);
-
             "SELECT id, material_id, direction, quantity, operation_id, branch_id, branch_from_id, " +
             "(SELECT group_id FROM stock_documents d WHERE d.id=@doc) FROM stock_movements " +
             "WHERE document_id=@doc AND is_reversed=0;";
