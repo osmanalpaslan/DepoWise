@@ -113,6 +113,26 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
         else { DonemKilidiTarihi = null; DonemKilidiDurumu = "Kilit yok: tüm tarihlere kayıt girilebilir."; }
     }
 
+    // ═══ M-28 (AR-GE 2026-10-18) — SAYIM FARK TOLERANSI ═══
+    [ObservableProperty] private decimal? _sayimToleransi;
+    [ObservableProperty] private string _sayimToleransDurumu = "";
+
+    private void SayimToleransiniGoster()
+    {
+        try { SayimToleransi = DesktopServices.Sayim.Tolerans(_session); } catch { SayimToleransi = null; }
+        SayimToleransDurumu = SayimToleransi is { } t
+            ? $"Tolerans %{t:0.##}: farkı bunu aşan sayımı yalnız ters kayıt yetkisi olan kişi kesinleştirir."
+            : "Tolerans yok: her sayım doğrudan kesinleşir.";
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task SayimToleransKaydet()
+    {
+        var hata = await SayimToleransIstemci.AyarlaAsync(_session, SayimToleransi);
+        if (hata is not null) { SayimToleransDurumu = hata; return; }
+        SayimToleransiniGoster();
+    }
+
     [RelayCommand]
     private async System.Threading.Tasks.Task DonemKilidiKaydet()
     {
@@ -149,6 +169,7 @@ public sealed partial class FieldSettingsViewModel : ViewModelBase
         _yukleniyor = true;
         ArtiAyarlariniYukle();   // FAZ 4.6
         DonemKilidiniGoster();   // M-30
+        SayimToleransiniGoster();   // M-28
         try
         {
             Groups.Clear();

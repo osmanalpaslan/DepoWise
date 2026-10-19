@@ -126,7 +126,7 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
 /// </summary>
 public sealed partial class StockService
 {
-    private const string Module = "stock";
+    internal const string Module = "stock";   // M-28: SayimService de kullanır
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
 
@@ -412,9 +412,16 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
         return RunDocument(s, "count", operationId, branchId, branchId, branchId, null, null, reason, docDate,
             (conn, tx, docId) =>
             {
+                // ⭐ M-28: fark toleransı — aşan satır varsa yalnız yetkili (ters kayıt yetkisi) kesinleştirir.
+                var tolerans = SayimService.ToleransOku(conn, tx, s.CompanyId);
+                var onayli = AccessControl.CanUseButton(s, SpecialButtons.Reverse);
                 for (int i = 0; i < lines.Count; i++)
                 {
                     var ln = lines[i];
+                    if (tolerans is { } tol && !onayli && SayimService.ToleransiAsar(
+                            StockBalanceWriter.ReadBalance(conn, tx, s.CompanyId, ln.MaterialId, branchId ?? StockBalanceWriter.Unassigned), ln.CountedQuantity, tol))
+                        throw new ForbiddenException($"Sayım farkı firma toleransını (%{tol:0.##}) aşıyor. Sayımı taslak olarak kaydedin; " +
+                                                     "ters kayıt yetkisi olan bir yetkili kontrol edip kesinleştirsin.");
                     // STK-02: sayım, SAYILAN LOKASYONUN bakiyesiyle karşılaştırılır. Fark hareketi zaten
                     // aşağıda branchId'ye yazılıyor; sistem miktarını firma geneli okumak "genelden oku,
                     // lokasyona yaz" tutarsızlığı üretirdi. branchId yoksa ATANMAMIŞ kovası okunur/yazılır.

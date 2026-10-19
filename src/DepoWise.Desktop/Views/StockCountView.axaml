@@ -33,7 +33,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
-                            <SelectableTextBlock Grid.Column="1" Text="{Binding DiffText}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding DiffText}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                 IsVisible="{Binding SistemGorunur}"/>
                         </Grid>
                         <Border Classes="Table" MaxHeight="130" IsVisible="{Binding MaterialResults.Count}">
                             <ScrollViewer>
@@ -66,7 +67,7 @@
                                         SelectedItem="{Binding CalismaDeposu}"
                                         PlaceholderText="Depo seç / ara..."/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Sistem Stoğu (bu depo)" Width="160">
+                    <ctrl:FormField Label="Sistem Stoğu (bu depo)" Width="160" IsVisible="{Binding SistemGorunur}">
                         <NumericUpDown Classes="Field" Value="{Binding SystemBalance}" IsEnabled="False" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Sayılan Miktar" IsRequired="True" Width="140">
@@ -89,16 +90,23 @@
                         <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddCountLineCommand}"
                                 ToolTip.Tip="Seçili malzemeyi ve sayılan miktarı listeye ekler; sonra başka malzeme sayabilirsiniz."/>
                         <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding CountLinesSummary}"/>
+                        <!-- ⭐ M-28 -->
+                        <Button Classes="Ghost" Content="Depodaki Tüm Malzemeleri Listele" Command="{Binding TumunuListeleCommand}"
+                                ToolTip.Tip="Seçili depodaki bütün malzemeleri tabloya alır; sayılan miktarları tablodan girersiniz."/>
+                        <CheckBox Content="Kör sayım" IsChecked="{Binding KorSayim}"
+                                  ToolTip.Tip="Sayan kişiye sistem miktarı ve fark gösterilmez; sayılan gerçekten sayılır, sisteme uydurulmaz."/>
                     </WrapPanel>
-                    <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasCountLines}">
+                    <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" Text="{Binding ToleransNotu}"
+                                         IsVisible="{Binding ToleransNotu, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Border Classes="Table" MaxHeight="420" IsVisible="{Binding HasCountLines}">
                         <DockPanel>
                             <Border Classes="TableHeader" DockPanel.Dock="Top">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,0">
                                     <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90" MaxWidth="90"/>
                                     <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="SİSTEM" MinWidth="80" MaxWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="SİSTEM" MinWidth="80" MaxWidth="80" IsVisible="{Binding SistemGorunur}"/>
                                     <SelectableTextBlock Grid.Column="3" Text="SAYILAN" MinWidth="80" MaxWidth="80"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="FARK" MinWidth="70" MaxWidth="70"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="FARK" MinWidth="70" MaxWidth="70" IsVisible="{Binding SistemGorunur}"/>
                                     <SelectableTextBlock Grid.Column="5" Text="" MinWidth="70" MaxWidth="70"/>
                                 </Grid>
                             </Border>
@@ -109,9 +117,13 @@
                                             <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,4">
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <SelectableTextBlock Grid.Column="2" Text="{Binding SystemText}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <SelectableTextBlock Grid.Column="3" Text="{Binding CountedText}" MinWidth="80" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                                <SelectableTextBlock Grid.Column="4" Text="{Binding DiffText}" MinWidth="70" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding SystemText}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                     IsVisible="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).SistemGorunur}"/>
+                                                <!-- ⭐ M-28: sayılan miktar tabloda düzenlenir -->
+                                                <NumericUpDown Grid.Column="3" Classes="Field" Value="{Binding CountedQty}" Minimum="0" MinWidth="80" Width="90"
+                                                               FormatString="0.##" ShowButtonSpinner="False" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding DiffText}" MinWidth="70" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                                     IsVisible="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).SistemGorunur}"/>
                                                 <Button Grid.Column="5" Classes="Ghost" Content="Çıkar" MinWidth="70"
                                                         Command="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).RemoveCountLineCommand}"
                                                         CommandParameter="{Binding}"/>
@@ -127,7 +139,26 @@
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="Taslak Kaydet" Command="{Binding TaslakKaydetCommand}"
+                            ToolTip.Tip="Sayımı stoğa yazmadan kaydeder; sonra açıp sürdürebilirsiniz."/>
                     <Button Classes="Primary" Content="Sayımı Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+                <!-- ⭐ M-28: SAYIM TASLAKLARI -->
+                <StackPanel Spacing="4" IsVisible="{Binding HasTaslaklar}">
+                    <SelectableTextBlock Text="SAYIM TASLAKLARI" Classes="SectionTitle"/>
+                    <ItemsControl ItemsSource="{Binding Taslaklar}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:SayimTaslagi">
+                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="Aç" Margin="8,0,0,0"
+                                            Command="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).TaslakAcCommand}" CommandParameter="{Binding}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Sil" Margin="8,0,0,0"
+                                            Command="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).TaslakSilCommand}" CommandParameter="{Binding}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </StackPanel>
         </Border>

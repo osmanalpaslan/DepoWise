@@ -40,6 +40,23 @@
             <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,0,16"
                 Text="{Binding DonemKilidiDurumu}"/>
 
+            <!-- ⭐ M-28: SAYIM FARK TOLERANSI — yalnız yönetici; kayıt sunucuda. -->
+            <Border Background="{DynamicResource SurfaceElevatedBrush}" Padding="12,6" CornerRadius="6"
+                    MaxWidth="640" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="SAYIM FARK TOLERANSI" Classes="SectionTitle"/>
+            </Border>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,4,0,6"
+                Text="Sayımda bir malzemenin farkı sistem miktarının bu yüzdesini aşarsa sayımı yalnız ters kayıt yetkisi olan kişi kesinleştirir; diğerleri taslak kaydeder. Boş bırakılırsa kontrol yapılmaz. Ayar için internet bağlantısı gerekir."/>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4" MaxWidth="640" HorizontalAlignment="Left">
+                <NumericUpDown Classes="Field" Width="120" Value="{Binding SayimToleransi}" Minimum="0" Maximum="100" FormatString="0.##"
+                               ShowButtonSpinner="False" IsEnabled="{Binding DonemKilidiDuzenlenebilir}"
+                               ToolTip.Tip="Yüzde (ör. 5 = %5). Boş = kontrol yok."/>
+                <Button Classes="Primary" Content="Kaydet" Command="{Binding SayimToleransKaydetCommand}"
+                        IsVisible="{Binding DonemKilidiDuzenlenebilir}" ToolTip.Tip="Toleransı firmanın tüm kullanıcıları için kaydeder."/>
+            </StackPanel>
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,0,16"
+                Text="{Binding SayimToleransDurumu}"/>
+
             <!-- ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06): hangi sabit tanımın yanında "+" (satır içi
                  hızlı ekleme) çıkacağı firma bazında seçilir. Kapatmak tanımı SİLMEZ ve "Tanım
                  Düzenle" ekranından eklemeyi engellemez — yalnız formlardaki kısayolu kaldırır. -->

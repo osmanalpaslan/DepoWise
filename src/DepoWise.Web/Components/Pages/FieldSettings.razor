@@ -47,6 +47,24 @@ else
         @if (!Auth.IsAdmin) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Bu ayarı yalnız firma yöneticisi değiştirebilir.</MudText> }
     </MudPaper>
 
+    @* ⭐ M-28 (AR-GE 2026-10-18) — SAYIM FARK TOLERANSI; masaüstüyle aynı kart. *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
+        <MudText Typo="Typo.h6" Class="mb-1">Sayım fark toleransı</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Sayımda bir malzemenin farkı sistem miktarının bu yüzdesini aşarsa sayımı yalnız ters kayıt yetkisi olan kişi kesinleştirir;
+            diğerleri taslak kaydeder. Boş bırakılırsa kontrol yapılmaz.
+        </MudText>
+        <div class="d-flex flex-wrap align-center gap-2">
+            <MudNumericField T="decimal?" @bind-Value="_tolerans" Label="Tolerans (%)" Min="0m" Max="100m" Format="0.##" HideSpinButtons="true"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px" ReadOnly="@(!Auth.IsAdmin)" />
+            @if (Auth.IsAdmin)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ToleransKaydet">Kaydet</MudButton>
+            }
+        </div>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_toleransMesaj</MudText>
+    </MudPaper>
+
     @* ⭐ FAZ 4.6 (kullanıcı isteği 2026-09-06) — SATIR İÇİ "+" YÖNETİMİ (masaüstüyle aynı yer/aynı kural).
        Kapatılan tanımın yanında "+" görünmez; hızlı ekleme sunucuda da reddedilir. Tanım, "Tanım Düzenle"
        ekranından her zaman eklenebilir → firma kendi tanımını ekleyemez duruma DÜŞMEZ. *@
@@ -112,7 +130,29 @@ else
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok;
 
-    protected override async Task OnInitializedAsync() { await Load(); await ArtiYukle(); await KilitYukle(); }
+    protected override async Task OnInitializedAsync() { await Load(); await ArtiYukle(); await KilitYukle(); await ToleransYukle(); }
+
+    // ═══ M-28 — SAYIM FARK TOLERANSI ═══
+    private decimal? _tolerans;
+    private string _toleransMesaj = "";
+
+    private async Task ToleransYukle()
+    {
+        try
+        {
+            var o = await Api.GetObjectAsync("/api/stock/count-tolerance");
+            _tolerans = o.TryGetProperty("tolerance", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetDecimal() : null;
+            _toleransMesaj = _tolerans is { } v ? $"Tolerans %{v:0.##}: farkı bunu aşan sayımı yalnız ters kayıt yetkisi olan kişi kesinleştirir." : "Tolerans yok: her sayım doğrudan kesinleşir.";
+        }
+        catch { _toleransMesaj = "Tolerans okunamadı."; }
+    }
+
+    private async Task ToleransKaydet()
+    {
+        var hata = await Api.PutAsync("/api/stock/count-tolerance", new { tolerance = _tolerans });
+        if (hata is not null) { _toleransMesaj = hata; return; }
+        await ToleransYukle();
+    }
 
     // ═══ M-30 — DÖNEM KİLİDİ ═══
     private DateTime? _kilitTarihi;

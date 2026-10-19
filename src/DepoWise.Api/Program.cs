@@ -2240,6 +2240,37 @@ app.MapPost("/api/stock/count", (HttpContext c, StockCountDto d) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ⭐ M-28 (AR-GE 2026-10-18, F-075): SAYIM TASLAĞI + FARK TOLERANSI — masaüstüyle aynı servis (SayimService).
+app.MapGet("/api/stock/count-tolerance", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(new { tolerance = svc.Sayim.Tolerans(s) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/stock/count-tolerance", (HttpContext c, CountToleranceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Sayim.ToleransAyarla(s, d.Tolerance);
+    return Results.Ok(new { tolerance = svc.Sayim.Tolerans(s) });
+}).RequireAuthorization();
+app.MapGet("/api/stock/count-drafts", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Sayim.Taslaklar(s).Select(t => new
+    {
+        id = t.Id, branchId = t.BranchId, branchName = t.BranchName, blind = t.Kor, reason = t.Gerekce, updatedAt = t.UpdatedAt,
+        summary = t.Ozet, lines = t.Satirlar.Select(l => new { materialId = l.MaterialId, countedQuantity = l.CountedQuantity }),
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/stock/count-drafts", (HttpContext c, CountDraftDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.Sayim.TaslakKaydet(s, d.Id, d.BranchId, d.Blind, d.Reason,
+        (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Materials.CountLine(l.MaterialId, l.CountedQuantity)).ToList());
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapDelete("/api/stock/count-drafts/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Sayim.TaslakSil(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/stock/count-drafts/{id}/commit", (HttpContext c, string id, StockCountDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.Sayim.Kesinlestir(s, id, string.IsNullOrWhiteSpace(d.Reason) ? "Sayım" : d.Reason!, d.DocDate);
+    return Results.Ok(new { documentId = r.DocumentId, docNo = r.DocNo });
+}).RequireAuthorization();
+
 // Geliştirici Modu (app_settings.developer_mode) — kod 621875, admin
 app.MapGet("/api/settings/developer", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(new { active = svc.Settings.Get(s.CompanyId, "developer_mode") == "1" }) : Results.Unauthorized()).RequireAuthorization();
@@ -5522,6 +5553,8 @@ record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null,
     long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record DeveloperDto(string? Code, bool Active);
+record CountToleranceDto(decimal? Tolerance);   // ⭐ M-28: null = kontrol yok
+record CountDraftDto(string? Id, string? BranchId, bool Blind, string? Reason, List<CountLineDto>? Lines);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
 // KLT-01d: Version = düzenleme kilidi jetonu (material_templates.version); 0/eksik → kontrol yok.
 record MaterialTemplateDto(string Name, string? Code, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock = 0m, decimal UnitPrice = 0m, string? Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null, long Version = 0);

@@ -121,13 +121,126 @@ public sealed partial class StockCountViewModel : ViewModelBase
     // TOPLANMAZ — sayılan miktar mutlak bir değerdir, son girilen değer geçerlidir (üzerine yazılır).
 
     /// <param name="SystemQty">Ekleme anındaki sistem stoğu (bilgi amaçlı; gerçek fark sunucuda yeniden hesaplanır).</param>
-    public sealed record CountLineVm(string MaterialId, string Code, string Name, decimal SystemQty, decimal CountedQty)
+    /// ⭐ M-28: sayılan miktar TABLODA düzenlenebilir (depodaki tüm malzemeler listeye alınıp satır satır girilir).
+    public sealed partial class CountLineVm : ObservableObject
     {
+        public CountLineVm(string materialId, string code, string name, decimal systemQty, decimal countedQty)
+        { MaterialId = materialId; Code = code; Name = name; SystemQty = systemQty; _countedQty = countedQty; }
+        public string MaterialId { get; }
+        public string Code { get; }
+        public string Name { get; }
+        public decimal SystemQty { get; set; }
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Diff))]
+        [NotifyPropertyChangedFor(nameof(DiffText))]
+        [NotifyPropertyChangedFor(nameof(CountedText))]
+        private decimal _countedQty;
         public string Display => $"{Code} — {Name}";
         public decimal Diff => CountedQty - SystemQty;
         public string SystemText => SystemQty.ToString("0.##");
         public string CountedText => CountedQty.ToString("0.##");
         public string DiffText => Diff == 0 ? "0" : $"{Diff:+0.##;-0.##}";
+    }
+
+    // ═══ M-28 (AR-GE 2026-10-18, F-075) — KÖR SAYIM · TABLO · TASLAK · FARK TOLERANSI ═══════════════════
+    /// <summary>Kör sayım: sistem miktarı ve fark sayan kişiye gösterilmez (sayı sisteme "uydurulmasın").</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SistemGorunur))]
+    private bool _korSayim;
+    public bool SistemGorunur => !KorSayim;
+    public ObservableCollection<SayimTaslagi> Taslaklar { get; } = new();
+    public bool HasTaslaklar => Taslaklar.Count > 0;
+    /// <summary>Açık taslak (kaydedilince güncellenir, kesinleşince kapanır).</summary>
+    [ObservableProperty] private string? _acikTaslak;
+    public string? ToleransNotu { get; private set; }
+
+    private void TaslaklariYukle()
+    {
+        Taslaklar.Clear();
+        try { foreach (var t in DesktopServices.Sayim.Taslaklar(_session)) Taslaklar.Add(t); } catch { }
+        try
+        {
+            ToleransNotu = DesktopServices.Sayim.Tolerans(_session) is { } tol
+                ? $"Firma sayım toleransı %{tol:0.##}: bunu aşan farkı yalnız ters kayıt yetkisi olan kişi kesinleştirir (taslak kaydedip ona bırakın)."
+                : null;
+        }
+        catch { ToleransNotu = null; }
+        OnPropertyChanged(nameof(HasTaslaklar));
+        OnPropertyChanged(nameof(ToleransNotu));
+    }
+
+    /// <summary>Depodaki TÜM malzemeleri sayım tablosuna alır (sistem miktarıyla; kör sayımda sayılan 0 başlar).</summary>
+    [RelayCommand]
+    private void TumunuListele()
+    {
+        FormError = null;
+        var loc = CountLocationId;
+        if (string.IsNullOrEmpty(loc)) { FormError = "Önce sayımın yapılacağı depoyu seçin."; return; }
+        try
+        {
+            CountLines.Clear();
+            foreach (var m in DesktopServices.Stock.GetCountSheet(_session, loc, null, 2000))
+                CountLines.Add(new CountLineVm(m.MaterialId, m.Code, m.Name, m.Quantity, KorSayim ? 0m : m.Quantity));
+            NotifyCountLines();
+            Status = $"{CountLines.Count} malzeme tabloya alındı — sayılan miktarları tablodan girin.";
+        }
+        catch (Exception ex) { FormError = "Liste alınamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void TaslakKaydet()
+    {
+        FormError = null;
+        var lines = BuildCountLines();
+        if (lines.Count == 0) { FormError = "Taslakta en az bir malzeme olmalı."; return; }
+        try
+        {
+            AcikTaslak = DesktopServices.Sayim.TaslakKaydet(_session, AcikTaslak, CountLocationId, KorSayim, Reason?.Trim(), lines);
+            Status = $"Taslak kaydedildi ({lines.Count} malzeme). Stok değişmedi; sonra açıp sürdürebilirsiniz.";
+            TaslaklariYukle();
+        }
+        catch (Exception ex) { FormError = "Taslak kaydedilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void TaslakAc(SayimTaslagi? t)
+    {
+        if (t is null) return;
+        if (IsAllBranches) CalismaDeposu = Branches.FirstOrDefault(b => b.Id == t.BranchId);
+        else if (t.BranchId != _session.OperatingBranchId) { FormError = "Bu taslak başka bir depoya ait; o depoyla giriş yapın."; return; }
+        KorSayim = t.Kor;
+        Reason = t.Gerekce ?? "Sayım";
+        CountLines.Clear();
+        var loc = CountLocationId;
+        foreach (var l in t.Satirlar)
+        {
+            var sistem = 0m; string kod = l.MaterialId, ad = "";
+            try
+            {
+                sistem = string.IsNullOrEmpty(loc) ? 0m : DesktopServices.Stock.GetBalanceAt(_session, l.MaterialId, loc);
+                var m = DesktopServices.Materials.GetDetail(_session, l.MaterialId);
+                kod = m.Code; ad = m.Name;
+            }
+            catch { }
+            CountLines.Add(new CountLineVm(l.MaterialId, kod, ad, sistem, l.CountedQuantity));
+        }
+        AcikTaslak = t.Id;
+        NotifyCountLines();
+        Status = "Taslak açıldı — sayıma devam edebilir, yeniden kaydedebilir ya da kesinleştirebilirsiniz.";
+    }
+
+    [RelayCommand]
+    private async Task TaslakSil(SayimTaslagi? t)
+    {
+        if (t is null) return;
+        if (!await ConfirmService.AskAsync("Sayım taslağı silinsin mi? (Stok etkilenmez.)", "Sayım Taslağı", "Sil", "Vazgeç")) return;
+        try
+        {
+            DesktopServices.Sayim.TaslakSil(_session, t.Id);
+            if (AcikTaslak == t.Id) { AcikTaslak = null; CountLines.Clear(); NotifyCountLines(); }
+            TaslaklariYukle();
+        }
+        catch (Exception ex) { FormError = "Silinemedi: " + ex.Message; }
     }
 
     public ObservableCollection<CountLineVm> CountLines { get; } = new();
@@ -143,8 +256,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
         if (SelectedMaterial is null) { FormError = "Önce malzeme seçin."; return; }
         // Aynı malzeme tekrar eklenirse SAYILAN MİKTAR GÜNCELLENİR (toplanmaz) — iki ayrı sayım satırı olmaz.
         var existing = CountLines.FirstOrDefault(l => l.MaterialId == SelectedMaterial.Id);
-        if (existing is not null)
-            CountLines[CountLines.IndexOf(existing)] = existing with { SystemQty = SystemBalance, CountedQty = CountedQty };
+        if (existing is not null) { existing.SystemQty = SystemBalance; existing.CountedQty = CountedQty; }
         else
             CountLines.Add(new CountLineVm(SelectedMaterial.Id, SelectedMaterial.Code, SelectedMaterial.Name, SystemBalance, CountedQty));
 
@@ -193,6 +305,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
         }
         Load();
         RefreshMaterials();
+        TaslaklariYukle();   // ⭐ M-28
     }
 
     [RelayCommand]
@@ -287,6 +400,14 @@ public sealed partial class StockCountViewModel : ViewModelBase
             // TEK çağrı → TEK transaction → TEK belge → TEK operationId (satır başına ayrı belge YOK).
             // 🔴 STK-05 (D-1): branchId eskiden HİÇ gönderilmiyordu → fark ATANMAMIŞ kovasına yazılıyor,
             // kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
+            if (AcikTaslak is { } taslak)   // ⭐ M-28: açık taslak önce son hâliyle kaydedilir, sonra TEK belgeyle kesinleşir
+            {
+                DesktopServices.Sayim.TaslakKaydet(_session, taslak, sayimDeposu, KorSayim, Reason.Trim(), lines);
+                DesktopServices.Sayim.Kesinlestir(_session, taslak, Reason.Trim(), IsGunuTarihi.Ms(DocDate));
+                AcikTaslak = null;
+                TaslaklariYukle();
+            }
+            else
             DesktopServices.Stock.Count(_session, lines, Reason.Trim(), Guid.NewGuid().ToString("N"),
                 branchId: sayimDeposu,
                 docDate: IsGunuTarihi.Ms(DocDate));   // TRH-01: iş günü (created_at DEĞİL) — ADR-184

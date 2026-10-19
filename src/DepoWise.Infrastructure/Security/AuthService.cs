@@ -35,7 +35,9 @@ public sealed record RemoteUserBundle(
     // masaüstünde uygulanmıyordu). Kapsam artık kullanıcı paketiyle birlikte yerele yazılır.
     IReadOnlyList<string>? ScopeBranchIds = null,
     // ⭐ M-30 (AR-GE 2026-10-18): firmanın dönem kilidi — masaüstü yerel firma satırına yazar (çevrimdışı da uygulanır).
-    long? DonemKilidi = null);
+    long? DonemKilidi = null,
+    // ⭐ M-28: sayım fark toleransı (yüzde) — masaüstü yerel firma satırına yazar.
+    decimal? SayimToleransi = null);
 
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
@@ -381,7 +383,8 @@ public sealed class AuthService
         var scopes = LoadUserScopes(conn, coId, userId);
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
             roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId, mustChange,
-            scopes, _donemKilidi.Oku(coId));
+            scopes, _donemKilidi.Oku(coId),
+            DepoWise.Infrastructure.Materials.SayimService.ToleransOku(conn, null, coId));   // ⭐ M-28
     }
 
     /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
@@ -490,6 +493,16 @@ public sealed class AuthService
             k.AddWithValue("@k", (object?)b.DonemKilidi ?? DBNull.Value);
             k.AddWithValue("@id", b.CompanyId);
             k.ExecuteNonQuery();
+        }
+        // 8) ⭐ M-28: SAYIM TOLERANSI — sunucu otoriteli (dönem kilidiyle aynı yol).
+        if (DbIntrospect.ColumnExists(conn, tx, "companies", "count_tolerance_pct"))
+        {
+            using var st = conn.CreateCommand();
+            st.Transaction = tx;
+            st.CommandText = "UPDATE companies SET count_tolerance_pct=@t WHERE id=@id;";
+            st.AddWithValue("@t", b.SayimToleransi is { } tol ? Money.Serialize(tol) : DBNull.Value);
+            st.AddWithValue("@id", b.CompanyId);
+            st.ExecuteNonQuery();
         }
         tx.Commit();
         DonemKilidiService.Unut(b.CompanyId);

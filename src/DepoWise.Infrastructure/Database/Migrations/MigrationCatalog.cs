@@ -114,5 +114,6 @@ public static class MigrationCatalog
         new Migration107_InvoiceReceiptLink(), // 2026-10-18 AR-GE M-25: fatura ↔ mal kabul bağı — yalnız ekleme
         new Migration108_StockDocRequest(),    // 2026-10-18 AR-GE M-26: talepten stok gönderimi bağı — yalnız ekleme
         new Migration109_TransferInTransit(),  // 2026-10-18 AR-GE M-27: iki adımlı transfer (yolda) — yalnız ekleme
+        new Migration110_StockCountDrafts(),   // 2026-10-18 AR-GE M-28: sayım taslağı + fark toleransı — yalnız ekleme
     };
 }

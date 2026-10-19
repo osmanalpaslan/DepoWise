@@ -48,9 +48,29 @@ else
                            HelperText="@(CanBackDate ? "Geçmiş/ileri tarih seçilebilir" : "Tarih bugüne sabit (yetki yok)")" />
             <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" OnKeyUp="OnSearchKey" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
+            @* ⭐ M-28: kör sayım + taslak (masaüstüyle aynı seçenekler) *@
+            <MudTooltip Text="Sayan kişiye sistem miktarı ve fark gösterilmez; sayılan gerçekten sayılır, sisteme uydurulmaz.">
+                <MudCheckBox T="bool" @bind-Value="_kor" @bind-Value:after="Load" Dense="true" Label="Kör sayım" />
+            </MudTooltip>
             <MudSpacer />
+            <MudTooltip Text="Sayımı stoğa yazmadan kaydeder; sonra açıp sürdürebilirsiniz.">
+                <MudButton Variant="Variant.Outlined" OnClick="TaslakKaydet" Disabled="_busy">Taslak Kaydet</MudButton>
+            </MudTooltip>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Sayımı Tamamla</MudButton>
         </MudStack>
+        @if (_toleransNotu is not null) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@_toleransNotu</MudText> }
+        @if (_taslaklar.Count > 0)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mt-2">SAYIM TASLAKLARI</MudText>
+            @foreach (var t in _taslaklar)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.caption" Style="flex:1">@t.Ozet</MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => TaslakAc(t))">Aç</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TaslakSil(t))">Sil</MudButton>
+                </MudStack>
+            }
+        }
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
         <MudText Typo="Typo.caption" Class="mud-text-secondary">
             Sayılan miktarı girin; <b>@(_locationName ?? "seçili depo")</b> stoğundan farkı kadar "düzeltme (adjustment)"
@@ -64,13 +84,13 @@ else
     {
         <MudPaper Class="pa-2" Elevation="2">
             <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh" T="Row">
-                <HeaderContent><MudTh>KOD</MudTh><MudTh>MALZEME</MudTh><MudTh Style="text-align:right">SİSTEM STOĞU</MudTh><MudTh Style="text-align:right">SAYILAN</MudTh><MudTh Style="text-align:right">FARK</MudTh></HeaderContent>
+                <HeaderContent><MudTh>KOD</MudTh><MudTh>MALZEME</MudTh>@if (!_kor) {<MudTh Style="text-align:right">SİSTEM STOĞU</MudTh>}<MudTh Style="text-align:right">SAYILAN</MudTh>@if (!_kor) {<MudTh Style="text-align:right">FARK</MudTh>}</HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.Code</MudTd>
                     <MudTd>@context.Name</MudTd>
-                    <MudTd Style="text-align:right">@context.SystemStock.ToString("0.##")</MudTd>
+                    @if (!_kor) { <MudTd Style="text-align:right">@context.SystemStock.ToString("0.##")</MudTd> }
                     <MudTd Style="text-align:right;width:140px"><MudNumericField T="decimal" @bind-Value="context.Counted" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudTd>
-                    <MudTd Style="text-align:right">@((context.Counted - context.SystemStock).ToString("0.##"))</MudTd>
+                    @if (!_kor) { <MudTd Style="text-align:right">@((context.Counted - context.SystemStock).ToString("0.##"))</MudTd> }
                 </RowTemplate>
             </MudTable>
         </MudPaper>
@@ -102,6 +122,7 @@ else
             // Lokasyon listesi ORTAK önbellekten (her ekran kendi /api/branches çağrısını yapmaz).
             if (Auth.IsAllBranches()) _branches = await Locations.WriteTargets();
             else _locationName = await Locations.NameAsync(Auth.BranchId);
+            await TaslaklariYukle();   // ⭐ M-28
             await Load();
         }
         catch (Exception ex) { _msg = "Ekran yüklenemedi: " + ex.Message; _ok = false; }
@@ -126,13 +147,79 @@ else
                 .Select(e =>
                 {
                     var stock = Dec(e, "systemStock");
-                    return new Row { Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), SystemStock = stock, Counted = stock };
+                    var taslakta = _taslakMiktar?.TryGetValue(Str(e, "id"), out var tq) == true ? tq : (decimal?)null;
+                    return new Row { Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), SystemStock = stock,
+                                     Counted = taslakta ?? (_kor ? 0m : stock) };   // ⭐ M-28: kör sayımda 0'dan başlar
                 }).ToList();
         }
         catch { _rows = new(); }
     }
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
+
+    // ═══ M-28 (AR-GE 2026-10-18, F-075) — KÖR SAYIM · TASLAK · TOLERANS ═══
+    private bool _kor;
+    private string? _acikTaslak, _toleransNotu;
+    private Dictionary<string, decimal>? _taslakMiktar;
+    private sealed class TaslakSatiri { public string Id = ""; public string? BranchId; public bool Kor; public string? Reason; public string Ozet = ""; public Dictionary<string, decimal> Miktar = new(); }
+    private List<TaslakSatiri> _taslaklar = new();
+
+    private async Task TaslaklariYukle()
+    {
+        try
+        {
+            _taslaklar = (await Api.GetArrayAsync("/api/stock/count-drafts")).Select(t => new TaslakSatiri
+            {
+                Id = Str(t, "id"), BranchId = Str(t, "branchId") is { Length: > 0 } b ? b : null,
+                Kor = t.TryGetProperty("blind", out var k) && k.ValueKind == JsonValueKind.True,
+                Reason = Str(t, "reason"), Ozet = Str(t, "summary"),
+                Miktar = t.GetProperty("lines").EnumerateArray().ToDictionary(l => Str(l, "materialId"), l => Dec(l, "countedQuantity")),
+            }).ToList();
+        }
+        catch { _taslaklar = new(); }
+        try
+        {
+            var o = await Api.GetObjectAsync("/api/stock/count-tolerance");
+            _toleransNotu = o.TryGetProperty("tolerance", out var tol) && tol.ValueKind == JsonValueKind.Number
+                ? $"Firma sayım toleransı %{tol.GetDecimal():0.##}: bunu aşan farkı yalnız ters kayıt yetkisi olan kişi kesinleştirir (taslak kaydedip ona bırakın)."
+                : null;
+        }
+        catch { _toleransNotu = null; }
+    }
+
+    private async Task TaslakKaydet()
+    {
+        _msg = null;
+        if (EffectiveLocation is null) { _msg = "Önce sayılacak depoyu/şantiyeyi seçin."; _ok = false; return; }
+        var lines = (_rows ?? new()).Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList();
+        if (lines.Count == 0) { _msg = "Taslakta en az bir malzeme olmalı."; _ok = false; return; }
+        var (err, data) = await Api.PostJsonWithErrorAsync("/api/stock/count-drafts",
+            new { id = _acikTaslak, branchId = EffectiveLocation, blind = _kor, reason = _reason?.Trim(), lines });
+        _ok = err is null;
+        if (_ok) { _acikTaslak = Str(data!.Value, "id"); _msg = $"Taslak kaydedildi ({lines.Count} malzeme). Stok değişmedi; sonra açıp sürdürebilirsiniz."; }
+        else _msg = "Taslak kaydedilemedi: " + err;
+        await TaslaklariYukle();
+    }
+
+    private async Task TaslakAc(TaslakSatiri t)
+    {
+        if (Auth.IsAllBranches()) _location = t.BranchId ?? "";
+        else if (t.BranchId != Auth.BranchId) { _ok = false; _msg = "Bu taslak başka bir depoya ait; o depoyla giriş yapın."; return; }
+        _kor = t.Kor; _reason = string.IsNullOrWhiteSpace(t.Reason) ? _reason : t.Reason!;
+        _acikTaslak = t.Id; _taslakMiktar = t.Miktar;
+        await Load();
+        _taslakMiktar = null;
+        _ok = true; _msg = "Taslak açıldı — sayıma devam edebilir, yeniden kaydedebilir ya da tamamlayabilirsiniz.";
+    }
+
+    private async Task TaslakSil(TaslakSatiri t)
+    {
+        if (!await Dialog.Confirm("Sayım taslağı silinsin mi? (Stok etkilenmez.)", "Sil")) return;
+        var err = await Api.DeleteAsync($"/api/stock/count-drafts/{t.Id}");
+        _ok = err is null; _msg = err ?? "Taslak silindi.";
+        if (_acikTaslak == t.Id) _acikTaslak = null;
+        await TaslaklariYukle();
+    }
 
     private async Task Save()
     {
@@ -153,7 +240,19 @@ else
         var operationId = Guid.NewGuid().ToString("N");
         try
         {
-            var err = await Api.PostAsync("/api/stock/count", new
+            string? err;
+            if (_acikTaslak is { } taslak)   // ⭐ M-28: açık taslak son hâliyle kaydedilir, sonra TEK belgeyle kesinleşir
+            {
+                var (kErr, _) = await Api.PostJsonWithErrorAsync("/api/stock/count-drafts", new
+                {
+                    id = taslak, branchId = EffectiveLocation, blind = _kor, reason = _reason.Trim(),
+                    lines = lines.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList(),
+                });
+                err = kErr ?? await Api.PostAsync($"/api/stock/count-drafts/{taslak}/commit", new { reason = _reason.Trim(), docDate = _docDateMs });
+                if (err is null) { _acikTaslak = null; await TaslaklariYukle(); }
+            }
+            else
+            err = await Api.PostAsync("/api/stock/count", new
             {
                 reason = _reason.Trim(),
                 operationId,
