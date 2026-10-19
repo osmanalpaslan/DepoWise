@@ -53,6 +53,43 @@ public static class OnlineApprovalClient
 
     /// <summary>"Onaylamalarım" listesini SUNUCUDAN çeker. Onay verisi yerelde YOKTUR (senkron dışı) —
     /// bu yüzden liste de yalnız çevrimiçi görüntülenebilir; çevrimdışıysa boş liste + uyarı döner.</summary>
+    // ── ⭐ M-33 (AR-GE 2026-10-18): kalem önizleme, zincirsiz bekleyen talepler, toplu karar ──
+    public static Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> StepItemsAsync(string stepId)
+        => GetArrayAsync($"/api/approvals/steps/{stepId}/items");
+    public static Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> RequestItemsAsync(string requestId)
+        => GetArrayAsync($"/api/requests/{requestId}/items");
+    public static Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> PendingRequestsAsync()
+        => GetArrayAsync("/api/requests?status=pending");
+    public static Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> BulkAsync(bool talep, string[] ids, bool approve, string? reason)
+        => PostArrayAsync(talep ? "/api/requests/bulk-decision" : "/api/approvals/bulk",
+            System.Text.Json.JsonSerializer.Serialize(new { ids, approve, reason }));
+
+    private static async Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> GetArrayAsync(string path)
+        => await IstekAsync(HttpMethod.Get, path, null);
+    private static async Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> PostArrayAsync(string path, string body)
+        => await IstekAsync(HttpMethod.Post, path, body);
+
+    private static async Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> IstekAsync(HttpMethod yontem, string path, string? body)
+    {
+        var bos = System.Array.Empty<System.Text.Json.JsonElement>();
+        if (string.IsNullOrWhiteSpace(ServerAuthClient.Token) || string.IsNullOrWhiteSpace(ServerAuthClient.BaseUrl)) return (false, CevrimdisiUyari, bos);
+        try
+        {
+            await ServerAuthClient.EnsureFreshTokenAsync();
+            using var req = new HttpRequestMessage(yontem, ServerAuthClient.BaseUrl!.TrimEnd('/') + path);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ServerAuthClient.Token);
+            if (body is not null) req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var resp = await _http.SendAsync(req);
+            var govde = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode) return (false, SunucuHatasi(govde) ?? $"Sunucu işlemi reddetti ({(int)resp.StatusCode}).", bos);
+            using var doc = System.Text.Json.JsonDocument.Parse(govde);
+            return (true, "", doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? doc.RootElement.EnumerateArray().Select(x => x.Clone()).ToArray() : bos);
+        }
+        catch (HttpRequestException) { return (false, CevrimdisiUyari, bos); }
+        catch (TaskCanceledException) { return (false, CevrimdisiUyari, bos); }
+    }
+
     public static async Task<(bool Ok, string Message, System.Text.Json.JsonElement[] Rows)> MineAsync()
     {
         var token = ServerAuthClient.Token;

@@ -4041,6 +4041,26 @@ app.MapPost("/api/approvals/steps/{stepId}/reject", (HttpContext c, string stepI
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ⭐ M-33 (AR-GE 2026-10-18, F-115/F-092): TEK ONAY MERKEZİ — kalem önizleme + toplu karar (zincir adımları ve zincirsiz talepler).
+app.MapGet("/api/approvals/steps/{stepId}/items", (HttpContext c, string stepId) =>
+    S(c) is { } s ? Results.Ok(svc.Approvals.KalemOnizleme(s, stepId).Select(k => new
+    {
+        materialName = k.MaterialName, quantity = k.Quantity, unitPrice = k.UnitPrice, amount = k.Tutar, line = k.Satir,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/approvals/bulk", (HttpContext c, BulkDecisionDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var ids = d.Ids ?? Array.Empty<string>();
+    var r = d.Approve ? svc.Approvals.TopluOnayla(s, ids) : svc.Approvals.TopluReddet(s, ids, d.Reason ?? "");
+    return Results.Ok(r.Select(x => new { id = x.StepId, ok = x.Basarili, error = x.Hata }));
+}).RequireAuthorization();
+app.MapPost("/api/requests/bulk-decision", (HttpContext c, BulkDecisionDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.Requests.TopluKarar(s, d.Ids ?? Array.Empty<string>(), d.Approve, d.Reason);
+    return Results.Ok(r.Select(x => new { id = x.StepId, ok = x.Basarili, error = x.Hata }));
+}).RequireAuthorization();
+
 static object TeamDtoOut(DepoWise.Application.Teams.Team t) => new
 {
     id = t.Id, name = t.Name, leadUserId = t.LeadUserId, isActive = t.IsActive,
@@ -5553,6 +5573,7 @@ record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null,
     long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record DeveloperDto(string? Code, bool Active);
+record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33
 record CountToleranceDto(decimal? Tolerance);   // ⭐ M-28: null = kontrol yok
 record CountDraftDto(string? Id, string? BranchId, bool Blind, string? Reason, List<CountLineDto>? Lines);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);

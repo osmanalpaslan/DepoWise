@@ -33,7 +33,7 @@ public delegate void ApprovalCompletionHandler(DbConnection conn, DbTransaction 
 /// <c>UPDATE … WHERE id=@i AND status='pending'</c> ile uygulanır; etkilenen satır 0 ise işlem
 /// reddedilir. Aynı adıma iki eşzamanlı onaydan YALNIZ biri başarılı olur. Bu LWW DEĞİLDİR.
 /// </summary>
-public sealed class ApprovalService
+public sealed partial class ApprovalService
 {
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;

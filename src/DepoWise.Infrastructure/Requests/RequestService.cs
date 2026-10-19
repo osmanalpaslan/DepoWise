@@ -270,6 +270,31 @@ WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
     }
 
     /// <summary>
+    /// ⭐ M-33 (AR-GE 2026-10-18, F-115/F-092): zincirsiz bekleyen talepleri TOPLU onaylar ya da tek gerekçeyle reddeder.
+    /// Her talep kendi işleminde ve <see cref="Approve"/>/<see cref="Reject"/> kapılarından geçer (zincirli talep, yetkisiz onaycı,
+    /// durumu değişmiş talep reddedilir); sonuç satır satır döner, biri başarısız olsa diğerleri etkilenmez.
+    /// </summary>
+    public IReadOnlyList<DepoWise.Infrastructure.Approvals.TopluOnaySonucu> TopluKarar(SessionContext s, IReadOnlyList<string> requestIds,
+        bool onayla, string? reason)
+    {
+        if (requestIds.Count == 0) throw new ArgumentException("En az bir talep seçin.");
+        if (requestIds.Count > 200) throw new ArgumentException("Tek seferde en fazla 200 talep işlenebilir.");
+        if (!onayla && string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Ret gerekçesi zorunlu.");
+        var sonuc = new List<DepoWise.Infrastructure.Approvals.TopluOnaySonucu>();
+        foreach (var id in requestIds.Distinct(StringComparer.Ordinal))
+        {
+            try
+            {
+                if (onayla) Approve(s, id); else Reject(s, id, reason!);
+                sonuc.Add(new(id, true, null));
+            }
+            catch (Exception ex) when (ex is ForbiddenException or InvalidOperationException or ArgumentException)
+            { sonuc.Add(new(id, false, ex.Message)); }
+        }
+        return sonuc;
+    }
+
+    /// <summary>
     /// ⭐ ARA İŞ 5 / ALT FAZ 2 — ZİNCİR BYPASS KAPISI.
     ///
     /// Talep için AÇIK bir <c>approval_instance</c> varsa tek-adımlı <see cref="Approve"/>/<see cref="Reject"/>

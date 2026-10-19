@@ -224,3 +224,42 @@
 - **Testler:** `KabuldenFaturaTests` KF1–8 + `MalKabulGeriAlmaTests` 14/14; mutasyon 7/7 (stok kapatma, ikinci fatura, miktar, geri alma
   engeli, firma, bağ yazımı, geri alınmış kabul — sonuncusu ilk denemede yakalanmadı, test hata nedenini doğrulayacak şekilde sıkılaştırıldı).
   Riskli alan paketi (senkron/migration/kopyalayıcı/PG/stok/fatura/satınalma/cari/firma ayrımı) **1187/1187** (42,5 dk).
+
+### B5 — M-26 talepten tek tıkla karşılama: stoktan gönder / sipariş aç (F-071; Migration108)
+- **Sorun:** onaylı talep stoktan karşılanırken kalem üç kez yazılıyordu (talep → transfer → sipariş); talep ekranında stok
+  görünmüyordu, merkezdeki mal yeniden satın alınabiliyordu; "gönderildi" durumu stok hareketi üretmiyordu.
+- **Değişiklik:** Migration108 `stock_documents.request_id`. `TalepKarsilamaService`: karşılama tablosu (istenen / gönderilen /
+  siparişte / kalan / kaynak depo + toplam stok, yüzde), **Stoktan Gönder** = gerçek transfer (`StockService.TransferTx`, tek işlem,
+  belge talebe bağlı, tekrar gönderim zararsız, eksi stok kalkanı), **Sipariş Aç** = kalan için talebe bağlı sipariş (teslim =
+  gidecek şube). Gönderilen + siparişteki istenenden fazla olamaz; onaysız / operasyonu iptal talep karşılanamaz. İki platformda
+  Talep Operasyonları ekranında "KARŞILAMA" bölümü. API `GET /api/request-ops/{id}/fulfilment`, `POST …/ship`, `POST …/order`.
+- **Testler:** `TalepKarsilamaTests` TK1–8. Riskli paket (stok/onay/talep/senkron/migration/kaynak-metin) 1333/1333, 37 dk 36 sn (2026-10-19, `artifacts/dw_b5b_paket.trx`).
+
+### B5 — M-27 iki adımlı transfer: gönder → teslim al, "yolda" (F-070; Migration109)
+- **Sorun:** şube dışı çıkış tek adımdı; mal kaynaktan çıktığı an hedefte görünüyor, nakliyede kaybolan mal fark edilmiyordu.
+- **Değişiklik:** Migration109 `stock_documents.transit_status / received_at`. Yoldaki mal defterde ayrı lokasyonda
+  (`StockBalanceWriter.Transit` = "~yolda"; şube değil, firma toplamına dahil). `YoldaGonder` (kaynak → yolda), `TeslimAl`
+  (yolda → hedef; gönderilenden fazla olamaz, eksikte durum "eksik"), `YoldaKayipKapat` (gerekçeli, ters kayıt yetkisi; yoldan
+  çıkış), `Yoldakiler` listesi. Tek adımlı transfer aynen. Lokasyon kırılımında "Yolda (teslim bekliyor)". İki platformda giriş-çıkış
+  ekranında "Yolda (teslimde girsin)" seçeneği + "YOLDAKİ TRANSFERLER" paneli. API `transfer` gövdesinde `yolda`,
+  `GET /api/stock/in-transit`, `POST …/{belge}/receive`, `POST …/{belge}/close-loss`.
+- **Testler:** `YoldaTransferTests` YT1–8. Riskli paket (stok/onay/talep/senkron/migration/kaynak-metin) 1333/1333, 37 dk 36 sn (2026-10-19, `artifacts/dw_b5b_paket.trx`).
+
+### B5 — M-28 sayım: kör sayım, taslak, fark toleransı, masaüstünde tablo (F-075; Migration110)
+- **Sorun:** kör sayım, taslak, fark onayı yoktu; masaüstünde sayım satır satırdı.
+- **Değişiklik:** Migration110 `stock_count_drafts` (cihaza/sunucuya yerel, eşitlenmez) + `companies.count_tolerance_pct`.
+  `SayimService`: taslak kaydet/aç/sil/kesinleştir (tek belge, işlem kimliği taslaktan → iki kez kesinleşmez), tolerans ayarı (yalnız
+  yönetici, 0–100, işlem geçmişi; giriş paketiyle masaüstüne iner). `StockService.Count`: farkı toleransı aşan satır varsa yalnız ters
+  kayıt yetkilisi kesinleştirir. Masaüstü: "Depodaki Tüm Malzemeleri Listele" (tabloda düzenlenebilir sayılan), kör sayım, taslaklar;
+  web: kör sayım + taslaklar (tablo zaten vardı). Tolerans ayarı iki platformda Alan Ayarları'nda.
+  API `GET/PUT /api/stock/count-tolerance`, `GET/POST /api/stock/count-drafts`, `DELETE …/{id}`, `POST …/{id}/commit`.
+- **Testler:** `SayimIyilestirmeTests` SI1–7. Riskli paket (stok/onay/talep/senkron/migration/kaynak-metin) 1333/1333, 37 dk 36 sn (2026-10-19, `artifacts/dw_b5b_paket.trx`).
+
+### B5 — M-33 tek onay merkezi: kalem önizleme, toplu onay/ret (F-115, F-092)
+- **Sorun:** onay iki ekrandaydı; belge kalemleri onay listesinde görünmüyordu; her kayıt tek tek onaylanıyordu.
+- **Değişiklik:** `ApprovalService.KalemOnizleme` (yalnız adım sahibine; fiyat yetkisi yoksa tutar gizli), `TopluOnayla` /
+  `TopluReddet` (her adım kendi işleminde ve mevcut beş kapıdan; sonuç satır satır, en fazla 200). `RequestService.TopluKarar`
+  (zincirsiz talepler; zincirli talep tek adımlı yoldan geçemez). "Onaylamalarım" iki platformda zincirsiz bekleyen talepleri de
+  listeler, işaretli kayıtları toplu onaylar/reddeder, seçili belgenin kalemlerini gösterir. Tutar eşiği (isteğe bağlı) yapılmadı.
+  API `GET /api/approvals/steps/{id}/items`, `POST /api/approvals/bulk`, `POST /api/requests/bulk-decision`.
+- **Testler:** `TekOnayMerkeziTests` TO1–7. Riskli paket (stok/onay/talep/senkron/migration/kaynak-metin) 1333/1333, 37 dk 36 sn (2026-10-19, `artifacts/dw_b5b_paket.trx`).

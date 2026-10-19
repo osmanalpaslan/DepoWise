@@ -19,6 +19,11 @@
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
                     <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>
                     <Button Classes="Secondary" Content="Reddet" Command="{Binding RejectCommand}"/>
+                    <!-- ⭐ M-33: toplu karar (işaretli satırlar) -->
+                    <Button Classes="Primary" Content="İşaretlileri Onayla" Command="{Binding TopluOnaylaCommand}"
+                            ToolTip.Tip="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir."/>
+                    <Button Classes="Secondary" Content="İşaretlileri Reddet" Command="{Binding TopluReddetCommand}"
+                            ToolTip.Tip="Kutucuğu işaretli tüm kayıtları aşağıdaki gerekçeyle reddeder."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -43,11 +48,12 @@
                          ctrl:TableRowSelect.Enabled="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:OnayIsiSatiri">
-                            <Grid ColumnDefinitions="160,*,120,110">
-                                <SelectableTextBlock Grid.Column="0" Text="{Binding EntityLabel}"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding DocNo}"/>
-                                <SelectableTextBlock Grid.Column="2" Text="{Binding Tarih}"/>
-                                <SelectableTextBlock Grid.Column="3" Text="{Binding StepLabel}"/>
+                            <Grid ColumnDefinitions="32,160,*,120,110">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding Secili}" ToolTip.Tip="Toplu onay/ret için işaretle"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding EntityLabel}"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding DocNo}"/>
+                                <SelectableTextBlock Grid.Column="3" Text="{Binding Tarih}"/>
+                                <SelectableTextBlock Grid.Column="4" Text="{Binding StepLabel}"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -58,6 +64,14 @@
         <!-- Ret gerekçesi ZORUNLU (mevcut davranış korunur) ve herkes tarafından görülebilir (İK-10). -->
         <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="4">
+                <!-- ⭐ M-33: seçili belgenin kalemleri — karar ekran değiştirmeden verilir -->
+                <SelectableTextBlock Classes="SectionTitle" Text="KALEMLER"/>
+                <SelectableTextBlock Classes="Helper" Text="{Binding KalemOzeti}"/>
+                <ItemsControl ItemsSource="{Binding Kalemler}" MaxHeight="160">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><SelectableTextBlock Text="{Binding}" Classes="Helper" TextWrapping="Wrap"/></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <SelectableTextBlock Text="Ret Gerekçesi (reddetmek için zorunlu)"/>
                 <TextBox Classes="Field" Text="{Binding RejectReason}"
                          Watermark="Örn: Bütçe uygun değil"/>

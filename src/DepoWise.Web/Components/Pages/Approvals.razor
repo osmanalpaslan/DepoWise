@@ -1,16 +1,21 @@
 @page "/approvals"
 @inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
 
 @*
     ⭐ ARA İŞ 5 / ALT FAZ 3 (ADR-187/188/189) — ONAYLAMALARIM (web).
 
     Bu ekran bir onay MOTORU DEĞİLDİR: mevcut sunucu motorunun (ALT FAZ 2) üstünde çalışan ince bir
-    arayüzdür. Veri kaynağı TEK uçtur (/api/approvals/mine) ve o uç yalnız oturumdaki kullanıcının
-    KENDİ snapshot adımlarını döner — istemci başkasının kuyruğunu isteyemez (parametre bile yoktur).
+    arayüzdür. Veri kaynağı /api/approvals/mine — yalnız oturumdaki kullanıcının KENDİ snapshot adımları.
 
     Onay/ret kararı mevcut sunucu kapılarından geçer: adım sahipliği · sıra · modül yetkisi
     (request_approval / purchasing) · self-approval yalnız admin · atomik eşzamanlılık.
     Listede satır görünmesi onaylama yetkisi ANLAMINA GELMEZ.
+
+    ⭐ M-33 (AR-GE 2026-10-18, F-115/F-092) — TEK ONAY MERKEZİ: zincirsiz bekleyen talepler de burada (Talep Onaylama
+    kapısından geçer), seçili belgenin kalemleri ekran değiştirmeden görülür, işaretli kayıtlar toplu onaylanır/reddedilir
+    (her kayıt kendi kapısından; sonuç satır satır). Masaüstüyle aynı uçlar.
 
     ⚠️ Web'in mimari sınırı korunur: ProjectReference YOK — sayfa yalnız API JSON'ı ile çalışır.
 *@
@@ -29,6 +34,10 @@ else
     {
         <MudAlert Severity="Severity.Error" Class="mb-3">@_hata</MudAlert>
     }
+    @if (_bilgi is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-3">@_bilgi</MudAlert>
+    }
 
     @if (_satirlar.Count == 0)
     {
@@ -37,9 +46,18 @@ else
     else
     {
         <MudPaper Class="pa-4">
+            <MudStack Row="true" Spacing="2" Class="mb-2">
+                <MudTooltip Text="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir.">
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_islemde" OnClick="@(() => Toplu(true))">İşaretlileri Onayla</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Kutucuğu işaretli tüm kayıtları tek gerekçeyle reddeder.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" Disabled="_islemde" OnClick="@(() => Toplu(false))">İşaretlileri Reddet</MudButton>
+                </MudTooltip>
+            </MudStack>
             <MudSimpleTable Dense="true" Hover="true">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Süreç</th>
                         <th>Belge / Sipariş No</th>
                         <th>Tarih</th>
@@ -50,16 +68,18 @@ else
                 <tbody>
                     @foreach (var r in _satirlar)
                     {
-                        <tr>
+                        <tr style="@(_secili == r ? "background:var(--mud-palette-action-default-hover)" : "")">
+                            <td><MudCheckBox T="bool" @bind-Value="r.Isaretli" Dense="true" title="Toplu onay/ret için işaretle" /></td>
                             <td>@r.EntityLabel</td>
-                            <td>@r.DocNo</td>
+                            <td><MudLink OnClick="@(() => Sec(r))" title="Kalemleri göster">@r.DocNo</MudLink></td>
                             <td>@Tarih(r.EntityDate)</td>
                             <td>@r.StepLabel</td>
                             <td style="text-align:right">
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => Sec(r))">Kalemler</MudButton>
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                                           Disabled="_islemde" OnClick="@(() => Onayla(r.StepId))">Onayla</MudButton>
+                                           Disabled="_islemde" OnClick="@(() => Onayla(r))">Onayla</MudButton>
                                 <MudButton Size="Size.Small" Color="Color.Error"
-                                           Disabled="_islemde" OnClick="@(() => RedAc(r.StepId))">Reddet</MudButton>
+                                           Disabled="_islemde" OnClick="@(() => RedAc(r))">Reddet</MudButton>
                             </td>
                         </tr>
                     }
@@ -67,8 +87,17 @@ else
             </MudSimpleTable>
         </MudPaper>
 
+        @if (_secili is not null)
+        {
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.subtitle1">KALEMLER — @_secili.DocNo</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@_kalemOzeti</MudText>
+                @foreach (var k in _kalemler) { <MudText Typo="Typo.body2">@k</MudText> }
+            </MudPaper>
+        }
+
         @* Ret gerekçesi ZORUNLU (mevcut davranış korunur) ve herkes tarafından görülebilir (İK-10). *@
-        @if (_redStepId is not null)
+        @if (_red is not null)
         {
             <MudPaper Class="pa-4 mt-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-2">Ret Gerekçesi</MudText>
@@ -76,27 +105,38 @@ else
                               Placeholder="Örn: Bütçe uygun değil" Class="mb-3" />
                 <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="_islemde"
                            OnClick="Reddet" Class="mr-2">Reddi Onayla</MudButton>
-                <MudButton Variant="Variant.Outlined" OnClick="@(() => _redStepId = null)">Vazgeç</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="@(() => _red = null)">Vazgeç</MudButton>
             </MudPaper>
         }
     }
 }
 
 @code {
-    private sealed record Satir(string StepId, string EntityLabel, string DocNo, string StepLabel, long? EntityDate);
+    /// <summary>Talep = zincirsiz bekleyen talep (StepId = talep kimliği; karar Talep Onaylama kapısından).</summary>
+    private sealed class Satir
+    {
+        public string StepId = ""; public string EntityLabel = ""; public string DocNo = ""; public string StepLabel = "";
+        public long? EntityDate; public bool Talep; public bool Isaretli;
+    }
 
     private bool _yukleniyor = true;
     private bool _islemde;
-    private string? _hata;
+    private string? _hata, _bilgi;
     private List<Satir> _satirlar = new();
+    private Satir? _secili;
+    private List<string> _kalemler = new();
+    private string _kalemOzeti = "";
 
-    private string? _redStepId;
+    private Satir? _red;
     private string _redGerekce = "";
 
     protected override async Task OnInitializedAsync() => await Yukle();
 
     private static string Tarih(long? ms)
         => ms is null ? "" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).UtcDateTime.ToString("dd/MM/yyyy");
+
+    private static long? Sayi(System.Text.Json.JsonElement e, string alan)
+        => e.TryGetProperty(alan, out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Number && d.TryGetInt64(out var ms) ? ms : null;
 
     private async Task Yukle()
     {
@@ -105,51 +145,121 @@ else
         {
             _satirlar = (await Api.GetArrayAsync("/api/approvals/mine"))
                 .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
-                .Select(e => new Satir(
-                    Metin(e, "stepId"), Metin(e, "entityLabel"), Metin(e, "docNo"), Metin(e, "stepLabel"),
-                    e.TryGetProperty("entityDate", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Number
-                        && d.TryGetInt64(out var ms) ? ms : (long?)null))
+                .Select(e => new Satir
+                {
+                    StepId = Metin(e, "stepId"), EntityLabel = Metin(e, "entityLabel"), DocNo = Metin(e, "docNo"),
+                    StepLabel = Metin(e, "stepLabel"), EntityDate = Sayi(e, "entityDate"),
+                })
                 .ToList();
+            // ⭐ M-33: zincirsiz bekleyen talepler (onaylama + görüntüleme yetkisi varsa)
+            if (Auth.CanEdit("request_approval") && Auth.CanView("requests"))
+            {
+                try
+                {
+                    foreach (var t in await Api.GetArrayAsync("/api/requests?status=pending"))
+                        _satirlar.Add(new Satir
+                        {
+                            StepId = Metin(t, "id"), EntityLabel = "Malzeme Talebi", DocNo = Metin(t, "docNo"),
+                            StepLabel = "Tek adım", EntityDate = Sayi(t, "requestDate"), Talep = true,
+                        });
+                }
+                catch { /* talep listesi opsiyonel */ }
+            }
             _hata = null;
         }
         catch { _satirlar = new(); _hata = "Onay listesi alınamadı."; }
         finally { _yukleniyor = false; }
+        if (_secili is not null && _satirlar.All(x => x.StepId != _secili.StepId)) _secili = null;
     }
 
     private static string Metin(System.Text.Json.JsonElement e, string alan)
         => e.TryGetProperty(alan, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
             ? v.GetString() ?? "" : "";
 
-    private async Task Onayla(string stepId)
+    private async Task Sec(Satir r)
     {
-        _islemde = true;
+        _secili = r; _kalemler = new(); _kalemOzeti = "";
+        try
+        {
+            var arr = await Api.GetArrayAsync(r.Talep ? $"/api/requests/{r.StepId}/items" : $"/api/approvals/steps/{r.StepId}/items");
+            decimal toplam = 0; var tutarVar = false;
+            foreach (var k in arr)
+            {
+                if (r.Talep) _kalemler.Add($"{Metin(k, "materialName")} · {(k.TryGetProperty("quantity", out var q) ? q.ToString() : "")}");
+                else
+                {
+                    _kalemler.Add(Metin(k, "line"));
+                    if (k.TryGetProperty("amount", out var a) && a.ValueKind == System.Text.Json.JsonValueKind.Number) { toplam += a.GetDecimal(); tutarVar = true; }
+                }
+            }
+            _kalemOzeti = $"{_kalemler.Count} kalem" + (tutarVar ? $" · tahmini toplam {toplam:N2}" : "");
+        }
+        catch (Exception ex) { _kalemOzeti = "Kalemler alınamadı: " + ex.Message; }
+    }
+
+    private async Task Onayla(Satir r)
+    {
+        _islemde = true; _bilgi = null;
         try
         {
             // Karar SUNUCUDA verilir; eşzamanlı ikinci onay burada değil, sunucudaki atomik geçişte reddedilir.
-            var hata = await Api.PostAsync($"/api/approvals/steps/{stepId}/approve", new { });
-            _hata = hata;
+            _hata = await Api.PostAsync(r.Talep ? $"/api/requests/{r.StepId}/approve" : $"/api/approvals/steps/{r.StepId}/approve", new { });
         }
         finally { _islemde = false; }
         await Yukle();
     }
 
-    private void RedAc(string stepId)
+    private void RedAc(Satir r)
     {
-        _redStepId = stepId;
+        _red = r;
         _redGerekce = "";
     }
 
     private async Task Reddet()
     {
-        if (_redStepId is null) return;
+        if (_red is null) return;
         if (string.IsNullOrWhiteSpace(_redGerekce)) { _hata = "Ret gerekçesi zorunlu."; return; }
-        _islemde = true;
+        _islemde = true; _bilgi = null;
         try
         {
-            var hata = await Api.PostAsync($"/api/approvals/steps/{_redStepId}/reject",
+            var hata = await Api.PostAsync(_red.Talep ? $"/api/requests/{_red.StepId}/reject" : $"/api/approvals/steps/{_red.StepId}/reject",
                 new { reason = _redGerekce.Trim() });
             _hata = hata;
-            if (hata is null) _redStepId = null;
+            if (hata is null) _red = null;
+        }
+        finally { _islemde = false; }
+        await Yukle();
+    }
+
+    /// <summary>⭐ M-33: işaretli kayıtlar toplu onay/ret — her kayıt kendi kapısından geçer, sonuç satır satır.</summary>
+    private async Task Toplu(bool onay)
+    {
+        var secilen = _satirlar.Where(x => x.Isaretli).ToList();
+        if (secilen.Count == 0) { _hata = "Toplu işlem için listeden kutucuk işaretleyin."; return; }
+        string? gerekce = null;
+        if (!onay)
+        {
+            gerekce = await Dialog.AskReason($"{secilen.Count} kayıt reddedilecek.", "Toplu Ret", "Ret gerekçesi", "Reddet");
+            if (string.IsNullOrWhiteSpace(gerekce)) return;
+        }
+        else if (!await Dialog.Confirm($"{secilen.Count} kayıt ONAYLANSIN mı?", "Onayla")) return;
+        _islemde = true; _hata = null; _bilgi = null;
+        int basarili = 0; var hatalar = new List<string>();
+        try
+        {
+            foreach (var grup in secilen.GroupBy(x => x.Talep))
+            {
+                var (err, data) = await Api.PostJsonWithErrorAsync(grup.Key ? "/api/requests/bulk-decision" : "/api/approvals/bulk",
+                    new { ids = grup.Select(x => x.StepId).ToArray(), approve = onay, reason = gerekce });
+                if (err is not null || data is null) { hatalar.Add(err ?? "Sunucu yanıtı alınamadı."); continue; }
+                foreach (var r in data.Value.EnumerateArray())
+                {
+                    if (r.TryGetProperty("ok", out var o) && o.ValueKind == System.Text.Json.JsonValueKind.True) basarili++;
+                    else hatalar.Add($"{grup.FirstOrDefault(x => x.StepId == Metin(r, "id"))?.DocNo}: {Metin(r, "error")}");
+                }
+            }
+            _bilgi = $"{basarili} kayıt {(onay ? "onaylandı" : "reddedildi")}.";
+            if (hatalar.Count > 0) _hata = "İşlenemeyenler: " + string.Join(" · ", hatalar);
         }
         finally { _islemde = false; }
         await Yukle();

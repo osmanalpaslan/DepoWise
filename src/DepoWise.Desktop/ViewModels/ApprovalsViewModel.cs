@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,8 +10,21 @@ using DepoWise.Application.Security;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>"Onaylamalarım" satırı — sunucudan gelen projeksiyon (yerelde onay verisi YOKTUR).</summary>
-public sealed record OnayIsiSatiri(
-    string StepId, string EntityLabel, string DocNo, string StepLabel, string Tarih, string EntityType);
+/// ⭐ M-33: <see cref="Talep"/> = zincirsiz bekleyen talep (StepId = talep kimliği; karar Talep Onaylama kapısından geçer).
+public sealed partial class OnayIsiSatiri : ObservableObject
+{
+    public OnayIsiSatiri(string stepId, string entityLabel, string docNo, string stepLabel, string tarih, string entityType, bool talep = false)
+    { StepId = stepId; EntityLabel = entityLabel; DocNo = docNo; StepLabel = stepLabel; Tarih = tarih; EntityType = entityType; Talep = talep; }
+    public string StepId { get; }
+    public string EntityLabel { get; }
+    public string DocNo { get; }
+    public string StepLabel { get; }
+    public string Tarih { get; }
+    public string EntityType { get; }
+    public bool Talep { get; }
+    /// <summary>Toplu karar için işaret.</summary>
+    [ObservableProperty] private bool _secili;
+}
 
 /// <summary>
 /// ═══ ARA İŞ 5 / ALT FAZ 3 (ADR-187/188/189) — ONAYLAMALARIM (masaüstü) ═══
@@ -41,6 +55,71 @@ public sealed partial class ApprovalsViewModel : ViewModelBase
     }
 
     public ObservableCollection<OnayIsiSatiri> Items { get; }
+    /// <summary>⭐ M-33: seçili belgenin kalemleri (ekran değiştirmeden karar).</summary>
+    public ObservableCollection<string> Kalemler { get; } = new();
+    [ObservableProperty] private string _kalemOzeti = "";
+
+    async partial void OnSelectedChanged(OnayIsiSatiri? value)
+    {
+        Kalemler.Clear();
+        KalemOzeti = "";
+        if (value is null) return;
+        var (ok, mesaj, rows) = value.Talep
+            ? await OnlineApprovalClient.RequestItemsAsync(value.StepId)
+            : await OnlineApprovalClient.StepItemsAsync(value.StepId);
+        if (!ok) { KalemOzeti = mesaj; return; }
+        decimal toplam = 0; var tutarVar = false;
+        foreach (var r in rows)
+        {
+            if (value.Talep)
+                Kalemler.Add($"{Metin(r, "materialName")} · {(r.TryGetProperty("quantity", out var q) ? q.ToString() : "")}");
+            else
+            {
+                Kalemler.Add(Metin(r, "line"));
+                if (r.TryGetProperty("amount", out var a) && a.ValueKind == JsonValueKind.Number) { toplam += a.GetDecimal(); tutarVar = true; }
+            }
+        }
+        KalemOzeti = $"{Kalemler.Count} kalem" + (tutarVar ? $" · tahmini toplam {toplam:N2}" : "");
+    }
+
+    /// <summary>Seçilenleri (işaretli yoksa seçili satırı) toplu onaylar / reddeder. Sonuç satır satır raporlanır.</summary>
+    [RelayCommand]
+    private async Task TopluOnaylaAsync() => await TopluAsync(true);
+
+    [RelayCommand]
+    private async Task TopluReddetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(RejectReason)) { Status = "Ret gerekçesi zorunlu."; return; }
+        await TopluAsync(false);
+    }
+
+    private async Task TopluAsync(bool onay)
+    {
+        var secilen = Items.Where(x => x.Secili).ToList();
+        if (secilen.Count == 0) { Status = "Toplu işlem için listeden kutucuk işaretleyin."; return; }
+        if (!await ConfirmService.AskAsync($"{secilen.Count} kayıt {(onay ? "ONAYLANSIN" : "REDDEDİLSİN")} mı?", "Toplu Karar",
+                onay ? "Onayla" : "Reddet", "Vazgeç", danger: !onay)) return;
+        Busy = true;
+        int basarili = 0; var hatalar = new System.Collections.Generic.List<string>();
+        try
+        {
+            foreach (var grup in secilen.GroupBy(x => x.Talep))
+            {
+                var (ok, mesaj, rows) = await OnlineApprovalClient.BulkAsync(grup.Key, grup.Select(x => x.StepId).ToArray(), onay,
+                    onay ? null : RejectReason.Trim());
+                if (!ok) { hatalar.Add(mesaj); continue; }
+                foreach (var r in rows)
+                {
+                    if (r.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True) basarili++;
+                    else hatalar.Add($"{grup.First(x => x.StepId == Metin(r, "id")).DocNo}: {Metin(r, "error")}");
+                }
+            }
+            if (!onay && basarili > 0) RejectReason = "";
+            Status = $"{basarili} kayıt {(onay ? "onaylandı" : "reddedildi")}." + (hatalar.Count > 0 ? " İşlenemeyenler: " + string.Join(" · ", hatalar) : "");
+        }
+        finally { Busy = false; }
+        await YenileAsync();
+    }
 
     [ObservableProperty] private OnayIsiSatiri? _selected;
     [ObservableProperty] private string _status = "";
@@ -62,6 +141,15 @@ public sealed partial class ApprovalsViewModel : ViewModelBase
             if (!ok) { Status = mesaj; return; }
 
             foreach (var r in rows) Items.Add(Satir(r));
+            // ⭐ M-33: zincirsiz bekleyen talepler de buraya gelir (tek onay merkezi). Yetki yoksa liste sessizce boş kalır.
+            if (AccessControl.Can(_session, "request_approval", PermissionAction.Edit) && AccessControl.Can(_session, "requests", PermissionAction.View))
+            {
+                var (tOk, _, talepler) = await OnlineApprovalClient.PendingRequestsAsync();
+                if (tOk)
+                    foreach (var t in talepler)
+                        Items.Add(new OnayIsiSatiri(Metin(t, "id"), "Malzeme Talebi", Metin(t, "docNo"), "Tek adım",
+                            TarihMetni(t, "requestDate"), "material_request", talep: true));
+            }
             Selected = Items.Count > 0 ? Items[0] : null;
             Status = Items.Count == 0 ? "Onayınızı bekleyen kayıt yok." : "";
         }
@@ -89,7 +177,7 @@ public sealed partial class ApprovalsViewModel : ViewModelBase
 
     [RelayCommand]
     private async Task ApproveAsync()
-        => await KararAsync(id => OnlineApprovalClient.ApproveStepAsync(id), "Onaylandı.",
+        => await KararAsync(id => Selected!.Talep ? OnlineApprovalClient.ApproveAsync(id) : OnlineApprovalClient.ApproveStepAsync(id), "Onaylandı.",
             gerekceGerekli: false);
 
     [RelayCommand]
@@ -97,7 +185,7 @@ public sealed partial class ApprovalsViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(RejectReason)) { Status = "Ret gerekçesi zorunlu."; return; }
         var gerekce = RejectReason.Trim();
-        await KararAsync(id => OnlineApprovalClient.RejectStepAsync(id, gerekce), "Reddedildi.",
+        await KararAsync(id => Selected!.Talep ? OnlineApprovalClient.RejectAsync(id, gerekce) : OnlineApprovalClient.RejectStepAsync(id, gerekce), "Reddedildi.",
             gerekceGerekli: true);
     }
 

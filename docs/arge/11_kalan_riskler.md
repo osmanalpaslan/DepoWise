@@ -61,6 +61,24 @@
 - Siparişsiz (doğrudan stok girişi) mallar için eşleştirme yok; M-24 çift stok uyarısı orada geçerli kalır.
 - Fiyat farkı (fatura fiyatı ≠ sipariş fiyatı) engellenmez, yalnız miktar kontrol edilir; fiyat farkı uyarısı istenirse ayrı iş.
 
+## Talep karşılama (M-26)
+- Sipariş Aç işlem kimliği taşımaz; çift tıklamada ikinci sipariş "kalandan fazla" kuralıyla reddedilir ama kalan tam bölünüyorsa
+  (ör. iki ayrı kalem) ikinci istek kısmen geçebilir — ekran düğmeyi işlem sırasında kilitler.
+- Talep operasyon durumu (ör. "Gönderim İçin Yola Çıktı") gönderimle otomatik değişmez; kullanıcı durum makinesinden seçer.
+
+## İki adımlı transfer (M-27)
+- Şube kapsamı kısıtlı kullanıcının çekme/temizlik yolları "~yolda" lokasyonlu hareketleri şube dışı sayar; bu kullanıcılar yoldaki
+  malı yalnız transfer listesinde (kaynak ya da hedef kendi şubesiyse) görür, lokasyon kırılımında görmeyebilir.
+- Yolda transfer iptal edilemez (tek adımlıdaki kural); yanlış gönderim = teslim al + ters transfer ya da kayıp kapatma.
+
+## Sayım (M-28)
+- Taslaklar eşitlenmez: masaüstü taslağı yalnız o bilgisayarda, web taslağı yalnız sunucuda görünür. Tolerans aşımında depocu
+  masaüstünde taslak kaydederse yetkili AYNI bilgisayardan ya da web'de yeniden sayımla kesinleştirir.
+- Sayım listesi yazdırma (PDF) yok; mevcut "Stok Sayım Raporu" Excel/PDF çıktısı kullanılır.
+
+## Onay merkezi (M-33)
+- Tutar eşiği / kademeli onay (F-115 isteğe bağlı kısmı) yapılmadı. Onay geri alma (unapproval) yok.
+
 ## Performans (M-22)
 - Malzeme listesi ve SQLite arama işlevi hızlandı. **Stok hareketleri, günlük faaliyet ve yakıt listeleri** aynı "her sayfada tam
   sayım + tüm küme" desenini hâlâ kullanıyor (300 bin satırda 2–9 sn, 07 §4.1). Aynı iki aşamalı yöntem uygulanabilir; her biri
