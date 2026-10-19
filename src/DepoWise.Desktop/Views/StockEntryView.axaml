@@ -34,6 +34,43 @@
                       MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
         <Border Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
+                <!-- ⭐ M-27: YOLDAKİ TRANSFERLER (teslim bekleyen / eksik teslim alınmış) -->
+                <StackPanel Spacing="6" IsVisible="{Binding HasYoldakiler}">
+                    <SelectableTextBlock Text="YOLDAKİ TRANSFERLER" Classes="SectionTitle"/>
+                    <ItemsControl ItemsSource="{Binding Yoldakiler}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:YoldaTransferVm">
+                                <Border Classes="Table" Padding="10,6" Margin="0,0,0,6">
+                                    <StackPanel Spacing="4">
+                                        <SelectableTextBlock Text="{Binding Ozet}" Classes="Body" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{Binding Kalemler}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:YoldaKalemVm">
+                                                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                                        <NumericUpDown Grid.Column="1" Classes="Field" Width="110" Value="{Binding Alinan}" Minimum="0"
+                                                                       FormatString="0.####" ShowButtonSpinner="False" Margin="8,0,0,0"
+                                                                       ToolTip.Tip="Gerçekte teslim alınan miktar. Eksik girilirse fark yolda kalır."/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                            <Button Classes="Secondary" Content="Kayıp Olarak Kapat"
+                                                    Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).YoldaKayipKapatCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Yolda kalan (teslim alınmayan) miktarı gerekçeyle stoktan düşer ve transferi kapatır."/>
+                                            <Button Classes="Primary" Content="Teslim Al"
+                                                    Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).TeslimAlCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Girilen miktarlar yoldan hedef depoya geçer (stok defterine yazılır)."/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
                 <!-- ⭐ STK-12: "Tüm Şubeler" modunda ENGELLEME DEĞİL, YÖNLENDİRME. Eskiden bu modda
                      Kaydet tümden kapalıydı; artık depo açıkça seçilirse işlem yapılabilir.
                      Web'deki aynı bant: Stock.razor:22-28. -->
@@ -112,6 +149,10 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding HedefSubeler}" SelectedItem="{Binding ToBranch}"
                                         PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
+                    <!-- ⭐ M-27: iki adımlı transfer -->
+                    <CheckBox Content="Yolda (teslimde girsin)" IsChecked="{Binding YoldaTransfer}" IsVisible="{Binding ShowTargetBranch}"
+                              VerticalAlignment="Bottom"
+                              ToolTip.Tip="İşaretlenirse mal hedef depoya hemen girmez; &quot;yolda&quot; görünür, hedef depo teslim alınca stoğuna girer. Eksik gelen miktar fark edilir."/>
                 </WrapPanel>
 
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">

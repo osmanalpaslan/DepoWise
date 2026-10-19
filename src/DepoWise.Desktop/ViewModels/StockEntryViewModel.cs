@@ -420,6 +420,57 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [ObservableProperty] private BranchRow? _branch;
     [ObservableProperty] private BranchRow? _fromBranch;
     [ObservableProperty] private BranchRow? _toBranch;
+
+    // ═══ M-27 (AR-GE 2026-10-18, F-070) — İKİ ADIMLI TRANSFER ("YOLDA") ══════════════════════════════
+    /// <summary>İşaretliyse şube dışı çıkış hedefe hemen girmez: mal "yolda" kalır, hedef depo teslim alınca girer.</summary>
+    [ObservableProperty] private bool _yoldaTransfer;
+    public ObservableCollection<YoldaTransferVm> Yoldakiler { get; } = new();
+    public bool HasYoldakiler => Yoldakiler.Count > 0;
+
+    private void YoldakileriYukle()
+    {
+        Yoldakiler.Clear();
+        try { foreach (var y in DesktopServices.Stock.Yoldakiler(_session)) Yoldakiler.Add(new YoldaTransferVm(y)); }
+        catch { /* liste opsiyonel; ana ekran çalışmaya devam eder */ }
+        OnPropertyChanged(nameof(HasYoldakiler));
+    }
+
+    [RelayCommand]
+    private async Task TeslimAl(YoldaTransferVm? y)
+    {
+        if (y is null) return;
+        var satirlar = y.Kalemler.Where(k => k.Alinan > 0).Select(k => new StockLine(k.Kalem.MaterialId, k.Alinan)).ToList();
+        if (satirlar.Count == 0) { Status = "Teslim alınan miktarı girin."; return; }
+        var eksik = y.Kalemler.Sum(k => k.Kalem.Yolda - k.Alinan);
+        if (!await ConfirmService.AskAsync($"{y.Transfer.DocNo} teslim alınsın mı?" +
+                (eksik > 0 ? $" Eksik {eksik:0.####} yolda kalacak (sonra kayıp olarak kapatabilirsiniz)." : ""), "Teslim Al", "Teslim Al", "Vazgeç")) return;
+        try
+        {
+            DesktopServices.Stock.TeslimAl(_session, y.Transfer.DocumentId, satirlar, y.IslemKimligi);
+            Status = $"{y.Transfer.DocNo} teslim alındı.";
+            YoldakileriYukle();
+            Load();
+        }
+        catch (Exception ex) { Status = "Teslim alınamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task YoldaKayipKapat(YoldaTransferVm? y)
+    {
+        if (y is null) return;
+        var gerekce = await ConfirmService.AskReasonAsync(
+            $"{y.Transfer.DocNo}: yolda kalan miktar KAYIP olarak stoktan düşülsün ve transfer kapansın mı?",
+            "Yolda Kayıp", "Kayıp gerekçesi", "Evet, Kapat");
+        if (string.IsNullOrWhiteSpace(gerekce)) return;
+        try
+        {
+            DesktopServices.Stock.YoldaKayipKapat(_session, y.Transfer.DocumentId, gerekce);
+            Status = $"{y.Transfer.DocNo} kayıpla kapatıldı.";
+            YoldakileriYukle();
+            Load();
+        }
+        catch (Exception ex) { Status = "Kapatılamadı: " + ex.Message; }
+    }
     [ObservableProperty] private LookupItem? _personnelSel;   // Şoför / teslim alan
     [ObservableProperty] private VehicleListRow? _vehicleSel; // Teslim eden / transfer edilen araç
     [ObservableProperty] private string? _formError;
@@ -436,6 +487,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     {
         _session = session;
         Load();
+        YoldakileriYukle();   // ⭐ M-27
         RefreshMaterials();
         LoadCostCenterOptions();   // MLY-01
     }
@@ -746,11 +798,20 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
                     if (ToBranch.Id == from) { FormError = "Hedef şube, kaynak depodan farklı olmalı."; return; }
                     if (!await ConfirmService.AskAsync($"{EtkinLokasyonAdi} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
+                    if (YoldaTransfer)   // ⭐ M-27: iki adımlı — hedef teslim alınca girer
+                    {
+                        DesktopServices.Stock.YoldaGonder(_session, exitLines, from, ToBranch.Id, op, note, IsGunuTarihi.Ms(DocDate));
+                        Status = $"Transfer yola çıktı ({exitLines.Count} malzeme) — {ToBranch.Name} teslim alınca stoğuna girecek.";
+                        YoldakileriYukle();
+                    }
+                    else
+                    {
                     DesktopServices.Stock.Transfer(_session, exitLines, from, ToBranch.Id, op, note,
                         docDate: IsGunuTarihi.Ms(DocDate),   // STK-11
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
                     Status = exitLines.Count == 1 ? "Şube dışı çıkış (transfer) kaydedildi." : $"Şube dışı çıkış (transfer) kaydedildi ({exitLines.Count} malzeme).";
+                    }
                 }
             }
 
@@ -958,4 +1019,24 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         FormError = null;
         RefreshMaterials();
     }
+}
+
+/// <summary>⭐ M-27: yoldaki transfer kartı (teslim alma formu).</summary>
+public sealed class YoldaTransferVm
+{
+    public YoldaTransfer Transfer { get; }
+    public string Ozet => Transfer.Ozet;
+    public System.Collections.ObjectModel.ObservableCollection<YoldaKalemVm> Kalemler { get; } = new();
+    /// <summary>Kart başına tek işlem kimliği: çift tıklama / ağ tekrarı ikinci teslim yazmaz.</summary>
+    public string IslemKimligi { get; } = "transit-in-" + Guid.NewGuid().ToString("N");
+    public YoldaTransferVm(YoldaTransfer t) { Transfer = t; foreach (var k in t.Kalemler.Where(k => k.Yolda > 0)) Kalemler.Add(new YoldaKalemVm(k)); }
+}
+
+/// <summary>⭐ M-27: teslim alınan miktar (varsayılan = yoldaki miktarın tamamı).</summary>
+public sealed partial class YoldaKalemVm : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public YoldaKalem Kalem { get; }
+    public string Ozet => $"{Kalem.MaterialCode} — {Kalem.MaterialName}: gönderilen {Kalem.Gonderilen:0.####} · yolda {Kalem.Yolda:0.####}";
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _alinan;
+    public YoldaKalemVm(YoldaKalem k) { Kalem = k; _alinan = k.Yolda; }
 }

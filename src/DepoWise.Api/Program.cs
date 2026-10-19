@@ -2667,12 +2667,44 @@ app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.FromBranchId) || string.IsNullOrWhiteSpace(d.ToBranchId)) throw new ArgumentException("Kaynak ve hedef şube seçin.");
     var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
+    if (d.Yolda == true)   // ⭐ M-27: iki adımlı transfer — hedef teslim alınca stoğa girer
+    {
+        var y = svc.Stock.YoldaGonder(s, lines, d.FromBranchId, d.ToBranchId,
+            string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note), d.DocDate);
+        return Results.Ok(new { ok = true, documentId = y.DocumentId, inTransit = true });
+    }
     // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
     svc.Stock.Transfer(s, lines, d.FromBranchId, d.ToBranchId,
         string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note),
         docDate: d.DocDate,   // STK-11
         personnelId: d.PersonnelId, vehicleId: d.VehicleId,
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ⭐ M-27 (AR-GE 2026-10-18, F-070): YOLDAKİ TRANSFERLER — liste, teslim al, kayıp kapat (masaüstüyle aynı servis).
+app.MapGet("/api/stock/in-transit", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Stock.Yoldakiler(s).Select(t => new
+    {
+        documentId = t.DocumentId, docNo = t.DocNo, docDate = t.DocDate, fromBranchId = t.FromBranchId, fromBranchName = t.FromBranchName,
+        toBranchId = t.ToBranchId, toBranchName = t.ToBranchName, status = t.Durum, statusText = t.DurumMetni, summary = t.Ozet,
+        items = t.Kalemler.Where(k => k.Yolda > 0).Select(k => new
+        {
+            materialId = k.MaterialId, materialCode = k.MaterialCode, materialName = k.MaterialName,
+            sent = k.Gonderilen, received = k.TeslimAlinan, lost = k.Kayip, inTransit = k.Yolda,
+        }),
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/stock/in-transit/{documentId}/receive", (HttpContext c, string documentId, TransitReceiveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Stock.TeslimAl(s, documentId, (d.Lines ?? new List<StockLineDto>()).Select(l => new DepoWise.Infrastructure.Materials.StockLine(l.MaterialId, l.Quantity)).ToList(),
+        d.OperationId ?? "");
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapPost("/api/stock/in-transit/{documentId}/close-loss", (HttpContext c, string documentId, StockReverseDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Stock.YoldaKayipKapat(s, documentId, d.Reason ?? "");
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -5509,7 +5541,9 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
 record StockLineDto(string MaterialId, decimal Quantity);
 // STK-11: DocDate = işlem tarihi (Unix ms, opsiyonel). Bkz. StockReceiveDto açıklaması.
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null, string? CostCenterId = null);
-record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
+record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null,
+    bool? Yolda = null);   // ⭐ M-27: iki adımlı transfer
+record TransitReceiveDto(string? OperationId, List<StockLineDto>? Lines);   // ⭐ M-27
 record StockReverseDto(string DocumentId, string? Reason);
 record StockCorrectLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null);
 record StockCorrectDto(List<StockCorrectLineDto>? Lines, string? BranchId, string? PersonnelId, string? VehicleId, string? Note,

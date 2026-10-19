@@ -88,7 +88,8 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     string? FromLocationId = null, string? FromLocationName = null)
 {
     /// <summary>Ekranda gösterilecek lokasyon adı. Lokasyon yoksa (geçmiş kayıt) "Atanmamış".</summary>
-    public string LocationText => string.IsNullOrEmpty(LocationId) ? "Atanmamış" : (LocationName ?? LocationId!);
+    public string LocationText => string.IsNullOrEmpty(LocationId) ? "Atanmamış"
+        : LocationId == StockBalanceWriter.Transit ? "Yolda (teslim bekliyor)" : (LocationName ?? LocationId!);   // ⭐ M-27
     /// <summary>Transferde kaynak depo; diğer hareketlerde boş (tire).</summary>
     public string FromLocationText => string.IsNullOrEmpty(FromLocationId) ? "—" : (FromLocationName ?? FromLocationId!);
 
@@ -123,7 +124,7 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
 /// Negatif stok engeli + idempotency (operation_id) + IMMEDIATE transaction (eş zamanlı çıkış güvenli).
 /// İptal = ters hareket (fiziksel silme yok). Tüm akışlar tek transaction; hata → rollback.
 /// </summary>
-public sealed class StockService
+public sealed partial class StockService
 {
     private const string Module = "stock";
     private readonly IDbConnectionFactory _factory;
@@ -780,7 +781,7 @@ WHERE sb.company_id=@c AND sb.material_id=@m;";
                 var loc = r.GetString(0);
                 list.Add(new StockLocationBalance(
                     loc,
-                    r.IsDBNull(1) ? (loc.Length == 0 ? "Atanmamış" : loc) : r.GetString(1),
+                    r.IsDBNull(1) ? (loc.Length == 0 ? "Atanmamış" : loc == StockBalanceWriter.Transit ? "Yolda (teslim bekliyor)" : loc) : r.GetString(1),   // ⭐ M-27
                     Money.Parse(r.IsDBNull(2) ? null : r.GetString(2))));
             }
         // Sıralama C#'ta: lehçe farkı (Türkçe collation) sonucu değiştirmesin.

@@ -188,6 +188,12 @@
                     <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 }
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(TargetBranches)</MudSelect></MudItem>
+                @* ⭐ M-27: iki adımlı transfer (masaüstüyle aynı seçenek) *@
+                <MudItem xs="6" md="3">
+                    <MudTooltip Text="İşaretlenirse mal hedef depoya hemen girmez; &quot;yolda&quot; görünür, hedef depo teslim alınca stoğuna girer. Eksik gelen miktar fark edilir.">
+                        <MudCheckBox T="bool" @bind-Value="_yolda" Dense="true" Label="Yolda (teslimde girsin)" />
+                    </MudTooltip>
+                </MudItem>
             }
             else if (Auth.IsAllBranches())
             {
@@ -217,6 +223,37 @@
             <MudButton Variant="Variant.Text" OnClick="ClearForm" Disabled="_busy">Temizle</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+@* ⭐ M-27 (AR-GE 2026-10-18, F-070): YOLDAKİ TRANSFERLER — teslim al / kayıp olarak kapat (masaüstüyle aynı servis) *@
+@if (_yoldakiler.Count > 0)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">YOLDAKİ TRANSFERLER</MudText>
+        @foreach (var y in _yoldakiler)
+        {
+            <MudPaper Outlined="true" Class="pa-2 mb-2">
+                <MudText Typo="Typo.body2">@y.Ozet</MudText>
+                @foreach (var k in y.Kalemler)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="py-1">
+                        <MudText Typo="Typo.caption" Style="flex:1">@k.Ozet</MudText>
+                        <MudNumericField T="decimal" @bind-Value="k.Alinan" Min="0m" Format="0.####" HideSpinButtons="true"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px"
+                                         title="Gerçekte teslim alınan miktar. Eksik girilirse fark yolda kalır." />
+                    </MudStack>
+                }
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                    <MudTooltip Text="Yolda kalan (teslim alınmayan) miktarı gerekçeyle stoktan düşer ve transferi kapatır.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="@(() => YoldaKayip(y))">Kayıp Olarak Kapat</MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Girilen miktarlar yoldan hedef depoya geçer (stok defterine yazılır).">
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="@(() => TeslimAl(y))">Teslim Al</MudButton>
+                    </MudTooltip>
+                </MudStack>
+            </MudPaper>
+        }
     </MudPaper>
 }
 
@@ -420,6 +457,70 @@
             _vehicles = await LoadList("/api/vehicles", "id", "display");
         }
         await LoadMovements();
+        await YoldakileriYukle();   // ⭐ M-27
+    }
+
+    // ═══ M-27 — YOLDAKİ TRANSFERLER ═══
+    private bool _yolda;
+    private sealed class YoldaKalemSatiri { public string MaterialId = ""; public string Ozet = ""; public decimal Yolda; public decimal Alinan; }
+    private sealed class YoldaKart
+    {
+        public string DocumentId = ""; public string DocNo = ""; public string Ozet = "";
+        public List<YoldaKalemSatiri> Kalemler = new();
+        public string IslemKimligi = "transit-in-" + Guid.NewGuid().ToString("N");
+    }
+    private List<YoldaKart> _yoldakiler = new();
+
+    private async Task YoldakileriYukle()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/stock/in-transit");
+            _yoldakiler = arr.Select(t => new YoldaKart
+            {
+                DocumentId = Str(t, "documentId"), DocNo = Str(t, "docNo"), Ozet = Str(t, "summary"),
+                Kalemler = t.GetProperty("items").EnumerateArray().Select(k => new YoldaKalemSatiri
+                {
+                    MaterialId = Str(k, "materialId"),
+                    Ozet = $"{Str(k, "materialCode")} — {Str(k, "materialName")}: gönderilen {k.GetProperty("sent").GetDecimal():0.####} · yolda {k.GetProperty("inTransit").GetDecimal():0.####}",
+                    Yolda = k.GetProperty("inTransit").GetDecimal(), Alinan = k.GetProperty("inTransit").GetDecimal(),
+                }).ToList(),
+            }).ToList();
+        }
+        catch { _yoldakiler = new(); }
+    }
+
+    private async Task TeslimAl(YoldaKart y)
+    {
+        if (_busy) return;
+        var satirlar = y.Kalemler.Where(k => k.Alinan > 0).Select(k => new { materialId = k.MaterialId, quantity = k.Alinan }).ToArray();
+        if (satirlar.Length == 0) { _ok = false; _msg = "Teslim alınan miktarı girin."; return; }
+        var eksik = y.Kalemler.Sum(k => k.Yolda - k.Alinan);
+        if (!await Dialog.Confirm($"{y.DocNo} teslim alınsın mı?" +
+                (eksik > 0 ? $" Eksik {eksik:0.####} yolda kalacak (sonra kayıp olarak kapatabilirsiniz)." : ""), "Teslim Al")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/stock/in-transit/{y.DocumentId}/receive", new { operationId = y.IslemKimligi, lines = satirlar });
+            _ok = err is null; _msg = err ?? $"{y.DocNo} teslim alındı.";
+            await YoldakileriYukle(); await LoadMovements();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task YoldaKayip(YoldaKart y)
+    {
+        if (_busy) return;
+        var gerekce = await Dialog.AskReason($"{y.DocNo}: yolda kalan miktar KAYIP olarak stoktan düşülsün ve transfer kapansın mı?", "Yolda Kayıp", "Kayıp gerekçesi", "Evet, Kapat");
+        if (string.IsNullOrWhiteSpace(gerekce)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/stock/in-transit/{y.DocumentId}/close-loss", new { documentId = y.DocumentId, reason = gerekce });
+            _ok = err is null; _msg = err ?? $"{y.DocNo} kayıpla kapatıldı.";
+            await YoldakileriYukle(); await LoadMovements();
+        }
+        finally { _busy = false; }
     }
 
     private async Task LoadMovements()
@@ -828,11 +929,12 @@
                     fromBranchId = EffectiveLocation, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
-                    docDate = DocDateMs()   // STK-11
+                    docDate = DocDateMs(),   // STK-11
+                    yolda = _yolda,          // ⭐ M-27
                 });
             }
             _ok = err is null; _msg = err ?? "Kaydedildi.";
-            if (_ok) { ClearForm(); await LoadMovements(); }
+            if (_ok) { ClearForm(); await LoadMovements(); await YoldakileriYukle(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
         finally { _busy = false; }

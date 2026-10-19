@@ -113,5 +113,6 @@ public static class MigrationCatalog
         new Migration106_PeriodLock(),         // 2026-10-18 AR-GE M-30: dönem kilidi (ay kapanışı) — yalnız ekleme
         new Migration107_InvoiceReceiptLink(), // 2026-10-18 AR-GE M-25: fatura ↔ mal kabul bağı — yalnız ekleme
         new Migration108_StockDocRequest(),    // 2026-10-18 AR-GE M-26: talepten stok gönderimi bağı — yalnız ekleme
+        new Migration109_TransferInTransit(),  // 2026-10-18 AR-GE M-27: iki adımlı transfer (yolda) — yalnız ekleme
     };
 }

@@ -62,6 +62,10 @@ public static class StockBalanceWriter
     /// <summary>STK-02 — lokasyonu bilinmeyen (geçmiş) stok kovası. Boş metin; NULL DEĞİL (PK kolonu).</summary>
     public const string Unassigned = "";
 
+    /// <summary>⭐ M-27: iki adımlı transferde YOLDAKİ mal kovası (şube değil; firma toplamına dahil, hiçbir depoya ait değil).
+    /// Gönderimde kaynaktan buraya, teslimde buradan hedefe geçer; eksik teslim burada kalır ve kayıp olarak kapatılabilir.</summary>
+    public const string Transit = "~yolda";
+
     // Kısa ve SINIRLI bekleme (agresif polling değil): çakışmada 10-40 ms. En kötü durumda toplam ~120 ms.
     private static readonly Random _jitter = new();
 
