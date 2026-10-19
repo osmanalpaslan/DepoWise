@@ -114,6 +114,32 @@
                         <Button Classes="Secondary" HorizontalAlignment="Stretch" Content="Gönderim Bilgilerini Kaydet"
                                 Command="{Binding SaveShipmentCommand}" IsVisible="{Binding CanEdit}"/>
 
+                        <!-- ⭐ M-26: TALEPTEN KARŞILAMA — stoktan gönder (transfer) / sipariş aç -->
+                        <SelectableTextBlock Text="KARŞILAMA" Classes="SectionTitle" IsVisible="{Binding HasKarsilama}"/>
+                        <SelectableTextBlock Text="{Binding KarsilamaOzeti}" Classes="Helper" TextWrapping="Wrap"/>
+                        <ItemsControl ItemsSource="{Binding Karsilama}" IsVisible="{Binding HasKarsilama}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:KarsilamaSatiriVm">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Ozet}" Classes="Helper" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                        <NumericUpDown Grid.Column="1" Classes="Field" Width="110" Value="{Binding Miktar}" Minimum="0"
+                                                       FormatString="0.####" ShowButtonSpinner="False" Margin="8,0,0,0"
+                                                       ToolTip.Tip="Bu kalem için gönderilecek (ya da sipariş edilecek) miktar. Varsayılan: kaynak depodan hemen gönderilebilecek miktar."/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="Primary" HorizontalAlignment="Stretch" Content="Stoktan Gönder"
+                                Command="{Binding StoktanGonderCommand}" IsVisible="{Binding HasKarsilama}"
+                                ToolTip.Tip="Girilen miktarları gönderen şubeden gidecek şubeye transfer eder (stok defterine yazılır, talebe bağlanır)."/>
+                        <ctrl:FormField Label="Tedarikçi (sipariş için)" IsVisible="{Binding HasKarsilama}">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}"
+                                            SelectedItem="{Binding KarsilamaTedarikci}" PlaceholderText="Tedarikçi seç / ara..."/>
+                        </ctrl:FormField>
+                        <Button Classes="Secondary" HorizontalAlignment="Stretch" Content="Kalan İçin Sipariş Aç"
+                                Command="{Binding SiparisAcCommand}" IsVisible="{Binding HasKarsilama}"
+                                ToolTip.Tip="Stoktan karşılanamayan kalan miktarlar için talebe bağlı satın alma siparişi açar (numara otomatik)."/>
+
                         <!-- Durum değiştirme: YALNIZ izin verilen geçişler listelenir -->
                         <SelectableTextBlock Text="DURUM DEĞİŞTİR" Classes="SectionTitle"/>
                         <ctrl:FormField Label="Yeni Durum" HelpText="Yalnız bu durumdan geçilebilecek adımlar listelenir (yetkinize göre).">

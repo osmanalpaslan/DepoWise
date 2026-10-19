@@ -4766,6 +4766,40 @@ app.MapPut("/api/request-ops/{id}/shipment", (HttpContext c, string id, RequestO
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.RequestOps.UpdateShipmentInfo(s, id, d.FromBranchId, d.ToBranchId, d.Note,
         d.Version > 0 ? d.Version : null)) }) : Results.Unauthorized()).RequireAuthorization();
 
+// ⭐ M-26 (AR-GE 2026-10-18, F-071): TALEPTEN KARŞILAMA — durum tablosu, stoktan gönder (transfer), sipariş aç. Masaüstüyle AYNI servis.
+app.MapGet("/api/request-ops/{id}/fulfilment", (HttpContext c, string id, string? fromBranchId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var d = svc.TalepKarsilama.Durum(s, id, fromBranchId);
+    return Results.Ok(new
+    {
+        requestId = d.RequestId, docNo = d.DocNo, fromBranchId = d.FromBranchId, toBranchId = d.ToBranchId,
+        percent = d.Yuzde, allShipped = d.TamamiGonderildi,
+        items = d.Kalemler.Select(k => new
+        {
+            materialId = k.MaterialId, materialCode = k.MaterialCode, materialName = k.MaterialName,
+            requested = k.Istenen, shipped = k.Gonderilen, ordered = k.Sipariste, remaining = k.Kalan,
+            sourceStock = k.KaynakStok, totalStock = k.ToplamStok, shippable = k.Gonderilebilir, summary = k.Ozet,
+        }),
+    });
+}).RequireAuthorization();
+app.MapPost("/api/request-ops/{id}/ship", (HttpContext c, string id, RequestShipDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.TalepKarsilama.StoktanGonder(s, id, d.FromBranchId ?? "", d.ToBranchId ?? "",
+        (d.Lines ?? Array.Empty<RequestFulfilLineDto>()).Select(l => new DepoWise.Infrastructure.Requests.TalepKarsilamaSatiri(l.MaterialId, l.Quantity)).ToList(),
+        d.OperationId ?? "");
+    return Results.Ok(new { documentId = r.DocumentId, docNo = r.DocNo });
+}).RequireAuthorization();
+app.MapPost("/api/request-ops/{id}/order", (HttpContext c, string id, RequestOrderDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var orderId = svc.TalepKarsilama.SiparisAc(s, id, d.SupplierId,
+        (d.Lines ?? Array.Empty<RequestFulfilLineDto>()).Select(l => new DepoWise.Infrastructure.Requests.TalepKarsilamaSatiri(l.MaterialId, l.Quantity, l.UnitPrice)).ToList(),
+        d.BranchId);
+    return Results.Ok(new { id = orderId });
+}).RequireAuthorization();
+
 app.MapGet("/api/requests/{id}/history", (HttpContext c, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -5558,6 +5592,9 @@ record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? Request
 record RequestOpsStatusDto(string Status, string? Note, string? FromBranchId, string? ToBranchId, bool UpdateBranches = false,
     long Version = 0);
 record RequestOpsShipmentDto(string? FromBranchId, string? ToBranchId, string? Note, long Version = 0);
+record RequestFulfilLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null);   // ⭐ M-26
+record RequestShipDto(string? FromBranchId, string? ToBranchId, string? OperationId, RequestFulfilLineDto[]? Lines);
+record RequestOrderDto(string? SupplierId, string? BranchId, RequestFulfilLineDto[]? Lines);
 record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);

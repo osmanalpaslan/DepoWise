@@ -80,6 +80,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Assignments.AssignmentService Assignments { get; }   // ZMT-01 (ADR-167)
     public DepoWise.Infrastructure.Accounting.CostCenterService CostCenters { get; }   // MLY-01 (ADR-168)
     public DepoWise.Infrastructure.Purchasing.PurchaseOrderService Purchasing { get; }   // STN-01 (ADR-169)
+    public DepoWise.Infrastructure.Requests.TalepKarsilamaService TalepKarsilama { get; }   // ⭐ M-26
     public DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; }   // EMR-01 (ADR-170)
     public DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; }   // TKV-01 (ADR-171)
     public DepoWise.Infrastructure.Announcements.AnnouncementService Announcements { get; }   // DYR-01 (ADR-173)
@@ -222,6 +223,7 @@ public sealed class ServerServices
         Assignments = new DepoWise.Infrastructure.Assignments.AssignmentService(Factory, clock);
         CostCenters = new DepoWise.Infrastructure.Accounting.CostCenterService(Factory, clock);
         Purchasing = new DepoWise.Infrastructure.Purchasing.PurchaseOrderService(Factory, clock);
+        TalepKarsilama = new DepoWise.Infrastructure.Requests.TalepKarsilamaService(Factory, Stock, Purchasing, clock);   // ⭐ M-26
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
         Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, Documents, clock);
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);

@@ -83,12 +83,38 @@ else
             }
 
             <MudText Typo="Typo.subtitle2" Class="mt-3">GÖNDERİM BİLGİLERİ</MudText>
-            <LookupSelect Label="Gönderen Şube / Şantiye" @bind-Value="_fromBranch" Items="_branches" />
+            <LookupSelect Label="Gönderen Şube / Şantiye" @bind-Value="_fromBranch" @bind-Value:after="KarsilamaYukle" Items="_branches" />
             <LookupSelect Label="Gönderilecek Şube / Şantiye" @bind-Value="_toBranch" Items="_branches" />
             <MudTextField T="string" @bind-Value="_note" Label="Operasyon Notu" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" />
             @if (_canEdit)
             {
                 <MudButton Variant="Variant.Outlined" Class="mt-1" OnClick="SaveShipment">Gönderim Bilgilerini Kaydet</MudButton>
+            }
+
+            @* ⭐ M-26 (AR-GE 2026-10-18, F-071): TALEPTEN KARŞILAMA — masaüstüyle aynı servis, aynı düğmeler *@
+            @if (_karsilama.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-3">KARŞILAMA</MudText>
+            }
+            @if (_karsilamaOzeti is not null) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@_karsilamaOzeti</MudText> }
+            @foreach (var k in _karsilama)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="py-1">
+                    <MudText Typo="Typo.caption" Style="flex:1">@k.Ozet</MudText>
+                    <MudNumericField T="decimal" @bind-Value="k.Miktar" Min="0m" Format="0.####" HideSpinButtons="true"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px"
+                                     title="Bu kalem için gönderilecek (ya da sipariş edilecek) miktar. Varsayılan: kaynak depodan hemen gönderilebilecek miktar." />
+                </MudStack>
+            }
+            @if (_karsilama.Count > 0 && _canEdit)
+            {
+                <MudTooltip Text="Girilen miktarları gönderen şubeden gidecek şubeye transfer eder (stok defterine yazılır, talebe bağlanır).">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-1" Disabled="_busy" OnClick="StoktanGonder">Stoktan Gönder</MudButton>
+                </MudTooltip>
+                <LookupSelect Label="Tedarikçi (sipariş için)" @bind-Value="_karsilamaTedarikci" Items="_suppliers" />
+                <MudTooltip Text="Stoktan karşılanamayan kalan miktarlar için talebe bağlı satın alma siparişi açar (numara otomatik).">
+                    <MudButton Variant="Variant.Outlined" Class="mt-1" Disabled="_busy" OnClick="SiparisAc">Kalan İçin Sipariş Aç</MudButton>
+                </MudTooltip>
             }
 
             <MudText Typo="Typo.subtitle2" Class="mt-3">DURUM DEĞİŞTİR</MudText>
@@ -147,6 +173,77 @@ else
     private JsonElement[] _history = Array.Empty<JsonElement>();
     private JsonElement[] _nextStates = Array.Empty<JsonElement>();
     private List<ApiClient.Opt> _branches = new();
+
+    // ═══ M-26 — TALEPTEN KARŞILAMA ═══
+    private sealed class KarsilamaSatiri
+    {
+        public string MaterialId = ""; public string Ozet = ""; public decimal Kalan; public decimal Miktar;
+    }
+    private List<KarsilamaSatiri> _karsilama = new();
+    private List<ApiClient.Opt> _suppliers = new();
+    private string? _karsilamaOzeti, _karsilamaTedarikci;
+    private string _gonderimIslemi = Guid.NewGuid().ToString("N");
+
+    private async Task KarsilamaYukle()
+    {
+        _karsilama = new(); _karsilamaOzeti = null;
+        if (_sel is not { } sel) return;
+        try
+        {
+            var q = string.IsNullOrEmpty(_fromBranch) ? "" : $"?fromBranchId={Uri.EscapeDataString(_fromBranch)}";
+            var d = await Api.GetObjectAsync($"/api/request-ops/{Str(sel, "id")}/fulfilment{q}");
+            _karsilama = d.GetProperty("items").EnumerateArray().Select(x => new KarsilamaSatiri
+            {
+                MaterialId = Str(x, "materialId"), Ozet = Str(x, "summary"),
+                Kalan = x.GetProperty("remaining").GetDecimal(), Miktar = x.GetProperty("shippable").GetDecimal(),
+            }).ToList();
+            var tamam = d.TryGetProperty("allShipped", out var a) && a.ValueKind == JsonValueKind.True;
+            _karsilamaOzeti = $"Karşılanma: %{d.GetProperty("percent").GetDecimal():0}" + (tamam ? " — tüm kalemler gönderildi." :
+                string.IsNullOrEmpty(_fromBranch) ? " — kaynak depo stoğunu görmek için «Gönderen Şube» seçin." : "");
+        }
+        catch (Exception ex) { _karsilamaOzeti = "Karşılama bilgisi alınamadı: " + ex.Message; }
+    }
+
+    private async Task StoktanGonder()
+    {
+        if (_sel is not { } sel || _busy) return;
+        var satirlar = _karsilama.Where(x => x.Miktar > 0).Select(x => new { materialId = x.MaterialId, quantity = x.Miktar }).ToArray();
+        if (string.IsNullOrEmpty(_fromBranch) || string.IsNullOrEmpty(_toBranch)) { _ok = false; _msg = "Gönderen ve gidecek şubeyi seçin."; return; }
+        if (satirlar.Length == 0) { _ok = false; _msg = "Gönderilecek miktar girin."; return; }
+        var kaynak = _branches.FirstOrDefault(b => b.Id == _fromBranch)?.Name; var hedef = _branches.FirstOrDefault(b => b.Id == _toBranch)?.Name;
+        if (!await Dialog.Confirm($"{satirlar.Length} kalem {kaynak} → {hedef} transfer edilsin mi? Stok kaynaktan düşer, hedefe girer.", "Gönder")) return;
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.PostJsonWithErrorAsync($"/api/request-ops/{Str(sel, "id")}/ship",
+                new { fromBranchId = _fromBranch, toBranchId = _toBranch, operationId = _gonderimIslemi, lines = satirlar });
+            _ok = err is null;
+            if (_ok) { _gonderimIslemi = Guid.NewGuid().ToString("N"); _msg = $"Transfer belgesi oluşturuldu: {Str(data!.Value, "docNo")}"; }
+            else _msg = "Gönderilemedi: " + err;
+            await KarsilamaYukle();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task SiparisAc()
+    {
+        if (_sel is not { } sel || _busy) return;
+        var satirlar = _karsilama.Where(x => x.Kalan > 0)
+            .Select(x => new { materialId = x.MaterialId, quantity = x.Miktar > 0 && x.Miktar <= x.Kalan ? x.Miktar : x.Kalan }).ToArray();
+        if (satirlar.Length == 0) { _ok = false; _msg = "Sipariş edilecek kalan yok."; return; }
+        if (!await Dialog.Confirm($"{satirlar.Length} kalem için satın alma siparişi açılsın mı?" +
+                                  (string.IsNullOrEmpty(_karsilamaTedarikci) ? " (Tedarikçi seçilmedi; siparişte sonradan seçilebilir.)" : ""), "Sipariş Aç")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/request-ops/{Str(sel, "id")}/order",
+                new { supplierId = _karsilamaTedarikci, branchId = _toBranch, lines = satirlar });
+            _ok = err is null;
+            _msg = err is null ? "Satın alma siparişi açıldı (Satın Alma ekranında)." : "Sipariş açılamadı: " + err;
+            await KarsilamaYukle();
+        }
+        finally { _busy = false; }
+    }
     private string _statusFilter = "";
     private string? _fromBranch, _toBranch, _newStatus;
     private string _note = "";
@@ -156,6 +253,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        try { _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name"); } catch { }   // ⭐ M-26
         await Load();
     }
 
@@ -177,6 +275,7 @@ else
         try { _items = await Api.GetArrayAsync($"/api/requests/{id}/items"); } catch { _items = Array.Empty<JsonElement>(); }
         try { _history = await Api.GetArrayAsync($"/api/request-ops/{id}/history"); } catch { _history = Array.Empty<JsonElement>(); }
         try { _nextStates = await Api.GetArrayAsync($"/api/request-ops/{id}/next-states"); } catch { _nextStates = Array.Empty<JsonElement>(); }
+        await KarsilamaYukle();   // ⭐ M-26
     }
 
     private async Task ApplyStatus()

@@ -114,6 +114,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Assignments.AssignmentService Assignments { get; private set; } = null!;   // ZMT-01
     public static DepoWise.Infrastructure.Accounting.CostCenterService CostCenters { get; private set; } = null!;   // MLY-01
     public static DepoWise.Infrastructure.Purchasing.PurchaseOrderService Purchasing { get; private set; } = null!;   // STN-01
+    public static DepoWise.Infrastructure.Requests.TalepKarsilamaService TalepKarsilama { get; private set; } = null!;   // ⭐ M-26
     public static DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; private set; } = null!;   // EMR-01
     // TKV-01: evrak sunucu-otoriteli olduğundan documents=null — evrak/proje kaynakları çevrimiçiyken API'den eklenir.
     public static DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; private set; } = null!;   // TKV-01
@@ -266,6 +267,7 @@ public static class DesktopServices
         Assignments = new DepoWise.Infrastructure.Assignments.AssignmentService(Factory, clock);
         CostCenters = new DepoWise.Infrastructure.Accounting.CostCenterService(Factory, clock);
         Purchasing = new DepoWise.Infrastructure.Purchasing.PurchaseOrderService(Factory, clock);
+        TalepKarsilama = new DepoWise.Infrastructure.Requests.TalepKarsilamaService(Factory, Stock, Purchasing, clock);   // ⭐ M-26
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
         Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, documents: null, clock);
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);

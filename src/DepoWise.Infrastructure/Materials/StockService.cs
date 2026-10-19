@@ -1252,6 +1252,33 @@ LIMIT @take;";
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         branchId = EnforceOwnBranch(s, branchId, "çıkış");   // şubeye bağlı kullanıcı yalnız kendi şubesinden
+    /// <summary>⭐ M-26: çok malzemeli TRANSFER — çağıranın transaction'ında (talepten "Stoktan Gönder"). Kurallar
+    /// <see cref="Transfer(SessionContext, IReadOnlyList{StockLine}, string, string, string, string?, long?, string?, string?, string?, string?, string?)"/>
+    /// ile AYNI: kaynak kullanıcının şubesi, hedef boş/aynı olamaz, eksi stok kalkanı, hareket idempotency anahtarları.</summary>
+    internal StockDocResult TransferTx(DbConnection conn, DbTransaction tx, SessionContext s, IReadOnlyList<StockLine> lines,
+        string fromBranchId, string toBranchId, string operationId, string? note = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (lines.Count == 0) throw new ArgumentException("En az bir malzeme seçin.");
+        if (lines.Any(l => l.Quantity <= 0)) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
+        fromBranchId = EnforceOwnBranch(s, fromBranchId, "transfer") ?? fromBranchId;
+        if (string.IsNullOrEmpty(fromBranchId)) throw new ArgumentException("Kaynak şube belirlenemedi.");
+        if (string.IsNullOrEmpty(toBranchId))
+            throw new ArgumentException("Hedef depo/şantiye seçin. \"Atanmamış\" hedef olarak seçilemez.");
+        if (fromBranchId == toBranchId) throw new ArgumentException("Kaynak ve hedef şube aynı olamaz.");
+        var groupId = Guid.NewGuid().ToString("N");
+        return RunDocumentInTx(conn, tx, s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, null, null, note, null,
+            (c, t, docId) =>
+            {
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    var suffix = lines.Count == 1 ? "" : $":{i}";
+                    ApplyLine(c, t, s, docId, lines[i], -1, $"{operationId}{suffix}:out", "transfer", fromBranchId, fromBranchId, groupId);
+                    ApplyLine(c, t, s, docId, lines[i], +1, $"{operationId}{suffix}:in", "transfer", toBranchId, fromBranchId, groupId);
+                }
+            }, groupId);
+    }
+
         return RunDocumentInTx(conn, tx, s, "out", operationId, branchId, branchId, null, personnelId, null, note, docDate,
             (c, t, docId) =>
             {
@@ -1562,6 +1589,10 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
+    /// <summary>⭐ M-26: bu işlem kimliğiyle oluşmuş belge (tekrar gönderimde aynı sonucu döndürmek için).</summary>
+    internal static StockDocResult? BelgeIslemden(DbConnection conn, DbTransaction tx, string companyId, string operationId)
+        => FindDocumentByOperation(conn, tx, companyId, operationId);
+
             "SELECT id, material_id, direction, quantity, operation_id, branch_id, branch_from_id, " +
             "(SELECT group_id FROM stock_documents d WHERE d.id=@doc) FROM stock_movements " +
             "WHERE document_id=@doc AND is_reversed=0;";

@@ -49,9 +49,88 @@ public sealed class OpsColorConverter : Avalonia.Data.Converters.IValueConverter
 /// detayları, teslim alan/şekli, dosya eki, bildirim ve otomatik stok hareketleri BU FAZDA YOK.
 /// İş kuralları servistedir (RequestOperationsService); burada yalnız sunum.
 /// </summary>
+/// <summary>⭐ M-26: karşılama tablosunun düzenlenebilir satırı (miktar kullanıcıda; varsayılan = hemen gönderilebilir).</summary>
+public sealed partial class KarsilamaSatiriVm : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public DepoWise.Infrastructure.Requests.TalepKalemDurumu Durum { get; }
+    public string Ozet => Durum.Ozet;
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _miktar;
+    public KarsilamaSatiriVm(DepoWise.Infrastructure.Requests.TalepKalemDurumu d) { Durum = d; _miktar = d.Gonderilebilir; }
+}
+
 public sealed partial class RequestOperationsViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
+
+    // ═══ M-26 (AR-GE 2026-10-18, F-071) — TALEPTEN TEK TIKLA KARŞILAMA ════════════════════════════════
+    // Seçili onaylı talebin kalemleri: istenen / gönderilen / siparişte / kalan / kaynak depo stoğu. "Stoktan Gönder" gönderen
+    // şubeden gidecek şubeye gerçek transfer yapar; "Sipariş Aç" kalan için talebe bağlı sipariş açar. Kurallar serviste.
+    public ObservableCollection<KarsilamaSatiriVm> Karsilama { get; } = new();
+    public ObservableCollection<ProjectPick> SupplierOptions { get; } = new();
+    [ObservableProperty] private ProjectPick? _karsilamaTedarikci;
+    [ObservableProperty] private string? _karsilamaOzeti;
+    public bool HasKarsilama => Karsilama.Count > 0;
+    private string _gonderimIslemi = Guid.NewGuid().ToString("N");
+
+    private void KarsilamaYukle()
+    {
+        Karsilama.Clear();
+        KarsilamaOzeti = null;
+        if (Selected is null) { OnPropertyChanged(nameof(HasKarsilama)); return; }
+        try
+        {
+            var d = DesktopServices.TalepKarsilama.Durum(_session, Selected.Id, FromBranch?.Id);
+            foreach (var k in d.Kalemler) Karsilama.Add(new KarsilamaSatiriVm(k));
+            KarsilamaOzeti = $"Karşılanma: %{d.Yuzde:0}" + (d.TamamiGonderildi ? " — tüm kalemler gönderildi." :
+                string.IsNullOrEmpty(d.FromBranchId) ? " — kaynak depo stoğunu görmek için «Gönderen Şube» seçin." : "");
+        }
+        catch (Exception ex) { KarsilamaOzeti = "Karşılama bilgisi alınamadı: " + ex.Message; }
+        OnPropertyChanged(nameof(HasKarsilama));
+    }
+
+    partial void OnFromBranchChanged(BranchRow? value) => KarsilamaYukle();
+
+    [RelayCommand]
+    private async Task StoktanGonder()
+    {
+        if (Selected is null) return;
+        var satirlar = Karsilama.Where(x => x.Miktar > 0)
+            .Select(x => new DepoWise.Infrastructure.Requests.TalepKarsilamaSatiri(x.Durum.MaterialId, x.Miktar)).ToList();
+        if (FromBranch is null || ToBranch is null) { Status = "Gönderen ve gidecek şubeyi seçin."; return; }
+        if (satirlar.Count == 0) { Status = "Gönderilecek miktar girin."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"{satirlar.Count} kalem {FromBranch.Name} → {ToBranch.Name} transfer edilsin mi? Stok kaynaktan düşer, hedefe girer.",
+                "Stoktan Gönder", "Gönder", "Vazgeç")) return;
+        try
+        {
+            var r = DesktopServices.TalepKarsilama.StoktanGonder(_session, Selected.Id, FromBranch.Id, ToBranch.Id, satirlar, _gonderimIslemi);
+            _gonderimIslemi = Guid.NewGuid().ToString("N");   // başarılı gönderimden sonra yeni işlem kimliği
+            Status = $"Transfer belgesi oluşturuldu: {r.DocNo}";
+            KarsilamaYukle();
+        }
+        catch (Exception ex) { Status = "Gönderilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task SiparisAc()
+    {
+        if (Selected is null) return;
+        // Siparişe yalnız stoktan karşılanamayan kalan gider: kullanıcı miktarı düzenleyebilir, boşsa kalanın tamamı.
+        var satirlar = Karsilama.Where(x => x.Durum.Kalan > 0)
+            .Select(x => new DepoWise.Infrastructure.Requests.TalepKarsilamaSatiri(x.Durum.MaterialId,
+                x.Miktar > 0 && x.Miktar <= x.Durum.Kalan ? x.Miktar : x.Durum.Kalan)).ToList();
+        if (satirlar.Count == 0) { Status = "Sipariş edilecek kalan yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"{satirlar.Count} kalem için satın alma siparişi açılsın mı?" + (KarsilamaTedarikci is null ? " (Tedarikçi seçilmedi; siparişte sonradan seçilebilir.)" : ""),
+                "Sipariş Aç", "Sipariş Aç", "Vazgeç")) return;
+        try
+        {
+            DesktopServices.TalepKarsilama.SiparisAc(_session, Selected.Id, KarsilamaTedarikci?.Id, satirlar, ToBranch?.Id);
+            Status = "Satın alma siparişi açıldı (Satın Alma ekranında).";
+            KarsilamaYukle();
+        }
+        catch (Exception ex) { Status = "Sipariş açılamadı: " + ex.Message; }
+    }
 
     public ObservableCollection<RequestOperationRow> Items { get; } = new();
     public ObservableCollection<RequestItemRow> DetailItems { get; } = new();
@@ -96,6 +175,8 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
     {
         _session = session;
         LoadBranches();
+        try { foreach (var x in DesktopServices.Lookups.List(_session, "suppliers")) SupplierOptions.Add(new ProjectPick(x.Id, x.Name)); }
+        catch { }
         Load();
     }
 
@@ -148,6 +229,7 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
             OpsNote = value.OpsNote ?? "";
         }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+        KarsilamaYukle();   // ⭐ M-26
         OnPropertyChanged(nameof(CanChangeStatus));
     }
 
