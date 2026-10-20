@@ -465,6 +465,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     {
         _session = session;
         IsRentalMode = kiralik;
+        KiraBilgileriniYukle();   // ⭐ M-39
         // 2026-09-03: birim kutusu açılışta boş kalmasın (alan başlangıcı "km" bildirim üretmez).
         NewMeterUnitPick = MeterUnits.FirstOrDefault(x => x.Code == NewMeterUnit);
         RentPriceUnitPick = RentPriceUnits.FirstOrDefault();
@@ -746,6 +747,61 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Kiralama bitirilemedi: " + ex.Message; }
     }
 
+    // ═══ M-39 (AR-GE 2026-10-19, F-084, K-19) — KİRA SÖZLEŞMESİ · DÖNEM MALİYET/GELİR · BİTİŞ UYARISI ═══
+    public ObservableCollection<ProjectPick> KiraCariSecenekleri { get; } = new();
+    public ObservableCollection<string> KiraYonleri { get; } = new(new[] { "Kiralandı (maliyet)", "Kiraya verildi (gelir)" });
+    [ObservableProperty] private ProjectPick? _kiraCari;
+    [ObservableProperty] private string _kiraYon = "Kiralandı (maliyet)";
+    public ObservableCollection<DepoWise.Infrastructure.Vehicles.KiraBitisUyarisi> KiraUyarilari { get; } = new();
+    public ObservableCollection<DepoWise.Infrastructure.Vehicles.KiraDonemSatiri> KiraRaporu { get; } = new();
+    [ObservableProperty] private DateTimeOffset? _kiraBas = new DateTimeOffset(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+    [ObservableProperty] private DateTimeOffset? _kiraBit = new DateTimeOffset(DateTime.Today);
+    [ObservableProperty] private string? _kiraToplam;
+    public bool HasKiraUyarisi => KiraUyarilari.Count > 0;
+
+    private void KiraBilgileriniYukle()
+    {
+        if (!IsRentalMode) return;
+        KiraUyarilari.Clear();
+        try { foreach (var u in DesktopServices.Kira.BitisUyarilari(_session)) KiraUyarilari.Add(u); } catch { }
+        if (KiraCariSecenekleri.Count == 0)
+            try
+            {
+                foreach (var p in DesktopServices.Parties.List(_session, null, null, true, 1, 500).Items)
+                    KiraCariSecenekleri.Add(new ProjectPick(p.Party.Id, $"{p.Party.Code} — {p.Party.Title}"));
+            }
+            catch { }
+        OnPropertyChanged(nameof(HasKiraUyarisi));
+    }
+
+    [RelayCommand]
+    private void KiraSozlesmesiKaydet()
+    {
+        if (Selected is null) { Status = "Önce kiralık aracı seçin."; return; }
+        try
+        {
+            DesktopServices.Kira.SozlesmeAyarla(_session, Selected.Id, KiraCari?.Id,
+                KiraYon.StartsWith("Kiraya", StringComparison.Ordinal) ? DepoWise.Infrastructure.Vehicles.KiraService.Disari : DepoWise.Infrastructure.Vehicles.KiraService.Iceri);
+            Status = "Kira sözleşmesi bilgisi kaydedildi (cari borç/alacak faturayla girilir).";
+        }
+        catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void KiraRaporuHesapla()
+    {
+        KiraRaporu.Clear();
+        KiraToplam = null;
+        if (KiraBas is null || KiraBit is null) { Status = "Dönem başlangıç ve bitişini seçin."; return; }
+        try
+        {
+            var rows = DesktopServices.Kira.DonemRaporu(_session, IsGunuTarihi.Ms(KiraBas)!.Value, IsGunuTarihi.Ms(KiraBit)!.Value);
+            foreach (var r in rows) KiraRaporu.Add(r);
+            KiraToplam = $"Maliyet {rows.Where(x => !x.GelirMi).Sum(x => x.Tutar):N2} · Gelir {rows.Where(x => x.GelirMi).Sum(x => x.Tutar):N2} ({rows.Count} kiralama)";
+        }
+        catch (Exception ex) { Status = "Hesaplanamadı: " + ex.Message; }
+    }
+
     // ═══ M-36 (AR-GE 2026-10-19, F-078) — SAYAÇ GEÇMİŞİ · GEÇERSİZ SAY · ESKİ SAYAÇ ═══
     public ObservableCollection<DepoWise.Infrastructure.Vehicles.SayacOkumasi> SayacGecmisi { get; } = new();
     [ObservableProperty] private string? _eskiSayacUyarisi;
@@ -937,6 +993,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             _ = LoadDetailPhotosAsync(value.Id);
             LoadVehicleTabs(value.Id, value.Code);
             SayacGecmisiniYukle(value.Id);   // ⭐ M-36
+            if (IsRentalMode) { KiraCari = null; KiraYon = "Kiralandı (maliyet)"; }   // ⭐ M-39: seçimde sıfırlanır (kayıtlı değer liste satırında yok)
 
             // Kullanıcı isteği (2026-09-02): DÜZENLEME formu açıkken başka araca geçilirse form da
             // tazelenir — aksi hâlde önceki aracın değerleri (ör. km/saat) ekranda kalıyordu.

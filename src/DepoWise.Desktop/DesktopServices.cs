@@ -117,6 +117,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Requests.TalepKarsilamaService TalepKarsilama { get; private set; } = null!;   // ⭐ M-26
     public static SayimService Sayim { get; private set; } = null!;   // ⭐ M-28
     public static DepoWise.Infrastructure.Vehicles.SayacService Sayac { get; private set; } = null!;   // ⭐ M-36
+    public static DepoWise.Infrastructure.Vehicles.KiraService Kira { get; private set; } = null!;   // ⭐ M-39
     public static DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; private set; } = null!;   // EMR-01
     // TKV-01: evrak sunucu-otoriteli olduğundan documents=null — evrak/proje kaynakları çevrimiçiyken API'den eklenir.
     public static DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; private set; } = null!;   // TKV-01
@@ -272,6 +273,7 @@ public static class DesktopServices
         TalepKarsilama = new DepoWise.Infrastructure.Requests.TalepKarsilamaService(Factory, Stock, Purchasing, clock);   // ⭐ M-26
         Sayim = new SayimService(Factory, Stock, clock);   // ⭐ M-28
         Sayac = new DepoWise.Infrastructure.Vehicles.SayacService(Factory, clock);   // ⭐ M-36
+        Kira = new DepoWise.Infrastructure.Vehicles.KiraService(Factory, clock);   // ⭐ M-39
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);
         Calendar = new DepoWise.Infrastructure.Calendars.CalendarService(Factory, documents: null, clock);
         Announcements = new DepoWise.Infrastructure.Announcements.AnnouncementService(Factory, clock);

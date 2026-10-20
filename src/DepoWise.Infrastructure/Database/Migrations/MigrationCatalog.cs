@@ -118,5 +118,6 @@ public static class MigrationCatalog
         new Migration111_WorkOrderFault(),     // 2026-10-19 AR-GE M-35: arıza → iş emri bağı — yalnız ekleme
         new Migration112_MeterVoid(),          // 2026-10-19 AR-GE M-36: sayaç okumasını geçersiz say — yalnız ekleme
         new Migration113_MaintenanceIntervalDays(), // 2026-10-19 AR-GE M-37: bakım planında ek tarih periyodu — yalnız ekleme
+        new Migration114_RentalContract(),     // 2026-10-19 AR-GE M-39: kiralık sözleşme cari + yön — yalnız ekleme
     };
 }

@@ -49,6 +49,34 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
+        <!-- ⭐ M-39: KİRA BİTİŞ UYARILARI + DÖNEM MALİYET/GELİR (yalnız kiralık araçlar ekranında) -->
+        <StackPanel Grid.Row="1" Spacing="6" Margin="0,12,0,0" IsVisible="{Binding IsRentalMode}">
+            <ItemsControl ItemsSource="{Binding KiraUyarilari}" IsVisible="{Binding HasKiraUyarisi}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="inf:KiraBitisUyarisi">
+                        <SelectableTextBlock Text="{Binding Metin}" Classes="Helper" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Expander Header="Kira dönem maliyeti / geliri">
+                <StackPanel Spacing="6">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="8">
+                        <ctrl:TarihKutusu SelectedDate="{Binding KiraBas}" Width="140" ToolTip.Tip="Dönem başlangıcı"/>
+                        <ctrl:TarihKutusu SelectedDate="{Binding KiraBit}" Width="140" ToolTip.Tip="Dönem bitişi (dahil)"/>
+                        <Button Classes="Secondary" Content="Hesapla" Command="{Binding KiraRaporuHesaplaCommand}"
+                                ToolTip.Tip="Gün: dönemdeki gün sayısı · Ay: gün/30 · Saat: dönemdeki sayaç farkı × kira bedeli. Cari borç/alacak otomatik yazılmaz (faturayla girilir)."/>
+                        <SelectableTextBlock Text="{Binding KiraToplam}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </WrapPanel>
+                    <ItemsControl ItemsSource="{Binding KiraRaporu}" MaxHeight="200">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="inf:KiraDonemSatiri">
+                                <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" TextWrapping="Wrap"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
 
         <!-- Yeni Araç formu -->
         <!-- 2026-10-12: form, liste GİZLİYKEN listenin esneyen (*) satırını kullanır — ekranda boş alan kalırken
@@ -813,6 +841,15 @@
                 </ItemsControl>
                 <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint"
                                      IsVisible="{Binding PhotosOffline}" TextWrapping="Wrap"/>
+                <!-- ⭐ M-39: KİRA SÖZLEŞMESİ — kiralayan/kiracı cari + yön (K-19: borç/alacak faturayla) -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsRentalMode}">
+                  <SelectableTextBlock Text="KİRA SÖZLEŞMESİ" Classes="Helper"/>
+                  <ctrl:LookupBox ItemsSource="{Binding KiraCariSecenekleri}" SelectedItem="{Binding KiraCari}" PlaceholderText="Cari seç / ara..."
+                                  ToolTip.Tip="Kiralayan (ya da kiraya verdiğimiz) firmanın cari kartı"/>
+                  <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KiraYonleri}" SelectedItem="{Binding KiraYon}"/>
+                  <Button Classes="Secondary" Content="Sözleşmeyi Kaydet" Command="{Binding KiraSozlesmesiKaydetCommand}" IsVisible="{Binding CanEdit}"
+                          ToolTip.Tip="Cari ve yönü kaydeder; dönem maliyet/gelir raporu bunları kullanır. Otomatik cari borç/alacak yazılmaz."/>
+                </StackPanel>
                 <!-- ⭐ 2026-10-10: Kiralamayı Bitir (araç kiralayan firmaya iade edildi) — yalnız aktif kiralık araçta. -->
                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanEndRental}">
                   <ctrl:TarihKutusu SelectedDate="{Binding EndRentalDate}" Width="140"

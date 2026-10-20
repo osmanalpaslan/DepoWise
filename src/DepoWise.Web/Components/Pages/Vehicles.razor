@@ -32,6 +32,25 @@
     <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
 }
 
+@* ⭐ M-39 (AR-GE 2026-10-19, F-084, K-19): kira bitiş uyarıları + dönem maliyet/gelir (masaüstüyle aynı servis) *@
+@if (_isRental && !_isNew)
+{
+    @foreach (var u in _kiraUyarilari) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-1">@Str(u, "text")</MudAlert> }
+    <MudExpansionPanels Class="mb-3" Elevation="0">
+        <MudExpansionPanel Text="Kira dönem maliyeti / geliri">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                <MudDatePicker @bind-Date="_kiraBas" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:180px" />
+                <MudDatePicker @bind-Date="_kiraBit" Label="Bitiş (dahil)" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:180px" />
+                <MudTooltip Text="Gün: dönemdeki gün sayısı · Ay: gün/30 · Saat: dönemdeki sayaç farkı × kira bedeli. Cari borç/alacak otomatik yazılmaz (faturayla girilir).">
+                    <MudButton Variant="Variant.Outlined" OnClick="KiraRaporu" Disabled="_busy">Hesapla</MudButton>
+                </MudTooltip>
+                <MudText Typo="Typo.body2"><b>@_kiraToplam</b></MudText>
+            </MudStack>
+            @foreach (var r in _kiraRapor) { <MudText Typo="Typo.caption" Class="d-block">@Str(r, "summary")</MudText> }
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
 @if (_isNew && Auth.CanCreate("vehicles"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
@@ -131,6 +150,22 @@
                                 @if (!string.IsNullOrEmpty(Str(kd, "replacedVehicleCode"))) { <span>Yerine geldiği araç: <b>@Str(kd, "replacedVehicleCode")</b>. </span> }
                                 @if (!string.IsNullOrEmpty(Str(kd, "replacedByCode"))) { <span>Bu aracın yerine gelen: <b>@Str(kd, "replacedByCode")</b>.</span> }
                             </MudAlert>
+                        </MudItem>
+                    }
+                    @* ⭐ M-39: kira sözleşmesi — kiralayan/kiracı cari + yön (K-19: borç/alacak faturayla) *@
+                    @if (Auth.CanEdit("vehicles"))
+                    {
+                        <MudItem xs="12" md="4"><LookupSelect Label="Kiralayan / kiracı cari" @bind-Value="_kiraCari" Items="_kiraCariler" /></MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudSelect T="string" @bind-Value="_kiraYon" Label="Yön" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("in")">Kiralandı (maliyet)</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("out")">Kiraya verildi (gelir)</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="6" md="3" Class="d-flex align-center">
+                            <MudTooltip Text="Cari ve yönü kaydeder; dönem maliyet/gelir raporu bunları kullanır. Otomatik cari borç/alacak yazılmaz.">
+                                <MudButton Variant="Variant.Outlined" OnClick="KiraSozlesmesi" Disabled="_busy">Sözleşmeyi Kaydet</MudButton>
+                            </MudTooltip>
                         </MudItem>
                     }
                     @* Kiralamayı Bitir (iade) — yalnız aktif (pasif olmayan) kiralık araçta. *@
@@ -612,10 +647,49 @@
         await Api.SaveListColumnsAsync(ListKey, _visibleColumns);
     }
 
+    // ═══ M-39 — KİRA SÖZLEŞMESİ · RAPOR · UYARILAR ═══
+    private List<JsonElement> _kiraUyarilari = new(), _kiraRapor = new();
+    private List<ApiClient.Opt> _kiraCariler = new();
+    private string? _kiraCari, _kiraToplam;
+    private string _kiraYon = "in";
+    private DateTime? _kiraBas = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), _kiraBit = DateTime.Today;
+
+    private async Task KiraSozlesmesi()
+    {
+        if (_editId is null || _busy) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PutAsync($"/api/vehicles/{_editId}/rental-contract", new { partyId = _kiraCari, direction = _kiraYon });
+            _ok = err is null; _msg = err ?? "Kira sözleşmesi bilgisi kaydedildi (cari borç/alacak faturayla girilir).";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task KiraRaporu()
+    {
+        if (_kiraBas is null || _kiraBit is null) { _ok = false; _msg = "Dönem başlangıç ve bitişini seçin."; return; }
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/vehicles/rental/report?from={DepoWise.Web.Services.FieldChecks.ToUnixMs(_kiraBas)}&to={DepoWise.Web.Services.FieldChecks.ToUnixMs(_kiraBit)}");
+            _kiraRapor = d.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array ? it.EnumerateArray().ToList() : new();
+            _kiraToplam = $"Maliyet {Dec(d, "cost"):N2} · Gelir {Dec(d, "income"):N2} ({_kiraRapor.Count} kiralama)";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hesaplanamadı: " + ex.Message; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (_isRental)
         {
+            try { _kiraUyarilari = (await Api.GetArrayAsync("/api/vehicles/rental/warnings")).ToList(); } catch { _kiraUyarilari = new(); }   // ⭐ M-39
+            try
+            {
+                var p = await Api.GetObjectAsync("/api/parties?page=1&pageSize=500&onlyActive=true");
+                _kiraCariler = p.TryGetProperty("items", out var pi) && pi.ValueKind == JsonValueKind.Array
+                    ? pi.EnumerateArray().Select(e => new ApiClient.Opt(Str(e, "id"), $"{Str(e, "code")} — {Str(e, "title")}")).ToList() : new();
+            }
+            catch { _kiraCariler = new(); }
             var rq = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
             _rentalForm = rq.ContainsKey("new") || rq.ContainsKey("edit");
             if (!_rentalForm) _visibleColumns = VehicleListColumns.RentalDefaultVisible.ToList();

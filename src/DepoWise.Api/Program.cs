@@ -4599,6 +4599,28 @@ app.MapPost("/api/vehicles/{id}/meter-void", (HttpContext c, string id, MeterVoi
 app.MapGet("/api/vehicles/{id}/meter-check", (HttpContext c, string id, long date, decimal value) =>
     S(c) is { } s ? Results.Ok(new { warning = svc.Sayac.Tutarlilik(s, id, date, value) }) : Results.Unauthorized()).RequireAuthorization();
 
+// ⭐ M-39 (AR-GE 2026-10-19, F-084, K-19): KİRA SÖZLEŞMESİ · DÖNEM MALİYET/GELİR · BİTİŞ UYARISI (otomatik cari kaydı YOK).
+app.MapGet("/api/vehicles/rental/warnings", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Kira.BitisUyarilari(s).Select(u => new { vehicleId = u.VehicleId, code = u.AracKodu, party = u.CariAdi, end = u.Bitis, daysLeft = u.KalanGun, text = u.Metin }))
+                  : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/rental/report", (HttpContext c, long from, long to) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var rows = svc.Kira.DonemRaporu(s, from, to);
+    return Results.Ok(new
+    {
+        cost = rows.Where(x => !x.GelirMi).Sum(x => x.Tutar), income = rows.Where(x => x.GelirMi).Sum(x => x.Tutar),
+        items = rows.Select(r => new { vehicleId = r.VehicleId, code = r.AracKodu, party = r.CariAdi, direction = r.Yon, unit = r.Birim,
+            price = r.Fiyat, quantity = r.Miktar, amount = r.Tutar, isIncome = r.GelirMi, summary = r.Ozet }),
+    });
+}).RequireAuthorization();
+app.MapPut("/api/vehicles/{id}/rental-contract", (HttpContext c, string id, RentalContractDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Kira.SozlesmeAyarla(s, id, d.PartyId, d.Direction ?? DepoWise.Infrastructure.Vehicles.KiraService.Iceri);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU YAKIT DAĞITIMI — tek işlem, hepsi ya da hiçbiri (masaüstüyle aynı servis).
 app.MapPost("/api/fuel/distribute-bulk", (HttpContext c, BulkDistributionDto d) =>
 {
@@ -5623,6 +5645,7 @@ record DeveloperDto(string? Code, bool Active);
 record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal CurrentMeter);   // ⭐ M-34
 record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = null);   // ⭐ M-35
 record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoid = true);   // ⭐ M-36
+record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33
