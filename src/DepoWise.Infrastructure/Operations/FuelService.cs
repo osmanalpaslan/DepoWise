@@ -202,6 +202,44 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
     }
 
     /// <summary>
+    /// ═══ M-34 (AR-GE 2026-10-18, F-074, K-13) — TOPLU YAKIT DAĞITIMI ═══
+    /// Bir tablo dolusu dağıtım (25 araç gibi) TEK işlemde yazılır: biri bile hatalıysa (depo yetersiz, araç yok, litre ≤ 0)
+    /// HİÇBİRİ yazılmaz — yarım toplu kayıt olmaz. Her satır tek kayıtla AYNI çekirdekten geçer (<see cref="DistributeTx"/>:
+    /// depo bakiyesi satır satır azalarak denetlenir, sayaç yalnız ileri, işlem geçmişi). Tekrar gönderim (aynı
+    /// <paramref name="operationId"/>) yeni kayıt üretmez: satır kimlikleri <c>{operationId}:{sıra}</c>.
+    /// Onay tek seferdir (K-13): ekran <see cref="TopluOnayMetni"/> özetini gösterir.
+    /// </summary>
+    public IReadOnlyList<string> TopluDagit(SessionContext s, IReadOnlyList<NewDistribution> satirlar, string operationId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+        if (satirlar.Count == 0) throw new ArgumentException("En az bir dağıtım satırı girin.");
+        if (satirlar.Count > 200) throw new ArgumentException("Tek seferde en fazla 200 dağıtım kaydedilebilir.");
+        for (int i = 0; i < satirlar.Count; i++)
+            if (satirlar[i].Liters <= 0) throw new ArgumentException($"{i + 1}. satır: litre pozitif olmalı.");
+        if (satirlar.GroupBy(x => x.VehicleId).Any(g => g.Count() > 1))
+            throw new ArgumentException("Aynı araç toplu listede iki kez var; tek satırda birleştirin (sayaç sırası karışmasın).");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate();
+        var ids = new List<string>(satirlar.Count);
+        for (int i = 0; i < satirlar.Count; i++)
+        {
+            try { ids.Add(DistributeTx(conn, tx, s, satirlar[i], $"{operationId}:{i}", now)); }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ForbiddenException)
+            { throw new InvalidOperationException($"{i + 1}. satır: {ex.Message} Toplu kayıt yapılmadı (hiçbir satır yazılmadı).", ex); }
+        }
+        tx.Commit();
+        return ids;
+    }
+
+    /// <summary>⭐ M-34: toplu dağıtımın tek onay metni (iki platform aynı cümle).</summary>
+    public static string TopluOnayMetni(int satir, decimal litre, decimal tutar, int uyari)
+        => $"{satir} araca toplam {litre:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {tutar:0.##} ₺)" +
+           (uyari > 0 ? $"\n⚠ {uyari} satırda uyarı var (sayaç geri / şüpheli sıçrama / çok büyük litre) — kontrol ettiyseniz devam edin." : "") +
+           "\nTek işlemde kaydedilir: biri bile hatalıysa hiçbiri yazılmaz.";
+
+    /// <summary>
     /// Dağıtımın ÇEKİRDEĞİ — AÇIK bir transaction içinde çalışır; commit ÇAĞIRANIN işidir.
     ///
     /// Düzeltme akışı (<see cref="UpdateDistribution"/>) iptal ile bunu AYNI transaction'da kullanır;

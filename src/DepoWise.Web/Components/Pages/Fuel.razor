@@ -68,6 +68,37 @@
                 </MudStack>
                 @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             </MudPaper>
+            @* ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU DAĞITIM — tablo, sonda tek onay, tek işlem (masaüstüyle aynı). *@
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:900px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.subtitle1" Style="flex:1">Toplu Dağıtım</MudText>
+                    <MudTooltip Text="Birden çok araca tek tabloda yakıt dağıtımı girer; sonda tek onay, tek işlem.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="TopluAcKapa">@(_topluAcik ? "Kapat" : "Toplu Dağıtım")</MudButton>
+                    </MudTooltip>
+                </MudStack>
+                @if (_topluAcik)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                        Ortak alanlar (tarih, yakıtı veren, birim fiyat, belge no) yukarıdaki formdan alınır. Biri bile hatalıysa hiçbiri yazılmaz.
+                    </MudText>
+                    @foreach (var r in _topluSatirlar)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="py-1">
+                            <MudAutocomplete T="ApiClient.Opt" Label="Araç" Value="r.Arac" ValueChanged="@(async (ApiClient.Opt? o) => await TopluAracSec(r, o))"
+                                             SearchFunc="SearchVehicle" ToStringFunc="@(o => o?.Name ?? "")" MinCharacters="0" CoerceText="true"
+                                             Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:240px" />
+                            <MudText Typo="Typo.caption" Style="min-width:110px">Önceki: @r.OncekiSayac.ToString("0.##")</MudText>
+                            <MudNumericField T="decimal?" @bind-Value="r.Sayac" Label="Güncel sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px" />
+                            <MudNumericField T="decimal" @bind-Value="r.Litre" Label="Litre" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:120px" />
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _topluSatirlar.Remove(r))">Sil</MudButton>
+                        </MudStack>
+                    }
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-2">
+                        <MudButton Variant="Variant.Text" OnClick="@(() => _topluSatirlar.Add(new TopluSatir()))">+ Satır</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="TopluKaydet">Tümünü Kaydet</MudButton>
+                    </MudStack>
+                }
+            </MudPaper>
         }
         @* ⭐ ARA İŞ 6 (kullanıcı bildirimi 2026-09-04) — ARAMA + SAYFALAMA.
            Bu ekran sabit 200 satır çekiyordu ve sorgu en yeniden başlıyordu → daha eski kayıtlar
@@ -320,6 +351,68 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private ApiClient.Opt? _vehicle;
+    // ═══ M-34 — TOPLU DAĞITIM ═══
+    private sealed class TopluSatir { public ApiClient.Opt? Arac; public decimal OncekiSayac; public decimal? Sayac; public decimal Litre; }
+    private List<TopluSatir> _topluSatirlar = new();
+    private bool _topluAcik;
+    private string _topluIslem = Guid.NewGuid().ToString("N");
+
+    private void TopluAcKapa()
+    {
+        _topluAcik = !_topluAcik;
+        if (_topluAcik && _topluSatirlar.Count == 0) _topluSatirlar.Add(new TopluSatir());
+    }
+
+    private async Task TopluAracSec(TopluSatir r, ApiClient.Opt? o)
+    {
+        r.Arac = o; r.Sayac = null; r.OncekiSayac = 0;
+        if (o is null) return;
+        try { await Api.PostAsync($"/api/vehicles/{o.Id}/meter/recalc", new { }); } catch { }
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/vehicles/{o.Id}");
+            r.OncekiSayac = d.TryGetProperty("currentMeter", out var m) && m.ValueKind == JsonValueKind.Number ? m.GetDecimal() : 0;
+        }
+        catch { }
+    }
+
+    private async Task TopluKaydet()
+    {
+        if (_busy) return;
+        var dolu = _topluSatirlar.Where(x => x.Arac is not null || x.Litre > 0).ToList();
+        if (dolu.Count == 0) { _ok = false; _msg = "En az bir araç satırı girin."; return; }
+        if (string.IsNullOrEmpty(_person)) { _ok = false; _msg = "Yakıtı veren personeli seçin."; return; }
+        for (int i = 0; i < dolu.Count; i++)
+        {
+            var x = dolu[i];
+            if (x.Arac is null) { _ok = false; _msg = $"{i + 1}. satır: araç seçin."; return; }
+            if (x.Litre <= 0) { _ok = false; _msg = $"{i + 1}. satır: litre pozitif olmalı."; return; }
+            if (x.Sayac is not { } sy || sy <= 0) { _ok = false; _msg = $"{i + 1}. satır ({x.Arac.Name}): güncel sayacı girin."; return; }
+        }
+        var uyari = dolu.Count(x => x.Sayac < x.OncekiSayac
+            || DepoWise.Application.Common.MeterRule.SuspiciousJump(x.OncekiSayac, x.Sayac!.Value)
+            || DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(x.Litre));
+        var litre = dolu.Sum(x => x.Litre);
+        // Onay metni masaüstüyle aynı kalıp (FuelService.TopluOnayMetni) — web bağımsız derlendiği için burada tekrar yazıldı.
+        var metin = $"{dolu.Count} araca toplam {litre:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {litre * _price:0.##} ₺)" +
+                    (uyari > 0 ? $" ⚠ {uyari} satırda uyarı var (sayaç geri / şüpheli sıçrama / çok büyük litre) — kontrol ettiyseniz devam edin." : "") +
+                    " Tek işlemde kaydedilir: biri bile hatalıysa hiçbiri yazılmaz.";
+        if (!await Dialog.Confirm(metin, "Kaydet")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/fuel/distribute-bulk", new
+            {
+                operationId = _topluIslem, personnelId = _person, unitPrice = _price > 0 ? (decimal?)_price : null,
+                distributionDate = _distDateMs, invoiceNo = string.IsNullOrWhiteSpace(_distInvoice) ? null : _distInvoice.Trim(),
+                lines = dolu.Select(x => new { vehicleId = x.Arac!.Id, liters = x.Litre, currentMeter = x.Sayac!.Value }).ToArray(),
+            });
+            _ok = err is null;
+            _msg = err ?? $"{dolu.Count} araca toplam {litre:0.##} L dağıtım kaydedildi (tek işlem).";
+            if (_ok) { _topluIslem = Guid.NewGuid().ToString("N"); _topluSatirlar.Clear(); _topluAcik = false; await SonVereniKaydet(_person); await LoadDist(); await LoadSummary(); }
+        }
+        finally { _busy = false; }
+    }
     private decimal _prevMeter, _liters, _price;
     /// <summary>Güncel sayaç — yeni kayıtta BOŞ başlar ve zorunludur (2026-09-30, masaüstüyle aynı).</summary>
     private decimal? _meter;

@@ -430,6 +430,80 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             try { foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(sp); } catch { }
     }
 
+    // ════════════ ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13) — TOPLU DAĞITIM ════════════
+    // Tablo: her satır bir araç (güncel sayaç + litre); ortak alanlar (tarih, veren, birim fiyat) bir kez. Sonda TEK onay;
+    // kayıt TEK işlemde (biri bile hatalıysa hiçbiri yazılmaz). Tek kayıttaki uyarılar (sayaç geri, şüpheli sıçrama,
+    // çok büyük litre) satır satır sayılır ve onay metninde gösterilir.
+    [ObservableProperty] private bool _showToplu;
+    public ObservableCollection<TopluYakitSatiri> TopluSatirlar { get; } = new();
+    public bool HasTopluSatir => TopluSatirlar.Count > 0;
+    private string _topluIslem = Guid.NewGuid().ToString("N");
+
+    [RelayCommand]
+    private void ToggleToplu()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        ShowToplu = !ShowToplu;
+        if (!ShowToplu) return;
+        EnsurePickers();
+        if (DistUnitPrice == 0) DistUnitPrice = CurrentPrice;
+        SonVereniUygula();
+        if (TopluSatirlar.Count == 0) TopluSatirEkle();
+    }
+
+    [RelayCommand]
+    private void TopluSatirEkle() { TopluSatirlar.Add(new TopluYakitSatiri()); OnPropertyChanged(nameof(HasTopluSatir)); }
+
+    [RelayCommand]
+    private void TopluSatirSil(TopluYakitSatiri? satir)
+    {
+        if (satir is null) return;
+        TopluSatirlar.Remove(satir);
+        OnPropertyChanged(nameof(HasTopluSatir));
+    }
+
+    [RelayCommand]
+    private async Task TopluKaydet()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Yakıt")) return;
+        var dolu = TopluSatirlar.Where(x => x.Arac is not null || x.Litre > 0).ToList();
+        if (dolu.Count == 0) { Status = "En az bir araç satırı girin."; return; }
+        if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; }
+        // Firma "Yakıtı Alan"ı zorunlu tuttuysa toplu yol kapalı (satır başına alan kişi yok) — API'deki kuralla aynı.
+        if (DesktopServices.FieldRequirements.EksikAlanlar(_session.CompanyId, "fuel",
+                new Dictionary<string, bool> { ["recipient"] = false }).Count > 0)
+        { Status = "Firmanızın ayarı gereği \"Yakıtı Alan\" zorunlu; bu dağıtımları tek tek girin."; return; }
+        for (int i = 0; i < dolu.Count; i++)
+        {
+            var x = dolu[i];
+            if (x.Arac is null) { Status = $"{i + 1}. satır: araç seçin."; return; }
+            if (x.Litre <= 0) { Status = $"{i + 1}. satır: litre pozitif olmalı."; return; }
+            if (x.Sayac is not { } sy || sy <= 0) { Status = $"{i + 1}. satır ({x.Arac.Display}): güncel sayacı girin."; return; }
+        }
+        var uyari = dolu.Count(x => x.Sayac < x.OncekiSayac
+            || DepoWise.Application.Common.MeterRule.SuspiciousJump(x.OncekiSayac, x.Sayac!.Value)
+            || DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(x.Litre));
+        var litre = dolu.Sum(x => x.Litre);
+        if (!await ConfirmService.AskAsync(FuelService.TopluOnayMetni(dolu.Count, litre, litre * DistUnitPrice, uyari),
+                "Toplu Yakıt Dağıtımı", "Kaydet", "Vazgeç")) return;
+        try
+        {
+            var dtos = dolu.Select(x => new NewDistribution(
+                VehicleId: x.Arac!.Id, Liters: x.Litre, CurrentMeter: x.Sayac!.Value,
+                UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
+                PersonnelId: DistPersonnel?.Id, DistributionDate: IsGunuMs(DistDate), InvoiceNo: DistInvoice)).ToList();
+            var ids = DesktopServices.Fuel.TopluDagit(_session, dtos, _topluIslem);
+            _topluIslem = Guid.NewGuid().ToString("N");
+            try { DesktopServices.ListPrefs.SaveLastChoice(_session, UserPrefKeys.FuelGiver, DistPersonnel?.Id); } catch { }
+            TopluSatirlar.Clear(); OnPropertyChanged(nameof(HasTopluSatir));
+            ShowToplu = false;
+            Load();
+            Status = $"{ids.Count} araca toplam {litre:0.##} L dağıtım kaydedildi (tek işlem).";
+        }
+        catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
+
     // ════════════ DAĞITIM ════════════
     [ObservableProperty] private bool _showDist;
     [ObservableProperty] private VehicleListRow? _distVehicle;
@@ -693,4 +767,14 @@ public sealed partial class FuelMonthCard : CommunityToolkit.Mvvm.ComponentModel
     {
         S = s; Share = share; _isExpanded = s.IsCurrentMonth;
     }
+}
+
+/// <summary>⭐ M-34: toplu yakıt dağıtım tablosunun bir satırı (araç seçilince önceki sayaç araçtan gelir).</summary>
+public sealed partial class TopluYakitSatiri : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private DepoWise.Infrastructure.Vehicles.VehicleListRow? _arac;
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _oncekiSayac;
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal? _sayac;
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _litre;
+    partial void OnAracChanged(DepoWise.Infrastructure.Vehicles.VehicleListRow? value) { OncekiSayac = value?.CurrentMeter ?? 0; Sayac = null; }
 }

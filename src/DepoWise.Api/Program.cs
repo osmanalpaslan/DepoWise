@@ -4563,6 +4563,17 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id = distId });
 }).RequireAuthorization();
+// ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU YAKIT DAĞITIMI — tek işlem, hepsi ya da hiçbiri (masaüstüyle aynı servis).
+app.MapPost("/api/fuel/distribute-bulk", (HttpContext c, BulkDistributionDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur.");
+    FirmaAlanKontrol(s, "fuel", new Dictionary<string, bool> { ["recipient"] = false });   // "Yakıtı Alan" zorunluysa toplu yol kapalı
+    var ids = svc.Fuel.TopluDagit(s, (d.Lines ?? Array.Empty<BulkDistributionLineDto>()).Select(l => new DepoWise.Infrastructure.Operations.NewDistribution(
+        l.VehicleId, l.Liters, l.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, null,
+        InvoiceNo: Doc(d.InvoiceNo))).ToList(), Op(d.OperationId));
+    return Results.Ok(new { ids });
+}).RequireAuthorization();
 // ── Yakıt dağıtımı DÜZELTME (kullanıcı isteği + kararı 2026-09-02) ────────────────────────────────
 // Yerinde UPDATE YOKTUR: servis eski kaydı iptal edip düzeltilmiş kaydı TEK transaction'da oluşturur
 // (bkz. FuelService.UpdateDistribution). Masraf merkezi bağı yeni kayda taşınır.
@@ -5573,6 +5584,9 @@ record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null,
     long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record DeveloperDto(string? Code, bool Active);
+record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal CurrentMeter);   // ⭐ M-34
+record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
+    BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33
 record CountToleranceDto(decimal? Tolerance);   // ⭐ M-28: null = kontrol yok
 record CountDraftDto(string? Id, string? BranchId, bool Blind, string? Reason, List<CountLineDto>? Lines);
