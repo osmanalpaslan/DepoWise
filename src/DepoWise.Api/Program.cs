@@ -1917,6 +1917,27 @@ app.MapPost("/api/equipment/{id}/move", (HttpContext c, string id, EquipmentMove
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ⭐ M-50 (AR-GE 2026-10-19, F-083): ZİMMET KİT (SET) ŞABLONU — kit yalnız şablon; teslim toplu teslimden geçer (masaüstüyle aynı servis).
+app.MapGet("/api/assignments/kits", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.ZimmetKit.Liste(s).Select(k => new
+    {
+        id = k.Id, name = k.Ad, summary = k.Ozet,
+        lines = k.Kalemler.Select(x => new { assetType = x.AssetType, assetId = x.AssetId, label = x.Label, quantity = x.Quantity, exists = x.Mevcut }),
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/kits", (HttpContext c, AssignmentKitDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.ZimmetKit.Kaydet(s, d.Id, d.Name ?? "",
+        (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Assignments.AssignmentLine(l.AssetType ?? "", l.AssetId ?? "", l.Quantity)).ToList());
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapDelete("/api/assignments/kits/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.ZimmetKit.Sil(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ⭐ M-47 (AR-GE 2026-10-19, F-082): KİŞİ BAZLI İMZALI ZİMMET TUTANAĞI (dondurulmuş liste + PDF + kabul/ret).
 app.MapGet("/api/assignments/receipts", (HttpContext c, string? personnelId) =>
     S(c) is { } s ? Results.Ok(svc.ZimmetTutanak.Liste(s, personnelId).Select(t => new
@@ -5719,6 +5740,8 @@ record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
 record AssignmentDueDto(string? PersonnelId, string? AssetType, string? AssetId, long? Date);   // ⭐ M-46: null = kaldır
 record AssignmentReceiptDto(string? PersonnelId);   // ⭐ M-47
 record EquipmentMoveDto(string? BranchId, string? Location, long? Date, string? Note, string? OperationId);   // ⭐ M-48
+record AssignmentKitLineDto(string? AssetType, string? AssetId, decimal Quantity);   // ⭐ M-50
+record AssignmentKitDto(string? Id, string? Name, List<AssignmentKitLineDto>? Lines);   // ⭐ M-50
 record AssignmentReceiptDecisionDto(bool Accept, string? Note);
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);

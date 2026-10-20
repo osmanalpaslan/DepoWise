@@ -87,6 +87,20 @@
             </MudItem>
             <MudItem xs="12" md="9"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
+        @* ⭐ M-50 (F-083): zimmet kiti (set) — kit teslim listesine yüklenir; teslim her zamanki Kaydet ile tek işlemde (masaüstüyle aynı) *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap" Class="mt-2">
+            <MudSelect T="string" @bind-Value="_kitId" Label="Zimmet kiti (set)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:240px">
+                @foreach (var k in _kitler) { <MudSelectItem T="string" Value="@Str(k, "id")">@Str(k, "summary")</MudSelectItem> }
+            </MudSelect>
+            <MudTooltip Text="Seçili kitin kalemlerini teslim listesine ekler. Sonra personeli seçip Kaydet'e basın.">
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="KitYukle" Disabled="_busy">Kiti Listeye Yükle</MudButton>
+            </MudTooltip>
+            <MudTextField T="string" @bind-Value="_kitAdi" Label="Kit adı" Placeholder="ör. Kaynakçı seti" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" />
+            <MudTooltip Text="Teslim listesindeki kalemleri adlandırılmış kit olarak saklar (aynı adlı kit varsa güncellenir).">
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="KitKaydet" Disabled="@(_busy || !Auth.CanCreate("assignments"))">Listeyi Kit Olarak Kaydet</MudButton>
+            </MudTooltip>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="KitSil" Disabled="@(_busy || !Auth.CanCreate("assignments"))">Kiti Sil</MudButton>
+        </MudStack>
         @if (_op == "issue" && _lines.Count > 0)
         {
             <MudSimpleTable Dense="true" Hover="true" Class="mt-2">
@@ -260,6 +274,82 @@
         await OnAssetTypeChanged();
         await Load();
         await GecikenleriYukle();   // ⭐ M-46
+        await KitleriYukle();       // ⭐ M-50
+    }
+
+    // ═══ M-50 — ZİMMET KİTİ (SET) ═══
+    private List<JsonElement> _kitler = new();
+    private string? _kitId, _kitAdi;
+
+    private async Task KitleriYukle()
+    {
+        try { _kitler = (await Api.GetArrayAsync("/api/assignments/kits")).ToList(); } catch { _kitler = new(); }
+        if (_kitler.All(k => Str(k, "id") != _kitId)) _kitId = null;
+    }
+
+    private void KitYukle()
+    {
+        _msg = null;
+        var kit = _kitler.FirstOrDefault(k => Str(k, "id") == _kitId);
+        if (_kitId is null || kit.ValueKind != JsonValueKind.Object) { _ok = false; _msg = "Önce bir kit seçin."; return; }
+        if (_op != "issue") { _op = "issue"; }
+        int eklenen = 0, atlanan = 0;
+        foreach (var x in kit.GetProperty("lines").EnumerateArray())
+        {
+            if (x.TryGetProperty("exists", out var ex) && ex.ValueKind == JsonValueKind.False) { atlanan++; continue; }
+            var tip = Str(x, "assetType"); var id = Str(x, "assetId"); var q = x.GetProperty("quantity").GetDecimal();
+            var var_ = _lines.FirstOrDefault(l => l.AssetType == tip && l.AssetId == id);
+            if (var_ is not null) { if (tip == "material") var_.Quantity += q; else atlanan++; continue; }
+            if (_lines.Count >= MaxTopluKalem) { atlanan++; continue; }
+            _lines.Add(new Kalem { AssetType = tip, AssetId = id, Quantity = q, Label = Str(x, "label") });
+            eklenen++;
+        }
+        _ok = true;
+        _msg = $"'{Str(kit, "name")}' kiti listeye yüklendi: {eklenen} kalem" + (atlanan > 0 ? $" ({atlanan} kalem atlandı: silinmiş ya da listede zaten var)." : ".") +
+               " Personeli seçip Kaydet'e basın.";
+    }
+
+    private async Task KitKaydet()
+    {
+        _msg = null;
+        if (_lines.Count == 0) { _ok = false; _msg = "Önce teslim listesine kalem ekleyin (Listeye Ekle), sonra kit olarak kaydedin."; return; }
+        var secili = _kitler.FirstOrDefault(k => Str(k, "id") == _kitId);
+        var ad = string.IsNullOrWhiteSpace(_kitAdi) ? (secili.ValueKind == JsonValueKind.Object ? Str(secili, "name") : null) : _kitAdi.Trim();
+        if (string.IsNullOrWhiteSpace(ad)) { _ok = false; _msg = "Kit adı yazın (ya da güncellemek için bir kit seçin)."; return; }
+        var ayni = _kitler.FirstOrDefault(k => string.Equals(Str(k, "name"), ad, StringComparison.OrdinalIgnoreCase));
+        var ayniId = ayni.ValueKind == JsonValueKind.Object ? Str(ayni, "id") : null;
+        if (!await Dialog.Confirm(ayniId is null ? $"Listedeki {_lines.Count} kalem '{ad}' adıyla kit olarak kaydedilsin mi?"
+                                                 : $"'{ad}' kiti listedeki {_lines.Count} kalemle GÜNCELLENSİN mi?")) return;
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.PostJsonWithErrorAsync("/api/assignments/kits", new
+            {
+                id = ayniId, name = ad,
+                lines = _lines.Select(l => new { assetType = l.AssetType, assetId = l.AssetId, quantity = l.Quantity }).ToList(),
+            });
+            _ok = err is null;
+            _msg = err ?? $"'{ad}' kiti kaydedildi.";
+            if (err is null) { _kitAdi = null; await KitleriYukle(); _kitId = data is { } d ? Str(d, "id") : _kitId; }
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task KitSil()
+    {
+        _msg = null;
+        var kit = _kitler.FirstOrDefault(k => Str(k, "id") == _kitId);
+        if (_kitId is null || kit.ValueKind != JsonValueKind.Object) { _ok = false; _msg = "Silinecek kiti seçin."; return; }
+        if (!await Dialog.Confirm($"'{Str(kit, "name")}' kiti silinsin mi? (Yapılmış zimmet teslimleri etkilenmez.)", danger: true)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.DeleteAsync($"/api/assignments/kits/{_kitId}");
+            _ok = err is null;
+            _msg = err ?? $"'{Str(kit, "name")}' kiti silindi.";
+            if (err is null) { _kitId = null; await KitleriYukle(); }
+        }
+        finally { _busy = false; }
     }
 
     private async Task OnAssetTypeChanged()

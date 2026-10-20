@@ -50,6 +50,21 @@
                  görünüm DEĞİŞMEZ. -->
             <StackPanel Spacing="14">
                 <SelectableTextBlock Text="YENİ İŞLEM" Classes="SectionTitle"/>
+                <!-- ⭐ M-50: ZİMMET KİTİ (SET) — kit teslim listesine yüklenir; teslim her zamanki Kaydet ile tek işlemde yapılır -->
+                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
+                    <ctrl:FormField Label="Zimmet kiti (set)" Width="240">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Kitler}" SelectedItem="{Binding SeciliKit}"
+                                  PlaceholderText="Kit seç..."/>
+                    </ctrl:FormField>
+                    <Button Classes="Secondary" Content="Kiti Listeye Yükle" Command="{Binding KitYukleCommand}" VerticalAlignment="Bottom"
+                            ToolTip.Tip="Seçili kitin kalemlerini teslim listesine ekler. Sonra personeli seçip Kaydet'e basın."/>
+                    <ctrl:FormField Label="Kit adı" Width="200" HelpText="Yeni kit ya da güncelleme için.">
+                        <TextBox Classes="Field" Text="{Binding KitAdi}" Watermark="ör. Kaynakçı seti"/>
+                    </ctrl:FormField>
+                    <Button Classes="Secondary" Content="Listeyi Kit Olarak Kaydet" Command="{Binding KitKaydetCommand}" VerticalAlignment="Bottom"
+                            IsEnabled="{Binding CanWrite}" ToolTip.Tip="Teslim listesindeki kalemleri adlandırılmış kit olarak saklar (aynı adlı kit varsa güncellenir)."/>
+                    <Button Classes="Ghost" Content="Kiti Sil" Command="{Binding KitSilCommand}" VerticalAlignment="Bottom" IsEnabled="{Binding CanWrite}"/>
+                </WrapPanel>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
                     <ctrl:FormField Label="İşlem" Width="130">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding OpOptions}" SelectedItem="{Binding FormOp}"/>

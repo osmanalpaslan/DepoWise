@@ -194,11 +194,87 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
         LoadAssetOptions();
     }
 
+    // ════════════ ⭐ M-50 (AR-GE 2026-10-19, F-083) — ZİMMET KİT (SET) ŞABLONU ════════════
+    // Kit yalnız şablondur: seçilen kit teslim listesine yüklenir, teslim her zamanki "Kaydet" (tek işlem) ile yapılır.
+    public ObservableCollection<DepoWise.Infrastructure.Assignments.ZimmetKiti> Kitler { get; } = new();
+    [ObservableProperty] private DepoWise.Infrastructure.Assignments.ZimmetKiti? _seciliKit;
+    [ObservableProperty] private string _kitAdi = "";
+
+    private void KitleriYukle()
+    {
+        var secili = SeciliKit?.Id;
+        Kitler.Clear();
+        try { foreach (var k in DesktopServices.ZimmetKit.Liste(_session)) Kitler.Add(k); } catch { }
+        SeciliKit = Kitler.FirstOrDefault(k => k.Id == secili);
+    }
+
+    [RelayCommand]
+    private void KitYukle()
+    {
+        FormError = null;
+        if (SeciliKit is null) { FormError = "Önce bir kit seçin."; return; }
+        if (!IsIssue) FormOp = "Teslim";
+        int eklenen = 0, atlanan = 0;
+        foreach (var k in SeciliKit.Kalemler)
+        {
+            if (!k.Mevcut) { atlanan++; continue; }
+            var var_ = Lines.FirstOrDefault(l => l.AssetType == k.AssetType && l.AssetId == k.AssetId);
+            if (var_ is not null) { if (k.AssetType == "material") var_.Quantity += k.Quantity; else atlanan++; continue; }
+            if (Lines.Count >= AssignmentService.MaxTopluKalem) { atlanan++; continue; }
+            Lines.Add(new ZimmetKalemi(k.AssetType, k.AssetId, k.Label, k.Quantity));
+            eklenen++;
+        }
+        LinesChanged();
+        Status = $"'{SeciliKit.Ad}' kiti listeye yüklendi: {eklenen} kalem" + (atlanan > 0 ? $" ({atlanan} kalem atlandı: silinmiş ya da listede zaten var)." : ".") +
+                 " Personeli seçip Kaydet'e basın.";
+    }
+
+    [RelayCommand]
+    private async Task KitKaydet()
+    {
+        FormError = null;
+        if (!CanWrite) { FormError = "Yetki yok."; return; }
+        if (Lines.Count == 0) { FormError = "Önce teslim listesine kalem ekleyin (Listeye Ekle), sonra kit olarak kaydedin."; return; }
+        var ad = string.IsNullOrWhiteSpace(KitAdi) ? SeciliKit?.Ad : KitAdi.Trim();
+        if (string.IsNullOrWhiteSpace(ad)) { FormError = "Kit adı yazın (ya da güncellemek için bir kit seçin)."; return; }
+        var ayni = Kitler.FirstOrDefault(k => string.Equals(k.Ad, ad, StringComparison.OrdinalIgnoreCase));
+        if (!await ConfirmService.AskAsync(ayni is null ? $"Listedeki {Lines.Count} kalem '{ad}' adıyla kit olarak kaydedilsin mi?"
+                                                        : $"'{ad}' kiti listedeki {Lines.Count} kalemle GÜNCELLENSİN mi?", "Zimmet Kiti")) return;
+        try
+        {
+            var id = DesktopServices.ZimmetKit.Kaydet(_session, ayni?.Id, ad,
+                Lines.Select(l => new AssignmentLine(l.AssetType, l.AssetId, l.Quantity)).ToList());
+            KitAdi = "";
+            KitleriYukle();
+            SeciliKit = Kitler.FirstOrDefault(k => k.Id == id);
+            Status = $"'{ad}' kiti kaydedildi.";
+        }
+        catch (Exception ex) { FormError = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task KitSil()
+    {
+        FormError = null;
+        if (SeciliKit is null) { FormError = "Silinecek kiti seçin."; return; }
+        if (!await ConfirmService.AskAsync($"'{SeciliKit.Ad}' kiti silinsin mi? (Yapılmış zimmet teslimleri etkilenmez.)", "Zimmet Kiti")) return;
+        try
+        {
+            var ad = SeciliKit.Ad;
+            DesktopServices.ZimmetKit.Sil(_session, SeciliKit.Id);
+            SeciliKit = null;
+            KitleriYukle();
+            Status = $"'{ad}' kiti silindi.";
+        }
+        catch (Exception ex) { FormError = ex.Message; }
+    }
+
     public AssignmentsViewModel(SessionContext session)
     {
         _session = session;
         LoadOptions();
         LoadAssetOptions();
+        KitleriYukle();   // ⭐ M-50
         Load();
     }
 
