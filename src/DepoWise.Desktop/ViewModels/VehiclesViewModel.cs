@@ -27,6 +27,15 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed record MovementDisplay(long DateRaw, string DateText, string Kind, string Description, bool CanOpenRecord = false);
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
+/// <summary>⭐ M-43: günlük kontrol formundaki bir madde (varsayılan "uygun").</summary>
+public sealed partial class KontrolMaddesiSatiri : ObservableObject
+{
+    public KontrolMaddesiSatiri(string madde) => Madde = madde;
+    public string Madde { get; }
+    [ObservableProperty] private bool _uygun = true;
+    [ObservableProperty] private string? _not;
+}
+
 public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable, IKayitLoguKaynagi
 {
 
@@ -802,6 +811,51 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Hesaplanamadı: " + ex.Message; }
     }
 
+    // ═══ M-43 (AR-GE 2026-10-19, F-087) — GÜNLÜK MAKİNE KONTROL LİSTESİ ═══
+    public ObservableCollection<KontrolMaddesiSatiri> KontrolMaddeleri { get; } = new();
+    public ObservableCollection<DepoWise.Infrastructure.Vehicles.GunlukKontrol> GunlukKontroller { get; } = new();
+    [ObservableProperty] private string? _kontrolNotu;
+    [ObservableProperty] private bool _kontrolArizaAc = true;
+    public bool HasGunlukKontrol => GunlukKontroller.Count > 0;
+
+    private void GunlukKontrolleriYukle(string vehicleId)
+    {
+        KontrolMaddeleri.Clear();
+        GunlukKontroller.Clear();
+        KontrolNotu = null;
+        try
+        {
+            foreach (var m in DesktopServices.GunlukKontrol.Maddeler(_session)) KontrolMaddeleri.Add(new KontrolMaddesiSatiri(m));
+            foreach (var k in DesktopServices.GunlukKontrol.Liste(_session, vehicleId, 10)) GunlukKontroller.Add(k);
+        }
+        catch { /* kontrol listesi opsiyonel; detay açılmaya devam eder */ }
+        OnPropertyChanged(nameof(HasGunlukKontrol));
+    }
+
+    [RelayCommand]
+    private async Task KontrolKaydet()
+    {
+        if (Selected is null) { Status = "Önce listeden bir araç seçin."; return; }
+        if (!CanEdit) { Status = "Günlük kontrol kaydetme yetkiniz yok."; return; }
+        var bozuk = KontrolMaddeleri.Count(x => !x.Uygun);
+        var mesaj = bozuk == 0
+            ? $"'{Selected.Code}' için günlük kontrol (tüm maddeler uygun) kaydedilsin mi?"
+            : $"'{Selected.Code}' için {bozuk} madde UYGUN DEĞİL olarak kaydedilecek" +
+              (KontrolArizaAc ? " ve arıza bildirilecek (araç Arızalı olur, taslak iş emri açılır)." : ".") + " Devam edilsin mi?";
+        if (!await ConfirmService.AskAsync(mesaj, "Günlük Kontrol")) return;
+        var id = Selected.Id;
+        try
+        {
+            var r = DesktopServices.GunlukKontrol.Kaydet(_session, id, null,
+                KontrolMaddeleri.Select(x => new DepoWise.Infrastructure.Vehicles.KontrolSonucu(x.Madde, x.Uygun, x.Not)).ToList(),
+                KontrolNotu, KontrolArizaAc, "desk-" + Guid.NewGuid().ToString("N"));
+            if (r.IsEmriNo is not null) Load();   // araç durumu "Arızalı" oldu
+            GunlukKontrolleriYukle(id);
+            Status = r.Uyari ?? (r.IsEmriNo is null ? "Günlük kontrol kaydedildi." : $"Günlük kontrol kaydedildi; arıza iş emri {r.IsEmriNo} açıldı (İş Emirleri ekranında).");
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
+
     // ═══ M-36 (AR-GE 2026-10-19, F-078) — SAYAÇ GEÇMİŞİ · GEÇERSİZ SAY · ESKİ SAYAÇ ═══
     public ObservableCollection<DepoWise.Infrastructure.Vehicles.SayacOkumasi> SayacGecmisi { get; } = new();
     [ObservableProperty] private string? _eskiSayacUyarisi;
@@ -993,6 +1047,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             _ = LoadDetailPhotosAsync(value.Id);
             LoadVehicleTabs(value.Id, value.Code);
             SayacGecmisiniYukle(value.Id);   // ⭐ M-36
+            GunlukKontrolleriYukle(value.Id);   // ⭐ M-43
             if (IsRentalMode) { KiraCari = null; KiraYon = "Kiralandı (maliyet)"; }   // ⭐ M-39: seçimde sıfırlanır (kayıtlı değer liste satırında yok)
 
             // Kullanıcı isteği (2026-09-02): DÜZENLEME formu açıkken başka araca geçilirse form da

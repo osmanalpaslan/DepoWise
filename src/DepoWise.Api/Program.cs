@@ -4646,6 +4646,31 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id = distId });
 }).RequireAuthorization();
+
+// ⭐ M-43 (AR-GE 2026-10-19, F-087): GÜNLÜK MAKİNE KONTROL LİSTESİ — uygun olmayan madde → isteğe bağlı arıza bildir (masaüstüyle aynı servis).
+app.MapGet("/api/daily-checks/items", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.GunlukKontrol.Maddeler(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/daily-checks/items", (HttpContext c, List<string> d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.GunlukKontrol.MaddeleriKaydet(s, d ?? new());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}/daily-checks", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.GunlukKontrol.Liste(s, id).Select(k => new
+    {
+        id = k.Id, date = k.Tarih, failed = k.UygunDegil, note = k.Not, workOrderId = k.IsEmriId, user = k.Kullanici, line = k.Satir,
+        results = k.Sonuclar.Select(x => new { item = x.Madde, ok = x.Uygun, note = x.Not }),
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/vehicles/{id}/daily-check", (HttpContext c, string id, DailyCheckDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.GunlukKontrol.Kaydet(s, id, d.Date,
+        (d.Results ?? new()).Select(x => new DepoWise.Infrastructure.Vehicles.KontrolSonucu(x.Item ?? "", x.Ok, x.Note)).ToList(),
+        d.Note, d.OpenFault, string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!);
+    return Results.Ok(new { id = r.Id, woNo = r.IsEmriNo, warning = r.Uyari });
+}).RequireAuthorization();
+
 // ⭐ M-35 (AR-GE 2026-10-19, F-077): ARAÇTAN İŞ EMRİ — arıza bildir (araç Arızalı olur) ya da bakım/iş emri aç. Masaüstüyle aynı servis.
 app.MapGet("/api/vehicles/{id}/open-fault", (HttpContext c, string id) =>
 {
@@ -5735,6 +5760,8 @@ record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines
 record DeveloperDto(string? Code, bool Active);
 record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal CurrentMeter);   // ⭐ M-34
 record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = null);   // ⭐ M-35
+record DailyCheckItemDto(string? Item, bool Ok, string? Note);   // ⭐ M-43
+record DailyCheckDto(long? Date, List<DailyCheckItemDto>? Results, string? Note, bool OpenFault, string? OperationId);   // ⭐ M-43
 record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoid = true);   // ⭐ M-36
 record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
 record AssignmentDueDto(string? PersonnelId, string? AssetType, string? AssetId, long? Date);   // ⭐ M-46: null = kaldır

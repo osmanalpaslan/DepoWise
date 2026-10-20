@@ -84,6 +84,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Materials.SayimService Sayim { get; }   // ⭐ M-28
     public DepoWise.Infrastructure.Vehicles.SayacService Sayac { get; }   // ⭐ M-36
     public DepoWise.Infrastructure.Vehicles.KiraService Kira { get; }   // ⭐ M-39
+    public DepoWise.Infrastructure.Vehicles.GunlukKontrolService GunlukKontrol => _gunlukKontrol ??= new(Factory);   // ⭐ M-43
+    private DepoWise.Infrastructure.Vehicles.GunlukKontrolService? _gunlukKontrol;
     public DepoWise.Infrastructure.Assignments.ZimmetTutanakService ZimmetTutanak => _zimmetTutanak ??= new(Factory, Assignments);   // ⭐ M-47
     private DepoWise.Infrastructure.Assignments.ZimmetTutanakService? _zimmetTutanak;
     public DepoWise.Infrastructure.Equipment.EkipmanTasimaService EkipmanTasima => _ekipmanTasima ??= new(Factory);   // ⭐ M-48

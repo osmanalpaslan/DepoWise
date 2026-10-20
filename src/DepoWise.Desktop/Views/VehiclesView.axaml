@@ -923,6 +923,31 @@
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
                         </StackPanel>
+                        <!-- ⭐ M-43: GÜNLÜK KONTROL LİSTESİ — uygun olmayan madde → isteğe bağlı arıza bildir -->
+                        <StackPanel Spacing="4" IsVisible="{Binding CanEdit}">
+                          <SelectableTextBlock Text="GÜNLÜK KONTROL" Classes="Helper"/>
+                          <ItemsControl ItemsSource="{Binding KontrolMaddeleri}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:KontrolMaddesiSatiri">
+                                <StackPanel Spacing="2" Margin="0,1">
+                                  <CheckBox IsChecked="{Binding Uygun}" Content="{Binding Madde}"/>
+                                  <TextBox Classes="Field" Text="{Binding Not}" Watermark="Uygun değil — kısa not" IsVisible="{Binding !Uygun}"/>
+                                </StackPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <TextBox Classes="Field" Text="{Binding KontrolNotu}" Watermark="Genel not (isteğe bağlı)"/>
+                          <CheckBox IsChecked="{Binding KontrolArizaAc}" Content="Uygun olmayan varsa arıza bildir"
+                                    ToolTip.Tip="İşaretliyse: araç Arızalı olur ve taslak arıza iş emri açılır (açık arıza zaten varsa yeni açılmaz)."/>
+                          <Button Classes="Secondary" Content="Kontrolü Kaydet" Command="{Binding KontrolKaydetCommand}" HorizontalAlignment="Left"/>
+                          <ItemsControl ItemsSource="{Binding GunlukKontroller}" MaxHeight="160" IsVisible="{Binding HasGunlukKontrol}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="inf:GunlukKontrol">
+                                <SelectableTextBlock Text="{Binding Satir}" Classes="Helper" TextWrapping="Wrap"/>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
                         <StackPanel Spacing="2"
                                     IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                           <SelectableTextBlock Text="Durum Açıklaması" Classes="Helper"/>

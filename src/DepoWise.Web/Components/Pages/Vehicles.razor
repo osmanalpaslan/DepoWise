@@ -91,6 +91,27 @@
                     </MudExpansionPanel>
                 </MudExpansionPanels>
             }
+            @* ⭐ M-43 (F-087): GÜNLÜK KONTROL LİSTESİ — uygun olmayan madde → isteğe bağlı arıza bildir (masaüstüyle aynı) *@
+            @if (Auth.CanEdit("vehicles") && _kontrolMaddeleri.Count > 0)
+            {
+                <MudExpansionPanels Class="mb-2" Elevation="0">
+                    <MudExpansionPanel Text="Günlük Kontrol">
+                        @foreach (var m in _kontrolMaddeleri)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                                <MudCheckBox T="bool" @bind-Value="m.Uygun" Label="@m.Madde" Dense="true" Style="min-width:220px" />
+                                @if (!m.Uygun) { <MudTextField T="string" @bind-Value="m.Not" Placeholder="Uygun değil — kısa not" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" /> }
+                            </MudStack>
+                        }
+                        <MudTextField T="string" @bind-Value="_kontrolNotu" Label="Genel not (isteğe bağlı)" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-1" />
+                        <MudTooltip Text="İşaretliyse: araç Arızalı olur ve taslak arıza iş emri açılır (açık arıza zaten varsa yeni açılmaz).">
+                            <MudCheckBox T="bool" @bind-Value="_kontrolArizaAc" Label="Uygun olmayan varsa arıza bildir" Dense="true" />
+                        </MudTooltip>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="KontrolKaydet">Kontrolü Kaydet</MudButton>
+                        @foreach (var k in _gunlukKontroller) { <MudText Typo="Typo.caption" Class="d-block">@Str(k, "line")</MudText> }
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
         }
 
         @if (_templates.Count > 0)
@@ -962,6 +983,49 @@
         await LoadDetailPhotos(id!);
     }
 
+    // ═══ M-43 — GÜNLÜK KONTROL LİSTESİ ═══
+    private sealed class KontrolMaddesi { public string Madde = ""; public bool Uygun = true; public string? Not; }
+    private List<KontrolMaddesi> _kontrolMaddeleri = new();
+    private List<JsonElement> _gunlukKontroller = new();
+    private string? _kontrolNotu;
+    private bool _kontrolArizaAc = true;
+
+    private async Task GunlukKontrolYukle(string id)
+    {
+        _kontrolNotu = null;
+        try { _kontrolMaddeleri = (await Api.GetArrayAsync("/api/daily-checks/items")).Select(x => new KontrolMaddesi { Madde = x.GetString() ?? "" }).ToList(); }
+        catch { _kontrolMaddeleri = new(); }
+        try { _gunlukKontroller = (await Api.GetArrayAsync($"/api/vehicles/{id}/daily-checks")).Take(10).ToList(); }
+        catch { _gunlukKontroller = new(); }
+    }
+
+    private async Task KontrolKaydet()
+    {
+        if (_editId is null || _busy) return;
+        var bozuk = _kontrolMaddeleri.Count(x => !x.Uygun);
+        var mesaj = bozuk == 0
+            ? "Günlük kontrol (tüm maddeler uygun) kaydedilsin mi?"
+            : $"{bozuk} madde UYGUN DEĞİL olarak kaydedilecek" +
+              (_kontrolArizaAc ? " ve arıza bildirilecek (araç Arızalı olur, taslak iş emri açılır)." : ".") + " Devam edilsin mi?";
+        if (!await Dialog.Confirm(mesaj)) return;
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.PostJsonWithErrorAsync($"/api/vehicles/{_editId}/daily-check", new
+            {
+                results = _kontrolMaddeleri.Select(x => new { item = x.Madde, ok = x.Uygun, note = x.Not }).ToList(),
+                note = _kontrolNotu, openFault = _kontrolArizaAc, operationId = Guid.NewGuid().ToString("N"),
+            });
+            _ok = err is null;
+            if (err is not null) { _msg = err; return; }
+            var uyari = data is { } d && d.TryGetProperty("warning", out var w) && w.ValueKind == JsonValueKind.String ? w.GetString() : null;
+            var no = data is { } d2 && d2.TryGetProperty("woNo", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
+            _msg = uyari ?? (no is null ? "Günlük kontrol kaydedildi." : $"Günlük kontrol kaydedildi; arıza iş emri {no} açıldı (İş Emirleri ekranında).");
+            await GunlukKontrolYukle(_editId);
+        }
+        finally { _busy = false; }
+    }
+
     // ═══ M-36 — SAYAÇ GEÇMİŞİ ═══
     private List<JsonElement> _sayacGecmisi = new();
     private string? _eskiSayac;
@@ -1037,6 +1101,7 @@
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
         await LoadDetailPhotos(_editId);   // ADR-182: kayıtlı fotoğraflar düzenleme formunda görünür/silinebilir
         await SayacGecmisiYukle(_editId);  // ⭐ M-36
+        await GunlukKontrolYukle(_editId); // ⭐ M-43
         _template = NullS(d, "templateId"); _lastTemplate = _template;   // mevcut şablon bağı (diff prefill tetiklemesin)
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
         _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");

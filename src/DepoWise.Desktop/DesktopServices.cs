@@ -118,6 +118,7 @@ public static class DesktopServices
     public static SayimService Sayim { get; private set; } = null!;   // ⭐ M-28
     public static DepoWise.Infrastructure.Vehicles.SayacService Sayac { get; private set; } = null!;   // ⭐ M-36
     public static DepoWise.Infrastructure.Vehicles.KiraService Kira { get; private set; } = null!;   // ⭐ M-39
+    public static DepoWise.Infrastructure.Vehicles.GunlukKontrolService GunlukKontrol { get; private set; } = null!;   // ⭐ M-43
     public static DepoWise.Infrastructure.Assignments.ZimmetTutanakService ZimmetTutanak { get; private set; } = null!;   // ⭐ M-47
     public static DepoWise.Infrastructure.Equipment.EkipmanTasimaService EkipmanTasima { get; private set; } = null!;   // ⭐ M-48
     public static DepoWise.Infrastructure.Assignments.ZimmetKitService ZimmetKit { get; private set; } = null!;   // ⭐ M-50
@@ -279,6 +280,7 @@ public static class DesktopServices
         Sayim = new SayimService(Factory, Stock, clock);   // ⭐ M-28
         Sayac = new DepoWise.Infrastructure.Vehicles.SayacService(Factory, clock);   // ⭐ M-36
         Kira = new DepoWise.Infrastructure.Vehicles.KiraService(Factory, clock);   // ⭐ M-39
+        GunlukKontrol = new DepoWise.Infrastructure.Vehicles.GunlukKontrolService(Factory, clock);   // ⭐ M-43
         ZimmetTutanak = new DepoWise.Infrastructure.Assignments.ZimmetTutanakService(Factory, Assignments, clock);   // ⭐ M-47
         EkipmanTasima = new DepoWise.Infrastructure.Equipment.EkipmanTasimaService(Factory, clock);   // ⭐ M-48
         ZimmetKit = new DepoWise.Infrastructure.Assignments.ZimmetKitService(Factory, clock);   // ⭐ M-50
