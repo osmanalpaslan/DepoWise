@@ -213,6 +213,15 @@
                                     <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
                                                     DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                                 </ctrl:FormField>
+                                <!-- ⭐ M-49: QR / barkod okutma (USB okuyucu kodu yazıp Enter'a basar) -->
+                                <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
+                                    <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. EKS-001"
+                                             ToolTip.Tip="Araç etiketindeki QR'ı okutun: iç kodu ya da plakası TAM eşleşen araç seçilir.">
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
+                                </ctrl:FormField>
                                 <ctrl:FormField Label="Önceki Sayaç" Width="140" HelpText="Araçtan otomatik.">
                                     <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"
                                                    FormatString="0.##" ShowButtonSpinner="False"/>

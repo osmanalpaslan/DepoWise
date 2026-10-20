@@ -90,6 +90,8 @@ public sealed class ServerServices
     private DepoWise.Infrastructure.Equipment.EkipmanTasimaService? _ekipmanTasima;
     public DepoWise.Infrastructure.Operations.YakitSupheService YakitSuphe => _yakitSuphe ??= new(Factory);   // ⭐ M-44
     private DepoWise.Infrastructure.Operations.YakitSupheService? _yakitSuphe;
+    public DepoWise.Infrastructure.Reporting.KodOkutmaService KodOkutma => _kodOkutma ??= new(Factory);   // ⭐ M-49
+    private DepoWise.Infrastructure.Reporting.KodOkutmaService? _kodOkutma;
     public DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; }   // EMR-01 (ADR-170)
     public DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; }   // TKV-01 (ADR-171)
     public DepoWise.Infrastructure.Announcements.AnnouncementService Announcements { get; }   // DYR-01 (ADR-173)

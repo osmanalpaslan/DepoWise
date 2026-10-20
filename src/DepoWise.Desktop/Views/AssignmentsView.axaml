@@ -61,6 +61,15 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding AssetOptions}" SelectedItem="{Binding FormAsset}"
                                         PlaceholderText="Malzeme/ekipman seç / ara..."/>
                     </ctrl:FormField>
+                    <!-- ⭐ M-49: QR / barkod okutma — teslimde okutulan kalem listeye eklenir -->
+                    <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
+                        <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. JN-012"
+                                 ToolTip.Tip="Etiketteki QR'ı okutun: seçili varlık türünde kodu TAM eşleşen kayıt seçilir; Teslim işleminde listeye eklenir.">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                    </ctrl:FormField>
                     <ctrl:FormField Label="Personel" IsRequired="True" Width="200" HelpText="Devirde: VEREN kişi.">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormPersonnel}"
                                         PlaceholderText="Personel seç / ara..."/>

@@ -1886,6 +1886,15 @@ app.MapGet("/api/assignments/holdings", (HttpContext c, string? search, string? 
         assetLabel = h.AssetLabel, quantity = h.QuantityDisplay,
         branchId = h.BranchId, branchName = h.BranchDisplay, lastDocDate = h.LastDocDate,
     })) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-49 (AR-GE 2026-10-19, F-139/F-026): FORMDA QR / BARKOD OKUTMA — kodu kayda çevirir (yalnız seçer; masaüstüyle aynı servis).
+app.MapGet("/api/scan/resolve", (HttpContext c, string? type, string? code) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.KodOkutma.Bul(s, type ?? "", code);
+    return r is null ? Results.NotFound(new { error = "Bu koda ait kayıt bulunamadı (kod tam eşleşmeli)." })
+                     : Results.Ok(new { type = r.Tur, id = r.Id, code = r.Kod, name = r.Ad });
+}).RequireAuthorization();
+
 // ⭐ M-46 (AR-GE 2026-10-19, F-081): BEKLENEN İADE TARİHİ · GECİKENLER · PERSONEL KARTINDA ZİMMETLER (masaüstüyle aynı servis).
 app.MapGet("/api/assignments/returns", (HttpContext c, string? personnelId, bool? overdue) =>
     S(c) is { } s ? Results.Ok(svc.Assignments.IadeDurumu(s, personnelId, overdue == true).Select(x => new

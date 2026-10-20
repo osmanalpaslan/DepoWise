@@ -46,6 +46,9 @@
                     @foreach (var o in _assetOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
                 </MudSelect>
             </MudItem>
+            @* ⭐ M-49 (F-139): QR / barkod okutma — teslimde okutulan kalem listeye eklenir (masaüstüyle aynı) *@
+            <MudItem xs="6" md="3"><MudTextField T="string" @bind-Value="_okunanKod" Label="QR / barkod okut" HelperText="Okutun ya da kodu yazıp Enter."
+                                                 Immediate="true" OnKeyDown="KodOkutTus" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4">
                 <MudSelect T="string" @bind-Value="_personnelId" Label="@(_op == "transfer" ? "Veren Personel *" : "Personel *")" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                     @foreach (var o in _personnel) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
@@ -206,6 +209,25 @@
     /// ikinci kez eklenemez. Ekledikten sonra varlık kutusu boşalır (sıradaki kalem için).</summary>
     /// <summary>Kalem listesi yalnız Teslim içindir; başka işleme geçilince temizlenir (masaüstü ile aynı).</summary>
     private void OnOpChanged() { if (_op != "issue") _lines.Clear(); }
+
+    // ═══ M-49 — QR / BARKOD OKUTMA ═══
+    private string? _okunanKod;
+    private async Task KodOkutTus(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_okunanKod)) return;
+        var kod = _okunanKod.Trim();
+        _okunanKod = "";
+        try
+        {
+            var r = await Api.GetObjectAsync($"/api/scan/resolve?type={_assetType}&code={Uri.EscapeDataString(kod)}");
+            var id = Str(r, "id");
+            if (_assetOptions.All(o => o.Id != id)) { _ok = false; _msg = $"'{kod}' seçili varlık türünde listede yok."; return; }
+            _assetId = id;
+            if (_op == "issue") AddLine();   // teslimde okutulan her kalem listeye eklenir (art arda okutma)
+            if (_msg is null) { _ok = true; _msg = $"Okutuldu: {kod}"; }
+        }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; }
+    }
 
     private void AddLine()
     {

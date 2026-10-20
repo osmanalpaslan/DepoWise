@@ -30,6 +30,9 @@
                         <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
                                          ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
                     </MudItem>
+                    @* ⭐ M-49 (F-139): QR / barkod okutma — USB okuyucu kodu yazıp Enter'a basar; TAM eşleşen araç seçilir *@
+                    <MudItem xs="6" md="3"><MudTextField T="string" @bind-Value="_okunanKod" Label="QR / barkod okut" HelperText="Okutun ya da kodu yazıp Enter."
+                                                         Immediate="true" OnKeyDown="KodOkutTus" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" Value="_prevMeter" ReadOnly="true" Label="Önceki Sayaç" HelperText="Araçtan otomatik." Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     @* 2026-09-30 (kullanıcı isteği): SAYAÇ FARKI salt okunur (güncel sayaçtan hesaplanır); güncel sayaç boş başlar ve zorunlu. *@
                     <MudItem xs="6" md="3"><MudTextField T="string" Value="@SayacFarkiMetni" ReadOnly="true" Label="Sayaç Farkı" HelperText="Otomatik hesaplanır." Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -362,6 +365,24 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private ApiClient.Opt? _vehicle;
+
+    // ═══ M-49 — QR / BARKOD OKUTMA ═══
+    private string? _okunanKod;
+    private async Task KodOkutTus(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_okunanKod)) return;
+        var kod = _okunanKod.Trim();
+        _okunanKod = "";
+        try
+        {
+            var r = await Api.GetObjectAsync($"/api/scan/resolve?type=vehicle&code={Uri.EscapeDataString(kod)}");
+            var id = Str(r, "id");
+            _vehicle = (await SearchVehicle(Str(r, "code"), default)).FirstOrDefault(o => o.Id == id) ?? new ApiClient.Opt(id, Str(r, "code"));
+            _ok = true; _msg = $"Araç seçildi: {_vehicle.Name}";
+        }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; }
+    }
+
     // ═══ M-44 — ŞÜPHELİ KAYITLAR ═══
     private List<JsonElement> _supheliler = new();
     private async Task SupphelileriYukle()

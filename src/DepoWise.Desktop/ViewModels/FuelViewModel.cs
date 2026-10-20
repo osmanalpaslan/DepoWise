@@ -521,6 +521,26 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     // ════════════ DAĞITIM ════════════
     [ObservableProperty] private bool _showDist;
     [ObservableProperty] private VehicleListRow? _distVehicle;
+
+    // ⭐ M-49 (AR-GE 2026-10-19, F-139): QR / barkod okutma — okuyucu kodu yazıp Enter'a basar; TAM eşleşen araç seçilir.
+    [ObservableProperty] private string? _okunanKod;
+
+    [RelayCommand]
+    private void KodOkut()
+    {
+        if (string.IsNullOrWhiteSpace(OkunanKod)) return;
+        var kod = OkunanKod.Trim();
+        OkunanKod = "";
+        try
+        {
+            var r = DesktopServices.KodOkutma.Bul(_session, DepoWise.Infrastructure.Reporting.KodOkutmaService.Arac, kod);
+            var v = r is null ? null : Vehicles.FirstOrDefault(x => x.Id == r.Id);
+            if (v is null) { Status = $"'{kod}' koduna ait araç bulunamadı (kod tam eşleşmeli)."; return; }
+            DistVehicle = v;
+            Status = $"Araç seçildi: {v.Display}";
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DistMeterDiffText))]
     private decimal _distPrevMeter;

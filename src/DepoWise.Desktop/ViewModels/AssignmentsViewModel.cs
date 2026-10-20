@@ -107,6 +107,29 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     [ObservableProperty] private string _formOp = "Teslim";
     [ObservableProperty] private string _formAssetType = "Malzeme";
     [ObservableProperty] private ProjectPick? _formAsset;
+
+    // ⭐ M-49 (AR-GE 2026-10-19, F-139): QR / barkod okutma — TAM eşleşen malzeme/ekipman seçilir; Teslimde listeye eklenir.
+    [ObservableProperty] private string? _okunanKod;
+
+    [RelayCommand]
+    private void KodOkut()
+    {
+        if (string.IsNullOrWhiteSpace(OkunanKod)) return;
+        var kod = OkunanKod.Trim();
+        OkunanKod = "";
+        FormError = null;
+        try
+        {
+            var tur = IsMaterial ? DepoWise.Infrastructure.Reporting.KodOkutmaService.Malzeme : DepoWise.Infrastructure.Reporting.KodOkutmaService.Ekipman;
+            var r = DesktopServices.KodOkutma.Bul(_session, tur, kod);
+            var a = r is null ? null : AssetOptions.FirstOrDefault(x => x.Id == r.Id);
+            if (a is null) { FormError = $"'{kod}' koduna ait {(IsMaterial ? "malzeme" : "ekipman")} bulunamadı (kod tam eşleşmeli; varlık türünü kontrol edin)."; return; }
+            FormAsset = a;
+            if (IsIssue) AddLine();   // teslimde okutulan her kalem listeye eklenir (art arda okutma)
+            if (FormError is null) Status = $"Okutuldu: {a.Name}";
+        }
+        catch (Exception ex) { FormError = ex.Message; }
+    }
     [ObservableProperty] private ProjectPick? _formPersonnel;
     [ObservableProperty] private ProjectPick? _formToPersonnel;
     [ObservableProperty] private ProjectPick? _formBranch;
