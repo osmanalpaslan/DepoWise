@@ -68,6 +68,17 @@
                 </MudStack>
                 @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             </MudPaper>
+
+            @* ⭐ M-44 (F-117): şüpheli yakıt kayıtları — yalnız işaret, kayıt değişmez (masaüstüyle aynı servis) *@
+            @if (_supheliler.Count > 0)
+            {
+                <MudExpansionPanels Class="mb-4" Elevation="0" Style="max-width:900px;">
+                    <MudExpansionPanel Text="@($"Şüpheli yakıt kayıtları ({_supheliler.Count})")">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-1">Sayaç geri / şüpheli sıçrama / çok büyük litre / aracın ortalamasından sapan tüketim / aynı gün birden fazla dağıtım. Hatalıysa düzeltin ya da araç kartında sayacı geçersiz sayın.</MudText>
+                        @foreach (var x in _supheliler) { <MudText Typo="Typo.caption" Color="Color.Warning" Class="d-block">@Str(x, "summary")</MudText> }
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
             @* ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU DAĞITIM — tablo, sonda tek onay, tek işlem (masaüstüyle aynı). *@
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:900px;">
                 <MudStack Row="true" AlignItems="AlignItems.Center">
@@ -351,6 +362,13 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private ApiClient.Opt? _vehicle;
+    // ═══ M-44 — ŞÜPHELİ KAYITLAR ═══
+    private List<JsonElement> _supheliler = new();
+    private async Task SupphelileriYukle()
+    {
+        try { _supheliler = (await Api.GetArrayAsync("/api/fuel/suspicious")).Take(100).ToList(); } catch { _supheliler = new(); }
+    }
+
     // ═══ M-34 — TOPLU DAĞITIM ═══
     private sealed class TopluSatir { public ApiClient.Opt? Arac; public decimal OncekiSayac; public decimal? Sayac; public decimal Litre; }
     private List<TopluSatir> _topluSatirlar = new();
@@ -516,6 +534,7 @@
 
     private async Task LoadDist()
     {
+        await SupphelileriYukle();   // ⭐ M-44
         _dist = null;
         try
         {

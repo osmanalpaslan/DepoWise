@@ -4674,6 +4674,14 @@ app.MapPut("/api/vehicles/{id}/rental-contract", (HttpContext c, string id, Rent
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ⭐ M-44 (AR-GE 2026-10-19, F-117): ŞÜPHELİ YAKIT KAYITLARI — yalnız işaret (masaüstüyle aynı servis).
+app.MapGet("/api/fuel/suspicious", (HttpContext c, long? from, long? to) =>
+    S(c) is { } s ? Results.Ok(svc.YakitSuphe.Supheliler(s, from, to).Select(x => new
+    {
+        distributionId = x.DistributionId, vehicleId = x.VehicleId, vehicleCode = x.AracKodu, date = x.Tarih, liters = x.Litre,
+        prevMeter = x.OncekiSayac, meter = x.Sayac, reasons = x.Nedenler, summary = x.Ozet,
+    })) : Results.Unauthorized()).RequireAuthorization();
+
 // ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU YAKIT DAĞITIMI — tek işlem, hepsi ya da hiçbiri (masaüstüyle aynı servis).
 app.MapPost("/api/fuel/distribute-bulk", (HttpContext c, BulkDistributionDto d) =>
 {

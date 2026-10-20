@@ -346,6 +346,7 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     [RelayCommand]
     private void Load()
     {
+        SupphelileriYukle();   // ⭐ M-44
         try
         {
             LoadError = null;
@@ -428,6 +429,19 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
         if (Suppliers.Count == 0)
             try { foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(sp); } catch { }
+    }
+
+    // ════════════ ⭐ M-44 (AR-GE 2026-10-19, F-117) — ŞÜPHELİ KAYITLAR (yalnız işaret; kayıt değişmez) ════════════
+    public ObservableCollection<DepoWise.Infrastructure.Operations.SupheliYakit> Supheliler { get; } = new();
+    public bool HasSupheli => Supheliler.Count > 0;
+    public string SupheliBasligi => $"Şüpheli yakıt kayıtları ({Supheliler.Count})";
+
+    private void SupphelileriYukle()
+    {
+        Supheliler.Clear();
+        try { foreach (var x in DesktopServices.YakitSuphe.Supheliler(_session).Take(100)) Supheliler.Add(x); } catch { }
+        OnPropertyChanged(nameof(HasSupheli));
+        OnPropertyChanged(nameof(SupheliBasligi));
     }
 
     // ════════════ ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13) — TOPLU DAĞITIM ════════════
