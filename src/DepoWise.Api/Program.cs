@@ -4685,6 +4685,13 @@ app.MapPost("/api/vehicles/{id}/work-order", (HttpContext c, string id, VehicleW
     return Results.Ok(new { id = woId, woNo });
 }).RequireAuthorization();
 
+// ⭐ M-38 (AR-GE 2026-10-19, F-080): DURUŞ SÜRESİ RAPORU — arıza iş emirlerinden araç başına duruş saati (masaüstüyle aynı servis).
+app.MapGet("/api/vehicles/downtime", (HttpContext c, long from, long to) =>
+    S(c) is { } s ? Results.Ok(svc.WorkOrders.DurusRaporu(s, from, to).Select(x => new
+    {
+        vehicleId = x.VehicleId, vehicleCode = x.AracKodu, faults = x.ArizaSayisi, open = x.AcikAriza, hours = x.ToplamSaat, line = x.Satir,
+    })) : Results.Unauthorized()).RequireAuthorization();
+
 // ⭐ M-36 (AR-GE 2026-10-19, F-078): SAYAÇ GEÇMİŞİ · GEÇERSİZ SAY · GERİYE TARİHLİ OKUMA KONTROLÜ (masaüstüyle aynı servis).
 app.MapGet("/api/vehicles/{id}/meter-history", (HttpContext c, string id) =>
 {

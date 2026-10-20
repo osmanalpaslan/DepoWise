@@ -756,6 +756,28 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Kiralama bitirilemedi: " + ex.Message; }
     }
 
+    // ═══ M-38 (AR-GE 2026-10-19, F-080) — ARIZA DURUŞ SÜRESİ RAPORU ═══
+    public ObservableCollection<DepoWise.Infrastructure.WorkOrders.DurusSatiri> DurusRaporu { get; } = new();
+    [ObservableProperty] private DateTimeOffset? _durusBas = new DateTimeOffset(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+    [ObservableProperty] private DateTimeOffset? _durusBit = new DateTimeOffset(DateTime.Today);
+    [ObservableProperty] private string? _durusToplam;
+
+    [RelayCommand]
+    private void DurusYukle()
+    {
+        DurusRaporu.Clear();
+        DurusToplam = null;
+        if (DurusBas is null || DurusBit is null) { Status = "Dönem başlangıç ve bitişini seçin."; return; }
+        try
+        {
+            var bit = IsGunuTarihi.Ms(DurusBit)!.Value + 86_400_000L - 1;   // bitiş günü dahil
+            var rows = DesktopServices.WorkOrders.DurusRaporu(_session, IsGunuTarihi.Ms(DurusBas)!.Value, bit);
+            foreach (var r in rows) DurusRaporu.Add(r);
+            DurusToplam = rows.Count == 0 ? "Bu dönemde arıza duruşu yok." : $"Toplam {rows.Sum(x => x.ToplamSaat):0.#} saat duruş · {rows.Sum(x => x.ArizaSayisi)} arıza · {rows.Count} araç";
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
+
     // ═══ M-39 (AR-GE 2026-10-19, F-084, K-19) — KİRA SÖZLEŞMESİ · DÖNEM MALİYET/GELİR · BİTİŞ UYARISI ═══
     public ObservableCollection<ProjectPick> KiraCariSecenekleri { get; } = new();
     public ObservableCollection<string> KiraYonleri { get; } = new(new[] { "Kiralandı (maliyet)", "Kiraya verildi (gelir)" });

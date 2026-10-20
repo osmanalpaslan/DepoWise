@@ -32,6 +32,24 @@
     <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
 }
 
+@* ⭐ M-38 (AR-GE 2026-10-19, F-080): arıza duruş süresi raporu (masaüstüyle aynı servis) *@
+@if (!_isRental && !_isNew)
+{
+    <MudExpansionPanels Class="mb-3" Elevation="0">
+        <MudExpansionPanel Text="Arıza duruş süresi raporu">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                <MudDatePicker @bind-Date="_durusBas" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:180px" />
+                <MudDatePicker @bind-Date="_durusBit" Label="Bitiş (dahil)" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:180px" />
+                <MudTooltip Text="Arıza iş emirlerinden: bildirimden tamamlanmaya kadar geçen süre. Açık arıza bugüne kadar sayılır; döneme taşan kısım kesilir. İptal edilen iş emri sayılmaz.">
+                    <MudButton Variant="Variant.Outlined" OnClick="DurusYukle" Disabled="_busy">Hesapla</MudButton>
+                </MudTooltip>
+                <MudText Typo="Typo.body2"><b>@_durusToplam</b></MudText>
+            </MudStack>
+            @foreach (var r in _durus) { <MudText Typo="Typo.caption" Class="d-block">@Str(r, "line")</MudText> }
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
 @* ⭐ M-39 (AR-GE 2026-10-19, F-084, K-19): kira bitiş uyarıları + dönem maliyet/gelir (masaüstüyle aynı servis) *@
 @if (_isRental && !_isNew)
 {
@@ -666,6 +684,26 @@
         var to = _visibleColumns.IndexOf(targetKey);
         _visibleColumns.Insert(to < 0 ? _visibleColumns.Count : to, src);   // hedef kolonun ÖNÜNE bırak
         await Api.SaveListColumnsAsync(ListKey, _visibleColumns);
+    }
+
+    // ═══ M-38 — ARIZA DURUŞ SÜRESİ RAPORU ═══
+    private DateTime? _durusBas = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), _durusBit = DateTime.Today;
+    private List<JsonElement> _durus = new();
+    private string? _durusToplam;
+
+    private async Task DurusYukle()
+    {
+        _durus = new(); _durusToplam = null;
+        if (_durusBas is null || _durusBit is null) { _ok = false; _msg = "Dönem başlangıç ve bitişini seçin."; return; }
+        try
+        {
+            var bit = DepoWise.Web.Services.FieldChecks.ToUnixMs(_durusBit)!.Value + 86_400_000L - 1;   // bitiş günü dahil
+            _durus = (await Api.GetArrayAsync($"/api/vehicles/downtime?from={DepoWise.Web.Services.FieldChecks.ToUnixMs(_durusBas)}&to={bit}")).ToList();
+            decimal saat = _durus.Sum(x => x.GetProperty("hours").GetDecimal());
+            int ariza = _durus.Sum(x => x.GetProperty("faults").GetInt32());
+            _durusToplam = _durus.Count == 0 ? "Bu dönemde arıza duruşu yok." : $"Toplam {saat:0.#} saat duruş · {ariza} arıza · {_durus.Count} araç";
+        }
+        catch (Exception ex) { _ok = false; _msg = ex.Message; }
     }
 
     // ═══ M-39 — KİRA SÖZLEŞMESİ · RAPOR · UYARILAR ═══
