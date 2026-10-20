@@ -86,6 +86,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Vehicles.KiraService Kira { get; }   // ⭐ M-39
     public DepoWise.Infrastructure.Assignments.ZimmetTutanakService ZimmetTutanak => _zimmetTutanak ??= new(Factory, Assignments);   // ⭐ M-47
     private DepoWise.Infrastructure.Assignments.ZimmetTutanakService? _zimmetTutanak;
+    public DepoWise.Infrastructure.Equipment.EkipmanTasimaService EkipmanTasima => _ekipmanTasima ??= new(Factory);   // ⭐ M-48
+    private DepoWise.Infrastructure.Equipment.EkipmanTasimaService? _ekipmanTasima;
     public DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; }   // EMR-01 (ADR-170)
     public DepoWise.Infrastructure.Calendars.CalendarService Calendar { get; }   // TKV-01 (ADR-171)
     public DepoWise.Infrastructure.Announcements.AnnouncementService Announcements { get; }   // DYR-01 (ADR-173)

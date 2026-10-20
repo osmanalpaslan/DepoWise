@@ -1894,6 +1894,20 @@ app.MapGet("/api/assignments/returns", (HttpContext c, string? personnelId, bool
         assetLabel = x.Zimmet.AssetLabel, quantity = x.Zimmet.QuantityDisplay, expectedReturn = x.BeklenenIade, overdueDays = x.GecikmeGun,
         isOverdue = x.Gecikti, returnText = x.IadeMetni, summary = x.Ozet,
     })) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-48 (AR-GE 2026-10-19, F-058): EKİPMAN TAŞIMA HAREKETİ + KONUM GEÇMİŞİ (masaüstüyle aynı servis).
+app.MapGet("/api/equipment/{id}/moves", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.EkipmanTasima.Gecmis(s, id).Select(m => new
+    {
+        id = m.Id, from = m.KaynakAdi, to = m.HedefAdi, fromLocation = m.KaynakKonum, toLocation = m.HedefKonum,
+        date = m.Tarih, note = m.Not, user = m.Kullanici, line = m.Satir,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/equipment/{id}/move", (HttpContext c, string id, EquipmentMoveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.EkipmanTasima.Tasi(s, id, d.BranchId, d.Location, d.Date, d.Note, string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ⭐ M-47 (AR-GE 2026-10-19, F-082): KİŞİ BAZLI İMZALI ZİMMET TUTANAĞI (dondurulmuş liste + PDF + kabul/ret).
 app.MapGet("/api/assignments/receipts", (HttpContext c, string? personnelId) =>
     S(c) is { } s ? Results.Ok(svc.ZimmetTutanak.Liste(s, personnelId).Select(t => new
@@ -5687,6 +5701,7 @@ record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoi
 record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
 record AssignmentDueDto(string? PersonnelId, string? AssetType, string? AssetId, long? Date);   // ⭐ M-46: null = kaldır
 record AssignmentReceiptDto(string? PersonnelId);   // ⭐ M-47
+record EquipmentMoveDto(string? BranchId, string? Location, long? Date, string? Note, string? OperationId);   // ⭐ M-48
 record AssignmentReceiptDecisionDto(bool Accept, string? Note);
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);

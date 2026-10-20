@@ -57,6 +57,41 @@ public sealed partial class EquipmentViewModel : ViewModelBase, IKayitLoguKaynag
     private EquipmentRow? _selected;
     public bool HasSelection => Selected != null;
 
+    // ═══ M-48 (AR-GE 2026-10-19, F-058) — TAŞIMA HAREKETİ + KONUM GEÇMİŞİ ═══
+    public ObservableCollection<DepoWise.Infrastructure.Equipment.EkipmanTasima> KonumGecmisi { get; } = new();
+    public bool HasKonumGecmisi => KonumGecmisi.Count > 0;
+    [ObservableProperty] private ProjectPick? _tasimaSube;
+    [ObservableProperty] private string _tasimaKonum = "";
+    [ObservableProperty] private string _tasimaNot = "";
+    private string _tasimaIslem = Guid.NewGuid().ToString("N");
+
+    partial void OnSelectedChanged(EquipmentRow? value)
+    {
+        KonumGecmisi.Clear();
+        TasimaSube = null; TasimaKonum = ""; TasimaNot = "";
+        if (value is not null)
+            try { foreach (var m in DesktopServices.EkipmanTasima.Gecmis(_session, value.Id)) KonumGecmisi.Add(m); } catch { }
+        OnPropertyChanged(nameof(HasKonumGecmisi));
+    }
+
+    [RelayCommand]
+    private async Task Tasi()
+    {
+        if (Selected is null) return;
+        if (TasimaSube is null && string.IsNullOrWhiteSpace(TasimaKonum)) { Status = "Hedef şube/şantiye ya da konum seçin."; return; }
+        if (!await ConfirmService.AskAsync($"'{Selected.Code}' {Selected.BranchDisplay} → {TasimaSube?.Name ?? "—"} taşınsın mı? (konum geçmişine yazılır)", "Ekipman Taşıma", "Taşı", "Vazgeç")) return;
+        try
+        {
+            var id = Selected.Id;
+            DesktopServices.EkipmanTasima.Tasi(_session, id, TasimaSube?.Id, TasimaKonum, null, TasimaNot, _tasimaIslem);
+            _tasimaIslem = Guid.NewGuid().ToString("N");
+            Load();
+            Selected = Items.FirstOrDefault(x => x.Id == id);
+            Status = "Ekipman taşındı; konum geçmişine yazıldı.";
+        }
+        catch (Exception ex) { Status = "Taşınamadı: " + ex.Message; }
+    }
+
     // ── Form ──
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string? _editId;

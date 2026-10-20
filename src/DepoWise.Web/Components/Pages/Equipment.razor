@@ -22,6 +22,25 @@
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ EKİPMAN" : "EKİPMAN DÜZENLE")</MudText>
+        @* ⭐ M-48 (F-058): taşıma hareketi + konum geçmişi (masaüstüyle aynı servis) *@
+        @if (_editId is not null && Auth.CanEdit("equipment"))
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap" Class="mb-2">
+                <MudSelect T="string" @bind-Value="_tasimaSube" Label="Taşı: hedef şube" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:220px">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+                <MudTextField @bind-Value="_tasimaKonum" Label="Konum (opsiyonel)" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" />
+                <MudTextField @bind-Value="_tasimaNot" Label="Not (opsiyonel)" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" />
+                <MudTooltip Text="Ekipmanı hedef şubeye/konuma taşır; kimden, kime, ne zaman bilgisi konum geçmişine yazılır.">
+                    <MudButton Variant="Variant.Outlined" OnClick="Tasi" Disabled="_busy">Taşı</MudButton>
+                </MudTooltip>
+            </MudStack>
+            @if (_konumGecmisi.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Class="d-block"><b>Konum geçmişi:</b></MudText>
+                @foreach (var m in _konumGecmisi) { <MudText Typo="Typo.caption" Class="d-block">@Str(m, "line")</MudText> }
+            }
+        }
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Ekipman Kodu *" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="Kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
@@ -155,6 +174,34 @@
         _statusNote = Str(d, "statusNote"); _serialNo = Str(d, "serialNo");
         _location = Str(d, "location"); _description = Str(d, "description");
         _msg = null;
+        await KonumGecmisiYukle();   // ⭐ M-48
+    }
+
+    // ═══ M-48 — TAŞIMA ═══
+    private string? _tasimaSube;
+    private string _tasimaKonum = "", _tasimaNot = "";
+    private List<JsonElement> _konumGecmisi = new();
+    private string _tasimaIslem = Guid.NewGuid().ToString("N");
+
+    private async Task KonumGecmisiYukle()
+    {
+        if (_editId is null) { _konumGecmisi = new(); return; }
+        try { _konumGecmisi = (await Api.GetArrayAsync($"/api/equipment/{_editId}/moves")).ToList(); } catch { _konumGecmisi = new(); }
+    }
+
+    private async Task Tasi()
+    {
+        if (_editId is null || _busy) return;
+        if (string.IsNullOrEmpty(_tasimaSube) && string.IsNullOrWhiteSpace(_tasimaKonum)) { _ok = false; _msg = "Hedef şube/şantiye ya da konum seçin."; return; }
+        if (!await Dialog.Confirm("Ekipman taşınsın mı? (konum geçmişine yazılır)", "Taşı")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/equipment/{_editId}/move", new { branchId = _tasimaSube, location = _tasimaKonum, note = _tasimaNot, operationId = _tasimaIslem });
+            _ok = err is null; _msg = err ?? "Ekipman taşındı; konum geçmişine yazıldı.";
+            if (_ok) { _tasimaIslem = Guid.NewGuid().ToString("N"); _branchId = _tasimaSube; _location = _tasimaKonum; _tasimaSube = null; _tasimaKonum = _tasimaNot = ""; await KonumGecmisiYukle(); }
+        }
+        finally { _busy = false; }
     }
 
     private async Task Save()

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:eq="using:DepoWise.Infrastructure.Equipment"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:ekp="using:DepoWise.Infrastructure.Equipment"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -131,6 +132,24 @@
                                    IsVisible="{Binding Selected.Location, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
                                    IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <!-- ⭐ M-48: TAŞIMA + KONUM GEÇMİŞİ -->
+                        <Border Classes="Divider"/>
+                        <SelectableTextBlock Text="TAŞI" Classes="SectionTitle" IsVisible="{Binding CanEdit}"/>
+                        <StackPanel Spacing="6" IsVisible="{Binding CanEdit}">
+                            <ctrl:LookupBox ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding TasimaSube}" PlaceholderText="Hedef şube / şantiye..."/>
+                            <TextBox Classes="Field" Text="{Binding TasimaKonum}" Watermark="Konum (ör. 3. kat, konteyner) — opsiyonel"/>
+                            <TextBox Classes="Field" Text="{Binding TasimaNot}" Watermark="Not (ör. kamyonla, irsaliye no) — opsiyonel"/>
+                            <Button Classes="Secondary" Content="Taşı" Command="{Binding TasiCommand}"
+                                    ToolTip.Tip="Ekipmanı hedef şubeye/konuma taşır; kimden, kime, ne zaman bilgisi konum geçmişine yazılır."/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="KONUM GEÇMİŞİ" Classes="SectionTitle" IsVisible="{Binding HasKonumGecmisi}"/>
+                        <ItemsControl ItemsSource="{Binding KonumGecmisi}" IsVisible="{Binding HasKonumGecmisi}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="eq:EkipmanTasima">
+                                    <SelectableTextBlock Text="{Binding Satir}" Classes="Helper" TextWrapping="Wrap"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
