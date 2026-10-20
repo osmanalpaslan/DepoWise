@@ -33,11 +33,18 @@
                     <MudSelectItem T="string" Value="@("insurance")">Sigorta</MudSelectItem>
                     <MudSelectItem T="string" Value="@("kasko")">Kasko</MudSelectItem>
                     <MudSelectItem T="string" Value="@("calibration")">Kalibrasyon</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("periodic")">Periyodik Kontrol</MudSelectItem>
                 </MudSelect>
             </MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_lastDate" Label="Son Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_nextDate" Label="Sonraki Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_place" Label="Yer / Kurum" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            @* ⭐ M-41: yasal periyodik kontrol kanıtı (masaüstüyle aynı) *@
+            @if (_docType == "periodic")
+            {
+                <MudItem xs="6" md="3"><MudTextField @bind-Value="_inspector" Label="Yetkili Kişi / Firma *" HelperText="Kontrolü yapan (mevzuat kanıtı)" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="6" md="3"><MudTextField @bind-Value="_reportNo" Label="Rapor No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            }
             @if (_docType == "inspection")
             {
                 <MudItem xs="6" md="3">
@@ -112,6 +119,7 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private ApiClient.Opt? _vehicle;
     private string _docType = "inspection", _result = "Geçti", _place = "", _note = "";
+    private string _inspector = "", _reportNo = "";   // ⭐ M-41
     private DateTime? _lastDate, _nextDate, _postponeDate;
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok; private bool _busy;
@@ -208,7 +216,8 @@
             var err = await Api.PostAsync("/api/inspection", new
             {
                 vehicleId = _vehicle.Id, docType = _docType, lastDate = Ms(_lastDate), nextDate = Ms(next),
-                result = isInspection ? _result : null, place = Empty(_place), note = Empty(_note)
+                result = isInspection ? _result : null, place = Empty(_place), note = Empty(_note),
+                inspector = _docType == "periodic" ? Empty(_inspector) : null, reportNo = _docType == "periodic" ? Empty(_reportNo) : null,   // M-41
             });
             _ok = err is null; _msg = err ?? "Kaydedildi.";
             if (_ok) { Clear(); await LoadList(); }
@@ -219,7 +228,7 @@
 
     private void Clear()
     {
-        _vehicle = null; _docType = "inspection"; _result = "Geçti"; _place = _note = "";
+        _vehicle = null; _docType = "inspection"; _result = "Geçti"; _place = _note = ""; _inspector = _reportNo = "";
         _lastDate = _nextDate = _postponeDate = null; _msg = null;
     }
 

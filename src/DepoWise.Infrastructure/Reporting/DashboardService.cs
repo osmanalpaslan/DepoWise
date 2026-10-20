@@ -92,7 +92,7 @@ public sealed class DashboardService
                 var docText = a.DocType switch
                 {
                     "inspection" => "Muayene", "insurance" => "Sigorta",
-                    "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => a.DocType
+                    "kasko" => "Kasko", "calibration" => "Kalibrasyon", "periodic" => "Periyodik Kontrol", _ => a.DocType   // ⭐ M-41
                 };
                 var levelText = a.Level == DateAlertLevel.Expired ? "Süresi Doldu" : "Yaklaşıyor";
                 // Sigorta/muayene uyarısı ilgili BELGE kaydına köprülenir (araç değil).

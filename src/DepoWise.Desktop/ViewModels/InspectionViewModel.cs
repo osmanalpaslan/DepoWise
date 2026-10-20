@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -47,7 +48,11 @@ public sealed partial class InspectionViewModel : ViewModelBase
     public ObservableCollection<InspectionRow> Items { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
-    public ObservableCollection<string> DocTypeOptions { get; } = new() { "Muayene", "Sigorta", "Kasko", "Kalibrasyon" };
+    public ObservableCollection<string> DocTypeOptions { get; } = new(DepoWise.Application.Ui.InspectionDocTypes.All.Select(x => x.Label));   // M-41: tek kaynak
+    // ⭐ M-41 (F-116): yasal periyodik kontrol — yetkili kişi/firma (zorunlu) + rapor no.
+    [ObservableProperty] private string _fInspector = "";
+    [ObservableProperty] private string _fReportNo = "";
+    public bool IsPeriodicType => FDocType == DepoWise.Application.Ui.InspectionDocTypes.Label(DepoWise.Application.Ui.InspectionDocTypes.Periodic);
     public ObservableCollection<string> ResultOptions { get; } = new() { "Geçti", "Kaldı", "Ertelendi" };
 
     [ObservableProperty] private string? _status;
@@ -62,6 +67,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
     [ObservableProperty] private VehicleListRow? _fVehicle;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsInspectionType))]
+    [NotifyPropertyChangedFor(nameof(IsPeriodicType))]
     [NotifyPropertyChangedFor(nameof(IsPostponed))]
     private string _fDocType = "Muayene";
     /// <summary>Sonuç alanı yalnız Muayene belgesinde görünür (sigorta/kasko/kalibrasyonda sonuç yok).</summary>
@@ -83,10 +89,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
         Load();
     }
 
-    private static string Code(string display) => display switch
-    {
-        "Sigorta" => "insurance", "Kasko" => "kasko", "Kalibrasyon" => "calibration", _ => "inspection"
-    };
+    private static string Code(string display) => DepoWise.Application.Ui.InspectionDocTypes.FromLabel(display);   // M-41: tek kaynak
 
     [RelayCommand]
     private void Load()
@@ -137,7 +140,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         if (Vehicles.Count == 0) try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
         FVehicle = null; FDocType = "Muayene"; FLastDate = null; FNextDate = null;
-        FPlace = ""; FResult = "Geçti"; FPostponeDate = null; FNote = ""; FormError = null;
+        FPlace = ""; FResult = "Geçti"; FPostponeDate = null; FNote = ""; FormError = null; FInspector = ""; FReportNo = "";
         ShowAdd = true;
     }
 
@@ -169,7 +172,8 @@ public sealed partial class InspectionViewModel : ViewModelBase
                 NextDate: nextMs,
                 Result: IsInspectionType ? FResult : null,
                 Place: string.IsNullOrWhiteSpace(FPlace) ? null : FPlace.Trim(),
-                Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote.Trim()));
+                Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote.Trim(),
+                Inspector: IsPeriodicType ? FInspector : null, ReportNo: IsPeriodicType ? FReportNo : null));   // M-41
             ShowAdd = false; Load();
             Status = "Belge kaydedildi.";
         }

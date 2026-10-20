@@ -124,7 +124,8 @@ public sealed class InspectionImportService
 
     private static string DocCode(string? s) => (s ?? "").Trim().ToLowerInvariant() switch
     {
-        "sigorta" => "insurance", "kasko" => "kasko", "kalibrasyon" => "calibration", _ => "inspection"
+        "sigorta" => "insurance", "kasko" => "kasko", "kalibrasyon" => "calibration",
+        "periyodik" or "periyodik kontrol" => "periodic", _ => "inspection"   // ⭐ M-41
     };
 
     private static long? ParseDate(string? s)

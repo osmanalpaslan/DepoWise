@@ -2481,7 +2481,8 @@ ORDER BY (vi.next_date IS NULL), vi.next_date, v.internal_code;";
     /// <summary>Belge türü → Türkçe etiket. Kaynak: Muayene/Sigorta ekranının kullandığı aynı eşleme.</summary>
     private static string DocTypeTr(string t) => t switch
     {
-        "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => t,
+        "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon",
+        "periodic" => "Periyodik Kontrol", _ => t,   // ⭐ M-41
     };
 
     /// <summary>

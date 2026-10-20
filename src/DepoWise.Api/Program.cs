@@ -4527,7 +4527,7 @@ app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
 // ── Muayene / Sigorta ──
 app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Inspection.Save(s, new DepoWise.Infrastructure.Maintenance.NewInspection(
-        d.VehicleId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note))) }) : Results.Unauthorized()).RequireAuthorization();
+        d.VehicleId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note), Doc(d.Inspector), Doc(d.ReportNo))) }) : Results.Unauthorized()).RequireAuthorization();   // M-41
 // B-5 (PRT-01 Grup 5): muayene/sigorta belgesi İPTALİ — fiziksel silme YOK (is_deleted=1 + gerekçe + audit).
 // Gerekçe boşsa servis ArgumentException atar → ortak middleware 400 döndürür (yakıt/talep iptali deseni).
 app.MapPost("/api/inspection/{id}/cancel", (HttpContext c, string id, InspectionCancelDto d) =>
@@ -5707,7 +5707,8 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null,
     decimal? IntervalDays = null);   // ⭐ M-37: ek tarih periyodu (gün)
-record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
+record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note,
+    string? Inspector = null, string? ReportNo = null);   // ⭐ M-41
 // ⭐ 7b (ADR-191): ekipman bakım/muayene DTO'ları — araç ikizlerinin aynısı, `VehicleId` → `EquipmentId`.
 // company_id alanı BİLİNÇLİ olarak YOKTUR: firma daima oturumdan gelir.
 record EquipmentMaintenanceDto(string EquipmentId, string DefinitionId, string? SubDefinitionId, string? TechnicianId,

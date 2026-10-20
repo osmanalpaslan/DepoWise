@@ -6,7 +6,9 @@ using System.Data.Common;
 namespace DepoWise.Infrastructure.Maintenance;
 
 public sealed record NewInspection(string VehicleId, string DocType, long? LastDate, long? NextDate,
-    string? Result = null, string? Place = null, string? Note = null);
+    string? Result = null, string? Place = null, string? Note = null,
+    // ⭐ M-41 (F-116): yasal periyodik kontrol — kontrolü yapan yetkili kişi/firma + rapor numarası.
+    string? Inspector = null, string? ReportNo = null);
 
 public enum DateAlertLevel { Normal, Approaching, Expired }
 
@@ -26,7 +28,7 @@ public sealed record InspectionRow(string VehicleCode, string Plate, string DocT
 {
     private static string D(long? ms) => ms is null ? "—" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).LocalDateTime.ToString("dd.MM.yyyy");
     public string VehicleText => string.IsNullOrEmpty(Plate) ? VehicleCode : $"{VehicleCode} - {Plate}";
-    public string DocTypeText => DocType switch { "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => DocType };
+    public string DocTypeText => DepoWise.Application.Ui.InspectionDocTypes.Label(DocType);   // M-41: tek kaynak
     public string LastText => D(LastDate);
     public string NextText => D(NextDate);
     public string StatusText => Superseded ? "Yenilendi"
@@ -66,8 +68,14 @@ public sealed class InspectionService
     public string Save(SessionContext s, NewInspection dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        if (dto.DocType is not ("inspection" or "insurance" or "kasko" or "calibration"))
+        if (!DepoWise.Application.Ui.InspectionDocTypes.IsValid(dto.DocType))
             throw new ArgumentException("Geçersiz belge tipi.");
+        // ⭐ M-41: periyodik kontrolde yetkili kişi/firma ZORUNLU (mevzuat kanıtı) ve sonraki kontrol tarihi gerekli (uyarı).
+        if (dto.DocType == DepoWise.Application.Ui.InspectionDocTypes.Periodic)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Inspector)) throw new ArgumentException("Periyodik kontrolde kontrolü yapan yetkili kişi/firma zorunludur.");
+            if (dto.NextDate is null) throw new ArgumentException("Periyodik kontrolde sonraki kontrol tarihi zorunludur (uyarı bu tarihe göre çıkar).");
+        }
         var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
@@ -95,6 +103,20 @@ VALUES(@id,@c,@v,@dt,@ld,@nd,@res,@pl,@note,@now,@now,1,0);";
             cmd.AddWithValue("@note", (object?)dto.Note ?? DBNull.Value);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
+        }
+        // ⭐ M-41: yasal periyodik kontrol kanıtı — yetkili kişi/firma + rapor no (kolon yoksa yalnız boşsa geçer).
+        if (!string.IsNullOrWhiteSpace(dto.Inspector) || !string.IsNullOrWhiteSpace(dto.ReportNo))
+        {
+            if (!DbIntrospect.ColumnExists(conn, tx, "vehicle_inspections", "inspector"))
+                throw new InvalidOperationException("Veritabanı periyodik kontrol alanlarını henüz desteklemiyor (güncelleme bekleniyor).");
+            using var pk = conn.CreateCommand();
+            pk.Transaction = tx;
+            pk.CommandText = "UPDATE vehicle_inspections SET inspector=@i, report_no=@r WHERE id=@id AND company_id=@c;";
+            pk.AddWithValue("@i", string.IsNullOrWhiteSpace(dto.Inspector) ? DBNull.Value : dto.Inspector!.Trim());
+            pk.AddWithValue("@r", string.IsNullOrWhiteSpace(dto.ReportNo) ? DBNull.Value : dto.ReportNo!.Trim());
+            pk.AddWithValue("@id", id);
+            pk.AddWithValue("@c", s.CompanyId);
+            pk.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_inspection", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();

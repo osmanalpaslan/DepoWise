@@ -63,3 +63,48 @@ public static class RentalPriceUnits
     /// <summary>Bilinmeyen/boş birim → "day" (varsayılan günlük kira).</summary>
     public static string Normalize(string? key) => key is Hour or Month ? key : Day;
 }
+
+/// <summary>
+/// ═══ M-41 (AR-GE 2026-10-19, 05 F-116) — MUAYENE / BELGE TÜRLERİ (tek kaynak) ═══
+/// Araç ve ekipman belgelerinin türleri ve Türkçe etiketleri. Eskiden beş ayrı yerde elle yazılıyordu; yeni tür
+/// "periyodik kontrol" (İş Ekipmanları Yönetmeliği — vinç, forklift, kaldırma araçları) eklenirken tek listeye toplandı.
+/// Bu dosya web projesinde de derlenir → iki platform aynı listeyi kullanır.
+/// </summary>
+public static class InspectionDocTypes
+{
+    public const string Inspection = "inspection";
+    public const string Insurance = "insurance";
+    public const string Kasko = "kasko";
+    public const string Calibration = "calibration";
+    /// <summary>Yasal periyodik kontrol (yetkili kişi/firma + rapor no ile).</summary>
+    public const string Periodic = "periodic";
+
+    public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
+    {
+        (Inspection, "Muayene"),
+        (Insurance, "Sigorta"),
+        (Kasko, "Kasko"),
+        (Calibration, "Kalibrasyon"),
+        (Periodic, "Periyodik Kontrol"),
+    };
+
+    public static bool IsValid(string? key)
+    {
+        foreach (var (k, _) in All) if (k == key) return true;
+        return false;
+    }
+
+    public static string Label(string? key)
+    {
+        foreach (var (k, l) in All) if (k == key) return l;
+        return key ?? "";
+    }
+
+    /// <summary>Etiketten koda (masaüstü seçim kutusu, Excel içe aktarma). Bilinmeyen → muayene.</summary>
+    public static string FromLabel(string? label)
+    {
+        var t = (label ?? "").Trim().ToLowerInvariant();
+        foreach (var (k, l) in All) if (l.ToLowerInvariant() == t || k == t) return k;
+        return t.StartsWith("periyodik") ? Periodic : Inspection;
+    }
+}
