@@ -41,6 +41,16 @@
         {
             <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.QrCode2"
                        Class="mb-2" OnClick="QrLabel">QR Etiketi</MudButton>
+            @* ⭐ M-35: araç kartından arıza bildir / iş emri aç (masaüstüyle aynı) *@
+            @if (Auth.CanCreate("work_orders"))
+            {
+                <MudTooltip Text="Aracı &quot;Arızalı&quot; yapar ve taslak iş emri açar; iş emri tamamlanınca araç yeniden Aktif olur, arıza süresi ölçülür.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Class="mb-2 ml-2" Disabled="_busy" OnClick="@(() => AractanIsEmri(true))">Arıza Bildir</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Bu araç için bakım/iş emri taslağı açar (bakım uyarısını işe dönüştürmek için); araç durumu değişmez.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2 ml-2" Disabled="_busy" OnClick="@(() => AractanIsEmri(false))">İş Emri Aç</MudButton>
+                </MudTooltip>
+            }
         }
 
         @if (_templates.Count > 0)
@@ -855,6 +865,26 @@
         if (!await Dialog.Confirm("Bu fotoğraf silinsin mi?", "Evet, Sil", danger: true)) return;
         await Api.DeleteAsync($"/api/vehicles/{id}/photos/{fileId}");
         await LoadDetailPhotos(id!);
+    }
+
+    /// <summary>⭐ M-35: araç kartından arıza bildir (ariza=true) ya da iş emri aç.</summary>
+    private async Task AractanIsEmri(bool ariza)
+    {
+        if (_editId is null || _busy) return;
+        var aciklama = await Dialog.AskReason(
+            ariza ? "Arıza bildirilecek: araç “Arızalı” olur ve taslak iş emri açılır. İş emri tamamlanınca araç yeniden “Aktif” olur."
+                  : "Bakım/iş emri taslağı açılacak (araç durumu değişmez).",
+            ariza ? "Arıza Bildir" : "İş Emri Aç", ariza ? "Arıza açıklaması" : "Yapılacak iş", ariza ? "Bildir" : "Aç");
+        if (string.IsNullOrWhiteSpace(aciklama)) return;
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.PostJsonWithErrorAsync($"/api/vehicles/{_editId}/work-order", new { description = aciklama, fault = ariza });
+            _ok = err is null;
+            _msg = err ?? (ariza ? $"Arıza bildirildi; iş emri {Str(data!.Value, "woNo")} açıldı (İş Emirleri ekranında)."
+                                 : $"İş emri {Str(data!.Value, "woNo")} açıldı (İş Emirleri ekranında).");
+        }
+        finally { _busy = false; }
     }
 
     /// <summary>BAR-01 (ADR-177): QR etiketi indir — kod SUNUCUDA kaynak servisle çözülür (yetki/tenant serviste).</summary>

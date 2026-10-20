@@ -71,7 +71,7 @@ public sealed record NewWorkOrder(string WoNo, string Title, string? Description
 /// (yan kapı yok). <b>KAPSAM:</b> şantiye/saha üzerinden <see cref="BranchAccess"/>. Tenant: company_id.
 /// <b>GEÇMİŞ:</b> her durum değişikliği append-only deftere yazılır; silme/güncelleme yolu yok.
 /// </summary>
-public sealed class WorkOrderService
+public sealed partial class WorkOrderService
 {
     public const string Module = "work_orders";
 
@@ -274,6 +274,7 @@ VALUES(@id,@c,@no,@t,@d,'draft',@pr,@b,@cc,@a,@ps,@pe,NULL,@u,@now,@now,1,0);";
             cmd.ExecuteNonQuery();
         }
         Gecmis(conn, tx, s, id, mevcut, toStatus, note, now);
+        if (toStatus == "completed") ArizaKapandi(conn, tx, s, id, now);   // ⭐ M-35: arızalı araç yeniden Aktif
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "work_order", id,
             toStatus == "cancelled" ? AuditActions.Reverse : AuditActions.Update, s.UserId,
             AfterJson: $"{{\"status\":\"{toStatus}\"}}"), _clock);

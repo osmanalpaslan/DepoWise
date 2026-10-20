@@ -38,6 +38,13 @@
                             ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
                             ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
+                    <!-- ⭐ M-35: araç kartından arıza bildir / iş emri aç -->
+                    <Button Classes="Secondary" Content="Arıza Bildir" Command="{Binding ArizaBildirCommand}" IsEnabled="{Binding HasSelection}"
+                            IsVisible="{Binding CanOpenWorkOrder}"
+                            ToolTip.Tip="Seçili aracı &quot;Arızalı&quot; yapar ve taslak iş emri açar; iş emri tamamlanınca araç yeniden Aktif olur, arıza süresi ölçülür."/>
+                    <Button Classes="Secondary" Content="İş Emri Aç" Command="{Binding AractanIsEmriCommand}" IsEnabled="{Binding HasSelection}"
+                            IsVisible="{Binding CanOpenWorkOrder}"
+                            ToolTip.Tip="Seçili araç için bakım/iş emri taslağı açar (bakım uyarısını işe dönüştürmek için); araç durumu değişmez."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

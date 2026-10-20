@@ -4563,6 +4563,20 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     if (!string.IsNullOrWhiteSpace(d.CostCenterId)) svc.CostCenters.Link(s, "fuel_distribution", distId, d.CostCenterId);   // MLY-01
     return Results.Ok(new { id = distId });
 }).RequireAuthorization();
+// ⭐ M-35 (AR-GE 2026-10-19, F-077): ARAÇTAN İŞ EMRİ — arıza bildir (araç Arızalı olur) ya da bakım/iş emri aç. Masaüstüyle aynı servis.
+app.MapGet("/api/vehicles/{id}/open-fault", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var a = svc.WorkOrders.AcikArizasi(s, id);
+    return Results.Ok(a is null ? null : new { workOrderId = a.WorkOrderId, woNo = a.WoNo, status = a.Status, reportedAt = a.ReportedAt });
+}).RequireAuthorization();
+app.MapPost("/api/vehicles/{id}/work-order", (HttpContext c, string id, VehicleWorkOrderDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var (woId, woNo) = svc.WorkOrders.AractanIsEmri(s, id, d.Description ?? "", d.Fault, d.Priority);
+    return Results.Ok(new { id = woId, woNo });
+}).RequireAuthorization();
+
 // ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU YAKIT DAĞITIMI — tek işlem, hepsi ya da hiçbiri (masaüstüyle aynı servis).
 app.MapPost("/api/fuel/distribute-bulk", (HttpContext c, BulkDistributionDto d) =>
 {
@@ -5585,6 +5599,7 @@ record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines
     long? DocDate = null);   // TRH-01: islem tarihi (is gunu). Yoksa "simdi" - eski istemci davranisi.
 record DeveloperDto(string? Code, bool Active);
 record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal CurrentMeter);   // ⭐ M-34
+record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = null);   // ⭐ M-35
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33

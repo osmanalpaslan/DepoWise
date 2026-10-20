@@ -746,6 +746,34 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Kiralama bitirilemedi: " + ex.Message; }
     }
 
+    // ═══ M-35 (AR-GE 2026-10-19, F-077) — ARAÇ KARTINDAN ARIZA BİLDİR / İŞ EMRİ AÇ ═══
+    /// <summary>İş emri açma yetkisi (asıl kapı WorkOrderService'te).</summary>
+    public bool CanOpenWorkOrder => AccessControl.Can(_session, DepoWise.Infrastructure.WorkOrders.WorkOrderService.Module, PermissionAction.Create);
+
+    [RelayCommand]
+    private async Task ArizaBildir() => await AractanIsEmriAsync(ariza: true);
+
+    [RelayCommand]
+    private async Task AractanIsEmri() => await AractanIsEmriAsync(ariza: false);
+
+    private async Task AractanIsEmriAsync(bool ariza)
+    {
+        if (Selected is null) { Status = "Önce listeden bir araç seçin."; return; }
+        if (!CanOpenWorkOrder) { Status = "İş emri açma yetkiniz yok."; return; }
+        var aciklama = await ConfirmService.AskReasonAsync(
+            ariza ? $"'{Selected.Code}' için arıza bildirilecek: araç “Arızalı” olur ve taslak iş emri açılır. İş emri tamamlanınca araç yeniden “Aktif” olur."
+                  : $"'{Selected.Code}' için bakım/iş emri taslağı açılacak (araç durumu değişmez).",
+            ariza ? "Arıza Bildir" : "İş Emri Aç", ariza ? "Arıza açıklaması" : "Yapılacak iş", ariza ? "Bildir" : "Aç");
+        if (string.IsNullOrWhiteSpace(aciklama)) return;
+        try
+        {
+            var (_, no) = DesktopServices.WorkOrders.AractanIsEmri(_session, Selected.Id, aciklama, ariza);
+            Load();
+            Status = ariza ? $"Arıza bildirildi; iş emri {no} açıldı (İş Emirleri ekranında)." : $"İş emri {no} açıldı (İş Emirleri ekranında).";
+        }
+        catch (Exception ex) { Status = (ariza ? "Arıza bildirilemedi: " : "İş emri açılamadı: ") + ex.Message; }
+    }
+
     /// <summary>Seçili araç aktif bir kiralık mı? ("Kiralamayı Bitir" yalnız bunda görünür.)</summary>
     public bool CanEndRental => IsRentalMode && CanEdit && Selected is not null
         && Selected.Status != DepoWise.Application.Ui.VehicleStatus.Passive;
