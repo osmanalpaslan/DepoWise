@@ -109,6 +109,14 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_op == "issue" && _lines.Count > 0 ? $"Kaydet ({_lines.Count} kalem)" : "Kaydet")</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+        @* ⭐ M-46: geciken iadeler *@
+        @if (_gecikenler.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                <b>@_gecikenler.Count zimmetin iade tarihi geçti:</b>
+                @foreach (var g in _gecikenler) { <div>@Str(g, "summary")</div> }
+            </MudAlert>
+        }
     </MudPaper>
 }
 
@@ -151,6 +159,16 @@
     <MudItem xs="12" md="5">
         <MudPaper Class="pa-4" Elevation="2" Style="min-height:180px;">
             <MudText Typo="Typo.h6" Class="mb-2">Zimmet Geçmişi @(_historyTitle is null ? "" : "— " + _historyTitle)</MudText>
+            @* ⭐ M-46: seçili zimmete beklenen iade tarihi (masaüstüyle aynı servis) *@
+            @if (_selRow is not null && Auth.CanEdit("assignments"))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                    <MudDatePicker @bind-Date="_iadeTarihi" Label="Beklenen iade" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:180px" />
+                    <MudTooltip Text="Beklenen iade tarihini yazar (boş = kaldır); tarih geçince geciken iade uyarısı çıkar.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="IadeTarihiKaydet">İade Tarihi Ver</MudButton>
+                    </MudTooltip>
+                </MudStack>
+            }
             @if (_history is null) { <MudText Class="mud-text-secondary">Bir satır seçin — o varlığın tüm teslim/iade/devir zinciri burada görünür.</MudText> }
             else if (_history.Length == 0) { <MudText Class="mud-text-secondary">Geçmiş kaydı yok.</MudText> }
             else
@@ -219,6 +237,7 @@
         try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
         await OnAssetTypeChanged();
         await Load();
+        await GecikenleriYukle();   // ⭐ M-46
     }
 
     private async Task OnAssetTypeChanged()
@@ -243,8 +262,31 @@
         catch { _rows = Array.Empty<JsonElement>(); }
     }
 
+    // ═══ M-46 — BEKLENEN İADE · GECİKENLER ═══
+    private JsonElement? _selRow;
+    private DateTime? _iadeTarihi;
+    private List<JsonElement> _gecikenler = new();
+
+    private async Task GecikenleriYukle()
+    {
+        try { _gecikenler = (await Api.GetArrayAsync("/api/assignments/returns?overdue=true")).ToList(); } catch { _gecikenler = new(); }
+    }
+
+    private async Task IadeTarihiKaydet()
+    {
+        if (_selRow is not { } r) return;
+        var err = await Api.PutAsync("/api/assignments/due-date", new
+        {
+            personnelId = Str(r, "personnelId"), assetType = Str(r, "assetType"), assetId = Str(r, "assetId"),
+            date = DepoWise.Web.Services.FieldChecks.ToUnixMs(_iadeTarihi),
+        });
+        _ok = err is null; _msg = err ?? (_iadeTarihi is null ? "Beklenen iade tarihi kaldırıldı." : $"Beklenen iade tarihi kaydedildi: {_iadeTarihi:dd.MM.yyyy}.");
+        await GecikenleriYukle();
+    }
+
     private async Task OpenHistory(JsonElement row)
     {
+        _selRow = row;   // ⭐ M-46
         _historyTitle = Str(row, "personnelName") + " · " + Str(row, "assetLabel");
         _history = null;
         try

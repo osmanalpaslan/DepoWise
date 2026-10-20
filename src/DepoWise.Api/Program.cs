@@ -1886,6 +1886,20 @@ app.MapGet("/api/assignments/holdings", (HttpContext c, string? search, string? 
         assetLabel = h.AssetLabel, quantity = h.QuantityDisplay,
         branchId = h.BranchId, branchName = h.BranchDisplay, lastDocDate = h.LastDocDate,
     })) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-46 (AR-GE 2026-10-19, F-081): BEKLENEN İADE TARİHİ · GECİKENLER · PERSONEL KARTINDA ZİMMETLER (masaüstüyle aynı servis).
+app.MapGet("/api/assignments/returns", (HttpContext c, string? personnelId, bool? overdue) =>
+    S(c) is { } s ? Results.Ok(svc.Assignments.IadeDurumu(s, personnelId, overdue == true).Select(x => new
+    {
+        personnelId = x.Zimmet.PersonnelId, personnelName = x.Zimmet.PersonnelName, assetType = x.Zimmet.AssetType, assetId = x.Zimmet.AssetId,
+        assetLabel = x.Zimmet.AssetLabel, quantity = x.Zimmet.QuantityDisplay, expectedReturn = x.BeklenenIade, overdueDays = x.GecikmeGun,
+        isOverdue = x.Gecikti, returnText = x.IadeMetni, summary = x.Ozet,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/assignments/due-date", (HttpContext c, AssignmentDueDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Assignments.IadeTarihiAyarla(s, d.PersonnelId ?? "", d.AssetType ?? "", d.AssetId ?? "", d.Date);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapGet("/api/assignments/history", (HttpContext c, string? assetType, string? assetId, string? personnelId, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.Assignments.History(s, assetType, assetId, personnelId, limit is > 0 ? limit.Value : 300).Select(m => new
     {
@@ -5646,6 +5660,7 @@ record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal Current
 record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = null);   // ⭐ M-35
 record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoid = true);   // ⭐ M-36
 record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
+record AssignmentDueDto(string? PersonnelId, string? AssetType, string? AssetId, long? Date);   // ⭐ M-46: null = kaldır
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33

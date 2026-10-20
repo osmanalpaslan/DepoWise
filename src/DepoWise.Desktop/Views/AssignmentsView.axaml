@@ -22,6 +22,20 @@
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                    <!-- ⭐ M-46: seçili zimmete beklenen iade tarihi + gecikenler -->
+                    <ctrl:TarihKutusu SelectedDate="{Binding IadeTarihi}" Width="140" ToolTip.Tip="Seçili zimmetin beklenen iade tarihi (boş = kaldır)"/>
+                    <Button Classes="Secondary" Content="İade Tarihi Ver" Command="{Binding IadeTarihiVerCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            ToolTip.Tip="Seçili zimmet satırına beklenen iade tarihini yazar; tarih geçince &quot;geciken iade&quot; uyarısı çıkar."/>
+                    <SelectableTextBlock Text="{Binding GecikenOzeti}" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Center"
+                                         IsVisible="{Binding HasGeciken}">
+                        <ToolTip.Tip>
+                            <ItemsControl ItemsSource="{Binding Gecikenler}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="asg:ZimmetIadesi"><TextBlock Text="{Binding Ozet}"/></DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ToolTip.Tip>
+                    </SelectableTextBlock>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

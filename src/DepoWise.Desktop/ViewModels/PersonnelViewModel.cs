@@ -107,6 +107,18 @@ public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynag
     private PersonnelRowVm? _selected;
     public bool HasSelection => Selected != null;
 
+    // ⭐ M-46 (AR-GE 2026-10-19, F-081): personel kartında ZİMMETLERİ (işten ayrılanın açık zimmeti görünsün).
+    public ObservableCollection<DepoWise.Infrastructure.Assignments.ZimmetIadesi> Zimmetleri { get; } = new();
+    public bool HasZimmet => Zimmetleri.Count > 0;
+
+    partial void OnSelectedChanged(PersonnelRowVm? value)
+    {
+        Zimmetleri.Clear();
+        if (value is not null)
+            try { foreach (var z in DesktopServices.Assignments.IadeDurumu(_session, value.Record.Id)) Zimmetleri.Add(z); }
+            catch { /* zimmet yetkisi yoksa liste boş kalır */ }
+        OnPropertyChanged(nameof(HasZimmet));
+    }
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string? _editId;
     /// <summary>DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm; kaydederken geri gönderilir.

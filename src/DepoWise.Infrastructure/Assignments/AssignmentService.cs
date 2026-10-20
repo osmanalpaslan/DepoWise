@@ -46,7 +46,7 @@ public sealed record AssignmentLine(string AssetType, string AssetId, decimal Qu
 /// (stock.Create) DA gerekir — fatura ile aynı kural; stok yetkisi olmayan zimmet yoluyla stok oynatamaz.
 /// <b>KAPSAM:</b> işlem şubesi üzerinden <see cref="BranchAccess"/> (fail-closed).
 /// </summary>
-public sealed class AssignmentService
+public sealed partial class AssignmentService
 {
     public const string Module = "assignments";
 

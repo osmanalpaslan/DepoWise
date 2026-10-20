@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:asg="using:DepoWise.Infrastructure.Assignments"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:org="using:DepoWise.Infrastructure.Org"
              xmlns:orgz="using:DepoWise.Infrastructure.Organization"
@@ -127,6 +128,16 @@
                 <SelectableTextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                 <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                <!-- ⭐ M-46: personelin zimmetleri -->
+                <SelectableTextBlock Text="Zimmetleri:" Classes="Helper" VerticalAlignment="Center" IsVisible="{Binding HasZimmet}" Margin="12,0,0,0"/>
+                <ItemsControl ItemsSource="{Binding Zimmetleri}" IsVisible="{Binding HasZimmet}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="asg:ZimmetIadesi">
+                            <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" Margin="0,0,12,0"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </Border>
 

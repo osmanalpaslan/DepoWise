@@ -22,6 +22,14 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE")</MudText>
 
+        @* ⭐ M-46 (F-081): personel kartında ZİMMETLERİ (masaüstüyle aynı servis) *@
+        @if (_editId is not null && _zimmetler.Count > 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">
+                <b>Zimmetleri (@_zimmetler.Count):</b>
+                @foreach (var z in _zimmetler) { <div>@Str(z, "summary")</div> }
+            </MudAlert>
+        }
         @if (_dups.Count > 0)
         {
             <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
@@ -186,6 +194,7 @@
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId;
+    private List<JsonElement> _zimmetler = new();   // ⭐ M-46
     private long _editVersion; // DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm
     private string _name = "", _phone = "";
     private string? _title;                 // unvan: sabit tanım listesinden seçilir
@@ -321,6 +330,7 @@
         _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
+        try { _zimmetler = (await Api.GetArrayAsync($"/api/assignments/returns?personnelId={Uri.EscapeDataString(_editId)}")).ToList(); } catch { _zimmetler = new(); }   // ⭐ M-46
         _grantAccess = false; _linkUserId = null;
         _dups = new(); _dupAck = false; CancelAddTitle();
     }

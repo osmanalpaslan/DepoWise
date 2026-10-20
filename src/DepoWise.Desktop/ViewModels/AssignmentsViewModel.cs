@@ -75,6 +75,34 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     public bool HasSelection => Selected != null;
     partial void OnSelectedChanged(HoldingRow? value) => LoadHistory();
 
+    // ═══ M-46 (AR-GE 2026-10-19, F-081) — BEKLENEN İADE · GECİKENLER ═══
+    public ObservableCollection<DepoWise.Infrastructure.Assignments.ZimmetIadesi> Gecikenler { get; } = new();
+    public bool HasGeciken => Gecikenler.Count > 0;
+    public string GecikenOzeti => $"⚠ {Gecikenler.Count} zimmetin iade tarihi geçti";
+    [ObservableProperty] private DateTimeOffset? _iadeTarihi;
+
+    private void GecikenleriYukle()
+    {
+        Gecikenler.Clear();
+        try { foreach (var g in DesktopServices.Assignments.IadeDurumu(_session, yalnizGeciken: true)) Gecikenler.Add(g); } catch { }
+        OnPropertyChanged(nameof(HasGeciken));
+        OnPropertyChanged(nameof(GecikenOzeti));
+    }
+
+    [RelayCommand]
+    private void IadeTarihiVer()
+    {
+        if (Selected is null) { Status = "Önce listeden bir zimmet satırı seçin."; return; }
+        try
+        {
+            DesktopServices.Assignments.IadeTarihiAyarla(_session, Selected.PersonnelId, Selected.AssetType, Selected.AssetId,
+                DepoWise.Application.Common.IsGunuTarihi.Ms(IadeTarihi));
+            Status = IadeTarihi is null ? "Beklenen iade tarihi kaldırıldı." : $"Beklenen iade tarihi kaydedildi: {IadeTarihi:dd.MM.yyyy}.";
+            GecikenleriYukle();
+        }
+        catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
+
     // ── Form ──
     [ObservableProperty] private string _formOp = "Teslim";
     [ObservableProperty] private string _formAssetType = "Malzeme";
@@ -199,6 +227,7 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsEmpty));
         }
         catch (Exception ex) { LoadError = ex.Message; }
+        GecikenleriYukle();   // ⭐ M-46
     }
 
     private void LoadHistory()
