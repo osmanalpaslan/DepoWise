@@ -7,7 +7,9 @@ namespace DepoWise.Infrastructure.Maintenance;
 
 public sealed record NewMaintenanceDefinition(
     string Name, decimal IntervalValue, string IntervalUnit = "km",
-    string? ParentDefId = null, string? Description = null);
+    string? ParentDefId = null, string? Description = null,
+    // ⭐ M-37 (AR-GE 2026-10-19, F-079): km/saat tanımına EK tarih periyodu (gün) — hangisi önce dolarsa uyarı (ör. 10.000 km YA DA 365 gün).
+    decimal? IntervalDays = null);
 
 /// <param name="Version">
 /// B-1 (PRT-01 Grup 3, 2026-08-10) — DÜZENLEME KİLİDİ jetonu (<c>maintenance_definitions.version</c>).
@@ -19,10 +21,10 @@ public sealed record NewMaintenanceDefinition(
 /// </param>
 public sealed record MaintenanceDefinitionRow(
     string Id, string Name, decimal IntervalValue, string IntervalUnit, string? Description, string? ParentDefId,
-    long Version = 0)
+    long Version = 0, decimal? IntervalDays = null)
 {
     public string UnitDisplay => IntervalUnit switch { "hour" => "saat", "day" => "gün", _ => "km" };
-    public string IntervalDisplay => $"{IntervalValue:0.##} {UnitDisplay}";
+    public string IntervalDisplay => $"{IntervalValue:0.##} {UnitDisplay}" + (IntervalDays is > 0 ? $" ya da {IntervalDays:0.##} gün" : "");
     public override string ToString() => Name;
 }
 
@@ -39,11 +41,36 @@ public sealed class MaintenanceDefinitionService
         _clock = clock ?? new SystemClock();
     }
 
+    /// <summary>⭐ M-37: ek tarih periyodu kuralı — negatif olamaz; gün birimli tanımda anlamsızdır.</summary>
+    private static void TarihPeriyoduDogrula(NewMaintenanceDefinition dto)
+    {
+        if (dto.IntervalDays is not { } g) return;
+        if (g < 0) throw new ArgumentException("Tarih periyodu negatif olamaz.");
+        if (dto.IntervalUnit == "day" && g > 0) throw new ArgumentException("Gün birimli tanımda ek tarih periyodu verilmez (periyot zaten gün).");
+    }
+
+    private static void TarihPeriyoduYaz(DbConnection conn, DbTransaction tx, string companyId, string id, decimal? gun)
+    {
+        if (!DbIntrospect.ColumnExists(conn, tx, "maintenance_definitions", "interval_days"))
+        {
+            if (gun is > 0) throw new InvalidOperationException("Veritabanı ek tarih periyodunu henüz desteklemiyor (güncelleme bekleniyor).");
+            return;
+        }
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "UPDATE maintenance_definitions SET interval_days=@g WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@g", gun is > 0 ? Money.Serialize(gun.Value) : DBNull.Value);
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.ExecuteNonQuery();
+    }
+
     public string Create(SessionContext s, NewMaintenanceDefinition dto, IEnumerable<string>? vehicleIds = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (dto.IntervalValue < 0) throw new ArgumentException("Periyot negatif olamaz.");
         if (dto.IntervalUnit is not ("km" or "hour" or "day")) throw new ArgumentException("Geçersiz periyot birimi.");
+        TarihPeriyoduDogrula(dto);   // M-37
 
         var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -66,6 +93,7 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
+        TarihPeriyoduYaz(conn, tx, s.CompanyId, id, dto.IntervalDays);   // M-37
         foreach (var vid in vehicleIds?.Distinct() ?? Enumerable.Empty<string>())
         {
             EnsureVehicleOwned(conn, tx, s.CompanyId, vid);   // Y-2: yabancı araç bağlanamaz
@@ -86,9 +114,10 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
+        var gunKolonu = DbIntrospect.ColumnExists(conn, null, "maintenance_definitions", "interval_days") ? "interval_days" : "NULL";   // M-37
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-SELECT id, name, interval_value, interval_unit, description, parent_def_id, version
+        cmd.CommandText = $@"
+SELECT id, name, interval_value, interval_unit, description, parent_def_id, version, {gunKolonu}
 FROM maintenance_definitions
 WHERE company_id=@c AND is_deleted=0
   AND ((CAST(@p AS TEXT) IS NULL AND parent_def_id IS NULL) OR parent_def_id=@p)
@@ -100,7 +129,8 @@ ORDER BY name;";
         while (r.Read())
             list.Add(new MaintenanceDefinitionRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
                 r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-                r.GetInt64(6))); // düzenleme kilidi jetonu (B-1)
+                r.GetInt64(6), // düzenleme kilidi jetonu (B-1)
+                r.IsDBNull(7) ? null : Money.Parse(Convert.ToString(r.GetValue(7), System.Globalization.CultureInfo.InvariantCulture))));   // M-37
         return list;
     }
 
@@ -111,6 +141,7 @@ ORDER BY name;";
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (dto.IntervalValue < 0) throw new ArgumentException("Periyot negatif olamaz.");
         if (dto.IntervalUnit is not ("km" or "hour" or "day")) throw new ArgumentException("Geçersiz periyot birimi.");
+        TarihPeriyoduDogrula(dto);   // M-37
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
@@ -135,6 +166,7 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
                 throw new ForbiddenException("Tanım bulunamadı veya başka firmaya ait.");
             }
         }
+        TarihPeriyoduYaz(conn, tx, s.CompanyId, id, dto.IntervalDays);   // M-37
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", id, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
     }

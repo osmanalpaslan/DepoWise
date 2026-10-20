@@ -4400,7 +4400,7 @@ app.MapGet("/api/maintenance/definitions", (HttpContext c, string? parentDefId) 
     S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.List(s, parentDefId)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/maintenance/definitions", (HttpContext c, MaintDefDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.MaintenanceDefinitions.Create(s,
-        new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description), d.VehicleIds) }) : Results.Unauthorized()).RequireAuthorization();
+        new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description, d.IntervalDays), d.VehicleIds) }) : Results.Unauthorized()).RequireAuthorization();   // M-37
 app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -4426,7 +4426,7 @@ app.MapPut("/api/maintenance/definitions/{id}", (HttpContext c, string id, Maint
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.MaintenanceDefinitions.Update(s, id, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(
-        d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description),
+        d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description, d.IntervalDays),   // M-37
         d.Version is > 0 ? d.Version : null); // B-1: 0/null = sürüm bilinmiyor → kilit kontrolü yok
     if (d.VehicleIds is not null) svc.MaintenanceDefinitions.SetVehicles(s, id, d.VehicleIds);
     return Results.Ok(new { ok = true });
@@ -5682,7 +5682,8 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
     string? PartyId = null,   // MUH-01b belge no · MUH-01c dış servis sağlayıcısı (cari)
     string? OperationId = null);   // M-04: istemci üretir (tekrar = tek kayıt)
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
-record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
+record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null,
+    decimal? IntervalDays = null);   // ⭐ M-37: ek tarih periyodu (gün)
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
 // ⭐ 7b (ADR-191): ekipman bakım/muayene DTO'ları — araç ikizlerinin aynısı, `VehicleId` → `EquipmentId`.
 // company_id alanı BİLİNÇLİ olarak YOKTUR: firma daima oturumdan gelir.

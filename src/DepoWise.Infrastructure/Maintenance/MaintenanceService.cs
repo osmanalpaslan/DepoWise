@@ -152,6 +152,9 @@ public sealed class MaintenanceService
                     .AddDays((double)def.IntervalValue).ToUnixTimeMilliseconds();
                 break;
         }
+        // ⭐ M-37: km/saat tanımının EK tarih periyodu — sonraki tarih de hesaplanır (hangisi önce gelirse uyarı).
+        if (def.IntervalDays is > 0 && dto.PerformedDate is not null && nextDate is null)
+            nextDate = DateTimeOffset.FromUnixTimeMilliseconds(dto.PerformedDate.Value).AddDays((double)def.IntervalDays.Value).ToUnixTimeMilliseconds();
 
         InsertMaintenance(conn, tx, s.CompanyId, id, dto, nextKm, nextHour, nextDate, operationId, now, s.OperatingBranchId);
 
@@ -410,17 +413,18 @@ public sealed class MaintenanceService
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
+        var gunKolonu = DbIntrospect.ColumnExists(conn, null, "maintenance_definitions", "interval_days") ? "d.interval_days" : "NULL";   // M-37
         using var cmd = conn.CreateCommand();
         // Her (araç,tanım) için EN SON iptal edilmemiş bakım. Eski sorgu SQLite'a özel "MAX ile bare-kolon"
         // davranışına dayanıyordu (GROUP BY'da olmayan kolonlar max satırdan gelir); PostgreSQL bunu reddeder
         // (42803). Standart, her iki DB'de de çalışan pencere fonksiyonu (ROW_NUMBER) ile yeniden yazıldı.
         // Kolon sırası AYNI (okuyucu değişmedi): 0..10 = vehicle_id..created_at.
-        cmd.CommandText = @"
+        cmd.CommandText = $@"
 SELECT vehicle_id, maintenance_def_id, name, interval_value, interval_unit,
        performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at, maintenance_id,
-       last_id, last_date, last_meter
+       last_id, last_date, last_meter, interval_days
 FROM (
-    SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
+    SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit, {gunKolonu} AS interval_days,
            vm.performed_km, vm.performed_hour, vm.performed_date,
            v.current_meter, v.meter_unit, vm.created_at, vm.id AS maintenance_id,
            -- 2026-10-04 (kullanıcı bildirimi 2. tur: aynı türde yeni bakım girsem de eski uyarı silinmiyor):
@@ -473,6 +477,17 @@ WHERE rn = 1;";
             if (consumed < 0) consumed = 0;
             var progress = AlertRules.Progress(consumed, interval);
             var level = AlertRules.Level(progress);
+            // ⭐ M-37 (F-079): km/saat tanımının EK tarih periyodu — tarih ölçütü daha çok dolduysa uyarı ONA göre (ilki tetikler).
+            var ekGun = r.IsDBNull(15) ? (decimal?)null : Money.Parse(Convert.ToString(r.GetValue(15), System.Globalization.CultureInfo.InvariantCulture));
+            if (ekGun is > 0 && unit != IntervalUnit.Day && perfDate is not null)
+            {
+                var gunGecti = (decimal)(DateTimeOffset.FromUnixTimeMilliseconds(_clock.UtcNow.ToUnixTimeMilliseconds())
+                    - DateTimeOffset.FromUnixTimeMilliseconds(perfDate.Value)).TotalDays;
+                if (gunGecti < 0) gunGecti = 0;
+                var gunIlerleme = AlertRules.Progress(gunGecti, ekGun.Value);
+                if (gunIlerleme > progress)
+                { unit = IntervalUnit.Day; interval = ekGun.Value; consumed = gunGecti; progress = gunIlerleme; level = AlertRules.Level(progress); meterAhead = false; }
+            }
             var maintId = r.IsDBNull(11) ? null : r.GetString(11);
             var lastId = r.IsDBNull(12) ? null : r.GetString(12);
             var lastDate = r.IsDBNull(13) ? (long?)null : r.GetInt64(13);
@@ -665,17 +680,19 @@ WHERE mm.maintenance_id=@mt AND mm.company_id=@c ORDER BY m.code;";   // M-S1a: 
     }
 
     // ================= çekirdek =================
-    private sealed record DefRow(decimal IntervalValue, string IntervalUnit);
+    private sealed record DefRow(decimal IntervalValue, string IntervalUnit, decimal? IntervalDays = null);
 
     private static DefRow? LoadDefinition(DbConnection conn, DbTransaction tx, string companyId, string defId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT interval_value, interval_unit FROM maintenance_definitions WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        var gun = DbIntrospect.ColumnExists(conn, tx, "maintenance_definitions", "interval_days") ? "interval_days" : "NULL";   // M-37
+        cmd.CommandText = $"SELECT interval_value, interval_unit, {gun} FROM maintenance_definitions WHERE id=@id AND company_id=@c AND is_deleted=0;";
         cmd.AddWithValue("@id", defId);
         cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
-        return r.Read() ? new DefRow(Money.Parse(r.GetString(0)), r.GetString(1)) : null;
+        return r.Read() ? new DefRow(Money.Parse(r.GetString(0)), r.GetString(1),
+            r.IsDBNull(2) ? null : Money.Parse(Convert.ToString(r.GetValue(2), System.Globalization.CultureInfo.InvariantCulture))) : null;
     }
 
     private static void InsertMaintenance(DbConnection conn, DbTransaction tx, string companyId, string id,

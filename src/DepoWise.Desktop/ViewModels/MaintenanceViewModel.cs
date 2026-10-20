@@ -165,6 +165,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     private string _defName = "";
     [ObservableProperty] private string _defDescription = "";
     [ObservableProperty] private decimal _defIntervalValue;
+    /// <summary>⭐ M-37: km/saat tanımına ek tarih periyodu (gün; boş = yok) — hangisi önce dolarsa uyarı.</summary>
+    [ObservableProperty] private decimal? _defIntervalDays;
     [ObservableProperty] private string _defUnitDisplay = "km";
     public ObservableCollection<string> UnitOptions { get; } = new() { "km", "saat", "gün" };
 
@@ -225,7 +227,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [RelayCommand]
     private void ClearDef()
     {
-        DefName = ""; DefDescription = ""; DefIntervalValue = 0; DefUnitDisplay = "km";
+        DefName = ""; DefDescription = ""; DefIntervalValue = 0; DefUnitDisplay = "km"; DefIntervalDays = null;
         foreach (var p in VehiclePicks) p.IsSelected = false;
         VehicleSearch = ""; DefEditId = null; _defEditVersion = 0; TriedDefSave = false; ShowDefAdd = false;
     }
@@ -244,13 +246,15 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             sum.Add("Tanım Adı", od.Name, DefName.Trim());
             sum.Add("Periyot", od.IntervalValue, DefIntervalValue);
             sum.Add("Birim", UnitDisplay(od.IntervalUnit), DefUnitDisplay);
+            sum.Add("Ek Tarih Periyodu (gün)", od.IntervalDays, DefIntervalDays);   // M-37
             sum.Add("Açıklama", od.Description, string.IsNullOrWhiteSpace(DefDescription) ? null : DefDescription.Trim());
             if (!await ConfirmService.AskAsync(sum.Build("Bakım tanımı güncellensin mi?"), "Kaydet")) return;
         }
 
         var dto = new NewMaintenanceDefinition(
             Name: DefName.Trim(), IntervalValue: DefIntervalValue, IntervalUnit: UnitCode(DefUnitDisplay),
-            Description: string.IsNullOrWhiteSpace(DefDescription) ? null : DefDescription.Trim());
+            Description: string.IsNullOrWhiteSpace(DefDescription) ? null : DefDescription.Trim(),
+            IntervalDays: DefIntervalDays is > 0 && UnitCode(DefUnitDisplay) != "day" ? DefIntervalDays : null);   // M-37
         var vehIds = VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id).ToList();
         try
         {
@@ -281,7 +285,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         var d = SelectedDef;
         DefEditId = d.Id; _defEditVersion = d.Version; // B-1: kilit jetonunu forma al
         DefName = d.Name; DefDescription = d.Description ?? "";
-        DefIntervalValue = d.IntervalValue; DefUnitDisplay = UnitDisplay(d.IntervalUnit);
+        DefIntervalValue = d.IntervalValue; DefUnitDisplay = UnitDisplay(d.IntervalUnit); DefIntervalDays = d.IntervalDays;   // M-37
         var ids = DesktopServices.MaintenanceDefs.GetVehicleIds(_session, d.Id).ToHashSet();
         foreach (var p in VehiclePicks) p.IsSelected = ids.Contains(p.Id);
         RebuildFilteredVehicles();
