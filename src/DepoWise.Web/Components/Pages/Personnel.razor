@@ -29,6 +29,22 @@
                 <b>Zimmetleri (@_zimmetler.Count):</b>
                 @foreach (var z in _zimmetler) { <div>@Str(z, "summary")</div> }
             </MudAlert>
+            @* ⭐ M-47 (F-082): kişi bazlı imzalı zimmet tutanağı *@
+            <MudTooltip Text="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2" OnClick="TutanakOlustur">Zimmet Tutanağı</MudButton>
+            </MudTooltip>
+        }
+        @foreach (var t in _tutanaklar)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.caption" Style="flex:1">@Str(t, "summary")</MudText>
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakPdf(t))">PDF</MudButton>
+                @if (Str(t, "status") == "bekliyor")
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakKarar(t, true))">Kabul</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakKarar(t, false))">Ret</MudButton>
+                }
+            </MudStack>
         }
         @if (_dups.Count > 0)
         {
@@ -195,6 +211,42 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId;
     private List<JsonElement> _zimmetler = new();   // ⭐ M-46
+    private List<JsonElement> _tutanaklar = new();  // ⭐ M-47
+
+    private async Task TutanaklariYukle()
+    {
+        if (_editId is null) { _tutanaklar = new(); return; }
+        try { _tutanaklar = (await Api.GetArrayAsync($"/api/assignments/receipts?personnelId={Uri.EscapeDataString(_editId)}")).ToList(); } catch { _tutanaklar = new(); }
+    }
+
+    private async Task TutanakOlustur()
+    {
+        if (_editId is null) return;
+        var (err, data) = await Api.PostJsonWithErrorAsync("/api/assignments/receipts", new { personnelId = _editId });
+        if (err is not null) { _ok = false; _msg = err; return; }
+        await TutanaklariYukle();
+        await TutanakPdf(data!.Value);
+    }
+
+    private async Task TutanakPdf(JsonElement t)
+    {
+        var (bytes, name) = await Api.GetFileAsync($"/api/assignments/receipts/{Str(t, "id")}/pdf", Str(t, "no") + ".pdf");
+        if (bytes is null) { _ok = false; _msg = "PDF üretilemedi."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes), "application/pdf");
+    }
+
+    private async Task TutanakKarar(JsonElement t, bool kabul)
+    {
+        string? not = null;
+        if (!kabul)
+        {
+            not = await Dialog.AskReason($"{Str(t, "no")} reddedildi olarak işaretlenecek.", "Tutanak Reddi", "Ret gerekçesi", "Reddet");
+            if (string.IsNullOrWhiteSpace(not)) return;
+        }
+        var err = await Api.PostAsync($"/api/assignments/receipts/{Str(t, "id")}/decision", new { accept = kabul, note = not });
+        _ok = err is null; _msg = err ?? (kabul ? "Tutanak imzalı kabul edildi." : "Tutanak reddedildi.");
+        await TutanaklariYukle();
+    }
     private long _editVersion; // DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm
     private string _name = "", _phone = "";
     private string? _title;                 // unvan: sabit tanım listesinden seçilir
@@ -331,6 +383,7 @@
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
         try { _zimmetler = (await Api.GetArrayAsync($"/api/assignments/returns?personnelId={Uri.EscapeDataString(_editId)}")).ToList(); } catch { _zimmetler = new(); }   // ⭐ M-46
+        await TutanaklariYukle();   // ⭐ M-47
         _grantAccess = false; _linkUserId = null;
         _dups = new(); _dupAck = false; CancelAddTitle();
     }

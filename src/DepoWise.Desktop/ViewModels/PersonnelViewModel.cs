@@ -110,6 +110,66 @@ public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynag
     // ⭐ M-46 (AR-GE 2026-10-19, F-081): personel kartında ZİMMETLERİ (işten ayrılanın açık zimmeti görünsün).
     public ObservableCollection<DepoWise.Infrastructure.Assignments.ZimmetIadesi> Zimmetleri { get; } = new();
     public bool HasZimmet => Zimmetleri.Count > 0;
+    // ⭐ M-47 (AR-GE 2026-10-19, F-082): kişi bazlı imzalı zimmet tutanağı.
+    public ObservableCollection<DepoWise.Infrastructure.Assignments.ZimmetTutanagi> Tutanaklar { get; } = new();
+    public bool HasTutanak => Tutanaklar.Count > 0;
+
+    private void TutanaklariYukle(string personnelId)
+    {
+        Tutanaklar.Clear();
+        try { foreach (var t in DesktopServices.ZimmetTutanak.Liste(_session, personnelId)) Tutanaklar.Add(t); } catch { }
+        OnPropertyChanged(nameof(HasTutanak));
+    }
+
+    [RelayCommand]
+    private async Task TutanakOlustur()
+    {
+        if (Selected is null) return;
+        try
+        {
+            var t = DesktopServices.ZimmetTutanak.Olustur(_session, Selected.Record.Id);
+            TutanaklariYukle(Selected.Record.Id);
+            await TutanakPdf(t);
+        }
+        catch (Exception ex) { Status = "Tutanak oluşturulamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task TutanakPdf(DepoWise.Infrastructure.Assignments.ZimmetTutanagi? t)
+    {
+        if (t is null) return;
+        try
+        {
+            var hedef = await FilePickerService.SavePdfAsync(t.No + ".pdf");
+            if (hedef is null) return;
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.ZimmetTutanak.Pdf(_session, t.Id));
+            Status = $"Tutanak kaydedildi: {hedef} — imzalatıp \"Kabul\" işaretleyin.";
+        }
+        catch (Exception ex) { Status = "PDF üretilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void TutanakKabul(DepoWise.Infrastructure.Assignments.ZimmetTutanagi? t) => TutanakKarar(t, true, null);
+
+    [RelayCommand]
+    private async Task TutanakRet(DepoWise.Infrastructure.Assignments.ZimmetTutanagi? t)
+    {
+        if (t is null) return;
+        var not = await ConfirmService.AskReasonAsync($"{t.No} reddedildi olarak işaretlenecek.", "Tutanak Reddi", "Ret gerekçesi", "Reddet");
+        if (!string.IsNullOrWhiteSpace(not)) TutanakKarar(t, false, not);
+    }
+
+    private void TutanakKarar(DepoWise.Infrastructure.Assignments.ZimmetTutanagi? t, bool kabul, string? not)
+    {
+        if (t is null || Selected is null) return;
+        try
+        {
+            DesktopServices.ZimmetTutanak.Karar(_session, t.Id, kabul, not);
+            TutanaklariYukle(Selected.Record.Id);
+            Status = kabul ? $"{t.No} imzalı kabul edildi." : $"{t.No} reddedildi.";
+        }
+        catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
 
     partial void OnSelectedChanged(PersonnelRowVm? value)
     {

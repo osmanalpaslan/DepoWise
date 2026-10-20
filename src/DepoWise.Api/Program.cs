@@ -1894,6 +1894,31 @@ app.MapGet("/api/assignments/returns", (HttpContext c, string? personnelId, bool
         assetLabel = x.Zimmet.AssetLabel, quantity = x.Zimmet.QuantityDisplay, expectedReturn = x.BeklenenIade, overdueDays = x.GecikmeGun,
         isOverdue = x.Gecikti, returnText = x.IadeMetni, summary = x.Ozet,
     })) : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-47 (AR-GE 2026-10-19, F-082): KİŞİ BAZLI İMZALI ZİMMET TUTANAĞI (dondurulmuş liste + PDF + kabul/ret).
+app.MapGet("/api/assignments/receipts", (HttpContext c, string? personnelId) =>
+    S(c) is { } s ? Results.Ok(svc.ZimmetTutanak.Liste(s, personnelId).Select(t => new
+    {
+        id = t.Id, no = t.No, personnelId = t.PersonnelId, personnelName = t.PersonelAdi, status = t.Durum, statusText = t.DurumMetni,
+        createdAt = t.Olusturma, decidedAt = t.KararAni, note = t.KararNotu, lineCount = t.Kalemler.Count, summary = t.Ozet,
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/assignments/receipts", (HttpContext c, AssignmentReceiptDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var t = svc.ZimmetTutanak.Olustur(s, d.PersonnelId ?? "");
+    return Results.Ok(new { id = t.Id, no = t.No, summary = t.Ozet });
+}).RequireAuthorization();
+app.MapGet("/api/assignments/receipts/{id}/pdf", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var no = svc.ZimmetTutanak.Liste(s).FirstOrDefault(x => x.Id == id)?.No ?? "Zimmet_Tutanagi";
+    return Results.File(svc.ZimmetTutanak.Pdf(s, id), "application/pdf", no + ".pdf");
+}).RequireAuthorization();
+app.MapPost("/api/assignments/receipts/{id}/decision", (HttpContext c, string id, AssignmentReceiptDecisionDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.ZimmetTutanak.Karar(s, id, d.Accept, d.Note);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapPut("/api/assignments/due-date", (HttpContext c, AssignmentDueDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -5661,6 +5686,8 @@ record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = n
 record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoid = true);   // ⭐ M-36
 record RentalContractDto(string? PartyId, string? Direction);   // ⭐ M-39
 record AssignmentDueDto(string? PersonnelId, string? AssetType, string? AssetId, long? Date);   // ⭐ M-46: null = kaldır
+record AssignmentReceiptDto(string? PersonnelId);   // ⭐ M-47
+record AssignmentReceiptDecisionDto(bool Accept, string? Note);
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33

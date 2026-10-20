@@ -128,6 +128,22 @@
                 <SelectableTextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                 <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                <!-- ⭐ M-47: zimmet tutanağı -->
+                <Button Classes="Secondary" Content="Zimmet Tutanağı" Command="{Binding TutanakOlusturCommand}" IsVisible="{Binding HasZimmet}"
+                        ToolTip.Tip="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir."/>
+                <ItemsControl ItemsSource="{Binding Tutanaklar}" IsVisible="{Binding HasTutanak}" VerticalAlignment="Center">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="asg:ZimmetTutanagi">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center"/>
+                                <Button Classes="Ghost" Content="PDF" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakPdfCommand}" CommandParameter="{Binding}"/>
+                                <Button Classes="Ghost" Content="Kabul" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakKabulCommand}" CommandParameter="{Binding}"
+                                        ToolTip.Tip="İmzalı tutanak döndü: kabul edildi olarak işaretle."/>
+                                <Button Classes="Ghost" Content="Ret" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakRetCommand}" CommandParameter="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <!-- ⭐ M-46: personelin zimmetleri -->
                 <SelectableTextBlock Text="Zimmetleri:" Classes="Helper" VerticalAlignment="Center" IsVisible="{Binding HasZimmet}" Margin="12,0,0,0"/>
                 <ItemsControl ItemsSource="{Binding Zimmetleri}" IsVisible="{Binding HasZimmet}" VerticalAlignment="Center">

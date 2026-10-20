@@ -121,5 +121,6 @@ public static class MigrationCatalog
         new Migration114_RentalContract(),     // 2026-10-19 AR-GE M-39: kiralık sözleşme cari + yön — yalnız ekleme
         new Migration115_PeriodicControl(),    // 2026-10-19 AR-GE M-41: yasal periyodik kontrol alanları — yalnız ekleme
         new Migration116_AssignmentDueDates(), // 2026-10-19 AR-GE M-46: zimmet beklenen iade tarihi — yalnız CREATE TABLE
+        new Migration117_AssignmentReceipts(), // 2026-10-19 AR-GE M-47: zimmet kabul tutanağı — yalnız CREATE TABLE
     };
 }
