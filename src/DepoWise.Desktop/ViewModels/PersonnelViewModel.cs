@@ -174,11 +174,13 @@ public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynag
     partial void OnSelectedChanged(PersonnelRowVm? value)
     {
         Zimmetleri.Clear();
+        if (value is not null) TutanaklariYukle(value.Record.Id); else { Tutanaklar.Clear(); OnPropertyChanged(nameof(HasTutanak)); }
         if (value is not null)
             try { foreach (var z in DesktopServices.Assignments.IadeDurumu(_session, value.Record.Id)) Zimmetleri.Add(z); }
             catch { /* zimmet yetkisi yoksa liste boş kalır */ }
         OnPropertyChanged(nameof(HasZimmet));
     }
+
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string? _editId;
     /// <summary>DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm; kaydederken geri gönderilir.

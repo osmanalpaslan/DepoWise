@@ -132,6 +132,7 @@ public class ZimmetTutanakTests : IDisposable
         Assert.Contains("app.MapGet(\"/api/assignments/receipts/{id}/pdf\"", api);
         Assert.Contains("app.MapPost(\"/api/assignments/receipts/{id}/decision\"", api);
         Assert.Contains("DesktopServices.ZimmetTutanak.Olustur(", Oku("src/DepoWise.Desktop/ViewModels/PersonnelViewModel.cs"));
+        Assert.Contains("if (value is not null) TutanaklariYukle(value.Record.Id);", Oku("src/DepoWise.Desktop/ViewModels/PersonnelViewModel.cs"));   // seçimde tutanaklar yüklenir
         Assert.Contains("TutanakOlusturCommand", Oku("src/DepoWise.Desktop/Views/PersonnelView.axaml"));
         Assert.Contains("/api/assignments/receipts", Oku("src/DepoWise.Web/Components/Pages/Personnel.razor"));
     }
