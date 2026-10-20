@@ -863,6 +863,28 @@
                         <StackPanel Spacing="2">
                           <SelectableTextBlock Text="Sayaç" Classes="Helper"/>
                           <SelectableTextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>
+                          <!-- ⭐ M-36: eski sayaç uyarısı -->
+                          <SelectableTextBlock Text="{Binding EskiSayacUyarisi}" Classes="Helper" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource WarningBrush}"
+                                               IsVisible="{Binding EskiSayacUyarisi, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                        <!-- ⭐ M-36: SAYAÇ GEÇMİŞİ — yanlış okuma kayıt iptal edilmeden "geçersiz" sayılır -->
+                        <StackPanel Spacing="2" IsVisible="{Binding HasSayacGecmisi}">
+                          <SelectableTextBlock Text="SAYAÇ GEÇMİŞİ" Classes="Helper"/>
+                          <ItemsControl ItemsSource="{Binding SayacGecmisi}" MaxHeight="220">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="inf:SayacOkumasi">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                                  <SelectableTextBlock Grid.Column="0" Text="{Binding Satir}" Classes="Helper" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                  <Button Grid.Column="1" Classes="Ghost" Content="Geçersiz/Geçerli" Margin="6,0,0,0"
+                                          Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).SayacGecersizSayCommand}"
+                                          CommandParameter="{Binding}"
+                                          IsVisible="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).CanVoidMeter}"
+                                          ToolTip.Tip="Yanlış okunan sayacı hesaptan çıkarır (ya da geri alır); kayıt geçerli kalır."/>
+                                </Grid>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
                         </StackPanel>
                         <StackPanel Spacing="2"
                                     IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

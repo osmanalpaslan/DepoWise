@@ -54,19 +54,23 @@ internal static class VehicleMeterService
     {
         var birim = Birim(conn, tx, companyId, vehicleId);
         var bakimKolonu = birim == "hour" ? "performed_hour" : "performed_km";
+        // ⭐ M-36 (F-078): "geçersiz sayılan" okuma hesaba GİRMEZ (kayıt geçerli kalır). Kolon yoksa (eski şema) süzgeç yok.
+        var yakitGecersiz = DbIntrospect.ColumnExists(conn, tx, "fuel_distributions", "meter_void") ? " AND meter_void=0" : "";
+        var bakimGecersiz = DbIntrospect.ColumnExists(conn, tx, "vehicle_maintenances", "meter_void") ? " AND meter_void=0" : "";
+        var logGecersiz = DbIntrospect.ColumnExists(conn, tx, "vehicle_meter_logs", "is_void") ? " AND is_void=0" : "";
 
         decimal enBuyuk = 0m;
 
         // 1) Geçerli yakıt dağıtımları (iptal edilen kayıt SAYILMAZ — düzeltmenin işe yaramasının nedeni).
         enBuyuk = Max(enBuyuk, TekDeger(conn, tx,
             "SELECT current_meter FROM fuel_distributions " +
-            "WHERE company_id=@c AND vehicle_id=@v AND is_deleted=0 AND current_meter IS NOT NULL;",
+            "WHERE company_id=@c AND vehicle_id=@v AND is_deleted=0 AND current_meter IS NOT NULL" + yakitGecersiz + ";",
             companyId, vehicleId));
 
         // 2) Geçerli bakımlar (iptal edilmiş/silinmiş bakım sayaca katkı vermez).
         enBuyuk = Max(enBuyuk, TekDeger(conn, tx,
             $"SELECT {bakimKolonu} FROM vehicle_maintenances " +
-            $"WHERE company_id=@c AND vehicle_id=@v AND is_deleted=0 AND is_cancelled=0 AND {bakimKolonu} IS NOT NULL;",
+            $"WHERE company_id=@c AND vehicle_id=@v AND is_deleted=0 AND is_cancelled=0 AND {bakimKolonu} IS NOT NULL{bakimGecersiz};",
             companyId, vehicleId));
 
         // 3) ELLE BEYAN TABANI — araç kartı açılışı ve araç formundan girilen sayaç. Bu satırlar
@@ -74,7 +78,7 @@ internal static class VehicleMeterService
         var inList = string.Join(",", ElleBeyan.Select((_, i) => "@s" + i));
         enBuyuk = Max(enBuyuk, TekDeger(conn, tx,
             $"SELECT new_value FROM vehicle_meter_logs " +
-            $"WHERE company_id=@c AND vehicle_id=@v AND source IN ({inList});",
+            $"WHERE company_id=@c AND vehicle_id=@v AND source IN ({inList}){logGecersiz};",
             companyId, vehicleId, ElleBeyan));
 
         return enBuyuk;

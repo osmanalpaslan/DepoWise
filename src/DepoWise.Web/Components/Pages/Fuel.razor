@@ -602,6 +602,16 @@
                 DepoWise.Application.Common.MeterRule.SuspiciousJumpMessage(_prevMeter, guncel),
                 "Evet, Doğru")) return;
 
+        // ⭐ M-36 (F-078): geriye tarihli okuma önceki/sonraki okumalarla uyuşmuyorsa UYARI (masaüstüyle aynı servis).
+        try
+        {
+            var tarih = _distDateMs ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var k = await Api.GetObjectAsync($"/api/vehicles/{_vehicle.Id}/meter-check?date={tarih}&value={guncel.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            if (k.TryGetProperty("warning", out var w) && w.ValueKind == JsonValueKind.String
+                && !await Dialog.Confirm(w.GetString() + " Yine de kaydedilsin mi?", "Evet, Kaydet")) return;
+        }
+        catch { /* kontrol okunamazsa kayıt akışı sürer */ }
+
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
         string? duzeltmeGerekcesi = null;
         if (_editDistId is not null)

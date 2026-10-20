@@ -51,6 +51,27 @@
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2 ml-2" Disabled="_busy" OnClick="@(() => AractanIsEmri(false))">İş Emri Aç</MudButton>
                 </MudTooltip>
             }
+            @* ⭐ M-36: SAYAÇ GEÇMİŞİ + eski sayaç uyarısı + "geçersiz say" (masaüstüyle aynı) *@
+            @if (_eskiSayac is not null) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@_eskiSayac</MudAlert> }
+            @if (_sayacGecmisi.Count > 0)
+            {
+                <MudExpansionPanels Class="mb-2" Elevation="0">
+                    <MudExpansionPanel Text="@($"Sayaç Geçmişi ({_sayacGecmisi.Count})")">
+                        @foreach (var o in _sayacGecmisi)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudText Typo="Typo.caption" Style="flex:1">@Str(o, "line")</MudText>
+                                @if (Auth.CanEdit("vehicles") && Auth.CanButton("btn-reverse"))
+                                {
+                                    <MudTooltip Text="Yanlış okunan sayacı hesaptan çıkarır (ya da geri alır); kayıt geçerli kalır.">
+                                        <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="_busy" OnClick="@(() => SayacGecersiz(o))">Geçersiz/Geçerli</MudButton>
+                                    </MudTooltip>
+                                }
+                            </MudStack>
+                        }
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
         }
 
         @if (_templates.Count > 0)
@@ -867,6 +888,42 @@
         await LoadDetailPhotos(id!);
     }
 
+    // ═══ M-36 — SAYAÇ GEÇMİŞİ ═══
+    private List<JsonElement> _sayacGecmisi = new();
+    private string? _eskiSayac;
+
+    private async Task SayacGecmisiYukle(string id)
+    {
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/vehicles/{id}/meter-history");
+            _sayacGecmisi = d.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array ? it.EnumerateArray().ToList() : new();
+            _eskiSayac = d.TryGetProperty("staleWarning", out var w) && w.ValueKind == JsonValueKind.String ? w.GetString() : null;
+        }
+        catch { _sayacGecmisi = new(); _eskiSayac = null; }
+    }
+
+    private async Task SayacGecersiz(JsonElement o)
+    {
+        if (_editId is null || _busy) return;
+        var gecersiz = !(o.TryGetProperty("isVoid", out var v) && v.ValueKind == JsonValueKind.True);
+        var gerekce = await Dialog.AskReason(
+            gecersiz ? $"{Str(o, "line")} — bu okuma sayaç hesabından çıkarılsın mı? Kayıt (litre/bakım) geçerli kalır; araç sayacı yeniden hesaplanır."
+                     : $"{Str(o, "line")} — bu okuma yeniden geçerli sayılsın mı? Araç sayacı yeniden hesaplanır.",
+            gecersiz ? "Sayacı Geçersiz Say" : "Sayacı Geçerli Say", "Gerekçe", gecersiz ? "Geçersiz Say" : "Geçerli Say");
+        if (string.IsNullOrWhiteSpace(gerekce)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/vehicles/{_editId}/meter-void",
+                new { source = Str(o, "source"), sourceId = Str(o, "sourceId"), reason = gerekce, isVoid = gecersiz });
+            _ok = err is null;
+            _msg = err ?? (gecersiz ? "Okuma geçersiz sayıldı; araç sayacı yeniden hesaplandı." : "Okuma yeniden geçerli; araç sayacı yeniden hesaplandı.");
+            await SayacGecmisiYukle(_editId);
+        }
+        finally { _busy = false; }
+    }
+
     /// <summary>⭐ M-35: araç kartından arıza bildir (ariza=true) ya da iş emri aç.</summary>
     private async Task AractanIsEmri(bool ariza)
     {
@@ -905,6 +962,7 @@
         _editId = Str(d, "id");
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
         await LoadDetailPhotos(_editId);   // ADR-182: kayıtlı fotoğraflar düzenleme formunda görünür/silinebilir
+        await SayacGecmisiYukle(_editId);  // ⭐ M-36
         _template = NullS(d, "templateId"); _lastTemplate = _template;   // mevcut şablon bağı (diff prefill tetiklemesin)
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
         _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");

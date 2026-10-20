@@ -746,6 +746,48 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Kiralama bitirilemedi: " + ex.Message; }
     }
 
+    // ═══ M-36 (AR-GE 2026-10-19, F-078) — SAYAÇ GEÇMİŞİ · GEÇERSİZ SAY · ESKİ SAYAÇ ═══
+    public ObservableCollection<DepoWise.Infrastructure.Vehicles.SayacOkumasi> SayacGecmisi { get; } = new();
+    [ObservableProperty] private string? _eskiSayacUyarisi;
+    public bool HasSayacGecmisi => SayacGecmisi.Count > 0;
+    /// <summary>Geçersiz sayma yetkisi (araç düzenleme + ters kayıt düğmesi; asıl kapı serviste).</summary>
+    public bool CanVoidMeter => CanEdit && AccessControl.CanUseButton(_session, SpecialButtons.Reverse);
+
+    private void SayacGecmisiniYukle(string vehicleId)
+    {
+        SayacGecmisi.Clear();
+        EskiSayacUyarisi = null;
+        try
+        {
+            foreach (var o in DesktopServices.Sayac.Gecmis(_session, vehicleId).Take(50)) SayacGecmisi.Add(o);
+            EskiSayacUyarisi = DesktopServices.Sayac.EskiSayacUyarisi(_session, vehicleId);
+        }
+        catch { /* geçmiş opsiyonel; detay açılmaya devam eder */ }
+        OnPropertyChanged(nameof(HasSayacGecmisi));
+    }
+
+    [RelayCommand]
+    private async Task SayacGecersizSay(DepoWise.Infrastructure.Vehicles.SayacOkumasi? o)
+    {
+        if (o is null || Selected is null) return;
+        var gecersiz = !o.Gecersiz;
+        var gerekce = await ConfirmService.AskReasonAsync(
+            gecersiz ? $"{o.Satir}\n\nBu okuma sayaç hesabından çıkarılsın mı? Kayıt (litre/bakım) geçerli kalır; araç sayacı yeniden hesaplanır."
+                     : $"{o.Satir}\n\nBu okuma yeniden geçerli sayılsın mı? Araç sayacı yeniden hesaplanır.",
+            gecersiz ? "Sayacı Geçersiz Say" : "Sayacı Geçerli Say", "Gerekçe", gecersiz ? "Geçersiz Say" : "Geçerli Say");
+        if (string.IsNullOrWhiteSpace(gerekce)) return;
+        try
+        {
+            DesktopServices.Sayac.GecersizSay(_session, Selected.Id, o.Kaynak, o.KaynakId, gerekce, gecersiz);
+            var id = Selected.Id;
+            Load();
+            Selected = Items.FirstOrDefault(x => x.Id == id) ?? Selected;
+            SayacGecmisiniYukle(id);
+            Status = gecersiz ? "Okuma geçersiz sayıldı; araç sayacı yeniden hesaplandı." : "Okuma yeniden geçerli; araç sayacı yeniden hesaplandı.";
+        }
+        catch (Exception ex) { Status = "Yapılamadı: " + ex.Message; }
+    }
+
     // ═══ M-35 (AR-GE 2026-10-19, F-077) — ARAÇ KARTINDAN ARIZA BİLDİR / İŞ EMRİ AÇ ═══
     /// <summary>İş emri açma yetkisi (asıl kapı WorkOrderService'te).</summary>
     public bool CanOpenWorkOrder => AccessControl.Can(_session, DepoWise.Infrastructure.WorkOrders.WorkOrderService.Module, PermissionAction.Create);
@@ -894,6 +936,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             Detail = DesktopServices.Vehicles.Get(_session, value.Id);
             _ = LoadDetailPhotosAsync(value.Id);
             LoadVehicleTabs(value.Id, value.Code);
+            SayacGecmisiniYukle(value.Id);   // ⭐ M-36
 
             // Kullanıcı isteği (2026-09-02): DÜZENLEME formu açıkken başka araca geçilirse form da
             // tazelenir — aksi hâlde önceki aracın değerleri (ör. km/saat) ekranda kalıyordu.

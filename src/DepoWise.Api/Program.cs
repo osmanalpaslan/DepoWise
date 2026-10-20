@@ -4577,6 +4577,28 @@ app.MapPost("/api/vehicles/{id}/work-order", (HttpContext c, string id, VehicleW
     return Results.Ok(new { id = woId, woNo });
 }).RequireAuthorization();
 
+// ⭐ M-36 (AR-GE 2026-10-19, F-078): SAYAÇ GEÇMİŞİ · GEÇERSİZ SAY · GERİYE TARİHLİ OKUMA KONTROLÜ (masaüstüyle aynı servis).
+app.MapGet("/api/vehicles/{id}/meter-history", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new
+    {
+        staleWarning = svc.Sayac.EskiSayacUyarisi(s, id),
+        items = svc.Sayac.Gecmis(s, id).Take(50).Select(o => new
+        {
+            source = o.Kaynak, sourceId = o.KaynakId, date = o.Tarih, value = o.Deger, isVoid = o.Gecersiz, line = o.Satir,
+        }),
+    });
+}).RequireAuthorization();
+app.MapPost("/api/vehicles/{id}/meter-void", (HttpContext c, string id, MeterVoidDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Sayac.GecersizSay(s, id, d.Source ?? "", d.SourceId ?? "", d.Reason ?? "", d.IsVoid);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}/meter-check", (HttpContext c, string id, long date, decimal value) =>
+    S(c) is { } s ? Results.Ok(new { warning = svc.Sayac.Tutarlilik(s, id, date, value) }) : Results.Unauthorized()).RequireAuthorization();
+
 // ⭐ M-34 (AR-GE 2026-10-18, F-074, K-13): TOPLU YAKIT DAĞITIMI — tek işlem, hepsi ya da hiçbiri (masaüstüyle aynı servis).
 app.MapPost("/api/fuel/distribute-bulk", (HttpContext c, BulkDistributionDto d) =>
 {
@@ -5600,6 +5622,7 @@ record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines
 record DeveloperDto(string? Code, bool Active);
 record BulkDistributionLineDto(string VehicleId, decimal Liters, decimal CurrentMeter);   // ⭐ M-34
 record VehicleWorkOrderDto(string? Description, bool Fault, string? Priority = null);   // ⭐ M-35
+record MeterVoidDto(string? Source, string? SourceId, string? Reason, bool IsVoid = true);   // ⭐ M-36
 record BulkDistributionDto(string? OperationId, string? PersonnelId, decimal? UnitPrice, long? DistributionDate, string? InvoiceNo,
     BulkDistributionLineDto[]? Lines);
 record BulkDecisionDto(string[]? Ids, bool Approve, string? Reason);   // ⭐ M-33

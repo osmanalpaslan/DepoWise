@@ -622,6 +622,15 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
                     DistPrevMeter, guncelSayac, DepoWise.Application.Ui.MeterUnitOptions.Label(DistVehicle.MeterUnit)),
                 "Sayaç Uyarısı", "Evet, Doğru")) return;
 
+        // ⭐ M-36 (F-078): geriye tarihli okuma o tarihteki önceki/sonraki okumalarla uyuşmuyorsa UYARI (engel değil).
+        try
+        {
+            var tutarsiz = DesktopServices.Sayac.Tutarlilik(_session, DistVehicle.Id,
+                IsGunuMs(DistDate) ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), guncelSayac);
+            if (tutarsiz is not null && !await ConfirmService.AskAsync(tutarsiz + "\n\nYine de kaydedilsin mi?", "Sayaç Uyarısı", "Evet, Kaydet")) return;
+        }
+        catch { /* kontrol okunamazsa kayıt akışı sürer */ }
+
         // DÜZELTME: gerekçe zorunludur (denetim kaydına yazılır); yeni kayıtta gerekçe sorulmaz.
         string? duzeltmeGerekcesi = null;
         if (DistEditId is not null)
