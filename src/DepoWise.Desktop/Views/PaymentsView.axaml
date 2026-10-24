@@ -47,6 +47,11 @@
                         </StackPanel>
                     </ctrl:FormField>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
+                    <!-- ⭐ M-54: filtrelenmiş TÜM sonuç (sayfa değil) — web ile aynı servis ve tablo -->
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM işlemleri (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
+                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM işlemleri yazdırılabilir PDF olarak hazırlar (Excel ile aynı satırlar)."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

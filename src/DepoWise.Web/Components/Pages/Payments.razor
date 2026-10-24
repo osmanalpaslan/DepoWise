@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject IJSRuntime JS   // ⭐ M-54: Excel/PDF indirme (dwDownload)
 
 @* G4-3 — TAHSİLAT / ÖDEME (web). Masaüstüyle AYNI API/servis sözleşmesini kullanır: yön kuralı,
    fatura kapama, idempotency ve ters kayıt SUNUCUDADIR.
@@ -48,6 +49,16 @@ else
             <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
                           HelperText="Boş = tüm yetkili şubeler" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            @* ⭐ M-54 (F-057): filtrelenmiş TÜM sonuç — liste ile aynı süzgeç (FiltreQuery) *@
+            @if (Auth.CanView("export"))
+            {
+                <MudTooltip Text="Aktif filtrelerle eşleşen TÜM işlemleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => Disari(false))" Disabled="_busy">Excel'e Aktar</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Aktif filtrelerle eşleşen TÜM işlemleri PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => Disari(true))" Disabled="_busy">Yazdır</MudButton>
+                </MudTooltip>
+            }
             <MudSpacer />
             <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
         </MudStack>
@@ -233,6 +244,22 @@ else
     }
 
     /// <summary>API sorgu eki: &branchIds=a,b. Boş → ek yok (tüm yetkili şubeler).</summary>
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (ikisi asla ayrışmaz).</summary>
+    private string FiltreQuery =>
+        (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
+        + (string.IsNullOrWhiteSpace(_type) ? "" : $"&txnType={Uri.EscapeDataString(_type)}")
+        + BranchQuery;
+
+    /// <summary>⭐ M-54: Excel (pdf=false) / Yazdır (pdf=true) — aynı uç, aynı süzgeç; yalnız format farkı.</summary>
+    private async Task Disari(bool pdf)
+    {
+        var (bytes, name) = await Api.GetFileAsync("/api/finance/transactions/export?" + FiltreQuery.TrimStart('&') + (pdf ? "&format=pdf" : ""),
+            pdf ? "TahsilatOdeme.pdf" : "TahsilatOdeme.xlsx");
+        if (bytes is null) { _ok = false; _msg = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
     private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
 
     private sealed class Opt { public string Key = "", Label = ""; }
@@ -307,10 +334,7 @@ else
         _busy = true; _rows = null;
         try
         {
-            var url = $"/api/finance/transactions?page={_page}&pageSize=50"
-                    + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
-                    + (string.IsNullOrWhiteSpace(_type) ? "" : $"&txnType={Uri.EscapeDataString(_type)}")
-                    + BranchQuery;
+            var url = $"/api/finance/transactions?page={_page}&pageSize=50" + FiltreQuery;
             var d = await Api.GetObjectAsync(url);
             _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
             _pageCount = _total == 0 ? 1 : (_total + 49) / 50;

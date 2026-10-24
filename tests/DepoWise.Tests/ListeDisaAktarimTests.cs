@@ -167,6 +167,33 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/FinanceView.axaml"));
     }
 
+    [Fact]
+    public async Task LD7_Tahsilat_Odeme_Export_Ve_Tutar_Gizleme()
+    {
+        var kasa = Svc.Finance.CreateAccount(_s, new NewFinanceAccount("LD7K", "LD7 Kasa", FinanceAccountKinds.Cash));
+        var cari = Svc.Parties.Create(_s, new NewParty("LD7C", "LD7 Cari", PartyTypes.Both));
+        for (var i = 0; i < 4; i++) Svc.Finance.Add(_s, new NewFinanceEntry(kasa, FinanceTxnTypes.Receipt, 100m + i, Guid.NewGuid().ToString("N"), PartyId: cari));
+        for (var i = 0; i < 2; i++) Svc.Finance.Add(_s, new NewFinanceEntry(kasa, FinanceTxnTypes.Payment, 10m, Guid.NewGuid().ToString("N"), PartyId: cari));
+        Assert.Equal(Svc.FinanceQueries.Transactions(_s, txnType: FinanceTxnTypes.Receipt).TotalCount,
+            await ExcelSatir("/api/finance/transactions/export?txnType=" + FinanceTxnTypes.Receipt));
+        Assert.Equal(Svc.FinanceQueries.Transactions(_s, txnType: FinanceTxnTypes.Payment).TotalCount,
+            await ExcelSatir("/api/finance/transactions/export?txnType=" + FinanceTxnTypes.Payment));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/finance/transactions/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var rows = Svc.FinanceQueries.Transactions(_s).Items;
+        var acik = FinanceIslemTablosu.ToTableModel(rows, true);
+        Assert.Contains("Giriş", acik.Headers);
+        Assert.Contains(103m, acik.Rows.Select(r => r[acik.Headers.ToList().IndexOf("Giriş")]));
+        var gizli = FinanceIslemTablosu.ToTableModel(rows, false);
+        Assert.DoesNotContain("Giriş", gizli.Headers);
+        Assert.DoesNotContain("Çıkış", gizli.Headers);
+        Assert.All(gizli.Rows, r => Assert.DoesNotContain(r, h => h is decimal));
+        var web = Oku("src/DepoWise.Web/Components/Pages/Payments.razor");
+        Assert.Contains("var url = $\"/api/finance/transactions?page={_page}&pageSize=50\" + FiltreQuery;", web);
+        Assert.Contains("\"/api/finance/transactions/export?\" + FiltreQuery.TrimStart('&')", web);
+        Assert.Contains("FinanceIslemTablosu.ToTableModel(", Oku("src/DepoWise.Desktop/ViewModels/PaymentsViewModel.cs"));
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/PaymentsView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

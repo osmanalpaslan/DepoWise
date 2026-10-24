@@ -3338,6 +3338,18 @@ app.MapGet("/api/finance/accounts/{id}/statement", (HttpContext c, string id, lo
     }));
 }).RequireAuthorization();
 
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): Tahsilat/ödeme listesi Excel/Yazdır — liste ucuyla AYNI süzgeç, sayfasız (filtrelenmiş TÜM sonuç);
+// gizli alan (FieldAccess) kolonu hiç konmaz. Masaüstü aynı servis + aynı tabloyu kullanır.
+app.MapGet("/api/finance/transactions/export", (HttpContext c, string? accountId, string? txnType, string? partyId, string? search, long? from, long? to, string? branchIds, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.FinanceQueries.Transactions(s, accountId, txnType, partyId, search, from, to, p, n, Branches(branchIds)));
+    var gorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Amount);
+    return TabloCikti(c, DepoWise.Infrastructure.Accounting.FinanceIslemTablosu.ToTableModel(rows, gorunur), format, "TahsilatOdeme");
+}).RequireAuthorization();
+
 app.MapGet("/api/finance/transactions", (HttpContext c, string? accountId, string? txnType, string? partyId,
     string? search, long? from, long? to, int? page, int? pageSize, string? branchIds) =>
 {
