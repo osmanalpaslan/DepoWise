@@ -91,6 +91,23 @@ public static class OrgServerClient
     }
 
     /// <summary>Belge içeriğini indirir (null = çevrimdışı/başarısız).</summary>
+    /// <summary>⭐ M-54 (AR-GE 2026-10-24): sunucu-otoriteli ekranların Excel/PDF dışa aktarımı — web ile AYNI uçtan, oturum jetonuyla.
+    /// Ulaşılamazsa / yetki yoksa null (çağıran kullanıcıya söyler).</summary>
+    public static async Task<byte[]?> DownloadAsync(string pathAndQuery)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url + pathAndQuery);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadAsByteArrayAsync();
+        }
+        catch { return null; }
+    }
+
     public static async Task<byte[]?> DownloadDocumentAsync(string id)
     {
         var (url, token) = await ResolveAsync();

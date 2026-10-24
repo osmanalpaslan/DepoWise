@@ -1624,6 +1624,15 @@ app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { }
 // ═══ PRJ-01 (ADR-164, 2026-08-27) — PROJELER ═══
 // Yetki: branches modülü (PK-C4, ayrı kapı YOK) + BranchAccess kapsamı — ikisi de SERVİSTE uygulanır.
 // Sunucu-otoritelidir (şubeler gibi); BusinessSync'e girmez. dto.BranchIds bugün 0-1 eleman (PK-C1).
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): Projeler Excel/Yazdır — liste ucuyla AYNI süzgeç. Masaüstü bu ekranı sunucudan okuduğu için
+// dışa aktarımı da BU uçtan indirir (iki ortam birebir aynı dosya).
+app.MapGet("/api/projects/export", (HttpContext c, string? search, string? status, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    return TabloCikti(c, DepoWise.Infrastructure.Organization.ProjectListeTablosu.ToTableModel(svc.Projects.List(s, search, status)), format, "Projeler");
+}).RequireAuthorization();
+
 app.MapGet("/api/projects", (HttpContext c, string? search, string? status) =>
     S(c) is { } s ? Results.Ok(svc.Projects.List(s, search, status).Select(p => new
     {

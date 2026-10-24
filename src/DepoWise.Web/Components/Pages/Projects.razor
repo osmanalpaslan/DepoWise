@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject IJSRuntime JS   // ⭐ M-54: Excel/PDF indirme (dwDownload)
 
 @*
     ═══ PRJ-01 (ADR-164, 2026-08-27) — PROJELER ═══
@@ -66,6 +67,16 @@
             <MudSelectItem T="string" Value="@("completed")">Tamamlandı</MudSelectItem>
         </MudSelect>
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        @* ⭐ M-54 (F-057): liste ile aynı süzgeç (SorguParcalari) *@
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Aktif filtrelerle eşleşen TÜM projeleri Excel dosyası olarak indirir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => Disari(false))">Excel'e Aktar</MudButton>
+            </MudTooltip>
+            <MudTooltip Text="Aktif filtrelerle eşleşen TÜM projeleri PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => Disari(true))">Yazdır</MudButton>
+            </MudTooltip>
+        }
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz proje tanımlanmadı.</MudText> }
@@ -114,12 +125,30 @@
         await Load();
     }
 
-    private async Task Load()
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (ikisi asla ayrışmaz).</summary>
+    private List<string> SorguParcalari()
     {
-        _rows = null;
         var q = new List<string>();
         if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
         if (!string.IsNullOrEmpty(_filterStatus)) q.Add("status=" + Uri.EscapeDataString(_filterStatus));
+        return q;
+    }
+
+    /// <summary>⭐ M-54: Excel (pdf=false) / Yazdır (pdf=true) — aynı uç, aynı süzgeç; yalnız format farkı.</summary>
+    private async Task Disari(bool pdf)
+    {
+        var q = SorguParcalari();
+        if (pdf) q.Add("format=pdf");
+        var (bytes, name) = await Api.GetFileAsync("/api/projects/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), pdf ? "Projeler.pdf" : "Projeler.xlsx");
+        if (bytes is null) { _ok = false; _msg = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var q = SorguParcalari();
         try { _rows = await Api.GetArrayAsync("/api/projects" + (q.Count > 0 ? "?" + string.Join("&", q) : "")); }
         catch { _rows = Array.Empty<JsonElement>(); }
     }

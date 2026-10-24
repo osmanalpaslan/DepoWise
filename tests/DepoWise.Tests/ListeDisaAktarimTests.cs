@@ -296,6 +296,27 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/MaintenanceView.axaml"));
     }
 
+    [Fact]
+    public async Task LD12_Projeler_Export_Suzgec_Ve_Masaustu_Sunucu_Ucu()
+    {
+        Svc.Projects.Create(_s, new DepoWise.Infrastructure.Organization.NewProject("LD12 Köprü", Location: "Ankara"));
+        Svc.Projects.Create(_s, new DepoWise.Infrastructure.Organization.NewProject("LD12 Tünel"));
+        Svc.Projects.Create(_s, new DepoWise.Infrastructure.Organization.NewProject("LD12 Bitti", Status: "completed"));
+        Assert.Equal(Svc.Projects.List(_s, null, "completed").Count, await ExcelSatir("/api/projects/export?status=completed"));
+        Assert.Equal(Svc.Projects.List(_s, "LD12", null).Count, await ExcelSatir("/api/projects/export?search=LD12"));
+        Assert.Equal(1, await ExcelSatir("/api/projects/export?search=" + Uri.EscapeDataString("Köprü")));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/projects/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var t = DepoWise.Infrastructure.Organization.ProjectListeTablosu.ToTableModel(Svc.Projects.List(_s, "Köprü", null));
+        Assert.Equal("Ankara", Assert.Single(t.Rows)[5]);
+        var web = Oku("src/DepoWise.Web/Components/Pages/Projects.razor");
+        Assert.Contains("var q = SorguParcalari();", web);
+        Assert.Contains("\"/api/projects/export\" + (q.Count > 0", web);
+        var vm = Oku("src/DepoWise.Desktop/ViewModels/ProjectsViewModel.cs");
+        Assert.Contains("OrgServerClient.DownloadAsync(\"/api/projects/export\"", vm);   // masaüstü sunucunun AYNI ucundan indirir
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/ProjectsView.axaml"));
+        Assert.Contains("public static async Task<byte[]?> DownloadAsync(string pathAndQuery)", Oku("src/DepoWise.Desktop/OrgServerClient.cs"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

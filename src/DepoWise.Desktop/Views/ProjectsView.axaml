@@ -17,6 +17,11 @@
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: ad / şantiye / sorumlu / konum"/>
                     <ComboBox Classes="Field" Width="130" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
+                    <!-- ⭐ M-54: liste ile aynı süzgeç; sunucudan web ile aynı dosya -->
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM projeleri Excel olarak kaydeder (sunucudan; internet gerekir)."/>
+                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
+                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM projeleri yazdırılabilir PDF olarak kaydeder (sunucudan; internet gerekir)."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
