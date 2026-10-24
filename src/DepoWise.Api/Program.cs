@@ -1415,6 +1415,17 @@ app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc
 // ⭐ LST-01 (2026-09-04) — ARAÇ BAKIMLARI: SAYFALANMIŞ + ARAMALI liste (toplam sayı da döner).
 // Eski /api/maintenance ucu sabit 200 satır döndürüyordu; ötesi SESSİZCE düşüyordu.
 // Eski uç mevcut istemciler için AYNEN duruyor.
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): bakım kayıtları Excel/Yazdır — liste ucuyla AYNI süzgeç (araç, arama, tarih), sayfasız:
+// filtrelenmiş TÜM kayıtlar. Masaüstü aynı servis + aynı tablo.
+app.MapGet("/api/maintenance/export", (HttpContext c, string? vehicleId, string? q, long? fromDate, long? toDate, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.Maintenance.SearchMaintenancesGrid(s, p, n, Doc(vehicleId), Doc(q), fromDate, toDate));
+    return TabloCikti(c, DepoWise.Infrastructure.Maintenance.MaintenanceListeTablosu.ToTableModel(rows), format, "BakimKayitlari");
+}).RequireAuthorization();
+
 app.MapGet("/api/maintenance/grid", (HttpContext c, string? vehicleId, string? q,
                                      long? fromDate, long? toDate, int page, int pageSize) =>
 {

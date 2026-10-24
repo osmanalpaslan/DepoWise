@@ -399,6 +399,16 @@
                                       Style="min-width:260px" OnKeyDown="@(e => { if (e.Key == "Enter") { _ = BkmFiltrele(); } })" />
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="BkmFiltrele">Filtrele</MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="BkmSuzgecTemizle">Temizle</MudButton>
+                        @* ⭐ M-54 (F-057): filtrelenmiş TÜM bakım kayıtları — liste ile aynı (Filtrele ile onaylanmış) süzgeç *@
+                        @if (Auth.CanView("export"))
+                        {
+                            <MudTooltip Text="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını (yalnız bu sayfayı değil) Excel dosyası olarak indirir.">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => BkmDisari(false))">Excel'e Aktar</MudButton>
+                            </MudTooltip>
+                            <MudTooltip Text="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını PDF olarak indirir — yazdırmak için.">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => BkmDisari(true))">Yazdır</MudButton>
+                            </MudTooltip>
+                        }
                     </MudStack>
 
                     @if (_maint is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
@@ -812,6 +822,21 @@
     /// <summary>Aktif süzgeç var mı — "kayıt yok" mesajını doğru yazmak için (boş liste ≠ hiç kayıt yok).</summary>
     private bool _bkmSuzgecVar => _bkmQueryAktif is not null || _bkmFromMs is not null || _bkmToMs is not null;
 
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (Filtrele ile onaylanmış ölçütler).</summary>
+    private string BkmFiltreQuery =>
+        (string.IsNullOrWhiteSpace(_bkmQueryAktif) ? "" : "&q=" + Uri.EscapeDataString(_bkmQueryAktif!))
+        + (_bkmFromMs is { } bf ? "&fromDate=" + bf : "")
+        + (_bkmToMs is { } bt ? "&toDate=" + bt : "");
+
+    private async Task BkmDisari(bool pdf)
+    {
+        var (bytes, name) = await Api.GetFileAsync("/api/maintenance/export?" + BkmFiltreQuery.TrimStart('&') + (pdf ? "&format=pdf" : ""),
+            pdf ? "BakimKayitlari.pdf" : "BakimKayitlari.xlsx");
+        if (bytes is null) { _bkmError = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
     private async Task BkmFiltrele()
     {
         var q = (_bkmQuery ?? "").Trim();
@@ -846,10 +871,7 @@
         try
         {
             // ⭐ FAZ 4.8: süzgeçler sorguya gider (sunucu tarafı filtreleme — istemcide kesme yok).
-            var qs = $"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}";
-            if (!string.IsNullOrWhiteSpace(_bkmQueryAktif)) qs += "&q=" + Uri.EscapeDataString(_bkmQueryAktif!);
-            if (_bkmFromMs is { } bf) qs += "&fromDate=" + bf;
-            if (_bkmToMs is { } bt) qs += "&toDate=" + bt;
+            var qs = $"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}" + BkmFiltreQuery;
             var res = await Api.GetObjectAsync(qs);
             _maint = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
                 ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();

@@ -272,6 +272,30 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/FuelView.axaml"));
     }
 
+    [Fact]
+    public async Task LD11_Bakim_Kayitlari_Export_Suzgec()
+    {
+        var a = Svc.Vehicles.Create(_s, new DepoWise.Infrastructure.Vehicles.NewVehicle("LD11-A", "06 BK 11", CurrentMeter: 100m));
+        var b = Svc.Vehicles.Create(_s, new DepoWise.Infrastructure.Vehicles.NewVehicle("LD11-B", null, CurrentMeter: 100m));
+        var tanim = Svc.MaintenanceDefinitions.Create(_s, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition("LD11 Yağ", 500m, "km"));
+        for (var i = 1; i <= 3; i++) Svc.Maintenance.Save(_s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(a, tanim, PerformedKm: 100m + i * 100m), Guid.NewGuid().ToString("N"));
+        Svc.Maintenance.Save(_s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(b, tanim, PerformedKm: 200m), Guid.NewGuid().ToString("N"));
+        int Toplam(string? v, string? q) => Svc.Maintenance.SearchMaintenancesGrid(_s, 1, 1, v, q).TotalCount;
+        Assert.Equal(Toplam(null, null), await ExcelSatir("/api/maintenance/export"));
+        Assert.Equal(3, await ExcelSatir("/api/maintenance/export?vehicleId=" + a));
+        Assert.Equal(Toplam(null, "06 BK 11"), await ExcelSatir("/api/maintenance/export?q=" + Uri.EscapeDataString("06 BK 11")));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/maintenance/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var t = DepoWise.Infrastructure.Maintenance.MaintenanceListeTablosu.ToTableModel(Svc.Maintenance.SearchMaintenancesGrid(_s, 1, 50, b).Items);
+        Assert.Equal("LD11 Yağ", Assert.Single(t.Rows)[2]);
+        var web = Oku("src/DepoWise.Web/Components/Pages/Maintenance.razor");
+        Assert.Contains("var qs = $\"/api/maintenance/grid?page={_bkmPage}&pageSize={_bkmPageSize}\" + BkmFiltreQuery;", web);
+        Assert.Contains("\"/api/maintenance/export?\" + BkmFiltreQuery.TrimStart('&')", web);
+        var vm = Oku("src/DepoWise.Desktop/ViewModels/MaintenanceViewModel.cs");
+        Assert.Contains("var grid = BakimSayfasi(BakimSayfa, BakimSayfaBoyutu);", vm);
+        Assert.Contains("ListeDisaAktarim.TumSayfalar(BakimSayfasi)", vm);
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/MaintenanceView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

@@ -555,6 +555,47 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         catch { }
     }
 
+
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — Filtrele ile uygulanan ölçütlerle filtrelenmiş TÜM bakım kayıtları
+    // (sayfa değil); liste ile dışa aktarım TEK süzgeç kaynağı (BakimSayfasi); web ile aynı servis ve tablo. Yetki: "export".
+    private DepoWise.Infrastructure.Database.GridResult<DepoWise.Infrastructure.Maintenance.MaintenanceRow> BakimSayfasi(int page, int pageSize)
+        => DesktopServices.Maintenance.SearchMaintenancesGrid(_session, page, pageSize,
+            freeText: BakimAramaAktif, fromMs: BakimBasMs, toMs: BakimBitMs);
+
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private DepoWise.Application.Reports.TableModel DisaTablo()
+        => DepoWise.Infrastructure.Maintenance.MaintenanceListeTablosu.ToTableModel(
+            DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar(BakimSayfasi));
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("BakimKayitlari.xlsx");
+            if (hedef is null) return;
+            var tablo = await System.Threading.Tasks.Task.Run(DisaTablo);
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(tablo));
+            Status = $"Excel kaydedildi ({tablo.Rows.Count} bakım kaydı): {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tablo = await System.Threading.Tasks.Task.Run(DisaTablo);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(tablo, _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır ({tablo.Rows.Count} bakım kaydı): {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
     [RelayCommand]
     private void LoadMaint()
     {
@@ -563,8 +604,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             MaintError = null;
             Maintenances.Clear();
             // ⭐ LST-01: sabit 200 tavanı KALDIRILDI (ötesi sessizce düşüyordu).
-            var grid = DesktopServices.Maintenance.SearchMaintenancesGrid(_session, BakimSayfa, BakimSayfaBoyutu,
-                freeText: BakimAramaAktif, fromMs: BakimBasMs, toMs: BakimBitMs);
+            var grid = BakimSayfasi(BakimSayfa, BakimSayfaBoyutu);
             foreach (var r in grid.Items) Maintenances.Add(r);
             BakimToplam = grid.TotalCount; BakimToplamSayfa = grid.TotalPages;
             BakimSayfalamaTazele();
