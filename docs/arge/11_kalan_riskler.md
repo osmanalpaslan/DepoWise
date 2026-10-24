@@ -115,3 +115,12 @@
 - **M-38:** duruş süresi takvim saatidir (mesai/hafta sonu ayrımı yok); tamamlanma zamanı iş günü olarak yazıldığından gün içi
   saat hassasiyeti sınırlıdır.
 - **M-40 (ertelendi):** iç kira fiyatıyla şantiye makine maliyeti — K-02 muhasebe aktarımıyla birlikte (B8 sonrası) tasarlanacak.
+
+## Liste standardı (B7: M-54, M-55)
+- **M-54:** dışa aktarım üst sınırı 50.000 satır (sunucu belleği); aşılırsa kesilir — çok büyük firmada tarih süzgeci önerilir.
+  Masaüstünde Projeler/Belgeler dışa aktarımı internet ister (ekranın kendisi de sunucudan okunuyor).
+- **M-54:** Bakım ekranı araç kartından "araca daraltılmış" açıldığında dışa aktarım ekrandaki arama/tarih süzgecini kullanır
+  (araç daraltması aktarıma taşınmaz) — gerekirse arama kutusuna araç kodu yazılır.
+- **M-54:** liste sıralaması (kolon başlığına tıklama) dışa aktarıma taşınmaz; dışa aktarım servisin varsayılan sırasıyla gelir.
+- **M-55/M-54:** "her listede sıralama, 6 ekranda arama, tek tip sayfalama" kısımları (F-057'nin geri kalanı) B8 ortak ekran parçalarıyla
+  (M-60) birlikte yapılacak.

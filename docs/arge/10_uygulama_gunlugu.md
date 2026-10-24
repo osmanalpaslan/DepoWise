@@ -373,3 +373,17 @@
   penceresinde satır satır gösteriliyor; ekran logu iki ortamda da `ScreenAuditMap` ile modül bazlı (kayıt bazlı geçmiş M-56'da).
 - **Testler:** `PariteYazdirTests` PY1–3 (20 vaka: 7 uçta PDF + aynı uçta Excel, süzgeçli adres; web kaynak kilidi; zorunlu işaretler).
   Riskli paket (bu ekranlara dokunan 40 test sınıfı) 398/398; arayüz 48/48. Mutasyon: kritik alan değil (çıktı/görünüm), uygulanmadı.
+
+### B7 — M-54 liste standardı: en yoğun 10 ekranda Excel'e Aktar + Yazdır, iki ortamda (F-057)
+- **Sorun:** Faturalar, Cariler, Kasa/Banka, Tahsilat/Ödeme, Talepler, Stok Hareketleri, Yakıt, Bakım, Projeler, Belgeler listelerinde
+  iki ortamda da Excel/Yazdır yoktu (liste kuralı 2: filtrelenmiş TÜM sonuç dışa aktarılır).
+- **Değişiklik:** her ekrana API `…/export` ucu (liste ucuyla AYNI süzgeç + `format=pdf`, `export` yetkisi), ekran başına tablo modeli
+  (`…ListeTablosu`, ekran kolonları), web ve masaüstünde Excel + Yazdır. Ortak `ListeDisaAktarim.TumSayfalar`: sayfalı servisi servisin
+  kendi sayfa sınırıyla sayfa sayfa okur (üst sınır 50.000). Gizli alanlar (fatura tutarı, cari bakiye, kasa bakiyesi, finans tutarı)
+  dışa aktarımda da gizli — kolon HİÇ konmaz. Web'de ve masaüstünde liste ile dışa aktarım TEK süzgeç kaynağını kullanır
+  (FiltreQuery / SorguParcalari / Suzgec / …Sayfasi). Talepler ve stok hareketlerinde ekranın 200/1000 penceresi dışa aktarımı
+  kısıtlamaz. Projeler ve Belgeler masaüstünde sunucudan okunduğu için masaüstü dışa aktarımı da sunucunun aynı ucundan indirir.
+- **Testler:** `ListeDisaAktarimTests` LD1–13 (sayfa birleştirici; ekran başına: dışa aktarım satır sayısı = liste toplamı, süzgeçler,
+  PDF, gizli alan kolonsuz; export yetkisi olmayan kullanıcı 403); ekran başına mutasyon (toplam 18/18: yetki, süzgeçler, gizleme,
+  sayfa sınırı, yön/toplam); ekran başına riskli paketler (165 · 563 · 100 · 68 · 149 · 199 · 112 · 135 · 22 · 23) geçti; arayüz 48/48.
+  `YakitEkranAramaTests` YKE1 kilidi ortak sayfa okuyucuya göre güncellendi (sayfalı sorgu şartı aynen).
