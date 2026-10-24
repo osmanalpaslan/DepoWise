@@ -1656,6 +1656,15 @@ app.MapGet("/api/documents/entity-types", (HttpContext c) =>
     S(c) is { } s
         ? Results.Ok(DepoWise.Infrastructure.Files.DocumentService.EntityTypes.Select(t => new { key = t.Key, label = t.Label }))
         : Results.Unauthorized()).RequireAuthorization();
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): Belgeler Excel/Yazdır — liste ucuyla AYNI süzgeç. Masaüstü bu ekranı sunucudan okuduğu için
+// dışa aktarımı da BU uçtan indirir (iki ortam birebir aynı dosya).
+app.MapGet("/api/documents/export", (HttpContext c, string? entityType, string? entityId, string? search, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    return TabloCikti(c, DepoWise.Infrastructure.Files.DocumentListeTablosu.ToTableModel(svc.Documents.List(s, entityType, entityId, search)), format, "Belgeler");
+}).RequireAuthorization();
+
 app.MapGet("/api/documents", (HttpContext c, string? entityType, string? entityId, string? search) =>
     S(c) is { } s ? Results.Ok(svc.Documents.List(s, entityType, entityId, search).Select(x => new
     {

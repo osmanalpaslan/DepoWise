@@ -132,6 +132,34 @@ public sealed partial class DocumentsViewModel : ViewModelBase
     [RelayCommand]
     private async Task Load() => await LoadAsync();
 
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — bu ekran SUNUCUDAN okunduğu için dışa aktarım da sunucunun web ile AYNI
+    // ucundan (/api/documents/export) aynı süzgeçle indirilir → iki ortam birebir aynı dosya. Yetki: "export" (sunucu da kontrol eder).
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private List<string> DisaSorgu()
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrEmpty(FilterType?.Id)) q.Add("entityType=" + Uri.EscapeDataString(FilterType!.Id));
+        if (!string.IsNullOrWhiteSpace(SearchText)) q.Add("search=" + Uri.EscapeDataString(SearchText.Trim()));
+        return q;
+    }
+
+    private async Task DisaIndir(bool pdf)
+    {
+        if (!CanExport) { Status = (pdf ? "Yazdırma" : "Dışa aktarım") + " yetkiniz yok."; return; }
+        var q = DisaSorgu();
+        if (pdf) q.Add("format=pdf");
+        var bytes = await OrgServerClient.DownloadAsync("/api/documents/export" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
+        if (bytes is null) { Status = "Sunucuya ulaşılamadı ya da dışa aktarım yetkiniz yok; internet bağlantısıyla tekrar deneyin."; return; }
+        var hedef = pdf ? await FilePickerService.SavePdfAsync("Belgeler.pdf") : await FilePickerService.SaveExcelAsync("Belgeler.xlsx");
+        if (hedef is null) return;
+        await System.IO.File.WriteAllBytesAsync(hedef, bytes);
+        Status = (pdf ? "Yazdırma dosyası (PDF) kaydedildi: " : "Excel kaydedildi: ") + hedef;
+    }
+
+    [RelayCommand] private Task ExportExcel() => DisaIndir(false);
+    [RelayCommand] private Task Yazdir() => DisaIndir(true);
+
     private async Task LoadAsync()
     {
         LoadError = null;

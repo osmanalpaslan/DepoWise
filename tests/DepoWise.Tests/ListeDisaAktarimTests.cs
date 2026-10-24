@@ -317,6 +317,29 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("public static async Task<byte[]?> DownloadAsync(string pathAndQuery)", Oku("src/DepoWise.Desktop/OrgServerClient.cs"));
     }
 
+    [Fact]
+    public async Task LD13_Belgeler_Export_Suzgec_Ve_Masaustu_Sunucu_Ucu()
+    {
+        var pdf = System.Text.Encoding.ASCII.GetBytes("%PDF-1.4\ntest\n%%EOF");
+        var mat = Svc.Materials.Create(_s, new DepoWise.Infrastructure.Materials.NewMaterial("LD13-M", "Belge malzemesi"));
+        var kok = Path.Combine(Path.GetTempPath(), "depowise_ld13_" + Guid.NewGuid().ToString("N"));
+        var docs = new DepoWise.Infrastructure.Files.DocumentService(Svc.Factory, new DepoWise.Infrastructure.Files.LocalFileStorageProvider(kok));   // yükleme için dosya deposu (liste/dışa aktarım deposuz çalışır)
+        docs.Save(_s, "company", null, new DepoWise.Infrastructure.Files.DocumentMeta("LD13 Vergi levhası"), "a.pdf", "application/pdf", pdf);
+        docs.Save(_s, "company", null, new DepoWise.Infrastructure.Files.DocumentMeta("LD13 İmza sirküleri"), "b.pdf", "application/pdf", pdf);
+        docs.Save(_s, "material", mat, new DepoWise.Infrastructure.Files.DocumentMeta("LD13 Teknik föy"), "c.pdf", "application/pdf", pdf);
+        Assert.Equal(Svc.Documents.List(_s, "company").Count, await ExcelSatir("/api/documents/export?entityType=company"));
+        Assert.Equal(1, await ExcelSatir("/api/documents/export?entityType=material&search=LD13"));
+        Assert.Equal(Svc.Documents.List(_s, null, null, "LD13").Count, await ExcelSatir("/api/documents/export?search=LD13"));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/documents/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var t = DepoWise.Infrastructure.Files.DocumentListeTablosu.ToTableModel(Svc.Documents.List(_s, "material", null, "LD13"));
+        Assert.Equal("LD13 Teknik föy", Assert.Single(t.Rows)[0]);
+        var web = Oku("src/DepoWise.Web/Components/Pages/Documents.razor");
+        Assert.Contains("var q = SorguParcalari();", web);
+        Assert.Contains("\"/api/documents/export\" + (q.Count > 0", web);
+        Assert.Contains("OrgServerClient.DownloadAsync(\"/api/documents/export\"", Oku("src/DepoWise.Desktop/ViewModels/DocumentsViewModel.cs"));
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/DocumentsView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
