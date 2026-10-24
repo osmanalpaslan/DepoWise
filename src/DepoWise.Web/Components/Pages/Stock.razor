@@ -40,7 +40,8 @@
                 Stok, raporlar ve maliyet merkezi yeni kayda göre güncellenir.
             </MudAlert>
         }
-        <MudRadioGroup T="string" @bind-Value="_kind" Class="mb-1" Disabled="@(_editId is not null)">
+        @* Kullanıcı isteği 2026-10-24: tür değişince sepet boşalır (çıkış listesi girişe — ya da tersi — taşınmasın; masaüstüyle aynı) *@
+        <MudRadioGroup T="string" @bind-Value="_kind" @bind-Value:after="() => { _exitLines.Clear(); }" Class="mb-1" Disabled="@(_editId is not null)">
             <MudRadio T="string" Value="@("Yeni Kayıt")" Color="Color.Primary">Yeni Kayıt</MudRadio>
             <MudRadio T="string" Value="@("Depo Çıkışı")" Color="Color.Primary">Depo Çıkışı</MudRadio>
         </MudRadioGroup>
@@ -156,13 +157,14 @@
                     @if (_exitLines.Count > 0)
                     {
                         <MudSimpleTable Dense="true" Striped="true" Class="mt-2" Style="overflow-x:auto;">
-                            <thead><tr><th>Malzeme</th><th style="width:120px;">Miktar</th><th style="width:90px;"></th></tr></thead>
+                            <thead><tr><th>Malzeme</th><th style="width:120px;">Miktar</th>@if (IsNew) {<th style="width:120px;">Birim Fiyat</th>}<th style="width:90px;"></th></tr></thead>
                             <tbody>
                                 @foreach (var l in _exitLines.ToList())
                                 {
                                     <tr>
                                         <td>@l.Display</td>
                                         <td>@l.Quantity.ToString("0.##")</td>
+                                        @if (IsNew) {<td>@(l.Price is > 0 ? l.Price.Value.ToString("0.##") + " ₺" : "—")</td>}
                                         <td><MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => RemoveExitLine(l))">Çıkar</MudButton></td>
                                     </tr>
                                 }
@@ -849,18 +851,22 @@
         // MASAÜSTÜYLE PARİTE (StockEntryViewModel.Save): alan doğrulaması ÖNCE, onay penceresi SONRA — kullanıcı
         // eksik alanla "kaydedilsin mi?" sorusuna tıklayıp ardından hata görmesin. Onay metni de masaüstüyle
         // AYNI ve yön belirtir (stok ARTAR/AZALIR) — genel "işlem kaydedilsin mi?" yerine.
+        var yalnizSepet = _kind == "Yeni Kayıt" && _exitLines.Count > 0 && _existingMaterial is null
+                          && string.IsNullOrWhiteSpace(_code) && string.IsNullOrWhiteSpace(_name);   // kullanıcı isteği 2026-10-24
         if (_kind == "Yeni Kayıt")
         {
-            if (_existingMaterial is null)   // madde 1.1: mevcut malzeme seçiliyken kart alanları zorunlu DEĞİL
+            if (_existingMaterial is null && !yalnizSepet)   // madde 1.1: mevcut malzeme seçiliyken kart alanları zorunlu DEĞİL
             {
                 if (string.IsNullOrWhiteSpace(_code)) { _msg = "Kod zorunlu."; _ok = false; return; }
                 if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad zorunlu."; _ok = false; return; }
                 if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
             }
             if (_qty < 0) { _msg = "Eklenecek stok negatif olamaz."; _ok = false; return; }
-            var confirmMsg = _existingMaterial is not null
-                ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
-                : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
+            var confirmMsg = _exitLines.Count > 0
+                ? $"{_exitLines.Count + (yalnizSepet ? 0 : 1)} malzemeye TEK belgede stok girişi yapılsın mı? (stok ARTAR)"
+                : _existingMaterial is not null
+                    ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
+                    : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
             if (!await Dialog.Confirm(confirmMsg, "Evet, Kaydet")) return;
         }
         else if (IsInBranch)   // Şube İçi Çıkış = merkez depodan düşer (issue)
@@ -902,7 +908,9 @@
                     quantity = _qty, unitPrice = _price, branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
-                    docDate = DocDateMs()   // STK-11: işlem tarihi (created_at DEĞİL)
+                    docDate = DocDateMs(),   // STK-11: işlem tarihi (created_at DEĞİL)
+                    // Kullanıcı isteği 2026-10-24: Yeni Kayıt sepeti (mevcut malzemeler) — form kalemiyle TEK belgede
+                    extraLines = _exitLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity, unitPrice = l.Price }).ToList(),
                 });
             }
             else if (IsInBranch)   // Şube İçi Çıkış → issue
@@ -954,11 +962,12 @@
     // Masaüstüyle birebir aynı desen: "Listeye Ekle" ile sepet toplanır, Kaydet'te TEK belge oluşur.
     // Liste boş bırakılırsa eski davranış aynen sürer (tek malzeme + miktar).
 
-    private sealed record ExitLine(string MaterialId, string Display, decimal Quantity);
+    private sealed record ExitLine(string MaterialId, string Display, decimal Quantity, decimal? Price = null);
     private readonly List<ExitLine> _exitLines = new();
     private List<ExitLine> _saveLines = new();
 
-    private bool ShowExitLines => !IsNew;
+    /// <summary>Kullanıcı isteği 2026-10-24: sepet Yeni Kayıt'ta da (mevcut malzemeler; miktar + birim fiyat). Düzeltmede kapalı.</summary>
+    private bool ShowExitLines => IsExit || (IsNew && _editId is null);
     private string ExitLinesSummary => _exitLines.Count == 0
         ? "Listeye malzeme eklemeden tek malzeme de kaydedebilirsiniz."
         : $"{_exitLines.Count} malzeme listede — Kaydet'e basınca hepsi TEK belgede işlenir.";
@@ -967,6 +976,7 @@
     private void AddExitLine()
     {
         _msg = null;
+        if (IsNew) { YeniKayitSepeteEkle(); return; }
         if (_material is null) { _msg = "Önce malzeme seçin."; _ok = false; return; }
         if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
         // Aynı malzeme tekrar eklenirse miktarlar TOPLANIR (iki ayrı satır kullanıcıyı yanıltırdı).
@@ -974,6 +984,27 @@
         if (i >= 0) _exitLines[i] = _exitLines[i] with { Quantity = _exitLines[i].Quantity + _qty };
         else _exitLines.Add(new ExitLine(_material.Id, _material.Display, _qty));
         _material = null; _qty = 0; _balance = "";
+    }
+
+    /// <summary>Yeni Kayıt sepeti: yalnız MEVCUT malzeme (formdaki "Mevcut Malzemeye Giriş Yap" seçimi) + miktar + birim fiyat.
+    /// Aynı malzeme tekrar eklenirse miktar toplanır, fiyat miktarla ağırlıklı ortalanır (sunucudaki GirisSatirlari ile aynı).</summary>
+    private void YeniKayitSepeteEkle()
+    {
+        if (_existingMaterial is null) { _msg = "Listeye eklemek için 'Mevcut Malzemeye Giriş Yap' ile bir malzeme seçin (yeni kart formdan kaydedilir)."; _ok = false; return; }
+        if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+        decimal? fiyat = _price > 0 ? _price : null;
+        var i = _exitLines.FindIndex(l => l.MaterialId == _existingMaterial.Id);
+        if (i >= 0)
+        {
+            var e = _exitLines[i];
+            var top = e.Quantity + _qty;
+            decimal? ort = e.Price is null && fiyat is null ? null
+                : Math.Round(((e.Price is > 0 ? e.Quantity * e.Price.Value : 0m) + (fiyat is > 0 ? _qty * fiyat.Value : 0m))
+                    / ((e.Price is > 0 ? e.Quantity : 0m) + (fiyat is > 0 ? _qty : 0m)), 4);
+            _exitLines[i] = e with { Quantity = top, Price = ort };
+        }
+        else _exitLines.Add(new ExitLine(_existingMaterial.Id, $"{_existingMaterial.Code} — {_existingMaterial.Name}", _qty, fiyat));
+        ClearExistingMaterial(); _qty = 0; _price = 0;
     }
 
     private void RemoveExitLine(ExitLine line) => _exitLines.Remove(line);

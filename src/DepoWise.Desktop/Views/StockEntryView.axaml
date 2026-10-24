@@ -196,6 +196,7 @@
                 <!-- ÇOK MALZEMELİ ÇIKIŞ (İş #8, 2026-08-09): eskiden bir çıkış/transfer belgesinde yalnız BİR
                      malzeme olabiliyordu. Artık "Listeye Ekle" ile birkaç malzeme toplanıp TEK belgede kaydedilir.
                      Liste boş bırakılırsa eski davranış aynen sürer (tek malzeme + miktar). -->
+                <!-- Kullanıcı isteği 2026-10-24: sepet Yeni Kayıt'ta da (mevcut malzemeler; miktar + birim fiyat) -->
                 <StackPanel Spacing="8" IsVisible="{Binding ShowExitLines}">
                     <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12">
                         <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddExitLineCommand}"

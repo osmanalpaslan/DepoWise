@@ -714,23 +714,33 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 
         try
         {
+            if (IsEditing && IsNew && ExitLines.Count > 0) { FormError = "Düzeltmede tek kalem düzeltilir; önce listeyi boşaltın."; return; }
             if (IsEditing) { await SaveCorrection(note, inv, ord, crd, op); return; }   // 2026-09-30: düzeltme
             if (IsNew)
             {
                 if (Quantity < 0) { FormError = "Eklenecek stok negatif olamaz."; return; }
-                if (!HasMaterial)
+                // ⭐ Kullanıcı isteği 2026-10-24: sepet doluyken form boş bırakılabilir (yalnız sepet işlenir).
+                var sepet = ExitLines.ToList();
+                var yalnizSepet = sepet.Count > 0 && !HasMaterial && string.IsNullOrWhiteSpace(Code) && string.IsNullOrWhiteSpace(Name);
+                if (!HasMaterial && !yalnizSepet)
                 {
                     if (string.IsNullOrWhiteSpace(Code)) { FormError = "Kod zorunlu."; return; }
                     if (string.IsNullOrWhiteSpace(Name)) { FormError = "Ad zorunlu."; return; }
                     if (SelectedUnit is null) { FormError = "Birim seçin."; return; }
                 }
-                var confirmMsg = HasMaterial
-                    ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
-                    : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
+                var confirmMsg = sepet.Count > 0
+                    ? $"{sepet.Count + (yalnizSepet ? 0 : 1)} malzemeye TEK belgede stok girişi yapılsın mı? (stok ARTAR)"
+                    : HasMaterial
+                        ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
+                        : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
                 if (!await ConfirmService.AskAsync(confirmMsg, "Yeni Kayıt")) return;
 
-                string materialId;
-                if (HasMaterial)
+                // Sepet satırları kart oluşturulmadan ÖNCE doğrulanır (API ile aynı).
+                if (sepet.Count > 0)
+                    DepoWise.Infrastructure.Materials.StockService.GirisSatirlari(sepet.Select(l => new StockLine(l.MaterialId, l.Quantity, l.UnitPrice)));
+                string? materialId = null;
+                if (yalnizSepet) { }
+                else if (HasMaterial)
                 {
                     materialId = SelectedMaterial!.Id;   // madde 1.1: mevcut malzeme — kart alanları değiştirilmez
                 }
@@ -746,9 +756,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                         UnitPrice: UnitPrice, Currency: "TRY",
                         Description: note));
                 }
-                if (Quantity > 0)
+                var girisSatirlari = sepet.Select(l => new StockLine(l.MaterialId, l.Quantity, l.UnitPrice)).ToList();
+                if (materialId is not null && Quantity > 0) girisSatirlari.Insert(0, new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null));
+                if (girisSatirlari.Count > 0)
                     DesktopServices.Stock.ReceiveIn(_session,
-                        new[] { new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
+                        DepoWise.Infrastructure.Materials.StockService.GirisSatirlari(girisSatirlari), op,
                         branchId: EtkinLokasyon, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         docDate: IsGunuTarihi.Ms(DocDate),   // STK-11: işlem tarihi (created_at DEĞİL)
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // giriş şubesi = login şube
@@ -760,7 +772,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 {
                     try
                     {
-                        DesktopServices.Materials.Update(_session, materialId, new UpdateMaterial(
+                        DesktopServices.Materials.Update(_session, materialId!, new UpdateMaterial(
                             Code: _pickedDetail.Code, Name: _pickedDetail.Name, Type: _pickedDetail.Type,
                             CategoryId: _pickedDetail.CategoryId, UnitId: _pickedDetail.UnitId, BrandId: _pickedDetail.BrandId,
                             SupplierId: SelectedSupplier?.Id, MinStock: _pickedDetail.MinStock, UnitPrice: _pickedDetail.UnitPrice,
@@ -769,9 +781,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     catch { }
                 }
 
-                Status = HasMaterial
-                    ? "Mevcut malzemeye stok girişi yapıldı."
-                    : "Yeni kayıt: malzeme oluşturuldu/güncellendi ve stok eklendi.";
+                Status = sepet.Count > 0
+                    ? $"{sepet.Count + (yalnizSepet ? 0 : 1)} malzemeye tek belgede stok girişi yapıldı."
+                    : HasMaterial
+                        ? "Mevcut malzemeye stok girişi yapıldı."
+                        : "Yeni kayıt: malzeme oluşturuldu/güncellendi ve stok eklendi.";
             }
             else
             {
@@ -828,16 +842,19 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     //
     // Geriye uyumluluk: sepet BOŞ bırakılıp tek malzeme + miktar yazılırsa eski davranış aynen sürer.
 
-    public sealed record ExitLine(string MaterialId, string Code, string Name, decimal Quantity)
+    public sealed record ExitLine(string MaterialId, string Code, string Name, decimal Quantity, decimal? UnitPrice = null)
     {
         public string Display => $"{Code} — {Name}";
-        public string QtyDisplay => Quantity.ToString("0.##");
+        public string QtyDisplay => Quantity.ToString("0.##") + (UnitPrice is > 0 ? $" × {UnitPrice:0.##} ₺" : "");
     }
 
     public ObservableCollection<ExitLine> ExitLines { get; } = new();
+    /// <summary>Kayıt tipi değişince sepet boşalır: çıkış sepeti girişe (ya da tersi) taşınmasın.</summary>
+    partial void OnSelectedKindChanged(string value) { if (ExitLines.Count > 0) { ExitLines.Clear(); NotifyExitLines(); } }
 
-    /// <summary>Sepet yalnız Depo Çıkışı'nda görünür (Yeni Kayıt malzeme KARTI oluşturur; oraya sepet uymaz).</summary>
-    public bool ShowExitLines => IsExit;
+    /// <summary>Sepet Depo Çıkışı'nda ve (kullanıcı isteği 2026-10-24) Yeni Kayıt'ta görünür. Yeni Kayıt sepetine yalnız MEVCUT
+    /// malzemeler girer (miktar + birim fiyat); yeni malzeme kartı formdan oluşturulur ve sepetle birlikte TEK belgede işlenir.</summary>
+    public bool ShowExitLines => IsExit || IsNew;
     public bool HasExitLines => ExitLines.Count > 0;
     public string ExitLinesSummary => ExitLines.Count == 0
         ? "Listeye malzeme eklemeden tek malzeme de kaydedebilirsiniz."
@@ -853,11 +870,18 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         var existing = ExitLines.FirstOrDefault(l => l.MaterialId == SelectedMaterial.Id);
         if (existing is not null)
         {
-            ExitLines[ExitLines.IndexOf(existing)] = existing with { Quantity = existing.Quantity + Quantity };
+            // Yeni Kayıt'ta birim fiyat miktarla ağırlıklı ortalanır (stok servisindeki GirisSatirlari ile aynı kural).
+            var birlesik = DepoWise.Infrastructure.Materials.StockService.GirisSatirlari(new[]
+            {
+                new StockLine(existing.MaterialId, existing.Quantity, existing.UnitPrice),
+                new StockLine(existing.MaterialId, Quantity, IsNew && UnitPrice > 0 ? UnitPrice : null),
+            })[0];
+            ExitLines[ExitLines.IndexOf(existing)] = existing with { Quantity = birlesik.Quantity, UnitPrice = IsNew ? birlesik.UnitPrice : null };
         }
         else
         {
-            ExitLines.Add(new ExitLine(SelectedMaterial.Id, SelectedMaterial.Code, SelectedMaterial.Name, Quantity));
+            ExitLines.Add(new ExitLine(SelectedMaterial.Id, SelectedMaterial.Code, SelectedMaterial.Name, Quantity,
+                IsNew && UnitPrice > 0 ? UnitPrice : null));
         }
         ClearPickedMaterial();
         Quantity = 0;

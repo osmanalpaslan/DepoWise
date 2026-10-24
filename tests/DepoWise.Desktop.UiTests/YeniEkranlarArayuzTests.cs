@@ -122,6 +122,42 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>Kullanıcı isteği 2026-10-24: Giriş-Çıkış "Yeni Kayıt"ta da "Listeye Ekle" sepeti görünür; mevcut malzeme miktar ve
+    /// birim fiyatıyla listeye girer; aynı malzeme tekrar eklenince miktar toplanır; tür değişince sepet boşalır.</summary>
+    [AvaloniaFact]
+    public void UIT14_Yeni_Kayit_Coklu_Malzeme_Sepeti()
+    {
+        var s = Ortam();
+        var vm = new StockEntryViewModel(s);
+        var view = new StockEntryView { DataContext = vm };
+        var w = Ac(view);
+        Assert.Equal("Yeni Kayıt", vm.SelectedKind);
+        Assert.True(vm.ShowExitLines);
+        Assert.Contains(Gorunen<Button>(view), b => (b.Content as string) == "+ Listeye Ekle");
+
+        vm.MaterialSearch = "FLT-01";
+        Dispatcher.UIThread.RunJobs();
+        vm.PickMaterialCommand.Execute(vm.MaterialResults.First(m => m.Code == "FLT-01"));
+        vm.Quantity = 4m; vm.UnitPrice = 25m;
+        vm.AddExitLineCommand.Execute(null);
+        vm.MaterialSearch = "FLT-01";
+        Dispatcher.UIThread.RunJobs();
+        vm.PickMaterialCommand.Execute(vm.MaterialResults.First(m => m.Code == "FLT-01"));
+        vm.Quantity = 6m; vm.UnitPrice = 35m;
+        vm.AddExitLineCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var satir = Assert.Single(vm.ExitLines);
+        Assert.Equal(10m, satir.Quantity);
+        Assert.Equal(31m, satir.UnitPrice);   // (4·25 + 6·35) / 10
+        Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "FLT-01 — Yağ Filtresi");
+        Goruntu(w, "giris-yeni-kayit-sepet");
+
+        vm.SelectedKind = "Depo Çıkışı";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(vm.ExitLines);   // giriş listesi çıkışa taşınmaz
+        w.Close();
+    }
+
     [AvaloniaFact]
     public void UIT10_Kiralik_Araclar_Ekrani()
     {

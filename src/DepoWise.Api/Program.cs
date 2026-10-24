@@ -2765,8 +2765,17 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
     if (d.Quantity < 0) throw new ArgumentException("Eklenecek stok negatif olamaz.");
 
-    string materialId;
-    if (!string.IsNullOrWhiteSpace(d.MaterialId))
+    // ⭐ Kullanıcı isteği 2026-10-24: Yeni Kayıt'ta SEPET (ExtraLines: mevcut malzemeler) + formdaki kalem TEK giriş belgesinde.
+    // Sepet doluyken form boş bırakılabilir (yalnız sepet işlenir). Sepet yoksa davranış birebir eskisi gibi.
+    var ekstra = d.ExtraLines ?? new();
+    var yalnizSepet = ekstra.Count > 0 && string.IsNullOrWhiteSpace(d.MaterialId)
+                      && string.IsNullOrWhiteSpace(d.Code) && string.IsNullOrWhiteSpace(d.Name);
+    // Sepet satırları kart oluşturulmadan ÖNCE doğrulanır (geçersiz sepet yüzünden boşuna malzeme kartı açılmasın).
+    if (ekstra.Count > 0)
+        DepoWise.Infrastructure.Materials.StockService.GirisSatirlari(ekstra.Select(x => new DepoWise.Infrastructure.Materials.StockLine(x.MaterialId ?? "", x.Quantity, x.UnitPrice)));
+    string? materialId = null;
+    if (yalnizSepet) { }
+    else if (!string.IsNullOrWhiteSpace(d.MaterialId))
     {
         // madde 1.1 (kullanıcı isteği 2026-08-06): mevcut malzemeye giriş — Kod/Ad/Tür/Birim/Kategori/Alt
         // Kategori/Marka DEĞİŞTİRİLMEZ. Tedarikçi değiştiyse (kullanıcı kararı 2026-08-07) malzeme kartı
@@ -2797,9 +2806,13 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
             d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, 0m, d.UnitPrice, "TRY", Doc(d.Note)));
     }
 
-    if (d.Quantity > 0)
+    var girisSatirlari = new List<DepoWise.Infrastructure.Materials.StockLine>();
+    if (materialId is not null && d.Quantity > 0)
+        girisSatirlari.Add(new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null));
+    girisSatirlari.AddRange(ekstra.Select(x => new DepoWise.Infrastructure.Materials.StockLine(x.MaterialId ?? "", x.Quantity, x.UnitPrice is > 0 ? x.UnitPrice : null)));
+    if (girisSatirlari.Count > 0)
         svc.Stock.ReceiveIn(s,
-            new[] { new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null) },
+            DepoWise.Infrastructure.Materials.StockService.GirisSatirlari(girisSatirlari),
             // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
             string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
             d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note), docDate: d.DocDate,   // STK-11
@@ -5908,7 +5921,10 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
     // STK-11 (2026-08-26): İŞLEM TARİHİ (belgedeki iş günü, Unix ms). OPSİYONELDİR — göndermeyen
     // eski istemcide davranış birebir aynıdır (servis `docDate ?? now` uygular). Bu alan
     // created_at / audit zamanını ETKİLEMEZ; onlar daima gerçek saatten yazılır.
-    long? DocDate = null);
+    long? DocDate = null,
+    // ⭐ Kullanıcı isteği 2026-10-24: Yeni Kayıt sepeti — mevcut malzemeler (miktar + isteğe bağlı birim fiyat). Opsiyonel.
+    List<StockReceiveLineDto>? ExtraLines = null);
+record StockReceiveLineDto(string? MaterialId, decimal Quantity, decimal? UnitPrice);
 /// <summary>İş #8: <c>Lines</c> ÇOK malzemeli işlem içindir. Verilmezse eski tek malzemeli alanlar
 /// (MaterialId + Quantity) kullanılır → mevcut istemciler bozulmaz.</summary>
 record StockLineDto(string MaterialId, decimal Quantity);
