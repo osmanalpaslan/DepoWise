@@ -263,3 +263,103 @@
   listeler, işaretli kayıtları toplu onaylar/reddeder, seçili belgenin kalemlerini gösterir. Tutar eşiği (isteğe bağlı) yapılmadı.
   API `GET /api/approvals/steps/{id}/items`, `POST /api/approvals/bulk`, `POST /api/requests/bulk-decision`.
 - **Testler:** `TekOnayMerkeziTests` TO1–7. Riskli paket (stok/onay/talep/senkron/migration/kaynak-metin) 1333/1333, 37 dk 36 sn (2026-10-19, `artifacts/dw_b5b_paket.trx`).
+
+### B6 — M-34 toplu yakıt dağıtımı (F-074, K-13)
+- **Sorun:** sabah onlarca araca yakıt tek tek giriliyordu.
+- **Değişiklik:** `FuelService.TopluDagit`: tek işlemde (biri hatalıysa hiçbiri yazılmaz), satır başına işlem anahtarı `{op}:{i}`,
+  en çok 200 satır, aynı araç iki kez olamaz; sonda tek onay (`TopluOnayMetni`). Firma "Yakıtı Alan" zorunlu kıldıysa toplu giriş
+  engellenir. Masaüstü yakıt ekranında tablo, web'de toplu panel. API `POST /api/fuel/distribute-bulk`.
+- **Testler:** `TopluYakitTests` TY1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-35 araçtan arıza bildir / iş emri aç (F-077; Migration111)
+- **Sorun:** arızalı araç ile iş emri arasında bağ yoktu; araç durumu elle değiştiriliyordu.
+- **Değişiklik:** Migration111 `work_orders.fault_vehicle_id`. `WorkOrderService.AractanIsEmri`: "Arıza Bildir" aracı "Arızalı"
+  yapar ve taslak iş emri açar (aynı araca ikinci açık arıza açılamaz); "İş Emri Aç" durumu değiştirmez. İş emri tamamlanınca
+  (başka açık arıza yoksa) araç yeniden "Aktif". Arıza süresi saat olarak hesaplanır. Araçlar ekranında iki düğme (iki platform).
+  API `POST /api/vehicles/{id}/work-order`, `GET …/open-fault`.
+- **Testler:** `AracArizaTests` AA1–6. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-36 sayaç kuralları: geçmiş, geçersiz say, geriye tarihli okuma, eski sayaç (F-078; Migration112)
+- **Sorun:** yanlış girilen sayaç (fazladan basamak) aracın sayacını ve bakım uyarılarını kalıcı bozuyordu; düzeltme yolu yoktu.
+- **Değişiklik:** Migration112 `meter_void` / `is_void`. `SayacService`: yakıt + bakım + araç kartı okumaları tek geçmişte;
+  "geçersiz say" (kayıt iptal edilmeden sayaç hesabından çıkar, geri alınabilir; ters kayıt yetkisi + gerekçe, işlem geçmişi);
+  geriye tarihli okuma önceki/sonraki okumayla tutarsızsa UYARI (engel değil); son okuma 30 günden eskiyse uyarı.
+  `VehicleMeterService.Hesapla` geçersiz okumaları dışlar. Araç detayında sayaç geçmişi, yakıt kaydında tutarlılık uyarısı (iki
+  platform). API `meter-history`, `meter-void`, `meter-check`.
+- **Testler:** `SayacKurallariTests` SK1–6. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-37 bakım planı: km/saat "ya da" gün (F-079; Migration113)
+- **Değişiklik:** Migration113 `maintenance_definitions.interval_days`. Bakım tanımına "Ya da (gün)"; sonraki bakım tarihi hesaplanır,
+  uyarıda hangisi önce gelirse o tetikler. Tanım formu iki platformda.
+- **Testler:** `BakimPlaniTests` BP1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-39 kira sözleşmesi, iki yön (F-084, K-19; Migration114)
+- **Değişiklik:** Migration114 `vehicles.rental_party_id / rental_direction` (kiralandı / kiraya verildi). `KiraService`:
+  sözleşme bilgisi (cari, yön, başlangıç-bitiş), dönem raporu (gün, maliyet/gelir), bitişi yaklaşan sözleşme uyarıları. Otomatik
+  cari borç YOK (K-19). Araçlar ekranında kira paneli + rapor (iki platform). API `rental/warnings`, `rental/report`,
+  `{id}/rental-contract`.
+- **Testler:** `KiraSozlesmesiTests` KS1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-41 periyodik kontrol (F-116; Migration115)
+- **Değişiklik:** Migration115. Muayene/kontrol türüne "Periyodik kontrol"; bu türde kontrolü yapan yetkili kişi/firma ve rapor
+  no zorunlu (araç ve ekipman). Rapor, gösterge paneli ve Excel içe aktarma etiketleri güncel. İki platform.
+- **Testler:** `PeriyodikKontrolTests` PK1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-46 zimmet beklenen iade tarihi + gecikme (F-081; Migration116)
+- **Değişiklik:** Migration116 `assignment_due_dates`. Zimmete beklenen iade tarihi; gecikenler listesi (kaç gün gecikti),
+  iade edilince düşer. Zimmet ve personel ekranlarında (iki platform). API `GET /api/assignments/returns`, `PUT …/due-date`.
+- **Testler:** `ZimmetIadeTests` ZI1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-47 zimmet tutanağı (F-082; Migration117)
+- **Değişiklik:** Migration117 `assignment_receipts`. Tutanak oluşturulurken zimmet listesi dondurulur (sonradan değişmez),
+  `ZT-yıl-` numarası; personel kabul/ret eder (ret gerekçeli, karar bir kez); PDF çıktısı (firma adıyla). Personel ekranında
+  (iki platform). API `/api/assignments/receipts` (+ `/pdf`, `/decision`).
+- **Testler:** `ZimmetTutanakTests` ZT1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-48 ekipman taşıma + konum geçmişi (F-058; Migration118)
+- **Değişiklik:** Migration118 `equipment_moves`. `EkipmanTasimaService.Tasi`: şube/konum güncellenir, geçmişe kimden → kime,
+  kullanıcı, not yazılır; tekrar gönderim zararsız; hedef şube firmaya ait ve kullanıcının kapsamında olmalı. Ekipman ekranında
+  (iki platform). API `POST /api/equipment/{id}/move`, `GET …/moves`.
+- **Testler:** `EkipmanTasimaTests` ET1–4. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-44 şüpheli yakıt kayıtları (F-117)
+- **Değişiklik:** `YakitSupheService.Supheliler` — kayıt değişmez, yalnız işaret: sayaç geri, şüpheli sıçrama, çok büyük litre,
+  aracın kendi ortanca tüketiminden 2,5 kat sapma (en az 4 karşılaştırılabilir kayıt varsa), aynı gün aynı araca birden fazla
+  dağıtım. Geçersiz sayılan sayaç sapmaya girmez. Yakıt ekranında açılır liste (iki platform). API `GET /api/fuel/suspicious`.
+- **Testler:** `YakitSupheTests` YS1–4. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-49 formda QR / barkod okutma (F-139, F-026)
+- **Sorun:** QR etiketi vardı ama yalnız genel aramada okunuyordu; yakıt ve zimmet formlarında araç/alet elle aranıyordu.
+- **Değişiklik:** `KodOkutmaService.Bul`: araçta iç kod ya da plaka (boşluksuz), ekipman/malzemede kod — büyük/küçük harf ve okuyucunun
+  satır sonu önemsiz, yalnız TAM eşleşme; iki eşit eşleşmede hiçbiri seçilmez (iç kod plakaya üstün). Yalnız seçer, kayıt formun
+  kendi kurallarından geçer. Yakıt dağıtımı ve zimmet formunda "QR / barkod okut" kutusu (Enter); zimmet teslimde okutulan her
+  kalem listeye eklenir (art arda okutma). İki platform. API `GET /api/scan/resolve?type=&code=`.
+- **Testler:** `KodOkutmaTests` KO1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-50 zimmet kit (set) şablonu (F-083; Migration119)
+- **Sorun:** her yeni işçiye aynı alet/malzeme listesi tek tek seçiliyordu.
+- **Değişiklik:** Migration119 `assignment_kits`. `ZimmetKitService`: teslim listesi adlandırılıp kit olarak saklanır (aynı adlı kit
+  güncellenir), silinebilir; kit yalnız şablondur — hiçbir hareket yazmaz. Kit seçilince kalemler teslim listesine yüklenir, teslim
+  her zamanki tek işlemli toplu teslimden geçer. Kurallar toplu teslimle aynı (ekipman 1 adet ve tekrar yok, kalem firmaya ait);
+  silinmiş kalem "mevcut değil" görünür ve yüklenmez. Zimmet ekranında (iki platform). API `GET/POST /api/assignments/kits`,
+  `DELETE …/{id}`. "Zimmet talebi" kısmı yapılmadı (mevcut Talepler ekranı kullanılır — bkz. 11).
+- **Testler:** `ZimmetKitTests` ZK1–4. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-43 günlük makine kontrol listesi (F-087; Migration120)
+- **Sorun:** vardiya başı makine kontrolünün (İSG) kaydı yoktu.
+- **Değişiklik:** Migration120 `daily_check_templates` + `daily_checks`. `GunlukKontrolService`: firmanın madde listesi (yalnız
+  yönetici düzenler; yoksa varsayılan 10 madde), araç başına günlük kontrol kaydı (madde: uygun / uygun değil + not; değişmez kayıt,
+  tekrar gönderim tek kayıt). Uygun olmayan madde varsa ve istenirse aynı anda "Arıza Bildir" (M-35) çalışır: araç Arızalı, taslak
+  arıza iş emri, kayda bağ; açık arıza zaten varsa iş emri açılmaz, kontrol yine kaydedilir ve uyarı döner. Araç detayında
+  (iki platform). API `GET/PUT /api/daily-checks/items`, `POST /api/vehicles/{id}/daily-check`, `GET …/daily-checks`.
+- **Testler:** `GunlukKontrolTests` GK1–5. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-38 arıza duruş süresi raporu (F-080)
+- **Değişiklik:** durum akışı M-35 ile zaten var (arızalı → iş emri → tamamlandı). `WorkOrderService.DurusRaporu`: dönemdeki arıza
+  iş emirlerinden araç başına arıza sayısı, açık arıza ve toplam duruş saati (bildirim → tamamlanma; açık arıza bugüne kadar; döneme
+  taşan kısım kesilir; iptal sayılmaz). Araç listesinde "Arıza duruş süresi raporu" (iki platform). API `GET /api/vehicles/downtime`.
+- **Testler:** `DurusRaporuTests` DR1–3. Tam takım (B5+B6) 4385/4385, 1 sa 54 dk (2026-10-20, `artifacts/dw_tam_b56.trx`).
+
+### B6 — M-40 iç kira fiyatıyla şantiye makine maliyeti (F-085, F-086) — ERTELENDİ
+- İsteğe bağlı ve büyük (L); K-02'ye (ön muhasebe + Logo/Mikro aktarımı) bağlı. Önerim: B8 (muhasebe/aktarım) işleri bittikten sonra
+  ele alınsın; maliyet merkezine iç kira yazımı muhasebe aktarım biçimiyle birlikte tasarlanmalı. 11'e not düşüldü.

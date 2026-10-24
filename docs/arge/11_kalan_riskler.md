@@ -91,3 +91,27 @@
   geri almak için liste ekranı yok — ileride "son aktarımlar" listesi eklenebilir (kimlikler işlem geçmişinde duruyor).
 - Parti araması `audit_logs.correlation_id` üzerinde indekssiz (firma filtresiyle); seyrek yapılan bir yönetici işlemi olduğu için
   kabul edildi. Büyük geçmişte yavaşlarsa yalnız ekleme bir indeks yeterli.
+
+## Araç / yakıt / bakım (B6: M-34…M-44)
+- **M-34:** toplu yakıtta "Yakıtı Alan" zorunluysa toplu giriş kapalı (satır başına personel seçimi yok).
+- **M-35:** alarm ekranından doğrudan iş emri açma yapılmadı (yalnız Araçlar ekranından). Masaüstü `AlertsView.axaml`'de
+  kullanıcının commitlenmemiş satır sonu farkı olduğu için o dosyaya dokunulmadı.
+- **M-36:** "geçersiz say" yalnız tek tek yapılır; toplu geçersiz sayma yok. Eski sayaç uyarısı sabit 30 gün (firma ayarı yok).
+- **M-41:** periyodik kontrol rapor dosyası (PDF) eklenemiyor; yalnız rapor numarası tutulur.
+- **M-44:** şüpheli liste yalnız işaret eder; "incelendi" olarak kapatma yok (kayıt düzeltilince düşer; sayaç geçersiz sayılınca yalnız sayaç kaynaklı nedenler düşer).
+  Eşikler sabit (2,5 kat, en az 4 kayıt).
+
+## Zimmet / ekipman (B6: M-46…M-48)
+- **M-46:** iade tarihi aşımı yalnız listede görünür; bildirim/e-posta yok.
+- **M-47:** kabul/ret kararını zimmet düzenleme yetkisi olan kullanıcı işler (personelin kendi uygulama hesabıyla onaylaması yok).
+  Islak imza için PDF yazdırılır.
+- **M-48:** taşıma geçmişi yalnız yeni taşımalardan başlar; eski konum değişiklikleri geçmişe aktarılmadı.
+- **M-50:** "zimmet talebi" (personelin alet istemesi + onay) yapılmadı; mevcut Talepler ekranıyla istenir. Alet → araç zimmeti yok.
+- **M-49:** okutma yalnız yakıt dağıtımı ve zimmet formunda; bakım/iş emri formlarında yok. Kamera ile okutma yok (USB/Bluetooth
+  okuyucu klavye gibi yazar).
+
+## Günlük kontrol / duruş (B6: M-43, M-38)
+- **M-43:** madde listesi firma genelinde tek (araç tipine göre farklı liste yok). Kontrol yapılmayan gün için uyarı yok.
+- **M-38:** duruş süresi takvim saatidir (mesai/hafta sonu ayrımı yok); tamamlanma zamanı iş günü olarak yazıldığından gün içi
+  saat hassasiyeti sınırlıdır.
+- **M-40 (ertelendi):** iç kira fiyatıyla şantiye makine maliyeti — K-02 muhasebe aktarımıyla birlikte (B8 sonrası) tasarlanacak.
