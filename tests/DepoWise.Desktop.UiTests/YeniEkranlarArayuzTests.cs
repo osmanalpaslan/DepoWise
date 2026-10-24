@@ -94,6 +94,34 @@ public class YeniEkranlarArayuzTests
     private static IEnumerable<T> Gorunen<T>(Control kok) where T : Control
         => kok.GetVisualDescendants().OfType<T>().Where(c => c.IsEffectivelyVisible);
 
+    /// <summary>Kullanıcı isteği 2026-10-24: Sayım Girişi'nde malzeme aranırken sonuçlarda KOD — AD görünür; "Listeye Ekle" sonrası
+    /// listedeki satırda da kod ve ad birlikte görünür.</summary>
+    [AvaloniaFact]
+    public void UIT13_Sayim_Arama_ve_Liste_Kod_Ad()
+    {
+        var s = Ortam();
+        var vm = new StockCountViewModel(s);
+        var view = new StockCountView { DataContext = vm };
+        var w = Ac(view);
+        vm.MaterialSearch = "Yağ Filtresi";   // ADLA arama
+        Dispatcher.UIThread.RunJobs();
+        var sonuc = Gorunen<Button>(view).Select(b => b.Content as string).Where(x => x is not null).ToList();
+        Assert.Contains("FLT-01 — Yağ Filtresi", sonuc);
+        Assert.DoesNotContain("Yağ Filtresi", sonuc);   // yalnız ad görünmez
+        Goruntu(w, "sayim-arama-kod-ad");
+
+        vm.PickMaterialCommand.Execute(vm.MaterialResults.First(m => m.Code == "FLT-01"));
+        Assert.Equal("FLT-01 — Yağ Filtresi", vm.MaterialSearch);   // seçilen malzeme kutuda da KOD — AD
+        vm.CountedQty = 3m;
+        vm.AddCountLineCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var metinler = Gorunen<TextBlock>(view).Select(t => t.Text).ToList();
+        Assert.Contains("FLT-01", metinler);        // listede kod kolonu
+        Assert.Contains("Yağ Filtresi", metinler);  // ve ad kolonu
+        Goruntu(w, "sayim-liste-kod-ad");
+        w.Close();
+    }
+
     [AvaloniaFact]
     public void UIT10_Kiralik_Araclar_Ekrani()
     {

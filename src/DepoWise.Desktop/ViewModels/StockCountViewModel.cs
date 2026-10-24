@@ -344,7 +344,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
     {
         if (m is null) return;
         SelectedMaterial = m;
-        MaterialSearch = $"{m.Code} - {m.Name}";
+        MaterialSearch = m.Display;   // KOD — AD (arama listesiyle aynı biçim)
         MaterialResults.Clear();
         // 🔴 STK-05 (D-2): sistem miktarı SAYILAN DEPONUN bakiyesidir. Eskiden firma geneli toplam okunuyordu
         // → kullanıcı 10'luk depoyu sayarken ekranda 15 görüp farkı yanlış hesaplardı (servis doğru yazıyordu).

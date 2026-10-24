@@ -38,10 +38,11 @@
                         </Grid>
                         <Border Classes="Table" MaxHeight="130" IsVisible="{Binding MaterialResults.Count}">
                             <ScrollViewer>
+                                <!-- Kullanıcı isteği 2026-10-24: arama sonucunda KOD — AD (yalnız ad aynı adlı malzemeleri ayırt ettirmiyordu) -->
                                 <ItemsControl ItemsSource="{Binding MaterialResults}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="m:MaterialRefRow">
-                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Name}"
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Display}"
                                                     Command="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).PickMaterialCommand}"
                                                     CommandParameter="{Binding}"/>
                                         </DataTemplate>
