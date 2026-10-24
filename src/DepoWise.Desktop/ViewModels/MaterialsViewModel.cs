@@ -790,8 +790,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
 
     partial void OnShowAddChanged(bool value) { if (!value) FlushPendingRefresh(); }
 
+    /// <summary>⭐ M-56 (F-090): seçili kayda bağlı belgeler (kartta; sunucudan).</summary>
+    public KayitBelgeleriPaneli Belgeler { get; } = new();
+
     partial void OnSelectedChanged(MaterialRow? value)
     {
+        _ = Belgeler.YukleAsync("material", value?.Id);   // ⭐ M-56
         ConfirmDelete = false;
         if (value is null)
         {

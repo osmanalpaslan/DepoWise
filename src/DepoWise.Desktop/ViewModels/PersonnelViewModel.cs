@@ -171,8 +171,12 @@ public sealed partial class PersonnelViewModel : ViewModelBase, IKayitLoguKaynag
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
     }
 
+    /// <summary>⭐ M-56 (F-090): seçili kayda bağlı belgeler (kartta; sunucudan).</summary>
+    public KayitBelgeleriPaneli Belgeler { get; } = new();
+
     partial void OnSelectedChanged(PersonnelRowVm? value)
     {
+        _ = Belgeler.YukleAsync("personnel", value?.Record.Id);   // ⭐ M-56
         Zimmetleri.Clear();
         if (value is not null) TutanaklariYukle(value.Record.Id); else { Tutanaklar.Clear(); OnPropertyChanged(nameof(HasTutanak)); }
         if (value is not null)

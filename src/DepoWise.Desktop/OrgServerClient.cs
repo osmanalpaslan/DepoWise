@@ -36,10 +36,11 @@ public static class OrgServerClient
         string EntityLabel, string Title, string? DocType, long? ValidFrom, long? ValidUntil,
         string? Description, string FileName, string? Mime, long? SizeBytes, long CreatedAt, long Version);
 
-    public static async Task<List<DocumentItem>?> ListDocumentsAsync(string? entityType, string? search)
+    public static async Task<List<DocumentItem>?> ListDocumentsAsync(string? entityType, string? search, string? entityId = null)
     {
         var q = new List<string>();
         if (!string.IsNullOrWhiteSpace(entityType)) q.Add("entityType=" + Uri.EscapeDataString(entityType!));
+        if (!string.IsNullOrWhiteSpace(entityId)) q.Add("entityId=" + Uri.EscapeDataString(entityId!));   // ⭐ M-56: tek kaydın belgeleri
         if (!string.IsNullOrWhiteSpace(search)) q.Add("search=" + Uri.EscapeDataString(search!.Trim()));
         using var doc = await GetJsonAsync("/api/documents" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
         if (doc is null) return null;

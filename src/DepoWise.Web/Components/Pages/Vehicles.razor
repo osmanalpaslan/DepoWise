@@ -88,6 +88,8 @@
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2 ml-2" Disabled="_busy" OnClick="@(() => AractanIsEmri(false))">İş Emri Aç</MudButton>
                 </MudTooltip>
             }
+            @* ⭐ M-56 (F-090): kayda bağlı belgeler (masaüstü kartındaki "Belgeler" sekmesiyle aynı) *@
+            <KayitBelgeleri EntityType="vehicle" EntityId="@_editId" />
             @* ⭐ M-36: SAYAÇ GEÇMİŞİ + eski sayaç uyarısı + "geçersiz say" (masaüstüyle aynı) *@
             @if (_eskiSayac is not null) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@_eskiSayac</MudAlert> }
             @if (_sayacGecmisi.Count > 0)

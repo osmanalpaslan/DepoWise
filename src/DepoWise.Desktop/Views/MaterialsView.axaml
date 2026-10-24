@@ -822,6 +822,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
+                <ctrl:KayitBelgeleri DataContext="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).Belgeler}" Margin="0,8,0,8"/>
                 <!-- İşlem Geçmişi (madde 4, kullanıcı isteği 2026-08-06): TÜM stok hareketleri, kronolojik.
                      Çift tık → salt-okunur detay + "Kaydı Görüntüle" (madde 5). -->
                 <SelectableTextBlock Text="İŞLEM GEÇMİŞİ" Classes="SectionTitle"/>

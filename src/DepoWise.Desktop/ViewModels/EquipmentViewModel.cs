@@ -65,8 +65,12 @@ public sealed partial class EquipmentViewModel : ViewModelBase, IKayitLoguKaynag
     [ObservableProperty] private string _tasimaNot = "";
     private string _tasimaIslem = Guid.NewGuid().ToString("N");
 
+    /// <summary>⭐ M-56 (F-090): seçili kayda bağlı belgeler (kartta; sunucudan).</summary>
+    public KayitBelgeleriPaneli Belgeler { get; } = new();
+
     partial void OnSelectedChanged(EquipmentRow? value)
     {
+        _ = Belgeler.YukleAsync("equipment", value?.Id);   // ⭐ M-56
         KonumGecmisi.Clear();
         TasimaSube = null; TasimaKonum = ""; TasimaNot = "";
         if (value is not null)

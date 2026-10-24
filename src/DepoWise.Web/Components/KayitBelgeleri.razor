@@ -1,0 +1,67 @@
+@* ⭐ M-56 (AR-GE 2026-10-24, F-090): KAYIT KARTINDA "BELGELER" — kayda bağlı evraklar kartın içinde görünür ve indirilir.
+   Masaüstündeki Controls/KayitBelgeleri ile aynı: aynı uç (/api/documents?entityType=&entityId=), aynı geçerlilik metni.
+   Yetki sunucuda (belgenin bağlı olduğu kaydın ekran yetkisi). *@
+@using System.Text.Json
+@inject ApiClient Api
+@inject IJSRuntime JS
+
+<MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">BELGELER (@_rows.Count)</MudText>
+@foreach (var d in _rows)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <div style="flex:1">
+            <MudText Typo="Typo.body2">@Str(d, "title")</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@Alt(d)</MudText>
+        </div>
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => Indir(d))" Title="@Str(d, "fileName")">İndir</MudButton>
+    </MudStack>
+}
+@if (_durum is not null) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@_durum</MudText> }
+
+@code {
+    [Parameter] public string EntityType { get; set; } = "";
+    [Parameter] public string? EntityId { get; set; }
+
+    private List<JsonElement> _rows = new();
+    private string? _durum;
+    private string? _yuklenen;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var anahtar = EntityType + ":" + EntityId;
+        if (anahtar == _yuklenen) return;
+        _yuklenen = anahtar;
+        _rows = new(); _durum = null;
+        if (string.IsNullOrEmpty(EntityId)) return;
+        try
+        {
+            _rows = (await Api.GetArrayAsync($"/api/documents?entityType={Uri.EscapeDataString(EntityType)}&entityId={Uri.EscapeDataString(EntityId)}")).ToList();
+            _durum = _rows.Count == 0 ? "Bu kayda bağlı belge yok — Belgeler ekranından eklenebilir." : null;
+        }
+        catch { _durum = "Belgeler alınamadı."; }
+    }
+
+    /// <summary>Masaüstü KayitBelgeleriPaneli.GecerlilikMetni ile aynı metin.</summary>
+    public static string GecerlilikMetni(long? validUntil, long simdi)
+    {
+        if (validUntil is not { } bit) return "";
+        var gun = DateTimeOffset.FromUnixTimeMilliseconds(bit).UtcDateTime.ToString("dd.MM.yyyy");
+        return bit < simdi ? $"SÜRESİ DOLDU ({gun})" : $"geçerli: {gun}";
+    }
+
+    private static string Alt(JsonElement d)
+    {
+        long? bit = d.TryGetProperty("validUntil", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
+        return string.Join(" · ", new[] { Str(d, "docType"), GecerlilikMetni(bit, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+    }
+
+    private static string Str(JsonElement e, string p) => e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private async Task Indir(JsonElement d)
+    {
+        var (bytes, name) = await Api.GetFileAsync($"/api/documents/{Str(d, "id")}/download", Str(d, "fileName"));
+        if (bytes is null) { _durum = "Dosya indirilemedi (yetki yok ya da dosya bulunamadı)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes), "application/octet-stream");
+    }
+}

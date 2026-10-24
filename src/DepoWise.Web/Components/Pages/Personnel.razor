@@ -59,6 +59,8 @@
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE")</MudText>
+        @* ⭐ M-56 (F-090): kayda bağlı belgeler (masaüstü kartıyla aynı) *@
+        @if (_editId is not null) { <KayitBelgeleri EntityType="personnel" EntityId="@_editId" /> }
 
         @if (_dups.Count > 0)
         {

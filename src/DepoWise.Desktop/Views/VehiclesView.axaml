@@ -1087,6 +1087,10 @@
                   <!-- İŞLEM GEÇMİŞİ (madde 4/5, kullanıcı isteği 2026-08-06): Günlük Faaliyet hareketleri +
                        sistem olayları (oluşturma/transfer/güncelleme/sayaç) birleşik, kronolojik. Çift tık →
                        salt-okunur detay + (varsa) "Kaydı Görüntüle". -->
+                  <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
+                  <TabItem Header="Belgeler">
+                    <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}" Margin="0,8,0,0"/>
+                  </TabItem>
                   <TabItem Header="İşlem Geçmişi">
                     <ScrollViewer>
                       <ListBox x:Name="HistoryList" ItemsSource="{Binding VehicleMovements}" Margin="0,8,0,0"

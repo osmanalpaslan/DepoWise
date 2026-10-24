@@ -22,6 +22,8 @@
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ EKİPMAN" : "EKİPMAN DÜZENLE")</MudText>
+        @* ⭐ M-56 (F-090): kayda bağlı belgeler (masaüstü kartıyla aynı) *@
+        @if (_editId is not null) { <KayitBelgeleri EntityType="equipment" EntityId="@_editId" /> }
         @* ⭐ M-48 (F-058): taşıma hareketi + konum geçmişi (masaüstüyle aynı servis) *@
         @if (_editId is not null && Auth.CanEdit("equipment"))
         {

@@ -132,6 +132,8 @@
                                    IsVisible="{Binding Selected.Location, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
                                    IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
+                        <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}" Margin="0,8,0,8"/>
                         <!-- ⭐ M-48: TAŞIMA + KONUM GEÇMİŞİ -->
                         <Border Classes="Divider"/>
                         <SelectableTextBlock Text="TAŞI" Classes="SectionTitle" IsVisible="{Binding CanEdit}"/>

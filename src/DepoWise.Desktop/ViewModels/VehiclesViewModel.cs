@@ -1055,8 +1055,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
 
     partial void OnShowAddChanged(bool value) { if (!value) FlushPendingRefresh(); }
 
+    /// <summary>⭐ M-56 (F-090): seçili kayda bağlı belgeler (kartta; sunucudan).</summary>
+    public KayitBelgeleriPaneli Belgeler { get; } = new();
+
     partial void OnSelectedChanged(VehicleRow? value)
     {
+        _ = Belgeler.YukleAsync("vehicle", value?.Id);   // ⭐ M-56
         if (value is null)
         {
             Detail = null; DetailPhotos.Clear(); ClearVehicleTabs();

@@ -128,6 +128,8 @@
                 <SelectableTextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                 <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
+                <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}" Margin="0,8,0,8"/>
                 <!-- ⭐ M-47: zimmet tutanağı -->
                 <Button Classes="Secondary" Content="Zimmet Tutanağı" Command="{Binding TutanakOlusturCommand}" IsVisible="{Binding HasZimmet}"
                         ToolTip.Tip="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir."/>

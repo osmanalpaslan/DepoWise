@@ -227,6 +227,9 @@
             </MudAlert>
         }
 
+        @* ⭐ M-56 (F-090): kayda bağlı belgeler (masaüstü kartıyla aynı) *@
+        @if (_editId is not null) { <KayitBelgeleri EntityType="material" EntityId="@_editId" /> }
+
         @* İşlem Geçmişi (A3 + madde 4/5, 2026-08-06) — salt-okunur; tıklayınca detay + "Kaydı Görüntüle". *@
         @if (_editId is not null && _movements is not null)
         {

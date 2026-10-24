@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             x:Class="DepoWise.Desktop.Controls.KayitBelgeleri"
+             x:DataType="vm:KayitBelgeleriPaneli">
+    <!-- ⭐ M-56 (F-090): kayıt kartında bağlı belgeler — ortak denetim (Malzeme, Araç, Ekipman, Personel kartları kullanır). -->
+    <StackPanel Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <SelectableTextBlock Text="{Binding Baslik}" Classes="Helper" VerticalAlignment="Center"/>
+            <Button Classes="Ghost" Content="Belgeleri Göster" Command="{Binding GosterCommand}" IsVisible="{Binding KayitVar}"
+                    ToolTip.Tip="Bu kayda bağlı belgeleri sunucudan getirir (internet gerekir)."/>
+        </StackPanel>
+        <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding HasItems}" MaxHeight="200">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BelgeSatiri">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                        <StackPanel Grid.Column="0" Spacing="0">
+                            <SelectableTextBlock Text="{Binding Title}" Classes="Body" TextWrapping="Wrap"/>
+                            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                                 Text="{Binding Alt}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="Ghost" Content="İndir" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding $parent[ItemsControl].((vm:KayitBelgeleriPaneli)DataContext).IndirCommand}"
+                                CommandParameter="{Binding}" ToolTip.Tip="{Binding FileName}"/>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <SelectableTextBlock Text="{Binding Durum}" Classes="Helper" TextWrapping="Wrap"
+                             IsVisible="{Binding Durum, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+    </StackPanel>
+</UserControl>
