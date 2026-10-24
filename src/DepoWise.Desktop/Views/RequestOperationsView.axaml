@@ -130,14 +130,14 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <Button Classes="Primary" HorizontalAlignment="Stretch" Content="Stoktan Gönder"
-                                Command="{Binding StoktanGonderCommand}" IsVisible="{Binding HasKarsilama}"
+                                Command="{Binding StoktanGonderCommand}" IsVisible="{Binding KarsilamaYapabilir}"
                                 ToolTip.Tip="Girilen miktarları gönderen şubeden gidecek şubeye transfer eder (stok defterine yazılır, talebe bağlanır)."/>
-                        <ctrl:FormField Label="Tedarikçi (sipariş için)" IsVisible="{Binding HasKarsilama}">
+                        <ctrl:FormField Label="Tedarikçi (sipariş için)" IsVisible="{Binding KarsilamaYapabilir}">
                             <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}"
                                             SelectedItem="{Binding KarsilamaTedarikci}" PlaceholderText="Tedarikçi seç / ara..."/>
                         </ctrl:FormField>
                         <Button Classes="Secondary" HorizontalAlignment="Stretch" Content="Kalan İçin Sipariş Aç"
-                                Command="{Binding SiparisAcCommand}" IsVisible="{Binding HasKarsilama}"
+                                Command="{Binding SiparisAcCommand}" IsVisible="{Binding KarsilamaYapabilir}"
                                 ToolTip.Tip="Stoktan karşılanamayan kalan miktarlar için talebe bağlı satın alma siparişi açar (numara otomatik)."/>
 
                         <!-- Durum değiştirme: YALNIZ izin verilen geçişler listelenir -->

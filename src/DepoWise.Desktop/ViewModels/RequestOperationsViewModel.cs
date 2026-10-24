@@ -70,13 +70,15 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
     [ObservableProperty] private ProjectPick? _karsilamaTedarikci;
     [ObservableProperty] private string? _karsilamaOzeti;
     public bool HasKarsilama => Karsilama.Count > 0;
+    /// <summary>Denetim B5+B6: karşılama düğmeleri yalnız düzenleme yetkisiyle görünür (web _canEdit ile aynı; asıl kapı serviste).</summary>
+    public bool KarsilamaYapabilir => HasKarsilama && CanEdit;
     private string _gonderimIslemi = Guid.NewGuid().ToString("N");
 
     private void KarsilamaYukle()
     {
         Karsilama.Clear();
         KarsilamaOzeti = null;
-        if (Selected is null) { OnPropertyChanged(nameof(HasKarsilama)); return; }
+        if (Selected is null) { OnPropertyChanged(nameof(HasKarsilama)); OnPropertyChanged(nameof(KarsilamaYapabilir)); return; }
         try
         {
             var d = DesktopServices.TalepKarsilama.Durum(_session, Selected.Id, FromBranch?.Id);
@@ -85,7 +87,7 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
                 string.IsNullOrEmpty(d.FromBranchId) ? " — kaynak depo stoğunu görmek için «Gönderen Şube» seçin." : "");
         }
         catch (Exception ex) { KarsilamaOzeti = "Karşılama bilgisi alınamadı: " + ex.Message; }
-        OnPropertyChanged(nameof(HasKarsilama));
+        OnPropertyChanged(nameof(HasKarsilama)); OnPropertyChanged(nameof(KarsilamaYapabilir));
     }
 
     partial void OnFromBranchChanged(BranchRow? value) => KarsilamaYukle();

@@ -1139,6 +1139,7 @@
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
         await LoadDetailPhotos(_editId);   // ADR-182: kayıtlı fotoğraflar düzenleme formunda görünür/silinebilir
         await SayacGecmisiYukle(_editId);  // ⭐ M-36
+        _kiraCari = null; _kiraYon = "in";  // ⭐ M-39 (denetim): önceki aracın cari/yönü yeni araca taşınmasın
         await GunlukKontrolYukle(_editId); // ⭐ M-43
         _template = NullS(d, "templateId"); _lastTemplate = _template;   // mevcut şablon bağı (diff prefill tetiklemesin)
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");

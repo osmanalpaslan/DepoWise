@@ -235,9 +235,7 @@ VALUES(@id,@c,@sup,@lt,@pr,@cur,@fx,@inv,@note,@dt,@op,@opb,@now,@now,1,0);";
 
     /// <summary>⭐ M-34: toplu dağıtımın tek onay metni (iki platform aynı cümle).</summary>
     public static string TopluOnayMetni(int satir, decimal litre, decimal tutar, int uyari)
-        => $"{satir} araca toplam {litre:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {tutar:0.##} ₺)" +
-           (uyari > 0 ? $"\n⚠ {uyari} satırda uyarı var (sayaç geri / şüpheli sıçrama / çok büyük litre) — kontrol ettiyseniz devam edin." : "") +
-           "\nTek işlemde kaydedilir: biri bile hatalıysa hiçbiri yazılmaz.";
+        => DepoWise.Application.Ui.TopluYakitMetni.Onay(satir, litre, tutar, uyari);   // tek kaynak (web de kullanır)
 
     /// <summary>
     /// Dağıtımın ÇEKİRDEĞİ — AÇIK bir transaction içinde çalışır; commit ÇAĞIRANIN işidir.

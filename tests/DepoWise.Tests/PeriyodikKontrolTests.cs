@@ -125,7 +125,10 @@ public class PeriyodikKontrolTests : IDisposable
         Assert.Contains("Inspector: IsPeriodicType ? FInspector : null", Oku("src/DepoWise.Desktop/ViewModels/InspectionViewModel.cs"));
         Assert.Contains("{Binding FInspector}", Oku("src/DepoWise.Desktop/Views/InspectionView.axaml"));
         var web = Oku("src/DepoWise.Web/Components/Pages/Inspection.razor");
-        Assert.Contains("Value=\"@(\"periodic\")\"", web);
+        // Web belge türü listesi masaüstüyle TEK kaynaktan (InspectionDocTypes.All — "periodic" yukarıda testli); elle yazılmış liste kalmadı.
+        Assert.Contains("@foreach (var (key, label) in DepoWise.Application.Ui.InspectionDocTypes.All)", web);
+        Assert.DoesNotContain("Value=\"@(\"inspection\")\"", web);
+        Assert.Contains("DocLabel => DepoWise.Application.Ui.InspectionDocTypes.Label(_docType)", web);
         Assert.Contains("inspector = _docType == \"periodic\"", web);
     }
 }

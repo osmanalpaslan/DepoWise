@@ -199,7 +199,7 @@
         {
             var err = await Api.PostAsync($"/api/equipment/{_editId}/move", new { branchId = _tasimaSube, location = _tasimaKonum, note = _tasimaNot, operationId = _tasimaIslem });
             _ok = err is null; _msg = err ?? "Ekipman taşındı; konum geçmişine yazıldı.";
-            if (_ok) { _tasimaIslem = Guid.NewGuid().ToString("N"); _branchId = _tasimaSube; _location = _tasimaKonum; _tasimaSube = null; _tasimaKonum = _tasimaNot = ""; await KonumGecmisiYukle(); }
+            if (_ok) { _tasimaIslem = Guid.NewGuid().ToString("N"); if (_tasimaSube is not null) _branchId = _tasimaSube; if (!string.IsNullOrWhiteSpace(_tasimaKonum)) _location = _tasimaKonum; /* denetim B5+B6: boş değer formu ezmez */ _tasimaSube = null; _tasimaKonum = _tasimaNot = ""; await KonumGecmisiYukle(); }
         }
         finally { _busy = false; }
     }

@@ -38,6 +38,8 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, AssignmentService.Module, PermissionAction.Create);
+    /// <summary>Denetim B5+B6 (M-46): iade tarihi vermek zimmet DÜZENLEME yetkisi ister (servis kapısı + web ile aynı).</summary>
+    public bool CanEdit => AccessControl.Can(_session, AssignmentService.Module, PermissionAction.Edit);
     public bool CanExport => AccessControl.Can(_session, "export", PermissionAction.View);
     /// <summary>TRH-01: tarih alanı yetki yoksa bugüne kilitli (servis de normalleştirir).</summary>
     public bool CanBackDate => DepoWise.Application.Security.DateEntryPolicy.Serbest(_session);

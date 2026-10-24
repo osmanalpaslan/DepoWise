@@ -199,6 +199,7 @@ else
 
     private async Task Onayla(Satir r)
     {
+        if (!await Dialog.Confirm($"\"{r.DocNo}\" ({r.EntityLabel}) için işlemi onaylıyor musunuz?", "Onayla")) return;   // denetim: masaüstüyle aynı onay
         _islemde = true; _bilgi = null;
         try
         {

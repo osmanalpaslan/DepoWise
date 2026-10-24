@@ -29,11 +29,7 @@
             </MudItem>
             <MudItem xs="6" md="3">
                 <MudSelect T="string" @bind-Value="_docType" Label="Belge Tipi" Margin="Margin.Dense" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("inspection")">Muayene</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("insurance")">Sigorta</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("kasko")">Kasko</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("calibration")">Kalibrasyon</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("periodic")">Periyodik Kontrol</MudSelectItem>
+                    @foreach (var (key, label) in DepoWise.Application.Ui.InspectionDocTypes.All) { <MudSelectItem T="string" Value="@key">@label</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_lastDate" Label="Son Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -192,7 +188,7 @@
     // 🔴 GUI hatası (2026-08-12): Kind=Local tarihte eski desen istisna atıyordu (Reports'ta
     // "tarih seçmeden Sorgula" akışında gerçekten patladı). TEK kaynağa taşındı.
     private static long? Ms(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d);
-    private string DocLabel => _docType switch { "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => _docType };
+    private string DocLabel => DepoWise.Application.Ui.InspectionDocTypes.Label(_docType);   // denetim: masaüstüyle tek kaynak (periyodik dahil)
 
     private async Task Save()
     {

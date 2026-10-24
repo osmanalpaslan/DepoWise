@@ -17,35 +17,49 @@
     Uygulamaya girmeyecek kişiler için <b>“Saha personeli”</b> kutucuğunu işaretleyin.
 </MudText>
 
-@if (Auth.CanCreate("personnel"))
+@* ⭐ M-46/M-47 (F-081/F-082): personelin ZİMMETLERİ + imzalı zimmet tutanağı — görme yetkisi yeter (masaüstü seçim paneliyle aynı);
+   tutanak oluşturma zimmet yazma, kabul/ret zimmet düzenleme yetkisi ister (servis de aynı kapıyı uygular). *@
+@if (_zimmetKisiId is not null && Auth.CanView("assignments"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
-        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE")</MudText>
-
-        @* ⭐ M-46 (F-081): personel kartında ZİMMETLERİ (masaüstüyle aynı servis) *@
-        @if (_editId is not null && _zimmetler.Count > 0)
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.subtitle1" Style="flex:1">ZİMMETLERİ — @_zimmetKisiAd</MudText>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ZimmetPaneliAc(null, null))">Kapat</MudButton>
+        </MudStack>
+        @if (_zimmetler.Count == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">Üzerinde zimmet yok.</MudText> }
+        else
         {
             <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">
                 <b>Zimmetleri (@_zimmetler.Count):</b>
                 @foreach (var z in _zimmetler) { <div>@Str(z, "summary")</div> }
             </MudAlert>
-            @* ⭐ M-47 (F-082): kişi bazlı imzalı zimmet tutanağı *@
-            <MudTooltip Text="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir.">
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2" OnClick="TutanakOlustur">Zimmet Tutanağı</MudButton>
-            </MudTooltip>
+            @if (Auth.CanCreate("assignments"))
+            {
+                <MudTooltip Text="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mb-2" OnClick="TutanakOlustur">Zimmet Tutanağı</MudButton>
+                </MudTooltip>
+            }
         }
         @foreach (var t in _tutanaklar)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudText Typo="Typo.caption" Style="flex:1">@Str(t, "summary")</MudText>
                 <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakPdf(t))">PDF</MudButton>
-                @if (Str(t, "status") == "bekliyor")
+                @if (Str(t, "status") == "bekliyor" && Auth.CanEdit("assignments"))
                 {
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakKarar(t, true))">Kabul</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => TutanakKarar(t, false))">Ret</MudButton>
                 }
             </MudStack>
         }
+    </MudPaper>
+}
+
+@if (Auth.CanCreate("personnel"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE")</MudText>
+
         @if (_dups.Count > 0)
         {
             <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
@@ -200,6 +214,7 @@
                 <MudTd>@(Bool(context, "isActive") ? "Aktif" : "Pasif")</MudTd>
                 <MudTd>
                     @if (Auth.CanEdit("personnel")) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BeginEdit(context))">Düzenle</MudButton> }
+                    @if (Auth.CanView("assignments")) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ZimmetPaneliAc(Str(context, "id"), Str(context, "fullName")))">Zimmetler</MudButton> }
                     @if (Auth.CanDelete("personnel")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(id))">Sil</MudButton> }
                 </MudTd>
             </RowTemplate>
@@ -212,17 +227,27 @@
     private string? _editId;
     private List<JsonElement> _zimmetler = new();   // ⭐ M-46
     private List<JsonElement> _tutanaklar = new();  // ⭐ M-47
+    /// <summary>Zimmet paneli gösterilen kişi (düzenlemeden ya da satırdaki "Zimmetler"den — görme yetkisi yeter; masaüstü seçim paneli gibi).</summary>
+    private string? _zimmetKisiId, _zimmetKisiAd;
+
+    private async Task ZimmetPaneliAc(string? kisiId, string? ad)
+    {
+        _zimmetKisiId = kisiId; _zimmetKisiAd = ad;
+        if (kisiId is null || !Auth.CanView("assignments")) { _zimmetler = new(); _tutanaklar = new(); return; }
+        try { _zimmetler = (await Api.GetArrayAsync($"/api/assignments/returns?personnelId={Uri.EscapeDataString(kisiId)}")).ToList(); } catch { _zimmetler = new(); }   // ⭐ M-46
+        await TutanaklariYukle();   // ⭐ M-47
+    }
 
     private async Task TutanaklariYukle()
     {
-        if (_editId is null) { _tutanaklar = new(); return; }
-        try { _tutanaklar = (await Api.GetArrayAsync($"/api/assignments/receipts?personnelId={Uri.EscapeDataString(_editId)}")).ToList(); } catch { _tutanaklar = new(); }
+        if (_zimmetKisiId is null) { _tutanaklar = new(); return; }
+        try { _tutanaklar = (await Api.GetArrayAsync($"/api/assignments/receipts?personnelId={Uri.EscapeDataString(_zimmetKisiId)}")).ToList(); } catch { _tutanaklar = new(); }
     }
 
     private async Task TutanakOlustur()
     {
-        if (_editId is null) return;
-        var (err, data) = await Api.PostJsonWithErrorAsync("/api/assignments/receipts", new { personnelId = _editId });
+        if (_zimmetKisiId is null) return;
+        var (err, data) = await Api.PostJsonWithErrorAsync("/api/assignments/receipts", new { personnelId = _zimmetKisiId });
         if (err is not null) { _ok = false; _msg = err; return; }
         await TutanaklariYukle();
         await TutanakPdf(data!.Value);
@@ -382,8 +407,7 @@
         _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
-        try { _zimmetler = (await Api.GetArrayAsync($"/api/assignments/returns?personnelId={Uri.EscapeDataString(_editId)}")).ToList(); } catch { _zimmetler = new(); }   // ⭐ M-46
-        await TutanaklariYukle();   // ⭐ M-47
+        await ZimmetPaneliAc(_editId, _name);   // ⭐ M-46/M-47
         _grantAccess = false; _linkUserId = null;
         _dups = new(); _dupAck = false; CancelAddTitle();
     }

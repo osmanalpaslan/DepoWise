@@ -126,15 +126,16 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_op == "issue" && _lines.Count > 0 ? $"Kaydet ({_lines.Count} kalem)" : "Kaydet")</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
-        @* ⭐ M-46: geciken iadeler *@
-        @if (_gecikenler.Count > 0)
-        {
-            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
-                <b>@_gecikenler.Count zimmetin iade tarihi geçti:</b>
-                @foreach (var g in _gecikenler) { <div>@Str(g, "summary")</div> }
-            </MudAlert>
-        }
     </MudPaper>
+}
+
+@* ⭐ M-46: geciken iadeler — görme yetkisi yeter (masaüstünde de araç çubuğunda, yazma yetkisinden bağımsız) *@
+@if (_gecikenler.Count > 0)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+        <b>@_gecikenler.Count zimmetin iade tarihi geçti:</b>
+        @foreach (var g in _gecikenler) { <div>@Str(g, "summary")</div> }
+    </MudAlert>
 }
 
 <MudGrid Spacing="2">

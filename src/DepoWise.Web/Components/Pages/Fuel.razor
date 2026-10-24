@@ -418,6 +418,7 @@
     private async Task TopluKaydet()
     {
         if (_busy) return;
+        if (!await Dialog.RequireBranchAsync(Auth, "Yakıt")) return;   // denetim B5+B6: "Tüm Şubeler" modunda işlem yok (tekli ile aynı)
         var dolu = _topluSatirlar.Where(x => x.Arac is not null || x.Litre > 0).ToList();
         if (dolu.Count == 0) { _ok = false; _msg = "En az bir araç satırı girin."; return; }
         if (string.IsNullOrEmpty(_person)) { _ok = false; _msg = "Yakıtı veren personeli seçin."; return; }
@@ -432,10 +433,8 @@
             || DepoWise.Application.Common.MeterRule.SuspiciousJump(x.OncekiSayac, x.Sayac!.Value)
             || DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(x.Litre));
         var litre = dolu.Sum(x => x.Litre);
-        // Onay metni masaüstüyle aynı kalıp (FuelService.TopluOnayMetni) — web bağımsız derlendiği için burada tekrar yazıldı.
-        var metin = $"{dolu.Count} araca toplam {litre:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {litre * _price:0.##} ₺)" +
-                    (uyari > 0 ? $" ⚠ {uyari} satırda uyarı var (sayaç geri / şüpheli sıçrama / çok büyük litre) — kontrol ettiyseniz devam edin." : "") +
-                    " Tek işlemde kaydedilir: biri bile hatalıysa hiçbiri yazılmaz.";
+        // Onay metni masaüstüyle TEK kaynaktan (ortak dosya Ui/MeterUnitOptions.cs → TopluYakitMetni).
+        var metin = DepoWise.Application.Ui.TopluYakitMetni.Onay(dolu.Count, litre, litre * _price, uyari);
         if (!await Dialog.Confirm(metin, "Kaydet")) return;
         _busy = true;
         try

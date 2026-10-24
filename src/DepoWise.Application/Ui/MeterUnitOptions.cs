@@ -70,6 +70,15 @@ public static class RentalPriceUnits
 /// "periyodik kontrol" (İş Ekipmanları Yönetmeliği — vinç, forklift, kaldırma araçları) eklenirken tek listeye toplandı.
 /// Bu dosya web projesinde de derlenir → iki platform aynı listeyi kullanır.
 /// </summary>
+/// <summary>⭐ M-34 (denetim B5+B6): toplu yakıt dağıtımının tek onay metni — masaüstü (FuelService) ve web aynı kaynaktan.</summary>
+public static class TopluYakitMetni
+{
+    public static string Onay(int satir, decimal litre, decimal tutar, int uyari)
+        => $"{satir} araca toplam {litre:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {tutar:0.##} ₺)" +
+           (uyari > 0 ? $"\n⚠ {uyari} satırda uyarı var (sayaç geri / şüpheli sıçrama / çok büyük litre) — kontrol ettiyseniz devam edin." : "") +
+           "\nTek işlemde kaydedilir: biri bile hatalıysa hiçbiri yazılmaz.";
+}
+
 public static class InspectionDocTypes
 {
     public const string Inspection = "inspection";
