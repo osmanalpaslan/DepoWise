@@ -28,6 +28,11 @@
                         <ctrl:Toolbar.FilterContent>
                             <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                                 <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                                <!-- ⭐ M-54: filtrelenmiş TÜM sonuç (ekrandaki en yeni 200 değil) — web ile aynı servis ve tablo -->
+                                <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
+                                        ToolTip.Tip="Seçili durum ve aramayla eşleşen TÜM talepleri Excel olarak kaydeder."/>
+                                <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
+                                        ToolTip.Tip="Seçili durum ve aramayla eşleşen TÜM talepleri yazdırılabilir PDF olarak hazırlar."/>
                                 <Button Classes="Secondary"  Command="{Binding PickLogoCommand}"
                                         ToolTip.Tip="PDF başlığındaki firma logosu. Değiştirmedikçe seçili kalır.">
                                     <StackPanel Orientation="Horizontal" Spacing="8">

@@ -104,6 +104,16 @@
                             @foreach (var f in _filters) { <MudSelectItem T="string" Value="@f">@f</MudSelectItem> }
                         </MudSelect>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
+                        @* ⭐ M-54 (F-057): filtrelenmiş TÜM sonuç — liste ile aynı süzgeç (SorguParcalari) *@
+                        @if (Auth.CanView("export") && _sec != "approve")
+                        {
+                            <MudTooltip Text="Seçili durum ve aramayla eşleşen TÜM talepleri (yalnız ekrandaki en yeni 200'ü değil) Excel dosyası olarak indirir.">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => Disari(false))">Excel'e Aktar</MudButton>
+                            </MudTooltip>
+                            <MudTooltip Text="Seçili durum ve aramayla eşleşen TÜM talepleri PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => Disari(true))">Yazdır</MudButton>
+                            </MudTooltip>
+                        }
                     </MudStack>
                     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
                     else
@@ -259,6 +269,15 @@
     private async Task LoadList()
     {
         _rows = null;
+        var q = SorguParcalari();
+        var url = "/api/requests" + (q.Count == 0 ? "" : "?" + string.Join("&", q));
+        try { _rows = await Api.GetArrayAsync(url); } catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    /// <summary>Ekrandaki Türkçe durum adı → API'nin beklediği db anahtarı ("Tümü" → null = filtre yok).</summary>
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (ikisi asla ayrışmaz).</summary>
+    private List<string> SorguParcalari()
+    {
         var q = new List<string>();
         if (_sec == "approve")
         {
@@ -268,11 +287,21 @@
         }
         else if (StatusKey(_filter) is { } st) q.Add("status=" + st);
         if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
-        var url = "/api/requests" + (q.Count == 0 ? "" : "?" + string.Join("&", q));
-        try { _rows = await Api.GetArrayAsync(url); } catch { _rows = Array.Empty<JsonElement>(); }
+        return q;
     }
 
-    /// <summary>Ekrandaki Türkçe durum adı → API'nin beklediği db anahtarı ("Tümü" → null = filtre yok).</summary>
+    /// <summary>⭐ M-54: Excel (pdf=false) / Yazdır (pdf=true) — aynı uç, aynı süzgeç; yalnız format farkı.</summary>
+    private async Task Disari(bool pdf)
+    {
+        var q = SorguParcalari();
+        if (pdf) q.Add("format=pdf");
+        var (bytes, name) = await Api.GetFileAsync("/api/requests/export" + (q.Count == 0 ? "" : "?" + string.Join("&", q)),
+            pdf ? "Talepler.pdf" : "Talepler.xlsx");
+        if (bytes is null) { _ok = false; _msg = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
     private static string? StatusKey(string filter) => filter switch
     {
         "Taslak" => "draft", "Beklemede" => "pending", "Onaylı" => "approved",

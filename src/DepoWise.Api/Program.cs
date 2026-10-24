@@ -1492,6 +1492,18 @@ app.MapGet("/api/daily/grid/export", (HttpContext c,
 // parametreleri servise zaten geçiyordu, o yüzden yalnız HTTP hattı eksikti.
 // GERİYE UYUMLU: üç parametre de opsiyonel; hiçbiri verilmezse davranış AYNEN eskisi gibidir (limit 200).
 // Servis sorgusu parametreli (@st/@like/@lim) — enjeksiyon yüzeyi açılmaz.
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): talep listesi Excel/Yazdır — liste ucuyla AYNI süzgeç (durum + arama), sınırsız pencere
+// (liste ekranı en yeni 200'ü gösterir; dışa aktarım filtrelenmiş TÜM sonucu verir, üst sınır 50.000). Masaüstü aynı servis + tablo.
+app.MapGet("/api/requests/export", (HttpContext c, string? status, string? search, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    if (!DepoWise.Infrastructure.Requests.RequestListeTablosu.DurumCoz(status, out var st))
+        return Results.Json(new { error = "Geçersiz talep durumu." }, statusCode: 400);
+    var rows = svc.Requests.List(s, st, string.IsNullOrWhiteSpace(search) ? null : search!.Trim(), DepoWise.Infrastructure.Reporting.ListeDisaAktarim.UstSinir);
+    return TabloCikti(c, DepoWise.Infrastructure.Requests.RequestListeTablosu.ToTableModel(rows), format, "Talepler");
+}).RequireAuthorization();
+
 app.MapGet("/api/requests", (HttpContext c, string? status, string? search, int? limit) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();

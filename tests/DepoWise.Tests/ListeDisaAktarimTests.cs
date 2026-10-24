@@ -194,6 +194,31 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/PaymentsView.axaml"));
     }
 
+    [Fact]
+    public async Task LD8_Talepler_Export_Durum_Suzgeci_Ve_200_Siniri_Yok()
+    {
+        var mat = Svc.Materials.Create(_s, new DepoWise.Infrastructure.Materials.NewMaterial("LD8-M", "Talep malzemesi"));
+        for (var i = 0; i < 3; i++) Svc.Requests.Create(_s, new DepoWise.Infrastructure.Requests.NewRequest(
+            new[] { new DepoWise.Infrastructure.Requests.RequestItemInput(mat, 1m) }, Description: "taslak " + i));
+        for (var i = 0; i < 2; i++) Svc.Requests.Create(_s, new DepoWise.Infrastructure.Requests.NewRequest(
+            new[] { new DepoWise.Infrastructure.Requests.RequestItemInput(mat, 1m) }, Description: "bekleyen " + i, SubmitImmediately: true));
+        Assert.Equal(Svc.Requests.List(_s, DepoWise.Application.Requests.RequestStatus.Draft).Count, await ExcelSatir("/api/requests/export?status=draft"));
+        Assert.Equal(Svc.Requests.List(_s, DepoWise.Application.Requests.RequestStatus.Pending).Count, await ExcelSatir("/api/requests/export?status=pending"));
+        Assert.Equal(1, await ExcelSatir("/api/requests/export?search=" + Uri.EscapeDataString("bekleyen 1")));
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync("/api/requests/export?status=bilinmeyen")).StatusCode);   // liste ucuyla aynı kural
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/requests/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        // dışa aktarım ekranın "en yeni 200" penceresiyle sınırlı değil: servis üst sınırla çağrılır
+        Assert.Contains("ListeDisaAktarim.UstSinir", Oku("src/DepoWise.Api/Program.cs")[Oku("src/DepoWise.Api/Program.cs").IndexOf("/api/requests/export", StringComparison.Ordinal)..][..900]);
+        var t = DepoWise.Infrastructure.Requests.RequestListeTablosu.ToTableModel(Svc.Requests.List(_s));
+        Assert.Contains("Beklemede", t.Rows.Select(r => r[2]));
+        Assert.Contains("Taslak", t.Rows.Select(r => r[2]));
+        var web = Oku("src/DepoWise.Web/Components/Pages/Requests.razor");
+        Assert.Contains("var q = SorguParcalari();\n        var url = \"/api/requests\"", web.Replace("\r\n", "\n"));
+        Assert.Contains("\"/api/requests/export\" + (q.Count == 0", web);
+        Assert.Contains("RequestListeTablosu.ToTableModel(", Oku("src/DepoWise.Desktop/ViewModels/RequestsViewModel.cs"));
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/RequestsView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

@@ -97,6 +97,42 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
         Load();
     }
 
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — seçili durum + aramayla filtrelenmiş TÜM talepler (ekrandaki en yeni
+    // 200 değil); web ile aynı servis ve tablo. Yetki: "export".
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private DepoWise.Application.Reports.TableModel DisaTablo()
+        => DepoWise.Infrastructure.Requests.RequestListeTablosu.ToTableModel(DesktopServices.Requests.List(_session, FilterStatus,
+            string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), DepoWise.Infrastructure.Reporting.ListeDisaAktarim.UstSinir));
+
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("Talepler.xlsx");
+            if (hedef is null) return;
+            var tablo = await Task.Run(DisaTablo);
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(tablo));
+            Status = $"Excel kaydedildi ({tablo.Rows.Count} talep): {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tablo = await Task.Run(DisaTablo);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(tablo, _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır ({tablo.Rows.Count} talep): {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
     private RequestStatus? FilterStatus => SelectedFilter switch
     {
         "Beklemede" => RequestStatus.Pending,
