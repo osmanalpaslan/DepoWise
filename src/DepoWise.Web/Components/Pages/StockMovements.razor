@@ -1,6 +1,7 @@
 @page "/stock/movements"
 @using System.Text.Json
 @inject ApiClient Api
+@inject IJSRuntime JS   // ⭐ M-54: Excel/PDF indirme (dwDownload)
 @inject AuthState Auth
 @inject LocationOptions Locations
 
@@ -39,6 +40,16 @@
         <MudItem xs="4" md="2" Class="d-flex" Style="gap:6px;">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Load" Disabled="_busy">Filtrele</MudButton>
             <MudButton Variant="Variant.Text" OnClick="Clear" Disabled="_busy">Temizle</MudButton>
+            @* ⭐ M-54 (F-057): filtrelenmiş TÜM hareketler (ekran tavanı 1000 değil) — liste ile aynı süzgeç *@
+            @if (Auth.CanView("export"))
+            {
+                <MudTooltip Text="Aktif filtrelerle eşleşen TÜM hareketleri (ekrandaki ilk 1000 değil) Excel dosyası olarak indirir.">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => Disari(false))" Disabled="_busy">Excel</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Aktif filtrelerle eşleşen TÜM hareketleri PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => Disari(true))" Disabled="_busy">Yazdır</MudButton>
+                </MudTooltip>
+            }
         </MudItem>
         @if (_location == LocationOptions.UnassignedId)
         {
@@ -186,18 +197,37 @@
         return $"{from} → {to}";
     }
 
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (ikisi asla ayrışmaz).</summary>
+    private List<string> SorguParcalari()
+    {
+        var qs = new List<string>();
+        if (_from is { } f) qs.Add($"from={DepoWise.Web.Services.FieldChecks.ToUnixMs(f)}");
+        if (_to is { } t) qs.Add($"to={DepoWise.Web.Services.FieldChecks.ToUnixMs(t, endOfDay: true)}");
+        if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
+        // 🔴 B-1: lokasyon SUNUCUYA gider. "Tüm Şubeler" GÖNDERİLMEZ (= filtre yok);
+        // "Atanmamış" boş değerle gider (?location=) — rapor sözleşmesindeki "" ile aynı anlam.
+        if (_location != LocationOptions.AllId) qs.Add($"location={Uri.EscapeDataString(_location)}");
+        return qs;
+    }
+
+    /// <summary>⭐ M-54: Excel (pdf=false) / Yazdır (pdf=true) — aynı uç, aynı süzgeç; yalnız format farkı.</summary>
+    private async Task Disari(bool pdf)
+    {
+        var qs = SorguParcalari();
+        if (pdf) qs.Add("format=pdf");
+        var (bytes, name) = await Api.GetFileAsync("/api/stock/movements/export" + (qs.Count > 0 ? "?" + string.Join("&", qs) : ""),
+            pdf ? "StokHareketleri.pdf" : "StokHareketleri.xlsx");
+        if (bytes is null) { _error = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
     private async Task Load()
     {
         _busy = true;
         try
         {
-            var qs = new List<string>();
-            if (_from is { } f) qs.Add($"from={DepoWise.Web.Services.FieldChecks.ToUnixMs(f)}");
-            if (_to is { } t) qs.Add($"to={DepoWise.Web.Services.FieldChecks.ToUnixMs(t, endOfDay: true)}");
-            if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
-            // 🔴 B-1: lokasyon SUNUCUYA gider. "Tüm Şubeler" GÖNDERİLMEZ (= filtre yok);
-            // "Atanmamış" boş değerle gider (?location=) — rapor sözleşmesindeki "" ile aynı anlam.
-            if (_location != LocationOptions.AllId) qs.Add($"location={Uri.EscapeDataString(_location)}");
+            var qs = SorguParcalari();
             var url = "/api/stock/movements" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
             _rows = await Api.GetArrayAsync(url);
 

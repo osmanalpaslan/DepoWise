@@ -219,6 +219,33 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/RequestsView.axaml"));
     }
 
+    [Fact]
+    public async Task LD9_Stok_Hareketleri_Export_Suzgec()
+    {
+        var b1 = Svc.Branches.Create(_s, new DepoWise.Infrastructure.Organization.NewBranch("LD9 Depo 1"));
+        var b2 = Svc.Branches.Create(_s, new DepoWise.Infrastructure.Organization.NewBranch("LD9 Depo 2"));
+        var m1 = Svc.Materials.Create(_s, new DepoWise.Infrastructure.Materials.NewMaterial("LD9-A", "Çimento"));
+        var m2 = Svc.Materials.Create(_s, new DepoWise.Infrastructure.Materials.NewMaterial("LD9-B", "Kum"));
+        for (var i = 0; i < 3; i++) Svc.Stock.ReceiveIn(_s, new[] { new DepoWise.Infrastructure.Materials.StockLine(m1, 5m) }, Guid.NewGuid().ToString("N"), branchId: b1);
+        for (var i = 0; i < 2; i++) Svc.Stock.ReceiveIn(_s, new[] { new DepoWise.Infrastructure.Materials.StockLine(m2, 7m) }, Guid.NewGuid().ToString("N"), branchId: b2);
+        int Toplam(string? q, string? loc) => Svc.Stock.SearchMovementsGrid(_s, null, null, q, loc is null ? null : new[] { loc }, null, null, 1, 1).TotalCount;
+        Assert.Equal(Toplam(null, null), await ExcelSatir("/api/stock/movements/export"));
+        Assert.Equal(Toplam(null, b1), await ExcelSatir("/api/stock/movements/export?location=" + b1));
+        Assert.Equal(3, await ExcelSatir("/api/stock/movements/export?location=" + b1));
+        Assert.Equal(Toplam("Kum", null), await ExcelSatir("/api/stock/movements/export?q=Kum"));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/stock/movements/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var t = DepoWise.Infrastructure.Materials.StockMovementListeTablosu.ToTableModel(Svc.Stock.SearchMovements(_s, null, null, "Kum", null, null, null, 100));
+        Assert.All(t.Rows, r => Assert.Equal(7m, r[4]));   // giriş: + yönlü miktar
+        Assert.DoesNotContain(t.Headers, h => h.Contains("Fiyat"));
+        var web = Oku("src/DepoWise.Web/Components/Pages/StockMovements.razor");
+        Assert.Contains("var qs = SorguParcalari();", web);
+        Assert.Contains("\"/api/stock/movements/export\" + (qs.Count > 0", web);
+        var vm = Oku("src/DepoWise.Desktop/ViewModels/StockMovementsViewModel.cs");
+        Assert.Contains("var (from, to, locations, arama0) = Suzgec();", vm);   // liste ve dışa aktarım aynı süzgeç
+        Assert.Contains("StockMovementListeTablosu.ToTableModel(", vm);
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/StockMovementsView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

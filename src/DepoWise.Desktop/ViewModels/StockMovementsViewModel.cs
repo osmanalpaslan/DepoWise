@@ -66,6 +66,57 @@ public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTa
         SelectedLocation = Locations[0];
     }
 
+    /// <summary>⭐ M-54: liste ve dışa aktarım TEK süzgeç kaynağı (tarih, lokasyon, arama).</summary>
+    private (long? From, long? To, IReadOnlyList<string>? Locations, string? Arama) Suzgec()
+    {
+        long? from = FromDate is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        long? to = ToDate is { } t ? new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        // 🔴 B-1: lokasyon SERVİSE (SQL'e) gider — bellekte süzülmez, LIMIT'ten ÖNCE uygulanır.
+        IReadOnlyList<string>? locations =
+            SelectedLocation is null || SelectedLocation.Id == AllLocationsId ? null : new[] { SelectedLocation.Id };
+        return (from, to, locations, string.IsNullOrWhiteSpace(Search) ? null : Search.Trim());
+    }
+
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — ekrandaki süzgeçlerle filtrelenmiş TÜM hareketler (ekran tavanı 1000
+    // değil); web ile aynı servis ve tablo. Yetki: "export".
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private DepoWise.Application.Reports.TableModel DisaTablo()
+    {
+        var (from, to, locations, arama) = Suzgec();
+        return DepoWise.Infrastructure.Materials.StockMovementListeTablosu.ToTableModel(
+            DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+                DesktopServices.Stock.SearchMovementsGrid(_session, from, to, arama, locations, null, null, p, n)));
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("StokHareketleri.xlsx");
+            if (hedef is null) return;
+            var tablo = await System.Threading.Tasks.Task.Run(DisaTablo);
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(tablo));
+            Status = $"Excel kaydedildi ({tablo.Rows.Count} hareket): {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tablo = await System.Threading.Tasks.Task.Run(DisaTablo);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(tablo, _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır ({tablo.Rows.Count} hareket): {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
     /// <summary>Ekranda tek seferde çizilen azami hareket sayısı (10.000 satırı çizmek ekranı kilitler).</summary>
     private const int Tavan = 1000;
 
@@ -73,14 +124,10 @@ public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTa
     private void Load()
     {
         Movements.Clear();
-        long? from = FromDate is { } f ? new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
-        long? to = ToDate is { } t ? new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
-        // 🔴 B-1: lokasyon SERVİSE (SQL'e) gider — bellekte süzülmez, LIMIT'ten ÖNCE uygulanır.
-        IReadOnlyList<string>? locations =
-            SelectedLocation is null || SelectedLocation.Id == AllLocationsId ? null : new[] { SelectedLocation.Id };
+        var (from, to, locations, arama0) = Suzgec();
         try
         {
-            var arama = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim();
+            var arama = arama0;
             foreach (var m in DesktopServices.Stock.SearchMovements(
                          _session, from, to, arama, locations, null, null, Tavan))
                 Movements.Add(m);

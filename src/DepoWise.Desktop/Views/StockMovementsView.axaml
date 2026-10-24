@@ -47,6 +47,11 @@
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Filtrele" Command="{Binding LoadCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                <!-- ⭐ M-54: filtrelenmiş TÜM hareketler (ekran tavanı değil) — web ile aynı servis ve tablo -->
+                <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" VerticalAlignment="Bottom" Margin="0,0,0,2"
+                        ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hareketleri (ekrandaki ilk 1000 değil) Excel olarak kaydeder."/>
+                <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" VerticalAlignment="Bottom" Margin="0,0,0,2"
+                        ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hareketleri yazdırılabilir PDF olarak hazırlar."/>
             </WrapPanel>
         </Border>
 

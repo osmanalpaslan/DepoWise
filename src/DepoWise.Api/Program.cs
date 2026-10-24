@@ -1378,6 +1378,18 @@ app.MapGet("/api/stock", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Stock
 // ekranı lokasyonu, limitli listenin üzerinde İSTEMCİDE süzüyordu → ilk N kaydın dışındaki hareketler
 // sessizce kayboluyordu. Parametreler TEKRARLANABİLİR (?location=A&location=B) ve rapor sözleşmesiyle
 // AYNI anlamı taşır: gönderilmemesi = filtre yok · boş değer (?location=) = 📦 ATANMAMIŞ.
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): stok hareketleri Excel/Yazdır — liste ucuyla AYNI süzgeç (tarih, arama, lokasyon, tür,
+// malzeme), ekran tavanı (1000) YOK: filtrelenmiş TÜM hareketler (sayfa sayfa; üst sınır 50.000). Masaüstü aynı servis + tablo.
+app.MapGet("/api/stock/movements/export", (HttpContext c, long? from, long? to, string? q,
+                                           string[]? location, string[]? type, string[]? material, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.Stock.SearchMovementsGrid(s, from, to, q, location, type, material, p, n));
+    return TabloCikti(c, DepoWise.Infrastructure.Materials.StockMovementListeTablosu.ToTableModel(rows), format, "StokHareketleri");
+}).RequireAuthorization();
+
 app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string? q,
                                     string[]? location, string[]? type, string[]? material) =>
     S(c) is { } s
