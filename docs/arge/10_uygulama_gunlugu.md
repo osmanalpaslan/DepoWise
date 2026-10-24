@@ -387,3 +387,19 @@
   PDF, gizli alan kolonsuz; export yetkisi olmayan kullanıcı 403); ekran başına mutasyon (toplam 18/18: yetki, süzgeçler, gizleme,
   sayfa sınırı, yön/toplam); ekran başına riskli paketler (165 · 563 · 100 · 68 · 149 · 199 · 112 · 135 · 22 · 23) geçti; arayüz 48/48.
   `YakitEkranAramaTests` YKE1 kilidi ortak sayfa okuyucuya göre güncellendi (sayfalı sorgu şartı aynen).
+
+### B7 — M-56 (1/2) kayıt kartında Belgeler (F-090)
+- Malzeme, Araç, Ekipman, Personel kartlarında kayda bağlı evraklar (başlık, tür, geçerlilik — "SÜRESİ DOLDU" uyarısı) ve indirme;
+  iki ortam aynı uç (`/api/documents?entityType=&entityId=`) ve aynı metinler. Masaüstünde belgeler kayıt seçilince değil
+  "Belgeleri Göster" ile sunucudan istenir: seçim olayı ağa çıkmaz (ilk denemede arayüz testi UIT10 bu yüzden kilitlenmişti).
+- **Testler:** `KayitBelgeleriTests` KB1–2; ekran paketi 201/201; arayüz 48/48.
+
+### Kullanıcı isteği (yayın öncesi 1/2) — Sayım Girişi'nde KOD — AD
+- Masaüstü arama sonuç listesi yalnız adı gösteriyordu → "KOD — AD"; seçilen malzeme kutuda da aynı biçim. Listeye eklenen satırda
+  kod ve ad kolonları (web tablosunda zaten vardı). **Testler:** arayüz UIT13 + mutasyon 1/1; sayım paketi 82/82.
+
+### Kullanıcı isteği (yayın öncesi 2/2) — Giriş-Çıkış "Yeni Kayıt"ta birden fazla malzeme
+- Yeni Kayıt'ta da "Listeye Ekle" sepeti (iki ortam): mevcut malzemeler miktar + birim fiyatla; formdaki kalem (mevcut ya da yeni kart)
+  ile TEK giriş belgesinde. Kural tek yerde (`StockService.GirisSatirlari`: aynı malzeme toplanır, fiyat ağırlıklı ortalama); API
+  `/api/stock/receive` geriye uyumlu `extraLines`; sepet kart oluşturulmadan önce doğrulanır; tür değişince sepet boşalır.
+- **Testler:** `YeniKayitCokluMalzemeTests` YK1–4, arayüz UIT14, mutasyon 4/4; giriş-çıkış paketi 1105/1105; arayüz 50/50.

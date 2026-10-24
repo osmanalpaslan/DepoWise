@@ -124,3 +124,7 @@
 - **M-54:** liste sıralaması (kolon başlığına tıklama) dışa aktarıma taşınmaz; dışa aktarım servisin varsayılan sırasıyla gelir.
 - **M-55/M-54:** "her listede sıralama, 6 ekranda arama, tek tip sayfalama" kısımları (F-057'nin geri kalanı) B8 ortak ekran parçalarıyla
   (M-60) birlikte yapılacak.
+- **M-56:** web kartlarında Belgeler paneli yalnız düzenleme formunda (kayıt düzenleme yetkisi olan görür); masaüstünde kart
+  panelinde görme yetkisiyle görünür. Kayıt kartından belge EKLEME yok (Belgeler ekranından eklenir).
+- **Yeni Kayıt sepeti:** sepete yalnız mevcut malzemeler girer; birden fazla YENİ malzeme kartı tek seferde açılamaz (her yeni kart
+  formdan; o kayıtta sepetle birlikte işlenir).
