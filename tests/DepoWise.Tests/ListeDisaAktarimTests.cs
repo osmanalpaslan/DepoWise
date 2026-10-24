@@ -115,6 +115,35 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await gor.GetAsync("/api/invoices/export")).StatusCode);
     }
 
+    private async Task<int> ExcelSatir(string yol)
+    {
+        var r = await _client.GetAsync(yol);
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        return Svc.Excel.ReadRows(await r.Content.ReadAsByteArrayAsync()).Count;
+    }
+
+    [Fact]
+    public async Task LD5_Cari_Export_Suzgec_Ve_Bakiye_Gizleme()
+    {
+        for (var i = 0; i < 3; i++) Svc.Parties.Create(_s, new NewParty("LD5M" + i, "Müşteri " + i, PartyTypes.Customer));
+        for (var i = 0; i < 2; i++) Svc.Parties.Create(_s, new NewParty("LD5T" + i, "Tedarikçi " + i, PartyTypes.Supplier));
+        Assert.Equal(Svc.Parties.List(_s, null, PartyTypes.Customer, null).TotalCount, await ExcelSatir("/api/parties/export?type=" + PartyTypes.Customer));
+        Assert.Equal(Svc.Parties.List(_s, null, PartyTypes.Supplier, null).TotalCount, await ExcelSatir("/api/parties/export?type=" + PartyTypes.Supplier));
+        Assert.Equal(1, await ExcelSatir("/api/parties/export?search=LD5T1"));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/parties/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var rows = Svc.Parties.List(_s, null, null, null).Items;
+        Assert.Contains("Bakiye", PartyListeTablosu.ToTableModel(rows, true).Headers);
+        var gizli = PartyListeTablosu.ToTableModel(rows, false);
+        Assert.DoesNotContain("Bakiye", gizli.Headers);
+        Assert.DoesNotContain("Borç", gizli.Headers);
+        Assert.All(gizli.Rows, r => Assert.Equal(gizli.Headers.Count, r.Count));
+        var web = Oku("src/DepoWise.Web/Components/Pages/Parties.razor");
+        Assert.Contains("var url = $\"/api/parties?page={_page}&pageSize=50\" + FiltreQuery;", web);
+        Assert.Contains("\"/api/parties/export?\" + FiltreQuery.TrimStart('&')", web);
+        Assert.Contains("PartyListeTablosu.ToTableModel(", Oku("src/DepoWise.Desktop/ViewModels/PartiesViewModel.cs"));
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/PartiesView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);

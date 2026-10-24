@@ -126,6 +126,48 @@ public sealed partial class PartiesViewModel : ViewModelBase
         finally { Busy = false; }
     }
 
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — ekrandaki süzgeçlerle filtrelenmiş TÜM sonuç (sayfa değil); web ile
+    // aynı servis ve aynı tablo; gizli alan kolonu yok. Yetki: "export".
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private DepoWise.Application.Reports.TableModel DisaTablo()
+    {
+        var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) => DesktopServices.Parties.List(_session,
+            string.IsNullOrWhiteSpace(Search) ? null : Search,
+            string.IsNullOrWhiteSpace(TypeFilter) ? null : TypeFilter,
+            OnlyActive ? true : null, p, n, BranchScope.Filter));
+        var gorunur = BakiyeGorunur;
+        return DepoWise.Infrastructure.Accounting.PartyListeTablosu.ToTableModel(rows, gorunur);
+    }
+
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (!CanExport) { FormError = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("Cariler.xlsx");
+            if (hedef is null) return;
+            var tablo = await Task.Run(DisaTablo);
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(tablo));
+            Status = $"Excel kaydedildi ({tablo.Rows.Count} satır): {hedef}";
+        }
+        catch (Exception ex) { FormError = "Excel aktarılamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { FormError = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tablo = await Task.Run(DisaTablo);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(tablo, _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır ({tablo.Rows.Count} satır): {hedef}";
+        }
+        catch (Exception ex) { FormError = "Yazdırılamadı: " + ex.Message; }
+    }
+
     private void Notify()
     {
         OnPropertyChanged(nameof(PageCount));

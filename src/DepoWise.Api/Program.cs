@@ -2855,6 +2855,18 @@ app.MapPost("/api/stock/documents/{id}/correct", (HttpContext c, string id, Stoc
 // ⚠️ Bu uçlar stok tablolarına DOKUNMAZ; stok defterinin tek yazıcısı StockService'tir.
 
 // branchIds: virgüllü çoklu şube — OKUMA kapsamı. BranchAccess izinli kümeyle KESİŞTİRİR.
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): Cari listesi Excel/Yazdır — liste ucuyla AYNI süzgeç, sayfasız (filtrelenmiş TÜM sonuç);
+// gizli alan (FieldAccess) kolonu hiç konmaz. Masaüstü aynı servis + aynı tabloyu kullanır.
+app.MapGet("/api/parties/export", (HttpContext c, string? search, string? type, bool? onlyActive, string? branchIds, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.Parties.List(s, search, type, onlyActive, p, n, Branches(branchIds)));
+    var gorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Parties, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
+    return TabloCikti(c, DepoWise.Infrastructure.Accounting.PartyListeTablosu.ToTableModel(rows, gorunur), format, "Cariler");
+}).RequireAuthorization();
+
 app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? onlyActive, int? page, int? pageSize, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
