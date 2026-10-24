@@ -265,7 +265,7 @@
                                     <TextBox Classes="Field" Text="{Binding DistTotalText}" IsEnabled="False"/>
                                 </ctrl:FormField>
                                 <!-- Yakıtı Veren/Alan personel: aranabilir (madde 2.2, kullanıcı isteği 2026-08-06) — ortak AutoCompleteBox deseni. -->
-                                <ctrl:FormField Label="Yakıtı Veren" Width="180">
+                                <ctrl:FormField Label="Yakıtı Veren" Width="180" IsRequired="True">
                                     <ctrl:LookupBox HorizontalAlignment="Stretch"
                                               ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
                                               PlaceholderText="Personel seç / ara..."/>

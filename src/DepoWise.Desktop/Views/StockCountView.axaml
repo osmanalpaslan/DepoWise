@@ -73,7 +73,7 @@
                     <ctrl:FormField Label="Sayılan Miktar" IsRequired="True" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding CountedQty}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Gerekçe" Width="220">
+                    <ctrl:FormField Label="Sayım Gerekçesi" Width="220" IsRequired="True">
                         <TextBox Classes="Field" Text="{Binding Reason}"/>
                     </ctrl:FormField>
                     <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı (log) bundan bağımsızdır ve daima

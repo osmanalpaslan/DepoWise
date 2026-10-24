@@ -156,7 +156,7 @@
                 </WrapPanel>
 
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240" IsVisible="{Binding ShowPersonnel}">
+                    <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240" IsVisible="{Binding ShowPersonnel}" IsRequired="True">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding PersonnelSel}"
                                         PlaceholderText="Personel seç / ara..."/>
                     </ctrl:FormField>

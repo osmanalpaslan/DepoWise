@@ -41,6 +41,21 @@ public sealed partial class InspectionViewModel : ViewModelBase
         }
         catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
     }
+
+    /// <summary>⭐ M-55 (AR-GE 2026-10-20, F-054): Yazdır — Excel ile AYNI tablo (aynı satırlar, aynı kolonlar), web'deki
+    /// "Yazdır" (export?format=pdf) karşılığı. Yetki: "export" (Excel ile aynı).</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(
+                DepoWise.Infrastructure.Maintenance.InspectionService.ToTableModel(System.Linq.Enumerable.ToList(Items)), _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır: {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
     public bool CanWrite => AccessControl.Can(_session, "inspection", PermissionAction.Create);
     /// <summary>B-5: belge iptali Edit yetkisi ister (kayıt silinmez, iptal edilir).</summary>
     public bool CanEdit => AccessControl.Can(_session, "inspection", PermissionAction.Edit);

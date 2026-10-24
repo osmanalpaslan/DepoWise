@@ -282,7 +282,7 @@
 
                 <!-- Konum & Atama -->
                 <SelectableTextBlock Text="Konum &amp; Atama" Classes="FormBolum"/>
-                <ctrl:FormField Label="Şantiye / Şube">
+                <ctrl:FormField Label="Şantiye / Şube" IsRequired="True">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"

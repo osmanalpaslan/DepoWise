@@ -363,3 +363,13 @@
 ### B6 — M-40 iç kira fiyatıyla şantiye makine maliyeti (F-085, F-086) — ERTELENDİ
 - İsteğe bağlı ve büyük (L); K-02'ye (ön muhasebe + Logo/Mikro aktarımı) bağlı. Önerim: B8 (muhasebe/aktarım) işleri bittikten sonra
   ele alınsın; maliyet merkezine iç kira yazımı muhasebe aktarım biçimiyle birlikte tasarlanmalı. 11'e not düşüldü.
+
+### B7 — M-55 web ↔ masaüstü çıktı ve zorunlu alan eşitliği (F-054, F-055)
+- **Sorun:** web'de 6 listede Yazdır yoktu; masaüstünde Muayene'de Yazdır yoktu; iki ortamda zorunlu olan 4 alan masaüstünde `*` taşımıyordu.
+- **Değişiklik:** web Malzeme, Araç, Günlük Faaliyet, Personel, Satın Alma, İş Emri listelerine "Yazdır": Excel ile AYNI uç ve AYNI
+  süzgeç yolu (ortak `Disari(pdf)`), yalnız `format=pdf` eklenir → iki çıktı ayrışamaz. Masaüstü Muayene'ye Yazdır (Excel ile aynı tablo).
+  Masaüstünde `*`: Araç şube, Giriş-Çıkış personel, Yakıtı Veren, Sayım gerekçesi (kurallar zaten iki ortamda vardı, yalnız işaret eksikti).
+- **Eskimiş bulgular (iş gerekmedi):** web Ekipman QR zaten var (liste satırı); masaüstü içe aktarmada ön kontrol aktarım onay
+  penceresinde satır satır gösteriliyor; ekran logu iki ortamda da `ScreenAuditMap` ile modül bazlı (kayıt bazlı geçmiş M-56'da).
+- **Testler:** `PariteYazdirTests` PY1–3 (20 vaka: 7 uçta PDF + aynı uçta Excel, süzgeçli adres; web kaynak kilidi; zorunlu işaretler).
+  Riskli paket (bu ekranlara dokunan 40 test sınıfı) 398/398; arayüz 48/48. Mutasyon: kritik alan değil (çıktı/görünüm), uygulanmadı.

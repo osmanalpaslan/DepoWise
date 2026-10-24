@@ -399,6 +399,11 @@
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
                                    Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
                     </MudTooltip>
+                    @* ⭐ M-55 (F-054): web'de Yazdır — masaüstünün karşılığı *@
+                    <MudTooltip Text="Aktif filtrelerle eşleşen TÜM kayıtları (yalnız bu sayfayı değil) PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print"
+                                   Disabled="@_exporting" OnClick="Yazdir">Yazdır</MudButton>
+                    </MudTooltip>
                     @* ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı (masaüstüyle aynı). *@
                     @if (Auth.CanEdit("vehicles"))
                     {
@@ -911,7 +916,13 @@
     }
 
     /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları indirir.</summary>
-    private async Task ExportExcel()
+    private Task ExportExcel() => Disari(false);
+    /// <summary>⭐ M-55 (AR-GE 2026-10-20, F-054): Yazdır — Excel ile AYNI uç ve AYNI süzgeç, yalnız format=pdf (iki çıktı ayrışmaz).</summary>
+    private Task Yazdir() => Disari(true);
+    private static string Bicim(string url, bool pdf) => pdf ? url + (url.Contains('?') ? "&" : "?") + "format=pdf" : url;
+    private static string Uzanti(string ad, bool pdf) => pdf ? ad.Replace(".xlsx", ".pdf") : ad;
+
+    private async Task Disari(bool pdf)
     {
         // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26). API da 403 döner; butonda uyarı + işlem yok.
         if (!Auth.CanView("export")) { Snackbar.Add("Dışa aktarım (export) yetkiniz yok.", Severity.Warning); return; }
@@ -922,10 +933,10 @@
             var parca = BuildFilterSortQs();
             if (_isRental) parca.Add("rental=true");
             var qs = string.Join("&", parca);
-            var (bytes, fileName) = await Api.GetFileAsync("/api/vehicles/grid/export" + (qs.Length > 0 ? "?" + qs : ""), _isRental ? "Kiralik_Araclar.xlsx" : "Araclar.xlsx");
+            var (bytes, fileName) = await Api.GetFileAsync(Bicim("/api/vehicles/grid/export" + (qs.Length > 0 ? "?" + qs : ""), pdf), Uzanti((_isRental ? "Kiralik_Araclar.xlsx" : "Araclar.xlsx"), pdf));
             if (bytes is not null)
                 await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                    pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
         finally { _exporting = false; }
     }
