@@ -3214,6 +3214,17 @@ app.MapGet("/api/invoices/meta", (HttpContext c) =>
 
 // branchIds: virgülle ayrılmış çoklu şube. ⚠️ KAPSAM GENİŞLETMEZ — BranchAccess izinli kümeyle
 // KESİŞTİRİR; yetkisiz şube gönderilirse sessizce düşer (fail-closed).
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): Kasa/banka hesap listesi Excel/Yazdır — liste ucuyla AYNI süzgeç, sayfasız (filtrelenmiş TÜM sonuç);
+// gizli alan (FieldAccess) kolonu hiç konmaz. Masaüstü aynı servis + aynı tabloyu kullanır.
+app.MapGet("/api/finance/accounts/export", (HttpContext c, string? kind, bool? all, string? search, string? branchIds, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = svc.FinanceQueries.Accounts(s, kind, !(all ?? false), search, Branches(branchIds));
+    var gorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s, DepoWise.Application.Security.FieldProtectionCatalog.Finance, DepoWise.Application.Security.FieldProtectionCatalog.Balance);
+    return TabloCikti(c, DepoWise.Infrastructure.Accounting.FinanceListeTablosu.ToTableModel(rows, gorunur), format, "KasaBankaHesaplari");
+}).RequireAuthorization();
+
 app.MapGet("/api/finance/accounts", (HttpContext c, string? kind, bool? all, string? search, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();

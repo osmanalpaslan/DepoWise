@@ -144,6 +144,29 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/PartiesView.axaml"));
     }
 
+    [Fact]
+    public async Task LD6_Finans_Hesaplari_Export_Ve_Bakiye_Gizleme()
+    {
+        Svc.Finance.CreateAccount(_s, new NewFinanceAccount("LD6K1", "LD6 Kasa 1", FinanceAccountKinds.Cash));
+        Svc.Finance.CreateAccount(_s, new NewFinanceAccount("LD6K2", "LD6 Kasa 2", FinanceAccountKinds.Cash));
+        Svc.Finance.CreateAccount(_s, new NewFinanceAccount("LD6B1", "LD6 Banka", FinanceAccountKinds.Bank));
+        Assert.Equal(Svc.FinanceQueries.Accounts(_s, FinanceAccountKinds.Cash).Count, await ExcelSatir("/api/finance/accounts/export?kind=" + FinanceAccountKinds.Cash));
+        Assert.Equal(Svc.FinanceQueries.Accounts(_s, FinanceAccountKinds.Bank).Count, await ExcelSatir("/api/finance/accounts/export?kind=" + FinanceAccountKinds.Bank));
+        Assert.Equal(1, await ExcelSatir("/api/finance/accounts/export?search=LD6B1"));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/finance/accounts/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var rows = Svc.FinanceQueries.Accounts(_s);
+        Assert.Contains("Bakiye", FinanceListeTablosu.ToTableModel(rows, true).Headers);
+        var gizli = FinanceListeTablosu.ToTableModel(rows, false);
+        Assert.DoesNotContain("Bakiye", gizli.Headers);
+        Assert.DoesNotContain("Giriş", gizli.Headers);
+        Assert.All(gizli.Rows, r => Assert.Equal(gizli.Headers.Count, r.Count));
+        var web = Oku("src/DepoWise.Web/Components/Pages/Finance.razor");
+        Assert.Contains("var url = \"/api/finance/accounts?\" + FiltreQuery.TrimStart('&');", web);
+        Assert.Contains("\"/api/finance/accounts/export?\" + FiltreQuery.TrimStart('&')", web);
+        Assert.Contains("FinanceListeTablosu.ToTableModel(", Oku("src/DepoWise.Desktop/ViewModels/FinanceViewModel.cs"));
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/FinanceView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
