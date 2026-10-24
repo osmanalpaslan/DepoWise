@@ -4,6 +4,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject IJSRuntime JS   // ⭐ M-54: Excel/PDF indirme (dwDownload)
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -143,6 +144,16 @@
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDist">Yenile</MudButton>
+            @* ⭐ M-54 (F-057): filtrelenmiş TÜM dağıtımlar — liste ile aynı süzgeç (DagitimFiltresi) *@
+            @if (Auth.CanView("export"))
+            {
+                <MudTooltip Text="Arama alanlarıyla eşleşen TÜM dağıtımları (yalnız bu sayfayı değil) Excel dosyası olarak indirir.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="@(() => DagitimDisari(false))">Excel'e Aktar</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Arama alanlarıyla eşleşen TÜM dağıtımları PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="@(() => DagitimDisari(true))">Yazdır</MudButton>
+                </MudTooltip>
+            }
             <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
             <MudSpacer />
             @* Kesilmenin SESSİZ olmaması asıl şikayetin özüydü: kaç kayıt var, kaçıncı sayfadayız — yazılır. *@
@@ -366,6 +377,30 @@
 
     private ApiClient.Opt? _vehicle;
 
+    // ═══ M-54 — YAKIT DAĞITIMLARI EXCEL / YAZDIR ═══
+    /// <summary>Liste ve dışa aktarım TEK süzgeç kaynağı (ikisi asla ayrışmaz).</summary>
+    private string DagitimFiltresi
+    {
+        get
+        {
+            var qs = $"&includeCancelled={(_showCancelled ? "true" : "false")}";
+            if (!string.IsNullOrWhiteSpace(_qVehicle)) qs += "&vehicle=" + Uri.EscapeDataString(_qVehicle.Trim());
+            if (!string.IsNullOrWhiteSpace(_qText)) qs += "&q=" + Uri.EscapeDataString(_qText.Trim());
+            if (GunMs(_qFrom) is { } f) qs += "&fromDate=" + f;
+            if (GunMs(_qTo) is { } t) qs += "&toDate=" + t;
+            return qs;
+        }
+    }
+
+    private async Task DagitimDisari(bool pdf)
+    {
+        var (bytes, name) = await Api.GetFileAsync("/api/fuel/export?" + DagitimFiltresi.TrimStart('&') + (pdf ? "&format=pdf" : ""),
+            pdf ? "YakitDagitimlari.pdf" : "YakitDagitimlari.xlsx");
+        if (bytes is null) { _ok = false; _msg = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
+            pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
     // ═══ M-49 — QR / BARKOD OKUTMA ═══
     private string? _okunanKod;
     private async Task KodOkutTus(KeyboardEventArgs e)
@@ -558,11 +593,7 @@
         _dist = null;
         try
         {
-            var qs = $"/api/fuel/grid?page={_distPage}&pageSize={_distPageSize}&includeCancelled={(_showCancelled ? "true" : "false")}";
-            if (!string.IsNullOrWhiteSpace(_qVehicle)) qs += "&vehicle=" + Uri.EscapeDataString(_qVehicle.Trim());
-            if (!string.IsNullOrWhiteSpace(_qText)) qs += "&q=" + Uri.EscapeDataString(_qText.Trim());
-            if (GunMs(_qFrom) is { } f) qs += "&fromDate=" + f;
-            if (GunMs(_qTo) is { } t) qs += "&toDate=" + t;
+            var qs = $"/api/fuel/grid?page={_distPage}&pageSize={_distPageSize}" + DagitimFiltresi;
 
             // Sorgu gönderilirken UYGULANAN filtre kaydedilir → durum yazısı ekranda GERÇEKTEN
             // ne olduğunu anlatır (yukarıdaki nota bakın).

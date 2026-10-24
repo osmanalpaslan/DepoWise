@@ -364,12 +364,7 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             _uygulananBaslangic = AramaBaslangic; _uygulananBitis = AramaBitis;
             OnPropertyChanged(nameof(Filtreli)); OnPropertyChanged(nameof(BekleyenFiltre));
 
-            var grid = DesktopServices.Fuel.SearchDistributions(_session, Page, PageSize,
-                vehicleQuery: string.IsNullOrWhiteSpace(AramaArac) ? null : AramaArac,
-                freeText: string.IsNullOrWhiteSpace(AramaMetni) ? null : AramaMetni,
-                fromDateMs: AramaBaslangic is { } b ? IsGunuTarihi.Ms(b) : null,
-                toDateMs: AramaBitis is { } s ? IsGunuTarihi.Ms(s) : null,
-                includeCancelled: ShowCancelled);
+            var grid = DagitimSayfasi(Page, PageSize);
 
             foreach (var d in grid.Items)
                 Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
@@ -521,6 +516,50 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     // ════════════ DAĞITIM ════════════
     [ObservableProperty] private bool _showDist;
     [ObservableProperty] private VehicleListRow? _distVehicle;
+
+    // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — arama alanlarıyla filtrelenmiş TÜM dağıtımlar (sayfa değil); liste ile
+    // dışa aktarım TEK süzgeç kaynağı (DagitimSayfasi); web ile aynı servis ve tablo. Yetki: "export".
+    private DepoWise.Infrastructure.Database.GridResult<FuelDistributionRow> DagitimSayfasi(int page, int pageSize)
+        => DesktopServices.Fuel.SearchDistributions(_session, page, pageSize,
+            vehicleQuery: string.IsNullOrWhiteSpace(AramaArac) ? null : AramaArac,
+            freeText: string.IsNullOrWhiteSpace(AramaMetni) ? null : AramaMetni,
+            fromDateMs: AramaBaslangic is { } b ? IsGunuTarihi.Ms(b) : null,
+            toDateMs: AramaBitis is { } s ? IsGunuTarihi.Ms(s) : null,
+            includeCancelled: ShowCancelled);
+
+    public bool CanExport => DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View);
+
+    private DepoWise.Application.Reports.TableModel DisaTablo()
+        => DepoWise.Infrastructure.Operations.FuelListeTablosu.ToTableModel(
+            DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar(DagitimSayfasi));
+
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (!CanExport) { Status = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var hedef = await FilePickerService.SaveExcelAsync("YakitDagitimlari.xlsx");
+            if (hedef is null) return;
+            var tablo = await Task.Run(DisaTablo);
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.Export(tablo));
+            Status = $"Excel kaydedildi ({tablo.Rows.Count} dağıtım): {hedef}";
+        }
+        catch (Exception ex) { Status = "Excel aktarılamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task Yazdir()
+    {
+        if (!CanExport) { Status = "Yazdırma yetkiniz yok (dışa aktarım yetkisi gerekir)."; return; }
+        try
+        {
+            var tablo = await Task.Run(DisaTablo);
+            var hedef = await YazdirmaYardimcisi.YazdirAsync(tablo, _session);
+            if (hedef is not null) Status = $"Yazdırma dosyası hazır ({tablo.Rows.Count} dağıtım): {hedef}";
+        }
+        catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
 
     // ⭐ M-49 (AR-GE 2026-10-19, F-139): QR / barkod okutma — okuyucu kodu yazıp Enter'a basar; TAM eşleşen araç seçilir.
     [ObservableProperty] private string? _okunanKod;

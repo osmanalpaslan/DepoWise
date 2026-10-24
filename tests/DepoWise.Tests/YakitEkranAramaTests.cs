@@ -58,7 +58,9 @@ public class YakitEkranAramaTests
 
         // Kusurun kendisi: `ListDistributions(_session, 200, …)` — en yeni 200 dışındaki kayıtlar
         // sessizce düşüyordu. Liste artık sayfalanmış sorgudan beslenir.
-        Assert.Contains("SearchDistributions(_session, Page, PageSize", vm);
+        // M-54: liste ve dışa aktarım ortak sayfa okuyucuyu (DagitimSayfasi) kullanır; liste onu ekranın sayfasıyla çağırır.
+        Assert.Contains("var grid = DagitimSayfasi(Page, PageSize);", vm);
+        Assert.Contains("DesktopServices.Fuel.SearchDistributions(_session, page, pageSize,", vm);
         Assert.DoesNotContain("ListDistributions(_session, 200", KodSadece(vm));
 
         // Toplam sayı ve sayfa bilgisi kullanıcıya YAZILMALI — kesilmenin sessiz olmaması

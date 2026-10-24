@@ -1434,6 +1434,17 @@ app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s
 // SESSİZCE düşürüyordu (kullanıcı 02.08.2026 kaydını raporda görüp ekranda bulamadı). Bu uç toplam
 // sayıyı da döndürür → arayüz "kaç kayıt var" bilgisini gösterebilir ve hepsine erişilebilir.
 // Eski uç geriye uyumluluk için DURUYOR (eski masaüstü sürümleri bozulmasın).
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): yakıt dağıtımları Excel/Yazdır — liste ucuyla AYNI süzgeç (araç, metin, tarih, iptal
+// edilenler), sayfasız: filtrelenmiş TÜM kayıtlar. Masaüstü aynı servis + aynı tablo.
+app.MapGet("/api/fuel/export", (HttpContext c, string? vehicle, string? q, long? fromDate, long? toDate, bool? includeCancelled, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.Fuel.SearchDistributions(s, p, n, vehicle, q, fromDate, toDate, includeCancelled == true));
+    return TabloCikti(c, DepoWise.Infrastructure.Operations.FuelListeTablosu.ToTableModel(rows), format, "YakitDagitimlari");
+}).RequireAuthorization();
+
 app.MapGet("/api/fuel/grid", (HttpContext c,
     string? vehicle, string? q, long? fromDate, long? toDate,
     int page, int pageSize, bool? includeCancelled) =>

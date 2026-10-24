@@ -246,6 +246,32 @@ public class ListeDisaAktarimTests : IAsyncLifetime
         Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/StockMovementsView.axaml"));
     }
 
+    [Fact]
+    public async Task LD10_Yakit_Dagitimlari_Export_Suzgec()
+    {
+        var a = Svc.Vehicles.Create(_s, new DepoWise.Infrastructure.Vehicles.NewVehicle("LD10-A", "06 LD 10", CurrentMeter: 100m));
+        var b = Svc.Vehicles.Create(_s, new DepoWise.Infrastructure.Vehicles.NewVehicle("LD10-B", null, CurrentMeter: 100m));
+        Svc.Fuel.AddDepotEntry(_s, new DepoWise.Infrastructure.Operations.NewDepotEntry(5000m, 40m, "TRY"), Guid.NewGuid().ToString("N"));
+        for (var i = 1; i <= 3; i++) Svc.Fuel.Distribute(_s, new DepoWise.Infrastructure.Operations.NewDistribution(a, 10m, 100m + i * 50m), Guid.NewGuid().ToString("N"));
+        Svc.Fuel.Distribute(_s, new DepoWise.Infrastructure.Operations.NewDistribution(b, 20m, 300m), Guid.NewGuid().ToString("N"));
+        int Toplam(string? arac) => Svc.Fuel.SearchDistributions(_s, 1, 1, arac).TotalCount;
+        Assert.Equal(Toplam(null), await ExcelSatir("/api/fuel/export"));
+        Assert.Equal(3, await ExcelSatir("/api/fuel/export?vehicle=LD10-A"));
+        Assert.Equal(Toplam("LD10-B"), await ExcelSatir("/api/fuel/export?vehicle=LD10-B"));
+        Assert.Equal("application/pdf", (await _client.GetAsync("/api/fuel/export?format=pdf")).Content.Headers.ContentType?.MediaType);
+        var t = DepoWise.Infrastructure.Operations.FuelListeTablosu.ToTableModel(Svc.Fuel.SearchDistributions(_s, 1, 50, "LD10-B").Items);
+        var r = Assert.Single(t.Rows);
+        Assert.Equal(20m, r[3]);                    // litre
+        Assert.Equal(20m * 40m, r[7]);              // toplam = litre × birim fiyat
+        var web = Oku("src/DepoWise.Web/Components/Pages/Fuel.razor");
+        Assert.Contains("var qs = $\"/api/fuel/grid?page={_distPage}&pageSize={_distPageSize}\" + DagitimFiltresi;", web);
+        Assert.Contains("\"/api/fuel/export?\" + DagitimFiltresi.TrimStart('&')", web);
+        var vm = Oku("src/DepoWise.Desktop/ViewModels/FuelViewModel.cs");
+        Assert.Contains("var grid = DagitimSayfasi(Page, PageSize);", vm);   // liste ve dışa aktarım aynı süzgeç
+        Assert.Contains("ListeDisaAktarim.TumSayfalar(DagitimSayfasi)", vm);
+        Assert.Contains("YazdirCommand", Oku("src/DepoWise.Desktop/Views/FuelView.axaml"));
+    }
+
     private static string Kok()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
