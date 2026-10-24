@@ -3005,6 +3005,20 @@ app.MapGet("/api/parties/meta", (HttpContext c) =>
 //    çağırır; fatura + cari + stok TEK transaction'da yazılır (kısmi kayıt yok).
 // ⚠️ SİLME UCU YOKTUR — fatura fiziksel silinmez; /cancel ters kayıt üretir.
 
+// ⭐ M-54 (AR-GE 2026-10-24, F-057): fatura listesi Excel/Yazdır — liste ucuyla AYNI süzgeç, sayfasız (filtrelenmiş TÜM sonuç);
+// tutar kullanıcıya gizliyse (FieldAccess) kolon hiç konmaz. Masaüstü aynı servis + aynı tabloyu kullanır.
+app.MapGet("/api/invoices/export", (HttpContext c, string? search, string? direction, string? status,
+    string? partyId, long? from, long? to, string? branchIds, string? format) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);
+    var rows = DepoWise.Infrastructure.Reporting.ListeDisaAktarim.TumSayfalar((p, n) =>
+        svc.InvoiceQueries.List(s, search, direction, status, partyId, from, to, p, n, Branches(branchIds)));
+    var tutarGorunur = DepoWise.Application.Security.FieldAccess.Gorunur(s,
+        DepoWise.Application.Security.FieldProtectionCatalog.Invoices, DepoWise.Application.Security.FieldProtectionCatalog.GrandTotal);
+    return TabloCikti(c, DepoWise.Infrastructure.Accounting.InvoiceListeTablosu.ToTableModel(rows, tutarGorunur), format, "Faturalar");
+}).RequireAuthorization();
+
 app.MapGet("/api/invoices", (HttpContext c, string? search, string? direction, string? status,
     string? partyId, long? from, long? to, int? page, int? pageSize, string? branchIds) =>
 {
