@@ -465,3 +465,12 @@
   düğme, kabuk ve giriş ekranındaki sabit #241703 buna bağlandı; ana düğme sabit kehribar kalır, K-11), `BorderStrongBrush` (≥3:1 form/
   tablo sınırı, belgedeki öneri 3:1'i geçmediği için daha koyu seçildi), `FocusRingBrush`.
 - **Testler:** `TemaKontrastTests` TK1–4 (WCAG oranı hesaplanır, iki tema, iki ortam); mutasyon 3/3; arayüz 52/52; web derlemesi 0 hata.
+
+### B8 — M-59 (2/2) tek yazı tipi + okunaklı boyut (F-125)
+- Masaüstü: `AppFontFamily` gömülü **Inter** (Plus Jakarta Sans gömülü değildi → makineye göre Segoe'ya düşüyor, tablolar Inter
+  olduğundan ekranda iki yazı tipi vardı). Gövde 13 → 14, yardım 11 → 12.
+- Web: Google Fonts Inter; MudBlazor bileşenleri `--mud-typography-*-family` değişkenleriyle Roboto kullanıyordu (body ayarı
+  onlara ulaşmıyordu) → 14 değişkenin hepsi Inter'e bağlandı.
+- Bölüm başlıklarının büyük harfi bu adımda değiştirilmedi (tablo başlıkları dahil ~120 yerde metin olarak yazılı; ekran
+  dönüşümlerinde (M-63/M-64) ele alınacak).
+- **Testler:** `TemaKontrastTests` TK5; mutasyon 2/2; arayüz 52/52 (taşma/hiza dahil); tasarım/tema/web CSS testleri 189/189.

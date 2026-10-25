@@ -38,8 +38,9 @@
     <sys:Double x:Key="FontSectionTitle">13</sys:Double>
     <sys:Double x:Key="FontCardLabel">12</sys:Double>
     <sys:Double x:Key="FontMetric">28</sys:Double>
-    <sys:Double x:Key="FontBody">13</sys:Double>
-    <sys:Double x:Key="FontHelper">11</sys:Double>
+    <!-- ⭐ M-59 (F-125): gövde 13 → 14 (Windows/Fluent gövde boyutu), yardım 11 → 12 (okunaklılık) -->
+    <sys:Double x:Key="FontBody">14</sys:Double>
+    <sys:Double x:Key="FontHelper">12</sys:Double>
 
     <!--
       FONT — iki seçenek:
@@ -51,7 +52,9 @@
           3. Aşağıdaki satırı şununla değiştir:
              <FontFamily x:Key="AppFontFamily">avares://DepoWise.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
     -->
-    <FontFamily x:Key="AppFontFamily">Plus Jakarta Sans, Segoe UI Variable, Segoe UI, Aptos, Inter, sans-serif</FontFamily>
+    <!-- ⭐ M-59 (F-125): TEK yazı tipi — gömülü Inter (Program.cs WithInterFont; tablolar zaten Inter). Plus Jakarta Sans gömülü
+         değildi, makineye göre Segoe'ya düşüyordu → ekran ile tablo iki ayrı yazı tipiydi. Web de Inter yükler. -->
+    <FontFamily x:Key="AppFontFamily">fonts:Inter#Inter, Segoe UI Variable, Segoe UI, sans-serif</FontFamily>
 
     <!-- Elevation — Aurora daha yumuşak ve derin -->
     <media:BoxShadows x:Key="ShadowSm">0 2 6 0 #2E000000</media:BoxShadows>

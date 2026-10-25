@@ -82,8 +82,26 @@
 /* ══════════════════════════════════════════════════════════════════════════
    1) TEMEL
    ══════════════════════════════════════════════════════════════════════════ */
+/* ⭐ M-59 (F-125): TEK yazı tipi (Inter) — masaüstüyle aynı. MudBlazor kendi bileşenlerinde --mud-typography-*-family
+   değişkenlerini kullanır (varsayılan Roboto); body ayarı onlara ulaşmıyordu → değişkenler burada sabitlenir. */
+:root {
+    --mud-typography-default-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h1-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h2-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h3-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h4-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h5-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-h6-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-subtitle1-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-subtitle2-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-body1-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-body2-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-button-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-caption-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+    --mud-typography-overline-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif !important;
+}
 html, body {
-    font-family: 'Plus Jakarta Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }

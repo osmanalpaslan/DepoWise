@@ -102,6 +102,24 @@ public class TemaKontrastTests
             Assert.DoesNotContain("#241703", Oku(dosya));
     }
 
+    /// <summary>TK5 — M-59 (2/2): TEK yazı tipi (Inter) iki ortamda; masaüstü gövde ≥14, yardım ≥12; web MudBlazor yazı tipi
+    /// değişkenlerinin HEPSİ Inter'e bağlı (yoksa MudBlazor bileşenleri Roboto'da kalır).</summary>
+    [Fact]
+    public void TK5_Tek_Yazi_Tipi_Ve_Okunakli_Boyut()
+    {
+        var olcek = Oku("src/DepoWise.Desktop/Themes/Scales.axaml");
+        Assert.Contains("<FontFamily x:Key=\"AppFontFamily\">fonts:Inter#Inter,", olcek);
+        double Boyut(string k) => double.Parse(Regex.Match(olcek, @"x:Key=""" + k + @""">([\d.]+)<").Groups[1].Value, CultureInfo.InvariantCulture);
+        Assert.True(Boyut("FontBody") >= 14, "gövde yazısı 14'ün altında");
+        Assert.True(Boyut("FontHelper") >= 12, "yardım yazısı 12'nin altında");
+
+        Assert.Contains("family=Inter:", Oku("src/DepoWise.Web/Components/App.razor"));
+        Assert.DoesNotContain("Plus+Jakarta", Oku("src/DepoWise.Web/Components/App.razor"));
+        var css = Oku("src/DepoWise.Web/wwwroot/app.css");
+        foreach (var v in new[] { "default", "h1", "h2", "h3", "h4", "h5", "h6", "subtitle1", "subtitle2", "body1", "body2", "button", "caption", "overline" })
+            Assert.Matches(new Regex(@"--mud-typography-" + v + @"-family: 'Inter'.*!important;"), css);
+    }
+
     [Fact]
     public void TK4_Web_Durum_Renkleri_4_5()
     {
