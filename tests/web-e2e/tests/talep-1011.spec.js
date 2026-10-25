@@ -21,17 +21,12 @@ async function menuGibiGit(page, yol) {
   await page.waitForLoadState('networkidle');
 }
 
-test('Açılış animasyonu giriş sayfasında bir kez oynar, tıklayınca geçer (2026-10-11)', async ({ page }) => {
+test('Web girişinde açılış animasyonu YOK (2026-10-25 kullanıcı isteği; 2026-10-11 animasyonu kaldırıldı)', async ({ page }) => {
   await page.goto('/login');
-  const kat = page.locator('.dw-acilis');
-  await expect(kat).toBeVisible({ timeout: 15_000 });
-  await expect(kat.locator('video')).toHaveAttribute('src', /acilis\.webm/);
-  await kat.click();
-  await expect(kat).toHaveCount(0, { timeout: 5_000 });
-  await page.reload();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1500);
-  await expect(page.locator('.dw-acilis')).toHaveCount(0);   // aynı tarayıcı oturumunda tekrar oynamaz
+  await expect(page.locator('.dw-acilis')).toHaveCount(0);
+  await expect(page.locator('video')).toHaveCount(0);
   await expect(page.getByPlaceholder('Kullanıcı adı')).toBeVisible();
 });
 

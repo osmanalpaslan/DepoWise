@@ -597,7 +597,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        try { await JS.InvokeVoidAsync("dwAcilisOynat"); } catch { /* 2026-10-11 açılış animasyonu; hata girişi etkilemez */ }
+        // (2026-10-25 kullanıcı isteği: web'de girişten önceki açılış animasyonu KALDIRILDI; masaüstü değişmedi.)
         try
         {
             var r = await LocalStorage.GetAsync<string>("dw_remember_user");

@@ -1702,15 +1702,6 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .dw-not-maddeler { margin: 0; padding-left: 20px; }
 .dw-not-maddeler li { margin: 6px 0; }
 
-/* 2026-10-11 — Açılış animasyonu (App.razor dwAcilisOynat): şeffaf video, ARKA PLANSIZ, ortada; tıklayınca geçer. */
-.dw-acilis {
-    position: fixed; inset: 0; z-index: 3000;
-    display: flex; align-items: center; justify-content: center;
-    background: transparent; cursor: pointer;
-    transition: opacity .4s ease;
-}
-.dw-acilis video { width: min(854px, 92vw); height: auto; pointer-events: none; }
-.dw-acilis.dw-acilis-bitti { opacity: 0; }
 
 /* Menü satırı: ikon + etiket; "Bakım Takibi (x2)" biçimi ViewModel'den gelir. */
 .dw-diger-satir {
