@@ -50,6 +50,29 @@ public static class ThemeService
         ("fluent", "Fluent (Klasik)", "Avalonia varsayılan modern görünüm."),
     };
 
+    // ── ⭐ M-65 (AR-GE 2026-10-25, F-127) — YOĞUNLUK (Normal / Sık) ─────────────────────────────────
+    // Kişisel, bu bilgisayarda saklanır (tema gibi). Yalnız tablo SATIR yüksekliğini değiştirir: Sık görünüm muhasebe/rapor
+    // gibi çok satırlı ekranlarda daha fazla kaydı tek bakışta gösterir. Yatay hizalar ve yazı boyutu değişmez.
+    public const string DensityKey = "theme_density";
+    public const string DensityNormal = "normal", DensityCompact = "compact";
+    public static string CurrentDensity { get; private set; } = DensityNormal;
+    public static readonly (string Key, string Name, string Desc, double RowHeight)[] Densities =
+    {
+        (DensityNormal, "Normal", "Ferah satırlar (varsayılan).", 48),
+        (DensityCompact, "Sık", "Daha alçak satırlar — bir ekranda daha çok kayıt.", 34),
+    };
+
+    /// <summary>Yoğunluğu uygular (+ opsiyonel kaydeder). Bilinmeyen değer Normal'e düşer.</summary>
+    public static void ApplyDensity(string densityKey, bool persist = true)
+    {
+        var d = global::System.Array.Find(Densities, x => x.Key == densityKey);   // "System" bu sınıfta tema sabiti
+        if (d.Key is null) d = Densities[0];
+        CurrentDensity = d.Key;
+        if (Avalonia.Application.Current is { } app) app.Resources["TableRowMinHeight"] = d.RowHeight;
+        if (persist)
+            try { DesktopServices.Settings.Set(DesktopServices.DefaultCompanyId, DensityKey, d.Key); } catch { }
+    }
+
     /// <summary>Kayıtlı stil + mod + renk temasını oku ve uygula (açılışta çağrılır).</summary>
     public static void ApplySaved()
     {
@@ -61,6 +84,9 @@ public static class ThemeService
         ApplyStyle(style, persist: false);
         ApplyAccent(accent, persist: false);
         Apply(mode, persist: false);
+        var density = DensityNormal;   // M-65
+        try { density = DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, DensityKey) ?? DensityNormal; } catch { }
+        ApplyDensity(density, persist: false);
     }
 
     /// <summary>Görünüm (stil kütüphanesi) uygula. Base tema Application.Styles[0]'a yerleştirilir.

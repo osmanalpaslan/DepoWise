@@ -64,6 +64,20 @@ public sealed partial class ThemeSettingsViewModel : ViewModelBase
         Status = "Tema uygulandı: " + mode switch { "Dark" => "Koyu", "Light" => "Açık", _ => "Sistem (OS)" };
     }
 
+    // ⭐ M-65 (F-127): yoğunluk — Normal / Sık (tablo satır yüksekliği)
+    public bool IsDensityNormal => ThemeService.CurrentDensity == ThemeService.DensityNormal;
+    public bool IsDensityCompact => ThemeService.CurrentDensity == ThemeService.DensityCompact;
+
+    [RelayCommand]
+    private void ChooseDensity(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        ThemeService.ApplyDensity(key);
+        OnPropertyChanged(nameof(IsDensityNormal));
+        OnPropertyChanged(nameof(IsDensityCompact));
+        Status = "Yoğunluk uygulandı: " + (IsDensityCompact ? "Sık" : "Normal");
+    }
+
     [RelayCommand]
     private void ChooseColor(string? accentKey)
     {

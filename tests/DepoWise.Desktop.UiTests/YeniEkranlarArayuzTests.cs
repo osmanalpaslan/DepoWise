@@ -1,3 +1,4 @@
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -417,6 +418,41 @@ public class YeniEkranlarArayuzTests
         Assert.Contains(gw.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "3 kayıt seçili");
         Goruntu(gw, "bilesen-galerisi-m60");
         gw.Close();
+    }
+
+    /// <summary>M-65: yoğunluk — Sık seçilince tablo satırları alçalır, Normal'e dönünce eski yükseklik; bilinmeyen değer Normal'e düşer.</summary>
+    [AvaloniaFact]
+    public void UIT22_Yogunluk_Satir_Yuksekligi()
+    {
+        var s = Ortam();
+        try
+        {
+            var vm = new MaterialsViewModel(s);
+            var view = new MaterialsView { DataContext = vm };
+            var w = Ac(view);
+            Dispatcher.UIThread.RunJobs();
+            double SatirMin() => view.GetVisualDescendants().OfType<ListBoxItem>().First(i => i.IsEffectivelyVisible).MinHeight;
+
+            DepoWise.Desktop.Theming.ThemeService.ApplyDensity(DepoWise.Desktop.Theming.ThemeService.DensityCompact, persist: false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(34, SatirMin());
+            Assert.Equal("compact", DepoWise.Desktop.Theming.ThemeService.CurrentDensity);
+            Goruntu(w, "yogunluk-sik");
+
+            DepoWise.Desktop.Theming.ThemeService.ApplyDensity("bilinmeyen", persist: false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(48, SatirMin());
+            Assert.Equal("normal", DepoWise.Desktop.Theming.ThemeService.CurrentDensity);
+            w.Close();
+
+            var ayar = new ThemeSettingsView { DataContext = new ThemeSettingsViewModel() };
+            var aw = Ac(ayar, 1100, 1300);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(Gorunen<Button>(ayar), b => AutomationProperties.GetName(b) == "Sık yoğunluk");
+            Goruntu(aw, "tema-yogunluk");
+            aw.Close();
+        }
+        finally { DepoWise.Desktop.Theming.ThemeService.ApplyDensity("normal", persist: false); }
     }
 
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor

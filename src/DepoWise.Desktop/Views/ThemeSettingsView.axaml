@@ -127,6 +127,32 @@
                 <!-- ⭐ SESLİ BİLDİRİM (kullanıcı isteği 2026-09-07) — kapatma seçeneği.
                      Neden burada: tema gibi KİŞİSEL ve BU BİLGİSAYARA ait bir tercihtir.
                      Neden gerekli: toplantıda/açık ofiste sesi kapatamamak gerçek bir sorundur. -->
+                <!-- ⭐ M-65 (F-127): YOĞUNLUK — tablo satır yüksekliği (kişisel, bu bilgisayarda) -->
+                <SelectableTextBlock Text="Yoğunluk" Classes="CardLabel" Margin="0,10,0,0"/>
+                <SelectableTextBlock Text="Tablolarda satır yüksekliği. Sık görünüm bir ekranda daha çok kayıt gösterir." Classes="Helper"/>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Classes="Ghost" Padding="0" Command="{Binding ChooseDensityCommand}" CommandParameter="normal"
+                            AutomationProperties.Name="Normal yoğunluk">
+                        <Border Classes="Panel" Padding="14,10" BorderThickness="2" MinWidth="200"
+                                BorderBrush="{Binding IsDensityNormal, Converter={x:Static vm:ThemeSelBrush.Instance}}">
+                            <StackPanel Spacing="2">
+                                <SelectableTextBlock Text="Normal" Classes="Body" FontWeight="SemiBold"/>
+                                <SelectableTextBlock Text="Ferah satırlar (varsayılan)." Classes="Helper"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    <Button Classes="Ghost" Padding="0" Command="{Binding ChooseDensityCommand}" CommandParameter="compact"
+                            AutomationProperties.Name="Sık yoğunluk">
+                        <Border Classes="Panel" Padding="14,10" BorderThickness="2" MinWidth="200"
+                                BorderBrush="{Binding IsDensityCompact, Converter={x:Static vm:ThemeSelBrush.Instance}}">
+                            <StackPanel Spacing="2">
+                                <SelectableTextBlock Text="Sık" Classes="Body" FontWeight="SemiBold"/>
+                                <SelectableTextBlock Text="Daha alçak satırlar." Classes="Helper"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
                 <SelectableTextBlock Text="Bildirim Sesleri" Classes="SectionTitle" Margin="0,18,0,0"/>
                 <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
                     Text="Uyarı/duyuru, sohbet mesajı ve onay pencerelerinde kısa bir ses çalar. Tercih bu bilgisayarda saklanır."/>

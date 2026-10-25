@@ -526,3 +526,10 @@
 - Bileşen galerisine örnekler eklendi.
 - **Testler:** arayüz UIT21 (sayfalama hesapları, seçim çubuğu görünürlüğü, bant kapanması, galeri çizimi + ekran görüntüsü);
   mutasyon 1/1; arayüz 57/57; tasarım/erişilebilirlik testleri 31/31.
+
+### B8 — M-65 (1/2) yoğunluk: Normal / Sık (F-127)
+- Masaüstü Ayarlar → Tema'da "Yoğunluk": Normal (48 px satır, bugünkü görünüm) / Sık (34 px). Kişisel, bu bilgisayarda saklanır;
+  tüm tablolar (ortak `ListBox.Table` + DataGridView) etkilenir. Yatay hücre boşluğu ve yazı boyutu değişmez (başlık hizası korunur).
+- Tablo satır stilindeki çift tanım (40 sonra 48 — U10) tek kaynağa (`TableRowMinHeight`) indirildi.
+- Web'de karşılığı zaten var: tema ekranındaki "Kompakt" görünüm stili (sık yerleşim).
+- **Testler:** arayüz UIT22 (Sık → 34, bilinmeyen → Normal 48, ayar ekranı + iki ekran görüntüsü); mutasyon 1/1; arayüz 58/58.

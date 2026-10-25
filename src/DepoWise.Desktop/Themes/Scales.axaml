@@ -41,6 +41,9 @@
     <!-- ⭐ M-59 (F-125): gövde 13 → 14 (Windows/Fluent gövde boyutu), yardım 11 → 12 (okunaklılık) -->
     <sys:Double x:Key="FontBody">14</sys:Double>
     <sys:Double x:Key="FontHelper">12</sys:Double>
+    <!-- ⭐ M-65 (F-127): tablo SATIR yüksekliği — yoğunluk (Normal/Sık) bunu değiştirir (ThemeService.ApplyDensity).
+         Yatay hücre boşluğu DEĞİŞMEZ (başlık/filtre/veri hücreleri aynı x'ten başlamalı). Normal = bugünkü görünüm. -->
+    <sys:Double x:Key="TableRowMinHeight">48</sys:Double>
 
     <!--
       FONT — iki seçenek:
