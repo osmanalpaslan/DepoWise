@@ -533,3 +533,13 @@
 - Tablo satır stilindeki çift tanım (40 sonra 48 — U10) tek kaynağa (`TableRowMinHeight`) indirildi.
 - Web'de karşılığı zaten var: tema ekranındaki "Kompakt" görünüm stili (sık yerleşim).
 - **Testler:** arayüz UIT22 (Sık → 34, bilinmeyen → Normal 48, ayar ekranı + iki ekran görüntüsü); mutasyon 1/1; arayüz 58/58.
+
+### B8 — M-63 (1/4) Sayım ekranı → işlem şablonu (F-128, Şablon C)
+- Masaüstü Stok Sayım: sekmeler "Sayım girişi · Taslaklar · Geçmiş düzeltmeler". Girişte üstte başlık alanları (depo, tarih, gerekçe,
+  kör sayım, depodaki tümünü listele) ve malzeme ekleme satırı; ORTADA kalem tablosu kalan alanın tamamı (eskiden 420 px sınırlı);
+  ALTTA sabit özet + "Taslak Kaydet … Sayımı Kaydet". Geçmiş düzeltmeler ayrı sekmede (eskiden formun altında sıkışıktı).
+  "Tüm Şubeler" uyarısı ortak InfoBar (M-60). Ekran içi sekmeler için ortak sakin stil (`TabControl.EkranSekme`).
+- Arama sonuç listesi artık yalnız arama YAZILINCA görünür (boş kutuda ilk 30 malzeme kalem tablosunun yerini kaplıyordu; web Sayım da
+  aramayla çalışır). İş kuralları, komutlar ve bağlamalar değişmedi.
+- **Testler:** arayüz UIT23 (sekmeler, düğme sırası, tablo yüksekliği sınırsız ve 760 px pencerede alanı dolduruyor — ilk düzende 70 px
+  kalıyordu, test yakaladı); UIT13 + görsel tarama G30; sayım/onay/erişilebilirlik testleri 46/46; arayüz 59/59.

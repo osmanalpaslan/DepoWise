@@ -455,6 +455,36 @@ public class YeniEkranlarArayuzTests
         finally { DepoWise.Desktop.Theming.ThemeService.ApplyDensity("normal", persist: false); }
     }
 
+    /// <summary>M-63 (Şablon C): Sayım — sekmeler (giriş · geçmiş), kalem tablosu kalan alanın tamamı (yükseklik sınırı yok),
+    /// alt sabit çubukta "Taslak Kaydet … Sayımı Kaydet" (birincil en sağda); geçmiş düzeltmeler ayrı sekmede.</summary>
+    [AvaloniaFact]
+    public void UIT23_Sayim_Islem_Sablonu()
+    {
+        var s = Ortam();
+        var vm = new StockCountViewModel(s);
+        var view = new StockCountView { DataContext = vm };
+        var w = Ac(view, 1126, 760);
+        Dispatcher.UIThread.RunJobs();
+        var sekmeler = view.GetVisualDescendants().OfType<TabItem>().Select(t => t.Header as string).ToList();
+        Assert.Contains("Sayım girişi", sekmeler);
+        Assert.Contains("Geçmiş düzeltmeler", sekmeler);
+        var dugmeler = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.True(dugmeler.IndexOf("Taslak Kaydet") >= 0 && dugmeler.IndexOf("Taslak Kaydet") < dugmeler.IndexOf("Sayımı Kaydet"));
+        // kalem tablosu (CountLines) yükseklikle sınırlanmaz
+        vm.MaterialSearch = "FLT-01";
+        Dispatcher.UIThread.RunJobs();
+        vm.PickMaterialCommand.Execute(vm.MaterialResults.First(m => m.Code == "FLT-01"));
+        vm.CountedQty = 2m;
+        vm.AddCountLineCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var tablo = view.GetVisualDescendants().OfType<ItemsControl>().First(i => ReferenceEquals(i.ItemsSource, vm.CountLines))
+            .GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("Table"));
+        Assert.True(double.IsPositiveInfinity(tablo.MaxHeight));
+        Assert.True(tablo.Bounds.Height > 200, "kalem tablosu kalan alanı doldurmalı: " + tablo.Bounds.Height);
+        Goruntu(w, "sayim-sablon-c");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

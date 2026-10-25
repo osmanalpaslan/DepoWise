@@ -324,6 +324,10 @@ public sealed partial class StockCountViewModel : ViewModelBase
     }
 
     partial void OnMaterialSearchChanged(string value) => RefreshMaterials();
+
+    /// <summary>⭐ M-63: arama sonuç listesi yalnız arama YAZILINCA görünür (boş kutuda ilk 30 malzeme listesi kalem tablosunun
+    /// yerini kaplıyordu). Tüm depoyu görmek için "Depodaki Tüm Malzemeleri Listele" vardır; web Sayım da aramayla çalışır.</summary>
+    public bool AramaSonucuGorunur => MaterialResults.Count > 0 && !string.IsNullOrWhiteSpace(MaterialSearch);
     partial void OnCountedQtyChanged(decimal value) => OnPropertyChanged(nameof(DiffText));
 
     private void RefreshMaterials()
@@ -337,6 +341,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
             foreach (var m in page.Items) MaterialResults.Add(new MaterialRefRow(m.Id, m.Code, m.Name));
         }
         catch { }
+        OnPropertyChanged(nameof(AramaSonucuGorunur));
     }
 
     [RelayCommand]
@@ -346,6 +351,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
         SelectedMaterial = m;
         MaterialSearch = m.Display;   // KOD — AD (arama listesiyle aynı biçim)
         MaterialResults.Clear();
+        OnPropertyChanged(nameof(AramaSonucuGorunur));
         // 🔴 STK-05 (D-2): sistem miktarı SAYILAN DEPONUN bakiyesidir. Eskiden firma geneli toplam okunuyordu
         // → kullanıcı 10'luk depoyu sayarken ekranda 15 görüp farkı yanlış hesaplardı (servis doğru yazıyordu).
         // ⭐ STK-12: depo seçilmemişse bakiye HİÇ sorulmaz — yanlış (firma geneli) sayı göstermektense boş kalır.

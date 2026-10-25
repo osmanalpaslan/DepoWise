@@ -710,6 +710,16 @@
         </Setter>
     </Style>
 
+    <!-- ⭐ M-63: EKRAN İÇİ SEKMELER (Şablon C: "Sayım girişi · Taslaklar · Geçmiş"). Fluent varsayılanı 28 px başlık verir;
+         veri ekranında sakin, okunur başlık: 15 px yarı kalın, ince alt çizgi seçim göstergesi Fluent'ten gelir. -->
+    <Style Selector="TabControl.EkranSekme > TabItem">
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Padding" Value="12,4"/>
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+    </Style>
+
     <!-- Başlıksız TabControl (sekme şeridi gizli; geçiş yalnız menüden) -->
     <Style Selector="TabControl.NoHeader /template/ ItemsPresenter#PART_ItemsPresenter">
         <Setter Property="IsVisible" Value="False"/>
