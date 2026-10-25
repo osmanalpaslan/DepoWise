@@ -132,8 +132,12 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
+        <!-- ⭐ 2026-10-25 (kullanıcı isteği): üzerine gelince NET vurgu — kehribar yumuşak zemin + ikon kehribar -->
         <Style Selector="ToggleButton.NavGroup:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup:pointerover PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup.active /template/ ContentPresenter">
             <Setter Property="Background">
@@ -172,29 +176,44 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="3,0,0,0"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Padding" Value="10,7"/>
             <Setter Property="Margin" Value="0,1"/>
-            <Setter Property="Opacity" Value="0.82"/>
+            <!-- ⭐ 2026-10-25 (kullanıcı isteği: "ekran isimleri daha belirgin ve okunaklı"): eskiden %82 opak + ikincil gri + 12,5 pt
+                 idi (bilerek soluk). Artık tam opak, ANA metin rengi (varyant-duyarlı), 13,5 pt, orta kalınlık. -->
+            <Setter Property="Opacity" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <!-- Ekran isimleri: varyant-duyarlı ikincil metin (açık modda okunur koyu, koyu modda açık). -->
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="RenderTransform" Value="translateX(0px)"/>
         </Style>
         <Style Selector="Button.NavLink /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
+        <!-- ⭐ 2026-10-25: üzerine gelince NET, modern vurgu — kehribar yumuşak zemin, solda kehribar çizgi, ikon kehribar,
+             satır hafifçe sağa kayar (yumuşak geçiş). Seçili satırdan ayırt edilir: seçili = koyu zemin + dolu çizgi + kalın yazı. -->
         <Style Selector="Button.NavLink:pointerover">
-            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="RenderTransform" Value="translateX(3px)"/>
         </Style>
         <Style Selector="Button.NavLink:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+        <Style Selector="Button.NavLink:pointerover PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <!-- seçili satır: daha koyu zemin + sol mavi vurgu + okunur metin -->
         <Style Selector="Button.NavLink.active">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.NavLink.active PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.NavLink.active /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
@@ -215,6 +234,7 @@
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                     <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 </Transitions>
             </Setter>
         </Style>

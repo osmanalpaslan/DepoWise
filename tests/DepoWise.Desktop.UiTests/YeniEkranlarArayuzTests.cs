@@ -758,6 +758,33 @@ public class YeniEkranlarArayuzTests
         vm.Dispose();
     }
 
+    /// <summary>UIT34 — kullanıcı isteği 2026-10-25: menü ekran adları belirgin (tam opak, 13,5 pt) ve üzerine gelince NET vurgu
+    /// (kehribar zemin + sağa kayma); seçili satır ayrıca kalın. Kabuk çizilir, bir ekran bağlantısına "fare üzerinde" durumu verilir.</summary>
+    [AvaloniaFact]
+    public void UIT34_Menu_Okunakli_Ve_Hover()
+    {
+        var shell = new ShellViewModel(Ortam());
+        var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+        w.Show();
+        Dispatcher.UIThread.RunJobs();
+        foreach (var bolum in shell.Sections)                     // üç seviye: bölüm → grup → ekran
+        {
+            bolum.IsExpanded = true;
+            foreach (var g in bolum.Groups) g.IsExpanded = true;
+        }
+        Dispatcher.UIThread.RunJobs();
+        var linkler = w.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("NavLink") && b.IsEffectivelyVisible).ToList();
+        Assert.NotEmpty(linkler);
+        var link = linkler.First(l => !l.Classes.Contains("active"));
+        Assert.Equal(1.0, link.Opacity);
+        Assert.Equal(13.5, link.FontSize);
+        ((Avalonia.Controls.IPseudoClasses)link.Classes).Set(":pointerover", true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(Avalonia.Media.Transformation.TransformOperations.Parse("translateX(3px)").ToString(), link.RenderTransform?.ToString());
+        Goruntu(w, "menu-hover");
+        w.Close();
+    }
+
     /// <summary>UIT32 — ⭐ M-65 (2/2) tanım ekranları: kısa form SAĞ YAN SAYFADA açılır (SideSheet); liste görünür kalır ve
     /// yüksekliği formdan etkilenmez (eskiden form listenin üstünde açılıp onu aşağı itiyordu); Esc = İptal.</summary>
     [AvaloniaFact]
