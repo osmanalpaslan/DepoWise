@@ -1719,6 +1719,10 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
     gap: 10px;
 }
 
+/* ⭐ M-63 (Şablon C — işlem girişi): alt sabit özet + eylem çubuğu. Uzun listede de Kaydet görünür kalır (masaüstüyle aynı düzen).
+   Tüm ekran genişliklerinde geçerli → mobil katmanın (§18, yalnız medya sorgusu) ÖNCESİNDE durur (MobilWebTests MOB3). */
+.dw-islem-alt { position: sticky; bottom: 0; z-index: 5; }
+
 /* ══════════════════════════════════════════════════════════════════════════
    18) MOB-W — MOBİL TARAYICI KATMANI (kullanıcı kararı 2026-09-04)
 
@@ -1901,6 +1905,3 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
                      text-overflow: ellipsis; white-space: nowrap; }
     .dw-sekme-kapat { padding: 0 8px 0 4px; }
 }
-
-/* ⭐ M-63 (Şablon C — işlem girişi): alt sabit özet + eylem çubuğu. Uzun listede de Kaydet görünür kalır (masaüstüyle aynı düzen). */
-.dw-islem-alt { position: sticky; bottom: 0; z-index: 5; }
