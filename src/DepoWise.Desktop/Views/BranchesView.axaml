@@ -27,10 +27,11 @@
         </ctrl:Toolbar>
 
         <!-- Yeni/Düzenle formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
+        <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
+        <ctrl:SideSheet Grid.Row="2" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
+            <StackPanel Spacing="14">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
                     <ctrl:FormField Label="Ad" IsRequired="True" Width="260">
                         <TextBox Classes="Field" Text="{Binding FormName}"/>
                     </ctrl:FormField>
@@ -43,7 +44,7 @@
                     <ctrl:FormField Label="{Binding PasswordLabel}" Width="200" IsVisible="{Binding IsAdmin}">
                         <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <ctrl:FormField Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}"
                                     PlaceholderText="Üst şube seç / ara..."/>
@@ -55,7 +56,7 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
-        </Border>
+        </ctrl:SideSheet>
 
         <!-- Liste + Detay -->
         <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360">

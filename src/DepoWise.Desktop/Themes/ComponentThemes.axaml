@@ -216,6 +216,24 @@
         </Setter>
     </ControlTheme>
 
+    <!-- ============ ⭐ M-65 SideSheet — kısa tanım formu sağdan açılır, liste görünür kalır ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:SideSheet}" TargetType="ctrl:SideSheet">
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="ZIndex" Value="10"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Width="{TemplateBinding SheetWidth}" Background="{DynamicResource SurfaceElevatedBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius16}"
+                        BoxShadow="{StaticResource ShadowMd}" Padding="20">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ContentPresenter Content="{TemplateBinding Content}"/>
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
     <!-- ============ ⭐ M-60 SelectionBar — seçim varken görünen bağlamsal komut çubuğu ============ -->
     <ControlTheme x:Key="{x:Type ctrl:SelectionBar}" TargetType="ctrl:SelectionBar">
         <Setter Property="IsVisible" Value="False"/>

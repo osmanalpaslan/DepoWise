@@ -29,7 +29,8 @@
         </ctrl:Toolbar>
 
         <!-- Form (yalnız yazma yetkilisine) -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
+        <ctrl:SideSheet Grid.Row="2" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
@@ -51,7 +52,7 @@
                         <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
                     </ctrl:FormField>
                 </WrapPanel>
-                <ctrl:FormField Label="Duyuru Metni" Width="700">
+                <ctrl:FormField Label="Duyuru Metni">
                     <TextBox Classes="Field" Text="{Binding FormBody}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
                 </ctrl:FormField>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
@@ -61,7 +62,7 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
-        </Border>
+        </ctrl:SideSheet>
 
         <!-- Liste (kart görünümü) -->
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" Padding="10">

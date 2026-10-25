@@ -736,6 +736,53 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT32 — ⭐ M-65 (2/2) tanım ekranları: kısa form SAĞ YAN SAYFADA açılır (SideSheet); liste görünür kalır ve
+    /// yüksekliği formdan etkilenmez (eskiden form listenin üstünde açılıp onu aşağı itiyordu); Esc = İptal.</summary>
+    [AvaloniaFact]
+    public void UIT32_Tanim_Ekranlari_Yan_Sayfa()
+    {
+        var s = Ortam();
+        var ekranlar = new (string Ad, Func<(object Vm, Control View, Action Ac)> Kur)[]
+        {
+            ("sube", () => { var vm = new BranchesViewModel(s); return (vm, new BranchesView { DataContext = vm }, () => vm.ShowAdd = true); }),
+            ("maliyet", () => { var vm = new CostCentersViewModel(s); return (vm, new CostCentersView { DataContext = vm }, () => vm.ShowAdd = true); }),
+            ("firma", () => { var vm = new CompaniesViewModel(s); return (vm, new CompaniesView { DataContext = vm }, () => vm.ShowAdd = true); }),
+            ("duyuru", () => { var vm = new AnnouncementsViewModel(s); return (vm, new AnnouncementsView { DataContext = vm }, () => vm.ShowAdd = true); }),
+            ("takvim", () => { var vm = new CalendarViewModel(s); return (vm, new CalendarView { DataContext = vm }, () => vm.ShowAdd = true); }),
+        };
+        foreach (var (ad, kur) in ekranlar)
+        {
+            var (vm, view, ac) = kur();
+            var w = Ac(view, 1300, 820);
+            Dispatcher.UIThread.RunJobs();
+            var sheet = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.SideSheet>().Single();
+            Assert.False(sheet.IsVisible, ad + ": form kapalıyken yan sayfa görünmemeli");
+            // Form satırının yanındaki/altındaki ana içerik (liste ızgarası) kapalıyken nerede başlıyor?
+            var icerik = ((Grid)sheet.Parent!).Children.Where(c => c != sheet && Grid.GetRow(c) == Grid.GetRow(sheet) && c.IsVisible).ToList();
+            Assert.NotEmpty(icerik);
+            var ustOnce = icerik[0].Bounds.Y;
+            ac();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(sheet.IsVisible, ad + ": form açılınca yan sayfa görünmeli");
+            Assert.True(icerik[0].IsVisible, ad + ": liste görünür kalmalı");
+            Assert.Equal(ustOnce, icerik[0].Bounds.Y);                                   // liste aşağı itilmedi
+            Assert.True(sheet.Bounds.X > 1300 / 3.0, ad + ": yan sayfa SAĞDA olmalı");
+            Assert.Contains(Gorunen<Button>(sheet), b => (b.Content as string) == "Kaydet");
+            // Dar yan sayfada hiçbir alan sağ kenardan taşıp kesilmemeli (yan yana alanlar alt satıra sarılır).
+            var sagKenar = sheet.Bounds.Width - 20;                                       // iç boşluk 20
+            foreach (var alan in sheet.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.FormField>().Where(f => f.IsEffectivelyVisible))
+            {
+                var sag = Avalonia.VisualExtensions.TranslatePoint(alan, new Avalonia.Point(alan.Bounds.Width, 0), sheet)!.Value.X;
+                Assert.True(sag <= sagKenar + 0.5, $"{ad}: «{alan.Label}» alanı yan sayfadan taşıyor ({sag:0} > {sagKenar:0})");
+            }
+            Goruntu(w, "yan-sayfa-" + ad);
+            sheet.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Escape });
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(sheet.IsVisible, ad + ": Esc formu kapatmalı");
+            w.Close();
+        }
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

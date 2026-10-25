@@ -647,3 +647,16 @@
   Mutasyon: "Filtrele" yeniden ana düğme yapılınca UIT31 kırıldı.
 - **M-64 kapanış notu:** Raporlar ekranında sayfalama YOK (doğrulandı: sonuç tek `DataGridView` tablosunda tamamıyla
   gösterilir), bu yüzden ortak Pager'a taşınacak bir şey yok; rapor ekranı düzeni M-58 (kayıtlı görünümler) ile ele alındı.
+
+### B8 — M-65 (2/2 · a) Tanım ekranları → sağ yan sayfa (F-130)
+- Yeni ortak parça `SideSheet` (M-65): kısa form listenin ÜSTÜNDE açılıp onu aşağı itmek yerine SAĞDAN açılır (480 px, gölgeli),
+  liste görünür kalır; Esc = İptal (ekranın mevcut iptal komutu). Uygulanan masaüstü ekranları: Şubeler, Maliyet Merkezleri, Firmalar,
+  Duyurular, Takvim. Dar sayfada yan yana alanlar alt satıra sarılır (WrapPanel); sabit 700 px "Duyuru Metni" ve 560/720/760 px
+  form sınırları kaldırıldı. Komutlar, bağlamalar ve iş kuralları değişmedi.
+- Bilinçli kapsam dışı: Malzeme/Araç şablonları (105–149 satırlık uzun formlar — "kısa form" değil), Yetki şablonları (form yok),
+  Ekipler (form satır içinde, her zaman açık). Web tanım sayfaları: form sayfanın üstünde (en çok 600 px) ve sayfa kaydırılır —
+  masaüstündeki sabit pencere sıkışması yok; değiştirilmedi.
+- **Testler:** arayüz UIT32 (5 ekran: kapalıyken gizli, açınca sağda ve görünür, liste aşağı itilmez, hiçbir alan yan sayfadan
+  taşmaz, Esc kapatır, 5 ekran görüntüsü). Taşma kontrolü ilk koşuda Firmalar ve Duyurular'daki kesilen alanları yakaladı (düzeltildi).
+  Mutasyon: yan sayfanın açılma bağı koparılınca UIT32 kırıldı. Arayüz 68/68; şube/maliyet/firma/duyuru/takvim/onay/erişilebilirlik/
+  düğme sırası/tasarım/iki ortam denetimi paketi 892/892 (30 dk).

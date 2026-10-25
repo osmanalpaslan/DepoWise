@@ -211,3 +211,37 @@ public class InfoBar : TemplatedControl
         PseudoClasses.Set(":info", Kind is BadgeKind.Info or BadgeKind.Neutral);
     }
 }
+
+/// <summary>
+/// ⭐ M-65 (AR-GE 2026-10-25, F-130 · tasarım belgesi 08 §4 "tanım ekranları") — SAĞ YAN SAYFA (side sheet).
+/// Kısa tanım formları (Şube, Maliyet merkezi, Firma, Duyuru…) listenin ÜSTÜNE değil SAĞINA açılır; liste görünür kalır.
+/// Yalnız sunum: <see cref="IsOpen"/> ekranın mevcut "form açık" bayrağına bağlanır, kaydet/iptal komutları formun içindedir.
+/// Esc tuşu <see cref="CloseCommand"/> verilmişse onu çalıştırır.
+/// </summary>
+public class SideSheet : ContentControl
+{
+    public static readonly StyledProperty<bool> IsOpenProperty =
+        AvaloniaProperty.Register<SideSheet, bool>(nameof(IsOpen));
+    public static readonly StyledProperty<double> SheetWidthProperty =
+        AvaloniaProperty.Register<SideSheet, double>(nameof(SheetWidth), 480);
+    public static readonly StyledProperty<ICommand?> CloseCommandProperty =
+        AvaloniaProperty.Register<SideSheet, ICommand?>(nameof(CloseCommand));
+
+    public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
+    public double SheetWidth { get => GetValue(SheetWidthProperty); set => SetValue(SheetWidthProperty, value); }
+    public ICommand? CloseCommand { get => GetValue(CloseCommandProperty); set => SetValue(CloseCommandProperty, value); }
+
+    static SideSheet() => IsOpenProperty.Changed.AddClassHandler<SideSheet>((s, _) => s.IsVisible = s.IsOpen);
+
+    public SideSheet() => IsVisible = false;
+
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Avalonia.Input.Key.Escape && CloseCommand?.CanExecute(null) == true)
+        {
+            CloseCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+}

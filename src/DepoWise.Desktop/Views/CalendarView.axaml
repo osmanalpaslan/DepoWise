@@ -57,10 +57,11 @@
         </ctrl:Toolbar>
 
         <!-- Form (el ile kayıt) -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
+        <ctrl:SideSheet Grid.Row="3" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
                     <ctrl:FormField Label="Başlık" IsRequired="True" Width="240">
                         <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
                     </ctrl:FormField>
@@ -75,8 +76,8 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
                                         PlaceholderText="Şantiye seç / ara..."/>
                     </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
                     <ctrl:FormField Label="Sorumlu Personel" Width="200">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormResponsible}"
                                         PlaceholderText="Personel seç / ara..."/>
@@ -88,7 +89,7 @@
                     <ctrl:FormField Label="Açıklama / Not" Width="320">
                         <TextBox Classes="Field" Text="{Binding FormNote}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
@@ -96,7 +97,7 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
-        </Border>
+        </ctrl:SideSheet>
 
         <!-- Çevrimdışı not (sunucu-otoriteli kaynaklar) -->
         <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0" IsVisible="{Binding HasRemoteNote}">
