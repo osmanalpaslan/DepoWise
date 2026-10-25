@@ -95,8 +95,8 @@
                 <SelectableTextBlock Classes="Error" Text="{Binding MetaError}"
                                      IsVisible="{Binding MetaError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelMetaEditCommand}"/>   <!-- M-61 (K-10): İptal … Kaydet — birincil en sağda -->
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMetaEditCommand}"/>
-                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelMetaEditCommand}"/>
                 </StackPanel>
             </StackPanel>
         </Border>

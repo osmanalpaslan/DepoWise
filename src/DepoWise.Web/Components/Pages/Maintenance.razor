@@ -490,8 +490,9 @@
                                     <div class="mt-2"><LookupSelect Label="Teknisyen" @bind-Value="_metaTech" Items="_technicians" SearchPath="/api/personnel" NameField="fullName" /></div>
                                     @if (_metaError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_metaError</MudAlert> }
                                     <MudStack Row="true" Spacing="2" Class="mt-2">
-                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMetaEdit">Kaydet</MudButton>
+                                        @* M-61 (K-10): İptal … Kaydet — birincil en sağda *@
                                         <MudButton Variant="Variant.Text" OnClick="@(() => _metaEdit = false)">Vazgeç</MudButton>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMetaEdit">Kaydet</MudButton>
                                     </MudStack>
                                 </MudPaper>
                             }

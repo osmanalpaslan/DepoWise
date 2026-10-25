@@ -170,8 +170,8 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding ClearCommand}"/>   <!-- M-61 (K-10): İptal … Kaydet — birincil en sağda -->
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}"/>
-                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding ClearCommand}"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

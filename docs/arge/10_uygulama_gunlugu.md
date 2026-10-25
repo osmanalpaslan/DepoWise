@@ -474,3 +474,12 @@
 - Bölüm başlıklarının büyük harfi bu adımda değiştirilmedi (tablo başlıkları dahil ~120 yerde metin olarak yazılı; ekran
   dönüşümlerinde (M-63/M-64) ele alınacak).
 - **Testler:** `TemaKontrastTests` TK5; mutasyon 2/2; arayüz 52/52 (taşma/hiza dahil); tasarım/tema/web CSS testleri 189/189.
+
+### B8 — M-61 form düğme sırası (F-060, K-10 = "İptal … Kaydet")
+- Masaüstünde 5 (Günlük Faaliyet ve Bakım üst bilgi düzenleme, Malzeme Şablonları, Fatura, Tahsilat) ve web'de 2 (Günlük Faaliyet,
+  Bakım üst bilgi) formda Kaydet, Vazgeç'ten önceydi → Vazgeç solda, Kaydet en sağda.
+- Onay/gerekçe/kolon pencerelerinde Enter/Esc zaten bağlı (testle kilitlendi). Hızlı düzenleme pencerelerinde (malzeme/araç) Enter
+  bilinçli olarak Kaydet'e bağlanmadı: çok satırlı alan ve "Sorgula" düğmesi var, istenmeyen kayıt riski.
+- Açık: Özel Raporlar'da Kaydet ikincil stilde (araç çubuğunun ana düğmesi "Yeni Rapor"); Zimmet'te Kaydet satırın son öğesi ama dar
+  pencerede alta sarılıyor — ikisi M-63/M-64 ekran dönüşümünde.
+- **Testler:** `DugmeSirasiTests` DS1–3 (iki ortam kaynak taraması); mutasyon 2/2; arayüz 52/52; web derlemesi 0 hata.

@@ -240,9 +240,9 @@
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
                             <!-- Busy sürerken düğme kapanır; ayrıca operation_id sabit olduğu için
                                  çift gönderim sunucuda da İKİNCİ fatura oluşturmaz. -->
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>   <!-- M-61 (K-10): İptal … Kaydet — birincil en sağda -->
                             <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveInvoiceCommand}"
                                     IsEnabled="{Binding !Busy}"/>
-                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
                         </StackPanel>
                         <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
                                              IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>

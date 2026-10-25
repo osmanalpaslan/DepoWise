@@ -203,8 +203,9 @@
         </MudGrid>
         @if (_editError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_editError</MudAlert> }
         <MudStack Row="true" Spacing="2" Class="mt-3">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit">Kaydet</MudButton>
+            @* M-61 (K-10): İptal … Kaydet — birincil en sağda *@
             <MudButton Variant="Variant.Text" OnClick="@(() => _editId = null)">Vazgeç</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit">Kaydet</MudButton>
         </MudStack>
     </MudPaper>
 }
