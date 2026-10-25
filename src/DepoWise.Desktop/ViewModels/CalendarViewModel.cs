@@ -122,8 +122,18 @@ public sealed partial class CalendarViewModel : ViewModelBase
         return (from, to);
     }
 
+    // ⭐ M-62 (4/4) (F-094): sunucudan okurken kabuktaki "yükleniyor" çubuğu için meşgul bayrağı; gövde LoadAsyncIc'de.
+    [ObservableProperty] private bool _busy;
+
     [RelayCommand]
     private async Task LoadAsync()
+    {
+        Busy = true;
+        try { await LoadAsyncIc(); }
+        finally { Busy = false; }
+    }
+
+    private async Task LoadAsyncIc()
     {
         try
         {

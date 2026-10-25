@@ -142,7 +142,17 @@ public sealed partial class ProjectsViewModel : ViewModelBase
     [RelayCommand] private Task ExportExcel() => DisaIndir(false);
     [RelayCommand] private Task Yazdir() => DisaIndir(true);
 
+    // ⭐ M-62 (4/4) (F-094): sunucudan okurken kabuktaki "yükleniyor" çubuğu için meşgul bayrağı; gövde LoadAsyncIc'de.
+    [ObservableProperty] private bool _busy;
+
     private async Task LoadAsync()
+    {
+        Busy = true;
+        try { await LoadAsyncIc(); }
+        finally { Busy = false; }
+    }
+
+    private async Task LoadAsyncIc()
     {
         LoadError = null;
         try

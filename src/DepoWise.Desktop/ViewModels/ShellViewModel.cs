@@ -98,12 +98,44 @@ public sealed partial class ShellViewModel : ViewModelBase
     partial void OnCurrentPageChanged(ViewModelBase? value)
     {
         if (value is not null) value.PropertyChanged += SayfaDurumuDegisti;
+        SayfaMesgulGuncelle(value);   // M-62 (4/4): yeni ekranın meşgul durumu
     }
 
-    private static void SayfaDurumuDegisti(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void SayfaDurumuDegisti(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (sender is null || e.PropertyName != "Status") return;
-        if (sender.GetType().GetProperty("Status")?.GetValue(sender) is string durum) Bildirimler.Durum(durum);
+        if (sender is null) return;
+        if (e.PropertyName == "Status")
+        {
+            if (sender.GetType().GetProperty("Status")?.GetValue(sender) is string durum) Bildirimler.Durum(durum);
+        }
+        else if (e.PropertyName is "Busy" or "IsBusy" or "IsLoading") SayfaMesgulGuncelle(sender);
+    }
+
+    // ── ⭐ M-62 (4/4) (F-094) — YÜKLENİYOR GÖSTERGESİ ─────────────────────────────────────────────
+    // Açık ekranın Busy/IsBusy/IsLoading bayrağı (eşzamansız yükleyen ekranlarda zaten var) kabukta içerik alanının üstünde ince
+    // bir ilerleme çubuğu olarak gösterilir. 300 ms'den kısa işlerde HİÇ görünmez (titreme yok); iş bitince hemen gizlenir.
+    private const int YukleniyorGecikmeMs = 300;
+    private int _mesgulSurumu;
+    [ObservableProperty] private bool _yukleniyorGorunur;
+
+    public static bool SayfaMesgulMu(object? sayfa)
+    {
+        if (sayfa is null) return false;
+        foreach (var ad in new[] { "Busy", "IsBusy", "IsLoading" })
+            if (sayfa.GetType().GetProperty(ad)?.GetValue(sayfa) is true) return true;
+        return false;
+    }
+
+    private void SayfaMesgulGuncelle(object? sayfa)
+    {
+        var surum = ++_mesgulSurumu;
+        if (!SayfaMesgulMu(sayfa)) { YukleniyorGorunur = false; return; }
+        _ = System.Threading.Tasks.Task.Delay(YukleniyorGecikmeMs).ContinueWith(_ =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                // gecikme dolduğunda hâlâ AYNI meşguliyet sürüyorsa göster
+                if (surum == _mesgulSurumu && SayfaMesgulMu(CurrentPage)) YukleniyorGorunur = true;
+            }));
     }
     [ObservableProperty] private string _currentTitle = "";
     [ObservableProperty] private string _currentContext = "";

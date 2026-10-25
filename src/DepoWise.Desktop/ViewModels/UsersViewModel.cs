@@ -210,8 +210,18 @@ public sealed partial class UsersViewModel : ViewModelBase
         _ = Load();
     }
 
+    // ⭐ M-62 (4/4) (F-094): sunucudan okurken kabuktaki "yükleniyor" çubuğu için meşgul bayrağı; gövde LoadIc'de.
+    [ObservableProperty] private bool _busy;
+
     [RelayCommand]
     private async Task Load()
+    {
+        Busy = true;
+        try { await LoadIc(); }
+        finally { Busy = false; }
+    }
+
+    private async Task LoadIc()
     {
         try
         {

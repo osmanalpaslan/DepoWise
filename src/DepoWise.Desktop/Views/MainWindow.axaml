@@ -742,7 +742,13 @@
             </Border>
 
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->
-            <ContentControl x:Name="SayfaAlani" Content="{Binding CurrentPage}"/>   <!-- M-62 (3/4): kısayollar bu alanda arar -->
+            <Panel>
+                <ContentControl x:Name="SayfaAlani" Content="{Binding CurrentPage}"/>   <!-- M-62 (3/4): kısayollar bu alanda arar -->
+                <!-- ⭐ M-62 (4/4): yükleniyor göstergesi — 300 ms'den uzun yüklemede, içeriğin üst kenarında ince çubuk -->
+                <ProgressBar IsIndeterminate="True" Height="3" MinHeight="3" VerticalAlignment="Top" IsHitTestVisible="False"
+                             Foreground="{DynamicResource AccentBrush}" Background="Transparent"
+                             IsVisible="{Binding YukleniyorGorunur}" AutomationProperties.Name="Yükleniyor"/>
+            </Panel>
         </DockPanel>
 
         <!-- ═══════════════ SOHBET PENCERELERİ — ÜST KATMAN ═══════════════

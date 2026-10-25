@@ -23,7 +23,7 @@ public class BildirimBaglantisiTests
         var s = Oku("src/DepoWise.Desktop/ViewModels/ShellViewModel.cs");
         Assert.Contains("_currentPage.PropertyChanged -= SayfaDurumuDegisti;", s);
         Assert.Contains("value.PropertyChanged += SayfaDurumuDegisti;", s);
-        Assert.Contains("e.PropertyName != \"Status\"", s);
+        Assert.Contains("if (e.PropertyName == \"Status\")", s);
         Assert.Contains("Bildirimler.Durum(durum)", s);
     }
 
@@ -39,6 +39,21 @@ public class BildirimBaglantisiTests
         Assert.DoesNotContain("Avalonia.Input.Key.S, true", s);
         Assert.DoesNotContain("Avalonia.Input.Key.Delete", s);
         Assert.Contains("x:Name=\"SayfaAlani\"", Oku("src/DepoWise.Desktop/Views/MainWindow.axaml"));
+    }
+
+    /// <summary>BB4 — M-62 (4/4): kabuk ekranın meşgul bayrağını dinler; gösterge 300 ms gecikmeli, iş bitince hemen gizlenir.</summary>
+    [Fact]
+    public void BB4_Yukleniyor_Gostergesi_Baglantisi()
+    {
+        var kabuk = Oku("src/DepoWise.Desktop/ViewModels/ShellViewModel.cs");
+        Assert.Contains("e.PropertyName is \"Busy\" or \"IsBusy\" or \"IsLoading\"", kabuk);
+        Assert.Contains("private const int YukleniyorGecikmeMs = 300;", kabuk);
+        Assert.Contains("if (!SayfaMesgulMu(sayfa)) { YukleniyorGorunur = false; return; }", kabuk);
+        Assert.Contains("SayfaMesgulGuncelle(value);", kabuk);
+        var pencere = Oku("src/DepoWise.Desktop/Views/MainWindow.axaml");
+        Assert.Contains("IsVisible=\"{Binding YukleniyorGorunur}\"", pencere);
+        foreach (var ekran in new[] { "Calendar", "Documents", "Projects", "PermissionTemplates", "Users" })
+            Assert.Contains("[ObservableProperty] private bool _busy;", Oku($"src/DepoWise.Desktop/ViewModels/{ekran}ViewModel.cs"));
     }
 
     [Fact]

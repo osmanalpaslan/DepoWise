@@ -354,6 +354,25 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-62 (4/4): kabuk ekranın Busy/IsBusy/IsLoading bayrağını okur; sunucudan okuyan ekranlarda bayrak yükleme süresince açık.</summary>
+    [AvaloniaFact]
+    public void UIT20_Yukleniyor_Bayragi()
+    {
+        Assert.True(ShellViewModel.SayfaMesgulMu(new { Busy = true }));
+        Assert.True(ShellViewModel.SayfaMesgulMu(new { IsLoading = true }));
+        Assert.False(ShellViewModel.SayfaMesgulMu(new { Busy = false }));
+        Assert.False(ShellViewModel.SayfaMesgulMu(new { Baska = true }));
+        Assert.False(ShellViewModel.SayfaMesgulMu(null));
+        // sunucudan okuyan ekranlar artık bayrak taşır (yükleme bitince kapanır)
+        var s = Ortam();
+        foreach (var vm in new object[] { new ProjectsViewModel(s), new DocumentsViewModel(s) })
+        {
+            Assert.NotNull(vm.GetType().GetProperty("Busy"));
+            for (int i = 0; i < 50 && ShellViewModel.SayfaMesgulMu(vm); i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            Assert.False(ShellViewModel.SayfaMesgulMu(vm));
+        }
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

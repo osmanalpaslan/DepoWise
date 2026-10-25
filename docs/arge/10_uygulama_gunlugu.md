@@ -508,4 +508,11 @@
   (Ctrl+S, Del) bilinçli olarak YOK: onay akışı ekrana göre değişir.
 - Web'e eklenmedi (bilinçli fark): Ctrl+N/W/F tarayıcının kendi kısayolları; F5 sayfayı yeniler.
 - **Testler:** arayüz UIT19 (Malzemeler'de Ctrl+N formu açar, F5 iki yoldan yeniler, Ctrl+F odak), `BildirimBaglantisiTests` BB3;
-  mutasyon 1/1 (ilk deneme HAYATTA KALDI — test yalnız IRefreshable yolunu sınıyordu → Stok Hareketleri ile güçlendirildi); arayüz 56/56.
+  mutasyon 1/1 (ilk deneme HAYATTA KALDI — test yalnız IRefreshable yolunu sınıyordu → Stok Hareketleri ile güçlendirildi); arayüz 55/55.
+
+### B8 — M-62 (4/4) yükleniyor göstergesi (F-094)
+- Masaüstü kabuk, açık ekranın `Busy/IsBusy/IsLoading` bayrağını dinler; yükleme 300 ms'yi geçerse içerik alanının üst kenarında
+  ince ilerleme çubuğu görünür, bitince hemen gizlenir (kısa işlerde titreme yok). Bayrak zaten 6 ekranda vardı; sunucudan okuyan
+  5 ekrana (Takvim, Belgeler, Projeler, Yetki Şablonları, Kullanıcılar) eklendi — yükleme metodunun adı/komutu değişmedi.
+- Web: listeler yüklenirken zaten `MudProgressCircular`/`Loading` gösteriyordu (değişiklik yok).
+- **Testler:** arayüz UIT20, `BildirimBaglantisiTests` BB4 (BB1 beklentisi yeni dinleyici biçimine güncellendi); mutasyon 1/1; arayüz 56/56.
