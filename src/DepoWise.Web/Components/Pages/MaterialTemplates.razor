@@ -69,9 +69,10 @@
                 }
             </MudStack>
         }
-        <MudStack Row="true" Class="mt-2" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : _editId is null ? "Şablonu Kaydet" : "Değişiklikleri Kaydet")</MudButton>
+        <MudStack Row="true" Class="mt-2" Spacing="2" Justify="Justify.FlexEnd">
+            @* K-10 (M-61): ikincil solda, Kaydet EN SAĞDA *@
             @if (_editId is not null) { <MudButton Variant="Variant.Text" OnClick="ClearForm">Vazgeç</MudButton> }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : _editId is null ? "Şablonu Kaydet" : "Değişiklikleri Kaydet")</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>

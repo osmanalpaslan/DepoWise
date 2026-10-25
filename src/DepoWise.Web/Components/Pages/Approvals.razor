@@ -80,7 +80,8 @@ else
                                 @* M-61/K-10: Reddet solda, Onayla EN SAĞDA *@
                                 <MudButton Size="Size.Small" Color="Color.Error"
                                            Disabled="_islemde" OnClick="@(() => RedAc(r))">Reddet</MudButton>
-                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                @* B8 denetimi: satır eylemi ikincil (tek dolu ana düğme yukarıdaki toplu "İşaretlileri Onayla") — masaüstüyle aynı *@
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                            Disabled="_islemde" OnClick="@(() => Onayla(r))">Onayla</MudButton>
                             </td>
                         </tr>

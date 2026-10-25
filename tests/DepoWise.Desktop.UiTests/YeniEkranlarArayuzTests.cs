@@ -456,7 +456,7 @@ public class YeniEkranlarArayuzTests
     }
 
     /// <summary>M-63 (Şablon C): Sayım — sekmeler (giriş · geçmiş), kalem tablosu kalan alanın tamamı (yükseklik sınırı yok),
-    /// alt sabit çubukta "Taslak Kaydet … Sayımı Kaydet" (birincil en sağda); geçmiş düzeltmeler ayrı sekmede.</summary>
+    /// alt sabit çubukta "Taslak Kaydet … Sayımı Tamamla" (birincil en sağda; web ile aynı ad — B8 denetimi); geçmiş düzeltmeler ayrı sekmede.</summary>
     [AvaloniaFact]
     public void UIT23_Sayim_Islem_Sablonu()
     {
@@ -469,7 +469,7 @@ public class YeniEkranlarArayuzTests
         Assert.Contains("Sayım girişi", sekmeler);
         Assert.Contains("Geçmiş düzeltmeler", sekmeler);
         var dugmeler = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
-        Assert.True(dugmeler.IndexOf("Taslak Kaydet") >= 0 && dugmeler.IndexOf("Taslak Kaydet") < dugmeler.IndexOf("Sayımı Kaydet"));
+        Assert.True(dugmeler.IndexOf("Taslak Kaydet") >= 0 && dugmeler.IndexOf("Taslak Kaydet") < dugmeler.IndexOf("Sayımı Tamamla"));
         // kalem tablosu (CountLines) yükseklikle sınırlanmaz
         vm.MaterialSearch = "FLT-01";
         Dispatcher.UIThread.RunJobs();

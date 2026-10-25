@@ -123,10 +123,11 @@ else
                                StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => _preview = !_preview)">
                         Menüyü Önizle
                     </MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" aria-label="Değişiklikleri kaydet"
-                               StartIcon="@Icons.Material.Filled.Save" OnClick="Save">Kaydet</MudButton>
+                    @* K-10 (M-61): ikincil solda, Kaydet EN SAĞDA *@
                     <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_busy" aria-label="Değişiklikleri iptal et"
                                OnClick="CancelEdit">Değişiklikleri İptal Et</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" aria-label="Değişiklikleri kaydet"
+                               StartIcon="@Icons.Material.Filled.Save" OnClick="Save">Kaydet</MudButton>
                 }
             </div>
 

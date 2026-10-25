@@ -25,10 +25,14 @@ public class DugmeSirasiTests
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"));
 
     /// <summary>Dosyadaki düğme metinlerini sırayla çıkarır; "Kaydet…" hemen ardından vazgeçme düğmesi gelirse bulgu.</summary>
-    private const string Birincil = "^(Kaydet|Güncelle|Oluştur|Onayla|Uygula|Gönder|Tamamla|Evet)|Onayla$";
-    private const string Vazgecme = "^(İptal|Vazgeç|Kapat|Hayır)$";
+    // B8 denetimi (2026-10-25): "Hareketi Kaydet / Değişiklikleri Kaydet" (eylem sonda) ve "Değişiklikleri İptal Et" de sayılır.
+    private const string Birincil = "^(Kaydet|Güncelle|Oluştur|Onayla|Uygula|Gönder|Tamamla|Evet)|(Onayla|Kaydet)$";
+    // Yalın "İptal Et" SAYILMAZ: çoğu ekranda kaydı iptal eden bir İŞLEMDİR (fatura/bakım iptali), formdan vazgeçme değil.
+    private const string Vazgecme = "^(İptal|Vazgeç|Kapat|Hayır|Değişiklikleri İptal Et)$";
     private static readonly Regex MasaustuDugme = new(@"<Button\b[^>]*?Content=""([^""]+)""");
-    private static readonly Regex WebDugme = new(@">\s*([^<>@]{1,40}?)\s*</MudButton>");
+    // B8 denetimi: metni "@(_saving ? "Kaydediliyor…" : "Kaydet")" biçiminde yazılan düğmeler GÖRÜLMÜYORDU (Cari formu ters sıradaydı) →
+    // ikinci seçenek: @(...) içindeki SON tırnaklı metin (meşgul olmayan hâlin yazısı).
+    private static readonly Regex WebDugme = new(@">\s*(?:@\([^<]*?""([^""<]{1,40})""\s*\)|([^<>@]{1,40}?))\s*</MudButton>");
 
     private static List<string> TersSira(string kok, string desen, Regex dugme, string once = Birincil, string sonra = Vazgecme)
     {
@@ -36,7 +40,7 @@ public class DugmeSirasiTests
         foreach (var f in Dosyalar(kok, desen))
         {
             var s = File.ReadAllText(f);
-            var d = dugme.Matches(s).Select(m => (Metin: m.Groups[1].Value.Trim(), m.Index)).ToList();
+            var d = dugme.Matches(s).Select(m => (Metin: (m.Groups[1].Success ? m.Groups[1] : m.Groups[2]).Value.Trim(), m.Index)).ToList();
             for (int i = 0; i + 1 < d.Count; i++)
                 // M-64 ara bulgu (2026-10-25): yalnız Kaydet aranıyordu; "İptali Onayla / Ters Kaydı Onayla / Reddi Onayla" gibi onay
                 // düğmeleri Vazgeç'in solunda kalmıştı → onay/uygula/gönder/tamamla da birincil sayılır. ("Sil" sayılmaz: tek başına

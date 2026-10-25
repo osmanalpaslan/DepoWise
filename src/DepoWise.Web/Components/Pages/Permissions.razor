@@ -82,7 +82,6 @@
                         @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
                     </MudSelect>
                 }
-                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
                 @* ⭐ YTK-05: tüm ağacı tek hamlede temizler. Grup başına "Temizle" vardı; sıfırdan
                    yetki kurarken 8 grubu tek tek temizlemek gerekiyordu. Sunucuya HİÇBİR ŞEY YAZMAZ
                    (yıkıcı olan "Yetkileri Sıfırla"dır) → bu yüzden Error değil nötr renk. *@
@@ -90,6 +89,7 @@
                            OnClick="ClearAllPerms" Disabled="_busy"
                            Title="Ekrandaki tüm işaretleri kaldırır. Kaydet'e basmazsanız sunucuda hiçbir şey değişmez.">Tümünü Temizle</MudButton>
                 <MudButton Variant="Variant.Text" OnClick="CancelEdit" Disabled="_busy">Vazgeç</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
             }
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FactCheck"
                        OnClick="LoadSummary" Disabled="_busy">Yetki Özeti</MudButton>
@@ -306,12 +306,12 @@
             }
             else
             {
-                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RolYetkileriniKaydet"
-                           Disabled="_rolBusy">@(_rolBusy ? "…" : "Kaydet")</MudButton>
                 <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ClearAll"
                            OnClick="RolYetkileriniTemizle" Disabled="_rolBusy"
                            Title="Ekrandaki tüm işaretleri kaldırır. Kaydet'e basmazsanız sunucuda hiçbir şey değişmez.">Tümünü Temizle</MudButton>
                 <MudButton Variant="Variant.Text" OnClick="RolDuzenlemeIptal" Disabled="_rolBusy">Vazgeç</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RolYetkileriniKaydet"
+                           Disabled="_rolBusy">@(_rolBusy ? "…" : "Kaydet")</MudButton>
             }
         </MudStack>
 

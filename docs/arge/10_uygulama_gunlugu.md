@@ -697,3 +697,20 @@
 - İlk koşuda listede olmayan 3 açık uç bulundu; üçü de bilinçli giriş akışı uçları çıktı (incelendi, listeye gerekçeyle eklendi).
   `machines/register` boş gövdeyle varsayılan firmaya bekleyen kayıt açıyor → kalan risklere yazıldı (davranış değişikliği ayrı karar).
 - **Testler:** UY1–UY2 yeşil. Mutasyon: M-66'nın 400 eşlemesi kaldırılınca tarama 4 uçta çökme gösterdi (iki test de kırmızı).
+
+### B8 denetim bulguları (iki ortam denetçisi, 2026-10-25) ve düzeltmeler
+- **Düzeltildi (orta):** web formlarında "Kaydet … Vazgeç" ters sıra — Cari (kart formu + hareket formu), Firmalar, Malzeme Şablonları,
+  Ekran Görünürlüğü ("Kaydet … Değişiklikleri İptal Et"), Yetkiler (iki grup: "Kaydet · Tümünü Temizle · Vazgeç"). Hepsi "… Vazgeç ·
+  Kaydet" (birincil en sağda). **Neden test görmedi:** web düğme okuyucusu `@(_saving ? "Kaydediliyor…" : "Kaydet")` biçimindeki
+  metni okumuyordu ve "Hareketi/Değişiklikleri Kaydet" (eylem sonda) birincil sayılmıyordu → `DugmeSirasiTests` genişletildi (yalın
+  "İptal Et" kaydı iptal eden İŞLEM olduğu için vazgeçme sayılmaz). Mutasyon: Cari sırası geri çevrilince DS2 kırıldı.
+- **Düzeltildi (düşük):** masaüstü Talepler'de ikinci ana düğme ("Kalemi Ekle" → ikincil); web Onaylar satır "Onayla" dolu → çerçeveli
+  (tek dolu ana düğme toplu onay); web Şubeler kartında Düzenle/Sil dolu → çerçeveli; masaüstü "Sayımı Kaydet" → "Sayımı Tamamla"
+  (web ile aynı ad; UIT23 güncellendi).
+- **Doğrulandı, sorun değil:** web Talepler'de kişi ekleme var (seçim kutuları satır içinden ekler); web Sayım depo seçilince depodaki
+  tüm malzemeleri kendiliğinden listeler (masaüstü "tümünü listele"nin karşılığı); ana ekran hızlı işlemleri kabuk menüsü kurulduktan
+  sonra oluşur.
+- **Kalan (düşük, bilinçli):** web'de bazı "Kaydet" düğmeleri yeşil (Success), diğerleri ana renk — görsel tutarlılık; yıkıcı web
+  düğmelerinin bir kısmı dolu kırmızı (kullanıcıyı engellemez). Web tanım sayfaları form-üstte düzeninde kaldı.
+- **Testler:** düğme sırası/şablon/onay/yetki/ekran görünürlüğü/erişilebilirlik/mobil paketi 150 (DS düzeltmesi sonrası DS 4/4); arayüz
+  69/69; web derlemesi temiz.

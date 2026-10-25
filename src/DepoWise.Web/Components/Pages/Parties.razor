@@ -132,11 +132,12 @@ else
                     </MudItem>
                 }
             </MudGrid>
-            <MudStack Row="true" Spacing="2" Class="mt-3">
+            <MudStack Row="true" Spacing="2" Class="mt-3" Justify="Justify.FlexEnd">
                 @* _saving sürerken düğme kapalı → çift tıklamada iki kayıt oluşmaz. *@
+                @* K-10 (M-61): ikincil solda, Kaydet EN SAĞDA *@
+                <MudButton Variant="Variant.Text" OnClick="CancelForm" Disabled="_saving">Vazgeç</MudButton>
                 <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SaveParty" Disabled="_saving">
                     @(_saving ? "Kaydediliyor…" : "Kaydet")</MudButton>
-                <MudButton Variant="Variant.Text" OnClick="CancelForm" Disabled="_saving">Vazgeç</MudButton>
             </MudStack>
         </MudPaper>
     }
@@ -229,10 +230,11 @@ else
                         <MudItem xs="12" md="3"><MudTextField @bind-Value="_e.DocNo" Label="Belge No" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                         <MudItem xs="12" md="9"><MudTextField @bind-Value="_e.Description" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     </MudGrid>
-                    <MudStack Row="true" Spacing="2" Class="mt-2">
+                    <MudStack Row="true" Spacing="2" Class="mt-2" Justify="Justify.FlexEnd">
+                        @* K-10 (M-61): ikincil solda, Kaydet EN SAĞDA *@
+                        <MudButton Variant="Variant.Text" OnClick="@(() => _entryOpen = false)" Disabled="_saving">Vazgeç</MudButton>
                         <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SaveEntry" Disabled="_saving">
                             @(_saving ? "Kaydediliyor…" : "Hareketi Kaydet")</MudButton>
-                        <MudButton Variant="Variant.Text" OnClick="@(() => _entryOpen = false)" Disabled="_saving">Vazgeç</MudButton>
                     </MudStack>
                 </MudPaper>
             }

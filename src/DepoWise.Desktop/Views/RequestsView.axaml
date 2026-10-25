@@ -125,7 +125,7 @@
                                             <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding NewItemVehicle}"
                                                              DisplayMember="Display" PlaceholderText="İç kod / plaka seç — her seçim eklenir"/>
                                         </ctrl:FormField>
-                                        <Button Classes="Primary" Content="Kalemi Ekle" VerticalAlignment="Bottom" Command="{Binding AddItemCommand}"
+                                        <Button Classes="Secondary" Content="Kalemi Ekle" VerticalAlignment="Bottom" Command="{Binding AddItemCommand}"
                                                 ToolTip.Tip="Seçili malzemeyi, miktarı ve seçilen tüm araçları talebe kalem olarak ekler."/>
                                     </StackPanel>
 

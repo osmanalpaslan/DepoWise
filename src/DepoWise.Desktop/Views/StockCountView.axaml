@@ -151,7 +151,7 @@
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                 <Button Classes="Secondary" Content="Taslak Kaydet" Command="{Binding TaslakKaydetCommand}"
                                         ToolTip.Tip="Sayımı stoğa yazmadan kaydeder; sonra açıp sürdürebilirsiniz."/>
-                                <Button Classes="Primary" Content="Sayımı Kaydet" Command="{Binding SaveCommand}"/>
+                                <Button Classes="Primary" Content="Sayımı Tamamla" Command="{Binding SaveCommand}"/>
                             </StackPanel>
                         </Grid>
                     </Border>

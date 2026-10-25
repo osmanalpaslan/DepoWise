@@ -101,8 +101,8 @@
                 var dd = _detail.Value;
                 <MudText Typo="Typo.h6">@Str(dd, "name")</MudText>
                 <MudStack Row="true" Class="mt-1" Spacing="2">
-                    @if (Auth.CanEdit("branches")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => BeginEdit(dd))">Düzenle</MudButton> }
-                    @if (Auth.CanDelete("branches")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => Delete(Str(dd,"id")))">Sil</MudButton> }
+                    @if (Auth.CanEdit("branches")) { <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => BeginEdit(dd))">Düzenle</MudButton> }
+                    @if (Auth.CanDelete("branches")) { <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick="@(() => Delete(Str(dd,"id")))">Sil</MudButton> }
                 </MudStack>
                 <MudText Typo="Typo.subtitle2" Class="mt-3">ŞUBEDEKİ KULLANICILAR</MudText>
                 @if (_branchUsers.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Bu şubeye atanmış kullanıcı yok. Atama 'Kullanıcılar' ekranından yapılır.</MudText> }
