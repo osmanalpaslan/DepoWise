@@ -1375,7 +1375,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Araç bakım kayıtları";
                 break;
             case "maintenance:alerts":
-                CurrentPage = new MaintenanceViewModel(_session, 2);
+                CurrentPage = new MaintenanceViewModel(_session, 3);   // sekmeler: 0 Tanımlar · 1 Araç · 2 Ekipman (7b sonradan eklendi) · 3 Uyarılar
                 CurrentTitle = "Bakım Takibi";
                 CurrentContext = "Periyodik bakım uyarıları";
                 break;
