@@ -422,15 +422,15 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [ObservableProperty] private BranchRow? _toBranch;
 
     // ═══ M-27 (AR-GE 2026-10-18, F-070) — İKİ ADIMLI TRANSFER ("YOLDA") ══════════════════════════════
-    /// <summary>İşaretliyse şube dışı çıkış hedefe hemen girmez: mal "yolda" kalır, hedef depo teslim alınca girer.</summary>
-    [ObservableProperty] private bool _yoldaTransfer;
+    // ⭐ 2026-10-25 (kullanıcı isteği): şube dışı çıkış (başka şube/şantiyeye gönderim) HER ZAMAN iki adımlıdır — mal "yolda"
+    // kalır, hedefin yetkili personeli teslim alıp onaylamadan hedefin kullanılabilir stoğuna GİRMEZ. Eski "Yolda" seçim kutusu kaldırıldı.
     public ObservableCollection<YoldaTransferVm> Yoldakiler { get; } = new();
     public bool HasYoldakiler => Yoldakiler.Count > 0;
 
     private void YoldakileriYukle()
     {
         Yoldakiler.Clear();
-        try { foreach (var y in DesktopServices.Stock.Yoldakiler(_session)) Yoldakiler.Add(new YoldaTransferVm(y)); }
+        try { foreach (var y in DesktopServices.Stock.Yoldakiler(_session)) Yoldakiler.Add(new YoldaTransferVm(y, _session.OperatingBranchId)); }
         catch { /* liste opsiyonel; ana ekran çalışmaya devam eder */ }
         OnPropertyChanged(nameof(HasYoldakiler));
     }
@@ -439,14 +439,21 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     private async Task TeslimAl(YoldaTransferVm? y)
     {
         if (y is null) return;
-        var satirlar = y.Kalemler.Where(k => k.Alinan > 0).Select(k => new StockLine(k.Kalem.MaterialId, k.Alinan)).ToList();
-        if (satirlar.Count == 0) { Status = "Teslim alınan miktarı girin."; return; }
-        var eksik = y.Kalemler.Sum(k => k.Kalem.Yolda - k.Alinan);
+        // ⭐ 2026-10-25: kalem başına SAĞLAM (stoğa girer) + KUSURLU (stoğa girmez: fire ya da göndericiye iade); kalan EKSİK yolda kalır.
+        var satirlar = y.Kalemler.Where(k => k.Alinan > 0 || k.Kusurlu > 0)
+            .Select(k => new TeslimSatiri(k.Kalem.MaterialId, k.Alinan, k.Kusurlu, k.KusurluIade)).ToList();
+        if (satirlar.Count == 0) { Status = "Teslim alınan (sağlam ya da kusurlu) miktarı girin."; return; }
+        if (y.Kalemler.Any(k => k.Alinan + k.Kusurlu > k.Kalem.Yolda)) { Status = "Sağlam + kusurlu, yoldaki miktardan fazla olamaz."; return; }
+        var kusurlu = y.Kalemler.Sum(k => k.Kusurlu);
+        if (kusurlu > 0 && string.IsNullOrWhiteSpace(y.KusurNotu)) { Status = "Kusurlu malzeme için açıklama yazın (ne kusuru var?)."; return; }
+        var eksik = y.Kalemler.Sum(k => k.Kalem.Yolda - k.Alinan - k.Kusurlu);
         if (!await ConfirmService.AskAsync($"{y.Transfer.DocNo} teslim alınsın mı?" +
+                $" Sağlam {y.Kalemler.Sum(k => k.Alinan):0.####} stoğa girecek." +
+                (kusurlu > 0 ? $" Kusurlu {kusurlu:0.####} stoğa GİRMEYECEK (fire ya da iade)." : "") +
                 (eksik > 0 ? $" Eksik {eksik:0.####} yolda kalacak (sonra kayıp olarak kapatabilirsiniz)." : ""), "Teslim Al", "Teslim Al", "Vazgeç")) return;
         try
         {
-            DesktopServices.Stock.TeslimAl(_session, y.Transfer.DocumentId, satirlar, y.IslemKimligi);
+            DesktopServices.Stock.TeslimAl(_session, y.Transfer.DocumentId, satirlar, y.IslemKimligi, y.KusurNotu);
             Status = $"{y.Transfer.DocNo} teslim alındı.";
             YoldakileriYukle();
             Load();
@@ -817,20 +824,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
                     if (ToBranch.Id == from) { FormError = "Hedef şube, kaynak depodan farklı olmalı."; return; }
                     if (!await ConfirmService.AskAsync($"{EtkinLokasyonAdi} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
-                    if (YoldaTransfer)   // ⭐ M-27: iki adımlı — hedef teslim alınca girer
-                    {
-                        DesktopServices.Stock.YoldaGonder(_session, exitLines, from, ToBranch.Id, op, note, IsGunuTarihi.Ms(DocDate));
-                        Status = $"Transfer yola çıktı ({exitLines.Count} malzeme) — {ToBranch.Name} teslim alınca stoğuna girecek.";
-                        YoldakileriYukle();
-                    }
-                    else
-                    {
-                    DesktopServices.Stock.Transfer(_session, exitLines, from, ToBranch.Id, op, note,
-                        docDate: IsGunuTarihi.Ms(DocDate),   // STK-11
-                        personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
-                        invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
-                    Status = exitLines.Count == 1 ? "Şube dışı çıkış (transfer) kaydedildi." : $"Şube dışı çıkış (transfer) kaydedildi ({exitLines.Count} malzeme).";
-                    }
+                    // ⭐ 2026-10-25: HER ZAMAN iki adımlı — hedef teslim alıp onaylayınca stoğuna girer (şoför/araç/fiş no taşınır)
+                    DesktopServices.Stock.YoldaGonder(_session, exitLines, from, ToBranch.Id, op, note, IsGunuTarihi.Ms(DocDate),
+                        personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
+                    Status = $"Malzeme yola çıktı ({exitLines.Count} kalem) — {ToBranch.Name} teslim alıp onaylayınca stoğuna girecek.";
+                    YoldakileriYukle();
                 }
             }
 
@@ -1063,7 +1061,17 @@ public sealed class YoldaTransferVm
     public System.Collections.ObjectModel.ObservableCollection<YoldaKalemVm> Kalemler { get; } = new();
     /// <summary>Kart başına tek işlem kimliği: çift tıklama / ağ tekrarı ikinci teslim yazmaz.</summary>
     public string IslemKimligi { get; } = "transit-in-" + Guid.NewGuid().ToString("N");
-    public YoldaTransferVm(YoldaTransfer t) { Transfer = t; foreach (var k in t.Kalemler.Where(k => k.Yolda > 0)) Kalemler.Add(new YoldaKalemVm(k)); }
+    /// <summary>⭐ 2026-10-25: kusurlu malzemenin açıklaması (kusurlu varsa zorunlu).</summary>
+    public string KusurNotu { get; set; } = "";
+    /// <summary>⭐ 2026-10-25: teslim almayı yalnız HEDEF şube/şantiyenin personeli görür (şubesiz "Tüm Şubeler" oturumu da).</summary>
+    public bool TeslimAlabilir { get; }
+    public string Rol => TeslimAlabilir ? "Size gelen — teslim alın" : "Gönderdiğiniz — hedefin teslim alması bekleniyor";
+    public YoldaTransferVm(YoldaTransfer t, string? calismaSubesi = null)
+    {
+        Transfer = t;
+        TeslimAlabilir = string.IsNullOrEmpty(calismaSubesi) || string.Equals(calismaSubesi, t.ToBranchId, StringComparison.Ordinal);
+        foreach (var k in t.Kalemler.Where(k => k.Yolda > 0)) Kalemler.Add(new YoldaKalemVm(k));
+    }
 }
 
 /// <summary>⭐ M-27: teslim alınan miktar (varsayılan = yoldaki miktarın tamamı).</summary>
@@ -1072,5 +1080,9 @@ public sealed partial class YoldaKalemVm : CommunityToolkit.Mvvm.ComponentModel.
     public YoldaKalem Kalem { get; }
     public string Ozet => $"{Kalem.MaterialCode} — {Kalem.MaterialName}: gönderilen {Kalem.Gonderilen:0.####} · yolda {Kalem.Yolda:0.####}";
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _alinan;
+    /// <summary>⭐ 2026-10-25: kusurlu gelen miktar (stoğa girmez).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private decimal _kusurlu;
+    /// <summary>⭐ 2026-10-25: kusurlu miktar göndericiye iade edilsin mi (işaretsiz = fire, stoktan düşülür).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool _kusurluIade;
     public YoldaKalemVm(YoldaKalem k) { Kalem = k; _alinan = k.Yolda; }
 }

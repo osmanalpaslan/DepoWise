@@ -40,19 +40,32 @@
                                 <Border Classes="Table" Padding="10,6" Margin="0,0,0,6">
                                     <StackPanel Spacing="4">
                                         <SelectableTextBlock Text="{Binding Ozet}" Classes="Body" TextWrapping="Wrap"/>
+                                        <SelectableTextBlock Text="{Binding Rol}" Classes="Helper"/>
                                         <ItemsControl ItemsSource="{Binding Kalemler}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:YoldaKalemVm">
-                                                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                    <!-- ⭐ 2026-10-25: SAĞLAM (stoğa girer) · KUSURLU (stoğa girmez) · İade (işaretli = göndericiye geri, işaretsiz = fire) -->
+                                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,2">
                                                         <SelectableTextBlock Grid.Column="0" Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                                        <NumericUpDown Grid.Column="1" Classes="Field" Width="110" Value="{Binding Alinan}" Minimum="0"
-                                                                       FormatString="0.####" ShowButtonSpinner="False" Margin="8,0,0,0"
-                                                                       ToolTip.Tip="Gerçekte teslim alınan miktar. Eksik girilirse fark yolda kalır."/>
+                                                        <ctrl:FormField Grid.Column="1" Label="Sağlam" Margin="8,0,0,0">
+                                                            <NumericUpDown Classes="Field" Width="100" Value="{Binding Alinan}" Minimum="0"
+                                                                           FormatString="0.####" ShowButtonSpinner="False" AutomationProperties.Name="Sağlam teslim alınan miktar"
+                                                                           ToolTip.Tip="Sağlam gelen, kullanılabilir stoğa girecek miktar."/>
+                                                        </ctrl:FormField>
+                                                        <ctrl:FormField Grid.Column="2" Label="Kusurlu" Margin="8,0,0,0">
+                                                            <NumericUpDown Classes="Field" Width="100" Value="{Binding Kusurlu}" Minimum="0"
+                                                                           FormatString="0.####" ShowButtonSpinner="False" AutomationProperties.Name="Kusurlu gelen miktar"
+                                                                           ToolTip.Tip="Kusurlu/hasarlı gelen miktar — stoğa GİRMEZ. Sağlam + kusurludan az gelen kısım eksik sayılır, yolda kalır."/>
+                                                        </ctrl:FormField>
+                                                        <CheckBox Grid.Column="3" Content="Göndericiye iade" IsChecked="{Binding KusurluIade}" VerticalAlignment="Bottom" Margin="8,0,0,4"
+                                                                  ToolTip.Tip="İşaretliyse kusurlu miktar gönderen şubenin stoğuna geri döner; işaretsizse fire olarak stoktan düşülür."/>
                                                     </Grid>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                        <TextBox Classes="Field" Text="{Binding KusurNotu}" Watermark="Kusur açıklaması (kusurlu miktar varsa zorunlu)"
+                                                 IsVisible="{Binding TeslimAlabilir}" AutomationProperties.Name="Kusur açıklaması"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding TeslimAlabilir}">
                                             <Button Classes="Secondary" Content="Kayıp Olarak Kapat"
                                                     Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).YoldaKayipKapatCommand}"
                                                     CommandParameter="{Binding}"
@@ -146,10 +159,9 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding HedefSubeler}" SelectedItem="{Binding ToBranch}"
                                         PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
-                    <!-- ⭐ M-27: iki adımlı transfer -->
-                    <CheckBox Content="Yolda (teslimde girsin)" IsChecked="{Binding YoldaTransfer}" IsVisible="{Binding ShowTargetBranch}"
-                              VerticalAlignment="Bottom"
-                              ToolTip.Tip="İşaretlenirse mal hedef depoya hemen girmez; &quot;yolda&quot; görünür, hedef depo teslim alınca stoğuna girer. Eksik gelen miktar fark edilir."/>
+                    <!-- ⭐ 2026-10-25: şube dışı çıkış HER ZAMAN iki adımlı (seçim kutusu kaldırıldı) — bilgi notu -->
+                    <SelectableTextBlock Classes="Helper" IsVisible="{Binding ShowTargetBranch}" VerticalAlignment="Bottom" TextWrapping="Wrap" MaxWidth="320"
+                                         Text="Malzeme yola çıkar; hedef şube/şantiye teslim alıp onaylayınca onun stoğuna girer. Eksik ve kusurlu miktar teslimde kaydedilir."/>
                 </WrapPanel>
 
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">

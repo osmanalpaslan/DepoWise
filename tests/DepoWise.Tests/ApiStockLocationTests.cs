@@ -90,6 +90,16 @@ public class ApiStockLocationTests : IAsyncLifetime
             fromBranchId = from, toBranchId = to, personnelId = _personel,
         });
 
+    /// <summary>⭐ 2026-10-25 (kullanıcı isteği): şube dışı çıkış HER ZAMAN iki adımlı — mal "yolda" kalır, hedef teslim alınca girer.
+    /// Bu testler transferin depo AYRIMINI sınar; bu yüzden gönderimden sonra hedef teslim alır ("Tüm Şubeler" oturumu alabilir).</summary>
+    private async Task TeslimAlAsync(string? to, decimal qty, string op)
+    {
+        var yolda = (await ApiTestHost.JsonAsync(await _client.GetAsync("/api/stock/in-transit"))).EnumerateArray()
+            .Last(t => t.GetProperty("toBranchId").GetString() == to);
+        (await _client.PostAsJsonAsync($"/api/stock/in-transit/{yolda.GetProperty("documentId").GetString()}/receive",
+            new { operationId = op + ":teslim", lines = new[] { new { materialId = _mat, quantity = qty } } })).EnsureSuccessStatusCode();
+    }
+
     private Task<HttpResponseMessage> CountAsync(string? branchId, decimal counted, string op) =>
         _client.PostAsJsonAsync("/api/stock/count", new
         {
@@ -166,6 +176,8 @@ public class ApiStockLocationTests : IAsyncLifetime
     {
         (await ReceiveAsync(_depoA, 10m, "api-in-4")).EnsureSuccessStatusCode();
         (await TransferAsync(_depoA, _depoB, 4m, "api-trf-4")).EnsureSuccessStatusCode();
+        Assert.Equal(0m, await AtAsync(_depoB));                 // ⭐ 2026-10-25: teslim alınmadan hedefe girmez
+        await TeslimAlAsync(_depoB, 4m, "api-trf-4");
 
         Assert.Equal(6m, await AtAsync(_depoA));
         Assert.Equal(4m, await AtAsync(_depoB));
@@ -180,6 +192,7 @@ public class ApiStockLocationTests : IAsyncLifetime
         (await ReceiveAsync(_depoA, 10m, "api-in-12")).EnsureSuccessStatusCode();
         (await TransferAsync(_depoA, _depoB, 4m, "api-trf-12")).EnsureSuccessStatusCode();
         (await TransferAsync(_depoA, _depoB, 4m, "api-trf-12")).EnsureSuccessStatusCode();   // tekrar
+        await TeslimAlAsync(_depoB, 4m, "api-trf-12");             // ⭐ 2026-10-25: iki adımlı (tek belge yolda)
 
         Assert.Equal(6m, await AtAsync(_depoA));   // 10-4 (ikinci kez düşmedi)
         Assert.Equal(4m, await AtAsync(_depoB));
@@ -325,6 +338,7 @@ public class ApiStockLocationTests : IAsyncLifetime
     {
         (await ReceiveAsync(_depoA, 10m, "api-in-15")).EnsureSuccessStatusCode();
         (await TransferAsync(_depoA, _depoB, 4m, "api-trf-15")).EnsureSuccessStatusCode();
+        await TeslimAlAsync(_depoB, 4m, "api-trf-15");             // ⭐ 2026-10-25: iki adımlı
 
         var rows = (await ApiTestHost.JsonAsync(await _client.GetAsync("/api/stock"))).EnumerateArray().ToList();
         Assert.NotEmpty(rows);
@@ -334,9 +348,12 @@ public class ApiStockLocationTests : IAsyncLifetime
         Assert.Equal(_depoA, giris.GetProperty("locationId").GetString());
         Assert.Equal("Depo A", giris.GetProperty("locationName").GetString());
 
+        // ⭐ 2026-10-25: iki adımlı transfer — Depo A → YOLDA (kaynak Depo A), teslimde YOLDA → Depo B.
+        var yolaCikis = rows.First(x => x.GetProperty("movementType").GetString() == "transfer" && x.GetProperty("direction").GetInt32() > 0
+                                        && x.GetProperty("locationId").GetString() == DepoWise.Infrastructure.Materials.StockBalanceWriter.Transit);
+        Assert.Equal("Depo A", yolaCikis.GetProperty("fromLocationName").GetString());
         var transferGiris = rows.First(x => x.GetProperty("movementType").GetString() == "transfer"
-                                            && x.GetProperty("direction").GetInt32() > 0);
+                                            && x.GetProperty("direction").GetInt32() > 0 && x.GetProperty("locationId").GetString() == _depoB);
         Assert.Equal("Depo B", transferGiris.GetProperty("locationName").GetString());
-        Assert.Equal("Depo A", transferGiris.GetProperty("fromLocationName").GetString());
     }
 }

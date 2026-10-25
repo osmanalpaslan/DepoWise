@@ -1299,7 +1299,7 @@ LIMIT @take;";
 
     private void ApplyLine(DbConnection conn, DbTransaction tx, SessionContext s, string docId,
         StockLine line, int direction, string operationId, string movementType, string? branchId, string? branchFromId,
-        string? groupId = null, bool fiyatSunucuKaynakli = false)
+        string? groupId = null, bool fiyatSunucuKaynakli = false, string? not = null)
     {
         if (line.Quantity <= 0) throw new ArgumentException("Miktar pozitif olmalı.");
         EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
@@ -1328,7 +1328,7 @@ LIMIT @take;";
         // kendi kaydından okuduğu fiyat (mal kabul) korunur — aksi hâlde koruma veri kaybına dönerdi.
         var yazilacakFiyat = (fiyatSunucuKaynakli || MaterialService.FiyatGorunur(s)) ? line.UnitPrice : null;
         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
-            yazilacakFiyat, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
+            yazilacakFiyat, line.Currency, null, operationId, not, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);   // not: 2026-10-25 kusurlu teslim açıklaması
     }
 
     /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.

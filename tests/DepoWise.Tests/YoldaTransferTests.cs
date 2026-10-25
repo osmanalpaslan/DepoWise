@@ -202,7 +202,9 @@ public class YoldaTransferTests : IDisposable
     public void YT8_Iki_Platform_Ve_Api()
     {
         var api = Oku("src/DepoWise.Api/Program.cs");
-        Assert.Contains("if (d.Yolda == true)", api);
+        // 2026-10-25 (kullanıcı isteği, BİLİNÇLİ): şube dışı çıkış HER ZAMAN iki adımlı → seçenek dalı kalktı (TeslimKusurluTests TA6).
+        Assert.DoesNotContain("if (d.Yolda == true)", api);
+        Assert.Contains("var y = svc.Stock.YoldaGonder(s, lines, d.FromBranchId, d.ToBranchId,", api);
         Assert.Contains("app.MapGet(\"/api/stock/in-transit\"", api);
         Assert.Contains("app.MapPost(\"/api/stock/in-transit/{documentId}/receive\"", api);
         Assert.Contains("app.MapPost(\"/api/stock/in-transit/{documentId}/close-loss\"", api);
@@ -213,10 +215,10 @@ public class YoldaTransferTests : IDisposable
         Assert.Contains("DesktopServices.Stock.YoldaKayipKapat(", mvm);
         var axaml = Oku("src/DepoWise.Desktop/Views/StockEntryView.axaml");
         Assert.Contains("TeslimAlCommand", axaml);
-        Assert.Contains("{Binding YoldaTransfer}", axaml);
+        Assert.DoesNotContain("{Binding YoldaTransfer}", axaml);   // seçim kutusu kalktı (her zaman iki adımlı)
 
         var web = Oku("src/DepoWise.Web/Components/Pages/Stock.razor");
-        Assert.Contains("yolda = _yolda", web);
+        Assert.DoesNotContain("yolda = _yolda", web);              // seçim kutusu kalktı (her zaman iki adımlı)
         Assert.Contains("/api/stock/in-transit", web);
         Assert.Contains("/close-loss", web);
     }

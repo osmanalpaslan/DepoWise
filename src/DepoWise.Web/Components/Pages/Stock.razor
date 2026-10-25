@@ -190,11 +190,9 @@
                     <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 }
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(TargetBranches)</MudSelect></MudItem>
-                @* ⭐ M-27: iki adımlı transfer (masaüstüyle aynı seçenek) *@
-                <MudItem xs="6" md="3">
-                    <MudTooltip Text="İşaretlenirse mal hedef depoya hemen girmez; &quot;yolda&quot; görünür, hedef depo teslim alınca stoğuna girer. Eksik gelen miktar fark edilir.">
-                        <MudCheckBox T="bool" @bind-Value="_yolda" Dense="true" Label="Yolda (teslimde girsin)" />
-                    </MudTooltip>
+                @* ⭐ 2026-10-25: şube dışı çıkış HER ZAMAN iki adımlı (seçim kutusu kaldırıldı — masaüstüyle aynı) *@
+                <MudItem xs="12" md="6" Class="d-flex align-center">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Malzeme yola çıkar; hedef şube/şantiye teslim alıp onaylayınca onun stoğuna girer. Eksik ve kusurlu miktar teslimde kaydedilir.</MudText>
                 </MudItem>
             }
             else if (Auth.IsAllBranches())
@@ -237,16 +235,27 @@
         {
             <MudPaper Outlined="true" Class="pa-2 mb-2">
                 <MudText Typo="Typo.body2">@y.Ozet</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@(y.TeslimAlabilir ? "Size gelen — teslim alın" : "Gönderdiğiniz — hedefin teslim alması bekleniyor")</MudText>
                 @foreach (var k in y.Kalemler)
                 {
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="py-1">
-                        <MudText Typo="Typo.caption" Style="flex:1">@k.Ozet</MudText>
-                        <MudNumericField T="decimal" @bind-Value="k.Alinan" Min="0m" Format="0.####" HideSpinButtons="true"
-                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px"
-                                         title="Gerçekte teslim alınan miktar. Eksik girilirse fark yolda kalır." />
+                    @* ⭐ 2026-10-25: SAĞLAM (stoğa girer) · KUSURLU (stoğa girmez) · İade (işaretli = göndericiye geri, işaretsiz = fire) *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="py-1" Wrap="Wrap.Wrap" Spacing="2">
+                        <MudText Typo="Typo.caption" Style="flex:1;min-width:200px">@k.Ozet</MudText>
+                        <MudNumericField T="decimal" @bind-Value="k.Alinan" Min="0m" Format="0.####" HideSpinButtons="true" Label="Sağlam"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px" Disabled="!y.TeslimAlabilir"
+                                         title="Sağlam gelen, kullanılabilir stoğa girecek miktar." />
+                        <MudNumericField T="decimal" @bind-Value="k.Kusurlu" Min="0m" Format="0.####" HideSpinButtons="true" Label="Kusurlu"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px" Disabled="!y.TeslimAlabilir"
+                                         title="Kusurlu/hasarlı gelen miktar — stoğa GİRMEZ. Sağlam + kusurludan az gelen kısım eksik sayılır, yolda kalır." />
+                        <MudCheckBox T="bool" @bind-Value="k.KusurluIade" Dense="true" Label="Göndericiye iade" Disabled="!y.TeslimAlabilir"
+                                     title="İşaretliyse kusurlu miktar gönderen şubenin stoğuna geri döner; işaretsizse fire olarak stoktan düşülür." />
                     </MudStack>
                 }
-                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                @if (y.TeslimAlabilir)
+                {
+                    <MudTextField @bind-Value="y.KusurNotu" Label="Kusur açıklaması (kusurlu miktar varsa zorunlu)" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mb-2" />
+                }
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="@(y.TeslimAlabilir ? "" : "d-none")">
                     <MudTooltip Text="Yolda kalan (teslim alınmayan) miktarı gerekçeyle stoktan düşer ve transferi kapatır.">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_busy" OnClick="@(() => YoldaKayip(y))">Kayıp Olarak Kapat</MudButton>
                     </MudTooltip>
@@ -463,11 +472,16 @@
     }
 
     // ═══ M-27 — YOLDAKİ TRANSFERLER ═══
-    private bool _yolda;
-    private sealed class YoldaKalemSatiri { public string MaterialId = ""; public string Ozet = ""; public decimal Yolda; public decimal Alinan; }
+    private sealed class YoldaKalemSatiri
+    {
+        public string MaterialId = ""; public string Ozet = ""; public decimal Yolda; public decimal Alinan;
+        public decimal Kusurlu; public bool KusurluIade;   // ⭐ 2026-10-25
+    }
     private sealed class YoldaKart
     {
         public string DocumentId = ""; public string DocNo = ""; public string Ozet = "";
+        public string KusurNotu = "";      // ⭐ 2026-10-25: kusurlu varsa zorunlu
+        public bool TeslimAlabilir;        // ⭐ 2026-10-25: yalnız HEDEF şube/şantiye (ya da Tüm Şubeler) teslim alır
         public List<YoldaKalemSatiri> Kalemler = new();
         public string IslemKimligi = "transit-in-" + Guid.NewGuid().ToString("N");
     }
@@ -481,6 +495,7 @@
             _yoldakiler = arr.Select(t => new YoldaKart
             {
                 DocumentId = Str(t, "documentId"), DocNo = Str(t, "docNo"), Ozet = Str(t, "summary"),
+                TeslimAlabilir = Auth.IsAllBranches() || string.IsNullOrEmpty(Auth.BranchId) || Str(t, "toBranchId") == Auth.BranchId,
                 Kalemler = t.GetProperty("items").EnumerateArray().Select(k => new YoldaKalemSatiri
                 {
                     MaterialId = Str(k, "materialId"),
@@ -495,15 +510,22 @@
     private async Task TeslimAl(YoldaKart y)
     {
         if (_busy) return;
-        var satirlar = y.Kalemler.Where(k => k.Alinan > 0).Select(k => new { materialId = k.MaterialId, quantity = k.Alinan }).ToArray();
-        if (satirlar.Length == 0) { _ok = false; _msg = "Teslim alınan miktarı girin."; return; }
-        var eksik = y.Kalemler.Sum(k => k.Yolda - k.Alinan);
-        if (!await Dialog.Confirm($"{y.DocNo} teslim alınsın mı?" +
+        // ⭐ 2026-10-25: sağlam (stoğa girer) + kusurlu (stoğa girmez: fire ya da göndericiye iade); kalan eksik yolda kalır.
+        var satirlar = y.Kalemler.Where(k => k.Alinan > 0 || k.Kusurlu > 0)
+            .Select(k => new { materialId = k.MaterialId, quantity = k.Alinan, defective = k.Kusurlu, returnDefective = k.KusurluIade }).ToArray();
+        if (satirlar.Length == 0) { _ok = false; _msg = "Teslim alınan (sağlam ya da kusurlu) miktarı girin."; return; }
+        if (y.Kalemler.Any(k => k.Alinan + k.Kusurlu > k.Yolda)) { _ok = false; _msg = "Sağlam + kusurlu, yoldaki miktardan fazla olamaz."; return; }
+        var kusurlu = y.Kalemler.Sum(k => k.Kusurlu);
+        if (kusurlu > 0 && string.IsNullOrWhiteSpace(y.KusurNotu)) { _ok = false; _msg = "Kusurlu malzeme için açıklama yazın (ne kusuru var?)."; return; }
+        var eksik = y.Kalemler.Sum(k => k.Yolda - k.Alinan - k.Kusurlu);
+        if (!await Dialog.Confirm($"{y.DocNo} teslim alınsın mı? Sağlam {y.Kalemler.Sum(k => k.Alinan):0.####} stoğa girecek." +
+                (kusurlu > 0 ? $" Kusurlu {kusurlu:0.####} stoğa GİRMEYECEK (fire ya da iade)." : "") +
                 (eksik > 0 ? $" Eksik {eksik:0.####} yolda kalacak (sonra kayıp olarak kapatabilirsiniz)." : ""), "Teslim Al")) return;
         _busy = true;
         try
         {
-            var err = await Api.PostAsync($"/api/stock/in-transit/{y.DocumentId}/receive", new { operationId = y.IslemKimligi, lines = satirlar });
+            var err = await Api.PostAsync($"/api/stock/in-transit/{y.DocumentId}/receive",
+                new { operationId = y.IslemKimligi, lines = satirlar, defectNote = string.IsNullOrWhiteSpace(y.KusurNotu) ? null : y.KusurNotu.Trim() });
             _ok = err is null; _msg = err ?? $"{y.DocNo} teslim alındı.";
             await YoldakileriYukle(); await LoadMovements();
         }
@@ -937,8 +959,7 @@
                     fromBranchId = EffectiveLocation, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
-                    docDate = DocDateMs(),   // STK-11
-                    yolda = _yolda,          // ⭐ M-27
+                    docDate = DocDateMs(),   // STK-11 (2026-10-25: her zaman iki adımlı — sunucu "yolda" gönderir)
                 });
             }
             _ok = err is null; _msg = err ?? "Kaydedildi.";

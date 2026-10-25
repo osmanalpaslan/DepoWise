@@ -5,9 +5,16 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
-/// <summary>⭐ M-27: yoldaki transferin bir kalemi (gönderilen / teslim alınan / kayıp / hâlâ yolda).</summary>
+/// <summary>⭐ M-27: yoldaki transferin bir kalemi (gönderilen / teslim alınan / kayıp / hâlâ yolda).
+/// ⭐ 2026-10-25: <paramref name="Kusurlu"/> = teslimde kusurlu bulunup fire yazılan; <paramref name="Iade"/> = kusurlu bulunup göndericiye
+/// geri gönderilen (ikisi de hedef stoğa GİRMEZ).</summary>
 public sealed record YoldaKalem(string MaterialId, string MaterialCode, string MaterialName, decimal Gonderilen, decimal TeslimAlinan,
-    decimal Kayip, decimal Yolda);
+    decimal Kayip, decimal Yolda, decimal Kusurlu = 0m, decimal Iade = 0m);
+
+/// <summary>⭐ 2026-10-25 (kullanıcı isteği): teslim alma satırı — <paramref name="Saglam"/> kullanılabilir stoğa girer;
+/// <paramref name="Kusurlu"/> stoğa GİRMEZ: <paramref name="KusurluIade"/> false → fire (stoktan düşülür), true → göndericiye iade
+/// (kaynak şubenin stoğuna geri döner). Gönderilen − sağlam − kusurlu = EKSİK, yolda kalır (sonra gelirse teslim alınır ya da kayıpla kapatılır).</summary>
+public sealed record TeslimSatiri(string MaterialId, decimal Saglam, decimal Kusurlu = 0m, bool KusurluIade = false);
 
 /// <summary>⭐ M-27: teslim bekleyen (ya da eksik teslim alınmış) iki adımlı transfer.</summary>
 public sealed record YoldaTransfer(string DocumentId, string DocNo, long DocDate, string? FromBranchId, string? FromBranchName,
@@ -37,7 +44,8 @@ public sealed partial class StockService
     /// <summary>GÖNDER: kaynaktan yolda lokasyonuna. Kurallar tek adımlı transferle aynı (kaynak = kullanıcının şubesi,
     /// hedef zorunlu, eksi stok kalkanı, tekrar gönderim zararsız).</summary>
     public StockDocResult YoldaGonder(SessionContext s, IReadOnlyList<StockLine> lines, string fromBranchId, string toBranchId,
-        string operationId, string? note = null, long? docDate = null)
+        string operationId, string? note = null, long? docDate = null,
+        string? personnelId = null, string? vehicleId = null, string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (lines.Count == 0) throw new ArgumentException("En az bir malzeme seçin.");
@@ -50,7 +58,7 @@ public sealed partial class StockService
             if (!YoldaDestekli(kontrol, null))
                 throw new InvalidOperationException("Veritabanı iki adımlı transferi henüz desteklemiyor (güncelleme bekleniyor).");
         var groupId = Guid.NewGuid().ToString("N");
-        return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, null, null, note, docDate,
+        return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
             {
                 for (int i = 0; i < lines.Count; i++)
@@ -63,7 +71,7 @@ public sealed partial class StockService
                 u.CommandText = "UPDATE stock_documents SET transit_status='yolda' WHERE id=@d;";
                 u.AddWithValue("@d", docId);
                 u.ExecuteNonQuery();
-            }, groupId);
+            }, groupId, invoiceNo, orderSlipNo, creditSlipNo);
     }
 
     private sealed record YoldaBaslik(string Id, string DocNo, long DocDate, string? From, string? To, string? Durum);
@@ -86,10 +94,10 @@ public sealed partial class StockService
     private static List<YoldaKalem> YoldaKalemleri(DbConnection conn, DbTransaction? tx, string companyId, string documentId, string? hedef)
     {
         var sira = new List<string>();
-        var d = new Dictionary<string, (string Kod, string Ad, decimal Gon, decimal Tes, decimal Kay, decimal Yol)>(StringComparer.Ordinal);
+        var d = new Dictionary<string, (string Kod, string Ad, decimal Gon, decimal Tes, decimal Kay, decimal Yol, decimal Kus, decimal Iad)>(StringComparer.Ordinal);
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT sm.material_id, m.code, m.name, sm.branch_id, sm.direction, sm.quantity, sm.movement_type FROM stock_movements sm " +
+        cmd.CommandText = "SELECT sm.material_id, m.code, m.name, sm.branch_id, sm.direction, sm.quantity, sm.movement_type, sm.operation_id FROM stock_movements sm " +
                           "JOIN materials m ON m.id=sm.material_id AND m.company_id=sm.company_id " +
                           "WHERE sm.document_id=@d AND sm.company_id=@c ORDER BY sm.created_at, sm.id;";
         cmd.AddWithValue("@d", documentId);
@@ -98,7 +106,8 @@ public sealed partial class StockService
         while (r.Read())
         {
             var id = r.GetString(0);
-            if (!d.TryGetValue(id, out var v)) { sira.Add(id); v = (r.GetString(1), r.GetString(2), 0m, 0m, 0m, 0m); }
+            if (!d.TryGetValue(id, out var v)) { sira.Add(id); v = (r.GetString(1), r.GetString(2), 0m, 0m, 0m, 0m, 0m, 0m); }
+            var op = r.IsDBNull(7) ? "" : r.GetString(7);
             var sube = r.IsDBNull(3) ? null : r.GetString(3);
             var yon = r.GetInt64(4);
             var q = Money.Parse(r.GetString(5));
@@ -107,24 +116,34 @@ public sealed partial class StockService
             {
                 v.Yol += yon * q;
                 if (yon > 0) v.Gon += q;
+                else if (tur == "out" && op.EndsWith(":kus", StringComparison.Ordinal)) v.Kus += q;   // ⭐ kusurlu → fire
                 else if (tur == "out") v.Kay += q;   // kayıp kapatma = yoldan çıkış
             }
             else if (sube == hedef && yon > 0) v.Tes += q;
+            else if (yon > 0 && op.EndsWith(":iade", StringComparison.Ordinal)) v.Iad += q;               // ⭐ kusurlu → göndericiye iade
             d[id] = v;
         }
-        return sira.Select(id => { var v = d[id]; return new YoldaKalem(id, v.Kod, v.Ad, v.Gon, v.Tes, v.Kay, v.Yol); }).ToList();
+        return sira.Select(id => { var v = d[id]; return new YoldaKalem(id, v.Kod, v.Ad, v.Gon, v.Tes, v.Kay, v.Yol, v.Kus, v.Iad); }).ToList();
     }
 
     /// <summary>TESLİM AL: hedef depo gelen miktarı girer (gönderilenden fazla olamaz; eksik gelirse fark yolda kalır).
     /// Yetki: stok oluşturma + hedef şube kullanıcının kapsamında. Tekrar gönderim (aynı işlem kimliği) zararsız.</summary>
     public void TeslimAl(SessionContext s, string documentId, IReadOnlyList<StockLine> alinan, string operationId)
+        => TeslimAl(s, documentId, alinan.Select(a => new TeslimSatiri(a.MaterialId, a.Quantity)).ToList(), operationId, null);
+
+    /// <summary>⭐ 2026-10-25: TESLİM AL — kalem başına sağlam / kusurlu (fire ya da iade); kalan eksik yolda kalır.
+    /// Kusurlu varsa <paramref name="kusurNotu"/> zorunlu (kayıt altına alınır: hareket notu + denetim kaydı).</summary>
+    public void TeslimAl(SessionContext s, string documentId, IReadOnlyList<TeslimSatiri> satirlar, string operationId, string? kusurNotu)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
-        StockBalanceWriter.Run(() => TeslimAlOnce(s, documentId, alinan, operationId), $"transit-receive:{documentId} op={operationId}");
+        if (satirlar.Any(x => x.Saglam < 0 || x.Kusurlu < 0)) throw new ArgumentException("Miktarlar negatif olamaz.");
+        if (satirlar.Any(x => x.Kusurlu > 0) && string.IsNullOrWhiteSpace(kusurNotu))
+            throw new ArgumentException("Kusurlu malzeme için açıklama zorunlu (ne kusuru var?).");
+        StockBalanceWriter.Run(() => TeslimAlOnce(s, documentId, satirlar, operationId, kusurNotu?.Trim()), $"transit-receive:{documentId} op={operationId}");
     }
 
-    private void TeslimAlOnce(SessionContext s, string documentId, IReadOnlyList<StockLine> alinan, string operationId)
+    private void TeslimAlOnce(SessionContext s, string documentId, IReadOnlyList<TeslimSatiri> satirlarHam, string operationId, string? kusurNotu)
     {
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
@@ -132,22 +151,46 @@ public sealed partial class StockService
         if (!YoldaDestekli(conn, tx)) throw new InvalidOperationException("Veritabanı iki adımlı transferi henüz desteklemiyor (güncelleme bekleniyor).");
         var b = YoldaOku(conn, tx, s.CompanyId, documentId);
         if (b.Durum is null || !AcikYolda.Contains(b.Durum)) throw new InvalidOperationException("Bu transfer teslim beklemiyor.");
+        // ⭐ 2026-10-25 (kapsam kapısından ÖNCE — anlaşılır mesaj) (kullanıcı isteği: "hedef şantiyenin yetkili personeli teslim aldığını onaylamadan kullanılabilir stoğa eklenmemeli"):
+        // şube/şantiyeyle giriş yapılmışsa teslimi YALNIZ hedefin personeli alabilir; gönderen şube kendi gönderisini teslim alamaz.
+        if (!string.IsNullOrEmpty(s.OperatingBranchId) && !string.Equals(s.OperatingBranchId, b.To, StringComparison.Ordinal))
+            throw new ForbiddenException("Teslim almak için hedef şube/şantiyeyle giriş yapın (gönderen taraf teslim alamaz).");
         BranchAccess.Require(s, b.To, "transfer teslim alma");
         var kalemler = YoldaKalemleri(conn, tx, s.CompanyId, documentId, b.To).ToDictionary(k => k.MaterialId, StringComparer.Ordinal);
-        var satirlar = alinan.Where(x => x.Quantity > 0).ToList();
-        if (satirlar.Count == 0) throw new ArgumentException("Teslim alınan miktarı girin.");
+        var satirlar = satirlarHam.Where(x => x.Saglam > 0 || x.Kusurlu > 0).ToList();
+        if (satirlar.Count == 0) throw new ArgumentException("Teslim alınan (sağlam ya da kusurlu) miktarı girin.");
         foreach (var g in satirlar.GroupBy(x => x.MaterialId))
         {
             if (!kalemler.TryGetValue(g.Key, out var k)) throw new ArgumentException("Bu transferde olmayan malzeme teslim alınamaz.");
-            if (g.Sum(x => x.Quantity) > k.Yolda)
-                throw new ArgumentException($"{k.MaterialName}: teslim alınan ({g.Sum(x => x.Quantity):0.####}) yoldaki miktardan ({k.Yolda:0.####}) fazla.");
+            var toplam = g.Sum(x => x.Saglam + x.Kusurlu);
+            if (toplam > k.Yolda)
+                throw new ArgumentException($"{k.MaterialName}: sağlam + kusurlu ({toplam:0.####}) yoldaki miktardan ({k.Yolda:0.####}) fazla.");
         }
+        if (satirlar.Any(x => x.Kusurlu > 0 && x.KusurluIade) && string.IsNullOrEmpty(b.From))
+            throw new InvalidOperationException("Göndereni belli olmayan transferde kusurlu malzeme iade edilemez; fire olarak kaydedin.");
 
         var groupId = Guid.NewGuid().ToString("N");
         for (int i = 0; i < satirlar.Count; i++)
         {
-            ApplyLine(conn, tx, s, documentId, satirlar[i], -1, $"{operationId}:{i}:yol", "transfer", StockBalanceWriter.Transit, b.From, groupId);
-            ApplyLine(conn, tx, s, documentId, satirlar[i], +1, $"{operationId}:{i}:in", "transfer", b.To, StockBalanceWriter.Transit, groupId);
+            var x = satirlar[i];
+            if (x.Saglam > 0)   // SAĞLAM → yoldan hedefin kullanılabilir stoğuna
+            {
+                var l = new StockLine(x.MaterialId, x.Saglam);
+                ApplyLine(conn, tx, s, documentId, l, -1, $"{operationId}:{i}:yol", "transfer", StockBalanceWriter.Transit, b.From, groupId);
+                ApplyLine(conn, tx, s, documentId, l, +1, $"{operationId}:{i}:in", "transfer", b.To, StockBalanceWriter.Transit, groupId);
+            }
+            if (x.Kusurlu > 0)
+            {
+                var l = new StockLine(x.MaterialId, x.Kusurlu);
+                var not = "Kusurlu teslim: " + kusurNotu;
+                if (x.KusurluIade)   // İADE → yoldan göndericinin stoğuna geri (hedef stoğa girmez)
+                {
+                    ApplyLine(conn, tx, s, documentId, l, -1, $"{operationId}:{i}:yol-iade", "transfer", StockBalanceWriter.Transit, b.From, groupId, not: not);
+                    ApplyLine(conn, tx, s, documentId, l, +1, $"{operationId}:{i}:iade", "transfer", b.From, StockBalanceWriter.Transit, groupId, not: not);
+                }
+                else                 // FİRE → yoldan çıkış (stoktan düşülür, gerekçe hareket notunda)
+                    ApplyLine(conn, tx, s, documentId, l, -1, $"{operationId}:{i}:kus", "out", StockBalanceWriter.Transit, StockBalanceWriter.Transit, groupId, not: not);
+            }
         }
         var kalan = YoldaKalemleri(conn, tx, s.CompanyId, documentId, b.To).Sum(k => k.Yolda);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -161,8 +204,16 @@ public sealed partial class StockService
             u.AddWithValue("@c", s.CompanyId);
             u.ExecuteNonQuery();
         }
+        var kusurToplam = satirlar.Sum(x => x.Kusurlu);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_document", documentId, AuditActions.Update, s.UserId,
-            AfterJson: $"{{\"teslimAlindi\":true,\"yoldaKalan\":\"{Money.Serialize(kalan)}\"}}"), _clock);
+            AfterJson: System.Text.Json.JsonSerializer.Serialize(new
+            {
+                teslimAlindi = true, yoldaKalan = Money.Serialize(kalan),
+                saglam = Money.Serialize(satirlar.Sum(x => x.Saglam)),
+                kusurlu = kusurToplam > 0 ? Money.Serialize(kusurToplam) : null,
+                kusurluIade = satirlar.Any(x => x.Kusurlu > 0 && x.KusurluIade),
+                kusurNotu = kusurToplam > 0 ? kusurNotu : null,
+            })), _clock);
         tx.Commit();
     }
 

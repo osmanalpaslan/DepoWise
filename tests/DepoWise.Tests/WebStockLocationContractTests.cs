@@ -77,6 +77,14 @@ public class WebStockLocationContractTests : IAsyncLifetime
         _client.PostAsJsonAsync("/api/stock/transfer", new
         { operationId = op, materialId = _mat, quantity = qty, fromBranchId = from, toBranchId = to, personnelId = _personel });
 
+    /// <summary>⭐ 2026-10-25 (kullanıcı isteği): şube dışı çıkış HER ZAMAN iki adımlı — hedef teslim alınca girer.</summary>
+    private async Task TeslimAl(string? to, decimal qty, string op)
+    {
+        var yolda = (await Get("/api/stock/in-transit")).EnumerateArray().Last(t => t.GetProperty("toBranchId").GetString() == to);
+        (await _client.PostAsJsonAsync($"/api/stock/in-transit/{yolda.GetProperty("documentId").GetString()}/receive",
+            new { operationId = op + ":teslim", lines = new[] { new { materialId = _mat, quantity = qty } } })).EnsureSuccessStatusCode();
+    }
+
     private async Task<JsonElement> Get(string url)
     {
         var r = await _client.GetAsync(url);
@@ -137,6 +145,8 @@ public class WebStockLocationContractTests : IAsyncLifetime
     {
         (await Receive(_depoA, 10m, "web-5")).EnsureSuccessStatusCode();
         (await Transfer(_depoA, _depoB, 4m, "web-5t")).EnsureSuccessStatusCode();
+        Assert.Equal(0m, await At(_depoB));                      // ⭐ 2026-10-25: teslim alınmadan hedefe girmez
+        await TeslimAl(_depoB, 4m, "web-5t");
 
         Assert.Equal(6m, await At(_depoA));
         Assert.Equal(4m, await At(_depoB));
@@ -241,13 +251,18 @@ public class WebStockLocationContractTests : IAsyncLifetime
     {
         (await Receive(_depoA, 10m, "web-12a")).EnsureSuccessStatusCode();
         (await Transfer(_depoA, _depoB, 4m, "web-12b")).EnsureSuccessStatusCode();
+        await TeslimAl(_depoB, 4m, "web-12b");                   // ⭐ 2026-10-25: iki adımlı
 
         var rows = (await Get("/api/stock/movements")).EnumerateArray().ToList();
         Assert.All(rows, x => Assert.True(x.TryGetProperty("locationId", out _) && x.TryGetProperty("locationName", out _)));
 
-        var trIn = rows.First(x => x.GetProperty("movementType").GetString() == "transfer" && x.GetProperty("direction").GetInt32() > 0);
+        // ⭐ 2026-10-25: iki adımlı — Depo A → YOLDA (kaynak Depo A), teslimde YOLDA → Depo B.
+        var yol = rows.First(x => x.GetProperty("movementType").GetString() == "transfer" && x.GetProperty("direction").GetInt32() > 0
+                                  && x.GetProperty("locationId").GetString() == DepoWise.Infrastructure.Materials.StockBalanceWriter.Transit);
+        Assert.Equal("Depo A", yol.GetProperty("fromLocationName").GetString());
+        var trIn = rows.First(x => x.GetProperty("movementType").GetString() == "transfer" && x.GetProperty("direction").GetInt32() > 0
+                                   && x.GetProperty("locationId").GetString() == _depoB);
         Assert.Equal("Depo B", trIn.GetProperty("locationName").GetString());
-        Assert.Equal("Depo A", trIn.GetProperty("fromLocationName").GetString());
     }
 
     /// <summary>13 — HAREKET SATIRI SÖZLEŞMESİ: lokasyonsuz hareket BOŞ kimlikle gelir (null/"") →
@@ -347,15 +362,16 @@ public class WebStockLocationContractTests : IAsyncLifetime
     {
         (await Receive(_depoA, 10m, "web-17a")).EnsureSuccessStatusCode();
         (await Receive(null, 2m, "web-17b")).EnsureSuccessStatusCode();          // Atanmamış
-        (await Transfer(_depoA, _depoB, 4m, "web-17c")).EnsureSuccessStatusCode();   // iki bacak
-
-        Assert.Equal(4, (await Hareketler()).Count);                              // filtre yok = hepsi
-        // Depo A: giriş + transferin İKİ bacağı (çıkış branch_id=A, giriş branch_from_id=A).
-        Assert.Equal(3, (await Hareketler($"location={_depoA}")).Count);
-        // Depo B: yalnız transferin giriş bacağı.
+        (await Transfer(_depoA, _depoB, 4m, "web-17c")).EnsureSuccessStatusCode();
+        await TeslimAl(_depoB, 4m, "web-17c");
+        // ⭐ 2026-10-25: şube dışı çıkış HER ZAMAN iki adımlı → transfer DÖRT bacak: A çıkış, yolda giriş (kaynak A), teslimde
+        // yolda çıkış (kaynak A) ve B giriş (kaynak yolda).
+        Assert.Equal(6, (await Hareketler()).Count);                              // filtre yok = hepsi (2 giriş + 4 transfer bacağı)
+        // Depo A: giriş + A çıkışı + kaynağı A olan iki yolda bacağı.
+        Assert.Equal(4, (await Hareketler($"location={_depoA}")).Count);
+        // Depo B: yalnız teslimdeki giriş bacağı.
         var depoB = Assert.Single(await Hareketler($"location={_depoB}"));
         Assert.Equal("transfer", depoB.GetProperty("movementType").GetString());
-        Assert.Equal("Depo A", depoB.GetProperty("fromLocationName").GetString());
         // 📦 Atanmamış: boş değer.
         var atanmamis = Assert.Single(await Hareketler("location="));
         Assert.True(atanmamis.GetProperty("locationId").ValueKind == JsonValueKind.Null

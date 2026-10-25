@@ -732,3 +732,38 @@
 - **Testler:** `SubeSifresiTests` SS1–SS4 (firmasız girişte şifresiz/yanlış 401, doğru 200; olmayan şube; şifresiz şube serbest;
   masaüstü kapalı-taraf kaynak kilidi); giriş/aktarım/yetki taraması paketi 71/71; arayüz 69/69. Mutasyon: bulunamayan şube yeniden
   "serbest" → SS2, giriş varsayılan firmaya → SS1+SS3 kırıldı (2/2).
+
+### İstek 2 — Şube stoğu: stoğu olmayan şube başka şubenin stoğunu görüyordu
+- Kontrol: malzeme TANIMI zaten firma genelinde ortaktı (kullanıcı kararı 2026-07-26 "ortak liste + şube bazlı stok") — her şube/şantiye
+  her malzemeyi listede görür, yeniden oluşturmaya gerek yok; stok hareketleri de depo (şube) bazında tutuluyordu, bir şubedeki giriş/çıkış
+  diğerini DEĞİŞTİRMİYORDU. Bozuk olan GÖSTERİMDİ: malzeme listesinin stok sütunu `{STOCK_TOTALS}` ile firmanın TÜM depolarını topluyordu.
+  Ana ekran "düşük stok" sayısı/listesi de firma toplamına bakıyor, şube süzgeci ise malzemenin TANIMLANDIĞI şubeye (`m.branch_id`)
+  bakıyordu (başka şubede tanımlanan malzemenin bu şubede bitmesi hiç görünmüyordu).
+- Düzeltme: yeni ortak `StokKapsami` (Materials) — şube/şantiyeyle girildiyse YALNIZ o şubenin deposu, "Tüm Şubeler"de yetkili şubelerin
+  toplamı (sınırsız yetkide eski firma toplamı); değerler parametreyle bağlanır. Malzeme listesinin tüm yolları (hızlı/genel sayfa, tüm
+  sonuç = Excel/Yazdır, özet şeridi, "yalnız kritik", stok filtresi) ve ana ekran düşük stok aynı kapsamı kullanır. İki ortam aynı
+  servisten okur (masaüstü yerel, web API) → ikisi birlikte düzeldi.
+- **Testler:** `SubeStoguTests` ST1–ST4 (B listesinde malzeme var ve 0 "Stok Yok"; şubeler bağımsız; liste yolları tutarlı; ana ekran
+  düşük stok şube bazlı). Malzeme/stok/ana ekran/ızgara paketi 338/339: tek kırmızı DesktopOfflineLocationTests eski "şube oturumunda
+  firma toplamı" davranışını kilitliyordu (bildirilen hata) → BİLİNÇLİ güncellendi (A oturumu 10, Tüm Şubeler 14); malzeme kartı da aynı
+  kapsama alındı; hedefli 17/17; arayüz 69/69. Mutasyon: kapsam kaldırılınca ST1–ST4 kırıldı. (commit bdff8d22)
+
+### İstek 3 — Şube dışı çıkış: hedefte teslim alma + onay + eksik/kusurlu kaydı
+- Kontrol: iki adımlı transfer (M-27: gönder → "yolda" → hedef teslim alır; eksik yolda kalır, gerekçeyle kayıp kapatılır) VARDI ama
+  isteğe bağlı bir seçim kutusuydu; kusurlu malzeme kaydı yoktu; gönderen şube de "Teslim Al"ı görüyordu; iki adımlı gönderim şoför/araç/
+  irsaliye-fiş numarasını taşımıyordu. Malzeme tanımı katalog ortak olduğu için hedefte zaten mevcut — yeniden oluşturma gerekmez.
+- Kurgu: Depo Çıkışı → Şube Dışı (başka şube/şantiye) **her zaman iki adımlı**: mal kaynaktan düşer, "yolda" görünür; hedefin personeli
+  teslim alıp onaylamadan hedefin kullanılabilir stoğuna GİRMEZ. Teslimde kalem başına **Sağlam** (stoğa girer) + **Kusurlu** (stoğa
+  girmez; işaretsiz = fire/stoktan düşülür, "Göndericiye iade" = kaynak şubenin stoğuna geri) + kusur açıklaması (kusurlu varsa zorunlu,
+  hareket notuna ve denetim kaydına yazılır); gönderilen − sağlam − kusurlu = **Eksik**, yolda kalır (sonra gelirse teslim alınır ya da
+  gerekçeyle kayıp kapatılır). Teslimi YALNIZ hedef şube/şantiyeyle giriş yapan alır (gönderen alamaz; şubesiz "Tüm Şubeler" yöneticisi
+  kapsam kapısıyla alabilir). Gönderim şoför/araç/fiş numarasını belgeye yazar. Şema değişmedi (kusurlu/iade hareketleri işlem kimliği
+  sonekiyle ayrılır). İki ortam + API aynı servis.
+- **Testler:** `TeslimKusurluTests` TA1–TA6 (sağlam+kusurlu fire+eksik; iade göndericiye; açıklama zorunlu ve fazla miktar reddi; yalnız hedef
+  teslim alır; gönderim fiş numarasını taşır; iki ortam + API kaynak kilidi). Paket (transfer/stok/API/konum/yetki taraması/onay) 323/330:
+  7 kırmızının 6'sı transferin hedefe HEMEN girdiğini varsayan API/web konum testleriydi → BİLİNÇLİ güncellendi (gönder → hedefte
+  0 → teslim al → 4; hareket filtresi 4 bacak), YT8 kaynak kilidi güncellendi; 1'i TA6'nın kendi kusuru. Düzeltme sonrası 48/48 + 14/14;
+  arayüz 69/69; web derlemesi temiz. **Mutasyon ara bulgusu:** "yalnız hedef teslim alır" kuralı kaldırılınca TA4 yine geçti — test
+  "herhangi bir hata" bekliyordu ve mevcut şube kapsam kapısı da (belirsiz mesajla) engelliyordu; yeni kural ondan SONRA çalıştığı
+  için hiç devreye girmiyordu → kural kapsam kapısının ÖNÜNE alındı (anlaşılır mesaj), TA4 hata türü+mesajıyla kesinleştirildi; ikinci
+  mutasyon (iade → fire) TA2 ile yakalandı.
