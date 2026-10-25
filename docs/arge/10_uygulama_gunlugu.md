@@ -552,5 +552,6 @@
   açılır paneli); ORTADA teslim listesi kalan alanın tamamı (eskiden 220 px); ALTTA sabit özet + Kaydet (dar pencerede satıra sarılıp
   sola düşmüyor — M-61 açığı kapandı). "Kimde ne var" sekmesinde açık zimmetler + sağda geçmiş zinciri. Yazma yetkisi yoksa ekran
   doğrudan "Kimde ne var" ile açılır. İş kuralları/komutlar değişmedi.
+- **Web:** aynı iki sekme (MudTabs); Kaydet formdan ALTTA yapışkan çubuğa (özetle), kit katlanır panelde. `IslemSablonuTests` IS2 (mutasyon 1/1).
 - **Testler:** arayüz UIT24 (sekmeler, tablo yüksekliği — ilk denemede 128 px kalıyordu, başlık sıkıştırıldı —, Kaydet konumu, özet);
   zimmet/kod okutma/kit/onay testleri 66/66; arayüz 60/60.

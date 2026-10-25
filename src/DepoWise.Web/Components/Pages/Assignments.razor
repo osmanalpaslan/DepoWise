@@ -20,10 +20,13 @@
     </div>
 </div>
 
+@* ⭐ M-63 (AR-GE 2026-10-25, Şablon C — masaüstüyle aynı): iki sekme — "Yeni işlem" (form + teslim listesi + ALTTA yapışkan
+   özet/Kaydet) ve "Kimde ne var" (açık zimmetler + geçmiş zinciri). Yazma yetkisi yoksa yalnız "Kimde ne var". *@
+<MudTabs Elevation="0" Rounded="true" PanelClass="pt-3" KeepPanelsAlive="true">
 @if (Auth.CanCreate("assignments"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
-        <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ İŞLEM</MudText>
+    <MudTabPanel Text="Yeni işlem">
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3">
                 <MudSelect T="string" @bind-Value="_op" @bind-Value:after="OnOpChanged" Label="İşlem" Margin="Margin.Dense" Variant="Variant.Outlined">
@@ -88,7 +91,9 @@
             <MudItem xs="12" md="9"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
         @* ⭐ M-50 (F-083): zimmet kiti (set) — kit teslim listesine yüklenir; teslim her zamanki Kaydet ile tek işlemde (masaüstüyle aynı) *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap" Class="mt-2">
+        <MudExpansionPanels Elevation="0" Class="mt-2">
+        <MudExpansionPanel Text="Zimmet kiti (set) — kitten listeye yükle ya da listeyi kit olarak kaydet">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
             <MudSelect T="string" @bind-Value="_kitId" Label="Zimmet kiti (set)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:240px">
                 @foreach (var k in _kitler) { <MudSelectItem T="string" Value="@Str(k, "id")">@Str(k, "summary")</MudSelectItem> }
             </MudSelect>
@@ -101,6 +106,8 @@
             </MudTooltip>
             <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="KitSil" Disabled="@(_busy || !Auth.CanCreate("assignments"))">Kiti Sil</MudButton>
         </MudStack>
+        </MudExpansionPanel>
+        </MudExpansionPanels>
         @if (_op == "issue" && _lines.Count > 0)
         {
             <MudSimpleTable Dense="true" Hover="true" Class="mt-2">
@@ -122,12 +129,18 @@
         {
             <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">Birden fazla malzeme/ekipman teslim etmek için her birini «Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek işlemde kaydedilir.</MudText>
         }
-        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_op == "issue" && _lines.Count > 0 ? $"Kaydet ({_lines.Count} kalem)" : "Kaydet")</MudButton>
-        </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
+    <MudPaper Class="pa-3 dw-islem-alt" Elevation="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.body2" Style="flex:1"><b>@(_op == "issue" && _lines.Count > 0 ? $"{_lines.Count} kalem teslim listesinde — Kaydet hepsini tek işlemde işler." : "")</b></MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_op == "issue" && _lines.Count > 0 ? $"Kaydet ({_lines.Count} kalem)" : "Kaydet")</MudButton>
+        </MudStack>
+    </MudPaper>
+    </MudTabPanel>
 }
+
+<MudTabPanel Text="Kimde ne var">
 
 @* ⭐ M-46: geciken iadeler — görme yetkisi yeter (masaüstünde de araç çubuğunda, yazma yetkisinden bağımsız) *@
 @if (_gecikenler.Count > 0)
@@ -205,6 +218,8 @@
         </MudPaper>
     </MudItem>
 </MudGrid>
+</MudTabPanel>
+</MudTabs>
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };

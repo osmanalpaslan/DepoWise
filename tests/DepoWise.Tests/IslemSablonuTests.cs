@@ -16,6 +16,20 @@ public class IslemSablonuTests
         return File.ReadAllText(Path.Combine(d!.FullName, rel));
     }
 
+    /// <summary>IS2 — Zimmet (web): iki sekme; Kaydet formun içinde değil ALTTA yapışkan çubukta; kit katlanır panelde.</summary>
+    [Fact]
+    public void IS2_Web_Zimmet_Sekmeler_Ve_Alt_Cubuk()
+    {
+        var s = Oku("src/DepoWise.Web/Components/Pages/Assignments.razor");
+        Assert.Contains("<MudTabPanel Text=\"Yeni işlem\">", s);
+        Assert.Contains("<MudTabPanel Text=\"Kimde ne var\">", s);
+        var alt = s.IndexOf("Class=\"pa-3 dw-islem-alt\"", StringComparison.Ordinal);
+        Assert.True(alt > 0, "alt eylem çubuğu yok");
+        Assert.Equal(1, s.Split("OnClick=\"Save\"").Length - 1);
+        Assert.True(s.IndexOf("OnClick=\"Save\"", StringComparison.Ordinal) > alt, "Kaydet alt çubukta olmalı");
+        Assert.True(s.IndexOf("<MudExpansionPanel Text=\"Zimmet kiti", StringComparison.Ordinal) < s.IndexOf("OnClick=\"KitYukle\"", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void IS1_Web_Sayim_Alt_Eylem_Cubugu()
     {
