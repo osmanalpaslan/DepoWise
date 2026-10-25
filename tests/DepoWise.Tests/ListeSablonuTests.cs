@@ -59,6 +59,15 @@ public class ListeSablonuTests
             "masaüstü: Vazgeç solda, İptali Onayla en sağda");
     }
 
+    /// <summary>LS3 — Tahsilat/Ödeme (web): ortak sayfalayıcı (MudPagination yerine) + tek ana düğme.</summary>
+    [Fact]
+    public void LS3_Web_Tahsilat_Liste_Sablonu()
+    {
+        const string rel = "src/DepoWise.Web/Components/Pages/Payments.razor";
+        SablonB(rel, "Yeni Tahsilat / Ödeme", "Kaydet");
+        Assert.DoesNotContain("<MudPagination", Oku(rel));
+    }
+
     /// <summary>LS0 — Web ListePager özeti masaüstü Pager.Ozet ile aynı biçimi üretir ("51–100 / 1.240", boşsa "0 kayıt").</summary>
     [Fact]
     public void LS0_Web_Pager_Ozet_Bicimi()

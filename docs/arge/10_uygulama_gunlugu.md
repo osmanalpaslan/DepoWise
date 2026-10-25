@@ -606,3 +606,11 @@
   "Reddi Onayla" düğmeleri Vazgeç'in SOLUNDAYDI → sıra çevrildi, gruplar sağa hizalandı. `DugmeSirasiTests` artık yalnız Kaydet'i değil
   …Onayla/Uygula/Gönder/Tamamla/Evet düğmelerini de birincil sayar ("Sil" bilinçli olarak hariç: diyaloglarda tek başına EN SOLDA,
   ayraçla ayrılmış durur). Mutasyon: Finans sırası geri çevrilince DS1 kırıldı. Paket 152/152, arayüz 64/64.
+
+### B8 — M-64 (3/6) Tahsilat / Ödeme → liste şablonu (F-129, Şablon B)
+- Masaüstü: "Yeni Tahsilat / Ödeme" araç çubuğunda tek ana düğme; "Ters Kayıt" seçim çubuğunda (seçim yokken görünmez); eski
+  "Sayfa · ◀ ▶" satırı kalktı, sayfalama listenin altında ortak `Pager`. Köprüler: `PagerPage`, `SeciliSayisi`, `YeniIslemMetni`.
+- Web: `MudPagination` yerine ortak `ListePager` (tablonun altında); üstte yalnız toplam. İş kuralları değişmedi.
+- **Testler:** arayüz UIT29 (seçim çubuğu, Ters Kayıt etkinliği, Pager toplamı, ekran görüntüsü `tahsilat-sablon-b`); LS3; finans/
+  tahsilat/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 90/90; arayüz 65/65. Mutasyon: seçim sayısı sabit 0
+  yapılınca UIT29, web sayfalayıcı kaldırılınca LS3 kırıldı (2/2).

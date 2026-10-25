@@ -14,7 +14,10 @@
          ⚠️ "Sil" YOKTUR: yalnız gerekçeli TERS KAYIT vardır ve fatura kalanı geri artar.
          Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
-        <ctrl:Toolbar Grid.Row="0" Title="Tahsilat / Ödeme">
+        <!-- ⭐ M-64 (AR-GE 2026-10-25, F-129 · Şablon B): tek ana düğme araç çubuğunda; seçili işleme ait eylem (Ters Kayıt)
+             seçim çubuğunda (seçim yokken görünmez); sayfalama listenin altında ortak Pager ile. -->
+        <ctrl:Toolbar Grid.Row="0" Title="Tahsilat / Ödeme"
+                      PrimaryActionText="{Binding YeniIslemMetni}" PrimaryActionCommand="{Binding NewEntryCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <TextBox Classes="Field" Width="250" Watermark="Açıklama / belge no / cari"
@@ -56,19 +59,13 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
-                <Button AutomationProperties.Name="Önceki sayfa" Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
-                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
-                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
-                <Button Classes="Primary" Content="Yeni Tahsilat / Ödeme" Command="{Binding NewEntryCommand}"
-                        IsVisible="{Binding CanCreate}"/>
+        <ctrl:SelectionBar Grid.Row="1" Margin="0,12,0,0" SelectedCount="{Binding SeciliSayisi}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="Danger" Content="Ters Kayıt" Command="{Binding OpenReversePanelCommand}"
                         IsEnabled="{Binding CanReverseSelected}" IsVisible="{Binding CanEdit}"
                         ToolTip.Tip="İşlem silinmez; karşı kayıt yazılır, cari ve fatura kalanı geri döner."/>
             </StackPanel>
-        </Border>
+        </ctrl:SelectionBar>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,16,500" Margin="0,16,0,0">
 
@@ -85,6 +82,8 @@
                             <SelectableTextBlock Grid.Column="5" Text="ÇIKIŞ" MinWidth="90" MaxWidth="90"/>
                         </Grid>
                     </Border>
+                    <ctrl:Pager DockPanel.Dock="Bottom" Margin="12,8" ShowPageSize="False" PageSize="50"
+                                TotalCount="{Binding TotalCount}" Page="{Binding PagerPage}"/>
                     <ListBox x:Name="TabloRows" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:FinanceTxnRow">

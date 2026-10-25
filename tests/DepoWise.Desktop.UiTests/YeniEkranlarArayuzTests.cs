@@ -634,6 +634,42 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT29 — ⭐ M-64 (3/6) Tahsilat/Ödeme Şablon B: ana düğme araç çubuğunda; "Ters Kayıt" yalnız seçim çubuğunda;
+    /// sayfalama listenin altında ortak Pager.</summary>
+    [AvaloniaFact]
+    public void UIT29_Tahsilat_Liste_Sablonu()
+    {
+        var s = Ortam();
+        var cari = DesktopServices.Parties.List(s, "UIT29", null, null, 1, 10, null).Items.FirstOrDefault()?.Party.Id
+                   ?? DesktopServices.Parties.Create(s, new DepoWise.Infrastructure.Accounting.NewParty("UIT29-C", "UIT29 Cari", DepoWise.Infrastructure.Accounting.PartyTypes.Both));
+        var kasa = DesktopServices.FinanceQueries.Accounts(s).FirstOrDefault(a => a.Account.Code == "UIT29-K")?.Account.Id
+                   ?? DesktopServices.Finance.CreateAccount(s, new DepoWise.Infrastructure.Accounting.NewFinanceAccount("UIT29-K", "UIT29 Kasa",
+                          DepoWise.Infrastructure.Accounting.FinanceAccountKinds.Cash));
+        // Sabit işlem kimliği → ikinci koşuda ikinci kayıt oluşmaz (idempotency).
+        DesktopServices.Finance.Add(s, new DepoWise.Infrastructure.Accounting.NewFinanceEntry(kasa,
+            DepoWise.Infrastructure.Accounting.FinanceTxnTypes.Receipt, 50m, "uit29-tahsilat", PartyId: cari));
+        var vm = new PaymentsViewModel(s);
+        var view = new PaymentsView { DataContext = vm };
+        var w = Ac(view, 1300, 820);
+        for (int i = 0; i < 50 && vm.Rows.Count == 0; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var secim = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.SelectionBar>().Single();
+        Assert.False(secim.IsVisible);
+        var gorunen = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.Contains("Yeni Tahsilat / Ödeme", gorunen);
+        Assert.DoesNotContain("Ters Kayıt", gorunen);
+        Assert.DoesNotContain("◀", gorunen);
+        var pager = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Pager>().Single();
+        Assert.True(vm.TotalCount > 0);
+        Assert.Equal(vm.TotalCount, pager.TotalCount);
+        vm.Selected = vm.Rows.First(r => !r.IsReversed && !r.IsReversalEntry);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(secim.IsVisible);
+        var ters = Gorunen<Button>(secim).Single(b => (b.Content as string) == "Ters Kayıt");
+        Assert.True(ters.IsEffectivelyEnabled, "ters kaydı olmayan işlemde Ters Kayıt etkin olmalı");
+        Goruntu(w, "tahsilat-sablon-b");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

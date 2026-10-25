@@ -69,7 +69,9 @@ public sealed partial class PaymentsViewModel : ViewModelBase
 
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private string _typeFilter = "";
-    [ObservableProperty] private int _page = 1;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PagerPage))]
+    private int _page = 1;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string? _formError;
@@ -79,6 +81,14 @@ public sealed partial class PaymentsViewModel : ViewModelBase
     public string PageText => $"Sayfa {Page} / {PageCount} · {TotalCount} işlem";
     public bool CanPrev => Page > 1;
     public bool CanNext => Page < PageCount;
+
+    /// <summary>⭐ M-64: ortak Pager (alt sayfalama) köprüsü — sayfa değişince liste yeniden yüklenir; filtre akışı (Find → 1. sayfa)
+    /// aynen kalır.</summary>
+    public int PagerPage { get => Page; set { if (value >= 1 && value != Page) { Page = value; _ = Load(); } } }
+    /// <summary>⭐ M-64: seçim çubuğu (SelectionBar) için seçili kayıt sayısı.</summary>
+    public int SeciliSayisi => Selected is null ? 0 : 1;
+    /// <summary>⭐ M-64: araç çubuğunun tek ana düğmesi — yetki yoksa hiç çizilmez.</summary>
+    public string? YeniIslemMetni => CanCreate ? "Yeni Tahsilat / Ödeme" : null;
 
     public PaymentsViewModel(SessionContext session)
     {
@@ -372,7 +382,9 @@ public sealed partial class PaymentsViewModel : ViewModelBase
     // TERS KAYIT (SİLME DEĞİL)
     // ═════════════════════════════════════════════════════════════════════════════════════════
 
-    [ObservableProperty] private FinanceTxnRow? _selected;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SeciliSayisi))]
+    private FinanceTxnRow? _selected;
     [ObservableProperty] private bool _reversePanelOpen;
     [ObservableProperty] private string _reverseReason = "";
 

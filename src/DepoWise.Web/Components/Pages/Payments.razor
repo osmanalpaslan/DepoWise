@@ -101,6 +101,8 @@ else
                     </MudTd>
                 </RowTemplate>
             </MudTable>
+            @* ⭐ M-64 (Şablon B): sayfalama listenin hemen altında, ortak ListePager ile (masaüstü Pager ile aynı biçim). *@
+            <ListePager Page="_page" PageSize="50" Total="_total" Busy="_busy" OnGo="Go" />
         </MudPaper>
 
         @if (Auth.CanEdit("finance"))
@@ -108,13 +110,6 @@ else
             <MudTextField @bind-Value="_reverseReason" Label="Ters kayıt gerekçesi" Class="mt-3"
                           Variant="Variant.Outlined" Margin="Margin.Dense"
                           HelperText="Geri alma düğmesine basmadan önce doldurun — gerekçe zorunludur." />
-        }
-
-        @if (_pageCount > 1)
-        {
-            <div class="d-flex justify-center mt-3">
-                <MudPagination Count="_pageCount" Selected="_page" SelectedChanged="Go" />
-            </div>
         }
     }
 
@@ -296,7 +291,7 @@ else
     };
 
     private string _search = "", _type = "", _pageText = "";
-    private int _page = 1, _pageCount = 1, _total;
+    private int _page = 1, _total;
     private bool _busy, _saving, _ok, _formOpen;
     private string? _msg, _formError;
     private string _reverseReason = "";
@@ -337,8 +332,7 @@ else
             var url = $"/api/finance/transactions?page={_page}&pageSize=50" + FiltreQuery;
             var d = await Api.GetObjectAsync(url);
             _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
-            _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
-            _pageText = $"Sayfa {_page} / {_pageCount} · {_total} işlem";
+            _pageText = $"{_total:N0} işlem";   // M-64: sayfa bilgisi alttaki ListePager'da
             _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
                 ? arr.EnumerateArray().Select(e => new Row
                 {
