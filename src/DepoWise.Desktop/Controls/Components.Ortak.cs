@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,6 +33,10 @@ public class Pager : TemplatedControl
     /// <summary>Sayfa boyutu seçicisi görünsün mü (sabit sayfa boyutlu ekranlarda kapatılır).</summary>
     public static readonly StyledProperty<bool> ShowPageSizeProperty =
         AvaloniaProperty.Register<Pager, bool>(nameof(ShowPageSize), true);
+    /// <summary>⭐ M-64: numaralı sayfa düğmeleri ("‹ 1 2 [3] 4 5 ›") — kullanıcının 2026-07-18 isteğiyle numaralı sayfalaması olan
+    /// ekranlar (Malzemeler, Araçlar) için; kapalıyken "Sayfa x / y" metni görünür.</summary>
+    public static readonly StyledProperty<bool> ShowPageNumbersProperty =
+        AvaloniaProperty.Register<Pager, bool>(nameof(ShowPageNumbers));
     public static readonly StyledProperty<IReadOnlyList<int>> PageSizesProperty =
         AvaloniaProperty.Register<Pager, IReadOnlyList<int>>(nameof(PageSizes), new[] { 25, 50, 100, 200 });
 
@@ -43,12 +48,21 @@ public class Pager : TemplatedControl
         AvaloniaProperty.RegisterDirect<Pager, bool>(nameof(CanPrevious), o => o.CanPrevious);
     public static readonly DirectProperty<Pager, bool> CanNextProperty =
         AvaloniaProperty.RegisterDirect<Pager, bool>(nameof(CanNext), o => o.CanNext);
+    public static readonly DirectProperty<Pager, IReadOnlyList<SayfaNo>> PageNumbersProperty =
+        AvaloniaProperty.RegisterDirect<Pager, IReadOnlyList<SayfaNo>>(nameof(PageNumbers), o => o.PageNumbers);
 
     public int Page { get => GetValue(PageProperty); set => SetValue(PageProperty, value); }
     public int PageSize { get => GetValue(PageSizeProperty); set => SetValue(PageSizeProperty, value); }
     public int TotalCount { get => GetValue(TotalCountProperty); set => SetValue(TotalCountProperty, value); }
     public IReadOnlyList<int> PageSizes { get => GetValue(PageSizesProperty); set => SetValue(PageSizesProperty, value); }
     public bool ShowPageSize { get => GetValue(ShowPageSizeProperty); set => SetValue(ShowPageSizeProperty, value); }
+    public bool ShowPageNumbers { get => GetValue(ShowPageNumbersProperty); set => SetValue(ShowPageNumbersProperty, value); }
+
+    /// <summary>Numaralı düğmedeki tek sayfa; <see cref="Aktif"/> = bulunulan sayfa (vurgulu).</summary>
+    public sealed record SayfaNo(int No, bool Aktif);
+    private IReadOnlyList<SayfaNo> _pageNumbers = Array.Empty<SayfaNo>();
+    public IReadOnlyList<SayfaNo> PageNumbers { get => _pageNumbers; private set => SetAndRaise(PageNumbersProperty, ref _pageNumbers, value); }
+    public ICommand GoToCommand { get; }
 
     private string _summary = "0 kayıt", _pageText = "Sayfa 1 / 1";
     private bool _canPrevious, _canNext;
@@ -64,6 +78,7 @@ public class Pager : TemplatedControl
     {
         PreviousCommand = new RelayCommand(() => { if (Page > 1) Page--; });
         NextCommand = new RelayCommand(() => { if (Page < SayfaSayisi(TotalCount, PageSize)) Page++; });
+        GoToCommand = new RelayCommand<int>(p => { if (p >= 1 && p <= SayfaSayisi(TotalCount, PageSize)) Page = p; });
         Yenile();
     }
 
@@ -87,6 +102,17 @@ public class Pager : TemplatedControl
         PageText = $"Sayfa {Page.ToString("N0", Tr)} / {son.ToString("N0", Tr)}";
         CanPrevious = Page > 1;
         CanNext = Page < son;
+        PageNumbers = Numaralar(Page, son).Select(n => new SayfaNo(n, n == Page)).ToList();
+    }
+
+    /// <summary>Gösterilecek sayfa numaraları: bulunulan sayfanın ±3 komşusu (eski Malzemeler/Araçlar davranışı).</summary>
+    public static IReadOnlyList<int> Numaralar(int sayfa, int son)
+    {
+        var bas = Math.Max(1, sayfa - 3);
+        var bit = Math.Min(son, sayfa + 3);
+        var l = new List<int>();
+        for (var p = bas; p <= bit; p++) l.Add(p);
+        return l;
     }
 
     /// <summary>Toplam sayfa (en az 1).</summary>

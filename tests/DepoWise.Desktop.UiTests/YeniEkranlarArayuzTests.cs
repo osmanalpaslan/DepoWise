@@ -670,6 +670,46 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT30 — ⭐ M-64 (5/6) Malzemeler: numaralı sayfalama (kullanıcı isteği 2026-07-18) artık ortak Pager'da
+    /// (ShowPageNumbers): ±3 komşu, bulunulan sayfa birincil renkte, numaraya basınca o sayfa; sayfa boyutu Pager'da (araç
+    /// çubuğunda değil); Pager SOLDA (kullanıcı isteği 2026-07-19); görünür tek ana düğme "Yeni Malzeme".</summary>
+    [AvaloniaFact]
+    public void UIT30_Malzeme_Numarali_Pager()
+    {
+        Assert.Equal(new[] { 1, 2, 3, 4 }, DepoWise.Desktop.Controls.Pager.Numaralar(1, 10).ToArray());
+        Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8 }, DepoWise.Desktop.Controls.Pager.Numaralar(5, 10).ToArray());
+        Assert.Equal(new[] { 7, 8, 9, 10 }, DepoWise.Desktop.Controls.Pager.Numaralar(10, 10).ToArray());
+
+        var p = new DepoWise.Desktop.Controls.Pager { ShowPageNumbers = true, TotalCount = 120, PageSize = 25, Page = 1 };
+        var pw = Ac(new StackPanel { Children = { p } }, 900, 120);
+        Dispatcher.UIThread.RunJobs();
+        var no = Gorunen<Button>(p).Where(b => b.Content is int).ToList();
+        Assert.Equal(new object[] { 1, 2, 3, 4 }, no.Select(b => b.Content).ToArray());   // 1. sayfa: ±3 → 1–4
+        Assert.True(no[0].Classes.Contains("Primary") && !no[1].Classes.Contains("Primary"), "bulunulan sayfa vurgulu olmalı");
+        no[2].Command!.Execute(no[2].CommandParameter);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(3, p.Page);
+        Assert.False(Gorunen<TextBlock>(p).Any(t => t.Text == "Sayfa 3 / 5"), "numaralı biçimde 'Sayfa x / y' metni gizli");
+        pw.Close();
+
+        var vm = new MaterialsViewModel(Ortam());
+        var view = new MaterialsView { DataContext = vm };
+        var w = Ac(view, 1300, 820);
+        for (int i = 0; i < 50 && !vm.HasRows; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var pager = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Pager>().Single();
+        Assert.True(pager.ShowPageNumbers);
+        Assert.Equal(vm.PageSize, pager.PageSize);
+        Assert.Equal(vm.TotalCount, pager.TotalCount);
+        var toolbar = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Toolbar>().First();
+        Assert.DoesNotContain(toolbar.GetVisualDescendants().OfType<ComboBox>(), c => ReferenceEquals(c.ItemsSource, vm.PageSizes));
+        var pagerKutu = pager.GetVisualDescendants().OfType<WrapPanel>().First();
+        Assert.True(pagerKutu.Bounds.X < 5, "Pager sola yaslı olmalı (sol en altta)");
+        var anaDugmeler = Gorunen<Button>(view).Where(b => b.Classes.Contains("Primary") && b.Content is string).Select(b => (string)b.Content!).ToList();
+        Assert.Equal(new[] { vm.AddButtonText }, anaDugmeler);
+        Goruntu(w, "malzeme-pager");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

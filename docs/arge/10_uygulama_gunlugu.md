@@ -624,3 +624,16 @@
   çift: "X Onayla" / "X Reddet").
 - **Testler:** talep/onay/dışa aktarım/yeni kayıt formu/tarih/erişilebilirlik/düğme sırası paketi 298/298 + DS 4/4; arayüz 65/65;
   web derlemesi temiz. Mutasyon: Talep Onaylama sırası geri çevrilince DS4 kırıldı.
+
+### B8 — M-64 (5/6) Malzemeler → ortak numaralı Pager + sayfalama SOLDA
+- Ortak `Pager`'a `ShowPageNumbers` (numaralı sayfa düğmeleri; bulunulan sayfa birincil renkte, ±3 komşu — eski Malzemeler/Araçlar
+  davranışı, kullanıcı isteği 2026-07-18) eklendi; web `ListePager`'a `Numarali` + `PageSizes`/`OnPageSize`.
+- **Konum düzeltmesi:** tasarım belgesi (08 §3) Pager'ı "altta, sağda" öneriyordu; kullanıcının 2026-07-19 "tüm tablolu ekranlarda
+  sayfalama sol en altta" isteği önceliklidir → Pager iki ortamda SOLA alındı (Cari/Fatura/Tahsilat da ortak parçadan düzeldi);
+  belge 08 güncellendi.
+- Masaüstü Malzemeler: alttaki elle yazılmış numaralı sayfalama + araç çubuğundaki "Sayfa boyutu" → tek ortak Pager (numaralı +
+  boyut); "Filtrele" ve detaydaki "Düzenle" ikincil (görünür tek ana düğme "Yeni Malzeme"). Web Malzemeler: `MudPagination` + üstteki
+  boyut seçicisi → `ListePager Numarali`. Sayfa boyutu kişiye özel hatırlanmaya devam eder (`OnPageSizeChanged` aynı).
+- **Testler:** arayüz UIT30 (numara hesabı, vurgulu sayfa, numaraya basınca gitme, Malzemeler'de Pager bağları, sola yaslı, tek ana
+  düğme, ekran görüntüsü `malzeme-pager`); LS4; malzeme/liste tercihi/dışa aktarım/tablo hizası/erişilebilirlik/düğme sırası/tasarım
+  paketi 305/305; arayüz 66/66. Mutasyon: vurgu kaldırılınca UIT30, web hizası sağa alınınca LS4 kırıldı (2/2).

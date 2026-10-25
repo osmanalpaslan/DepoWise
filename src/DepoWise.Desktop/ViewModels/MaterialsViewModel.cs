@@ -74,7 +74,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoPrev))]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    [NotifyPropertyChangedFor(nameof(PagerPage))]
     private int _page = 1;
+
+    /// <summary>⭐ M-64: ortak Pager (alt sayfalama) köprüsü — sayfa değişince liste yeniden yüklenir; filtre/sayfa boyutu akışı
+    /// (→ 1. sayfa) aynen kalır.</summary>
+    public int PagerPage { get => Page; set { if (value >= 1 && value != Page) { Page = value; Load(); } } }
     [ObservableProperty] private int _pageSize = 25;   // varsayılan 25 (kullanıcı isteği 2026-07-18)
     [ObservableProperty] private int _totalCount;
     [ObservableProperty]

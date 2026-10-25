@@ -172,12 +172,12 @@
         <Style Selector="^:nopermission /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconLock}"/></Style>
     </ControlTheme>
 
-    <!-- ============ ⭐ M-60 Pager — tek sayfalama biçimi (tablonun altında, sağda) ============ -->
+    <!-- ============ ⭐ M-60 Pager — tek sayfalama biçimi (tablonun altında, SOLDA — kullanıcı isteği 2026-07-19 "sol en altta") ============ -->
     <ControlTheme x:Key="{x:Type ctrl:Pager}" TargetType="ctrl:Pager">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="Template">
             <ControlTemplate>
-                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" ItemSpacing="10" LineSpacing="6">
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" ItemSpacing="10" LineSpacing="6">
                     <TextBlock Text="{TemplateBinding Summary}" VerticalAlignment="Center"
                                FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -186,7 +186,20 @@
                                 Command="{Binding PreviousCommand, RelativeSource={RelativeSource TemplatedParent}}" IsEnabled="{TemplateBinding CanPrevious}"/>
                         <TextBlock Text="{TemplateBinding PageText}" VerticalAlignment="Center" MinWidth="90" TextAlignment="Center"
                                    FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !ShowPageNumbers, RelativeSource={RelativeSource TemplatedParent}}"/>
+                        <!-- ⭐ M-64: numaralı sayfa düğmeleri (ShowPageNumbers) — bulunulan sayfa birincil renkte -->
+                        <ItemsControl ItemsSource="{TemplateBinding PageNumbers}" IsVisible="{TemplateBinding ShowPageNumbers}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="ctrl:Pager+SayfaNo">
+                                    <Button Content="{Binding No}" Padding="10,4" MinWidth="34" Classes.Secondary="{Binding !Aktif}" Classes.Primary="{Binding Aktif}"
+                                            AutomationProperties.Name="{Binding No, StringFormat='Sayfa {0}'}"
+                                            Command="{Binding $parent[ctrl:Pager].GoToCommand}" CommandParameter="{Binding No}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <Button Classes="Secondary" Content="›" Padding="10,4" AutomationProperties.Name="Sonraki sayfa"
                                 Command="{Binding NextCommand, RelativeSource={RelativeSource TemplatedParent}}" IsEnabled="{TemplateBinding CanNext}"/>
                     </StackPanel>

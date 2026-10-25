@@ -68,6 +68,26 @@ public class ListeSablonuTests
         Assert.DoesNotContain("<MudPagination", Oku(rel));
     }
 
+    /// <summary>LS4 — Malzemeler (web): numaralı sayfalama (kullanıcı isteği 2026-07-18) ve sayfa boyutu ortak ListePager'da,
+    /// tablonun ALTINDA; üstte ayrı sayfa boyutu seçicisi ve sayfaya özel MudPagination yok. ListePager solda (2026-07-19).</summary>
+    [Fact]
+    public void LS4_Web_Malzeme_Numarali_Pager()
+    {
+        var s = Oku("src/DepoWise.Web/Components/Pages/Materials.razor");
+        var tablo = s.IndexOf("</table>", StringComparison.Ordinal);
+        var pager = s.IndexOf("<ListePager ", StringComparison.Ordinal);
+        Assert.True(tablo > 0 && pager > tablo, "ListePager tablonun ALTINDA olmalı");
+        Assert.Contains("Numarali=\"true\" PageSizes=\"PageSizes\"", s);
+        Assert.Contains("OnPageSize=\"OnPageSizeChanged\"", s);
+        Assert.DoesNotContain("<MudPagination", s);
+        Assert.Equal(1, s.Split("ValueChanged=\"OnPageSizeChanged\"").Length - 1 + s.Split("OnPageSize=\"OnPageSizeChanged\"").Length - 1);
+
+        var p = Oku("src/DepoWise.Web/Components/ListePager.razor");
+        Assert.Contains("class=\"d-flex align-center justify-start", p);
+        Assert.Contains("@if (Numarali)", p);
+        Assert.Contains("<MudPagination Count=\"@SayfaSayisi(Total, PageSize)\"", p);
+    }
+
     /// <summary>LS0 — Web ListePager özeti masaüstü Pager.Ozet ile aynı biçimi üretir ("51–100 / 1.240", boşsa "0 kayıt").</summary>
     [Fact]
     public void LS0_Web_Pager_Ozet_Bicimi()

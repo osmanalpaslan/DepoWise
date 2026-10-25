@@ -3,18 +3,35 @@
 @* ═══════════════════════════════════════════════════════════════════════════════════════════
    ⭐ M-64 (AR-GE 2026-10-25, F-129 · Şablon B) — ORTAK LİSTE SAYFALAYICI (web)
 
-   Masaüstü ctrl:Pager'ın web karşılığı: listenin HEMEN ALTINDA, sağda "51–100 / 1.240 · ‹ Sayfa 2 / 25 ›".
+   Masaüstü ctrl:Pager'ın web karşılığı: listenin HEMEN ALTINDA, SOLDA (kullanıcı isteği 2026-07-19 "sol en altta") "51–100 / 1.240 · ‹ Sayfa 2 / 25 ›".
    Her liste ekranı kendi "◀ Önceki / Sonraki ▶" düğmelerini ve üstteki sayfa metnini ayrı yazmaz.
-   Yalnız gösterim + gezinme; veri yükleme sayfanın OnGo geri çağrısındadır (sorgu/süzgeç değişmez).
+   Numarali=true → numaralı sayfalar (kullanıcı isteği 2026-07-18; Malzemeler/Araçlar). PageSizes verilirse sayfa boyutu seçicisi.
+   Yalnız gösterim + gezinme; veri yükleme sayfanın OnGo / OnPageSize geri çağrısındadır (sorgu/süzgeç değişmez).
    ══════════════════════════════════════════════════════════════════════════════════════════ *@
 
-<div class="d-flex align-center justify-end dw-pager" style="gap:8px;">
+<div class="d-flex align-center justify-start flex-wrap dw-pager" style="gap:8px;">
     <MudText Typo="Typo.body2" Class="mud-text-secondary">@Ozet(Page, PageSize, Total)</MudText>
-    <MudIconButton aria-label="Önceki sayfa" Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
-                   Disabled="@(Page <= 1 || Busy)" OnClick="@(() => OnGo.InvokeAsync(Page - 1))" />
-    <MudText Typo="Typo.body2">Sayfa @Page.ToString("N0", Tr) / @SayfaSayisi(Total, PageSize).ToString("N0", Tr)</MudText>
-    <MudIconButton aria-label="Sonraki sayfa" Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
-                   Disabled="@(Page >= SayfaSayisi(Total, PageSize) || Busy)" OnClick="@(() => OnGo.InvokeAsync(Page + 1))" />
+    @if (Numarali)
+    {
+        <MudPagination Count="@SayfaSayisi(Total, PageSize)" Selected="@Page" SelectedChanged="@(p => OnGo.InvokeAsync(p))"
+                       Disabled="Busy" BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" Size="Size.Small" />
+    }
+    else
+    {
+        <MudIconButton aria-label="Önceki sayfa" Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
+                       Disabled="@(Page <= 1 || Busy)" OnClick="@(() => OnGo.InvokeAsync(Page - 1))" />
+        <MudText Typo="Typo.body2">Sayfa @Page.ToString("N0", Tr) / @SayfaSayisi(Total, PageSize).ToString("N0", Tr)</MudText>
+        <MudIconButton aria-label="Sonraki sayfa" Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
+                       Disabled="@(Page >= SayfaSayisi(Total, PageSize) || Busy)" OnClick="@(() => OnGo.InvokeAsync(Page + 1))" />
+    }
+    @if (PageSizes is { Count: > 0 })
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">Sayfa boyutu</MudText>
+        <MudSelect T="int" Value="PageSize" ValueChanged="@(sz => OnPageSize.InvokeAsync(sz))" aria-label="Sayfa boyutu"
+                   Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
+            @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
+        </MudSelect>
+    }
 </div>
 
 @code {
@@ -24,7 +41,10 @@
     [Parameter] public int PageSize { get; set; } = 50;
     [Parameter] public int Total { get; set; }
     [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Numarali { get; set; }
+    [Parameter] public IReadOnlyList<int>? PageSizes { get; set; }
     [Parameter] public EventCallback<int> OnGo { get; set; }
+    [Parameter] public EventCallback<int> OnPageSize { get; set; }
 
     /// <summary>Toplam sayfa (en az 1) — masaüstü Pager.SayfaSayisi ile aynı.</summary>
     public static int SayfaSayisi(int toplam, int boyut) => boyut <= 0 ? 1 : Math.Max(1, (toplam + boyut - 1) / boyut);
