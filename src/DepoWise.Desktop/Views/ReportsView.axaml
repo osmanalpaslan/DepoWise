@@ -331,10 +331,10 @@
                     </Border>
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
-                <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
+                <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom" IsVisible="{Binding CanExportReport}"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
                 <!-- ⭐ M-58: PDF — Excel ile AYNI tablo ve AYNI dışa aktarma yetkisi. -->
-                <Button Content="PDF" Command="{Binding ExportPdfCommand}" VerticalAlignment="Bottom"
+                <Button Content="PDF" Command="{Binding ExportPdfCommand}" VerticalAlignment="Bottom" IsVisible="{Binding CanExportReport}"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu yazdırmak için PDF olarak kaydeder (yetki gerekir)."/>
                 <ctrl:FormField Label="Görünüm adı" Width="170">
                     <TextBox Classes="Field" Text="{Binding GorunumAdi}" PlaceholderText="ör. Aylık yakıt" MaxLength="60"/>

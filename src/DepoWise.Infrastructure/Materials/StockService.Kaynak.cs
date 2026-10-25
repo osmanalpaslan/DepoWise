@@ -51,7 +51,7 @@ public sealed partial class StockService
         {
             if (Tek(conn, "SELECT m.id, v.internal_code, m.vehicle_id FROM vehicle_maintenances m JOIN vehicles v ON v.id=m.vehicle_id AND v.company_id=m.company_id " +
                           "WHERE m.id=@d AND m.company_id=@c;", s.CompanyId, note) is { } vm)
-                return K("arac_bakimi", "Araç bakımı — " + vm.No, "maintenance", "maintenance:records", "bakim:" + vm.Id + ":" + vm.Ust, "/maintenance?view=" + vm.Id);
+                return K("arac_bakimi", "Araç bakımı — " + vm.No, "maintenance", "maintenance:records", "bakim:" + vm.Id + ":" + vm.Ust, "/maintenance?view=" + vm.Id + "&arac=" + Uri.EscapeDataString(vm.Ust));
             if (Tek(conn, "SELECT m.id, e.code, m.equipment_id FROM equipment_maintenances m JOIN equipment e ON e.id=m.equipment_id AND e.company_id=m.company_id " +
                           "WHERE m.id=@d AND m.company_id=@c;", s.CompanyId, note) is { } em)
                 return K("ekipman_bakimi", "Ekipman bakımı — " + em.No, "maintenance", "maintenance:records", "ekbakim:" + em.Id + ":" + em.Ust, "/maintenance?ekview=" + em.Id);

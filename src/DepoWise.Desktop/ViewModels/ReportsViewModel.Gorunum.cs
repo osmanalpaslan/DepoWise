@@ -25,6 +25,10 @@ public sealed partial class ReportsViewModel
     [ObservableProperty] private string _gorunumAdi = "";
     public bool HasGorunum => Gorunumler.Count > 0;
 
+    /// <summary>Excel/PDF düğmeleri yalnız dışa aktarma özel butonu varsa görünür (web Reports.razor ile aynı kural).</summary>
+    public bool CanExportReport => AccessControl.CanUseButton(_session,
+        SelectedReport.IsManager ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
+
     private void GorunumleriYukle()
     {
         try { Doldur(RaporGorunumleri.Coz(DesktopServices.ListPrefs.GetColumns(_session, RaporGorunumleri.PrefKey))); }

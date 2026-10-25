@@ -445,3 +445,15 @@
 - **Testler:** `RaporGorunumuTests` RG1–6 (biçim, ad kuralları, kişisel saklama, iki platform alan nöbetçisi, PDF yolu), arayüz UIT16;
   mutasyon 6/6. Ara not: nöbetçi testin ilk sayım deseni bozulmamış kodda da düşüyordu (şube satırı farklı yazılmış) — mutasyon
   sonuçları temiz kodda doğrulanıp yeniden koşuldu.
+
+### B7 sonu — iki ortam denetimi (4 ayrışma düzeltildi)
+- Web bakım bağlantısı (`?view=`) kayıt ilk sayfada değilse "bulunamadı" diyordu → kaynak bağlantısı araç kimliğini de taşır
+  (`&arac=`), kayıt aracın bakımlarında sayfa sayfa aranır (masaüstü AracaDaralt karşılığı).
+- Dışa aktarma düğmeleri: web Muayene/Personel Excel+Yazdır ve masaüstü Personel/Maliyet Merkezi Yazdır artık dışa aktarım
+  yetkisiyle görünür (sunucu zaten zorluyordu; fark görünümdeydi). Masaüstü Raporlar Excel/PDF web gibi özel buton yetkisiyle görünür.
+- Web Stok Hareketleri'nde dışa aktarma hatası listeyi hata kutusuyla değiştiriyordu → ayrı bildirim, liste kalır.
+- Bilinçli farklar (değişmedi): Sayım'da web ayrı KOD/MALZEME sütunları; masaüstü belgeler paneli düğmeyle yüklenir (çevrimdışı);
+  stok hareketi yön/birim sütun biçimi; kayıtlı görünümde masaüstü yerel kopya; web ekipman bakımı vurgulama.
+- **Testler:** `B7IkiOrtamDenetimiTests` ID1–4 (kaynak sözleşmesi), HK1/HK4 bağlantı beklentisi güncellendi; mutasyon 2/2; arayüz 52/52.
+- Not: 04:20'deki M-58 paket koşusu 6 saat ilerlemeden asılı kaldı (oturum kotası kesintisi sırasında); süreç durduruldu,
+  takılma dökümüyle ve resmi betikle (PostgreSQL dahil) iki kez yeniden koşuldu — 380/380, takılma tekrarlanmadı.

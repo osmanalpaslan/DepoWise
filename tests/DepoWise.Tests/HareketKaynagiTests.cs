@@ -130,7 +130,7 @@ public class HareketKaynagiTests : IAsyncLifetime
         // Bakım tüketimi: belgesiz, not = bakım kimliği
         var (bakim, arac) = AracBakimi(Company, "HKY-ARAC");
         k = Svc.Stock.KaynakBul(_s, null, "usage", bakim)!;
-        Assert.Equal(("arac_bakimi", "maintenance:records", $"bakim:{bakim}:{arac}", "/maintenance?view=" + bakim), (k.Tur, k.EkranKey, k.HedefId, k.WebYolu));
+        Assert.Equal(("arac_bakimi", "maintenance:records", $"bakim:{bakim}:{arac}", "/maintenance?view=" + bakim + "&arac=" + arac), (k.Tur, k.EkranKey, k.HedefId, k.WebYolu));
         Assert.Contains("HKY-ARAC", k.Etiket);
         Assert.Equal("arac_bakimi", Svc.Stock.KaynakBul(_s, null, "usage_reverse", bakim)!.Tur);
         var (ebakim, ekipman) = EkipmanBakimi(Company, "HKY-EKP");
@@ -183,11 +183,11 @@ public class HareketKaynagiTests : IAsyncLifetime
     [Fact]
     public async Task HK4_Api()
     {
-        var (bakim, _) = AracBakimi(Company, "HKY-API");
+        var (bakim, arac) = AracBakimi(Company, "HKY-API");
         var j = await _client.GetFromJsonAsync<JsonElement>($"/api/stock/movements/source?type=usage&note={bakim}");
         Assert.True(j.GetProperty("found").GetBoolean());
         Assert.Equal("arac_bakimi", j.GetProperty("tur").GetString());
-        Assert.Equal("/maintenance?view=" + bakim, j.GetProperty("webYolu").GetString());
+        Assert.Equal("/maintenance?view=" + bakim + "&arac=" + arac, j.GetProperty("webYolu").GetString());
         Assert.True(j.GetProperty("erisim").GetBoolean());
 
         j = await _client.GetFromJsonAsync<JsonElement>("/api/stock/movements/source?documentId=" + Giris(_s, _mat) + "&type=in");

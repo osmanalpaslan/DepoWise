@@ -243,7 +243,8 @@
         if (pdf) qs.Add("format=pdf");
         var (bytes, name) = await Api.GetFileAsync("/api/stock/movements/export" + (qs.Count > 0 ? "?" + string.Join("&", qs) : ""),
             pdf ? "StokHareketleri.pdf" : "StokHareketleri.xlsx");
-        if (bytes is null) { _error = (pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir)."; return; }
+        // B7 iki ortam denetimi: _error listeyi hata kutusuyla değiştiriyordu → hata ayrı bildirimle; liste kalır.
+        if (bytes is null) { Snackbar.Add((pdf ? "PDF" : "Excel") + " indirilemedi (dışa aktarım yetkiniz olmayabilir).", Severity.Error); return; }
         await JS.InvokeVoidAsync("dwDownload", name, Convert.ToBase64String(bytes),
             pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }

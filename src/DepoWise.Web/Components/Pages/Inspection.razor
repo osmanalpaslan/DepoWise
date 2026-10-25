@@ -69,10 +69,14 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudText Typo="Typo.h6">Belgeler</MudText><MudSpacer />
         @* ⭐ PRT-02: liste ekranı kuralı — TÜM sonuç Excel'e aktarılabilir. *@
-        <MudTooltip Text="Listedeki TÜM muayene/sigorta kayıtlarını Excel dosyası olarak indirir.">
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="Yazdir">Yazdır</MudButton>
-        </MudTooltip>
+        @* B7 iki ortam denetimi: masaüstüyle aynı — dışa aktarım yetkisi yoksa düğmeler görünmez (sunucu zaten zorlar). *@
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Listedeki TÜM muayene/sigorta kayıtlarını Excel dosyası olarak indirir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="Yazdir">Yazdır</MudButton>
+            </MudTooltip>
+        }
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }

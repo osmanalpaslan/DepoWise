@@ -162,13 +162,17 @@
                       Margin="Margin.Dense" Variant="Variant.Outlined" Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width:320px" Clearable="true" />
         @* ⭐ PRT-02: filtrelenmiş TÜM sonucu indirir (o anki sayfayı değil) — liste ekranı kuralı. *@
-        <MudTooltip Text="Aktif aramayla eşleşen TÜM personeli Excel dosyası olarak indirir.">
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
-        </MudTooltip>
-        @* ⭐ M-55 (F-054): web'de Yazdır — masaüstünün karşılığı *@
-        <MudTooltip Text="Aktif filtrelerle eşleşen TÜM kayıtları (yalnız bu sayfayı değil) PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Yazdir">Yazdır</MudButton>
-        </MudTooltip>
+        @* B7 iki ortam denetimi: masaüstüyle aynı — dışa aktarım yetkisi yoksa düğmeler görünmez (sunucu zaten zorlar). *@
+        @if (Auth.CanView("export"))
+        {
+            <MudTooltip Text="Aktif aramayla eşleşen TÜM personeli Excel dosyası olarak indirir.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+            </MudTooltip>
+            @* ⭐ M-55 (F-054): web'de Yazdır — masaüstünün karşılığı *@
+            <MudTooltip Text="Aktif filtrelerle eşleşen TÜM kayıtları (yalnız bu sayfayı değil) PDF olarak indirir — yazdırmak için. Excel ile aynı süzgeç.">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Yazdir">Yazdır</MudButton>
+            </MudTooltip>
+        }
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @* ⭐ LST-01: liste sunucuda 500 kayıtta kesiliyor. Eskiden bu SESSİZDİ — 500. kaydın ötesindeki

@@ -84,6 +84,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowSearch))]
     [NotifyPropertyChangedFor(nameof(ShowMaterial))]
     [NotifyPropertyChangedFor(nameof(ShowParty))]
+    [NotifyPropertyChangedFor(nameof(CanExportReport))]   // B7 iki ortam denetimi: Excel/PDF düğmesi yetkisi
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>

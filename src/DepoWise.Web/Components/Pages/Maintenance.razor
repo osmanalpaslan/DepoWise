@@ -713,8 +713,30 @@
         _hedef = "vehicle";                     // 7b ekipman hedefi açıksa araç hedefine dön
         if (_maint is null) await LoadMaint();
         var hit = (_maint ?? Array.Empty<JsonElement>()).FirstOrDefault(m => Str(m, "id") == ViewId);
+        // ⭐ B7 iki ortam denetimi: kayıt bu sayfada değilse (eski kayıt / süzgeç) aracın bakımlarında aranır —
+        // masaüstündeki AracaDaralt ile aynı davranış. Araç bilgisi bağlantıdan (&arac=) gelir.
+        if (hit.ValueKind == JsonValueKind.Undefined && !string.IsNullOrWhiteSpace(AracId)) hit = await AracBakimindaBul(AracId!, ViewId!);
         if (hit.ValueKind != JsonValueKind.Undefined) await OpenMaint(hit);
         else Snackbar.Add("Bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir).", Severity.Warning);
+    }
+
+    [SupplyParameterFromQuery(Name = "arac")] public string? AracId { get; set; }
+
+    /// <summary>Aracın bakım kayıtlarında (süzgeçsiz, sayfa sayfa — en fazla 20 sayfa) kaydı arar.</summary>
+    private async Task<JsonElement> AracBakimindaBul(string aracId, string bakimId)
+    {
+        try
+        {
+            for (int sayfa = 1, toplam = 1; sayfa <= toplam && sayfa <= 20; sayfa++)
+            {
+                var res = await Api.GetObjectAsync($"/api/maintenance/grid?page={sayfa}&pageSize=200&vehicleId={Uri.EscapeDataString(aracId)}");
+                if (!res.TryGetProperty("items", out var it) || it.ValueKind != JsonValueKind.Array) break;
+                foreach (var m in it.EnumerateArray()) if (Str(m, "id") == bakimId) return m;
+                toplam = res.TryGetProperty("totalPages", out var tp) ? tp.GetInt32() : 1;
+            }
+        }
+        catch { }
+        return default;
     }
 
     protected override async Task OnParametersSetAsync() { await ViewParametresiniUygula(); EkViewUygula(); }
