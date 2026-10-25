@@ -325,6 +325,35 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-62 (3/4): pencere kısayollarının ekran parçalarını bulup çalıştırması — Ctrl+N ana eylem (Yeni Malzeme formu açılır),
+    /// F5 yenile (ekranın Load komutu), Ctrl+F arama kutusuna odak; karşılığı olmayan ekranda hiçbir şey yapılmaz.</summary>
+    [AvaloniaFact]
+    public void UIT19_Klavye_Kisayollari()
+    {
+        var s = Ortam();
+        var vm = new MaterialsViewModel(s);
+        var view = new MaterialsView { DataContext = vm };
+        var w = Ac(view);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(vm.ShowAdd);
+        Assert.True(DepoWise.Desktop.Kisayollar.AnaEylem(view));          // Ctrl+N
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.ShowAdd);
+        Assert.True(DepoWise.Desktop.Kisayollar.Yenile(vm));               // F5 → IRefreshable
+        // F5 → IRefreshable OLMAYAN ekranda ekranın Load komutu (yansıma yolu) — Stok Hareketleri
+        var hareket = new StockMovementsViewModel(s) { Search = "YOK-" + Guid.NewGuid().ToString("N") };
+        Assert.False(hareket is IRefreshable);
+        Assert.True(DepoWise.Desktop.Kisayollar.Yenile(hareket));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(hareket.Movements);                                    // arama süzgeciyle yeniden yüklendi
+        Assert.True(DepoWise.Desktop.Kisayollar.AramayaOdaklan(view));     // Ctrl+F
+        Assert.True(w.FocusManager?.GetFocusedElement() is TextBox t && t.Classes.Contains("Search"));
+        Assert.False(DepoWise.Desktop.Kisayollar.Yenile(new object()));    // karşılığı yok → dokunma
+        Assert.False(DepoWise.Desktop.Kisayollar.AnaEylem(new TextBlock()));
+        Assert.False(DepoWise.Desktop.Kisayollar.SekmeKapat(null));
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

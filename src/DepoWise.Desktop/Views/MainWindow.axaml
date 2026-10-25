@@ -742,7 +742,7 @@
             </Border>
 
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->
-            <ContentControl Content="{Binding CurrentPage}"/>
+            <ContentControl x:Name="SayfaAlani" Content="{Binding CurrentPage}"/>   <!-- M-62 (3/4): kısayollar bu alanda arar -->
         </DockPanel>
 
         <!-- ═══════════════ SOHBET PENCERELERİ — ÜST KATMAN ═══════════════

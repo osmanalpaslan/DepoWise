@@ -500,3 +500,12 @@
   tarıyor (yalnız `TopluSatirSil` — kaydedilmemiş form satırı — gerekçesiyle muaf). Masaüstü Ekipler yalnız görüntüleme.
 - **Testler:** arayüz UIT17 (bildirim kuralı) + UIT18 (bildirim kartı çizilir, ekran görüntüsü), `BildirimBaglantisiTests` BB1–2,
   `IslemOnaylariTests` genişletildi; mutasyon 1/1 (Ekipler onayı); arayüz 54/54; web derlemesi 0 hata.
+
+### B8 — M-62 (3/4) klavye kısayolları (F-093)
+- Masaüstü pencere düzeyi, ekranlar değişmeden (`Kisayollar`): **F5** yenile (IRefreshable ya da ekranın Load/Yenile komutu) ·
+  **Ctrl+N** araç çubuğunun ana eylemi ("Yeni …", düğmeyle aynı yetki/durum) · **Ctrl+F** ekrandaki arama kutusu · **Ctrl+W** sekmeyi
+  kapat · **Ctrl+Tab / Ctrl+Shift+Tab** sekmeler arası · **F1** ekran bilgisi (Ctrl+K genel arama zaten vardı). Kayda dokunan kısayol
+  (Ctrl+S, Del) bilinçli olarak YOK: onay akışı ekrana göre değişir.
+- Web'e eklenmedi (bilinçli fark): Ctrl+N/W/F tarayıcının kendi kısayolları; F5 sayfayı yeniler.
+- **Testler:** arayüz UIT19 (Malzemeler'de Ctrl+N formu açar, F5 iki yoldan yeniler, Ctrl+F odak), `BildirimBaglantisiTests` BB3;
+  mutasyon 1/1 (ilk deneme HAYATTA KALDI — test yalnız IRefreshable yolunu sınıyordu → Stok Hareketleri ile güçlendirildi); arayüz 56/56.
