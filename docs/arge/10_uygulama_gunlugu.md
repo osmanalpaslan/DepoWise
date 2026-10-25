@@ -563,3 +563,19 @@
   kaydırılabilir alanda, ALTTA "Vazgeç … Kaydet". Görünüm modeline yalnız `FormAcik` (görünürlük) eklendi; iş kuralları değişmedi.
 - **Testler:** arayüz UIT25 (form açıkken alan yüksekliği, düğme sırası, Vazgeç ile liste dönüşü, iki ekran görüntüsü) + görsel tarama
   G05; yakıt/onay/erişilebilirlik testleri 154/154; arayüz 61/61.
+- Web Yakıt değişmedi (bilinçli): form sayfanın üstünde, "İptal … Kaydet" sırasında; web sayfası kaydırıldığı için masaüstündeki
+  sıkışma (sabit pencere yüksekliği) orada yok.
+
+### B8 — M-63 (4/4) Malzeme Giriş-Çıkış → işlem şablonu (F-128, Şablon C)
+- Masaüstü Giriş-Çıkış: sekmeler "İşlem · Son hareketler". İşlem sekmesinde form (yoldaki transferler, uyarı bandı, tüm alanlar)
+  kalan alanın TAMAMINDA kendi içinde kayar; ALTTA sabit özet (çok malzemeli liste özeti, hata) + "Temizle … Kaydet". Son hareketler
+  kendi sekmesinde tam yükseklikte; listeden "Düzenle" denince form dolar ve ekran İşlem sekmesine geçer (`SeciliSekme`).
+  Eski oranla yükseklik paylaşımı (MAS-03, `FormUstSiniri`) bu ekranda gereksizleşti; `MasaustuFormListeYerlesimTests` YRL7–9
+  yeni düzeni sınayacak şekilde BİLİNÇLİ güncellendi (oran yardımcısı ve kendi testleri diğer ekranlar için duruyor).
+  Çok malzemeli liste 180 → 320 px; malzeme arama listesi yalnız arama yazılınca görünür (Sayım ile aynı). İş kuralları değişmedi.
+- **Ara bulgu:** Sayım dönüşümünde (M-63 1/4) "Sayım Gerekçesi" genişliği 220 → 260 yapılmıştı; zorunlu alan işaretini kilitleyen
+  `PariteYazdirTests` PY3 bu satırı genişliğiyle arıyordu ve kırıldı (o işte etki araması derleme çıktısıyla dolduğu için test
+  görülmemişti). Genişlik 220'ye döndü; ders sorun bankasına yazıldı.
+- Web Giriş-Çıkış sayfası kaydırılan tek sayfa (form + liste); masaüstündeki sabit yükseklik sıkışması orada yok — değiştirilmedi.
+- **Testler:** arayüz UIT26 (sekmeler, Kaydet altta, liste tam yükseklik, iki ekran görüntüsü); giriş-çıkış/transfer/yolda/yeni kayıt/
+  ters kayıt/onay/yerleşim testleri 157/157 (düzeltme sonrası); arayüz 62/62.

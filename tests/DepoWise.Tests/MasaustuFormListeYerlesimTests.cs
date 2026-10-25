@@ -147,33 +147,39 @@ public class MasaustuFormListeYerlesimTests
 
     // ══════════════ B) GÖRÜNÜM O KARARI GERÇEKTEN UYGULUYOR MU ══════════════
 
-    /// <summary>⭐ Liste satırı hâlâ <c>*</c> (esneyen) — form satırı gibi <c>Auto</c> yapılırsa
-    /// tablo tekrar içeriği kadar küçülür.</summary>
+    /// <summary>⭐ M-63 (2026-10-25, Şablon C) — KARAR DEĞİŞTİ (bilinçli): form ve liste artık oranla aynı ekranı
+    /// PAYLAŞMAZ; ayrı sekmelerdedir ve her biri kalan alanın tamamını kullanır. Sekme alanı esneyen (*) satırda olmalı.</summary>
     [Fact]
     public void YRL7_Liste_Satiri_Esneyen_Kalir()
     {
-        Assert.Contains("RowDefinitions=\"Auto,Auto,*,Auto\"", Gorunum());
+        var x = Gorunum();
+        Assert.Contains("RowDefinitions=\"Auto,*,Auto\"", x);
+        Assert.Contains("<TabControl Grid.Row=\"1\" Classes=\"EkranSekme\"", x);
+        Assert.Contains("<TabItem Header=\"İşlem\">", x);
+        Assert.Contains("<TabItem Header=\"Son hareketler\">", x);
     }
 
-    /// <summary>⭐ Form bir <c>ScrollViewer</c> içinde ve ORAN bağlamasıyla sınırlı olmalı.
-    /// Bu kaldırılırsa form yine tüm boyu yer ve hata geri gelir.</summary>
+    /// <summary>⭐ M-63: form kendi sekmesinde KAYDIRILABİLİR alanda; Kaydet formun içinde değil ALTTA sabit çubukta
+    /// (form uzun olsa da Kaydet hep görünür). Listeden Düzenle denince ekran İşlem sekmesine geçer.</summary>
     [Fact]
     public void YRL8_Form_Sinirli_Ve_Kendi_Icinde_Kayar()
     {
         var x = Gorunum();
-        Assert.Contains("<ScrollViewer Grid.Row=\"1\"", x);
-        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", x);
-        Assert.Contains("MaxHeight=\"{Binding #KokYerlesim.Bounds.Height", x);
-        Assert.Contains("Converter={StaticResource FormUstSiniri}", x);
+        Assert.Contains("<ScrollViewer Grid.Row=\"0\" VerticalScrollBarVisibility=\"Auto\"", x);
+        var kaydir = x.IndexOf("</ScrollViewer>", StringComparison.Ordinal);
+        Assert.True(x.IndexOf("Command=\"{Binding SaveCommand}\"", StringComparison.Ordinal) > kaydir, "Kaydet kaydırılan formun dışında, altta olmalı");
+        Assert.Contains("SelectedIndex=\"{Binding SeciliSekme}\"", x);
     }
 
-    /// <summary>⭐ Liste alanının taban yüksekliği görünümde de uygulanmış olmalı ve
-    /// <see cref="FormListeOrani.ListeTabanYukseklik"/> ile TUTARLI olmalı (iki ayrı sayı olmasın).</summary>
+    /// <summary>⭐ M-63: liste kendi sekmesinde tam yüksekliktedir — oran/taban yüksekliği hesabına bu ekranda artık gerek yok
+    /// (yardımcı başka ekranlarda kullanılmaya devam eder, kendi testleri yukarıda).</summary>
     [Fact]
     public void YRL9_Liste_Taban_Yuksekligi_Gorunumde_De_Var()
     {
-        var beklenen = $"MinHeight=\"{FormListeOrani.ListeTabanYukseklik:0}\"";
-        Assert.Contains(beklenen, Gorunum());
+        var x = Gorunum();
+        var sekme = x.IndexOf("<TabItem Header=\"Son hareketler\">", StringComparison.Ordinal);
+        Assert.True(sekme > 0 && x.IndexOf("ItemsSource=\"{Binding Movements}\"", StringComparison.Ordinal) > sekme);
+        Assert.DoesNotContain("FormUstSiniri", x);
     }
 
     /// <summary>Mevcut tasarım BOZULMADI: tablo, başlık satırı, iptal butonu ve durum yazısı yerinde.
@@ -186,7 +192,7 @@ public class MasaustuFormListeYerlesimTests
         Assert.Contains("Text=\"MALZEME\"", x);
         Assert.Contains("ItemsSource=\"{Binding Movements}\"", x);
         Assert.Contains("ReverseMovementCommand", x);       // İptal (ters kayıt) akışı duruyor
-        Assert.Contains("Grid.Row=\"3\" Text=\"{Binding Status}\"", x);
+        Assert.Contains("Grid.Row=\"2\" Text=\"{Binding Status}\"", x);   // M-63: kök ızgara 3 satır
         Assert.Contains("Title=\"Hareket yok\"", x);        // 0 kayıt durumu paneli duruyor
         Assert.Contains("Title=\"Yüklenemedi\"", x);        // hata durumu paneli duruyor
     }

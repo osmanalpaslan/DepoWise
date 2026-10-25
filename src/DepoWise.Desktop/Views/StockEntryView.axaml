@@ -12,27 +12,24 @@
              x:Class="DepoWise.Desktop.Views.StockEntryView"
              x:DataType="vm:StockEntryViewModel">
 
-    <UserControl.Resources>
-        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
-    </UserControl.Resources>
-
-    <!-- ═══ MAS-03 (denetim 2026-08-26) — FORM/LİSTE YÜKSEKLİK PAYLAŞIMI ═══
-         Eskiden form "Auto" satırındaydı ve istediği boyu (~700 px) alıyordu; listeye (*) yalnız
-         artan ~50 px kalıyordu. Kayıtlar GELİYORDU ama görülemiyordu. Artık form, kapsayıcının
-         yüksekliğinin bir ORANIYLA sınırlanır (sabit piksel DEĞİL) ve gerekirse kendi içinde
-         kayar; kalan alan tabloya gider. Pencere büyüyünce tablo da büyür. Hesap:
-         DepoWise.Application.Ui.FormListeOrani (testi orada). -->
-    <Grid x:Name="KokYerlesim" Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+    <!-- ═══ M-63 (AR-GE 2026-10-25, F-128 · Şablon C) — İŞLEM ve LİSTE AYRI SEKMELERDE ═══
+         Eskiden (MAS-03) form ve "son hareketler" aynı ekranı ORANLA paylaşıyordu: form ~%55, tablo kalan; ikisi de sıkışıktı (U6).
+         Artık "İşlem" sekmesinde form kalan alanın TAMAMINI kullanır (kendi içinde kayar) ve ALTTA sabit özet + "Temizle … Kaydet"
+         çubuğu durur; "Son hareketler" sekmesinde liste tam yüksekliktedir. Listeden "Düzenle" denince form dolar ve ekran İşlem
+         sekmesine geçer (SeciliSekme). İş kuralları, komutlar ve bağlamalar değişmedi. -->
+    <Grid x:Name="KokYerlesim" Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Malzeme Giriş-Çıkış">
             <ctrl:Toolbar.FilterContent>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- Form — kapsayıcı oranıyla sınırlı; taşarsa KENDİ İÇİNDE kayar (tabloyu ezmez). -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
-        <Border Classes="Panel" Margin="0,16,0,0">
+        <TabControl Grid.Row="1" Classes="EkranSekme" Margin="0,12,0,0" Padding="0" SelectedIndex="{Binding SeciliSekme}">
+        <TabItem Header="İşlem">
+        <Grid RowDefinitions="*,Auto" Margin="0,12,0,0">
+        <!-- Form — kalan alanın tamamı; taşarsa KENDİ İÇİNDE kayar. -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Border Classes="Panel">
             <StackPanel Spacing="14">
                 <!-- ⭐ M-27: YOLDAKİ TRANSFERLER (teslim bekleyen / eksik teslim alınmış) -->
                 <StackPanel Spacing="6" IsVisible="{Binding HasYoldakiler}">
@@ -176,7 +173,7 @@
                             <Button Grid.Column="2" Classes="Ghost" Content="Seçimi Temizle" Margin="8,0,0,0"
                                     IsVisible="{Binding NewFieldsLocked}" Command="{Binding ClearPickedMaterialCommand}"/>
                         </Grid>
-                        <Border Classes="Table" MaxHeight="130" IsVisible="{Binding MaterialResults.Count}">
+                        <Border Classes="Table" MaxHeight="130" IsVisible="{Binding AramaSonucuGorunur}">
                             <ScrollViewer>
                                 <ItemsControl ItemsSource="{Binding MaterialResults}">
                                     <ItemsControl.ItemTemplate>
@@ -203,7 +200,7 @@
                                 ToolTip.Tip="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz."/>
                         <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding ExitLinesSummary}"/>
                     </WrapPanel>
-                    <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasExitLines}">
+                    <Border Classes="Table" MaxHeight="320" IsVisible="{Binding HasExitLines}">
                         <ScrollViewer>
                             <ItemsControl ItemsSource="{Binding ExitLines}">
                                 <ItemsControl.ItemTemplate>
@@ -352,18 +349,30 @@
                     <TextBox Classes="Field" Text="{Binding Note}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
 
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFormCommand}"/>
-                    <Button Classes="Primary" Content="{Binding SaveText}" Command="{Binding SaveCommand}"/>
-                </StackPanel>
             </StackPanel>
         </Border>
         </ScrollViewer>
 
-        <!-- Son hareketler — MinHeight: tablo hiçbir pencere boyunda "şerit" hâline düşemez. -->
-        <Panel Grid.Row="2" Margin="0,16,0,0" MinHeight="180">
+        <!-- SABİT ÖZET + EYLEM ÇUBUĞU (K-10: ikincil solda, birincil EN SAĞDA) -->
+        <Border Grid.Row="1" Classes="Panel" Padding="16,10" Margin="0,10,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                    <SelectableTextBlock Classes="Body" FontWeight="SemiBold" Text="{Binding ExitLinesSummary}" IsVisible="{Binding HasExitLines}"/>
+                    <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                               IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFormCommand}"/>
+                    <Button Classes="Primary" Content="{Binding SaveText}" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        </Grid>
+        </TabItem>
+
+        <!-- Son hareketler — kendi sekmesinde tam yükseklik -->
+        <TabItem Header="Son hareketler">
+        <Panel Margin="0,12,0,0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <!-- ⭐ LST-01: SAYFALAMA ÇUBUĞU. Liste eskiden sabit 200 kayıtla kesiliyor ve
@@ -430,7 +439,9 @@
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
             <ctrl:StatePanel Mode="Empty" Title="Hareket yok" Message="Henüz stok hareketi yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
+        </TabItem>
+        </TabControl>
 
-        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

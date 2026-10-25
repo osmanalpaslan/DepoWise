@@ -584,6 +584,9 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 
     partial void OnMaterialSearchChanged(string value) => RefreshMaterials();
 
+    /// <summary>⭐ M-63: arama sonuç listesi yalnız arama YAZILINCA görünür (Sayım ile aynı; boş kutuda 30 malzeme formu uzatıyordu).</summary>
+    public bool AramaSonucuGorunur => MaterialResults.Count > 0 && !string.IsNullOrWhiteSpace(MaterialSearch);
+
     private void RefreshMaterials()
     {
         MaterialResults.Clear();
@@ -595,6 +598,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             foreach (var m in page.Items) MaterialResults.Add(new MaterialRefRow(m.Id, m.Code, m.Name));
         }
         catch { }
+        OnPropertyChanged(nameof(AramaSonucuGorunur));
     }
 
     [RelayCommand]
@@ -604,6 +608,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         SelectedMaterial = m;
         MaterialSearch = $"{m.Code} - {m.Name}";
         MaterialResults.Clear();
+        OnPropertyChanged(nameof(AramaSonucuGorunur));
         // 🔴 STK-05 (D-4): giriş/çıkış YALNIZ oturumun deposunda yapılır → gösterilen bakiye de O DEPONUN
         // bakiyesidir. Firma toplamı gösterilseydi kullanıcı "15 var" görüp çıkışın reddedilmesine şaşırırdı
         // (o depoda 10 varken). Firma geneli toplam artık malzeme kartındaki kırılımda görünüyor.
@@ -947,6 +952,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(SaveText))]
     private StockDocumentForEdit? _editingDoc;
     public bool IsEditing => EditingDoc is not null;
+
+    /// <summary>⭐ M-63 (Şablon C): ekran sekmesi (0 = İşlem, 1 = Son hareketler). "Son hareketler"den Düzenle
+    /// denince form doldurulur ve ekran İşlem sekmesine geçer — kullanıcı formu aramak zorunda kalmaz.</summary>
+    [ObservableProperty] private int _seciliSekme;
+    partial void OnEditingDocChanged(StockDocumentForEdit? value) { if (value is not null) SeciliSekme = 0; }
     /// <summary>Düzeltmede kayıt tipi/çıkış türü DEĞİŞTİRİLEMEZ (girişi çıkışa çevirmek düzeltme değil yeni kayıttır).</summary>
     public bool KindSelectable => EditingDoc is null;
     public string EditBanner => EditingDoc is null ? "" :

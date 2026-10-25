@@ -48,7 +48,7 @@
                                 <ctrl:TarihKutusu SelectedDate="{Binding DocDate}" IsEnabled="{Binding CanBackDate}"
                                                   ToolTip.Tip="{Binding DocDateHint}"/>
                             </ctrl:FormField>
-                            <ctrl:FormField Label="Sayım Gerekçesi" Width="260" IsRequired="True">
+                            <ctrl:FormField Label="Sayım Gerekçesi" Width="220" IsRequired="True">
                                 <TextBox Classes="Field" Text="{Binding Reason}"/>
                             </ctrl:FormField>
                             <CheckBox Content="Kör sayım" IsChecked="{Binding KorSayim}" VerticalAlignment="Bottom" Margin="0,0,0,8"

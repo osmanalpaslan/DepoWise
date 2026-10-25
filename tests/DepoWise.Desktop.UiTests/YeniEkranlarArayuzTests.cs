@@ -545,6 +545,30 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-63 (Şablon C): Giriş-Çıkış — "İşlem" / "Son hareketler" sekmeleri; Kaydet alt sabit çubukta (pencerenin altında,
+    /// form ne kadar uzun olursa olsun görünür); SeciliSekme=1 ile liste tam yükseklikte görünür.</summary>
+    [AvaloniaFact]
+    public void UIT26_Giris_Cikis_Islem_Sablonu()
+    {
+        var s = Ortam();
+        var vm = new StockEntryViewModel(s);
+        var view = new StockEntryView { DataContext = vm };
+        var w = Ac(view, 1126, 760);
+        Dispatcher.UIThread.RunJobs();
+        var tab = view.GetVisualDescendants().OfType<TabControl>().First();
+        Assert.Equal(new[] { "İşlem", "Son hareketler" }, tab.Items.OfType<TabItem>().Select(t => t.Header as string));
+        var kaydet = Gorunen<Button>(view).Single(b => b.Command == vm.SaveCommand);
+        var konum = Avalonia.VisualExtensions.TranslatePoint(kaydet, new Avalonia.Point(0, 0), w)!.Value;
+        Assert.True(konum.Y > 600, "Kaydet altta sabit olmalı: " + konum.Y);
+        Goruntu(w, "giris-cikis-sablon-c");
+        vm.SeciliSekme = 1;
+        Dispatcher.UIThread.RunJobs();
+        var liste = view.GetVisualDescendants().OfType<ListBox>().First(l => ReferenceEquals(l.ItemsSource, vm.Movements));
+        Assert.True(liste.IsEffectivelyVisible && liste.Bounds.Height > 400, "liste tam yükseklikte olmalı: " + liste.Bounds.Height);
+        Goruntu(w, "giris-cikis-son-hareketler");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]
