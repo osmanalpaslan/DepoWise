@@ -30,8 +30,13 @@
             <SolidColorBrush x:Key="ColumnRuleBrush" Color="#737B8AA6"/>
             <SolidColorBrush x:Key="SuccessBrush" Color="#2CBF6D"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#F5A623"/>
-            <SolidColorBrush x:Key="DangerBrush" Color="#E24A3B"/>
-            <SolidColorBrush x:Key="InfoBrush" Color="#6366F1"/>
+            <SolidColorBrush x:Key="DangerBrush" Color="#F06A5C"/>   <!-- M-59: 4,03 → ≥5,29:1 (yükseltilmiş yüzeyde) -->
+            <SolidColorBrush x:Key="InfoBrush" Color="#818CF8"/>     <!-- M-59: 3,59 → ≥5,38:1 -->
+            <!-- ⭐ M-59 (F-061/F-125) yeni token'lar: aksan YAZISI, birincil düğme yazısı, form/tablo sınırı (≥3:1), odak halkası -->
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#F5B54A"/>
+            <SolidColorBrush x:Key="OnAccentBrush" Color="#241703"/>
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#66728F"/>
+            <SolidColorBrush x:Key="FocusRingBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="OverlayHoverBrush" Color="#14FFFFFF"/>
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#20FFFFFF"/>
             <SolidColorBrush x:Key="AccentSoftBrush" Color="#38E0951B"/>
@@ -84,13 +89,18 @@
             <SolidColorBrush x:Key="AccentHoverBrush" Color="#A66A08"/>
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14171C"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6474"/>
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#6B7686"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#636E7E"/>   <!-- M-59: 4,34 → ≥4,66:1 -->
             <!-- 2026-10-01: tablo sütun ayırıcısı — soluk yazı renginin %45 saydam hâli (kullanıcı: çizgi belirgin olsun). -->
             <SolidColorBrush x:Key="ColumnRuleBrush" Color="#736B7686"/>
-            <SolidColorBrush x:Key="SuccessBrush" Color="#12A85C"/>
-            <SolidColorBrush x:Key="WarningBrush" Color="#B4860F"/>
-            <SolidColorBrush x:Key="DangerBrush" Color="#D0392B"/>
-            <SolidColorBrush x:Key="InfoBrush" Color="#4F46E5"/>
+            <!-- ⭐ M-59 (F-061): açık temada durum renkleri yazı/rozet olarak ≥4,5:1 (eski 3,10 / 3,30 / 4,60 / 5,92) -->
+            <SolidColorBrush x:Key="SuccessBrush" Color="#0F7A43"/>
+            <SolidColorBrush x:Key="WarningBrush" Color="#8A6508"/>
+            <SolidColorBrush x:Key="DangerBrush" Color="#B42318"/>
+            <SolidColorBrush x:Key="InfoBrush" Color="#4338CA"/>
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#8A5A06"/>
+            <SolidColorBrush x:Key="OnAccentBrush" Color="#241703"/>
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#7E879A"/>
+            <SolidColorBrush x:Key="FocusRingBrush" Color="#14171C"/>
             <SolidColorBrush x:Key="OverlayHoverBrush" Color="#0D000000"/>
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#16000000"/>
             <SolidColorBrush x:Key="AccentSoftBrush" Color="#24C07C0C"/>

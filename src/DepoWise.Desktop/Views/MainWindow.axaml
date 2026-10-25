@@ -319,7 +319,7 @@
                             Command="{Binding SyncCommand}" IsEnabled="{Binding !IsSyncing}"
                             ToolTip.Tip="Sunucudaki tanımları bu makineye çeker">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Width="15" Height="15" Foreground="#241703"
+                            <PathIcon Width="15" Height="15" Foreground="{DynamicResource OnAccentBrush}"
                                       Data="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/>
                             <TextBlock Text="Eşitle" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -457,7 +457,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Border Width="28" Height="28" CornerRadius="14"
                                     Background="{DynamicResource AccentBrush}">
-                                <SelectableTextBlock Text="{Binding Initial}" Foreground="#241703" FontWeight="Bold"
+                                <SelectableTextBlock Text="{Binding Initial}" Foreground="{DynamicResource OnAccentBrush}" FontWeight="Bold"
                                                      FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <!-- 1200 px altında kullanıcı ADI gizlenir; baş harf dairesi ve ok yerinde
@@ -772,7 +772,7 @@
                                         <Grid ColumnDefinitions="Auto,*,Auto">
                                             <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
                                                     Background="{DynamicResource AccentBrush}">
-                                                <TextBlock Text="{Binding Initial}" Foreground="#241703" FontWeight="Bold"
+                                                <TextBlock Text="{Binding Initial}" Foreground="{DynamicResource OnAccentBrush}" FontWeight="Bold"
                                                            FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <StackPanel Grid.Column="1" Margin="9,0" VerticalAlignment="Center">

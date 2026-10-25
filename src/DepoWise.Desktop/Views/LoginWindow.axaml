@@ -83,7 +83,7 @@
                     </LinearGradientBrush>
                 </Setter.Value>
             </Setter>
-            <Setter Property="Foreground" Value="#241703"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>   <!-- M-59 F0.2: token -->
             <Setter Property="CornerRadius" Value="13"/>
             <Setter Property="Height" Value="52"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -101,7 +101,7 @@
         </Style>
         <Style Selector="Button.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="#F8B740"/>
-            <Setter Property="Foreground" Value="#241703"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>   <!-- M-59 F0.2: token -->
         </Style>
         <Style Selector="Button.Ghost">
             <Setter Property="Background" Value="Transparent"/>
@@ -264,7 +264,7 @@
                             IsEnabled="{Binding !IsBusy}" Margin="0,6,0,0">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="DEVAM" VerticalAlignment="Center"/>
-                            <PathIcon Width="18" Height="18" Foreground="#241703"
+                            <PathIcon Width="18" Height="18" Foreground="{DynamicResource OnAccentBrush}"
                                       Data="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/>
                         </StackPanel>
                     </Button>

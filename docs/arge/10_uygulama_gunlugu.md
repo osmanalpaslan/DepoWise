@@ -457,3 +457,11 @@
 - **Testler:** `B7IkiOrtamDenetimiTests` ID1–4 (kaynak sözleşmesi), HK1/HK4 bağlantı beklentisi güncellendi; mutasyon 2/2; arayüz 52/52.
 - Not: 04:20'deki M-58 paket koşusu 6 saat ilerlemeden asılı kaldı (oturum kotası kesintisi sırasında); süreç durduruldu,
   takılma dökümüyle ve resmi betikle (PostgreSQL dahil) iki kez yeniden koşuldu — 380/380, takılma tekrarlanmadı.
+
+### B8 — M-59 (1/2) renk kontrastı + yeni renk anahtarları (F-061, F-125 F0.1–F0.2)
+- Açık tema durum renkleri yazı/rozet olarak ≥4,5:1: başarı #0F7A43, uyarı #8A6508, tehlike #B42318, bilgi #4338CA; soluk metin
+  #636E7E. Koyu tema tehlike #F06A5C, bilgi #818CF8. Web (MudBlazor) açık/koyu durum renkleri aynı kurala çekildi.
+- Yeni anahtarlar (ekleme; mevcut ekranlar bozulmaz): `AccentTextBrush` (aksan renkli yazı), `OnAccentBrush` (birincil düğme yazısı —
+  düğme, kabuk ve giriş ekranındaki sabit #241703 buna bağlandı; ana düğme sabit kehribar kalır, K-11), `BorderStrongBrush` (≥3:1 form/
+  tablo sınırı, belgedeki öneri 3:1'i geçmediği için daha koyu seçildi), `FocusRingBrush`.
+- **Testler:** `TemaKontrastTests` TK1–4 (WCAG oranı hesaplanır, iki tema, iki ortam); mutasyon 3/3; arayüz 52/52; web derlemesi 0 hata.

@@ -53,7 +53,7 @@
         <Setter Property="Padding" Value="15,9"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Foreground" Value="#241703"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>   <!-- M-59 F0.2: token -->
     </Style>
     <Style Selector="Button.Primary /template/ ContentPresenter">
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
