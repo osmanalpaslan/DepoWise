@@ -286,11 +286,12 @@
                                                         <DataTemplate x:DataType="x:String"><SelectableTextBlock Text="{Binding}" Classes="Helper" Margin="0,2"/></DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                                <!-- ⭐ M-64 (Şablon B): ekranın tek ana düğmesi "Yeni Talep"; seçili talebin eylemleri ikincil, yıkıcı olan EN SONDA -->
                                                 <WrapPanel>
-                                                    <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,8" Command="{Binding BeginEditRequestCommand}" IsVisible="{Binding CanEditSelected}"/>
+                                                    <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,8" Command="{Binding BeginEditRequestCommand}" IsVisible="{Binding CanEditSelected}"/>
                                                     <Button Classes="Secondary" Content="PDF" Margin="0,0,8,8" Command="{Binding ExportPdfCommand}"/>
                                                     <Button Classes="Secondary" Content="Ekonomik PDF" Margin="0,0,8,8" Command="{Binding ExportEconomicPdfCommand}"/>
-                                                    <Button Classes="Secondary" Content="İptal Et" Margin="0,0,8,8" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
+                                                    <Button Classes="Danger" Content="İptal Et" Margin="0,0,8,8" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
                                                 </WrapPanel>
                                             </StackPanel>
                                         </ScrollViewer>
@@ -370,9 +371,10 @@
                                     <ctrl:FormField Label="Ret Gerekçesi" HelpText="Reddetmek için zorunlu.">
                                         <TextBox Classes="Field" Text="{Binding RejectReason}"/>
                                     </ctrl:FormField>
+                                    <!-- M-61/K-10: birincil (Onayla) EN SAĞDA; Reddet solunda -->
                                     <WrapPanel>
-                                        <Button Classes="Primary" Content="Onayla" Margin="0,0,8,8" Command="{Binding ApproveCommand}" IsVisible="{Binding CanApprove}"/>
                                         <Button Classes="Danger" Content="Reddet" Margin="0,0,8,8" Command="{Binding RejectCommand}" IsVisible="{Binding CanReject}"/>
+                                        <Button Classes="Primary" Content="Onayla" Margin="0,0,8,8" Command="{Binding ApproveCommand}" IsVisible="{Binding CanApprove}"/>
                                     </WrapPanel>
                                 </StackPanel>
                             </ScrollViewer>

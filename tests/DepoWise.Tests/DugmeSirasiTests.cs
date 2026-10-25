@@ -9,6 +9,7 @@ namespace DepoWise.Tests;
 ///  DS1 — masaüstü (.axaml): Kaydet/…Onayla/Uygula düğmesinin ARDINDAN İptal/Vazgeç/Kapat gelmez
 ///  DS2 — web (.razor): aynı kural
 ///  DS3 — onay/gerekçe/kolon pencerelerinde Enter (IsDefault) ve Esc (IsCancel) bağlı
+///  DS4 — karar çifti "Reddet … Onayla" (iki ortam)
 /// </summary>
 public class DugmeSirasiTests
 {
@@ -24,7 +25,12 @@ public class DugmeSirasiTests
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"));
 
     /// <summary>Dosyadaki düğme metinlerini sırayla çıkarır; "Kaydet…" hemen ardından vazgeçme düğmesi gelirse bulgu.</summary>
-    private static List<string> TersSira(string kok, string desen, Regex dugme)
+    private const string Birincil = "^(Kaydet|Güncelle|Oluştur|Onayla|Uygula|Gönder|Tamamla|Evet)|Onayla$";
+    private const string Vazgecme = "^(İptal|Vazgeç|Kapat|Hayır)$";
+    private static readonly Regex MasaustuDugme = new(@"<Button\b[^>]*?Content=""([^""]+)""");
+    private static readonly Regex WebDugme = new(@">\s*([^<>@]{1,40}?)\s*</MudButton>");
+
+    private static List<string> TersSira(string kok, string desen, Regex dugme, string once = Birincil, string sonra = Vazgecme)
     {
         var bulgu = new List<string>();
         foreach (var f in Dosyalar(kok, desen))
@@ -35,8 +41,7 @@ public class DugmeSirasiTests
                 // M-64 ara bulgu (2026-10-25): yalnız Kaydet aranıyordu; "İptali Onayla / Ters Kaydı Onayla / Reddi Onayla" gibi onay
                 // düğmeleri Vazgeç'in solunda kalmıştı → onay/uygula/gönder/tamamla da birincil sayılır. ("Sil" sayılmaz: tek başına
                 // EN SOLDA, ayraçla ayrılmış durur — web diyaloglarındaki bilinçli düzen.)
-                if (Regex.IsMatch(d[i].Metin, "^(Kaydet|Güncelle|Oluştur|Onayla|Uygula|Gönder|Tamamla|Evet)|Onayla$")
-                    && Regex.IsMatch(d[i + 1].Metin, "^(İptal|Vazgeç|Kapat|Hayır)$")
+                if (Regex.IsMatch(d[i].Metin, once) && Regex.IsMatch(d[i + 1].Metin, sonra)
                     && d[i + 1].Index - d[i].Index < 500)
                     bulgu.Add($"{Path.GetFileName(f)}:{s[..d[i].Index].Count(c => c == '\n') + 1} «{d[i].Metin}» → «{d[i + 1].Metin}»");
         }
@@ -46,15 +51,30 @@ public class DugmeSirasiTests
     [Fact]
     public void DS1_Masaustu_Iptal_Kaydet_Sirasi()
     {
-        var b = TersSira("src/DepoWise.Desktop", "*.axaml", new Regex(@"<Button\b[^>]*?Content=""([^""]+)"""));
+        var b = TersSira("src/DepoWise.Desktop", "*.axaml", MasaustuDugme);
         Assert.True(b.Count == 0, "Kaydet'ten SONRA vazgeçme düğmesi (K-10: İptal … Kaydet):\n  " + string.Join("\n  ", b));
     }
 
     [Fact]
     public void DS2_Web_Iptal_Kaydet_Sirasi()
     {
-        var b = TersSira("src/DepoWise.Web/Components", "*.razor", new Regex(@">\s*([^<>@]{1,40}?)\s*</MudButton>"));
+        var b = TersSira("src/DepoWise.Web/Components", "*.razor", WebDugme);
         Assert.True(b.Count == 0, "Kaydet'ten SONRA vazgeçme düğmesi (K-10: İptal … Kaydet):\n  " + string.Join("\n  ", b));
+    }
+
+    /// <summary>DS4 — ⭐ M-64 ara bulgu: karar çiftinde "Reddet … Onayla" (birincil EN SAĞDA); "Onayla"nın hemen ardından
+    /// "Reddet" gelmez — iki ortamda (Talepler, Onaylamalarım ters sıradaydı).</summary>
+    [Fact]
+    public void DS4_Reddet_Onayla_Sirasi()
+    {
+        const string onay = "Onayla$", ret = "Reddet$";
+        // Yalnız AYNI çift: "Onayla"/"Reddet", "İşaretlileri Onayla"/"İşaretlileri Reddet" (tekli Onayla ile toplu Reddet ayrı gruptur).
+        static string Onek(string m) => Regex.Replace(m, "(Onayla|Reddet)$", "").Trim();
+        var b = TersSira("src/DepoWise.Desktop", "*.axaml", MasaustuDugme, onay, ret)
+            .Concat(TersSira("src/DepoWise.Web/Components", "*.razor", WebDugme, onay, ret))
+            .Where(x => Regex.Match(x, "«(.*)» → «(.*)»") is { Success: true } m && Onek(m.Groups[1].Value) == Onek(m.Groups[2].Value))
+            .ToList();
+        Assert.True(b.Count == 0, "Onayla'dan SONRA Reddet (K-10: Reddet … Onayla):\n  " + string.Join("\n  ", b));
     }
 
     [Fact]

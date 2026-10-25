@@ -614,3 +614,13 @@
 - **Testler:** arayüz UIT29 (seçim çubuğu, Ters Kayıt etkinliği, Pager toplamı, ekran görüntüsü `tahsilat-sablon-b`); LS3; finans/
   tahsilat/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 90/90; arayüz 65/65. Mutasyon: seçim sayısı sabit 0
   yapılınca UIT29, web sayfalayıcı kaldırılınca LS3 kırıldı (2/2).
+
+### B8 — M-64 (4/6) Talepler → seçili kayıt eylemleri + karar çifti sırası
+- Talepler'de ana düğme ("Yeni Talep") zaten araç çubuğundaydı. Seçili talep detayında "Düzenle" ikinci bir ANA düğmeydi → ikincil;
+  "İptal Et" yıkıcı görünüme alındı ve en sonda (iki ortam). Liste en yeni 200 talebi gösterir, sayfalama yok — sayfalama servis
+  değişikliği ister, bu iş kapsamı dışında bırakıldı (`11_kalan_riskler.md`).
+- **Ara bulgu (K-10):** karar çiftlerinde "Onayla" "Reddet"in SOLUNDAYDI: Talep Onaylama (iki ortam), Onaylamalarım (masaüstü araç
+  çubuğu tekli + toplu; web satır içi + toplu). Hepsi "Reddet … Onayla" yapıldı. `DugmeSirasiTests` DS4 iki ortamı tarar (yalnız aynı
+  çift: "X Onayla" / "X Reddet").
+- **Testler:** talep/onay/dışa aktarım/yeni kayıt formu/tarih/erişilebilirlik/düğme sırası paketi 298/298 + DS 4/4; arayüz 65/65;
+  web derlemesi temiz. Mutasyon: Talep Onaylama sırası geri çevrilince DS4 kırıldı.

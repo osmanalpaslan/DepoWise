@@ -17,13 +17,14 @@
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
-                    <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>
+                    <!-- M-61/K-10: Reddet solda, Onayla sağda (birincil en sağda) -->
                     <Button Classes="Secondary" Content="Reddet" Command="{Binding RejectCommand}"/>
+                    <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>
                     <!-- ⭐ M-33: toplu karar (işaretli satırlar) -->
-                    <Button Classes="Primary" Content="İşaretlileri Onayla" Command="{Binding TopluOnaylaCommand}"
-                            ToolTip.Tip="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir."/>
                     <Button Classes="Secondary" Content="İşaretlileri Reddet" Command="{Binding TopluReddetCommand}"
                             ToolTip.Tip="Kutucuğu işaretli tüm kayıtları aşağıdaki gerekçeyle reddeder."/>
+                    <Button Classes="Primary" Content="İşaretlileri Onayla" Command="{Binding TopluOnaylaCommand}"
+                            ToolTip.Tip="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

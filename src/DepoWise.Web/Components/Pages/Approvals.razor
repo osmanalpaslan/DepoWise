@@ -47,11 +47,12 @@ else
     {
         <MudPaper Class="pa-4">
             <MudStack Row="true" Spacing="2" Class="mb-2">
-                <MudTooltip Text="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir.">
-                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_islemde" OnClick="@(() => Toplu(true))">İşaretlileri Onayla</MudButton>
-                </MudTooltip>
+                @* M-61/K-10: Reddet solda, Onayla EN SAĞDA *@
                 <MudTooltip Text="Kutucuğu işaretli tüm kayıtları tek gerekçeyle reddeder.">
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" Disabled="_islemde" OnClick="@(() => Toplu(false))">İşaretlileri Reddet</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Kutucuğu işaretli tüm kayıtları onaylar; işlenemeyenler ayrıca listelenir.">
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_islemde" OnClick="@(() => Toplu(true))">İşaretlileri Onayla</MudButton>
                 </MudTooltip>
             </MudStack>
             <MudSimpleTable Dense="true" Hover="true">
@@ -76,10 +77,11 @@ else
                             <td>@r.StepLabel</td>
                             <td style="text-align:right">
                                 <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => Sec(r))">Kalemler</MudButton>
-                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                                           Disabled="_islemde" OnClick="@(() => Onayla(r))">Onayla</MudButton>
+                                @* M-61/K-10: Reddet solda, Onayla EN SAĞDA *@
                                 <MudButton Size="Size.Small" Color="Color.Error"
                                            Disabled="_islemde" OnClick="@(() => RedAc(r))">Reddet</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                           Disabled="_islemde" OnClick="@(() => Onayla(r))">Onayla</MudButton>
                             </td>
                         </tr>
                     }
