@@ -50,8 +50,9 @@
   B9+Z), geniş arayüz/ortak altyapı işinde ve **yayın öncesi (zorunlu, atlanmaz)**. Tam koşu sırasında başka test/derleme yok.
   Yavaş test kontrolü gevşetmeden hızlandırılır; flaky testi tekrarla gizleme.
 - **Süre bildirimi + süreyi aşan koşu kontrolü (kullanıcı kuralı 2026-10-17):** her koşuda ortalama süre ve tahmini bitiş saati
-  söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~60 dk, senkron paketi ~22 dk…). Ortalamanın ~1,3 katı/+10 dk
-  aşılırsa sormadan durum kontrol edilir ve bildirilir. `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
+  söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~115–135 dk, senkron paketi ~22 dk…). **Ortalamaya ulaşıldığı AN**
+  (pay yok; sıkılaştırma 2026-10-25) sormadan durum kontrol edilir ve bildirilir, sonra her +15 dk'da tekrar; hatırlatıcı tam
+  ortalama süreye kurulur. Koşu sırasında boş bekleme yok: sıradaki işin kodu/yaması derlemeden hazırlanır (genel kural). `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
   web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma).
