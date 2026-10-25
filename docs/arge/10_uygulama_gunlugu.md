@@ -541,5 +541,7 @@
   "Tüm Şubeler" uyarısı ortak InfoBar (M-60). Ekran içi sekmeler için ortak sakin stil (`TabControl.EkranSekme`).
 - Arama sonuç listesi artık yalnız arama YAZILINCA görünür (boş kutuda ilk 30 malzeme kalem tablosunun yerini kaplıyordu; web Sayım da
   aramayla çalışır). İş kuralları, komutlar ve bağlamalar değişmedi.
+- **Web:** Sayım zaten tablo merkezliydi (tüm malzemeler, sayılan tabloda); eylemler üst alanların arasından ALTTA yapışkan çubuğa alındı
+  ("N kalem listede · M kalemde fark var — Taslak Kaydet … Sayımı Tamamla"); kör sayımda fark sayısı gösterilmez. `IslemSablonuTests` IS1 (mutasyon 1/1).
 - **Testler:** arayüz UIT23 (sekmeler, düğme sırası, tablo yüksekliği sınırsız ve 760 px pencerede alanı dolduruyor — ilk düzende 70 px
   kalıyordu, test yakaladı); UIT13 + görsel tarama G30; sayım/onay/erişilebilirlik testleri 46/46; arayüz 59/59.

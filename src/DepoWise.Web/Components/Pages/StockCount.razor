@@ -52,11 +52,6 @@ else
             <MudTooltip Text="Sayan kişiye sistem miktarı ve fark gösterilmez; sayılan gerçekten sayılır, sisteme uydurulmaz.">
                 <MudCheckBox T="bool" @bind-Value="_kor" @bind-Value:after="Load" Dense="true" Label="Kör sayım" />
             </MudTooltip>
-            <MudSpacer />
-            <MudTooltip Text="Sayımı stoğa yazmadan kaydeder; sonra açıp sürdürebilirsiniz.">
-                <MudButton Variant="Variant.Outlined" OnClick="TaslakKaydet" Disabled="_busy">Taslak Kaydet</MudButton>
-            </MudTooltip>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Sayımı Tamamla</MudButton>
         </MudStack>
         @if (_toleransNotu is not null) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@_toleransNotu</MudText> }
         @if (_taslaklar.Count > 0)
@@ -95,10 +90,26 @@ else
             </MudTable>
         </MudPaper>
     }
+    @* ⭐ M-63 (Şablon C, masaüstüyle aynı): ALTTA SABİT özet + eylem çubuğu — "Taslak Kaydet … Sayımı Tamamla" (birincil en sağda).
+       Eskiden düğmeler üstteki alanların arasındaydı. Kör sayımda fark SAYISI da gösterilmez (sistem miktarı sızmasın). *@
+    <MudPaper Class="pa-3 mt-3 dw-islem-alt" Elevation="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2" Style="flex:1"><b>@AltOzet</b></MudText>
+            <MudTooltip Text="Sayımı stoğa yazmadan kaydeder; sonra açıp sürdürebilirsiniz.">
+                <MudButton Variant="Variant.Outlined" OnClick="TaslakKaydet" Disabled="_busy">Taslak Kaydet</MudButton>
+            </MudTooltip>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Sayımı Tamamla</MudButton>
+        </MudStack>
+    </MudPaper>
 }
 
 @code {
     private sealed class Row { public string Id = ""; public string Code = ""; public string Name = ""; public decimal SystemStock; public decimal Counted; }
+
+    /// <summary>M-63: alt çubuk özeti. Kör sayımda fark sayısı gösterilmez (sistem miktarı dolaylı sızmasın).</summary>
+    private string AltOzet => _rows is not { Count: > 0 } ? "Listede kalem yok"
+        : _kor ? $"{_rows.Count} kalem listede"
+        : $"{_rows.Count} kalem listede · {_rows.Count(r => r.Counted != r.SystemStock)} kalemde fark var";
     private List<Row>? _rows;
     private string _reason = "", _search = "";
     private string? _msg; private bool _ok; private bool _busy;

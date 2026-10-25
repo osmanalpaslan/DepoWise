@@ -1901,3 +1901,6 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
                      text-overflow: ellipsis; white-space: nowrap; }
     .dw-sekme-kapat { padding: 0 8px 0 4px; }
 }
+
+/* ⭐ M-63 (Şablon C — işlem girişi): alt sabit özet + eylem çubuğu. Uzun listede de Kaydet görünür kalır (masaüstüyle aynı düzen). */
+.dw-islem-alt { position: sticky; bottom: 0; z-index: 5; }
