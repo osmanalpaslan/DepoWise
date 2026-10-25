@@ -78,6 +78,8 @@ public sealed partial class LoginViewModel : ViewModelBase
     public System.Collections.ObjectModel.ObservableCollection<ServerAuthClient.LoginBranch> Branches { get; } = new();
     [ObservableProperty] private ServerAuthClient.LoginBranch? _selectedBranch;
     [ObservableProperty] private string _branchPassword = "";
+    /// <summary>⭐ Şube listesi sunucudan değil yerel kopyadan geldi (internet yok) — "şifreli mi" bilinmiyor.</summary>
+    private bool _subeListesiCevrimdisi;
     public bool HasBranches => Branches.Count > 0;
 
     /// <summary>Şube listesi değişti — ona bağlı görünüm özelliklerini birlikte bildirir.</summary>
@@ -379,13 +381,27 @@ public sealed partial class LoginViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            // Gerçek şube + şifre varsa ONLINE doğrula. L2: seçilen şube makinenin şubesiyse şifre İSTENMEZ.
-            if (SelectedBranch.HasPassword && !SelectedIsMachineBranch)
-            {
-                var ok = await ServerAuthClient.VerifyBranchAsync(_authedCompanyId ?? "", SelectedBranch.Id, BranchPassword);
-                if (ok == false) { Error = "Şube şifresi hatalı."; return; }
-            }
             bool isAllBranches = SelectedBranch.Id == BranchConstants.AllBranchesId;
+            // ⭐ ŞUBE ŞİFRESİ (kullanıcı bildirimi 2026-10-25: "şifre yazmadan ya da yanlış şifreyle başka şubeye girilebiliyor"):
+            //  • İnternetsizken şube listesi yerel kopyadan gelir ve "şifreli mi" bilgisi YOKTUR (karma bilerek kopyalanmaz) → eskiden
+            //    hiçbir şubede şifre sorulmuyordu. Artık internetsizken yalnız makinenin KENDİ şubesi (L2, kullanıcı kararı 2026-10-25)
+            //    ve "Tüm Şubeler" seçilebilir; başka şube engellenir.
+            //  • Sunucu "doğrulayamadım" derse (bağlantı koptu, çok deneme sınırı…) yanıt null'dı ve şifre KABUL ediliyordu → artık
+            //    yalnız sunucunun açık "doğru" yanıtı geçer (kapalı tarafa düşülür).
+            if (!isAllBranches && !SelectedIsMachineBranch)
+            {
+                if (_subeListesiCevrimdisi)
+                {
+                    Error = "Sunucuya ulaşılamıyor: şube şifresi doğrulanamaz. İnternet yokken yalnız bu bilgisayarın şubesiyle (🖥) giriş yapılabilir.";
+                    return;
+                }
+                if (SelectedBranch.HasPassword)
+                {
+                    var ok = await ServerAuthClient.VerifyBranchAsync(_authedCompanyId ?? "", SelectedBranch.Id, BranchPassword);
+                    if (ok == false) { Error = "Şube şifresi hatalı."; return; }
+                    if (ok != true) { Error = "Şube şifresi doğrulanamadı (sunucuya ulaşılamadı ya da çok fazla deneme yapıldı). Biraz sonra tekrar deneyin."; return; }
+                }
+            }
             if (isAllBranches && !(_authedSession.CanViewAllBranches || _authedSession.IsSuperAdmin || _authedSession.IsCompanyAdmin))
             {
                 Error = "Bu kullanıcının Tüm Şubeler yetkisi yok."; return;
@@ -747,6 +763,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         if (canViewAllBranches)
             Branches.Add(new ServerAuthClient.LoginBranch(BranchConstants.AllBranchesId, "🌐 Tüm Şubeler", null, false));
         var online = await ServerAuthClient.GetLoginBranchesAsync(companyId);
+        _subeListesiCevrimdisi = online is null;   // ⭐ şifre bilgisi yok → başka şubeye giriş engellenir (bkz. giriş adımı)
         if (online is not null) foreach (var b in online) Branches.Add(b);
         else LoadLocalBranches(companyId); // çevrimdışı → yerel DB (şifre bilgisi olmadan)
         FilterBranchesByScope();

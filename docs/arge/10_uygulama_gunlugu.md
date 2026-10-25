@@ -716,3 +716,19 @@
   düğmelerinin bir kısmı dolu kırmızı (kullanıcıyı engellemez). Web tanım sayfaları form-üstte düzeninde kaldı.
 - **Testler:** düğme sırası/şablon/onay/yetki/ekran görünürlüğü/erişilebilirlik/mobil paketi 150 (DS düzeltmesi sonrası DS 4/4); arayüz
   69/69; web derlemesi temiz.
+
+## Kullanıcı istekleri 2026-10-25 akşam (B9 içinde, öncelikli)
+
+### İstek 1 — Şube şifresi atlanıyordu (P0 güvenlik)
+- Kullanıcı bildirimi: masaüstünde BAŞKA bir şubeye şifresiz/yanlış şifreyle girilebiliyor. Bulunan yollar:
+  (a) masaüstü, sunucu "doğrulayamadım" deyince (bağlantı koptu, aynı ofisten çok deneme sınırı…) şifreyi KABUL ediyordu (`ok == false`
+  dışındaki her şey geçiyordu); (b) internetsizken şube listesi yerel kopyadan gelir ve "şifreli mi" bilgisi yoktur → hiçbir şubede şifre
+  sorulmuyordu; (c) sunucu, firma kimliği boş girişte şifreyi varsayılan "DEPOWISE" firmasında arıyor, başka firmanın şubesini bulamayınca
+  "şifresiz" sayıp kapıyı açıyordu; (d) bulunamayan şube "şifresiz" sayılıyordu.
+- Düzeltme: masaüstünde yalnız sunucunun açık "doğru" yanıtı geçer; internetsizken yalnız bilgisayarın kendi şubesi (🖥, kullanıcı
+  kararı: L2 korunur) ve "Tüm Şubeler"; sunucuda şifre kimlik doğrulandıktan SONRA kullanıcının KENDİ firmasında doğrulanır; bulunamayan
+  şube = kapı kapalı. Şifresiz şube serbest kalır (mevcut kural).
+- **Canlıda da açık** — kullanıcı kararı: acil yayın yok, AR-GE sonu (11_kalan_riskler).
+- **Testler:** `SubeSifresiTests` SS1–SS4 (firmasız girişte şifresiz/yanlış 401, doğru 200; olmayan şube; şifresiz şube serbest;
+  masaüstü kapalı-taraf kaynak kilidi); giriş/aktarım/yetki taraması paketi 71/71; arayüz 69/69. Mutasyon: bulunamayan şube yeniden
+  "serbest" → SS2, giriş varsayılan firmaya → SS1+SS3 kırıldı (2/2).

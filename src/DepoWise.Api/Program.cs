@@ -320,19 +320,18 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
     if (!rl.Allowed)
         return Results.Json(new { error = $"Çok fazla giriş denemesi. {rl.RetrySeconds} sn sonra tekrar deneyin." }, statusCode: 429);
     bool allBranches = string.Equals(dto.BranchId, BranchConstants.AllBranchesId, StringComparison.Ordinal);
-    // Gerçek şube seçildiyse önce ŞUBE ŞİFRESİ doğrulanır (şubede şifre tanımlı değilse serbest). "Tüm Şubeler" sanal seçimdir.
-    if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId))
-    {
-        var co = string.IsNullOrWhiteSpace(dto.CompanyId) ? "DEPOWISE" : dto.CompanyId!;
-        if (!svc.Branches.VerifyBranchPassword(co, dto.BranchId!, dto.BranchPassword))
-            return Results.Json(new { error = "Şube şifresi hatalı." }, statusCode: 401);
-    }
     // companyId verilmezse (web) firma-bağımsız giriş: kullanıcı adı hangi firmadaysa oraya girer.
     var res = string.IsNullOrWhiteSpace(dto.CompanyId)
         ? svc.Auth.LoginAnyCompany(dto.Username, dto.Password)
         : svc.Auth.Login(dto.CompanyId!, dto.Username, dto.Password);
     if (!res.Success || res.Session is null)
         return Results.Json(new { error = res.Locked ? $"Kilitli ({res.SecondsRemaining}sn)" : res.Error }, statusCode: 401);
+    // Gerçek şube seçildiyse ŞUBE ŞİFRESİ doğrulanır (şifresiz şube serbest). "Tüm Şubeler" sanal seçimdir.
+    // ⭐ (kullanıcı bildirimi 2026-10-25): eskiden bu kontrol kimlik doğrulamadan ÖNCE ve firma boşsa varsayılan "DEPOWISE" firmasında
+    // yapılıyordu → başka firmanın şubesi bulunamıyor, "şifresiz" sayılıp kapı açılıyordu. Artık kullanıcının KENDİ firmasında.
+    if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId)
+        && !svc.Branches.VerifyBranchPassword(res.Session.CompanyId, dto.BranchId!, dto.BranchPassword))
+        return Results.Json(new { error = "Şube şifresi hatalı." }, statusCode: 401);
     // "Tüm Şubeler" artık admin + süper admin'de DAİMA açık (rapor için); ayrıca özel yetki (flag) verilmiş kullanıcıda.
     bool effAllBranches = res.Session.CanViewAllBranches || res.Session.IsSuperAdmin || res.Session.IsCompanyAdmin;
     if (allBranches && !effAllBranches)

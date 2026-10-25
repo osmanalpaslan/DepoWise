@@ -290,7 +290,12 @@ ORDER BY u.username;");
         cmd.CommandText = "SELECT password_hash FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
         cmd.AddWithValue("@id", branchId);
         cmd.AddWithValue("@c", companyId);
-        var hash = cmd.ExecuteScalar() as string;
+        var sonuc = cmd.ExecuteScalar();
+        // ⭐ ŞUBE ŞİFRESİ (kullanıcı bildirimi 2026-10-25): şube BU FİRMADA yoksa (satır yok) kapı KAPALI. Eskiden satır yokken de
+        // "şifre tanımlı değil → serbest" dönüyordu; firma kimliği yanlış/boş gönderilince (web girişinde varsayılan firmaya düşüyordu)
+        // her şubenin şifresi atlanıyordu. Satır var ama karma boş/NULL = gerçekten şifresiz şube → serbest (mevcut kural).
+        if (sonuc is null) return false;
+        var hash = sonuc as string;
         if (string.IsNullOrEmpty(hash)) return true; // şifre tanımlı değil → serbest
         return !string.IsNullOrEmpty(password) && DepoWise.Infrastructure.Security.PasswordHasher.Verify(password, hash);
     }
