@@ -55,7 +55,7 @@ public sealed class DashboardService
         int vehicles = Count(conn, "vehicles", s.CompanyId);
         int materials = Count(conn, "materials", s.CompanyId);
         int personnel = Count(conn, "personnel", s.CompanyId);
-        int lowStock = LowStockCount(conn, s.CompanyId);
+        int lowStock = LowStockCount(conn, s);
         int pending = PendingRequests(conn, s.CompanyId);
 
         var alerts = new List<DashboardAlert>();
@@ -106,7 +106,7 @@ public sealed class DashboardService
         // 2026-09-03 (kullanıcı isteği): her uyarı KENDİ varlığının asıl verisini gösterir —
         // malzemede KOD + mevcut/kritik stok (yalnız "Düşük stok" yazısı yetersizdi).
         if (AccessControl.Can(s, "materials", PermissionAction.View))
-            foreach (var m in LowStockList(conn, s.CompanyId))
+            foreach (var m in LowStockList(conn, s))
                 alerts.Add(new DashboardAlert(AlertKind.LowStock, m.Name,
                     $"{m.Code} · stok {m.Quantity:0.##} / kritik {m.MinStock:0.##}", "materials", true, m.Id));
 
@@ -405,20 +405,22 @@ WHERE b.company_id = @c AND b.quantity LIKE '-%';";
         return list.OrderBy(x => x.Quantity).ThenBy(x => x.Name, StringComparer.CurrentCulture).Take(20).ToList();
     }
 
-    private static IReadOnlyList<LowStockRow> LowStockList(DbConnection conn, string companyId, string? branch = null)
+    private static IReadOnlyList<LowStockRow> LowStockList(DbConnection conn, SessionContext s)
     {
         using var cmd = conn.CreateCommand();
-        // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN malzemeyi depo sayısı kadar TEKRARLARDI
-        // (aynı malzeme düşük-stok listesinde birden çok kez çıkardı). Düşük stok uyarısı FİRMA GENELİ
-        // toplama bakar (kullanıcı bir depoda azalmayı değil, elindeki toplamı görmek ister) → toplayan alt sorgu.
+        // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN malzemeyi depo sayısı kadar TEKRARLARDI → toplayan alt sorgu.
+        // ⭐ ŞUBE STOĞU (kullanıcı bildirimi 2026-10-25): toplam, oturumun stok kapsamındaki depolardan alınır (StokKapsami):
+        // şube/şantiyeyle girildiyse YALNIZ o şubenin stoğu, "Tüm Şubeler"de yetkili şubelerin toplamı (eski firma geneli davranış).
+        // Eskiden şube süzgeci malzemenin TANIMLANDIĞI şubeye (m.branch_id) bakıyordu — ortak katalogda bu, başka şubede tanımlanmış
+        // malzemenin bu şubede bitmesini hiç göstermiyordu.
         cmd.CommandText = @"
 SELECT m.id, m.code, m.name, CAST(COALESCE(b.quantity,'0') AS REAL), CAST(m.min_stock AS REAL) FROM materials m
-LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
-WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn, DepoWise.Infrastructure.Materials.StokKapsami.Sql(s)) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
+WHERE m.company_id=@c AND m.is_deleted=0
   AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
 ORDER BY m.name LIMIT 20;";
-        cmd.AddWithValue("@c", companyId);
-        BindBranch(cmd, branch);
+        cmd.AddWithValue("@c", s.CompanyId);
+        DepoWise.Infrastructure.Materials.StokKapsami.Bagla(cmd, s);
         var list = new List<LowStockRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LowStockRow(r.GetString(0), r.GetString(1), r.GetString(2),
@@ -445,17 +447,17 @@ ORDER BY m.name LIMIT 20;";
         return ((double)received, (double)(received - distributed));
     }
 
-    private static int LowStockCount(DbConnection conn, string companyId, string? branch = null)
+    private static int LowStockCount(DbConnection conn, SessionContext s)
     {
         using var cmd = conn.CreateCommand();
-        // STK-02: LowStockList ile AYNI tanım (sayı ile liste kopmamalı) → aynı toplayan alt sorgu.
+        // STK-02: LowStockList ile AYNI tanım (sayı ile liste kopmamalı) → aynı toplayan alt sorgu ve AYNI şube stoğu kapsamı.
         cmd.CommandText = @"
 SELECT COUNT(*) FROM materials m
-LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
-WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn, DepoWise.Infrastructure.Materials.StokKapsami.Sql(s)) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
+WHERE m.company_id=@c AND m.is_deleted=0
 AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0;";
-        cmd.AddWithValue("@c", companyId);
-        BindBranch(cmd, branch);
+        cmd.AddWithValue("@c", s.CompanyId);
+        DepoWise.Infrastructure.Materials.StokKapsami.Bagla(cmd, s);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 

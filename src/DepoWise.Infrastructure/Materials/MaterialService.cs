@@ -453,11 +453,13 @@ LEFT JOIN units u   ON u.id = m.unit_id
 LEFT JOIN brands b  ON b.id = m.brand_id
 LEFT JOIN suppliers sup ON sup.id = m.supplier_id
 -- STK-02: bakiye depo bazlı → düz JOIN detay satırını depo sayısı kadar çoğaltırdı (ilk satır okunur,
--- kart YANLIŞ stok gösterirdi). Malzeme kartı firma-geneli olduğu için lokasyonlar toplanır.
-LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" sb ON sb.material_id = m.id AND sb.company_id = m.company_id
+-- kart YANLIŞ stok gösterirdi). Lokasyonlar toplanır — ⭐ ŞUBE STOĞU (2026-10-25): listeyle AYNI kapsamda (StokKapsami: şube/şantiye
+-- oturumunda yalnız o şubenin deposu, Tüm Şubeler'de yetkili şubelerin toplamı); depo bazlı döküm kartta ayrıca gösterilir.
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn, StokKapsami.Sql(s)) + @" sb ON sb.material_id = m.id AND sb.company_id = m.company_id
 WHERE m.id=@id AND m.company_id=@c AND m.is_deleted=0;";
             cmd.AddWithValue("@id", materialId);
             cmd.AddWithValue("@c", s.CompanyId);
+            StokKapsami.Bagla(cmd, s);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
             code = r.GetString(0); name = r.GetString(1);
@@ -731,6 +733,13 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         return PagedResult<MaterialRecord>.Of(items, next);
     }
 
+    // ═══ ŞUBE STOĞU (kullanıcı bildirimi 2026-10-25) ═══
+    // Katalog firma genelidir (ortak liste — kullanıcı kararı 2026-07-26), STOK ise şubeye özgüdür. Liste eskiden stok sütununda
+    // firmanın TÜM depolarının toplamını gösteriyordu: stoğu olmayan şube, başka şubenin stoğunu kendininmiş gibi görüyordu.
+    // Kapsam: çalışma şubesiyle girildiyse YALNIZ o şubenin deposu (location_id = branches.id); "Tüm Şubeler"de kullanıcının
+    // yetkili olduğu şubeler (BranchAccess.Allowed — null = sınırsız → tüm depolar, eski toplam). Değerler parametreyle bağlanır.
+    // Yardımcılar: Materials/StokKapsami.cs (ana ekran düşük stok uyarısı da aynı kapsamı kullanır).
+
     private const string GridInnerSql = @"
 SELECT m.id AS id, m.code AS code, m.name AS name, COALESCE(m.type,'') AS type,
        COALESCE(mc.name,'') AS category, COALESCE(u.name,'') AS unit, COALESCE(b.name,'') AS brand,
@@ -770,7 +779,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// içinden AYNEN taşındı; davranış değişmedi.
     /// </summary>
     private (string Inner, string Where, string Order, List<(string Name, object Value)> Ps) GridSorgusu(
-        System.Data.Common.DbConnection conn, MaterialGridFilter filter, string? sortColumn, bool sortDesc, bool criticalOnly,
+        System.Data.Common.DbConnection conn, SessionContext s, MaterialGridFilter filter, string? sortColumn, bool sortDesc, bool criticalOnly,
         bool fiyatGorunur = true)
     {
         // ⭐ FAZ 3b — ÇIKARIM KANALINI DA KAPAT. Değeri gizleyip filtreyi/sıralamayı açık bırakmak
@@ -809,7 +818,9 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc, SqlDialect.IsSqlite(conn));
         // Malzeme listesi FİRMA-GENELİdir (ortak katalog) — şubeye göre filtrelenmez. Ayrım STOK'tadır
         // (kullanıcı kararı 2026-07-26: "ortak liste + şube-bazlı stok").
-        var inner = SqlDialect.PortableSql(conn, GridInnerSql);
+        // ŞUBE STOĞU: yer tutucu, oturumun stok kapsamıyla açılır (PortableSql'in kapsamsız varsayılanından ÖNCE).
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql.Replace(SqlDialect.StockTotalsToken,
+            SqlDialect.StockTotalSubquery(conn, StokKapsami.Sql(s)), StringComparison.Ordinal));
         // A1 (Aurora): "Yalnız kritik" — stok <= min stok (min stok > 0). Düşük-stok tanımıyla birebir
         // (bkz. DashboardService.LowStock). Varsayılan false → davranış eskisi gibi. Inner WHERE'e eklenir
         // (hem sayım hem liste hem export SearchGridAll aynı metottan geçtiği için tek yer).
@@ -838,7 +849,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         var fiyatGorunur = FiyatGorunur(s);
 
         using var conn = _factory.Create();
-        var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, filter, sortColumn, sortDesc, criticalOnly, fiyatGorunur);
+        var (inner, whereSql, orderSql, ps) = GridSorgusu(conn, s, filter, sortColumn, sortDesc, criticalOnly, fiyatGorunur);
 
         // ⭐ M-22 / F-178 (AR-GE 2026-10-18) — HIZLI YOL. Filtre/sıralama yalnız malzeme kartının KENDİ kolonlarındaysa sayım ve
         // sayfa kimlikleri doğrudan materials tablosundan (indeksle) alınır; stok toplamı, tanım adları, uyumlu araç/muadil gibi
@@ -857,6 +868,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cnt, ps);
+            StokKapsami.Bagla(cnt, s);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
 
@@ -866,6 +878,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
             cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}" + (tumu ? ";" : "LIMIT @lim OFFSET @off;");
             cmd.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
+            StokKapsami.Bagla(cmd, s);
             if (!tumu)
             {
                 cmd.AddWithValue("@lim", pageSize);
@@ -946,6 +959,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
             idc.CommandText = $"SELECT t.id, COUNT(*) OVER () FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             idc.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(idc, ps);
+            StokKapsami.Bagla(idc, s);
             idc.AddWithValue("@lim", pageSize);
             idc.AddWithValue("@off", (page - 1) * pageSize);
             using var r = idc.ExecuteReader();
@@ -957,6 +971,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
                 cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
                 cnt.AddWithValue("@c", s.CompanyId);
                 GridQuery.AddParams(cnt, ps);
+                StokKapsami.Bagla(cnt, s);
                 total = Convert.ToInt32(cnt.ExecuteScalar());
             }
         return new GridResult<MaterialGridRow>(SayfaSatirlari(conn, s, kimlikler, orderSql, ps, fiyatGorunur), total, page, pageSize);
@@ -972,12 +987,13 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
             var adlar = string.Join(",", kimlikler.Select((_, i) => "@hk" + i));
             // Stok toplamı da YALNIZ bu sayfanın malzemeleri için gruplanır (tablonun tamamı değil).
             var sayfaIci = GridInnerSql.Replace(SqlDialect.StockTotalsToken,
-                SqlDialect.StockTotalSubquery(conn, $" AND company_id = @c AND material_id IN ({adlar})"), StringComparison.Ordinal);
+                SqlDialect.StockTotalSubquery(conn, $" AND company_id = @c AND material_id IN ({adlar})" + StokKapsami.Sql(s)), StringComparison.Ordinal);
             sayfaIci = SqlDialect.PortableSql(conn, sayfaIci) + $" AND m.id IN ({adlar})";
             using var cmd = conn.CreateCommand();
             cmd.CommandText = $"SELECT * FROM ({sayfaIci}) t {orderSql};";
             cmd.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);   // sıralamadaki "başlangıca göre" parametreleri
+            StokKapsami.Bagla(cmd, s);
             for (int i = 0; i < kimlikler.Count; i++) cmd.AddWithValue("@hk" + i, kimlikler[i]);
             using var r = cmd.ExecuteReader();
             while (r.Read())
@@ -1011,12 +1027,13 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         var fiyatGorunur = FiyatGorunur(s);
 
         using var conn = _factory.Create();
-        var (inner, whereSql, _, ps) = GridSorgusu(conn, filter, null, false, criticalOnly, fiyatGorunur);
+        var (inner, whereSql, _, ps) = GridSorgusu(conn, s, filter, null, false, criticalOnly, fiyatGorunur);
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT t.category, t.stock_raw, t.min_stock_raw, t.unit_price_raw FROM ({inner}) t {whereSql};";
         cmd.AddWithValue("@c", s.CompanyId);
         GridQuery.AddParams(cmd, ps);
+        StokKapsami.Bagla(cmd, s);
 
         int kritik = 0;
         decimal deger = 0m;

@@ -188,7 +188,9 @@ public class DesktopOfflineLocationTests : IDisposable
     }
 
     /// <summary>18 — ESKİ TEK-SATIR VARSAYIMI KALMADI: aynı malzemenin iki deposu varken
-    /// malzeme listesi satırı ÇOĞALTMAZ ve stok kolonu TOPLAMI gösterir.</summary>
+    /// malzeme listesi satırı ÇOĞALTMAZ. ⭐ ŞUBE STOĞU (kullanıcı bildirimi 2026-10-25, BİLİNÇLİ güncelleme): stok kolonu artık
+    /// oturumun ŞUBESİNİN stoğunu gösterir (Depo A oturumunda 10); firma toplamı (14) "Tüm Şubeler"de. Eskiden Depo A oturumu da
+    /// 14 görüyordu — kullanıcının bildirdiği hata buydu.</summary>
     [Fact]
     public void Malzeme_Listesi_Iki_Depolu_Malzemeyi_Cogaltmaz()
     {
@@ -197,8 +199,12 @@ public class DesktopOfflineLocationTests : IDisposable
 
         var grid = _materials.SearchGrid(_depoAOturum, new MaterialGridFilter(Code: "MASA-1"), 1, 50);
         Assert.Equal(1, grid.TotalCount);
-        Assert.Equal(14m, Assert.Single(grid.Items).Stock);
-        Assert.Equal(14m, _materials.GetDetail(_depoAOturum, _mat).Stock);
+        Assert.Equal(10m, Assert.Single(grid.Items).Stock);
+        Assert.Equal(10m, _materials.GetDetail(_depoAOturum, _mat).Stock);
+        var tumSubeler = new SessionContext(_depoAOturum.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        Assert.Equal(1, _materials.SearchGrid(tumSubeler, new MaterialGridFilter(Code: "MASA-1"), 1, 50).TotalCount);
+        Assert.Equal(14m, Assert.Single(_materials.SearchGrid(tumSubeler, new MaterialGridFilter(Code: "MASA-1"), 1, 50).Items).Stock);
+        Assert.Equal(14m, _materials.GetDetail(tumSubeler, _mat).Stock);
     }
 
     // ── 11-14. Senkron ────────────────────────────────────────────────────────────────────
