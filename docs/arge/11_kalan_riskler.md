@@ -151,3 +151,8 @@
   olduğu için kullanıcı kararına bırakıldı.
 - **M-66:** atlanan test artık koşuyu "EKSIK KOSU" yapar; PG sunucusu (`scripts/pg_test_sunucu.ps1`) kapalıyken filtreli koşular da
   kırmızı döner — bilinçli PG'siz koşu için `-PostgresAtla` kullanılır (yayın kararı için tam sayılmaz).
+
+## Kullanıcı bildirimleri 2026-10-25
+- **ŞUBE ŞİFRESİ AÇIĞI CANLIDA (bilinçli bekletiliyor):** canlı kodda da (master) masaüstünde sunucu "doğrulayamadı" deyince ve
+  internetsiz girişte şube şifresi atlanabiliyor; sunucuda firma kimliği boş girişte şifre varsayılan firmada aranıyor. Düzeltme AR-GE
+  dalında yapılıyor; **kullanıcı kararı: AR-GE bitene kadar canlıya acil yayın YOK** — AR-GE sonu yayınıyla düzelir.

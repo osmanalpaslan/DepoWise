@@ -672,7 +672,9 @@
 ## B8 KAPANIŞ — B7+B8 tam takım (2026-10-25)
 - Tam koşu 17:48→20:17 (2 sa 28 dk): **4494/4495, atlanan 0**. Tek hata `MobilWebTests` MOB3: M-63'te eklenen `.dw-islem-alt`
   kuralı app.css'te mobil katmanın içine ama medya sorgusunun dışına düşmüştü (hedefli paketlerde o test yoktu) → kural §18'in
-  önüne taşındı (1ee9ce7f), hedefli 19/19. Kurala göre tam koşu tekrarlanacak (M-66/M-67 ile birlikte).
+  önüne taşındı (1ee9ce7f), hedefli 19/19. Kurala göre tam koşu tekrarlandı (M-66/M-67 ve denetim düzeltmeleriyle birlikte):
+  **21:03→23:33, 4504/4504, atlanan 0** (M-66 eksik-koşu kontrolü devredeyken; trx `artifacts/dw_tam_b8son.trx`); arayüz 69/69;
+  `temizlik.ps1` çalıştı. **B8 KAPANDI (2026-10-25).**
 - İki ortam denetimi çalıştı; bulgular ve düzeltmeleri aşağıda ("B8 denetim bulguları").
 
 ## B9 — Teknik borç ve test güvenilirliği

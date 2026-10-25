@@ -13,6 +13,8 @@
 - Her yeni işte önce **tek satır motor önerisi**: Haiku (metin/tek dosya) · Sonnet (rutin, varsayılan) · Opus (yetki/tenant/senkron/
   migration/çok dosya/derin hata). Kullanıcı "başla/devam" ya da önden onay verdiyse beklemeden devam.
 - Çelişkide öncelik: kullanıcının son talebi > bu dosya + `.claude/rules/` > `docs/DECISIONS.md` > mevcut kod.
+- **Şube = Şantiye (kullanıcı kuralı 2026-10-25):** kullanıcı yalnız "şube" ya da yalnız "şantiye" dese de İKİSİNİ kasteder — istek
+  tüm şube türlerine (`branches` tablosu: Şube / Şantiye / Depo…) uygulanır; ayrım yalnız açıkça "yalnız şube/şantiye" denirse.
 - Çalışan kodu yeniden yazma; küçük, geri alınabilir değişiklik (ayrıntı: `.claude/rules/gelistirme-protokolu.md`).
 
 ## 2. Mimari (güncel gerçek)
