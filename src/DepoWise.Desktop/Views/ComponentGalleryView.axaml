@@ -119,7 +119,36 @@
                 <Border Classes="Panel" Width="270" Height="170">
                     <ctrl:StatePanel Mode="Loading" Message="Yükleniyor..."/>
                 </Border>
+                <Border Classes="Panel" Width="270" Height="170">
+                    <ctrl:StatePanel Mode="Offline" Title="Sunucuya bağlanılamıyor"
+                                     Message="Yerel veriler gösteriliyor; değişiklikler bağlantı gelince gönderilecek."/>
+                </Border>
+                <Border Classes="Panel" Width="270" Height="170">
+                    <ctrl:StatePanel Mode="NoPermission" Title="Yetkiniz yok"
+                                     Message="Bu ekranı görmek için firma yöneticinize başvurun."/>
+                </Border>
             </StackPanel>
+
+            <!-- ⭐ M-60: ortak ekran parçaları (opt-in) -->
+            <SelectableTextBlock Text="SEÇİM ÇUBUĞU / SAYFALAMA / UYARI BANDI" Classes="SectionTitle"/>
+            <Border Classes="Panel">
+                <StackPanel Spacing="12">
+                    <ctrl:SelectionBar SelectedCount="3" ClearCommand="{Binding DemoActionCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="Secondary" Content="Düzenle"/>
+                            <Button Classes="Secondary" Content="QR etiketi"/>
+                            <Button Classes="Danger" Content="Sil"/>
+                        </StackPanel>
+                    </ctrl:SelectionBar>
+                    <ctrl:Pager TotalCount="1240" PageSize="50" Page="2"/>
+                    <ctrl:InfoBar Kind="Warning" Title="«Tüm Şubeler» modundasınız"
+                                  Message="Stok bir depoya ait olmalıdır — işlem yapmadan önce Depo / Şantiye seçin." IsClosable="True"/>
+                    <ctrl:InfoBar Kind="Info" Message="Eşitleme sürüyor; yeni kayıtlar birazdan görünecek."
+                                  ActionText="Ayrıntı" ActionCommand="{Binding DemoActionCommand}"/>
+                    <ctrl:InfoBar Kind="Success" Message="Tüm kayıtlar sunucuya gönderildi."/>
+                    <ctrl:InfoBar Kind="Danger" Message="Son eşitleme başarısız oldu." IsClosable="True"/>
+                </StackPanel>
+            </Border>
 
             <!-- Yükleme / skeleton -->
             <SelectableTextBlock Text="YÜKLEME / SKELETON" Classes="SectionTitle"/>

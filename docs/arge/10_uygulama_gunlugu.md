@@ -516,3 +516,13 @@
   5 ekrana (Takvim, Belgeler, Projeler, Yetki Şablonları, Kullanıcılar) eklendi — yükleme metodunun adı/komutu değişmedi.
 - Web: listeler yüklenirken zaten `MudProgressCircular`/`Loading` gösteriyordu (değişiklik yok).
 - **Testler:** arayüz UIT20, `BildirimBaglantisiTests` BB4 (BB1 beklentisi yeni dinleyici biçimine güncellendi); mutasyon 1/1; arayüz 56/56.
+
+### B8 — M-60 (1/2) ortak ekran parçaları (F-126, tasarım belgesi 08 §3.2)
+- Eklenebilir (opt-in) bileşenler — mevcut ekranlar değişmedi, ekran dönüşümleri (M-63/M-64) bunları kullanacak:
+  **Pager** (tek sayfalama biçimi: "51–100 / 1.240 · ‹ Sayfa 2 / 25 › · Sayfa boyutu"; boyut değişince 1. sayfa, toplam azalınca son
+  sayfaya kırpma), **SelectionBar** (seçim yokken görünmez; "N kayıt seçili · eylemler · Seçimi kaldır"), **InfoBar** (bilgi/uyarı/
+  hata/başarı bandı, eylem + kapatma; "Tüm Şubeler" bandının ortak hâli), **StatePanel** yeni modlar: Çevrimdışı, Yetki yok.
+- Durum panelinde gri daire yer tutucu yerine gerçek simge (boş kutu · uyarı · bulut yok · kilit) — 75 kullanımın hepsinde görünür.
+- Bileşen galerisine örnekler eklendi.
+- **Testler:** arayüz UIT21 (sayfalama hesapları, seçim çubuğu görünürlüğü, bant kapanması, galeri çizimi + ekran görüntüsü);
+  mutasyon 1/1; arayüz 57/57; tasarım/erişilebilirlik testleri 31/31.

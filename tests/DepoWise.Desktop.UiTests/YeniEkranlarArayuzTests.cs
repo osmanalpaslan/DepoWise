@@ -373,6 +373,52 @@ public class YeniEkranlarArayuzTests
         }
     }
 
+    /// <summary>M-60: ortak ekran parçaları — sayfalama özeti/kırpma/boyut, seçim çubuğu görünürlüğü, uyarı bandı kapanması,
+    /// durum paneli yeni modları; galeri çizilir (taşma yok, ekran görüntüsü).</summary>
+    [AvaloniaFact]
+    public void UIT21_Ortak_Ekran_Parcalari()
+    {
+        Assert.Equal("51–100 / 1.240", DepoWise.Desktop.Controls.Pager.Ozet(2, 50, 1240));
+        Assert.Equal("1.201–1.240 / 1.240", DepoWise.Desktop.Controls.Pager.Ozet(25, 50, 1240));
+        Assert.Equal("0 kayıt", DepoWise.Desktop.Controls.Pager.Ozet(1, 50, 0));
+        Assert.Equal(25, DepoWise.Desktop.Controls.Pager.SayfaSayisi(1240, 50));
+        Assert.Equal(1, DepoWise.Desktop.Controls.Pager.SayfaSayisi(0, 50));
+
+        var p = new DepoWise.Desktop.Controls.Pager { TotalCount = 1240, PageSize = 50, Page = 25 };
+        Assert.False(p.CanNext);
+        Assert.True(p.CanPrevious);
+        Assert.Equal("Sayfa 25 / 25", p.PageText);
+        p.PreviousCommand.Execute(null);
+        Assert.Equal(24, p.Page);
+        p.TotalCount = 120;                                  // toplam azaldı → son sayfaya kırpılır
+        Assert.Equal(3, p.Page);
+        p.PageSize = 100;                                    // boyut değişti → sayfa 1
+        Assert.Equal(1, p.Page);
+        Assert.Equal("1–100 / 120", p.Summary);
+
+        var secim = new DepoWise.Desktop.Controls.SelectionBar();
+        var w = Ac(new StackPanel { Children = { secim } }, 600, 200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(secim.IsVisible);                       // seçim yokken görünmez
+        secim.SelectedCount = 2;
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(secim.IsVisible);
+        Assert.Equal("2 kayıt seçili", secim.Text);
+        w.Close();
+
+        var bant = new DepoWise.Desktop.Controls.InfoBar { IsClosable = true, Message = "x" };
+        bant.CloseCommand.Execute(null);
+        Assert.False(bant.IsVisible);
+
+        var galeri = new ComponentGalleryView { DataContext = new ComponentGalleryViewModel() };
+        var gw = Ac(galeri, 1400, 1800);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains(gw.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "51–100 / 1.240");
+        Assert.Contains(gw.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "3 kayıt seçili");
+        Goruntu(gw, "bilesen-galerisi-m60");
+        gw.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

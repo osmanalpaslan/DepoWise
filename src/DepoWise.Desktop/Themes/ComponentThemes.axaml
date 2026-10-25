@@ -132,10 +132,13 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <StackPanel Spacing="10" HorizontalAlignment="Center" MaxWidth="360">
-                    <!-- İkon placeholder (Faz: Lucide ileride) — durum rengine göre -->
+                    <!-- ⭐ M-60: gri daire yer tutucu yerine durum simgesi (boş · hata · çevrimdışı · yetki yok) -->
                     <Border x:Name="PART_Icon" Width="44" Height="44" CornerRadius="22"
                             HorizontalAlignment="Center"
-                            Background="{DynamicResource SurfaceElevatedBrush}"/>
+                            Background="{DynamicResource SurfaceElevatedBrush}">
+                        <PathIcon x:Name="PART_Glyph" Width="20" Height="20" Data="{DynamicResource IconInbox}"
+                                  Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Border>
                     <!-- Yükleme göstergesi -->
                     <ProgressBar x:Name="PART_Spinner" IsIndeterminate="True" Width="180" Height="4"
                                  HorizontalAlignment="Center" IsVisible="False"
@@ -160,5 +163,101 @@
         <Style Selector="^:loading /template/ ProgressBar#PART_Spinner"><Setter Property="IsVisible" Value="True"/></Style>
         <!-- Hata: ikon kırmızı tonu -->
         <Style Selector="^:error /template/ Border#PART_Icon"><Setter Property="Background" Value="#22E24A3B"/></Style>
+        <Style Selector="^:error /template/ PathIcon#PART_Glyph">
+            <Setter Property="Data" Value="{DynamicResource IconWarning}"/><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+        <Style Selector="^:offline /template/ PathIcon#PART_Glyph">
+            <Setter Property="Data" Value="{DynamicResource IconCloudOff}"/><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+        </Style>
+        <Style Selector="^:nopermission /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconLock}"/></Style>
+    </ControlTheme>
+
+    <!-- ============ ⭐ M-60 Pager — tek sayfalama biçimi (tablonun altında, sağda) ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:Pager}" TargetType="ctrl:Pager">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" ItemSpacing="10" LineSpacing="6">
+                    <TextBlock Text="{TemplateBinding Summary}" VerticalAlignment="Center"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="Secondary" Content="‹" Padding="10,4" AutomationProperties.Name="Önceki sayfa"
+                                Command="{Binding PreviousCommand, RelativeSource={RelativeSource TemplatedParent}}" IsEnabled="{TemplateBinding CanPrevious}"/>
+                        <TextBlock Text="{TemplateBinding PageText}" VerticalAlignment="Center" MinWidth="90" TextAlignment="Center"
+                                   FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Button Classes="Secondary" Content="›" Padding="10,4" AutomationProperties.Name="Sonraki sayfa"
+                                Command="{Binding NextCommand, RelativeSource={RelativeSource TemplatedParent}}" IsEnabled="{TemplateBinding CanNext}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="Sayfa boyutu" VerticalAlignment="Center"
+                                   FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox Classes="Field" MinWidth="76" AutomationProperties.Name="Sayfa boyutu"
+                                  ItemsSource="{TemplateBinding PageSizes}"
+                                  SelectedItem="{Binding PageSize, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
+                    </StackPanel>
+                </WrapPanel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- ============ ⭐ M-60 SelectionBar — seçim varken görünen bağlamsal komut çubuğu ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:SelectionBar}" TargetType="ctrl:SelectionBar">
+        <Setter Property="IsVisible" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="{StaticResource Radius8}" Padding="12,6">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="{TemplateBinding Text}" VerticalAlignment="Center" Margin="0,0,14,0"
+                                   FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" VerticalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Classes="Ghost" Content="Seçimi kaldır" VerticalAlignment="Center"
+                                Command="{TemplateBinding ClearCommand}"
+                                IsVisible="{TemplateBinding ClearCommand, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:has-selection"><Setter Property="IsVisible" Value="True"/></Style>
+    </ControlTheme>
+
+    <!-- ============ ⭐ M-60 InfoBar — sayfa içi bilgi / uyarı / hata / başarı bandı ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:InfoBar}" TargetType="ctrl:InfoBar">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="PART_Bg" CornerRadius="{StaticResource Radius8}" Padding="12,8" BorderThickness="1"
+                        Background="#1A3AA0E0" BorderBrush="{DynamicResource InfoBrush}">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <PathIcon x:Name="PART_Glyph" Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                                  Data="{DynamicResource IconInfo}" Foreground="{DynamicResource InfoBrush}"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock Text="{TemplateBinding Title}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <TextBlock Text="{TemplateBinding Message}" TextWrapping="Wrap"
+                                       FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="Secondary" Margin="10,0,0,0" VerticalAlignment="Center"
+                                Content="{TemplateBinding ActionText}" Command="{TemplateBinding ActionCommand}"
+                                IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <Button Grid.Column="3" Classes="Icon" Content="✕" Margin="6,0,0,0" VerticalAlignment="Center"
+                                AutomationProperties.Name="Uyarıyı kapat" Command="{Binding CloseCommand, RelativeSource={RelativeSource TemplatedParent}}"
+                                IsVisible="{TemplateBinding IsClosable}"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:success /template/ Border#PART_Bg"><Setter Property="Background" Value="#1A2CBF6D"/><Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/></Style>
+        <Style Selector="^:success /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconCheck}"/><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></Style>
+        <Style Selector="^:warning /template/ Border#PART_Bg"><Setter Property="Background" Value="#1AF5A623"/><Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/></Style>
+        <Style Selector="^:warning /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconWarning}"/><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/></Style>
+        <Style Selector="^:danger /template/ Border#PART_Bg"><Setter Property="Background" Value="#1AE24A3B"/><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/></Style>
+        <Style Selector="^:danger /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconWarning}"/><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>
     </ControlTheme>
 </ResourceDictionary>

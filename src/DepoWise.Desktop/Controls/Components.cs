@@ -10,7 +10,8 @@ namespace DepoWise.Desktop.Controls;
 // İş mantığı YOKTUR (MVVM korunur). Görseller ControlTheme'lerden (Themes/ComponentThemes.axaml) gelir.
 
 public enum BadgeKind { Neutral, Success, Warning, Danger, Info }
-public enum StateMode { Empty, Error, Loading }
+// M-60: Offline (sunucuya ulaşılamıyor) ve NoPermission (yetki yok) SONA eklendi — mevcut değerler kaymaz.
+public enum StateMode { Empty, Error, Loading, Offline, NoPermission }
 
 /// <summary>Durum rozeti / chip: Success/Warning/Danger/Info/Neutral.</summary>
 public class StatusBadge : TemplatedControl
@@ -165,5 +166,7 @@ public class StatePanel : TemplatedControl
         PseudoClasses.Set(":empty", Mode == StateMode.Empty);
         PseudoClasses.Set(":error", Mode == StateMode.Error);
         PseudoClasses.Set(":loading", Mode == StateMode.Loading);
+        PseudoClasses.Set(":offline", Mode == StateMode.Offline);
+        PseudoClasses.Set(":nopermission", Mode == StateMode.NoPermission);
     }
 }
