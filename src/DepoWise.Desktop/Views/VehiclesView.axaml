@@ -23,9 +23,8 @@
                       PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
-                    <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
-                    <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
-                    <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
+                    <!-- ⭐ M-64 (Şablon B): tek ana düğme araç çubuğunda ("Yeni Araç"); sayfa boyutu alttaki ortak Pager'da -->
+                    <Button Classes="Secondary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
@@ -375,30 +374,15 @@
             </ScrollViewer>
         </Border>
 
-        <!-- Numaralı sayfalama + kayıt bilgisi — EN SOLDA, tablonun ÜSTÜNDE (kullanıcı isteği 2026-07-18). -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
-            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
-                <Button AutomationProperties.Name="Önceki sayfa" Classes="Secondary" Content="‹" Padding="10,4"
-                        Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
-                <ItemsControl ItemsSource="{Binding PageNumbers}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Content="{Binding}" Padding="10,4"
-                                    Classes="Secondary"
-                                    Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).GoToPageCommand}"
-                                    CommandParameter="{Binding}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Secondary" Content="›" Padding="10,4"
-                        Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
-            </StackPanel>
-            <SelectableTextBlock Text="{Binding Status}"
-                       Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-        </StackPanel>
+        <!-- ⭐ M-64 (F-129 · Şablon B): ortak Pager — numaralı sayfalar (kullanıcı isteği 2026-07-18) + sayfa boyutu, SOL en altta
+             (2026-07-19); durum metni sağında. -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,10,0,0" IsVisible="{Binding !ShowAdd}">
+            <SelectableTextBlock Grid.Column="1" Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"
+                       Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ctrl:Pager Grid.Column="0" ShowPageNumbers="True" IsVisible="{Binding HasRows}"
+                        PageSizes="{Binding PageSizes}" PageSize="{Binding PageSize, Mode=TwoWay}"
+                        TotalCount="{Binding TotalCount}" Page="{Binding PagerPage}"/>
+        </Grid>
 
         <!-- Liste + Detay -->
         <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360" IsVisible="{Binding !ShowAdd}">
@@ -879,7 +863,8 @@
                           ToolTip.Tip="Araç iade edildi: durum Pasif olur, kira bitişi seçilen gün yazılır. Geçmiş kayıtlar korunur."/>
                 </StackPanel>
                 <WrapPanel>
-                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0"
+                  <!-- M-64: ekranın tek ana düğmesi araç çubuğunda; seçili kayıt eylemleri ikincil, yıkıcı olan en sonda -->
+                  <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,0"
                           Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                   <Button Classes="Danger" Content="Sil"
                           Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>

@@ -71,9 +71,15 @@ public class ListeSablonuTests
     /// <summary>LS4 — Malzemeler (web): numaralı sayfalama (kullanıcı isteği 2026-07-18) ve sayfa boyutu ortak ListePager'da,
     /// tablonun ALTINDA; üstte ayrı sayfa boyutu seçicisi ve sayfaya özel MudPagination yok. ListePager solda (2026-07-19).</summary>
     [Fact]
-    public void LS4_Web_Malzeme_Numarali_Pager()
+    public void LS4_Web_Malzeme_Numarali_Pager() => NumaraliPager("src/DepoWise.Web/Components/Pages/Materials.razor");
+
+    /// <summary>LS5 — Araçlar (web): Malzemeler ile aynı numaralı ortak sayfalayıcı.</summary>
+    [Fact]
+    public void LS5_Web_Arac_Numarali_Pager() => NumaraliPager("src/DepoWise.Web/Components/Pages/Vehicles.razor");
+
+    private static void NumaraliPager(string rel)
     {
-        var s = Oku("src/DepoWise.Web/Components/Pages/Materials.razor");
+        var s = Oku(rel);
         var tablo = s.IndexOf("</table>", StringComparison.Ordinal);
         var pager = s.IndexOf("<ListePager ", StringComparison.Ordinal);
         Assert.True(tablo > 0 && pager > tablo, "ListePager tablonun ALTINDA olmalı");

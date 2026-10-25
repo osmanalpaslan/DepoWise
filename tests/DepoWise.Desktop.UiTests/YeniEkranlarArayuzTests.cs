@@ -710,6 +710,32 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT31 — ⭐ M-64 (6/6) Araçlar: Malzemeler ile aynı ortak numaralı Pager (solda, sayfa boyutu Pager'da, araç
+    /// çubuğunda değil); görünür tek ana düğme "Yeni Araç".</summary>
+    [AvaloniaFact]
+    public void UIT31_Arac_Numarali_Pager()
+    {
+        var s = Ortam();
+        if (!DesktopServices.Vehicles.SearchGrid(s, new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(), 1, 1).Items.Any())
+            DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("UIT31-A", "06UIT31"));
+        var vm = new VehiclesViewModel(s);
+        var view = new VehiclesView { DataContext = vm };
+        var w = Ac(view, 1300, 820);
+        for (int i = 0; i < 50 && !vm.HasRows; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        Assert.True(vm.HasRows);
+        var pager = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Pager>().Single();
+        Assert.True(pager.ShowPageNumbers);
+        Assert.True(pager.IsEffectivelyVisible);
+        Assert.Equal(vm.PageSize, pager.PageSize);
+        Assert.Equal(vm.TotalCount, pager.TotalCount);
+        var toolbar = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Toolbar>().First();
+        Assert.DoesNotContain(toolbar.GetVisualDescendants().OfType<ComboBox>(), c => ReferenceEquals(c.ItemsSource, vm.PageSizes));
+        var anaDugmeler = Gorunen<Button>(view).Where(b => b.Classes.Contains("Primary") && b.Content is string).Select(b => (string)b.Content!).ToList();
+        Assert.Equal(new[] { vm.AddButtonText }, anaDugmeler);
+        Goruntu(w, "arac-pager");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

@@ -637,3 +637,13 @@
 - **Testler:** arayüz UIT30 (numara hesabı, vurgulu sayfa, numaraya basınca gitme, Malzemeler'de Pager bağları, sola yaslı, tek ana
   düğme, ekran görüntüsü `malzeme-pager`); LS4; malzeme/liste tercihi/dışa aktarım/tablo hizası/erişilebilirlik/düğme sırası/tasarım
   paketi 305/305; arayüz 66/66. Mutasyon: vurgu kaldırılınca UIT30, web hizası sağa alınınca LS4 kırıldı (2/2).
+
+### B8 — M-64 (6/6) Araçlar → ortak numaralı Pager
+- Masaüstü Araçlar (ve Kiralık Araçlar — aynı ekran): elle yazılmış numaralı sayfalama + araç çubuğundaki "Sayfa boyutu" → ortak
+  `Pager` (numaralı + boyut, SOL en altta); "Filtrele" ve detaydaki "Düzenle" ikincil (görünür tek ana düğme "Yeni Araç" /
+  "Yeni Kiralık Araç"). Web Araçlar: `MudPagination` + üstteki boyut seçicisi → `ListePager Numarali`.
+- **Testler:** arayüz UIT31 (Pager bağları, sayfa boyutu araç çubuğunda değil, tek ana düğme, ekran görüntüsü `arac-pager`); LS5;
+  araç/kiralık/liste tercihi/dışa aktarım/tablo hizası/erişilebilirlik/düğme sırası/tasarım paketi 365/365; arayüz 67/67; web derlemesi temiz.
+  Mutasyon: "Filtrele" yeniden ana düğme yapılınca UIT31 kırıldı.
+- **M-64 kapanış notu:** Raporlar ekranında sayfalama YOK (doğrulandı: sonuç tek `DataGridView` tablosunda tamamıyla
+  gösterilir), bu yüzden ortak Pager'a taşınacak bir şey yok; rapor ekranı düzeni M-58 (kayıtlı görünümler) ile ele alındı.

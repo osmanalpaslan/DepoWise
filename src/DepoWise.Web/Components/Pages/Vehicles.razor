@@ -391,10 +391,6 @@
                                    OnClick="OpenColumnPicker">Kolonlar</MudButton>
                     </MudTooltip>
                     <MudSpacer />
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>
-                    <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
-                        @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
-                    </MudSelect>
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
                     <MudTooltip Text="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir">
@@ -530,12 +526,12 @@
                 </table>
                 </div>
 
-                @* Sayfa numaraları + kayıt bilgisi araç ekranında TABLONUN ALTINDA, SOLDA (kullanıcı isteği 2026-07-19). *@
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2" Wrap="Wrap.Wrap" Justify="Justify.FlexStart">
-                    <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
-                                   BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
-                </MudStack>
+                @* Sayfa numaraları + kayıt bilgisi araç ekranında TABLONUN ALTINDA, SOLDA (kullanıcı isteği 2026-07-19).
+                   ⭐ M-64: ortak ListePager (numaralı + sayfa boyutu) — masaüstü Pager ile aynı biçim. *@
+                <div class="mt-2">
+                    <ListePager Page="_page" PageSize="_pageSize" Total="_totalCount" Busy="_busy" Numarali="true" PageSizes="PageSizes"
+                                OnGo="OnPageChanged" OnPageSize="OnPageSizeChanged" />
+                </div>
             }
         </MudPaper>
     </MudItem>
