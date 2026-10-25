@@ -24,8 +24,8 @@
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
                 <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
-                <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+                <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton aria-label="Adı değiştir" Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
+                <MudIconButton aria-label="Sil" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
             </MudStack>
         }
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">

@@ -80,7 +80,7 @@
                     @if (Auth.CanCreate("personnel"))
                     {
                         <MudTooltip Text="Yeni unvan tanımı ekle">
-                            <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Variant="Variant.Outlined"
+                            <MudIconButton aria-label="Yeni unvan tanımı ekle" Icon="@Icons.Material.Filled.Add" Size="Size.Small" Variant="Variant.Outlined"
                                            Color="Color.Primary" OnClick="@(() => _addTitle = !_addTitle)" />
                         </MudTooltip>
                     }

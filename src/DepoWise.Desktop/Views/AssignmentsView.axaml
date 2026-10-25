@@ -135,7 +135,7 @@
                                             <SelectableTextBlock Grid.Column="0" Text="{Binding TypeDisplay}" VerticalAlignment="Center"/>
                                             <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" Margin="10,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}"/>
                                             <SelectableTextBlock Grid.Column="2" Text="{Binding QuantityDisplay}" Margin="10,0,8,0" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="3" Classes="Icon" Content="×" Width="24" Height="24" Padding="0" ToolTip.Tip="Bu kalemi listeden çıkar"
+                                            <Button AutomationProperties.Name="Bu kalemi listeden çıkar" Grid.Column="3" Classes="Icon" Content="×" Width="24" Height="24" Padding="0" ToolTip.Tip="Bu kalemi listeden çıkar"
                                                     Command="{Binding $parent[ItemsControl].((vm:AssignmentsViewModel)DataContext).RemoveLineCommand}"
                                                     CommandParameter="{Binding}"/>
                                         </Grid>

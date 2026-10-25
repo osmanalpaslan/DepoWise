@@ -70,7 +70,7 @@
                 {
                     <MudNumericField T="decimal" @bind-Value="l.UnitPrice" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px;" />
                 }
-                <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" />
+                <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" />
             </MudStack>
         }
         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => _lines.Add(new SatirVm()))">Satır Ekle</MudButton>

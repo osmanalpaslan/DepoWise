@@ -80,14 +80,14 @@
                 <MudTd>
                     @if (Auth.CanEdit("companies"))
                     {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@(() => BeginEdit(context))" />
+                        <MudIconButton aria-label="Düzenle" Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@(() => BeginEdit(context))" />
                     }
                     @if (Auth.IsSuperAdmin)
                     {
                         <MudTooltip Text="Bu firmanın makineleri bir sonraki girişte YEREL kopyalarını bir kez temizler (sunucudaki veri etkilenmez).">
-                            <MudIconButton Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.SyncProblem" OnClick="@(() => RequestLocalReset(context))" />
+                            <MudIconButton aria-label="Yerel kopyayı sıfırlat" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.SyncProblem" OnClick="@(() => RequestLocalReset(context))" />
                         </MudTooltip>
-                        <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context))" />
+                        <MudIconButton aria-label="Sil" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context))" />
                     }
                 </MudTd>
             </RowTemplate>

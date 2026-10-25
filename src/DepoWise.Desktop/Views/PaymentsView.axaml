@@ -59,8 +59,8 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
-                <Button Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
-                <Button Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
+                <Button AutomationProperties.Name="Önceki sayfa" Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
+                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
                 <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
                 <Button Classes="Primary" Content="Yeni Tahsilat / Ödeme" Command="{Binding NewEntryCommand}"
                         IsVisible="{Binding CanCreate}"/>

@@ -173,7 +173,7 @@
                 {
                     <div style="position:relative;width:84px;height:84px;margin:0 8px 8px 0;">
                         <MudImage Src="@p.Preview" Width="84" Height="84" ObjectFit="ObjectFit.Cover" Style="border-radius:8px;" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                        <MudIconButton aria-label="Kapat" Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
                                        Style="position:absolute;top:0;right:0;" OnClick="@(() => _staged.Remove(p))" />
                     </div>
                 }
@@ -310,7 +310,7 @@
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
                     <MudText Typo="Typo.h6">Malzeme Listesi</MudText>
                     <MudTooltip Text="Kolonları ayarla (bu alanda sağ tık da açar) — yalnız sizin için geçerlidir">
-                        <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+                        <MudIconButton aria-label="Kolonları ayarla" Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
                     </MudTooltip>
                     <MudSpacer />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>

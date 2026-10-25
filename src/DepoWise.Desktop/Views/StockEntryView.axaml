@@ -245,7 +245,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
                                                     PlaceholderText="Birim seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}"
+                                    <Button AutomationProperties.Name="Yeni birim" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni birim"
                                             Command="{Binding StartAddUnitCommand}"/>
                                 </Grid>
@@ -264,7 +264,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
                                                     PlaceholderText="Kategori seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
+                                    <Button AutomationProperties.Name="Yeni kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni kategori"
                                             Command="{Binding StartAddCategoryCommand}"/>
                                 </Grid>
@@ -283,7 +283,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
                                                     PlaceholderText="Alt kategori seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
+                                    <Button AutomationProperties.Name="Yeni alt kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt kategori"
                                             Command="{Binding StartAddSubCategoryCommand}"/>
                                 </Grid>
@@ -300,7 +300,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
                                                     PlaceholderText="Marka seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}"
+                                    <Button AutomationProperties.Name="Yeni marka" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni marka"
                                             Command="{Binding StartAddBrandCommand}"/>
                                 </Grid>
@@ -323,7 +323,7 @@
                                     <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                     ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
                                                     PlaceholderText="Tedarikçi seç / ara..."/>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}"
+                                    <Button AutomationProperties.Name="Yeni tedarikçi" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}"
                                             Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni tedarikçi"
                                             Command="{Binding StartAddSupplierCommand}"/>
                                 </Grid>

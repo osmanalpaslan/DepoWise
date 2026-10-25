@@ -248,7 +248,7 @@
                             @if (Auth.CanCreate("personnel"))
                             {
                                 <MudTooltip Text="Yeni personel (Saha Personeli olarak eklenir)">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="AddTechnician" />
+                                    <MudIconButton aria-label="Yeni personel" Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="AddTechnician" />
                                 </MudTooltip>
                             }
                         </div>
@@ -350,7 +350,7 @@
                                             İşaretlenirse merkez depo stoklarından düşülmez.
                                         </MudText>
                                     </td>
-                                    <td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
+                                    <td><MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
                                 </tr>
                             }
                         </tbody>

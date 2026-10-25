@@ -32,7 +32,7 @@
                 <MudField Variant="Variant.Text" Dense="true" Style="max-width:240px">@it.Name</MudField>
                 @if (Auth.CanDelete("personnel"))
                 {
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                    <MudIconButton aria-label="Sil" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
                                    OnClick="@(() => Sil(it.Id, it.Name))" />
                 }
             </MudStack>

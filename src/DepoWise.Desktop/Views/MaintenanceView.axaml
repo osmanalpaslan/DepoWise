@@ -197,7 +197,7 @@
                                         <Grid ColumnDefinitions="*,Auto">
                                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}"
                                                             PlaceholderText="Alt bakım seç / ara..."/>
-                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
+                                            <Button AutomationProperties.Name="Yeni alt bakım" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingMntSub}">
                                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewMntSubName}" PlaceholderText="Yeni alt bakım adı"/>
@@ -213,7 +213,7 @@
                                         <Grid ColumnDefinitions="*,Auto">
                                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MntTechnician}"
                                                       PlaceholderText="Teknisyen seç / ara..."/>
-                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddTechnician}" Width="40" Margin="8,0,0,0"
+                                            <Button AutomationProperties.Name="Yeni personel" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddTechnician}" Width="40" Margin="8,0,0,0"
                                                     ToolTip.Tip="Yeni personel (Saha Personeli olarak eklenir)" Command="{Binding StartAddTechnicianCommand}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingTechnician}">

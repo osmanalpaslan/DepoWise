@@ -628,7 +628,7 @@
                                                     </Border>
                                                 </StackPanel>
                                             </Button>
-                                            <Button Classes="sekmeKapat" Content="✕" FontSize="11" Padding="4,0"
+                                            <Button AutomationProperties.Name="Sekmeyi kaldır" Classes="sekmeKapat" Content="✕" FontSize="11" Padding="4,0"
                                                     Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KonusmayiKapatCommand}"
                                                     CommandParameter="{Binding}"
                                                     ToolTip.Tip="Sekmeyi kaldır (mesajlar silinmez)"/>
@@ -728,7 +728,7 @@
                                                                    Text="{Binding Label}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
-                                                <Button Classes="sekmeDugme sekmeKapat" Padding="6,0,12,0" Content="✕"
+                                                <Button AutomationProperties.Name="Sekmeyi kaldır" Classes="sekmeDugme sekmeKapat" Padding="6,0,12,0" Content="✕"
                                                         Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).CloseTabCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="Sekmeyi kaldır (ekran verisi silinmez)"/>
@@ -789,7 +789,7 @@
                                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </StackPanel>
                                             </StackPanel>
-                                            <Button Grid.Column="2" Classes="IconGhost" Content="✕" FontSize="12"
+                                            <Button AutomationProperties.Name="Pencereyi kapat" Grid.Column="2" Classes="IconGhost" Content="✕" FontSize="12"
                                                     Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.KonusmaAcKapaCommand}"
                                                     CommandParameter="{Binding}"
                                                     ToolTip.Tip="Pencereyi kapat (sekme alt barda kalır)"/>
@@ -856,7 +856,7 @@
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Grid.Column="0" Text="Kullanıcılar" FontWeight="SemiBold" FontSize="14"
                                            VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Classes="IconGhost" Content="✕" FontSize="12"
+                                <Button AutomationProperties.Name="Kapat" Grid.Column="1" Classes="IconGhost" Content="✕" FontSize="12"
                                         Command="{Binding Chat.PaneliAcKapaCommand}" ToolTip.Tip="Kapat"/>
                             </Grid>
                         </Border>

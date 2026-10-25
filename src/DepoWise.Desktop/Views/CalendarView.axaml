@@ -37,9 +37,9 @@
                       PrimaryActionText="Yeni Takvim Kaydı" PrimaryActionCommand="{Binding NewEventCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <Button Classes="Secondary" Content="◀" Command="{Binding PrevMonthCommand}"/>
+                    <Button AutomationProperties.Name="Önceki ay" Classes="Secondary" Content="◀" Command="{Binding PrevMonthCommand}"/>
                     <SelectableTextBlock Text="{Binding MonthTitle}" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="110" TextAlignment="Center"/>
-                    <Button Classes="Secondary" Content="▶" Command="{Binding NextMonthCommand}"/>
+                    <Button AutomationProperties.Name="Sonraki ay" Classes="Secondary" Content="▶" Command="{Binding NextMonthCommand}"/>
                     <Button Classes="Secondary" Content="Bugün" Command="{Binding GoTodayCommand}"/>
                     <ComboBox Classes="Field" Width="150" ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding FilterSource}"/>
                     <ctrl:LookupBox Width="160" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FilterBranch}"

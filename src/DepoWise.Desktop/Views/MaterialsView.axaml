@@ -94,7 +94,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
                                       PlaceholderText="Kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
+                            <Button AutomationProperties.Name="Yeni kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
@@ -111,7 +111,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
                                       PlaceholderText="Alt kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
+                            <Button AutomationProperties.Name="Yeni alt kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
@@ -129,7 +129,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
                                       PlaceholderText="Birim seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}" Width="40" Margin="8,0,0,0"
+                            <Button AutomationProperties.Name="Yeni birim" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
@@ -146,7 +146,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
                                       PlaceholderText="Marka seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}" Width="40" Margin="8,0,0,0"
+                            <Button AutomationProperties.Name="Yeni marka" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
@@ -163,7 +163,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
                                       PlaceholderText="Tedarikçi seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
+                            <Button AutomationProperties.Name="Yeni tedarikçi" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
@@ -243,14 +243,14 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:DetailPhoto">
                                 <Panel Margin="0,0,8,8" Width="84" Height="84">
-                                    <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                    <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
                                             Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
                                             CommandParameter="{Binding Image}">
                                         <Border CornerRadius="8" ClipToBounds="True">
                                             <Image Source="{Binding Image}" Stretch="UniformToFill"/>
                                         </Border>
                                     </Button>
-                                    <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                    <Button AutomationProperties.Name="Sil" Classes="Icon" Content="×" Width="24" Height="24"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
                                             IsVisible="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).CanDeletePhoto}"
                                             Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).DeleteDetailPhotoCommand}"
@@ -269,7 +269,7 @@
                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                     <Panel>
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                                 Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemovePhotoCommand}"
                                                 CommandParameter="{Binding}"/>
@@ -313,7 +313,7 @@
         <!-- Numaralı sayfalama + kayıt bilgisi — EN SOLDA, tablonun ÜSTÜNDE (kullanıcı isteği 2026-07-18). -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
-                <Button Classes="Secondary" Content="‹" Padding="10,4"
+                <Button AutomationProperties.Name="Önceki sayfa" Classes="Secondary" Content="‹" Padding="10,4"
                         Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
                 <ItemsControl ItemsSource="{Binding PageNumbers}">
                     <ItemsControl.ItemsPanel>
@@ -328,7 +328,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Classes="Secondary" Content="›" Padding="10,4"
+                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Secondary" Content="›" Padding="10,4"
                         Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
             </StackPanel>
             <SelectableTextBlock Text="{Binding Status}"
@@ -718,7 +718,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:DetailPhoto">
                             <Panel Margin="0,0,8,8" Width="72" Height="72">
-                                <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
                                         Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
                                         CommandParameter="{Binding Image}">
                                     <Border CornerRadius="6" ClipToBounds="True">

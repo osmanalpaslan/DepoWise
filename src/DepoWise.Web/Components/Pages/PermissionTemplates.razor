@@ -54,10 +54,10 @@
                 <MudTd>@nm</MudTd>
                 <MudTd>@Str(context, "scopeText")</MudTd>
                 <MudTd>
-                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="@(() => ViewTemplate(id, nm))" />
+                    <MudIconButton aria-label="Görüntüle" Size="Size.Small" Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="@(() => ViewTemplate(id, nm))" />
                     @if (Auth.CanDelete("permission_templates"))
                     {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                        <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
                     }
                 </MudTd>
             </RowTemplate>

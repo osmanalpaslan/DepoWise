@@ -61,7 +61,7 @@
                 <MudTd>@Str(context, "codeDisplay")</MudTd>
                 <MudTd>@Str(context, "brandModelDisplay")</MudTd>
                 <MudTd>@Str(context, "yearDisplay")</MudTd>
-                <MudTd>@if (Auth.CanDelete("vehicle_templates")) { <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(id))" /> }</MudTd>
+                <MudTd>@if (Auth.CanDelete("vehicle_templates")) { <MudIconButton aria-label="Sil" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(id))" /> }</MudTd>
             </RowTemplate>
         </MudTable>
     }

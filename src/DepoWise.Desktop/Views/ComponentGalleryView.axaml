@@ -20,7 +20,7 @@
                 <Button Classes="Secondary" Content="İkincil"/>
                 <Button Classes="Ghost" Content="Ghost"/>
                 <Button Classes="Danger" Content="Sil"/>
-                <Button Classes="Icon" Content="≡"/>
+                <Button AutomationProperties.Name="Menü" Classes="Icon" Content="≡"/>
                 <Button Classes="Primary" Content="Devre dışı" IsEnabled="False"/>
             </StackPanel>
 

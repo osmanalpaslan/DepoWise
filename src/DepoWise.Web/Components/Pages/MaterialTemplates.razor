@@ -63,7 +63,7 @@
                         <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
                         @if (Auth.CanEdit("material_templates"))
                         {
-                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:10px;" OnClick="@(() => DeletePhoto(ph.Id))" />
+                            <MudIconButton aria-label="Kapat" Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:10px;" OnClick="@(() => DeletePhoto(ph.Id))" />
                         }
                     </div>
                 }
@@ -96,11 +96,11 @@
                 <MudTd>
                     @if (Auth.CanEdit("material_templates"))
                     {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => BeginEdit(id))" />
+                        <MudIconButton aria-label="Düzenle" Size="Size.Small" Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => BeginEdit(id))" />
                     }
                     @if (Auth.CanDelete("material_templates"))
                     {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                        <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
                     }
                 </MudTd>
             </RowTemplate>

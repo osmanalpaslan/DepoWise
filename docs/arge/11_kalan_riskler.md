@@ -138,3 +138,6 @@
 - **M-58 kayıtlı görünüm:** tarih aralığı saklanmaz (görünüm açılınca «Bu Ay» ya da raporun varsayılanı). Masaüstü çevrimdışıyken
   kaydedilen görünüm sunucuya o an gitmez; bir sonraki kayıt/silmede sunucuya yazılır. Son görünüm silinince sunucu boş liste döner ve
   masaüstü yerel kopyayı kullanır (başka bilgisayarda eski görünüm görünebilir; kaydet/sil ile eşitlenir). Görünüm paylaşılamaz (kişisel).
+- **M-62 ekran okuyucu:** web `ChatDock.razor`'daki 2 simge düğmesi etiketsiz (kullanıcının commit'lenmemiş sohbet işi; `ErisilebilirlikTests`
+  ER2'de istisna) — sohbet işi birleşince etiketlenip istisna kaldırılmalı. M-61: Özel Raporlar'da Kaydet ikincil, Zimmet'te dar pencerede
+  Kaydet alta sarılıyor (M-63/M-64).

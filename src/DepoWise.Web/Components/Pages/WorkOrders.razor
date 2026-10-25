@@ -165,7 +165,7 @@
                         <MudText Typo="Typo.body2">@Str(a, "resourceTypeDisplay"): <b>@Str(a, "label")</b></MudText>
                         @if (!terminal && Auth.CanEdit("work_orders"))
                         {
-                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Close" OnClick="@(() => RemoveAssign(Str(a, "id")))" />
+                            <MudIconButton aria-label="Kapat" Size="Size.Small" Icon="@Icons.Material.Outlined.Close" OnClick="@(() => RemoveAssign(Str(a, "id")))" />
                         }
                     </MudStack>
                 }

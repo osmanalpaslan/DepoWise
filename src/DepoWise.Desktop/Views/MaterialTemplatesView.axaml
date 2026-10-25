@@ -139,7 +139,7 @@
                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                     <Panel>
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                                 Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).RemovePhotoCommand}"
                                                 CommandParameter="{Binding}"/>
@@ -158,7 +158,7 @@
                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                     <Panel>
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                                 Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).DeleteDetailPhotoCommand}"
                                                 CommandParameter="{Binding}"/>

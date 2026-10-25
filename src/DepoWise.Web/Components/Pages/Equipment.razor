@@ -116,10 +116,10 @@
                     <MudStack Row="true" Spacing="1">
                         @* BAR-01: QR etiketi (salt-okunur) — içerik = ekipman kodu; taranınca üst bar aramasından bulunur. *@
                         <MudTooltip Text="QR etiketi (PNG) indir — taranınca aramadan bu kayıt bulunur">
-                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.QrCode2" OnClick="@(() => QrLabel(context))" />
+                            <MudIconButton aria-label="QR etiketi" Size="Size.Small" Icon="@Icons.Material.Filled.QrCode2" OnClick="@(() => QrLabel(context))" />
                         </MudTooltip>
-                        @if (Auth.CanEdit("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
-                        @if (Auth.CanDelete("equipment")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
+                        @if (Auth.CanEdit("equipment")) { <MudIconButton aria-label="Düzenle" Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
+                        @if (Auth.CanDelete("equipment")) { <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
                     </MudStack>
                 </MudTd>
             </RowTemplate>

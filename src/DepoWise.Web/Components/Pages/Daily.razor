@@ -128,7 +128,7 @@
                                         İşaretlenirse merkez depo stoklarından düşülmez.
                                     </MudText>
                                 </td>
-                                <td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
+                                <td><MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
                             </tr>
                         }
                     </tbody>
@@ -154,7 +154,7 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
             <MudText Typo="Typo.h6">Faaliyetler</MudText>
             <MudTooltip Text="Kolonları ayarla (bu alanda sağ tık da açar) — yalnız sizin için geçerlidir">
-                <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+                <MudIconButton aria-label="Kolonları ayarla" Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
             </MudTooltip>
             <MudSpacer />
             <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>

@@ -279,7 +279,7 @@
                                         <StackPanel Orientation="Horizontal" Spacing="4">
                                             <SelectableTextBlock Text="{Binding Code}" Classes="Helper" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                             <SelectableTextBlock Text="{Binding Name}" Classes="Helper" VerticalAlignment="Center" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                            <Button Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu malzemeyi çıkar"
+                                            <Button AutomationProperties.Name="Bu malzemeyi çıkar" Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu malzemeyi çıkar"
                                                     Command="{Binding $parent[ItemsControl].((vm:ReportsViewModel)DataContext).RemoveMaterialCommand}"
                                                     CommandParameter="{Binding}"/>
                                         </StackPanel>

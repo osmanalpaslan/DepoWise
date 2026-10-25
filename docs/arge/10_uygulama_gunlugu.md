@@ -483,3 +483,9 @@
 - Açık: Özel Raporlar'da Kaydet ikincil stilde (araç çubuğunun ana düğmesi "Yeni Rapor"); Zimmet'te Kaydet satırın son öğesi ama dar
   pencerede alta sarılıyor — ikisi M-63/M-64 ekran dönüşümünde.
 - **Testler:** `DugmeSirasiTests` DS1–3 (iki ortam kaynak taraması); mutasyon 2/2; arayüz 52/52; web derlemesi 0 hata.
+
+### B8 — M-62 (1/4) ekran okuyucu etiketleri (F-096)
+- Masaüstünde yalnız simgeli 63 düğmeye (`×`, `+`, `‹ ›`, `◀ ▶`, büyüt/sil simgeleri) `AutomationProperties.Name`: ad ipucunun ilk
+  cümlesinden, ipucu yoksa simgeden ya da üstteki alan etiketinden ("Yeni marka ekle"). Web'de 45 `MudIconButton`'a `aria-label`
+  (çevreleyen ipucu ya da simge adından). `ChatDock.razor` kullanıcının commit'lenmemiş sohbet işi olduğu için dokunulmadı (testte istisna).
+- **Testler:** `ErisilebilirlikTests` ER1–2 (iki ortam kaynak taraması); mutasyon 2/2; arayüz 52/52; web derlemesi 0 hata.

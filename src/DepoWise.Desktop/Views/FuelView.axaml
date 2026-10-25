@@ -340,7 +340,7 @@
                                         <SelectableTextBlock Text="Sayfa boyutu" VerticalAlignment="Center"/>
                                         <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize}"
                                                   MinWidth="80" VerticalAlignment="Center"/>
-                                        <Button Classes="Secondary" Content="‹" Command="{Binding PrevPageCommand}"
+                                        <Button AutomationProperties.Name="Önceki sayfa" Classes="Secondary" Content="‹" Command="{Binding PrevPageCommand}"
                                                 IsEnabled="{Binding CanGoPrev}" ToolTip.Tip="Önceki sayfa"/>
                                         <ItemsControl ItemsSource="{Binding PageNumbers}" VerticalAlignment="Center">
                                             <ItemsControl.ItemsPanel>
@@ -354,7 +354,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <Button Classes="Secondary" Content="›" Command="{Binding NextPageCommand}"
+                                        <Button AutomationProperties.Name="Sonraki sayfa" Classes="Secondary" Content="›" Command="{Binding NextPageCommand}"
                                                 IsEnabled="{Binding CanGoNext}" ToolTip.Tip="Sonraki sayfa"/>
                                         <SelectableTextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"
                                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -483,7 +483,7 @@
                                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                                               ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}"
                                                               PlaceholderText="Tedarikçi seç / ara..."/>
-                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
+                                            <Button AutomationProperties.Name="Yeni tedarikçi" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
                                                     ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
@@ -512,11 +512,11 @@
                                      (fatura no) filtreleri bu sekmeye de uygulanır. -->
                                 <StackPanel DockPanel.Dock="Bottom" Margin="10,8"
                                             Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                    <Button Classes="Secondary" Content="‹" Command="{Binding DepoPrevPageCommand}"
+                                    <Button AutomationProperties.Name="Önceki sayfa" Classes="Secondary" Content="‹" Command="{Binding DepoPrevPageCommand}"
                                             IsEnabled="{Binding DepoCanGoPrev}" ToolTip.Tip="Önceki sayfa"/>
                                     <SelectableTextBlock VerticalAlignment="Center"
                                                         Text="{Binding DepoPage, StringFormat='Sayfa {0}'}"/>
-                                    <Button Classes="Secondary" Content="›" Command="{Binding DepoNextPageCommand}"
+                                    <Button AutomationProperties.Name="Sonraki sayfa" Classes="Secondary" Content="›" Command="{Binding DepoNextPageCommand}"
                                             IsEnabled="{Binding DepoCanGoNext}" ToolTip.Tip="Sonraki sayfa"/>
                                     <SelectableTextBlock VerticalAlignment="Center" Margin="12,0,0,0"
                                                         Foreground="{DynamicResource TextSecondaryBrush}"

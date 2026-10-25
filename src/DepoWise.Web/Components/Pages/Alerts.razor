@@ -99,7 +99,7 @@ else
                     {
                         <div @onclick:stopPropagation="true">
                             <MudTooltip Text="Okundu işaretle — çan sayacından düşer; durumu kötüleşirse yeniden görünür.">
-                                <MudIconButton Icon="@Icons.Material.Filled.Done" Size="Size.Small" OnClick="@(() => MarkRead(a))" Disabled="_busy" />
+                                <MudIconButton aria-label="Okundu işaretle" Icon="@Icons.Material.Filled.Done" Size="Size.Small" OnClick="@(() => MarkRead(a))" Disabled="_busy" />
                             </MudTooltip>
                         </div>
                     }

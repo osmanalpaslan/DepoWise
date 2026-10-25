@@ -18,7 +18,7 @@
 <MudLayout>
     <MudAppBar Elevation="1" Color="Color.Primary">
         <MudTooltip Text="Menüyü aç / kapat">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+            <MudIconButton aria-label="Menüyü aç / kapat" Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
                            Edge="Edge.Start" OnClick="ToggleDrawer" />
         </MudTooltip>
         @* Logo — şeffaf, arka plan YOK (yalnız logo). *@
@@ -95,7 +95,7 @@
                Sayaç her sayfa geçişinde DEĞİL, oturum başında + Uyarılar ekranından dönünce tazelenir. *@
             <MudTooltip Text="Bildirimler — okunmamış uyarı sayısı">
                 <MudBadge Content="@_unreadAlerts" Visible="@(_unreadAlerts > 0)" Color="Color.Error" Overlap="true" Class="mr-1">
-                    <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
+                    <MudIconButton aria-label="Bildirimler" Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
                                    OnClick="@(() => Nav.NavigateTo("/alerts"))" />
                 </MudBadge>
             </MudTooltip>

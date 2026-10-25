@@ -113,7 +113,7 @@
                             <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => ResetMachine(context)">Tanımı Sıfırla</MudButton>
                         </MudTooltip>
                     }
-                    <MudTooltip Text="Sil"><MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => Delete(context)" /></MudTooltip>
+                    <MudTooltip Text="Sil"><MudIconButton aria-label="Sil" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => Delete(context)" /></MudTooltip>
                 </MudTd>
             </RowTemplate>
         </MudTable>

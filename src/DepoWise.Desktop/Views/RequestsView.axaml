@@ -79,21 +79,21 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormRequester}"
                                               PlaceholderText="Personel seç / ara..."/>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddRequesterCommand}"/>
+                                        <Button AutomationProperties.Name="Yeni talep eden ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddRequesterCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Depo Sorumlusu" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormWarehouse}"
                                               PlaceholderText="Personel seç / ara..."/>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddWarehouseCommand}"/>
+                                        <Button AutomationProperties.Name="Yeni depo sorumlusu ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddWarehouseCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Onay Veren" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormApprover}"
                                               PlaceholderText="Personel seç / ara..."/>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddApproverCommand}"/>
+                                        <Button AutomationProperties.Name="Yeni onay veren ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddApproverCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                             </StackPanel>
@@ -138,7 +138,7 @@
                                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <SelectableTextBlock Text="{Binding Display}" Classes="Helper" VerticalAlignment="Center"/>
-                                                        <Button Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu aracı çıkar"
+                                                        <Button AutomationProperties.Name="Bu aracı çıkar" Classes="Icon" Content="×" Width="20" Height="20" Padding="0" ToolTip.Tip="Bu aracı çıkar"
                                                                 Command="{Binding $parent[ItemsControl].((vm:RequestsViewModel)DataContext).RemoveNewItemVehicleCommand}"
                                                                 CommandParameter="{Binding}"/>
                                                     </StackPanel>

@@ -222,7 +222,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}"
                                       PlaceholderText="Makine tipi seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_types]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
+                            <Button AutomationProperties.Name="Yeni makine tipi ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_types]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewTypeName}" PlaceholderText="Yeni makine tipi"/>
@@ -238,7 +238,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}"
                                       PlaceholderText="Kategori seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_categories]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
+                            <Button AutomationProperties.Name="Yeni kategori ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_categories]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCatName}" PlaceholderText="Yeni kategori"/>
@@ -254,7 +254,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}"
                                       PlaceholderText="Marka seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_brands]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
+                            <Button AutomationProperties.Name="Yeni marka ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_brands]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka"/>
@@ -270,7 +270,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}"
                                       PlaceholderText="Model seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_models]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
+                            <Button AutomationProperties.Name="Yeni model ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [vehicle_models]}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewModelName}" PlaceholderText="Yeni model (önce marka seç)"/>
@@ -298,7 +298,7 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelDriver}"
                                       PlaceholderText="Sürücü seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
+                            <Button AutomationProperties.Name="Yeni sürücü ekle" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingDriver}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewDriverName}" PlaceholderText="Yeni sürücü (personel)"/>
@@ -330,14 +330,14 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:DetailPhoto">
                                 <Panel Margin="0,0,8,8" Width="84" Height="84">
-                                    <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                    <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
                                             Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
                                             CommandParameter="{Binding Image}">
                                         <Border CornerRadius="8" ClipToBounds="True">
                                             <Image Source="{Binding Image}" Stretch="UniformToFill"/>
                                         </Border>
                                     </Button>
-                                    <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                    <Button AutomationProperties.Name="Sil" Classes="Icon" Content="×" Width="24" Height="24"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
                                             IsVisible="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).CanDeletePhoto}"
                                             Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).DeleteDetailPhotoCommand}"
@@ -356,7 +356,7 @@
                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                     <Panel>
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                                 Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).RemovePhotoCommand}"
                                                 CommandParameter="{Binding}"/>
@@ -378,7 +378,7 @@
         <!-- Numaralı sayfalama + kayıt bilgisi — EN SOLDA, tablonun ÜSTÜNDE (kullanıcı isteği 2026-07-18). -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
-                <Button Classes="Secondary" Content="‹" Padding="10,4"
+                <Button AutomationProperties.Name="Önceki sayfa" Classes="Secondary" Content="‹" Padding="10,4"
                         Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
                 <ItemsControl ItemsSource="{Binding PageNumbers}">
                     <ItemsControl.ItemsPanel>
@@ -393,7 +393,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Classes="Secondary" Content="›" Padding="10,4"
+                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Secondary" Content="›" Padding="10,4"
                         Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
             </StackPanel>
             <SelectableTextBlock Text="{Binding Status}"
@@ -847,7 +847,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:DetailPhoto">
                             <Panel Margin="0,0,8,8" Width="72" Height="72">
-                                <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
                                         Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
                                         CommandParameter="{Binding Image}">
                                     <Border CornerRadius="6" ClipToBounds="True">

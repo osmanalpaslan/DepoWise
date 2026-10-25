@@ -20,13 +20,13 @@
                 }
                 else
                 {
-                    <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+                    <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton aria-label="Adı değiştir" Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
+                    <MudIconButton aria-label="Sil" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
                 }
                 @if (Auth.IsAdmin)
                 {
                     <MudTooltip Text="@(it.IsLocked ? "Kilidi aç: yeniden düzenlenebilir/silinebilir olur" : "Sabit yap: düzenlenemez/silinemez, yeni tanım eklemeyi etkilemez")">
-                        <MudIconButton Icon="@(it.IsLocked ? Icons.Material.Filled.LockOpen : Icons.Material.Filled.Lock)" Size="Size.Small" OnClick="@(() => ToggleLock(it))" />
+                        <MudIconButton aria-label="Kilidi aç / kilitle" Icon="@(it.IsLocked ? Icons.Material.Filled.LockOpen : Icons.Material.Filled.Lock)" Size="Size.Small" OnClick="@(() => ToggleLock(it))" />
                     </MudTooltip>
                 }
             </MudStack>

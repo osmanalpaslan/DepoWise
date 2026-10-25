@@ -19,7 +19,7 @@
 <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap" Spacing="2">
         <MudTooltip Text="Kolonları ayarla (bu tabloda sağ tık da açar) — yalnız sizin için geçerlidir">
-            <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+            <MudIconButton aria-label="Kolonları ayarla" Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
         </MudTooltip>
         <MudSpacer />
         @if (_hasFilters)

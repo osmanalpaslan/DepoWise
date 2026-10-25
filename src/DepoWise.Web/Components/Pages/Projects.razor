@@ -97,8 +97,8 @@
                 <MudTd>@Str(context, "location")</MudTd>
                 <MudTd>
                     <MudStack Row="true" Spacing="1">
-                        @if (Auth.CanEdit("branches")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
-                        @if (Auth.CanDelete("branches")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
+                        @if (Auth.CanEdit("branches")) { <MudIconButton aria-label="Düzenle" Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
+                        @if (Auth.CanDelete("branches")) { <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
                     </MudStack>
                 </MudTd>
             </RowTemplate>

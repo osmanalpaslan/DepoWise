@@ -63,8 +63,8 @@
                         <MudTd><span class="dw-badge @(Str(context, "status") == "passive" ? "dw-badge-muted" : "dw-badge-ok")">@Str(context, "statusDisplay")</span></MudTd>
                         <MudTd>
                             <MudStack Row="true" Spacing="1">
-                                @if (Auth.CanEdit("cost_centers")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
-                                @if (Auth.CanDelete("cost_centers")) { <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
+                                @if (Auth.CanEdit("cost_centers")) { <MudIconButton aria-label="Düzenle" Size="Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="@(() => BeginEdit(context))" /> }
+                                @if (Auth.CanDelete("cost_centers")) { <MudIconButton aria-label="Sil" Size="Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => Delete(Str(context, "id")))" /> }
                             </MudStack>
                         </MudTd>
                     </RowTemplate>
