@@ -489,3 +489,14 @@
   cümlesinden, ipucu yoksa simgeden ya da üstteki alan etiketinden ("Yeni marka ekle"). Web'de 45 `MudIconButton`'a `aria-label`
   (çevreleyen ipucu ya da simge adından). `ChatDock.razor` kullanıcının commit'lenmemiş sohbet işi olduğu için dokunulmadı (testte istisna).
 - **Testler:** `ErisilebilirlikTests` ER1–2 (iki ortam kaynak taraması); mutasyon 2/2; arayüz 52/52; web derlemesi 0 hata.
+
+### B8 — M-62 (2/4) "kaydedildi" bildirimi (F-095) + web Ekipler onay açığı
+- Masaüstü: kabuk, açık ekranın `Status` değişimini dinler; BAŞARI kalıbındaki mesaj ("kaydedildi/eklendi/silindi/iptal edildi…")
+  sağ altta 4 sn'lik bildirim olarak görünür (`Bildirimler` + `WindowNotificationManager`). Ekran kodları değişmedi (48 ekran
+  kapsanır); hata/olumsuz metin ("kaydedilemedi", "Hata: …", "yetkiniz yok") bildirime dönmez, ekranda kalır. Ekran değişince eski
+  dinleyici bırakılır. Web'de 50/64 sayfa zaten başarı bildirimi (Snackbar) gösteriyordu; eksik olan Ekipler'e eklendi.
+- **Ara bulgu:** web Ekipler'de ekip silme ve üye çıkarma ONAYSIZDI (CLAUDE.md §3). Onay kuralı testi yalnız adı "Sil/Delete/
+  Remove" ile BAŞLAYAN işleyicileri tarıyordu → `EkipSil`, `UyeCikar` kaçmıştı. Onay eklendi; test adı bu sözcüklerle BİTENLERİ de
+  tarıyor (yalnız `TopluSatirSil` — kaydedilmemiş form satırı — gerekçesiyle muaf). Masaüstü Ekipler yalnız görüntüleme.
+- **Testler:** arayüz UIT17 (bildirim kuralı) + UIT18 (bildirim kartı çizilir, ekran görüntüsü), `BildirimBaglantisiTests` BB1–2,
+  `IslemOnaylariTests` genişletildi; mutasyon 1/1 (Ekipler onayı); arayüz 54/54; web derlemesi 0 hata.

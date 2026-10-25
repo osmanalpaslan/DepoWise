@@ -1,5 +1,8 @@
 @page "/teams"
 @inject ApiClient Api
+@* M-62: silme/çıkarma onayı (CLAUDE.md §3) + kaydedildi bildirimi *@
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
 
 @*
     ⭐ ARA İŞ 5 / ALT FAZ 1 (ADR-187) — EKİPLER (web).
@@ -228,6 +231,7 @@ else
         if (err is not null) { _hata = err; return; }
         _yeniAd = "";
         await EkipleriYukle();
+        Snackbar.Add("Ekip eklendi.", Severity.Success);
     }
 
     private async Task EkipKaydet()
@@ -240,17 +244,21 @@ else
         var id = _secili.Id;
         await EkipleriYukle();
         await EkipSec(id);
+        Snackbar.Add("Ekip kaydedildi.", Severity.Success);
     }
 
     private async Task EkipSil()
     {
         _hata = null;
         if (_secili is null) return;
+        // M-62: silme onaysızdı (onay kuralı testi yalnız "Sil" ile BAŞLAYAN adları tarıyordu → kaçmıştı)
+        if (!await Dialog.ConfirmDelete($"«{_secili.Name}» ekibi")) return;
         var err = await Api.DeleteAsync($"/api/teams/{_secili.Id}");
         if (err is not null) { _hata = err; return; }
         _secili = null;
         _uyeler = new();
         await EkipleriYukle();
+        Snackbar.Add("Ekip silindi.", Severity.Success);
     }
 
     private async Task UyeEkle()
@@ -261,16 +269,19 @@ else
         if (err is not null) { _hata = err; return; }
         _eklenecekUserId = null;
         await UyeleriYukle(_secili.Id);
+        Snackbar.Add("Üye eklendi.", Severity.Success);
     }
 
     private async Task UyeCikar(string userId)
     {
         _hata = null;
         if (_secili is null) return;
+        if (!await Dialog.ConfirmDelete("Üye ekipten çıkarılacak.")) return;
         var err = await Api.DeleteAsync($"/api/teams/{_secili.Id}/members/{userId}");
         if (err is not null) { _hata = err; return; }
         var id = _secili.Id;
         await EkipleriYukle();
         await EkipSec(id);
+        Snackbar.Add("Üye ekipten çıkarıldı.", Severity.Success);
     }
 }

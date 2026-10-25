@@ -283,6 +283,48 @@ public class YeniEkranlarArayuzTests
         Assert.Equal(3, new MaintenanceViewModel(s, 3).SelectedTab);
     }
 
+    /// <summary>M-62 (2/4): durum metninden "kaydedildi" bildirimi — yalnız başarı; hata/olumsuz metin bildirime dönmez.</summary>
+    [Fact]
+    public void UIT17_Basari_Bildirimi_Kurali()
+    {
+        foreach (var basari in new[] { "Kaydedildi.", "Excel kaydedildi: C:\\x.xlsx", "Şablon eklendi.", "Yakıt dağıtımı iptal edildi.",
+                                       "Silindi — Çöp Kutusu'ndan geri alınabilir.", "3 kalem teslim kaydedildi.", "Yetkiler kaydedildi." })
+            Assert.True(DepoWise.Desktop.Bildirimler.BasariMi(basari), basari);
+        foreach (var degil in new[] { null, "", "Hata: bağlantı yok", "Kaydedilemedi: alan eksik", "Excel dışa aktarma yetkiniz yok.",
+                                      "Silme başarısız", "Kayıt bulunamadı", "3 satır — Stok Durumu", "Fotoğraf silinemedi" })
+            Assert.False(DepoWise.Desktop.Bildirimler.BasariMi(degil), degil ?? "null");
+
+        var gelen = new List<string>();
+        void Al(string m) => gelen.Add(m);
+        DepoWise.Desktop.Bildirimler.BasariGoster += Al;
+        try
+        {
+            DepoWise.Desktop.Bildirimler.Durum("  Şube silindi.  ");
+            DepoWise.Desktop.Bildirimler.Durum("Hata: silinemedi");
+        }
+        finally { DepoWise.Desktop.Bildirimler.BasariGoster -= Al; }
+        Assert.Equal(new[] { "Şube silindi." }, gelen);
+    }
+
+    /// <summary>M-62 (2/4): bildirim kartı gerçekten çizilir (tema şablonu var) — ana penceredeki ile aynı ayarlar.</summary>
+    [AvaloniaFact]
+    public void UIT18_Bildirim_Karti_Cizilir()
+    {
+        var w = Ac(new TextBlock { Text = "Ekran" }, 900, 500);
+        var yonetici = new Avalonia.Controls.Notifications.WindowNotificationManager(w)
+        {
+            Position = Avalonia.Controls.Notifications.NotificationPosition.BottomRight, MaxItems = 3,
+        };
+        Dispatcher.UIThread.RunJobs();
+        yonetici.Show(new Avalonia.Controls.Notifications.Notification("İşlem tamam", "Malzeme kaydedildi.",
+            Avalonia.Controls.Notifications.NotificationType.Success, TimeSpan.FromSeconds(30)));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains(w.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Malzeme kaydedildi.");
+        for (int i = 0; i < 60; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }   // açılış animasyonu
+        Goruntu(w, "bildirim-kaydedildi");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

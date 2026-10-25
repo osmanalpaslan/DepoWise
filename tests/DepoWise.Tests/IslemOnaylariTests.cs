@@ -46,6 +46,8 @@ public class IslemOnaylariTests
         // 2026-10-11: rapor filtresinde seçilen malzeme ÇİPİNİ çıkarır — kayıt değil, henüz çalıştırılmamış filtre.
         "RemoveMaterial",
         "RemoveEquivalentPick", "RemovePhoto",
+        // 2026-10-25 (M-62): toplu yakıt girişinde henüz kaydedilmemiş SATIRI çıkarır — form içi.
+        "TopluSatirSil",
         // Satır içi "+" ekleme kutusunu kapatır:
         "CancelAddSub", "CancelAddTechnician", "CancelAddMntSub", "CancelAddCategory",
         "CancelAddSubCategory", "CancelAddModel", "CancelAddDriver", "CancelAddPersonnel",
@@ -62,7 +64,9 @@ public class IslemOnaylariTests
     };
 
     private static readonly Regex Duzenle = new(@"^(BeginEdit|Edit|Duzenle|StartEdit|OpenEdit|EditRow|EditParty|EditAccount|BeginEditRequest|BeginEditDistribution|BeginEditDist|BeginEditDef)\w*$", RegexOptions.IgnoreCase);
-    private static readonly Regex Sil = new(@"^(Delete|Sil|Remove)\w*$", RegexOptions.IgnoreCase);
+    // ⭐ M-62 (2026-10-25): adı Sil/Çıkar/Delete/Remove ile BİTEN işleyiciler de (EkipSil, UyeCikar, KitSil…) — yalnız
+    // "Sil…" ile başlayanlar taranınca web Ekipler'de onaysız silme kaçmıştı.
+    private static readonly Regex Sil = new(@"^(Delete|Sil|Remove)\w*$|^\w+(Sil|Cikar|Delete|Remove)$", RegexOptions.IgnoreCase);
     private static readonly Regex Iptal = new(@"^(Cancel|Iptal)\w*$", RegexOptions.IgnoreCase);
 
     private static List<string> OnaysizBul(string kokDizin, string uzanti, Regex onayDeseni)

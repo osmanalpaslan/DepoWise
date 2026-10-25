@@ -89,7 +89,21 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// </summary>
     partial void OnCurrentPageChanging(ViewModelBase? value)
     {
+        if (_currentPage is not null) _currentPage.PropertyChanged -= SayfaDurumuDegisti;   // M-62 (2/4)
         if (!ReferenceEquals(_currentPage, value)) (_currentPage as IDisposable)?.Dispose();
+    }
+
+    /// <summary>⭐ M-62 (2/4) (F-095): açık ekranın <c>Status</c> metni değişince başarı mesajı bildirime (toast) iletilir —
+    /// ekranlar değişmeden (bkz. <see cref="Bildirimler"/>).</summary>
+    partial void OnCurrentPageChanged(ViewModelBase? value)
+    {
+        if (value is not null) value.PropertyChanged += SayfaDurumuDegisti;
+    }
+
+    private static void SayfaDurumuDegisti(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is null || e.PropertyName != "Status") return;
+        if (sender.GetType().GetProperty("Status")?.GetValue(sender) is string durum) Bildirimler.Durum(durum);
     }
     [ObservableProperty] private string _currentTitle = "";
     [ObservableProperty] private string _currentContext = "";

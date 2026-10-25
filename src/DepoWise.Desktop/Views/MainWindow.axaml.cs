@@ -12,6 +12,30 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
+    // ⭐ M-62 (2/4) (F-095): "kaydedildi" bildirimi — sağ altta, 4 sn, en fazla 3 tane. Abonelik pencere açıkken.
+    private Avalonia.Controls.Notifications.WindowNotificationManager? _bildirim;
+
+    protected override void OnOpened(System.EventArgs e)
+    {
+        base.OnOpened(e);
+        _bildirim = new Avalonia.Controls.Notifications.WindowNotificationManager(this)
+        {
+            Position = Avalonia.Controls.Notifications.NotificationPosition.BottomRight,
+            MaxItems = 3,
+        };
+        Bildirimler.BasariGoster += BildirimGoster;
+    }
+
+    protected override void OnClosed(System.EventArgs e)
+    {
+        Bildirimler.BasariGoster -= BildirimGoster;
+        base.OnClosed(e);
+    }
+
+    private void BildirimGoster(string mesaj)
+        => Avalonia.Threading.Dispatcher.UIThread.Post(() => _bildirim?.Show(new Avalonia.Controls.Notifications.Notification(
+            "İşlem tamam", mesaj, Avalonia.Controls.Notifications.NotificationType.Success, System.TimeSpan.FromSeconds(4))));
+
     /// <summary>BAR-01 (ADR-177): Ctrl+K → global arama kutusuna odak + tümünü seç. USB barkod/QR
     /// okuyucuyla taramadan önce tek tuşla kutuya gelinir; seçim sayesinde yeni tarama eskisini ezer.
     /// Yalnız kutu görünürken (giriş sonrası üst bar) çalışır; başka kısayolla çakışmaz (mevcut tek
