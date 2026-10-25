@@ -767,3 +767,13 @@
   "herhangi bir hata" bekliyordu ve mevcut şube kapsam kapısı da (belirsiz mesajla) engelliyordu; yeni kural ondan SONRA çalıştığı
   için hiç devreye girmiyordu → kural kapsam kapısının ÖNÜNE alındı (anlaşılır mesaj), TA4 hata türü+mesajıyla kesinleştirildi; ikinci
   mutasyon (iade → fire) TA2 ile yakalandı.
+
+### İstek 5–7 — Web açılış animasyonu, menü okunaklılığı, "Listeye Ekle" kehribar
+- **5:** web'de girişten önceki açılış videosu kaldırıldı (çağrı, JS işlevi, stil, 1,2 MB dosya); masaüstü değişmedi; e2e "animasyon yok".
+- **6:** menü ekran adları belirgin (masaüstü: tam opak, ana metin rengi, 13,5 pt, orta kalınlık — eskiden %82 opak/gri/12,5 pt; web:
+  .9rem, orta kalınlık, ana metin rengi). Üzerine gelince NET vurgu: kehribar yumuşak zemin + solda kehribar çizgi + ikon kehribar +
+  hafif sağa kayma (yumuşak geçiş; web'de hareket azaltma tercihine saygılı); seçili satır kalın. Web kuralları mobil katmanın dışında.
+- **7:** "Listeye Ekle" (Zimmet, Sayım, Giriş-Çıkış) kehribar dolu — masaüstü vurgu rengi (Primary + işaret sınıfı `ListeyeEkle`),
+  web sabit kehribar (`Color.Warning`, tema rengi değişse de kehribar kalır).
+- **Testler:** `KullaniciIstekleri1025Tests` KI1–KI3; arayüz UIT34 (menü kabuğu çizilir, opaklık/boyut/hover kayması, ekran görüntüsü
+  `menu-hover`); menü/tasarım/mobil/düğme sırası/şablon/erişilebilirlik paketi 159/159; arayüz 70/70; web derlemesi temiz.

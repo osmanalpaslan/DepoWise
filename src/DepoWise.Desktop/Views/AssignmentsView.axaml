@@ -101,7 +101,7 @@
                                 <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
                             </ctrl:FormField>
                             <!-- ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem; liste boşsa tekli teslim aynen çalışır. -->
-                            <Button Classes="Secondary" Content="+ Listeye Ekle" Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
+                            <Button Classes="Primary ListeyeEkle" Content="+ Listeye Ekle" Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
                                     IsVisible="{Binding IsIssue}"
                                     ToolTip.Tip="Seçili malzeme/ekipmanı teslim listesine ekler. Birden fazla kalem ekleyip tek seferde kaydedebilirsiniz."/>
                             <!-- ⭐ M-50: ZİMMET KİTİ (SET) — sık kullanılmadığı için açılır panelde (form satırında yer kaplamaz) -->

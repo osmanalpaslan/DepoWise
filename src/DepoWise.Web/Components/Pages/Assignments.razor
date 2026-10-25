@@ -81,7 +81,7 @@
             @if (_op == "issue")
             {
                 <MudItem xs="12" md="3" Class="d-flex align-center">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddLine">Listeye Ekle</MudButton>
+                    @* 2026-10-25 kullanıcı isteği: "Listeye Ekle" kehribar (dolu) *@<MudButton Variant="Variant.Filled" Color="Color.Warning" Class="dw-listeye-ekle" StartIcon="@Icons.Material.Filled.Add" OnClick="AddLine">Listeye Ekle</MudButton>
                 </MudItem>
             }
             <MudItem xs="6" md="3">

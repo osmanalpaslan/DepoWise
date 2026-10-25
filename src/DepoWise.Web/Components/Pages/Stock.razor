@@ -147,7 +147,8 @@
             {
                 <MudItem xs="12">
                     <div class="d-flex align-center flex-wrap" style="gap:12px;">
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                        @* 2026-10-25 kullanıcı isteği: "Listeye Ekle" kehribar (dolu) *@
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="dw-listeye-ekle" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlaylistAdd"
                                    OnClick="AddExitLine"
                                    title="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz.">
                             Listeye Ekle

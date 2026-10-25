@@ -75,7 +75,7 @@
                                 </ctrl:FormField>
                                 <SelectableTextBlock Text="{Binding DiffText}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Bottom" Margin="0,0,0,10"
                                                      IsVisible="{Binding SistemGorunur}"/>
-                                <Button Classes="Secondary" Content="+ Listeye Ekle" Command="{Binding AddCountLineCommand}" VerticalAlignment="Bottom"
+                                <Button Classes="Primary ListeyeEkle" Content="+ Listeye Ekle" Command="{Binding AddCountLineCommand}" VerticalAlignment="Bottom"
                                         ToolTip.Tip="Seçili malzemeyi ve sayılan miktarı listeye ekler; sonra başka malzeme sayabilirsiniz."/>
                             </WrapPanel>
                             <!-- Kullanıcı isteği 2026-10-24: arama sonucunda KOD — AD -->

@@ -208,7 +208,7 @@
                 <!-- Kullanıcı isteği 2026-10-24: sepet Yeni Kayıt'ta da (mevcut malzemeler; miktar + birim fiyat) -->
                 <StackPanel Spacing="8" IsVisible="{Binding ShowExitLines}">
                     <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12">
-                        <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddExitLineCommand}"
+                        <Button Classes="Primary ListeyeEkle" Content="+ Listeye Ekle" Command="{Binding AddExitLineCommand}"
                                 ToolTip.Tip="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz."/>
                         <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding ExitLinesSummary}"/>
                     </WrapPanel>
