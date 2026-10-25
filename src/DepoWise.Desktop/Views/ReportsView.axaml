@@ -21,6 +21,16 @@
                  Excel disa aktarma dugmesi pencere DISINDA kaliyordu (1154 px de 91 px olculdu).
                  WrapPanel dar pencerede alt satira sarar; genis pencerede gorunum aynidir. -->
             <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10" VerticalAlignment="Bottom">
+                <!-- ⭐ M-58: kayıtlı görünüm (kişisel) — seçilince filtreler yüklenir ve rapor hemen çalışır. -->
+                <ctrl:FormField Label="Kayıtlı Görünüm" Width="200" IsVisible="{Binding HasGorunum}">
+                    <ComboBox Classes="Field" ItemsSource="{Binding Gorunumler}" SelectedItem="{Binding SeciliGorunum}"
+                              HorizontalAlignment="Stretch" PlaceholderText="Görünüm seçin"
+                              ToolTip.Tip="Kaydettiğiniz rapor ve filtre seçimini tek tıkla açar ve raporu çalıştırır.">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="rep:RaporGorunumu"><TextBlock Text="{Binding Ad}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrl:FormField>
                 <!-- Rapor listesi TEK KATALOĞA (ReportItems) göre; ComboBox raporun adını gösterir. -->
                 <ctrl:FormField Label="Rapor" Width="220">
                     <ComboBox Classes="Field" ItemsSource="{Binding ReportItems}"
@@ -323,6 +333,16 @@
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
                 <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
+                <!-- ⭐ M-58: PDF — Excel ile AYNI tablo ve AYNI dışa aktarma yetkisi. -->
+                <Button Content="PDF" Command="{Binding ExportPdfCommand}" VerticalAlignment="Bottom"
+                        ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu yazdırmak için PDF olarak kaydeder (yetki gerekir)."/>
+                <ctrl:FormField Label="Görünüm adı" Width="170">
+                    <TextBox Classes="Field" Text="{Binding GorunumAdi}" PlaceholderText="ör. Aylık yakıt" MaxLength="60"/>
+                </ctrl:FormField>
+                <Button Content="Görünümü Kaydet" Command="{Binding GorunumKaydetCommand}" VerticalAlignment="Bottom"
+                        ToolTip.Tip="Seçili raporu ve filtreleri bu adla kaydeder (tarih aralığı kaydedilmez)."/>
+                <Button Content="Görünümü Sil" Command="{Binding SilGorunumCommand}" VerticalAlignment="Bottom"
+                        IsVisible="{Binding HasGorunum}" ToolTip.Tip="Listede seçili kayıtlı görünümü siler."/>
             </WrapPanel>
         </Border>
 

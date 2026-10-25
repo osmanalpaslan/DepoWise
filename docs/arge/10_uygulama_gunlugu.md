@@ -432,3 +432,16 @@
   kayıt, iptal (`meter_void`) ve yeniden hesaplama (`recalc:*`) kayıtları dışlandı (araç geçmişi ekranıyla aynı ilke).
 - **Testler:** `YoneticiRaporlariTests` YR1–8 + `PostgresYoneticiRaporlariTests` (PostgreSQL); rapor sayısı kilitleri 33;
   mutasyon 7/7 (depo kapsamı ×2, fiyat gizleme, tarih kesimi, firma süzgeci, sayaç düşüşü, aynı gün çift sayım).
+
+### B7 — M-58 kayıtlı rapor görünümü + rapor PDF'i (F-122)
+- **Kayıtlı görünüm** (iki ortam): Raporlar ekranında "Görünüm adı" + "Görünümü Kaydet" seçili raporu ve filtreleri kişisel olarak
+  saklar; "Kayıtlı Görünüm" listesinden seçilince filtreler yüklenir ve rapor HEMEN çalışır; "Görünümü Sil" onay ister. Ortak model
+  `RaporGorunumu` / `RaporGorunumleri` (web csproj bağlantısıyla aynı dosya): ad zorunlu, ≤60 karakter, aynı ad (Türkçe büyük/küçük
+  duyarsız) üzerine yazar, en fazla 30. Saklama `user_list_preferences` içinde `pref:report-views` anahtarı (son seçim deseni,
+  MIGRATION YOK); masaüstü yerel + çevrimiçiyse sunucu (web aynı kaydı okur). Tarih aralığı kaydedilmez (raporun varsayılanı gelir).
+  Yüklenen kimlikler yalnız ekrandaki seçeneklerle kesiştirilir; kapsam yine sunucuda uygulanır → görünüm kapsam genişletemez.
+- **Rapor PDF'i:** sunucu `?format=pdf` zaten vardı, düğme yoktu → iki ortamda "PDF" (Excel ile aynı tablo, aynı dışa aktarma yetkisi;
+  masaüstü ortak `YazdirmaYardimcisi` — firma/şube/kullanıcı başlıklı).
+- **Testler:** `RaporGorunumuTests` RG1–6 (biçim, ad kuralları, kişisel saklama, iki platform alan nöbetçisi, PDF yolu), arayüz UIT16;
+  mutasyon 6/6. Ara not: nöbetçi testin ilk sayım deseni bozulmamış kodda da düşüyordu (şube satırı farklı yazılmış) — mutasyon
+  sonuçları temiz kodda doğrulanıp yeniden koşuldu.

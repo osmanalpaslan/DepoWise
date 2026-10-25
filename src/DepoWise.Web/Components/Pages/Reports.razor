@@ -6,6 +6,8 @@
 @inject AuthState Auth
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject IDialogService Dialog
+@using DepoWise.Application.Reports
 
 @*  ============================================================================
     Raporlar — ORTAK MİMARİ (kullanıcı isteği 2026-08-07). Rapor listesi, filtre
@@ -305,8 +307,38 @@ else
                                OnClick="ExportExcel" Disabled="_exporting">Excel'e Aktar</MudButton>
                 </MudTooltip>
             </MudItem>
+            @* ⭐ M-58: PDF — Excel ile AYNI uç, AYNI süzgeçler ve AYNI yetki (?format=pdf). *@
+            <MudItem xs="6" md="1">
+                <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu yazdırmak için PDF olarak indirir (yetki gerekir).">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               OnClick="ExportPdf" Disabled="_exporting">PDF</MudButton>
+                </MudTooltip>
+            </MudItem>
         }
     </MudGrid>
+    @* ⭐ M-58 — KAYITLI GÖRÜNÜM (kişisel): rapor + filtre seçimi adla saklanır; seçilince filtreler yüklenir ve
+       rapor hemen çalışır. Masaüstüyle AYNI kayıt (RaporGorunumleri). Tarih aralığı kaydedilmez. *@
+    <div class="d-flex flex-wrap align-center mt-3" style="gap:8px;">
+        @if (_gorunumler.Count > 0)
+        {
+            <MudSelect T="string" Value="_gorunumSecili" ValueChanged="GorunumSecildi" Label="Kayıtlı Görünüm"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:200px; max-width:260px;">
+                @foreach (var g in _gorunumler) { <MudSelectItem T="string" Value="@g.Ad">@g.Ad</MudSelectItem> }
+            </MudSelect>
+        }
+        <MudTextField T="string" @bind-Value="_gorunumAdi" Label="Görünüm adı" MaxLength="60"
+                      Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px;" />
+        <MudTooltip Text="Seçili raporu ve filtreleri bu adla kaydeder (tarih aralığı kaydedilmez).">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.BookmarkAdd" OnClick="GorunumKaydet"
+                       Disabled="@(_sel is null)">Görünümü Kaydet</MudButton>
+        </MudTooltip>
+        @if (_gorunumSecili is not null)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="SilGorunum">Görünümü Sil</MudButton>
+        }
+        @if (_gorunumMesaj is not null) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@_gorunumMesaj</MudText> }
+    </div>
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
 
@@ -722,6 +754,7 @@ else
         catch { }
         if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
         await LoadScope();
+        await GorunumleriYukle();   // M-58: kişisel kayıtlı görünümler
         ApplyDateDefault();
     }
 
@@ -867,7 +900,11 @@ else
     }
 
     private bool _exporting;
-    private async Task ExportExcel()
+    private Task ExportExcel() => ExportFile(pdf: false);
+    private Task ExportPdf() => ExportFile(pdf: true);   // M-58
+
+    /// <summary>Excel ya da PDF (M-58) — AYNI gövde, AYNI uç; PDF yalnız ?format=pdf ekler.</summary>
+    private async Task ExportFile(bool pdf)
     {
         if (_exporting) return;
         _exporting = true; _error = null;
@@ -904,14 +941,152 @@ else
                 sortKey = _sel?.UsesSort == true && !string.IsNullOrWhiteSpace(_sortSel) ? _sortSel : null,
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
-            var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");
-            if (status == 403) { _error = "Excel dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun."; return; }
-            if (bytes is null) { _error = "Excel dışa aktarma başarısız."; return; }
+            var tur = pdf ? "PDF" : "Excel";
+            var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export" + (pdf ? "?format=pdf" : ""),
+                body, pdf ? "Rapor.pdf" : "Rapor.xlsx");
+            if (status == 403) { _error = $"{tur} dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun."; return; }
+            if (bytes is null) { _error = $"{tur} dışa aktarma başarısız."; return; }
             await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
         catch (Exception ex) { _error = "Hata: " + ex.Message; }
         finally { _exporting = false; }
+    }
+
+    // ═══ M-58 — KAYITLI RAPOR GÖRÜNÜMÜ (kişisel; masaüstüyle aynı kayıt) ═══
+    private List<RaporGorunumu> _gorunumler = new();
+    private string? _gorunumSecili, _gorunumAdi, _gorunumMesaj;
+    private static string GorunumUrl => "/api/me/list-columns/" + Uri.EscapeDataString(RaporGorunumleri.PrefKey);
+
+    private async Task GorunumleriYukle()
+    {
+        try
+        {
+            var d = await Api.GetObjectAsync(GorunumUrl);
+            var kayit = d.TryGetProperty("columns", out var c) && c.ValueKind == JsonValueKind.Array
+                ? c.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToList()
+                : new List<string>();
+            _gorunumler = RaporGorunumleri.Coz(kayit);
+        }
+        catch { _gorunumler = new(); }   // tercih okunamadı → liste boş, ekran çalışır
+    }
+
+    private async Task Sakla(List<RaporGorunumu> liste)
+    {
+        var r = await Api.PostJsonAsync(GorunumUrl, new { columns = RaporGorunumleri.Yaz(liste) });
+        if (r is null) throw new InvalidOperationException("sunucuya yazılamadı");
+        _gorunumler = liste;
+    }
+
+    /// <summary>Ekrandaki rapor + filtre seçiminden görünüm (yalnız raporun kullandığı filtreler) — masaüstüyle aynı alanlar.</summary>
+    private RaporGorunumu MevcutGorunum(string ad)
+    {
+        var g = new RaporGorunumu { Ad = ad, Rapor = _selKey };
+        if (_sel is not { } d) return g;
+        if (d.UsesBranch && _showBranchSelect) g.Ekle(RaporGorunumleri.Alan.Branch, _branchSel);
+        if (d.UsesVehicle) g.Ekle(RaporGorunumleri.Alan.Vehicle, _vehicleSel);
+        if (d.UsesVehicleType) g.Ekle(RaporGorunumleri.Alan.VehicleType, _vehTypeSel);
+        if (d.UsesMaintenanceDef) g.Ekle(RaporGorunumleri.Alan.MaintenanceDef, _maintDefSel);
+        if (d.UsesTechnician) g.Ekle(RaporGorunumleri.Alan.Technician, _techSel);
+        if (d.UsesSupplier) g.Ekle(RaporGorunumleri.Alan.Supplier, _supplierSel);
+        if (d.UsesRequester) g.Ekle(RaporGorunumleri.Alan.Requester, _requesterSel);
+        if (d.UsesStatus) g.Ekle(RaporGorunumleri.Alan.Status, _statusSel);
+        if (d.UsesRecipient) g.Ekle(RaporGorunumleri.Alan.Recipient, _recipientSel);
+        if (d.UsesLocation) g.Ekle(RaporGorunumleri.Alan.Location, _locationSel);
+        if (d.UsesMovementType) g.Ekle(RaporGorunumleri.Alan.MovementType, _movTypeSel);
+        if (d.UsesActivityType) g.Ekle(RaporGorunumleri.Alan.ActivityType, _activityTypeSel);
+        if (d.UsesMaterial)
+        {
+            g.Ekle(RaporGorunumleri.Alan.Material, _materialSels.Select(m => m.Id));
+            foreach (var m in _materialSels) g.Etiket[m.Id] = EtiketYaz(m.Name);
+        }
+        if (d.UsesParty && _partySel is not null)
+        {
+            g.Ekle(RaporGorunumleri.Alan.Party, new[] { _partySel.Id });
+            g.Etiket[_partySel.Id] = EtiketYaz(_partySel.Name);
+        }
+        if (d.UsesSearch && !string.IsNullOrWhiteSpace(_searchText)) g.Arama = _searchText.Trim();
+        if (d.UsesSort && !string.IsNullOrWhiteSpace(_sortSel)) g.Siralama = _sortSel;
+        return g;
+    }
+
+    /// <summary>Web seçicisi "KOD — Ad" gösterir; masaüstü kod ve adı ayrı saklar ("kod␟ad"). İki yön de çözülür.</summary>
+    private static string EtiketYaz(string goruntu)
+    {
+        var i = goruntu.IndexOf(" — ", StringComparison.Ordinal);
+        return i < 0 ? "\u001F" + goruntu : goruntu[..i] + "\u001F" + goruntu[(i + 3)..];
+    }
+
+    private static string EtiketOku(RaporGorunumu g, string id)
+    {
+        if (!g.Etiket.TryGetValue(id, out var e)) return id;
+        var i = e.IndexOf('\u001F');
+        if (i < 0) return e;
+        var kod = e[..i]; var ad = e[(i + 1)..];
+        return kod.Length == 0 ? ad : kod + " — " + ad;
+    }
+
+    private async Task GorunumKaydet()
+    {
+        try
+        {
+            var g = MevcutGorunum(_gorunumAdi ?? "");
+            await Sakla(RaporGorunumleri.Kaydet(_gorunumler, g));
+            _gorunumMesaj = $"Görünüm kaydedildi: {g.Ad}";
+            _gorunumAdi = null; _gorunumSecili = null;
+        }
+        catch (ArgumentException ex) { _gorunumMesaj = ex.Message; }
+        catch (Exception ex) { _gorunumMesaj = "Görünüm kaydedilemedi: " + ex.Message; }
+    }
+
+    private async Task SilGorunum()
+    {
+        if (_gorunumSecili is not { } ad) return;
+        if (!await Dialog.ConfirmDelete($"«{ad}» görünümü")) return;
+        try
+        {
+            await Sakla(RaporGorunumleri.Sil(_gorunumler, ad));
+            _gorunumMesaj = $"Görünüm silindi: {ad}";
+            _gorunumSecili = null;
+        }
+        catch (Exception ex) { _gorunumMesaj = "Görünüm silinemedi: " + ex.Message; }
+    }
+
+    /// <summary>Görünümü uygular: kimlikler YALNIZ ekrandaki seçeneklerle kesiştirilir (görünüm kapsamı genişletemez;
+    /// sunucu ayrıca uygular), sonra rapor hemen çalışır.</summary>
+    private async Task GorunumSecildi(string? ad)
+    {
+        _gorunumSecili = ad;
+        var g = _gorunumler.FirstOrDefault(x => x.Ad == ad);
+        if (g is null) return;
+        if (_catalog.All(x => x.Key != g.Rapor)) { _gorunumMesaj = $"«{g.Ad}» görünümünün raporu bu ekranda yok ya da yetkiniz kalmadı."; return; }
+        OnSelect(g.Rapor);
+        static HashSet<string> Kes(IReadOnlyList<string> ids, IEnumerable<string> secenek)
+        {
+            var s = new HashSet<string>(secenek, StringComparer.Ordinal);
+            return ids.Where(s.Contains).ToHashSet(StringComparer.Ordinal);
+        }
+        _branchSel = _showBranchSelect ? Kes(g.Kimlikler(RaporGorunumleri.Alan.Branch), _branches.Select(x => x.Id)) : new HashSet<string>();
+        _vehicleSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Vehicle), _vehicles.Select(x => x.Id));
+        _vehTypeSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.VehicleType), _vehicleTypes.Select(x => x.Id));
+        _maintDefSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.MaintenanceDef), _maintenanceDefs.Select(x => x.Id));
+        _techSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Technician), _technicians.Select(x => x.Id));
+        _supplierSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Supplier), _suppliers.Select(x => x.Id));
+        _requesterSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Requester), _technicians.Select(x => x.Id));
+        _statusSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Status), _requestStatuses.Select(x => x.Id));
+        _recipientSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Recipient), _technicians.Select(x => x.Id));
+        _locationSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.Location), _branches.Select(x => x.Id).Append(""));
+        _movTypeSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.MovementType), DepoWise.Application.Ui.MovementTypeOptions.All.Select(x => x.Key));
+        _activityTypeSel = Kes(g.Kimlikler(RaporGorunumleri.Alan.ActivityType), DepoWise.Application.Ui.DailyActivityTypeOptions.All.Select(x => x.Key));
+        _materialSels.Clear();
+        foreach (var id in g.Kimlikler(RaporGorunumleri.Alan.Material)) _materialSels.Add(new ApiClient.Opt(id, EtiketOku(g, id)));
+        _materialSel = _materialSels.LastOrDefault();
+        var cari = g.Kimlikler(RaporGorunumleri.Alan.Party).FirstOrDefault();
+        _partySel = cari is null ? null : new ApiClient.Opt(cari, EtiketOku(g, cari));
+        _searchText = g.Arama;
+        if (g.Siralama is { } sk && SortSecenekleri(g.Rapor).Any(o => o.Key == sk)) _sortSel = sk;
+        _gorunumMesaj = null;
+        await Run();
     }
 
     /// <summary>Sunucu hücresini ayrıştırır: {n,t} nesnesi → (görüntü t + HAM sayı n); ham sayı → sayısal;

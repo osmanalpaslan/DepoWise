@@ -301,6 +301,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadMovementTypes();
         LoadActivityTypes();
         ApplyDateDefault();
+        GorunumleriYukle();   // M-58: kişisel kayıtlı rapor görünümleri (yerel + çevrimiçiyse sunucu)
     }
 
     private void LoadBranches()

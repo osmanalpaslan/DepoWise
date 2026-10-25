@@ -135,3 +135,6 @@
   saklanmıyor; hareket anı fiyatıyla ortalama maliyet ayrı bir karar ister). Makine kullanım oranında "çalışılan gün" yakıt fişi ve
   ileri giden sayaç kaydından gelir; yalnız günlük faaliyet kaydı girilen (yakıtsız, sayaçsız) gün çalışma sayılmaz. Sayaç
   kaydının günü KAYIT anıdır (geri tarihli girilen sayaç düzeltmesi kayıt gününe düşer).
+- **M-58 kayıtlı görünüm:** tarih aralığı saklanmaz (görünüm açılınca «Bu Ay» ya da raporun varsayılanı). Masaüstü çevrimdışıyken
+  kaydedilen görünüm sunucuya o an gitmez; bir sonraki kayıt/silmede sunucuya yazılır. Son görünüm silinince sunucu boş liste döner ve
+  masaüstü yerel kopyayı kullanır (başka bilgisayarda eski görünüm görünebilir; kaydet/sil ile eşitlenir). Görünüm paylaşılamaz (kişisel).

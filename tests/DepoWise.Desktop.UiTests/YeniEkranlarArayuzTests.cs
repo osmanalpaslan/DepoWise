@@ -282,4 +282,39 @@ public class YeniEkranlarArayuzTests
 
         Assert.Equal(3, new MaintenanceViewModel(s, 3).SelectedTab);
     }
+
+    /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
+    /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
+    [AvaloniaFact]
+    public void UIT16_Rapor_Kayitli_Gorunum_Ve_Pdf()
+    {
+        var s = Ortam();
+        var vm = new ReportsViewModel(s, managerMode: true);
+        vm.SelectedReport = vm.ReportItems.First(r => r.Key == "stock-negative");
+        var depo = vm.Locations.First();
+        depo.IsChecked = true;
+        vm.GorunumAdi = "UI eksi stok";
+        vm.GorunumKaydetCommand.Execute(null);
+        Assert.Contains(vm.Gorunumler, g => g.Ad == "UI eksi stok");
+
+        vm.SelectedReport = vm.ReportItems.First(r => r.Key == "stock");
+        foreach (var l in vm.Locations) l.IsChecked = false;
+        vm.SeciliGorunum = vm.Gorunumler.First(g => g.Ad == "UI eksi stok");
+        Assert.Equal("stock-negative", vm.SelectedReport.Key);
+        Assert.True(vm.Locations.Single(l => l.Id == depo.Id).IsChecked);
+        Assert.True(vm.HasRun);   // tek tık: rapor çalıştı
+
+        // ekran yeniden açılınca görünüm yerel tercihten gelir
+        Assert.Contains(new ReportsViewModel(s, managerMode: true).Gorunumler, g => g.Ad == "UI eksi stok");
+
+        var view = new ReportsView { DataContext = vm };
+        var w = Ac(view);
+        Dispatcher.UIThread.RunJobs();
+        var dugmeler = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.Contains("PDF", dugmeler);
+        Assert.Contains("Görünümü Kaydet", dugmeler);
+        Assert.Contains("Görünümü Sil", dugmeler);
+        Goruntu(w, "raporlar-kayitli-gorunum");
+        w.Close();
+    }
 }
