@@ -514,6 +514,37 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-63 (Şablon C): Yakıt — form açıkken liste gizlenir, form alanın tamamını kullanır; eylemler altta
+    /// ("Vazgeç … Kaydet"); toplu dağıtım satırları kalan alanı doldurur; Vazgeç ile liste geri gelir.</summary>
+    [AvaloniaFact]
+    public void UIT25_Yakit_Islem_Sablonu()
+    {
+        var s = Ortam();
+        var vm = new FuelViewModel(s, 0);
+        var view = new FuelView { DataContext = vm };
+        var w = Ac(view, 1126, 760);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(vm.FormAcik);
+        vm.ToggleTopluCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.FormAcik);
+        var satirlar = view.GetVisualDescendants().OfType<ItemsControl>().First(i => ReferenceEquals(i.ItemsSource, vm.TopluSatirlar));
+        var alan = satirlar.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("Panel"));
+        Assert.True(alan.Bounds.Height > 200, "toplu satır alanı kalan alanı doldurmalı: " + alan.Bounds.Height);
+        var dugmeler = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.True(dugmeler.IndexOf("Vazgeç") < dugmeler.IndexOf("Tümünü Kaydet"));
+        Goruntu(w, "yakit-toplu-sablon-c");
+        vm.ToggleTopluCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(vm.FormAcik);
+        vm.ToggleDistCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.FormAcik);
+        Assert.Contains(Gorunen<Button>(view), b => b.Command == vm.SaveDistCommand);
+        Goruntu(w, "yakit-dagitim-sablon-c");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

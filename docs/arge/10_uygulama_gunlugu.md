@@ -555,3 +555,11 @@
 - **Web:** aynı iki sekme (MudTabs); Kaydet formdan ALTTA yapışkan çubuğa (özetle), kit katlanır panelde. `IslemSablonuTests` IS2 (mutasyon 1/1).
 - **Testler:** arayüz UIT24 (sekmeler, tablo yüksekliği — ilk denemede 128 px kalıyordu, başlık sıkıştırıldı —, Kaydet konumu, özet);
   zimmet/kod okutma/kit/onay testleri 66/66; arayüz 60/60.
+
+### B8 — M-63 (3/4) Yakıt dağıtım → işlem şablonu (F-128, Şablon C)
+- Masaüstü Yakıt Dağıtımları: "Yeni Dağıtım" ya da "Toplu Dağıtım" açıkken form liste alanının TAMAMINI kullanır ve liste gizlenir
+  (eskiden form listenin üstünde açılıp listeyi sıkıştırıyordu — U6); Vazgeç/Kaydet sonrası liste geri gelir. Toplu dağıtımda ortak
+  alanlar üstte, satırlar ortada (kalan alan, kaydırılır), ALTTA "+ Satır · N satır · Vazgeç … Tümünü Kaydet"; tekli formda alanlar
+  kaydırılabilir alanda, ALTTA "Vazgeç … Kaydet". Görünüm modeline yalnız `FormAcik` (görünürlük) eklendi; iş kuralları değişmedi.
+- **Testler:** arayüz UIT25 (form açıkken alan yüksekliği, düğme sırası, Vazgeç ile liste dönüşü, iki ekran görüntüsü) + görsel tarama
+  G05; yakıt/onay/erişilebilirlik testleri 154/154; arayüz 61/61.

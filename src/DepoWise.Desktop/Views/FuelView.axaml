@@ -158,133 +158,11 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Expander>
-                    <!-- ⭐ M-34: TOPLU DAĞITIM TABLOSU -->
-                    <Border Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowToplu}">
-                        <StackPanel Spacing="10">
-                            <SelectableTextBlock Text="TOPLU YAKIT DAĞITIMI" Classes="SectionTitle"/>
-                            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
-                                Text="Ortak alanlar (tarih, yakıtı veren, birim fiyat, belge no) tüm satırlara uygulanır. Kaydet'e basınca tek onay sorulur; biri bile hatalıysa hiçbiri yazılmaz."/>
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                                <ctrl:FormField Label="İşlem Tarihi" Width="150">
-                                    <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}" ToolTip.Tip="{Binding DocDateHint}"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Yakıtı Veren" Width="200" IsRequired="True">
-                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
-                                                    PlaceholderText="Personel seç / ara..."/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Birim Fiyat (₺/L)" Width="160">
-                                    <NumericUpDown Classes="Field" Value="{Binding DistUnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Fatura/İrsaliye No" Width="180">
-                                    <TextBox Classes="Field" Text="{Binding DistInvoice}"/>
-                                </ctrl:FormField>
-                            </WrapPanel>
-                            <ItemsControl ItemsSource="{Binding TopluSatirlar}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:TopluYakitSatiri">
-                                        <Grid ColumnDefinitions="260,120,140,120,Auto" Margin="0,2">
-                                            <ctrl:LookupBox Grid.Column="0" ItemsSource="{Binding $parent[ItemsControl].((vm:FuelViewModel)DataContext).Vehicles}"
-                                                            SelectedItem="{Binding Arac}" DisplayMember="Display" PlaceholderText="Araç seç / ara..."/>
-                                            <SelectableTextBlock Grid.Column="1" Text="{Binding OncekiSayac, StringFormat='Önceki: {0:0.##}'}" Classes="Helper"
-                                                                 VerticalAlignment="Center" Margin="8,0"/>
-                                            <NumericUpDown Grid.Column="2" Classes="Field" Value="{Binding Sayac}" Minimum="0" FormatString="0.##"
-                                                           ShowButtonSpinner="False" PlaceholderText="Güncel sayaç"/>
-                                            <NumericUpDown Grid.Column="3" Classes="Field" Value="{Binding Litre}" Minimum="0" FormatString="0.##"
-                                                           ShowButtonSpinner="False" Margin="8,0,0,0" ToolTip.Tip="Litre"/>
-                                            <Button Grid.Column="4" Classes="Ghost" Content="Sil" Margin="8,0,0,0"
-                                                    Command="{Binding $parent[ItemsControl].((vm:FuelViewModel)DataContext).TopluSatirSilCommand}" CommandParameter="{Binding}"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                <Button Classes="Ghost" Content="+ Satır" Command="{Binding TopluSatirEkleCommand}"/>
-                                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ToggleTopluCommand}"/>
-                                <Button Classes="Primary" Content="Tümünü Kaydet" Command="{Binding TopluKaydetCommand}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDist}">
-                        <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
-                            <SelectableTextBlock Text="{Binding DistFormTitle}" Classes="SectionTitle"/>
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                                <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
-                                    <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
-                                                    DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
-                                </ctrl:FormField>
-                                <!-- ⭐ M-49: QR / barkod okutma (USB okuyucu kodu yazıp Enter'a basar) -->
-                                <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
-                                    <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. EKS-001"
-                                             ToolTip.Tip="Araç etiketindeki QR'ı okutun: iç kodu ya da plakası TAM eşleşen araç seçilir.">
-                                        <TextBox.KeyBindings>
-                                            <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
-                                        </TextBox.KeyBindings>
-                                    </TextBox>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Önceki Sayaç" Width="140" HelpText="Araçtan otomatik.">
-                                    <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"
-                                                   FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <!-- 2026-09-30 (kullanıcı isteği): SALT OKUNUR — elle girilmez, güncel sayaçtan hesaplanır. -->
-                                <ctrl:FormField Label="Sayaç Farkı" Width="140" HelpText="Otomatik hesaplanır.">
-                                    <TextBox Classes="Field" Text="{Binding DistMeterDiffText, Mode=OneWay}" IsReadOnly="True"
-                                             Focusable="False" ToolTip.Tip="Güncel sayaç − önceki sayaç"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Güncel Sayaç" Width="140" IsRequired="True">
-                                    <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
-                                                   FormatString="0.##" ShowButtonSpinner="False" PlaceholderText="Sayacı girin"/>
-                                </ctrl:FormField>
-                            </WrapPanel>
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                                <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
-                                <ctrl:FormField Label="İşlem Tarihi" Width="150">
-                                    <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
-                                                ToolTip.Tip="{Binding DocDateHint}"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
-                                                HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
-                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DistCostCenter}"
-                                                    PlaceholderText="Merkez seç / ara..."/>
-                                </ctrl:FormField>
-                                <!-- ⭐ MUH-01b: irsaliye / fiş no. Depo girişindeki "Fatura/İrsaliye No"
-                                     alanının dağıtım karşılığı; ön muhasebe gideri kaynak belgesine bağlar. -->
-                                <ctrl:FormField Label="Fatura/İrsaliye No" Width="180"
-                                                HelpText="Opsiyonel — elinizdeki belge numarası.">
-                                    <TextBox Classes="Field" Text="{Binding DistInvoice}"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
-                                    <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
-                                                   FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Birim Fiyat (₺/L)" Width="160" HelpText="Varsayılan: güncel fiyat.">
-                                    <NumericUpDown Classes="Field" Value="{Binding DistUnitPrice}" Minimum="0"
-                                                   FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Toplam" Width="140">
-                                    <TextBox Classes="Field" Text="{Binding DistTotalText}" IsEnabled="False"/>
-                                </ctrl:FormField>
-                                <!-- Yakıtı Veren/Alan personel: aranabilir (madde 2.2, kullanıcı isteği 2026-08-06) — ortak AutoCompleteBox deseni. -->
-                                <ctrl:FormField Label="Yakıtı Veren" Width="180" IsRequired="True">
-                                    <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
-                                              PlaceholderText="Personel seç / ara..."/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Yakıtı Alan" Width="180">
-                                    <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}"
-                                              PlaceholderText="Personel seç / ara..."/>
-                                </ctrl:FormField>
-                            </WrapPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDistCommand}"/>
-                                <Button Classes="Primary" Content="{Binding DistSaveText}" Command="{Binding SaveDistCommand}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
                     </StackPanel>
 
-                    <Panel Grid.Row="2" Margin="0,16,0,0">
+                    <!-- ⭐ M-63 (AR-GE 2026-10-25, F-128 · Şablon C): form açıkken liste GİZLENİR, form bu alanın tamamını kullanır
+                         (eskiden form listenin üstünde açılıp listeyi sıkıştırıyordu — U6). Vazgeç/Kaydet sonrası liste geri gelir. -->
+                    <Panel Grid.Row="2" Margin="0,16,0,0" IsVisible="{Binding !FormAcik}">
                         <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDist}">
                             <DockPanel>
                                 <!-- ⭐ ARA İŞ 6 — ARAMA ÇUBUĞU (kullanıcı isteği 2026-09-04).
@@ -432,6 +310,150 @@
                                          ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
                         <ctrl:StatePanel Mode="Empty" Title="Dağıtım yok" Message="Henüz yakıt dağıtımı kaydı yok." IsVisible="{Binding DistEmpty}"/>
                     </Panel>
+
+                    <!-- ═══ M-34 TOPLU DAĞITIM — Şablon C: ortak alanlar üstte, satırlar ortada (kalan alan), eylemler ALTTA ═══ -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0" RowDefinitions="Auto,*,Auto" IsVisible="{Binding ShowToplu}">
+                        <Border Grid.Row="0" Classes="Panel" Padding="16,12">
+                            <StackPanel Spacing="8">
+                                <SelectableTextBlock Text="Toplu yakıt dağıtımı" Classes="Body" FontWeight="SemiBold"/>
+                                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                    Text="Ortak alanlar (tarih, yakıtı veren, birim fiyat, belge no) tüm satırlara uygulanır. Kaydet'e basınca tek onay sorulur; biri bile hatalıysa hiçbiri yazılmaz."/>
+                                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                                    <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                                        <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}" ToolTip.Tip="{Binding DocDateHint}"/>
+                                    </ctrl:FormField>
+                                    <ctrl:FormField Label="Yakıtı Veren" Width="200" IsRequired="True">
+                                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
+                                                        PlaceholderText="Personel seç / ara..."/>
+                                    </ctrl:FormField>
+                                    <ctrl:FormField Label="Birim Fiyat (₺/L)" Width="160">
+                                        <NumericUpDown Classes="Field" Value="{Binding DistUnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                    </ctrl:FormField>
+                                    <ctrl:FormField Label="Fatura/İrsaliye No" Width="180">
+                                        <TextBox Classes="Field" Text="{Binding DistInvoice}"/>
+                                    </ctrl:FormField>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Classes="Panel" Padding="16,12" Margin="0,10,0,0">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding TopluSatirlar}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TopluYakitSatiri">
+                                            <Grid ColumnDefinitions="260,120,140,120,Auto" Margin="0,2">
+                                                <ctrl:LookupBox Grid.Column="0" ItemsSource="{Binding $parent[ItemsControl].((vm:FuelViewModel)DataContext).Vehicles}"
+                                                                SelectedItem="{Binding Arac}" DisplayMember="Display" PlaceholderText="Araç seç / ara..."/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding OncekiSayac, StringFormat='Önceki: {0:0.##}'}" Classes="Helper"
+                                                                     VerticalAlignment="Center" Margin="8,0"/>
+                                                <NumericUpDown Grid.Column="2" Classes="Field" Value="{Binding Sayac}" Minimum="0" FormatString="0.##"
+                                                               ShowButtonSpinner="False" PlaceholderText="Güncel sayaç"/>
+                                                <NumericUpDown Grid.Column="3" Classes="Field" Value="{Binding Litre}" Minimum="0" FormatString="0.##"
+                                                               ShowButtonSpinner="False" Margin="8,0,0,0" ToolTip.Tip="Litre"/>
+                                                <Button Grid.Column="4" Classes="Ghost" Content="Sil" Margin="8,0,0,0"
+                                                        Command="{Binding $parent[ItemsControl].((vm:FuelViewModel)DataContext).TopluSatirSilCommand}" CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                        <Border Grid.Row="2" Classes="Panel" Padding="16,10" Margin="0,10,0,0">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Button Grid.Column="0" Classes="Secondary" Content="+ Satır" Command="{Binding TopluSatirEkleCommand}"/>
+                                <SelectableTextBlock Grid.Column="1" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0"
+                                                     Text="{Binding TopluSatirlar.Count, StringFormat='{}{0} satır — Kaydet tek onayla tek işlemde yazar.'}"/>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                                    <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ToggleTopluCommand}"/>
+                                    <Button Classes="Primary" Content="Tümünü Kaydet" Command="{Binding TopluKaydetCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- ═══ TEK DAĞITIM / DÜZELTME formu — Şablon C: alanlar (kaydırılabilir) + eylemler ALTTA ═══ -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0" RowDefinitions="*,Auto" IsVisible="{Binding ShowDist}">
+                        <Border Grid.Row="0" Classes="Panel" Padding="16,12">
+                            <ScrollViewer>
+                                <StackPanel Spacing="14">
+                                    <SelectableTextBlock Text="{Binding DistFormTitle}" Classes="Body" FontWeight="SemiBold"/>
+                                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                                        <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
+                                            <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
+                                                            DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
+                                        </ctrl:FormField>
+                                        <!-- ⭐ M-49: QR / barkod okutma (USB okuyucu kodu yazıp Enter'a basar) -->
+                                        <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
+                                            <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. EKS-001"
+                                                     ToolTip.Tip="Araç etiketindeki QR'ı okutun: iç kodu ya da plakası TAM eşleşen araç seçilir.">
+                                                <TextBox.KeyBindings>
+                                                    <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
+                                                </TextBox.KeyBindings>
+                                            </TextBox>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Önceki Sayaç" Width="140" HelpText="Araçtan otomatik.">
+                                            <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"
+                                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                                        </ctrl:FormField>
+                                        <!-- 2026-09-30 (kullanıcı isteği): SALT OKUNUR — elle girilmez, güncel sayaçtan hesaplanır. -->
+                                        <ctrl:FormField Label="Sayaç Farkı" Width="140" HelpText="Otomatik hesaplanır.">
+                                            <TextBox Classes="Field" Text="{Binding DistMeterDiffText, Mode=OneWay}" IsReadOnly="True"
+                                                     Focusable="False" ToolTip.Tip="Güncel sayaç − önceki sayaç"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Güncel Sayaç" Width="140" IsRequired="True">
+                                            <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
+                                                           FormatString="0.##" ShowButtonSpinner="False" PlaceholderText="Sayacı girin"/>
+                                        </ctrl:FormField>
+                                    </WrapPanel>
+                                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                                        <!-- TRH-01: İŞLEM TARİHİ (iş günü). Kayıt anı ayrıca loglanır; geri/ileri tarih yetkiye bağlı. -->
+                                        <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                                            <ctrl:TarihKutusu SelectedDate="{Binding DistDate}" IsEnabled="{Binding CanBackDate}"
+                                                        ToolTip.Tip="{Binding DocDateHint}"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Maliyet Merkezi" Width="190" IsVisible="{Binding CanPickCostCenter}"
+                                                        HelpText="Opsiyonel — maliyet bu merkeze yazılır.">
+                                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding DistCostCenter}"
+                                                            PlaceholderText="Merkez seç / ara..."/>
+                                        </ctrl:FormField>
+                                        <!-- ⭐ MUH-01b: irsaliye / fiş no. Depo girişindeki "Fatura/İrsaliye No"
+                                             alanının dağıtım karşılığı; ön muhasebe gideri kaynak belgesine bağlar. -->
+                                        <ctrl:FormField Label="Fatura/İrsaliye No" Width="180"
+                                                        HelpText="Opsiyonel — elinizdeki belge numarası.">
+                                            <TextBox Classes="Field" Text="{Binding DistInvoice}"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
+                                            <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
+                                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Birim Fiyat (₺/L)" Width="160" HelpText="Varsayılan: güncel fiyat.">
+                                            <NumericUpDown Classes="Field" Value="{Binding DistUnitPrice}" Minimum="0"
+                                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Toplam" Width="140">
+                                            <TextBox Classes="Field" Text="{Binding DistTotalText}" IsEnabled="False"/>
+                                        </ctrl:FormField>
+                                        <!-- Yakıtı Veren/Alan personel: aranabilir (madde 2.2, kullanıcı isteği 2026-08-06) — ortak AutoCompleteBox deseni. -->
+                                        <ctrl:FormField Label="Yakıtı Veren" Width="180" IsRequired="True">
+                                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                                      ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
+                                                      PlaceholderText="Personel seç / ara..."/>
+                                        </ctrl:FormField>
+                                        <ctrl:FormField Label="Yakıtı Alan" Width="180">
+                                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                                      ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}"
+                                                      PlaceholderText="Personel seç / ara..."/>
+                                        </ctrl:FormField>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <Border Grid.Row="1" Classes="Panel" Padding="16,10" Margin="0,10,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDistCommand}"/>
+                                <Button Classes="Primary" Content="{Binding DistSaveText}" Command="{Binding SaveDistCommand}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
 

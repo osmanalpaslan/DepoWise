@@ -443,7 +443,9 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     // Tablo: her satır bir araç (güncel sayaç + litre); ortak alanlar (tarih, veren, birim fiyat) bir kez. Sonda TEK onay;
     // kayıt TEK işlemde (biri bile hatalıysa hiçbiri yazılmaz). Tek kayıttaki uyarılar (sayaç geri, şüpheli sıçrama,
     // çok büyük litre) satır satır sayılır ve onay metninde gösterilir.
-    [ObservableProperty] private bool _showToplu;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormAcik))]
+    private bool _showToplu;
     public ObservableCollection<TopluYakitSatiri> TopluSatirlar { get; } = new();
     public bool HasTopluSatir => TopluSatirlar.Count > 0;
     private string _topluIslem = Guid.NewGuid().ToString("N");
@@ -514,7 +516,13 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
     }
 
     // ════════════ DAĞITIM ════════════
-    [ObservableProperty] private bool _showDist;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormAcik))]
+    private bool _showDist;
+
+    /// <summary>⭐ M-63 (Şablon C): dağıtım ya da toplu dağıtım formu açıkken form ana alanı kaplar, liste gizlenir
+    /// (eskiden form listenin üstünde açılıp listeyi sıkıştırıyordu). Vazgeç/Kaydet sonrası liste geri gelir.</summary>
+    public bool FormAcik => ShowDist || ShowToplu;
     [ObservableProperty] private VehicleListRow? _distVehicle;
 
     // ⭐ M-54 (AR-GE 2026-10-24, F-057): Excel / Yazdır — arama alanlarıyla filtrelenmiş TÜM dağıtımlar (sayfa değil); liste ile
