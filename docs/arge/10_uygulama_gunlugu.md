@@ -590,3 +590,13 @@
 - **Testler:** arayüz UIT27 (seçim çubuğu gizli/görünür, Pager toplamı, Sil en sonda, ekran görüntüsü `cari-sablon-b`); kaynak testi
   `ListeSablonuTests` LS0–LS1; cari/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 165/165 + 136/136; arayüz 63/63.
   Mutasyon: seçim bildirimi kaldırılınca UIT27, web "Düzenle" dolu yapılınca LS1 kırıldı (2/2 yakalandı).
+
+### B8 — M-64 (2/6) Faturalar → liste şablonu (F-129, Şablon B)
+- Masaüstü: "Yeni Fatura" araç çubuğunda tek ana düğme; "İptal Et" seçim çubuğunda (seçim yokken görünmez); eski "Sayfa · ◀ ▶" satırı
+  kalktı, sayfalama listenin altında ortak `Pager`. Görünüm modeline `PagerPage`, `SeciliSayisi`, `YeniFaturaMetni` köprüleri.
+- Web: `MudPagination` yerine ortak `ListePager` (tablonun altında); üstte yalnız toplam.
+- **Ara bulgu (K-10):** iptal panelinde "İptali Onayla" "Vazgeç"in SOLUNDAYDI (iki ortamda da; M-61 testi Danger/Ghost çiftini
+  kapsamıyordu). Sıra "Vazgeç … İptali Onayla" yapıldı, sağa hizalandı; `ListeSablonuTests` LS2 iki ortamı da kilitler.
+- **Testler:** arayüz UIT28 (seçim çubuğu gizli/görünür, detay yüklenince İptal Et etkin, Pager toplamı, ekran görüntüsü
+  `fatura-sablon-b`); fatura/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 101/101 + LS0–LS2; arayüz 64/64.
+  Mutasyon: seçim bildirimi kaldırılınca UIT28, web Vazgeç kaldırılınca LS2 kırıldı (2/2).

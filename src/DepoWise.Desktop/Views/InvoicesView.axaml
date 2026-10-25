@@ -14,7 +14,10 @@
          ve iptal ters stok + ters cari kaydı üretir.
          Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
-        <ctrl:Toolbar Grid.Row="0" Title="Faturalar">
+        <!-- ⭐ M-64 (AR-GE 2026-10-25, F-129 · Şablon B): tek ana düğme ("Yeni Fatura") araç çubuğunda; seçili faturaya ait
+             eylem (İptal Et) seçim çubuğunda (seçim yokken görünmez); sayfalama listenin altında ortak Pager ile. -->
+        <ctrl:Toolbar Grid.Row="0" Title="Faturalar"
+                      PrimaryActionText="{Binding YeniFaturaMetni}" PrimaryActionCommand="{Binding NewInvoiceFormCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <TextBox Classes="Field" Width="230" Watermark="Fatura no / karşı belge no / cari"
@@ -64,19 +67,13 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
-                <Button AutomationProperties.Name="Önceki sayfa" Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
-                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
-                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
-                <Button Classes="Primary" Content="Yeni Fatura" Command="{Binding NewInvoiceFormCommand}"
-                        IsVisible="{Binding CanCreate}"/>
+        <ctrl:SelectionBar Grid.Row="1" Margin="0,12,0,0" SelectedCount="{Binding SeciliSayisi}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="Danger" Content="İptal Et" Command="{Binding OpenCancelPanelCommand}"
                         IsEnabled="{Binding CanCancelSelected}" IsVisible="{Binding CanEdit}"
                         ToolTip.Tip="Fatura silinmez; ters stok ve ters cari kaydı üretilerek etkisi sıfırlanır."/>
             </StackPanel>
-        </Border>
+        </ctrl:SelectionBar>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,16,460" Margin="0,16,0,0">
 
@@ -94,6 +91,8 @@
                             <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="90" MaxWidth="90"/>
                         </Grid>
                     </Border>
+                    <ctrl:Pager DockPanel.Dock="Bottom" Margin="12,8" ShowPageSize="False" PageSize="50"
+                                TotalCount="{Binding TotalCount}" Page="{Binding PagerPage}"/>
                     <ListBox x:Name="FaturaListesi" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:InvoiceListRow">
@@ -303,9 +302,10 @@
                                 <ctrl:FormField Label="İptal Gerekçesi" IsRequired="True">
                                     <TextBox Classes="Field" Text="{Binding CancelReason}" AcceptsReturn="True" MinHeight="60"/>
                                 </ctrl:FormField>
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Button Classes="Danger" Content="İptali Onayla" Command="{Binding CancelInvoiceCommand}"/>
+                                <!-- M-61/K-10: ikincil (Vazgeç) solda, onay EN SAĞDA -->
+                                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                     <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseCancelPanelCommand}"/>
+                                    <Button Classes="Danger" Content="İptali Onayla" Command="{Binding CancelInvoiceCommand}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

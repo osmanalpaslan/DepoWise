@@ -18,7 +18,8 @@ public class ListeSablonuTests
         return File.ReadAllText(Path.Combine(d!.FullName, rel));
     }
 
-    private static void SablonB(string rel, string anaDugme)
+    /// <param name="formIci">form/onay paneli içindeki dolu düğmeler (panel açıkken tek eylem; ekran ana düğmesi sayılmaz)</param>
+    private static void SablonB(string rel, string anaDugme, params string[] formIci)
     {
         var s = Oku(rel);
         var tablo = s.IndexOf("</MudTable>", StringComparison.Ordinal);
@@ -33,13 +34,30 @@ public class ListeSablonuTests
             .Select(m => m.Groups["g"].Value)
             .Where(g => g.Contains("Variant=\"Variant.Filled\""))
             .Select(g => g[(g.LastIndexOf('>') + 1)..].Trim())
-            .Where(m => !m.StartsWith('@')).ToArray();
+            .Where(m => !m.StartsWith('@') && !formIci.Contains(m)).ToArray();
         Assert.Equal(new[] { anaDugme }, dolu);
     }
 
     /// <summary>LS1 — Cari (web): ortak sayfalayıcı + tek ana düğme "Yeni Cari".</summary>
     [Fact]
     public void LS1_Web_Cari_Liste_Sablonu() => SablonB("src/DepoWise.Web/Components/Pages/Parties.razor", "Yeni Cari");
+
+    /// <summary>LS2 — Fatura (web): ortak sayfalayıcı (MudPagination yerine) + tek ana düğme; iptal panelinde Vazgeç solda, onay sağda.</summary>
+    [Fact]
+    public void LS2_Web_Fatura_Liste_Sablonu()
+    {
+        const string rel = "src/DepoWise.Web/Components/Pages/Invoices.razor";
+        SablonB(rel, "Yeni Fatura", "İptali Onayla", "Kaydet");
+        var s = Oku(rel);
+        Assert.DoesNotContain("<MudPagination", s);
+        var onay = s.IndexOf(">İptali Onayla</MudButton>", StringComparison.Ordinal);
+        var wVazgec = s.LastIndexOf(">Vazgeç</MudButton>", onay, StringComparison.Ordinal);
+        Assert.True(wVazgec > 0 && onay - wVazgec < 400, "K-10: Vazgeç solda (hemen önce), İptali Onayla en sağda");
+        var m = Oku("src/DepoWise.Desktop/Views/InvoicesView.axaml");
+        var vazgec = m.IndexOf("Content=\"Vazgeç\" Command=\"{Binding CloseCancelPanelCommand}\"", StringComparison.Ordinal);
+        Assert.True(vazgec > 0 && vazgec < m.IndexOf("Content=\"İptali Onayla\"", StringComparison.Ordinal),
+            "masaüstü: Vazgeç solda, İptali Onayla en sağda");
+    }
 
     /// <summary>LS0 — Web ListePager özeti masaüstü Pager.Ozet ile aynı biçimi üretir ("51–100 / 1.240", boşsa "0 kayıt").</summary>
     [Fact]

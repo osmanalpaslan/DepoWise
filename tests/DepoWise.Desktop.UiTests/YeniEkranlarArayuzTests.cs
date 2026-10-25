@@ -597,6 +597,43 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT28 — ⭐ M-64 (2/6) Faturalar Şablon B: "Yeni Fatura" araç çubuğunda tek ana düğme; "İptal Et" yalnız seçim
+    /// çubuğunda (seçim yokken gizli); sayfalama listenin altında ortak Pager (eski ◀ ▶ satırı yok).</summary>
+    [AvaloniaFact]
+    public void UIT28_Fatura_Liste_Sablonu()
+    {
+        var s = Ortam();
+        var cari = DesktopServices.Parties.List(s, "UIT28", null, null, 1, 10, null).Items.FirstOrDefault()?.Party.Id
+                   ?? DesktopServices.Parties.Create(s, new DepoWise.Infrastructure.Accounting.NewParty("UIT28-C", "UIT28 Cari", DepoWise.Infrastructure.Accounting.PartyTypes.Both));
+        // Sabit işlem kimliği → ikinci koşuda ikinci fatura oluşmaz (idempotency).
+        DesktopServices.Invoices.Create(s, new DepoWise.Infrastructure.Accounting.NewInvoice(
+            DepoWise.Infrastructure.Accounting.InvoiceDirections.Purchase, cari,
+            new[] { new DepoWise.Infrastructure.Accounting.NewInvoiceLine(null, "UIT28 hizmet", null, 1m, 100m) },
+            "uit28-fatura", AffectsStock: false));
+        var vm = new InvoicesViewModel(s);
+        var view = new InvoicesView { DataContext = vm };
+        var w = Ac(view, 1300, 820);
+        for (int i = 0; i < 50 && vm.Rows.Count == 0; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var secim = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.SelectionBar>().Single();
+        Assert.False(secim.IsVisible);
+        var gorunen = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.Contains("Yeni Fatura", gorunen);
+        Assert.DoesNotContain("İptal Et", gorunen);
+        Assert.DoesNotContain("◀", gorunen);
+        var pager = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Pager>().Single();
+        Assert.Equal(vm.TotalCount, pager.TotalCount);
+        Assert.True(vm.TotalCount > 0);
+        vm.Selected = vm.Rows.First();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(secim.IsVisible);
+        for (int i = 0; i < 50 && vm.Detail is null; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var iptal = Gorunen<Button>(secim).Single(b => (b.Content as string) == "İptal Et");
+        Assert.True(vm.CanCancelSelected, "yürürlükteki fatura iptal edilebilmeli");
+        Assert.True(iptal.IsEffectivelyEnabled, "detay yüklenince İptal Et etkin olmalı");
+        Goruntu(w, "fatura-sablon-b");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

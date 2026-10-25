@@ -74,11 +74,21 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private string _directionFilter = "";
     [ObservableProperty] private string _statusFilter = InvoiceStatuses.Active;
-    [ObservableProperty] private int _page = 1;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PagerPage))]
+    private int _page = 1;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string? _formError;
     [ObservableProperty] private bool _busy;
+
+    /// <summary>⭐ M-64: ortak Pager (alt sayfalama) köprüsü — sayfa değişince liste yeniden yüklenir; filtre akışı (Find → 1. sayfa)
+    /// aynen kalır.</summary>
+    public int PagerPage { get => Page; set { if (value >= 1 && value != Page) { Page = value; _ = Load(); } } }
+    /// <summary>⭐ M-64: seçim çubuğu (SelectionBar) için seçili kayıt sayısı.</summary>
+    public int SeciliSayisi => HasSelection ? 1 : 0;
+    /// <summary>⭐ M-64: araç çubuğunun tek ana düğmesi — yetki yoksa hiç çizilmez.</summary>
+    public string? YeniFaturaMetni => CanCreate ? "Yeni Fatura" : null;
 
     public int PageCount => TotalCount == 0 ? 1 : (TotalCount + PageSize - 1) / PageSize;
     public string PageText => $"Sayfa {Page} / {PageCount} · {TotalCount} fatura";
@@ -88,6 +98,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     [NotifyPropertyChangedFor(nameof(ShowDetail))]
+    [NotifyPropertyChangedFor(nameof(SeciliSayisi))]
     private InvoiceListRow? _selected;
     public bool HasSelection => Selected is not null;
 
