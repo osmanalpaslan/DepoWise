@@ -103,9 +103,12 @@ else
                 <MudText Typo="Typo.subtitle1" Class="mb-2">Ret Gerekçesi</MudText>
                 <MudTextField @bind-Value="_redGerekce" Label="Gerekçe (zorunlu)"
                               Placeholder="Örn: Bütçe uygun değil" Class="mb-3" />
-                <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="_islemde"
-                           OnClick="Reddet" Class="mr-2">Reddi Onayla</MudButton>
-                <MudButton Variant="Variant.Outlined" OnClick="@(() => _red = null)">Vazgeç</MudButton>
+                @* M-61/K-10: ikincil (Vazgeç) solda, onay EN SAĞDA *@
+                <div class="d-flex justify-end" style="gap:8px;">
+                    <MudButton Variant="Variant.Outlined" OnClick="@(() => _red = null)">Vazgeç</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="_islemde"
+                               OnClick="Reddet">Reddi Onayla</MudButton>
+                </div>
             </MudPaper>
         }
     }

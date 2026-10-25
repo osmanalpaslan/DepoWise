@@ -600,3 +600,9 @@
 - **Testler:** arayüz UIT28 (seçim çubuğu gizli/görünür, detay yüklenince İptal Et etkin, Pager toplamı, ekran görüntüsü
   `fatura-sablon-b`); fatura/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 101/101 + LS0–LS2; arayüz 64/64.
   Mutasyon: seçim bildirimi kaldırılınca UIT28, web Vazgeç kaldırılınca LS2 kırıldı (2/2).
+
+### B8 — M-61 ek: onay düğmeleri de "Vazgeç … Onayla" sırasında (K-10)
+- M-64 Faturalar'daki ara bulgudan sonra tüm ekranlar tarandı: masaüstü Finans ve Tahsilat/Ödeme "Ters Kaydı Onayla", web Onaylar
+  "Reddi Onayla" düğmeleri Vazgeç'in SOLUNDAYDI → sıra çevrildi, gruplar sağa hizalandı. `DugmeSirasiTests` artık yalnız Kaydet'i değil
+  …Onayla/Uygula/Gönder/Tamamla/Evet düğmelerini de birincil sayar ("Sil" bilinçli olarak hariç: diyaloglarda tek başına EN SOLDA,
+  ayraçla ayrılmış durur). Mutasyon: Finans sırası geri çevrilince DS1 kırıldı. Paket 152/152, arayüz 64/64.

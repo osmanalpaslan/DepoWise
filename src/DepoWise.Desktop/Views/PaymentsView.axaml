@@ -224,9 +224,10 @@
                         <ctrl:FormField Label="İptal Gerekçesi" IsRequired="True">
                             <TextBox Classes="Field" Text="{Binding ReverseReason}" AcceptsReturn="True" MinHeight="60"/>
                         </ctrl:FormField>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button Classes="Danger" Content="Ters Kaydı Onayla" Command="{Binding ReverseTxnCommand}"/>
+                        <!-- M-61/K-10: ikincil (Vazgeç) solda, onay EN SAĞDA -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                             <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseReversePanelCommand}"/>
+                            <Button Classes="Danger" Content="Ters Kaydı Onayla" Command="{Binding ReverseTxnCommand}"/>
                         </StackPanel>
                         <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
                                              IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>

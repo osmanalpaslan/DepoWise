@@ -6,7 +6,7 @@ namespace DepoWise.Tests;
 /// <summary>
 /// ═══ M-61 (AR-GE 2026-10-25, F-060 · K-10) — FORM DÜĞME SIRASI: "İptal … Kaydet" (birincil EN SAĞDA) ═══
 /// Kullanıcı seçimi K-10 = a. Bir formda Kaydet'in hemen ardından İptal/Vazgeç/Kapat gelirse kas hafızası bozulur.
-///  DS1 — masaüstü (.axaml): Kaydet düğmesinin ARDINDAN İptal/Vazgeç/Kapat gelmez
+///  DS1 — masaüstü (.axaml): Kaydet/…Onayla/Uygula düğmesinin ARDINDAN İptal/Vazgeç/Kapat gelmez
 ///  DS2 — web (.razor): aynı kural
 ///  DS3 — onay/gerekçe/kolon pencerelerinde Enter (IsDefault) ve Esc (IsCancel) bağlı
 /// </summary>
@@ -32,7 +32,11 @@ public class DugmeSirasiTests
             var s = File.ReadAllText(f);
             var d = dugme.Matches(s).Select(m => (Metin: m.Groups[1].Value.Trim(), m.Index)).ToList();
             for (int i = 0; i + 1 < d.Count; i++)
-                if (Regex.IsMatch(d[i].Metin, "^(Kaydet|Güncelle|Oluştur)") && Regex.IsMatch(d[i + 1].Metin, "^(İptal|Vazgeç|Kapat)$")
+                // M-64 ara bulgu (2026-10-25): yalnız Kaydet aranıyordu; "İptali Onayla / Ters Kaydı Onayla / Reddi Onayla" gibi onay
+                // düğmeleri Vazgeç'in solunda kalmıştı → onay/uygula/gönder/tamamla da birincil sayılır. ("Sil" sayılmaz: tek başına
+                // EN SOLDA, ayraçla ayrılmış durur — web diyaloglarındaki bilinçli düzen.)
+                if (Regex.IsMatch(d[i].Metin, "^(Kaydet|Güncelle|Oluştur|Onayla|Uygula|Gönder|Tamamla|Evet)|Onayla$")
+                    && Regex.IsMatch(d[i + 1].Metin, "^(İptal|Vazgeç|Kapat|Hayır)$")
                     && d[i + 1].Index - d[i].Index < 500)
                     bulgu.Add($"{Path.GetFileName(f)}:{s[..d[i].Index].Count(c => c == '\n') + 1} «{d[i].Metin}» → «{d[i + 1].Metin}»");
         }
