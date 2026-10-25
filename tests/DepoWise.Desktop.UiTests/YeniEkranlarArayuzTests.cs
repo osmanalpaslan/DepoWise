@@ -485,6 +485,35 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-63 (Şablon C): Zimmet — "Yeni işlem" / "Kimde ne var" sekmeleri; teslim listesi kalan alanın tamamı;
+    /// Kaydet alt sabit çubukta (dar pencerede de sağda, form satırına sarılmaz); yazma yetkisiyle "Yeni işlem" açılır.</summary>
+    [AvaloniaFact]
+    public void UIT24_Zimmet_Islem_Sablonu()
+    {
+        var s = Ortam();
+        var vm = new AssignmentsViewModel(s);
+        var view = new AssignmentsView { DataContext = vm };
+        var w = Ac(view, 1126, 760);
+        Dispatcher.UIThread.RunJobs();
+        var tab = view.GetVisualDescendants().OfType<TabControl>().First();
+        Assert.Equal(0, tab.SelectedIndex);
+        Assert.Equal(new[] { "Yeni işlem", "Kimde ne var" }, tab.Items.OfType<TabItem>().Select(t => t.Header as string));
+        vm.FormAsset = vm.AssetOptions.First(a => a.Name.StartsWith("ZMT-A"));
+        vm.FormQuantity = 1m;
+        vm.AddLineCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var tablo = view.GetVisualDescendants().OfType<ItemsControl>().First(i => ReferenceEquals(i.ItemsSource, vm.Lines))
+            .GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("Table"));
+        Assert.True(double.IsPositiveInfinity(tablo.MaxHeight));
+        Assert.True(tablo.Bounds.Height > 150, "teslim listesi kalan alanı doldurmalı: " + tablo.Bounds.Height);
+        var kaydet = Gorunen<Button>(view).Single(b => (b.Content as string) == "Kaydet");
+        var konum = Avalonia.VisualExtensions.TranslatePoint(kaydet, new Avalonia.Point(0, 0), w)!.Value;
+        Assert.True(konum.X > 800, "Kaydet sağda olmalı: " + konum.X);
+        Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "1 kalem teslim listesinde — Kaydet hepsini tek işlemde işler.");
+        Goruntu(w, "zimmet-sablon-c");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]

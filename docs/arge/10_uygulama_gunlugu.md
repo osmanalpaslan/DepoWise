@@ -545,3 +545,12 @@
   ("N kalem listede · M kalemde fark var — Taslak Kaydet … Sayımı Tamamla"); kör sayımda fark sayısı gösterilmez. `IslemSablonuTests` IS1 (mutasyon 1/1).
 - **Testler:** arayüz UIT23 (sekmeler, düğme sırası, tablo yüksekliği sınırsız ve 760 px pencerede alanı dolduruyor — ilk düzende 70 px
   kalıyordu, test yakaladı); UIT13 + görsel tarama G30; sayım/onay/erişilebilirlik testleri 46/46; arayüz 59/59.
+
+### B8 — M-63 (2/4) Zimmet ekranı → işlem şablonu (F-128, Şablon C)
+- Masaüstü Zimmet: sekmeler "Yeni işlem · Kimde ne var". Yeni işlemde başlık alanları (işlem, personel, alan personel, depo, tarih,
+  açıklama — tek satır; yardım metinleri ipucuna) + kalem ekleme satırı (tür, varlık, QR okut, miktar, + Listeye Ekle, "Zimmet kiti…"
+  açılır paneli); ORTADA teslim listesi kalan alanın tamamı (eskiden 220 px); ALTTA sabit özet + Kaydet (dar pencerede satıra sarılıp
+  sola düşmüyor — M-61 açığı kapandı). "Kimde ne var" sekmesinde açık zimmetler + sağda geçmiş zinciri. Yazma yetkisi yoksa ekran
+  doğrudan "Kimde ne var" ile açılır. İş kuralları/komutlar değişmedi.
+- **Testler:** arayüz UIT24 (sekmeler, tablo yüksekliği — ilk denemede 128 px kalıyordu, başlık sıkıştırıldı —, Kaydet konumu, özet);
+  zimmet/kod okutma/kit/onay testleri 66/66; arayüz 60/60.

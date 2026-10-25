@@ -38,6 +38,8 @@ public sealed partial class AssignmentsViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, AssignmentService.Module, PermissionAction.Create);
+    /// <summary>⭐ M-63: ekran "Yeni işlem" sekmesiyle açılır; yazma yetkisi yoksa doğrudan "Kimde ne var".</summary>
+    public int BaslangicSekmesi => CanWrite ? 0 : 1;
     /// <summary>Denetim B5+B6 (M-46): iade tarihi vermek zimmet DÜZENLEME yetkisi ister (servis kapısı + web ile aynı).</summary>
     public bool CanEdit => AccessControl.Can(_session, AssignmentService.Module, PermissionAction.Edit);
     public bool CanExport => AccessControl.Can(_session, "export", PermissionAction.View);

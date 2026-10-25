@@ -9,8 +9,12 @@
              x:Class="DepoWise.Desktop.Views.AssignmentsView"
              x:DataType="vm:AssignmentsViewModel">
 
-    <!-- ZMT-01 (ADR-167): Zimmet — defter modeli; malzeme stoklu (PK-B1), ekipman stok dışı; yerel + senkron. -->
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+    <!-- ZMT-01 (ADR-167): Zimmet — defter modeli; malzeme stoklu (PK-B1), ekipman stok dışı; yerel + senkron.
+         ⭐ M-63 (AR-GE 2026-10-25, F-128 · Şablon C): eskiden form üstte sabit, "Kaydet" sağa sarınca solda kalıyor, açık zimmetler
+         listesi altta sıkışıyordu (U6, M-61 açığı). Artık iki sekme: "Yeni işlem" (başlık alanları → kalem tablosu kalan alanın
+         tamamı → ALTTA sabit özet + Kaydet, birincil en sağda) ve "Kimde ne var" (açık zimmetler + sağda geçmiş zinciri).
+         Görünüm modeli ve iş kuralları değişmedi (yalnız açılış sekmesi: yazma yetkisi yoksa "Kimde ne var"). -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Zimmet">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
@@ -18,11 +22,10 @@
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
-                    <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
-                         başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
+                    <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir. -->
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
-                    <!-- ⭐ M-46: seçili zimmete beklenen iade tarihi + gecikenler -->
+                    <!-- ⭐ M-46: seçili zimmete beklenen iade tarihi + gecikenler ("Kimde ne var" sekmesinde seçilen satır) -->
                     <ctrl:TarihKutusu SelectedDate="{Binding IadeTarihi}" Width="140" IsVisible="{Binding CanEdit}" ToolTip.Tip="Seçili zimmetin beklenen iade tarihi (boş = kaldır)"/>
                     <Button Classes="Secondary" Content="İade Tarihi Ver" Command="{Binding IadeTarihiVerCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"
                             ToolTip.Tip="Seçili zimmet satırına beklenen iade tarihini yazar; tarih geçince &quot;geciken iade&quot; uyarısı çıkar."/>
@@ -40,181 +43,209 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- İşlem formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding CanWrite}">
-            <!-- ⭐ DÜZELTME (görsel QA 2026-09-06): burada HorizontalAlignment="Left" vardı. Sola
-                 yaslanmış bir kapsayıcı çocuklarına SINIRSIZ genişlik verir; içindeki WrapPanel de
-                 "yer var" sanıp hiç sarmaz. Ölçüm: 1100 px'te "Kaydet" düğmesi pencerenin 109 px
-                 DIŞINDA kalıyordu. Yaslama kaldırıldı → kapsayıcı gerçek genişliği görüyor ve satırlar
-                 sarıyor. Alanlar zaten sabit genişlikte ve soldan dizildiği için geniş pencerede
-                 görünüm DEĞİŞMEZ. -->
-            <StackPanel Spacing="14">
-                <SelectableTextBlock Text="YENİ İŞLEM" Classes="SectionTitle"/>
-                <!-- ⭐ M-50: ZİMMET KİTİ (SET) — kit teslim listesine yüklenir; teslim her zamanki Kaydet ile tek işlemde yapılır -->
-                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <ctrl:FormField Label="Zimmet kiti (set)" Width="240">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Kitler}" SelectedItem="{Binding SeciliKit}"
-                                  PlaceholderText="Kit seç..."/>
-                    </ctrl:FormField>
-                    <Button Classes="Secondary" Content="Kiti Listeye Yükle" Command="{Binding KitYukleCommand}" VerticalAlignment="Bottom"
-                            ToolTip.Tip="Seçili kitin kalemlerini teslim listesine ekler. Sonra personeli seçip Kaydet'e basın."/>
-                    <ctrl:FormField Label="Kit adı" Width="200" HelpText="Yeni kit ya da güncelleme için.">
-                        <TextBox Classes="Field" Text="{Binding KitAdi}" Watermark="ör. Kaynakçı seti"/>
-                    </ctrl:FormField>
-                    <Button Classes="Secondary" Content="Listeyi Kit Olarak Kaydet" Command="{Binding KitKaydetCommand}" VerticalAlignment="Bottom"
-                            IsEnabled="{Binding CanWrite}" ToolTip.Tip="Teslim listesindeki kalemleri adlandırılmış kit olarak saklar (aynı adlı kit varsa güncellenir)."/>
-                    <Button Classes="Ghost" Content="Kiti Sil" Command="{Binding KitSilCommand}" VerticalAlignment="Bottom" IsEnabled="{Binding CanWrite}"/>
-                </WrapPanel>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="İşlem" Width="130">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding OpOptions}" SelectedItem="{Binding FormOp}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Varlık Türü" Width="120">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding AssetTypeOptions}" SelectedItem="{Binding FormAssetType}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Varlık" IsRequired="True" Width="260">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding AssetOptions}" SelectedItem="{Binding FormAsset}"
-                                        PlaceholderText="Malzeme/ekipman seç / ara..."/>
-                    </ctrl:FormField>
-                    <!-- ⭐ M-49: QR / barkod okutma — teslimde okutulan kalem listeye eklenir -->
-                    <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
-                        <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. JN-012"
-                                 ToolTip.Tip="Etiketteki QR'ı okutun: seçili varlık türünde kodu TAM eşleşen kayıt seçilir; Teslim işleminde listeye eklenir.">
-                            <TextBox.KeyBindings>
-                                <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
-                            </TextBox.KeyBindings>
-                        </TextBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Personel" IsRequired="True" Width="200" HelpText="Devirde: VEREN kişi.">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormPersonnel}"
-                                        PlaceholderText="Personel seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Alan Personel" IsRequired="True" Width="200" IsVisible="{Binding IsTransfer}">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormToPersonnel}"
-                                        PlaceholderText="Devralan kişi..."/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="Depo / Şube" Width="220" IsVisible="{Binding IsMaterial}"
-                                    HelpText="Malzeme tesliminde stok bu depodan düşer; iadede buraya döner.">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Depo seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Miktar" Width="110" IsVisible="{Binding IsMaterial}">
-                        <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
-                    </ctrl:FormField>
-                    <!-- ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem — her kalem listeye eklenir,
-                         Kaydet hepsini tek işlemde teslim eder. Liste boşsa eski tekli teslim aynen çalışır. -->
-                    <Button Classes="Secondary" Content="+ Listeye Ekle" Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
-                            IsVisible="{Binding IsIssue}"
-                            ToolTip.Tip="Seçili malzeme/ekipmanı teslim listesine ekler. Birden fazla kalem ekleyip tek seferde kaydedebilirsiniz."/>
-                    <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
-                    <ctrl:FormField Label="İşlem Tarihi" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Açıklama" Width="300">
-                        <TextBox Classes="Field" Text="{Binding FormNote}"/>
-                    </ctrl:FormField>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" VerticalAlignment="Bottom"/>
-                </WrapPanel>
-                <!-- Toplu teslim kalemleri -->
-                <Border Classes="Table" IsVisible="{Binding ShowLines}" MaxHeight="220">
-                    <DockPanel>
-                        <Border Classes="TableHeader" DockPanel.Dock="Top">
-                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40">
-                                <SelectableTextBlock Grid.Column="0" Text="TÜR"/>
-                                <SelectableTextBlock Grid.Column="1" Text="TESLİM EDİLECEK KALEM"/>
-                                <SelectableTextBlock Grid.Column="2" Text="MİKTAR"/>
-                            </Grid>
-                        </Border>
-                        <ScrollViewer>
-                            <ItemsControl ItemsSource="{Binding Lines}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ZimmetKalemi">
-                                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40" Margin="12,4">
-                                            <SelectableTextBlock Grid.Column="0" Text="{Binding TypeDisplay}" VerticalAlignment="Center"/>
-                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" Margin="10,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}"/>
-                                            <SelectableTextBlock Grid.Column="2" Text="{Binding QuantityDisplay}" Margin="10,0,8,0" VerticalAlignment="Center"/>
-                                            <Button AutomationProperties.Name="Bu kalemi listeden çıkar" Grid.Column="3" Classes="Icon" Content="×" Width="24" Height="24" Padding="0" ToolTip.Tip="Bu kalemi listeden çıkar"
-                                                    Command="{Binding $parent[ItemsControl].((vm:AssignmentsViewModel)DataContext).RemoveLineCommand}"
-                                                    CommandParameter="{Binding}"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
-                <SelectableTextBlock Classes="Helper" IsVisible="{Binding IsIssue}" TextWrapping="Wrap"
-                                     Text="Birden fazla malzeme/ekipman teslim etmek için her birini «+ Listeye Ekle» ile ekleyin, sonra «Kaydet»e basın — hepsi tek işlemde kaydedilir."/>
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-            </StackPanel>
-        </Border>
+        <TabControl Grid.Row="1" Classes="EkranSekme" Margin="0,12,0,0" Padding="0" SelectedIndex="{Binding BaslangicSekmesi, Mode=OneTime}">
+            <!-- ═══ 1) YENİ İŞLEM (Şablon C) ═══ -->
+            <TabItem Header="Yeni işlem" IsVisible="{Binding CanWrite}">
+                <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,12,0,0">
+                    <!-- Başlık alanları -->
+                    <Border Grid.Row="0" Classes="Panel" Padding="16,12">
+                        <StackPanel Spacing="10">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                                <ctrl:FormField Label="İşlem" Width="130">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding OpOptions}" SelectedItem="{Binding FormOp}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Personel" IsRequired="True" Width="220" ToolTip.Tip="Devirde: VEREN kişi.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormPersonnel}"
+                                                    PlaceholderText="Personel seç / ara..."/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Alan Personel" IsRequired="True" Width="220" IsVisible="{Binding IsTransfer}">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormToPersonnel}"
+                                                    PlaceholderText="Devralan kişi..."/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Depo / Şube" Width="220" IsVisible="{Binding IsMaterial}"
+                                                ToolTip.Tip="Malzeme tesliminde stok bu depodan düşer; iadede buraya döner.">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                                    PlaceholderText="Depo seç / ara..."/>
+                                </ctrl:FormField>
+                                <!-- Tarih KEHRİBAR temadan (TRH-01); yetki yoksa bugüne kilitli -->
+                                <ctrl:FormField Label="İşlem Tarihi" Width="150">
+                                    <ctrl:TarihKutusu SelectedDate="{Binding FormDocDate}" IsEnabled="{Binding CanBackDate}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Açıklama" Width="220">
+                                    <TextBox Classes="Field" Text="{Binding FormNote}"/>
+                                </ctrl:FormField>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
 
-        <!-- Kimde Ne Var + Geçmiş -->
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,380">
-            <Panel Grid.Column="0">
-                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                    <DockPanel>
-                        <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
-                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                                <SelectableTextBlock Grid.Column="0" Text="PERSONEL" MinWidth="150"/>
-                                <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80" MaxWidth="80"/>
-                                <SelectableTextBlock Grid.Column="2" Text="VARLIK" MinWidth="200" MaxWidth="200"/>
-                                <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="80" MaxWidth="80"/>
-                                <SelectableTextBlock Grid.Column="4" Text="SON İŞLEM" MinWidth="90" MaxWidth="90"/>
-                            </Grid>
+                    <!-- Kalem ekleme: varlık → QR → miktar → Listeye Ekle -->
+                    <Border Grid.Row="1" Classes="Panel" Padding="16,12" Margin="0,10,0,0">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                            <ctrl:FormField Label="Varlık Türü" Width="120">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding AssetTypeOptions}" SelectedItem="{Binding FormAssetType}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Varlık" IsRequired="True" Width="280">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding AssetOptions}" SelectedItem="{Binding FormAsset}"
+                                                PlaceholderText="Malzeme/ekipman seç / ara..."/>
+                            </ctrl:FormField>
+                            <!-- ⭐ M-49: QR / barkod okutma — teslimde okutulan kalem listeye eklenir -->
+                            <ctrl:FormField Label="QR / barkod okut" Width="170">
+                                <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. JN-012"
+                                         ToolTip.Tip="Etiketteki QR'ı okutun: seçili varlık türünde kodu TAM eşleşen kayıt seçilir; Teslim işleminde listeye eklenir.">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Miktar" Width="110" IsVisible="{Binding IsMaterial}">
+                                <NumericUpDown Classes="Field" Value="{Binding FormQuantity}" Minimum="0.0001" Increment="1" FormatString="0.####"/>
+                            </ctrl:FormField>
+                            <!-- ⭐ 2026-10-11 (kullanıcı isteği): bir personele BİRDEN FAZLA kalem; liste boşsa tekli teslim aynen çalışır. -->
+                            <Button Classes="Secondary" Content="+ Listeye Ekle" Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
+                                    IsVisible="{Binding IsIssue}"
+                                    ToolTip.Tip="Seçili malzeme/ekipmanı teslim listesine ekler. Birden fazla kalem ekleyip tek seferde kaydedebilirsiniz."/>
+                            <!-- ⭐ M-50: ZİMMET KİTİ (SET) — sık kullanılmadığı için açılır panelde (form satırında yer kaplamaz) -->
+                            <Button Classes="Ghost" Content="Zimmet kiti…" VerticalAlignment="Bottom" IsVisible="{Binding IsIssue}"
+                                    ToolTip.Tip="Kitten teslim listesine yükle ya da listeyi kit olarak kaydet.">
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedLeft">
+                                        <Border Padding="8" MaxWidth="760">
+                                            <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
+                                                <ctrl:FormField Label="Zimmet kiti (set)" Width="240">
+                                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Kitler}" SelectedItem="{Binding SeciliKit}"
+                                                              PlaceholderText="Kit seç..."/>
+                                                </ctrl:FormField>
+                                                <Button Classes="Secondary" Content="Kiti Listeye Yükle" Command="{Binding KitYukleCommand}" VerticalAlignment="Bottom"
+                                                        ToolTip.Tip="Seçili kitin kalemlerini teslim listesine ekler. Sonra personeli seçip Kaydet'e basın."/>
+                                                <ctrl:FormField Label="Kit adı" Width="200" HelpText="Yeni kit ya da güncelleme için.">
+                                                    <TextBox Classes="Field" Text="{Binding KitAdi}" Watermark="ör. Kaynakçı seti"/>
+                                                </ctrl:FormField>
+                                                <Button Classes="Secondary" Content="Listeyi Kit Olarak Kaydet" Command="{Binding KitKaydetCommand}" VerticalAlignment="Bottom"
+                                                        IsEnabled="{Binding CanWrite}" ToolTip.Tip="Teslim listesindeki kalemleri adlandırılmış kit olarak saklar (aynı adlı kit varsa güncellenir)."/>
+                                                <Button Classes="Ghost" Content="Kiti Sil" Command="{Binding KitSilCommand}" VerticalAlignment="Bottom" IsEnabled="{Binding CanWrite}"/>
+                                            </WrapPanel>
+                                        </Border>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- KALEM TABLOSU — kalan alanın tamamı (eskiden 220 px). Boşken yönlendirme. -->
+                    <Panel Grid.Row="2" Margin="0,10,0,0">
+                        <Border Classes="Table" IsVisible="{Binding ShowLines}">
+                            <DockPanel>
+                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40">
+                                        <SelectableTextBlock Grid.Column="0" Text="TÜR"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="TESLİM EDİLECEK KALEM"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="MİKTAR"/>
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding Lines}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ZimmetKalemi">
+                                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="90,*,90,40" Margin="12,4">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding TypeDisplay}" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" Margin="10,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Label}"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding QuantityDisplay}" Margin="10,0,8,0" VerticalAlignment="Center"/>
+                                                    <Button AutomationProperties.Name="Bu kalemi listeden çıkar" Grid.Column="3" Classes="Icon" Content="×" Width="24" Height="24" Padding="0" ToolTip.Tip="Bu kalemi listeden çıkar"
+                                                            Command="{Binding $parent[ItemsControl].((vm:AssignmentsViewModel)DataContext).RemoveLineCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
                         </Border>
-                        <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="asg:HoldingRow">
+                        <ctrl:StatePanel Mode="Empty" Title="Teslim listesi boş"
+                                         Message="Birden fazla kalem için her birini «+ Listeye Ekle» ile ekleyin; Kaydet hepsini tek işlemde işler. Tek kalem için eklemeden de kaydedebilirsiniz."
+                                         IsVisible="{Binding !ShowLines}"/>
+                    </Panel>
+
+                    <!-- SABİT ÖZET + EYLEM ÇUBUĞU (K-10: birincil EN SAĞDA) -->
+                    <Border Grid.Row="3" Classes="Panel" Padding="16,10" Margin="0,10,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                <SelectableTextBlock Classes="Body" FontWeight="SemiBold" IsVisible="{Binding ShowLines}"
+                                                     Text="{Binding Lines.Count, StringFormat='{}{0} kalem teslim listesinde — Kaydet hepsini tek işlemde işler.'}"/>
+                                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                                                     IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══ 2) KİMDE NE VAR + geçmiş zinciri ═══ -->
+            <TabItem Header="Kimde ne var">
+                <Grid Margin="0,12,0,0" ColumnDefinitions="*,380">
+                    <Panel Grid.Column="0">
+                        <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                            <DockPanel>
+                                <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
                                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding PersonnelName}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PersonnelName}"/>
-                                        <SelectableTextBlock Grid.Column="1" Text="{Binding AssetTypeDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="2" Text="{Binding AssetLabel}" MinWidth="200" MaxWidth="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AssetLabel}"/>
-                                        <SelectableTextBlock Grid.Column="3" Text="{Binding QuantityDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
-                                        <SelectableTextBlock Grid.Column="4" Text="{Binding LastDocDateDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="PERSONEL" MinWidth="150"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80" MaxWidth="80"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="VARLIK" MinWidth="200" MaxWidth="200"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="80" MaxWidth="80"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="SON İŞLEM" MinWidth="90" MaxWidth="90"/>
                                     </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </DockPanel>
-                </Border>
-                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
-                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Açık zimmet yok" Message="Teslim işlemiyle zimmet oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
-            </Panel>
+                                </Border>
+                                <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="asg:HoldingRow">
+                                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding PersonnelName}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PersonnelName}"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding AssetTypeDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding AssetLabel}" MinWidth="200" MaxWidth="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AssetLabel}"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding QuantityDisplay}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding LastDocDateDisplay}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                        <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                         ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                        <ctrl:StatePanel Mode="Empty" Title="Açık zimmet yok" Message="Teslim işlemiyle zimmet oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+                    </Panel>
 
-            <!-- Geçmiş zinciri -->
-            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0">
-                <DockPanel>
-                    <SelectableTextBlock DockPanel.Dock="Top" Text="ZİMMET GEÇMİŞİ" Classes="SectionTitle" Margin="0,0,0,8"/>
-                    <SelectableTextBlock DockPanel.Dock="Top" Text="Bir satır seçin — o varlığın tüm teslim/iade/devir zinciri burada görünür."
-                               Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasSelection}"/>
-                    <ScrollViewer>
-                        <ItemsControl ItemsSource="{Binding History}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="asg:AssignmentMovementRow">
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4">
-                                        <StackPanel Grid.Column="0">
-                                            <SelectableTextBlock Classes="Body" TextTrimming="CharacterEllipsis">
-                                                <Run Text="{Binding MovementDisplay}" FontWeight="SemiBold"/><Run Text=" · "/><Run Text="{Binding PersonnelName}"/>
-                                            </SelectableTextBlock>
-                                            <SelectableTextBlock Classes="Helper" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Note}">
-                                                <Run Text="{Binding AssetLabel}"/><Run Text=" · "/><Run Text="{Binding Quantity}"/>
-                                            </SelectableTextBlock>
-                                        </StackPanel>
-                                        <SelectableTextBlock Grid.Column="1" Text="{Binding DocDateDisplay}" Classes="Helper" VerticalAlignment="Center"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
-        </Grid>
+                    <!-- Geçmiş zinciri -->
+                    <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0">
+                        <DockPanel>
+                            <SelectableTextBlock DockPanel.Dock="Top" Text="ZİMMET GEÇMİŞİ" Classes="SectionTitle" Margin="0,0,0,8"/>
+                            <SelectableTextBlock DockPanel.Dock="Top" Text="Bir satır seçin — o varlığın tüm teslim/iade/devir zinciri burada görünür."
+                                       Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasSelection}"/>
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding History}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="asg:AssignmentMovementRow">
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                                                <StackPanel Grid.Column="0">
+                                                    <SelectableTextBlock Classes="Body" TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{Binding MovementDisplay}" FontWeight="SemiBold"/><Run Text=" · "/><Run Text="{Binding PersonnelName}"/>
+                                                    </SelectableTextBlock>
+                                                    <SelectableTextBlock Classes="Helper" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Note}">
+                                                        <Run Text="{Binding AssetLabel}"/><Run Text=" · "/><Run Text="{Binding Quantity}"/>
+                                                    </SelectableTextBlock>
+                                                </StackPanel>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding DocDateDisplay}" Classes="Helper" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
-        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>
