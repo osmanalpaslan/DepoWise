@@ -668,3 +668,23 @@
 - **Testler:** arayüz UIT33 (seçim fonksiyonu: yetkisiz → düğme yok, katalog sırası, her anahtar gerçek masaüstü ekranı; menü yokken
   bölüm görünmez); `HizliIslemParitesiTests` HP1–2 (iki ortam aynı katalog + menüyle aynı erişim). Paket 32/32, arayüz 69/69, web
   derlemesi temiz. Mutasyon: masaüstünde süzgeç kaldırılınca UIT33, web'de hedef değiştirilince HP1 kırıldı (2/2).
+
+## B8 KAPANIŞ — B7+B8 tam takım (2026-10-25)
+- Tam koşu 17:48→20:17 (2 sa 28 dk): **4494/4495, atlanan 0**. Tek hata `MobilWebTests` MOB3: M-63'te eklenen `.dw-islem-alt`
+  kuralı app.css'te mobil katmanın içine ama medya sorgusunun dışına düşmüştü (hedefli paketlerde o test yoktu) → kural §18'in
+  önüne taşındı (1ee9ce7f), hedefli 19/19. Kurala göre tam koşu tekrarlanacak (M-66/M-67 ile birlikte).
+- İki ortam denetimi çalıştı; bulgular ve düzeltmeleri aşağıda ("B8 denetim bulguları").
+
+## B9 — Teknik borç ve test güvenilirliği
+
+### B9 — M-66 "Testler geçti" gerçekten güvenilir (F-046, F-047)
+- `ApiTestHost.IsDenied` artık 500'ü (sunucu çökmesi) "erişim reddedildi" SAYMAZ — çöken uç güvenli görünüyordu.
+- **Hemen bir gerçek sorun yakaladı:** `ApiTenantSweepTests` T4 yedek listesi ucunu YANLIŞ parametreyle (`companyId` — uç `company`
+  + zorunlu `from/to` bekliyor) çağırıyordu; istek bağlanamayıp 500'e düşüyor, 500 "ret" sayıldığı için test SEC-04 kuralını hiç
+  sınamadan yeşildi. Test doğru parametrelerle yazıldı (başka firma → açıkça 403, veri sızmaz).
+- API hata katmanı: eksik/hatalı istek parametresi (çatının `BadHttpRequestException`'ı) geliştirme ortamında 500'e düşüyordu
+  (canlıda 400) → her ortamda 400, sabit mesaj (iç ayrıntı sızmaz).
+- `scripts/run_tests.ps1`: sonuç dosyasında ÇALIŞTIRILMAMIŞ (atlanan) test varsa koşu "geçti" demez → "SONUC: EKSIK KOSU" + çıkış 3
+  (PG sunucusu kapalıyken PG testleri sessizce atlanıyordu); bilinçli `-PostgresAtla`'da yalnız uyarı. e2e'de `test.skip` kalmamış (tarandı).
+- **Testler:** `TestGuvenilirligiTests` TG1 (6 durum) + TG2; IsDenied kullanan 16 sınıf 193/193 (T4 düzeltmesi sonrası). Mutasyon:
+  500 yeniden "ret" sayılınca TG1, 400 eşlemesi kaldırılınca tarama 4 uçta çökme gösterdi (2/2).

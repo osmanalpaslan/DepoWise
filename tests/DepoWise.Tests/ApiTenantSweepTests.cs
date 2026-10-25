@@ -114,7 +114,14 @@ public class ApiTenantSweepTests : IAsyncLifetime
     /// <summary>SEC-04 regresyonu: yedek/makine listesi firma sınırını uygulamalı.</summary>
     [Fact]
     public async Task T4_Yedekler_Baska_Firma_Kimligiyle_Sizdirmaz()
-        => await RedVeyaKendiVerisi(await _adminA.GetAsync($"/api/backups?companyId={CoB}"), "B-GIZLI-MAKINE");
+    {
+        // ⭐ M-66 (2026-10-25): bu test eskiden "?companyId=" gönderiyordu — uçun parametresi "company" (+ zorunlu from/to).
+        // İstek bağlanamayıp 500'e düşüyor, 500 de "ret" sayıldığı için test asıl kuralı (SEC-04) HİÇ sınamadan yeşildi.
+        // Artık gerçek parametrelerle: başka firmanın yedekleri istenince AÇIKÇA 403.
+        var r = await _adminA.GetAsync($"/api/backups?company={CoB}&from=2026-01-01&to=2026-12-31");
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, r.StatusCode);
+        Assert.DoesNotContain("B-GIZLI-MAKINE", await r.Content.ReadAsStringAsync());
+    }
 
     [Fact]
     public async Task T5_Rapor_Kapsami_Baska_Firma_Kimligiyle_Sizdirmaz()

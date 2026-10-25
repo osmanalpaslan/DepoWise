@@ -152,6 +152,10 @@ app.Use(async (ctx, next) =>
     // gerçek teknik sebep [stock-cas] etiketiyle sunucu logundadır (kullanıcı kararı K-5).
     catch (DepoWise.Infrastructure.Materials.StockBusyException ex) { await Write(ctx, 409, ex.Message); }
     catch (DepoWise.Application.Common.MeterBackwardException ex) { await Write(ctx, 400, ex.Message); }
+    // ⭐ M-66 (AR-GE 2026-10-25, F-046): eksik/hatalı istek parametresi (model bağlama) → çatının verdiği kod (400). Geliştirme
+    // ortamında çatı bunu istisna olarak fırlatıyor ve aşağıdaki genel yakalayıcı 500 yazıyordu; canlıda zaten 400'dü. Testler
+    // 500'ü artık "ret" saymadığı için bu ayrım görünür oldu. Mesaj sabit (iç ayrıntı sızmaz).
+    catch (BadHttpRequestException ex) { await Write(ctx, ex.StatusCode, "Geçersiz istek: eksik ya da hatalı parametre."); }
     catch (ArgumentException ex) { await Write(ctx, 400, ex.Message); }
     catch (InvalidOperationException ex) { await Write(ctx, 400, ex.Message); }
     catch (Exception ex)

@@ -72,7 +72,9 @@ public sealed class ApiTestHost : WebApplicationFactory<Program>, IAsyncLifetime
         => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.Clone();
 
     /// <summary>Yanıtın "erişim reddedildi" sayılıp sayılmadığı — uygulamanın MEVCUT hata modeli:
-    /// yetki/tenant ihlali 403, bulunamayan kayıt 404, doğrulama 400. 200 + veri ASLA kabul edilmez.</summary>
+    /// yetki/tenant ihlali 403, bulunamayan kayıt 404, doğrulama 400. 200 + veri ASLA kabul edilmez.
+    /// ⭐ M-66 (AR-GE 2026-10-25, F-046): 500 artık "ret" SAYILMAZ — çöken uç "güvenli" görünüyor, çökme ve olası bilgi
+    /// sızıntısı gizleniyordu. Bir uç yetkisiz/başka firmanın isteğinde çöküyorsa test kırmızı olur ve uç düzeltilir.</summary>
     public static bool IsDenied(HttpResponseMessage r)
-        => (int)r.StatusCode is 400 or 401 or 403 or 404 or 500;
+        => (int)r.StatusCode is 400 or 401 or 403 or 404;
 }

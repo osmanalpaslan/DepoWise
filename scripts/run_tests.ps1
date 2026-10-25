@@ -107,6 +107,23 @@ try {
   $testKodu = $LASTEXITCODE
 
   Write-Output ""
+  # ⭐ M-66 (AR-GE 2026-10-25, F-047): ATLANAN test "gecti" sayilmaz. PG sunucusu kapaliyken PG testleri sessizce
+  # atlaniyor ve kosu yine "gecti" diyordu → yayin karari eksik kosuya dayanabilirdi. TRX'te calistirilmamis
+  # (NotExecuted) test varsa: -PostgresAtla bilincli istenmisse yalniz UYARI, aksi hâlde EKSIK KOSU (cikis 3).
+  $atlanan = 0
+  if ($testKodu -eq 0 -and (Test-Path $trx)) {
+    try {
+      [xml]$tx = Get-Content $trx -Encoding UTF8
+      $atlananlar = @($tx.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'NotExecuted' })
+      $atlanan = $atlananlar.Count
+      foreach ($t in ($atlananlar | Select-Object -First 15)) { Write-Output "  atlandi: $($t.testName)" }
+      if ($atlanan -gt 15) { Write-Output "  ... ve $($atlanan - 15) test daha" }
+    } catch { Write-Output "(TRX okunamadi: $_)"; $testKodu = 3 }
+  }
+  if ($testKodu -eq 0 -and $atlanan -gt 0) {
+    if ($PostgresAtla) { Write-Output "UYARI: $atlanan test ATLANDI (-PostgresAtla istendi) — bu kosu yayin karari icin TAM SAYILMAZ." }
+    else { Write-Output "SONUC: EKSIK KOSU — $atlanan test ATLANDI (calistirilmadi). PG sunucusu acik mi? (scripts/pg_test_sunucu.ps1)"; exit 3 }
+  }
   if ($testKodu -eq 0) { Write-Output "SONUC: TUM TESTLER GECTI" }
   else {
     Write-Output "SONUC: TEST BASARISIZ (cikis kodu $testKodu)"
