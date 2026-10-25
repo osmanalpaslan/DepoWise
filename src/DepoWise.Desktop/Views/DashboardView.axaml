@@ -37,6 +37,23 @@
                            Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
             </Border>
 
+            <!-- ===== ⭐ M-65 Hızlı işlemler — yalnız menüde görünen ekranlar (yetki menüyle aynı) ===== -->
+            <StackPanel Spacing="12" IsVisible="{Binding HizliIslemVar}">
+                <SelectableTextBlock Text="HIZLI İŞLEMLER" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding HizliIslemler}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HizliIslem">
+                            <Button Classes="Secondary" Margin="0,0,10,10" Content="{Binding Baslik}"
+                                    Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding NavKey}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
             <!-- ===== Özet ===== -->
             <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
                 <SelectableTextBlock Text="ÖZET" Classes="SectionTitle"/>

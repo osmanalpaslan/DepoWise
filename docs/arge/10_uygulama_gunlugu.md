@@ -660,3 +660,11 @@
   taşmaz, Esc kapatır, 5 ekran görüntüsü). Taşma kontrolü ilk koşuda Firmalar ve Duyurular'daki kesilen alanları yakaladı (düzeltildi).
   Mutasyon: yan sayfanın açılma bağı koparılınca UIT32 kırıldı. Arayüz 68/68; şube/maliyet/firma/duyuru/takvim/onay/erişilebilirlik/
   düğme sırası/tasarım/iki ortam denetimi paketi 892/892 (30 dk).
+
+### B8 — M-65 (2/2 · b) Ana ekran "Hızlı işlemler" (F-130)
+- Masaüstü ve web ana ekranında "HIZLI İŞLEMLER": Giriş-Çıkış · Zimmet · Stok Sayımı (tek tıkla ilgili ekran). Düğme yalnız o ekran
+  kullanıcının MENÜSÜNDE görünüyorsa çıkar — masaüstünde kabuğun hazır menüsünden, web'de NavMenu ile aynı karardan (yetki + ekran
+  web'de açık); ayrı bir yetki kuralı yazılmadı. Liste/ad/sıra iki ortamda aynı.
+- **Testler:** arayüz UIT33 (seçim fonksiyonu: yetkisiz → düğme yok, katalog sırası, her anahtar gerçek masaüstü ekranı; menü yokken
+  bölüm görünmez); `HizliIslemParitesiTests` HP1–2 (iki ortam aynı katalog + menüyle aynı erişim). Paket 32/32, arayüz 69/69, web
+  derlemesi temiz. Mutasyon: masaüstünde süzgeç kaldırılınca UIT33, web'de hedef değiştirilince HP1 kırıldı (2/2).

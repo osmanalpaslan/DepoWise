@@ -92,6 +92,19 @@
         }
     }
 
+    @* ⭐ M-65 (AR-GE 2026-10-25, F-130): HIZLI İŞLEMLER — masaüstü ana ekranla aynı liste ve sıra. Düğme yalnız ekran
+       kullanıcının MENÜSÜNDE görünüyorsa çıkar (NavMenu ile aynı karar: yetki + web'de açık); ayrı kural yazılmaz. *@
+    @if (HizliIslemler.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="font-weight:700;letter-spacing:.06em;">HIZLI İŞLEMLER</MudText>
+        <div class="d-flex flex-wrap mt-2 mb-6" style="gap:10px;">
+            @foreach (var h in HizliIslemler)
+            {
+                <MudButton Variant="Variant.Outlined" OnClick="@(() => Nav.NavigateTo("/" + h.Ekran.WebRoute))">@h.Baslik</MudButton>
+            }
+        </div>
+    }
+
     <MudGrid Spacing="4">
         <!-- Sol: Kritik Uyarılar -->
         <MudItem xs="12" md="7">
@@ -579,6 +592,22 @@
         _alerts = _alerts?.FindAll(x => x.Key != a.Key);
         StateHasChanged();
     }
+
+    /// <summary>⭐ M-65: hızlı işlem kataloğu (ekran anahtarı) — masaüstü DashboardViewModel.HizliIslemKatalogu ile aynı ad ve sıra
+    /// (HizliIslemParitesi testi kilitler).</summary>
+    public static readonly (string Baslik, string EkranKey)[] HizliIslemKatalogu =
+    {
+        ("Giriş-Çıkış", "stock.entry"),
+        ("Zimmet", "assignments"),
+        ("Stok Sayımı", "stock.count"),
+    };
+
+    private IReadOnlyList<(string Baslik, DepoWise.Application.Security.AppScreen Ekran)> HizliIslemler =>
+        HizliIslemKatalogu
+            .Select(h => (h.Baslik, Ekran: DepoWise.Application.Security.AppScreens.ByKey(h.EkranKey)))
+            .Where(h => h.Ekran is { OnWeb: true } e && Auth.CanView(e.WebPermKey) && Auth.PlatformOpen(e.Key))
+            .Select(h => (h.Baslik, h.Ekran!))
+            .ToList();
 
     private void Open(string navigateKey)
     {

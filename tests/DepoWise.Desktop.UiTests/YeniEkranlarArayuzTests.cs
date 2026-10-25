@@ -736,6 +736,28 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT33 — ⭐ M-65 ana ekran "Hızlı işlemler": yalnız menüde görünen ekranlar (yetki menüyle aynı kaynaktan), katalog
+    /// sırasıyla; her katalog anahtarı gerçek bir masaüstü ekranına gider; menü boşsa bölüm görünmez.</summary>
+    [AvaloniaFact]
+    public void UIT33_Ana_Ekran_Hizli_Islemler()
+    {
+        Assert.Equal(new[] { "Zimmet", "Stok Sayımı" },
+            DashboardViewModel.HizliIslemSec(new[] { "stock:count", "materials", "assignments" }).Select(h => h.Baslik).ToArray());
+        Assert.Empty(DashboardViewModel.HizliIslemSec(new[] { "materials", "vehicles" }));     // yetkisiz → düğme yok
+        Assert.Equal(3, DashboardViewModel.HizliIslemSec(DashboardViewModel.HizliIslemKatalogu.Select(h => h.NavKey)).Count);
+        var masaustuAnahtarlari = AppScreens.All.Where(a => a.OnDesktop).Select(a => a.DesktopNavKey).ToHashSet();
+        Assert.All(DashboardViewModel.HizliIslemKatalogu, h => Assert.Contains(h.NavKey, masaustuAnahtarlari));
+
+        var vm = new DashboardViewModel(Ortam());          // kabuk (menü) yok → hızlı işlem yok
+        var view = new DashboardView { DataContext = vm };
+        var w = Ac(view, 1100, 700);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(vm.HizliIslemVar);
+        Assert.DoesNotContain(Gorunen<TextBlock>(view), t => t.Text == "HIZLI İŞLEMLER");
+        w.Close();
+        vm.Dispose();
+    }
+
     /// <summary>UIT32 — ⭐ M-65 (2/2) tanım ekranları: kısa form SAĞ YAN SAYFADA açılır (SideSheet); liste görünür kalır ve
     /// yüksekliği formdan etkilenmez (eskiden form listenin üstünde açılıp onu aşağı itiyordu); Esc = İptal.</summary>
     [AvaloniaFact]

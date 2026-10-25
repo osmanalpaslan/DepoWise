@@ -132,6 +132,26 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     private readonly string _companyId;
     private readonly SessionContext _session;
 
+    /// <summary>⭐ M-65 (AR-GE 2026-10-25, F-130 · tasarım belgesi 08 §4 "Dashboard"): en sık işlemlere tek tıkla giriş.
+    /// Düğme yalnız o ekran kullanıcının MENÜSÜNDE görünüyorsa çıkar — yetki/platform/şube kapısı menüyle aynı (ayrı kural yazılmaz).</summary>
+    public static readonly IReadOnlyList<HizliIslem> HizliIslemKatalogu = new[]
+    {
+        new HizliIslem("Giriş-Çıkış", "stock"),
+        new HizliIslem("Zimmet", "assignments"),
+        new HizliIslem("Stok Sayımı", "stock:count"),
+    };
+
+    /// <summary>Katalogdan, menüde görünen ekranlara ait olanlar (katalog sırasıyla).</summary>
+    public static IReadOnlyList<HizliIslem> HizliIslemSec(IEnumerable<string> menudekiEkranlar)
+    {
+        var menu = new HashSet<string>(menudekiEkranlar, StringComparer.Ordinal);
+        return HizliIslemKatalogu.Where(h => menu.Contains(h.NavKey)).ToList();
+    }
+
+    public IReadOnlyList<HizliIslem> HizliIslemler { get; } = HizliIslemSec(
+        ShellViewModel.Current?.Groups.SelectMany(g => g.Children).Select(c => c.Key) ?? Enumerable.Empty<string>());
+    public bool HizliIslemVar => HizliIslemler.Count > 0;
+
     public DashboardViewModel(SessionContext session)
     {
         _companyId = session.CompanyId;
@@ -333,6 +353,9 @@ public sealed partial class DashboardViewModel
 /// <summary>Ana ekran özet kartı. <c>IconKey</c> M6 ikon sözlüğündeki anahtardır
 /// (Themes/Icons.axaml); bulunamazsa kart ikonsuz çizilir — daha önce BEŞ kartın hepsi aynı
 /// kutu ikonunu taşıyordu ve kartlar birbirinden ayırt edilemiyordu.</summary>
+/// <summary>⭐ M-65: ana ekrandaki hızlı işlem düğmesi.</summary>
+public sealed record HizliIslem(string Baslik, string NavKey);
+
 public sealed record KpiCard(string Value, string Label, string Kind, bool Primary, string? NavKey = null,
     string? IconKey = null)
 {
