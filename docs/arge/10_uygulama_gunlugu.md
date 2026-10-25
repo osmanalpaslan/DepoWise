@@ -688,3 +688,12 @@
   (PG sunucusu kapalıyken PG testleri sessizce atlanıyordu); bilinçli `-PostgresAtla`'da yalnız uyarı. e2e'de `test.skip` kalmamış (tarandı).
 - **Testler:** `TestGuvenilirligiTests` TG1 (6 durum) + TG2; IsDenied kullanan 16 sınıf 193/193 (T4 düzeltmesi sonrası). Mutasyon:
   500 yeniden "ret" sayılınca TG1, 400 eşlemesi kaldırılınca tarama 4 uçta çökme gösterdi (2/2).
+
+### B9 — M-67 Tüm API uçlarına otomatik yetki taraması (F-018)
+- `UcYetkiTaramasiTests`: uçları elle listelemez, API'nin kendi uç kataloğundan okur (yeni uç eklendiği an taramaya girer; >150 uç).
+  UY1 — GİRİŞSİZ istek her uçta reddedilir; bilerek açık uçlar test içinde gerekçesiyle listelenir (`/`, `/health`, releases/latest,
+  auth/login, public/companies, public/verify-branch, machines/register — hepsi giriş akışı, hız sınırlı). UY2 — HİÇ yetkisi olmayan
+  personelde hiçbir uç ÇÖKMEZ (500 yok). Uzun bekleme ucu (`/api/sync/wait`) UY2'den gerekçesiyle hariç (UY1'de taranır).
+- İlk koşuda listede olmayan 3 açık uç bulundu; üçü de bilinçli giriş akışı uçları çıktı (incelendi, listeye gerekçeyle eklendi).
+  `machines/register` boş gövdeyle varsayılan firmaya bekleyen kayıt açıyor → kalan risklere yazıldı (davranış değişikliği ayrı karar).
+- **Testler:** UY1–UY2 yeşil. Mutasyon: M-66'nın 400 eşlemesi kaldırılınca tarama 4 uçta çökme gösterdi (iki test de kırmızı).

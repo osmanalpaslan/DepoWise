@@ -143,3 +143,11 @@
 - **M-62 ekran okuyucu:** web `ChatDock.razor`'daki 2 simge düğmesi etiketsiz (kullanıcının commit'lenmemiş sohbet işi; `ErisilebilirlikTests`
   ER2'de istisna) — sohbet işi birleşince etiketlenip istisna kaldırılmalı. M-61: Özel Raporlar'da Kaydet ikincil, Zimmet'te dar pencerede
   Kaydet alta sarılıyor (M-63/M-64).
+
+## Test güvenilirliği ve uç taraması (B9: M-66, M-67)
+- **M-67 makine kaydı:** `POST /api/machines/register` girişsiz çağrılabilir (tasarım gereği — yeni makine kendini kaydeder, kayıt
+  yönetici onayına düşer, IP hız sınırı var). Boş gövdeyle çağrılınca varsayılan firmaya ("DEPOWISE") "Bilinmeyen Makine" adlı
+  bekleyen kayıt açar. Zararı: onay listesinde gereksiz satır. Öneri: firma kimliği boşsa reddet — kayıt akışı (güvenlik) değişikliği
+  olduğu için kullanıcı kararına bırakıldı.
+- **M-66:** atlanan test artık koşuyu "EKSIK KOSU" yapar; PG sunucusu (`scripts/pg_test_sunucu.ps1`) kapalıyken filtreli koşular da
+  kırmızı döner — bilinçli PG'siz koşu için `-PostgresAtla` kullanılır (yayın kararı için tam sayılmaz).
