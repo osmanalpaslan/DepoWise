@@ -190,7 +190,7 @@
                         <Button Classes="Secondary" Content="›" Padding="10,4" AutomationProperties.Name="Sonraki sayfa"
                                 Command="{Binding NextCommand, RelativeSource={RelativeSource TemplatedParent}}" IsEnabled="{TemplateBinding CanNext}"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{TemplateBinding ShowPageSize}">
                         <TextBlock Text="Sayfa boyutu" VerticalAlignment="Center"
                                    FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>

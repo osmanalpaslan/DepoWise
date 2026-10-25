@@ -12,7 +12,10 @@
     <!-- G4-1 — CARİ HESAPLAR. Sol: liste (arama/filtre/sayfalama). Sağ: kart + finansal özet + hareketler.
          Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
-        <ctrl:Toolbar Grid.Row="0" Title="Cari Hesaplar">
+        <!-- ⭐ M-64 (AR-GE 2026-10-25, F-129 · Şablon B): tek ana düğme ("Yeni Cari") araç çubuğunda; seçili kayda ait eylemler
+             seçim çubuğunda (seçim yokken görünmez); sayfalama listenin altında ortak Pager ile (U1/U3/U4). -->
+        <ctrl:Toolbar Grid.Row="0" Title="Cari Hesaplar"
+                      PrimaryActionText="{Binding YeniCariMetni}" PrimaryActionCommand="{Binding NewPartyCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <TextBox Classes="Field" Width="230" Watermark="Kod / ünvan / vergi no / telefon"
@@ -56,29 +59,18 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
-                <Button AutomationProperties.Name="Önceki sayfa" Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
-                <Button AutomationProperties.Name="Sonraki sayfa" Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
-                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
-                <!-- G4-1b: cari formu + elle hareket girişi -->
-                <Button Classes="Primary" Content="Yeni Cari" Command="{Binding NewPartyCommand}"
-                        IsVisible="{Binding CanCreate}"/>
-                <Button Classes="Secondary" Content="Düzenle" Command="{Binding EditPartyCommand}"
-                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanEdit}"/>
-                <Button Classes="Secondary" Content="Hareket Ekle" Command="{Binding NewEntryCommand}"
-                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanCreate}"
+        <ctrl:SelectionBar Grid.Row="1" Margin="0,12,0,0" SelectedCount="{Binding SeciliSayisi}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="Secondary" Content="Düzenle" Command="{Binding EditPartyCommand}" IsVisible="{Binding CanEdit}"/>
+                <Button Classes="Secondary" Content="Hareket Ekle" Command="{Binding NewEntryCommand}" IsVisible="{Binding CanCreate}"
                         ToolTip.Tip="Açılış bakiyesi veya düzeltme hareketi girin. Fatura/tahsilat kendi ekranından gelir."/>
-                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
                 <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"
-                        IsEnabled="{Binding HasSelection}"
                         ToolTip.Tip="Pasif cari yeni işlemlerde seçilemez; geçmişi korunur."/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
                 <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}"
-                        IsEnabled="{Binding HasSelection}"
                         ToolTip.Tip="Hesap hareketi olan cari silinemez; bu durumda pasif yapın."/>
             </StackPanel>
-        </Border>
+        </ctrl:SelectionBar>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,16,420" Margin="0,16,0,0">
 
@@ -99,6 +91,8 @@
                             <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="80" MaxWidth="80"/>
                         </Grid>
                     </Border>
+                    <ctrl:Pager DockPanel.Dock="Bottom" Margin="12,8" ShowPageSize="False" PageSize="50"
+                                TotalCount="{Binding TotalCount}" Page="{Binding PagerPage}"/>
                     <ListBox x:Name="CariListe" Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="acc:PartyListRow">

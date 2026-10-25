@@ -579,3 +579,14 @@
 - Web Giriş-Çıkış sayfası kaydırılan tek sayfa (form + liste); masaüstündeki sabit yükseklik sıkışması orada yok — değiştirilmedi.
 - **Testler:** arayüz UIT26 (sekmeler, Kaydet altta, liste tam yükseklik, iki ekran görüntüsü); giriş-çıkış/transfer/yolda/yeni kayıt/
   ters kayıt/onay/yerleşim testleri 157/157 (düzeltme sonrası); arayüz 62/62.
+
+### B8 — M-64 (1/6) Cari → liste şablonu (F-129, Şablon B)
+- Masaüstü Cari Hesaplar: tek ana düğme "Yeni Cari" araç çubuğunda (yetki yoksa görünmez); seçili cariye ait eylemler (Düzenle ·
+  Hareket Ekle · Aktif/Pasif · ayraç · Sil en sonda) ortak `SelectionBar`'da — seçim yokken çubuk görünmez; sayfalama listenin
+  hemen altında ortak `Pager` ile ("1–50 / 120 · ‹ Sayfa 1 / 3 ›"). Sayfa boyu sabit 50 olduğu için `Pager`'a `ShowPageSize`
+  (sayfa boyu seçicisini gizle) eklendi. Görünüm modeline köprüler: `PagerPage`, `SeciliSayisi`, `YeniCariMetni`; iş kuralları değişmedi.
+- Web Cari: yeni ortak `ListePager` bileşeni (masaüstü Pager ile aynı özet biçimi) tablonun altında; eski "◀ Önceki / Sonraki ▶" ve
+  üstteki "Sayfa x / y" metni kaldırıldı (üstte yalnız toplam). Kart üzerindeki "Düzenle" ikincil görünüme alındı (tek ana düğme).
+- **Testler:** arayüz UIT27 (seçim çubuğu gizli/görünür, Pager toplamı, Sil en sonda, ekran görüntüsü `cari-sablon-b`); kaynak testi
+  `ListeSablonuTests` LS0–LS1; cari/dışa aktarım/tablo hizası/onay/erişilebilirlik/düğme sırası paketi 165/165 + 136/136; arayüz 63/63.
+  Mutasyon: seçim bildirimi kaldırılınca UIT27, web "Düzenle" dolu yapılınca LS1 kırıldı (2/2 yakalandı).

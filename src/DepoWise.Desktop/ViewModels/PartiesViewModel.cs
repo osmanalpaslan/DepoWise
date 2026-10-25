@@ -65,7 +65,17 @@ public sealed partial class PartiesViewModel : ViewModelBase
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private string _typeFilter = "";
     [ObservableProperty] private bool _onlyActive = true;
-    [ObservableProperty] private int _page = 1;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PagerPage))]
+    private int _page = 1;
+
+    /// <summary>⭐ M-64: ortak Pager (alt sayfalama) köprüsü — sayfa değişince liste yeniden yüklenir; filtre akışı (Find → 1. sayfa)
+    /// aynen kalır.</summary>
+    public int PagerPage { get => Page; set { if (value >= 1 && value != Page) { Page = value; _ = Load(); } } }
+    /// <summary>⭐ M-64: seçim çubuğu (SelectionBar) için seçili kayıt sayısı.</summary>
+    public int SeciliSayisi => HasSelection ? 1 : 0;
+    /// <summary>⭐ M-64: araç çubuğunun tek ana düğmesi — yetki yoksa hiç çizilmez.</summary>
+    public string? YeniCariMetni => CanCreate ? "Yeni Cari" : null;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string? _formError;
@@ -79,6 +89,7 @@ public sealed partial class PartiesViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     [NotifyPropertyChangedFor(nameof(ShowCard))]
+    [NotifyPropertyChangedFor(nameof(SeciliSayisi))]
     private PartyListRow? _selected;
     public bool HasSelection => Selected is not null;
     /// <summary>Kart yalnız hiçbir form açık DEĞİLKEN gösterilir (üç panel aynı sütunu paylaşır).</summary>

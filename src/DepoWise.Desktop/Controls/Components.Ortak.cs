@@ -29,6 +29,9 @@ public class Pager : TemplatedControl
         AvaloniaProperty.Register<Pager, int>(nameof(PageSize), 50, defaultBindingMode: BindingMode.TwoWay);
     public static readonly StyledProperty<int> TotalCountProperty =
         AvaloniaProperty.Register<Pager, int>(nameof(TotalCount));
+    /// <summary>Sayfa boyutu seçicisi görünsün mü (sabit sayfa boyutlu ekranlarda kapatılır).</summary>
+    public static readonly StyledProperty<bool> ShowPageSizeProperty =
+        AvaloniaProperty.Register<Pager, bool>(nameof(ShowPageSize), true);
     public static readonly StyledProperty<IReadOnlyList<int>> PageSizesProperty =
         AvaloniaProperty.Register<Pager, IReadOnlyList<int>>(nameof(PageSizes), new[] { 25, 50, 100, 200 });
 
@@ -45,6 +48,7 @@ public class Pager : TemplatedControl
     public int PageSize { get => GetValue(PageSizeProperty); set => SetValue(PageSizeProperty, value); }
     public int TotalCount { get => GetValue(TotalCountProperty); set => SetValue(TotalCountProperty, value); }
     public IReadOnlyList<int> PageSizes { get => GetValue(PageSizesProperty); set => SetValue(PageSizesProperty, value); }
+    public bool ShowPageSize { get => GetValue(ShowPageSizeProperty); set => SetValue(ShowPageSizeProperty, value); }
 
     private string _summary = "0 kayıt", _pageText = "Sayfa 1 / 1";
     private bool _canPrevious, _canNext;

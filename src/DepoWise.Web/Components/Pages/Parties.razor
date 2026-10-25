@@ -86,12 +86,9 @@ else
                     <MudTd DataLabel="Durum">@context.StatusText</MudTd>
                 </RowTemplate>
             </MudTable>
+            @* ⭐ M-64 (Şablon B): sayfalama listenin hemen altında, ortak ListePager ile (masaüstü Pager ile aynı biçim). *@
+            <ListePager Page="_page" PageSize="50" Total="_total" Busy="_busy" OnGo="Go" />
         </MudPaper>
-
-        <MudStack Row="true" Spacing="2" Class="mt-2" AlignItems="AlignItems.Center">
-            <MudButton Size="Size.Small" Disabled="@(_page <= 1 || _busy)" OnClick="@(() => Go(_page - 1))">◀ Önceki</MudButton>
-            <MudButton Size="Size.Small" Disabled="@(_page >= _pageCount || _busy)" OnClick="@(() => Go(_page + 1))">Sonraki ▶</MudButton>
-        </MudStack>
     }
 
     @* ── G4-1b: CARİ FORMU (oluşturma / düzenleme) ──────────────────────────────── *@
@@ -153,7 +150,8 @@ else
                 <MudSpacer />
                 @if (Auth.CanEdit("parties"))
                 {
-                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="EditParty">Düzenle</MudButton>
+                    @* M-64 (Şablon B): ekranın tek ana düğmesi "Yeni Cari"; seçili kayda ait eylemler ikincil görünür. *@
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="EditParty">Düzenle</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Outlined"
                                OnClick="ToggleActive">@(_card.IsActive ? "Pasif Yap" : "Aktif Yap")</MudButton>
                 }
@@ -402,7 +400,7 @@ else
     private string _search = "", _type = "";
     private bool _onlyActive = true, _busy, _ok;
     private string? _msg;
-    private int _page = 1, _pageCount = 1, _total;
+    private int _page = 1, _total;
     private string _pageText = "";
 
     protected override async Task OnInitializedAsync()
@@ -438,8 +436,7 @@ else
             var url = $"/api/parties?page={_page}&pageSize=50" + FiltreQuery;
             var d = await Api.GetObjectAsync(url);
             _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
-            _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
-            _pageText = $"Sayfa {_page} / {_pageCount} · {_total} cari";
+            _pageText = $"{_total:N0} cari";   // M-64: sayfa bilgisi alttaki ListePager'da
             _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
                 ? arr.EnumerateArray().Select(e => new Row
                 {

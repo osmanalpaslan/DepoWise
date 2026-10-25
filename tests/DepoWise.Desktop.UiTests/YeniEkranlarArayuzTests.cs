@@ -569,6 +569,34 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>M-64 (Şablon B): Cari — "Yeni Cari" araç çubuğunda tek ana düğme; seçili kayda ait eylemler seçim çubuğunda
+    /// (seçim yokken görünmez); sayfalama listenin altında ortak Pager.</summary>
+    [AvaloniaFact]
+    public void UIT27_Cari_Liste_Sablonu()
+    {
+        var s = Ortam();
+        if (!DesktopServices.Parties.List(s, "UIT27", null, null, 1, 10, null).Items.Any())
+            DesktopServices.Parties.Create(s, new DepoWise.Infrastructure.Accounting.NewParty("UIT27-C", "UIT27 Cari", DepoWise.Infrastructure.Accounting.PartyTypes.Both));
+        var vm = new PartiesViewModel(s);
+        var view = new PartiesView { DataContext = vm };
+        var w = Ac(view, 1300, 820);
+        for (int i = 0; i < 50 && vm.Rows.Count == 0; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var secim = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.SelectionBar>().Single();
+        Assert.False(secim.IsVisible);
+        Assert.Contains(Gorunen<Button>(view), b => (b.Content as string) == "Yeni Cari");
+        var pager = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Pager>().Single();
+        Assert.Equal(vm.TotalCount, pager.TotalCount);
+        Assert.False(pager.ShowPageSize);
+        vm.Selected = vm.Rows.First();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(secim.IsVisible);
+        var dugmeler = Gorunen<Button>(secim).Select(b => b.Content as string).ToList();
+        Assert.Contains("Düzenle", dugmeler);
+        Assert.Equal("Sil", dugmeler.Where(x => x is "Düzenle" or "Hareket Ekle" or "Aktif / Pasif" or "Sil").Last());   // yıkıcı eylem en sağda
+        Goruntu(w, "cari-sablon-b");
+        w.Close();
+    }
+
     /// <summary>M-58: kayıtlı rapor görünümü — kaydet, seçimi boz, görünümü seç → rapor + filtre geri gelir ve rapor
     /// tek tıkla çalışır; PDF ve görünüm düğmeleri ekranda.</summary>
     [AvaloniaFact]
