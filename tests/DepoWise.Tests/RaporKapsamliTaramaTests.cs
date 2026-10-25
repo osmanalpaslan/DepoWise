@@ -136,8 +136,12 @@ public class RaporKapsamliTaramaTests : IDisposable
         // Bakım
         var bakimTanim = new MaintenanceDefinitionService(_f, _clock)
             .Create(_admin, new NewMaintenanceDefinition("Periyodik", 10000m, "km"));
+        // ⭐ M-57: stoğu olmayan contayı bakımda kullanmak (K-05 bilinçli istisnası) bakiyeyi eksiye düşürür →
+        // "Eksi Stok İstisna Raporu" da normal yoldan veri görür.
+        var conta = materials.Create(_admin, new NewMaterial("M-2", "Conta", UnitId: birim));
         new MaintenanceService(_f, _clock).Save(_admin, new NewMaintenance(arac, bakimTanim,
-            TechnicianId: personel, PerformedKm: 1200m, PerformedDate: Simdi), Op());
+            TechnicianId: personel, PerformedKm: 1200m, PerformedDate: Simdi,
+            Materials: new[] { new MaintenanceMaterialLine(conta, 2m) }, StockLocationId: depo), Op());
         _clock.Advance(60_000);
 
         // Yakıt: depo girişi + dağıtım

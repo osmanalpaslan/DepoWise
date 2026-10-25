@@ -15,7 +15,7 @@ namespace DepoWise.Infrastructure.Reporting;
 /// Salt-okuma raporlar — tenant + permission fail-closed. Süper Admin firma seçebilir; diğerleri
 /// kendi firmasına kilitli. Ağır rapor `ReportGate.EnsureRunnable` ile yalnız Sorgula/Filtrele sonrası çalışır.
 /// </summary>
-public sealed class ReportService
+public sealed partial class ReportService
 {
     private const string Module = "reports";
     private readonly IDbConnectionFactory _factory;
@@ -2701,6 +2701,7 @@ ORDER BY br.name, p.full_name;";
             "vehicle" => new[] { "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Araç Maliyeti", "Birim Başına Maliyet" },
             "vehicle-daily" => new[] { "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Maliyet", "Birim Başına Maliyet" },
             "maintenance" => new[] { "Malzeme Maliyeti" },
+            "stock-value-month" => new[] { "Birim Fiyat", "Stok Değeri" },   // M-57
             "daily-activity" or "daily-activity-summary" => new[] { "Parça Maliyeti" },
             _ => Array.Empty<string>(),
         };
@@ -2805,6 +2806,10 @@ ORDER BY br.name, p.full_name;";
         "vehicles-template" => VehiclesByTemplate(s, req),
         "vehicles-nontemplate" => VehiclesNonTemplate(s, req),
         "status" => StatusReport(s, req),
+        // ⭐ M-57 (AR-GE 2026-10-25): yönetici karar raporları (ReportService.YoneticiRaporlari.cs)
+        "stock-negative" => NegativeStock(s, req),
+        "stock-value-month" => StockValueAtMonthEnd(s, req),
+        "machine-utilization" => MachineUtilization(s, req),
         _ => throw new ArgumentException("Bilinmeyen rapor tipi: " + key),
     };
 }

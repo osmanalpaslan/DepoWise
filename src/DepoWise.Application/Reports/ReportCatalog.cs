@@ -436,6 +436,22 @@ public static class ReportCatalog
             true, ExportStandard,
             InfoNote: "Her satır BİR ARAÇTIR (gün gün döküm için «Günlük Faaliyet — Detay» raporunu kullanın). Kayıt tipleri ayrı sütunlarda sayılır; bakım kayıtlarının PARÇA MALİYETİ toplanır. Aracı olmayan kayıtlar «(araçsız)» satırında toplanır. «Sıralama» ile satır sırası değiştirilebilir (varsayılan: araç kodu). İptal edilen (silinen) kayıtlar raporda görünmez. Tarih aralığı zorunludur.",
             DataModule: "daily_activity"),
+
+        // ═══ ⭐ M-57 (AR-GE 2026-10-25, F-091) — YÖNETİCİ KARAR RAPORLARI ═══
+        // Salt okuma, yeni tablo/migration YOK. "Birim maliyet" Araç Raporu'nda zaten vardır (Birim Başına Maliyet).
+        new ReportDescriptor("stock-negative", "Eksi Stok İstisna Raporu", "Eksiye düşmüş malzeme × depo bakiyeleri ve eksiye düşüren son çıkış",
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Location, false, ExportStandard,
+            InfoNote: "Negatif stok normalde engellenir; bakım malzemesi tüketimi, açılış stoğu ve çevrimdışı iki bilgisayarın aynı stoğu düşmesi bilinçli istisnalardır ve bakiyeyi eksiye düşürebilir. Bu rapor TÜM eksi bakiyeleri (en eksi önce) ve o depodaki son çıkışı gösterir. Düzeltmek için eksik girişi (ör. alım, açılış stoğu) kaydedin. «Atanmamış» bir depo değildir: deposu girilmemiş stoktur.",
+            DataModule: "stock"),
+        new ReportDescriptor("stock-value-month", "Ay Sonu Stok Değeri", "Seçilen bitiş tarihindeki stok miktarı ve değeri (miktar × birim fiyat)",
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
+            InfoNote: "Yalnız BİTİŞ tarihi kullanılır: miktar, o ana kadar yapılan tüm stok hareketlerinden hesaplanır (bitiş bugünse Stok Durumu ile aynıdır). Değer = miktar × malzeme kartındaki GÜNCEL birim fiyat; geçmiş fiyatlar saklanmadığı için eski bir ayın değeri bugünkü fiyatla hesaplanır. Para birimleri dönüştürülmez; toplam yalnız tek para birimi varsa gösterilir. Birim fiyatı görme yetkiniz yoksa fiyat ve değer sütunları gösterilmez.",
+            DataModule: "stock"),
+        new ReportDescriptor("machine-utilization", "Makine Kullanım Oranı", "Araç/makine başına çalışılan gün, kullanım oranı, sayaç artışı ve arıza duruşu",
+            ReportCategory.Vehicle, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
+            InfoNote: "Çalışılan gün: o gün yakıt fişi ya da sayaç artışı kaydı olan gündür (ikisi aynı gün tek sayılır). Kullanım oranı = çalışılan gün ÷ dönem günü (bugünden sonrası sayılmaz). Sayaç artışı yalnız ileri giden sayaç kayıtlarının toplamıdır; aracın ilk kaydı, iptal ve yeniden hesaplama ile düzeltme amaçlı düşüşler sayılmaz. Arıza duruşu, arıza iş emirlerinin bildirimden tamamlanmaya kadar dönem içindeki süresidir (iş emirlerini görme yetkiniz yoksa arıza sütunları gösterilmez). Hiç çalışmayan makine %0 ile listelenir. Gün sınırı UTC'dir.",
+            DataModule: "vehicles"),
     };
 
     public static ReportDescriptor? ByKey(string key) => All.FirstOrDefault(d => d.Key == key);

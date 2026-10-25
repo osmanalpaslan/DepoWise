@@ -550,7 +550,7 @@ public class CustomRaporTests : IDisposable
         // 27 → 28: A2 (2026-09-07) — acc-aging (Cari Yaşlandırma), bilinçli ekleme.
         // 28 → 29: 2026-10-10 rental-cost (Kiralık Araç Maliyeti), bilinçli ekleme.
         // 29 → 30: 2026-10-11 stock-issues (Depo Çıkışları), bilinçli ekleme.
-        Assert.Equal(30, ReportCatalog.All.Count);
+        Assert.Equal(33, ReportCatalog.All.Count);   // M-57: +3 yönetici raporu
         Assert.DoesNotContain(ReportCatalog.All, d => d.Key.StartsWith(CustomReportDefinition.KeyPrefix, StringComparison.Ordinal));
         foreach (var d in ReportCatalog.All)
             Assert.Null(CustomReportDefinition.IdFromKey(d.Key));

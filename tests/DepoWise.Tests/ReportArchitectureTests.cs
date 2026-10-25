@@ -60,7 +60,7 @@ public class ReportArchitectureTests : IDisposable
         // "Açık Faturalar / Vade" ile AYNI kaynaktan cari bazlı gecikme dağılımı üretir.
         // 28 → 29: 2026-10-10 rental-cost (Kiralık Araç Maliyeti).
         // 29 → 30: 2026-10-11 stock-issues (Depo Çıkışları — teslim alan, kullanıcı isteği).
-        Assert.Equal(30, ReportCatalog.All.Count);
+        Assert.Equal(33, ReportCatalog.All.Count);   // M-57: +3 yönetici raporu
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

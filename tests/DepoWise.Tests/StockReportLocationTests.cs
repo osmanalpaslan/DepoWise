@@ -321,7 +321,7 @@ public class StockReportLocationTests : IDisposable
         // filtre kümesini kullanır (özet, detayın aynı süzgeçleriyle daralır — StockMovementFilterSql tek
         // kaynak). Liste hâlâ TÜKETİCİDİR: başka bir rapora sızarsa bu kilit düşer.
         var lokasyonlu = ReportCatalog.All.Where(d => d.UsesLocation).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "stock", "stock-count", "stock-issues", "stock-movements", "stock-movements-daily" }, lokasyonlu);   // 2026-10-11: + Depo Çıkışları (çıkış deposu filtresi)
+        Assert.Equal(new[] { "stock", "stock-count", "stock-issues", "stock-movements", "stock-movements-daily", "stock-negative", "stock-value-month" }, lokasyonlu);   // 2026-10-11: + Depo Çıkışları (çıkış deposu filtresi) · M-57: + Eksi Stok, Ay Sonu Stok Değeri (depo kapsamı Stok Durumu ile aynı)
 
         // Branch ve Location AYRI bayraklardır: stok raporlarında Branch AÇILMADI.
         Assert.False(ReportCatalog.ByKey("stock")!.UsesBranch);

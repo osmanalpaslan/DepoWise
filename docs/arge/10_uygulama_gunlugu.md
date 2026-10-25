@@ -418,3 +418,17 @@
   Kilit testi sekme sırasını görünüm dosyasından okur (yeni sekme eklenirse düşer).
 - **Testler:** `HareketKaynagiTests` HK1–5 (PostgreSQL), `BakimSekmeKisayoluTests` BSK1, arayüz UIT15 (SQLite lehçesi + hedef ekranlar);
   mutasyon 5/5 (bakım ve iş emri firma süzgeci, hedef ekran yetkisi, stok yetkisi, uyarı sekmesi).
+
+### B7 — M-57 yönetici karar raporları (F-091)
+- Rapor kataloğuna üç rapor (iki ortam; filtre/kolon/Excel/yetki kalemi katalogdan otomatik gelir, katalog 30 → 33):
+  **Eksi Stok İstisna Raporu** (K-05/K-06 istisnalarıyla eksiye düşen TÜM malzeme × depo bakiyeleri, en eksi önce, o depodaki son
+  çıkış: tarih/tür/not) · **Ay Sonu Stok Değeri** (bitiş anındaki miktar defterden — Σ yön × miktar, işlem tarihi Stok Hareketleri
+  ile aynı; değer = miktar × kartın güncel birim fiyatı; fiyat gizliyse fiyat/değer kolonları tabloya hiç konmaz; toplam tek para
+  biriminde) · **Makine Kullanım Oranı** (çalışılan gün = yakıt fişi ∪ ileri sayaç kaydı günü; oran = çalışılan ÷ dönem günü; sayaç
+  artışı; arıza duruşu M-38'in tek kaynağından, iş emri yetkisi yoksa arıza kolonları yok; tam filo — atıl makine %0).
+- Depo kapsamı Stok Durumu ile aynı kural (izinli depolar + Atanmamış; kapsam dışı istek boş döner). "Birim maliyet" Araç
+  Raporu'nda zaten var (Birim Başına Maliyet) → ayrı rapor açılmadı. Migration yok.
+- **Ara bulgu (test yakaladı):** araç kaydının yazdığı "0 → başlangıç sayacı" satırı sayaç artışı/çalışma günü sayılıyordu; ilk
+  kayıt, iptal (`meter_void`) ve yeniden hesaplama (`recalc:*`) kayıtları dışlandı (araç geçmişi ekranıyla aynı ilke).
+- **Testler:** `YoneticiRaporlariTests` YR1–8 + `PostgresYoneticiRaporlariTests` (PostgreSQL); rapor sayısı kilitleri 33;
+  mutasyon 7/7 (depo kapsamı ×2, fiyat gizleme, tarih kesimi, firma süzgeci, sayaç düşüşü, aynı gün çift sayım).

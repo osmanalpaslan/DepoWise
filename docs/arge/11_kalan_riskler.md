@@ -131,3 +131,7 @@
   (uzun kod) görünmeye devam ediyor — okunur ad M-60 ortak tablo parçalarıyla ele alınabilir.
 - **Yeni Kayıt sepeti:** sepete yalnız mevcut malzemeler girer; birden fazla YENİ malzeme kartı tek seferde açılamaz (her yeni kart
   formdan; o kayıtta sepetle birlikte işlenir).
+- **M-57 yönetici raporları:** Ay Sonu Stok Değeri geçmiş ayı da malzeme kartındaki GÜNCEL birim fiyatla değerler (geçmiş fiyat
+  saklanmıyor; hareket anı fiyatıyla ortalama maliyet ayrı bir karar ister). Makine kullanım oranında "çalışılan gün" yakıt fişi ve
+  ileri giden sayaç kaydından gelir; yalnız günlük faaliyet kaydı girilen (yakıtsız, sayaçsız) gün çalışma sayılmaz. Sayaç
+  kaydının günü KAYIT anıdır (geri tarihli girilen sayaç düzeltmesi kayıt gününe düşer).
