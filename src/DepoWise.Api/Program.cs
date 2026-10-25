@@ -1411,6 +1411,15 @@ app.MapGet("/api/stock/movements/grid", (HttpContext c, long? from, long? to, st
         totalPages = res.TotalPages,
     });
 }).RequireAuthorization();
+// ⭐ M-56 2/2 (AR-GE 2026-10-25, F-090): stok hareketinin KAYNAĞI (sipariş / talep / iş emri / fatura / bakım). Masaüstüyle AYNI
+// servis (StockService.KaynakBul): firma oturumdan, stok görüntüleme şart; hedef ekran yetkisi "erisim" alanında döner.
+app.MapGet("/api/stock/movements/source", (HttpContext c, string? documentId, string? type, string? note) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var k = svc.Stock.KaynakBul(s, documentId, type, note);
+    return k is null ? Results.Ok(new { found = false })
+        : Results.Ok(new { found = true, tur = k.Tur, etiket = k.Etiket, webYolu = k.WebYolu, erisim = k.Erisim });
+}).RequireAuthorization();
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
 // ⭐ LST-01 (2026-09-04) — ARAÇ BAKIMLARI: SAYFALANMIŞ + ARAMALI liste (toplam sayı da döner).
 // Eski /api/maintenance ucu sabit 200 satır döndürüyordu; ötesi SESSİZCE düşüyordu.

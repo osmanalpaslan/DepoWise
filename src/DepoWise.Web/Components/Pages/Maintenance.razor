@@ -203,7 +203,7 @@
                     <tbody>
                         @foreach (var r in _eqmRows)
                         {
-                            <tr>
+                            <tr style="@(r.Id == _eqmVurgu ? "background:var(--mud-palette-primary-hover);font-weight:600;" : "")">
                                 <td>@r.EquipmentCode</td>
                                 <td>@r.DefinitionName</td>
                                 <td>@r.Performed</td>
@@ -554,7 +554,7 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     // ── 7b (PK-F9, ADR-191): EKİPMAN hedefi. Araç alanlarına DOKUNULMADI. ────────────────────
-    private sealed record EqmRow(string EquipmentCode, string DefinitionName, string Performed, string Status);
+    private sealed record EqmRow(string Id, string EquipmentCode, string DefinitionName, string Performed, string Status);
     private string _hedef = "vehicle";
     private List<ApiClient.Opt> _eqmEquipment = new();
     private List<EqmRow> _eqmRows = new();
@@ -574,7 +574,7 @@
             _eqmRows = (await Api.GetArrayAsync("/api/equipment-maintenance"))
                 .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
                 .Select(e => new EqmRow(
-                    Str(e, "equipmentCode"), Str(e, "definitionName"),
+                    Str(e, "id"), Str(e, "equipmentCode"), Str(e, "definitionName"),
                     Str(e, "performedDisplay"), Str(e, "statusText")))
                 .ToList();
             _eqmHata = null;
@@ -717,7 +717,20 @@
         else Snackbar.Add("Bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir).", Severity.Warning);
     }
 
-    protected override async Task OnParametersSetAsync() => await ViewParametresiniUygula();
+    protected override async Task OnParametersSetAsync() { await ViewParametresiniUygula(); EkViewUygula(); }
+
+    // ⭐ M-56 2/2 (AR-GE 2026-10-25): ?ekview=<ekipman bakımı> — stok hareketinden kaynağa gitme. Ekipman hedefine geçilir ve
+    // kayıt listede vurgulanır (ekipman bakımının ayrı detay paneli yok); bulunamazsa söylenir.
+    [SupplyParameterFromQuery(Name = "ekview")] public string? EkViewId { get; set; }
+    private string? _eqmVurgu;
+    private void EkViewUygula()
+    {
+        if (string.IsNullOrWhiteSpace(EkViewId) || _eqmVurgu == EkViewId) return;
+        _eqmVurgu = EkViewId;
+        _hedef = "equipment";
+        if (_eqmRows.All(r => r.Id != EkViewId))
+            Snackbar.Add("Ekipman bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir).", Severity.Warning);
+    }
 
     /// <summary>BKM-04: depo seçenekleri (oturumda TEK indirme — LocationOptions önbellekli, N+1 yok)
     /// + varsayılanın oturum şubesine ayarlanması. Varsayılan YALNIZ burada, bir kez atanır.</summary>

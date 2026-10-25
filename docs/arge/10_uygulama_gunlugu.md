@@ -403,3 +403,18 @@
   ile TEK giriş belgesinde. Kural tek yerde (`StockService.GirisSatirlari`: aynı malzeme toplanır, fiyat ağırlıklı ortalama); API
   `/api/stock/receive` geriye uyumlu `extraLines`; sepet kart oluşturulmadan önce doğrulanır; tür değişince sepet boşalır.
 - **Testler:** `YeniKayitCokluMalzemeTests` YK1–4, arayüz UIT14, mutasyon 4/4; giriş-çıkış paketi 1105/1105; arayüz 50/50.
+
+### B7 — M-56 (2/2) stok hareketinden kaynağa gitme (F-090)
+- Stok Hareketleri satırında "Kaynağa Git" (iki ortam): hareketi doğuran kayıt açılır — siparişli mal kabul → Satın Alma siparişi,
+  talepten gönderim → Talep, iş emri bağı → İş Emri, stoklu fatura → Fatura, bakım malzemesi tüketimi → Araç / Ekipman bakımı.
+  Kaynak tek yerde çözülür (`StockService.KaynakBul`; masaüstü yerel veritabanından, web `/api/stock/movements/source`): her sorgu
+  oturumun firmasıyla süzülür, stok görüntüleme şart; hedef ekranı göremeyen kullanıcıya kaynağın adı söylenir ama gidilmez.
+  Kaynak tıklanınca çözülür (liste yüklenirken satır başına sorgu yok).
+- Hedef ekranlar derin bağlantıyı karşılar: masaüstünde Satın Alma, İş Emirleri, Talepler (yeni; genel arama sonuçları da artık kaydı
+  açar), Fatura (`fatura:`), Bakım (`bakim:`/`ekbakim:` — liste sınırı dışındaysa araca/ekipmana daraltılır); web'de `?ac=`
+  (Faturalar, Satın Alma, İş Emirleri, Talepler) ve Bakım `?ekview=` (ekipman kaydı vurgulanır).
+- Masaüstü tabloda "Durum" hücresi iptal olmayan satırda gizleniyordu → sonraki kolon başlıktan kayıyordu; hücre boş metinle duruyor.
+- **Ara bulgu:** menüdeki Bakım "Uyarılar" kısayolu, ekipman sekmesi (7b) araya girdiğinden beri "Ekipman Bakımları"nı açıyordu → 3. sekme.
+  Kilit testi sekme sırasını görünüm dosyasından okur (yeni sekme eklenirse düşer).
+- **Testler:** `HareketKaynagiTests` HK1–5 (PostgreSQL), `BakimSekmeKisayoluTests` BSK1, arayüz UIT15 (SQLite lehçesi + hedef ekranlar);
+  mutasyon 5/5 (bakım ve iş emri firma süzgeci, hedef ekran yetkisi, stok yetkisi, uyarı sekmesi).

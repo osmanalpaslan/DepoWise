@@ -4,6 +4,8 @@
 @inject IJSRuntime JS   // ⭐ M-54: Excel/PDF indirme (dwDownload)
 @inject AuthState Auth
 @inject LocationOptions Locations
+@inject NavigationManager Nav   // ⭐ M-56 2/2: kaynağa gitme
+@inject ISnackbar Snackbar
 
 @* Stok Hareketleri — ayrı ekran (kullanıcı isteği 2026-08-05): tüm giriş/çıkış/transfer/sayım hareketleri,
    tarih aralığı filtresi + metin araması. Salt-okunur. Şube kapsamı ve yetki API'de (/api/stock/movements). *@
@@ -102,7 +104,7 @@
                 <MudTh Style="text-align:right;">Miktar</MudTh><MudTh>Birim</MudTh>
                 @* STK-04: depo bazlı stokta "hangi depo" bilgisi olmadan hareket defteri okunamaz. *@
                 <MudTh>Depo / Şantiye</MudTh>
-                <MudTh>Not / Belge</MudTh><MudTh>Durum</MudTh>
+                <MudTh>Not / Belge</MudTh><MudTh>Durum</MudTh><MudTh>Kaynak</MudTh>
             </HeaderContent>
             <RowTemplate>
                 @{ var qty = Dec(context, "quantity"); var dir = Int(context, "direction"); var signed = dir < 0 ? -Math.Abs(qty) : Math.Abs(qty); }
@@ -122,6 +124,15 @@
                 <MudTd DataLabel="Depo / Şantiye" Style="white-space:nowrap;">@LocationCell(context)</MudTd>
                 <MudTd DataLabel="Not / Belge">@NoteDoc(context)</MudTd>
                 <MudTd DataLabel="Durum">@(Bool(context, "isReversed") ? "İptal edildi" : "")</MudTd>
+                @* ⭐ M-56 2/2: satırdan kaynağa (sipariş / talep / iş emri / fatura / bakım) — masaüstüyle aynı servis *@
+                <MudTd DataLabel="Kaynak">
+                    @if (Bool(context, "kaynakOlabilir"))
+                    {
+                        var satir = context;
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => KaynagaGit(satir))"
+                                   title="Bu hareketi oluşturan kaydı (sipariş, talep, iş emri, fatura ya da bakım) açar.">Kaynağa Git</MudButton>
+                    }
+                </MudTd>
             </RowTemplate>
         </MudTable>
     }
@@ -129,6 +140,21 @@
 
 @code {
     private JsonElement[]? _rows;
+
+    /// <summary>⭐ M-56 2/2 (AR-GE 2026-10-25, F-090): kaynak tıklanınca sunucudan çözülür (liste yüklenirken satır başına istek yok).
+    /// Hedef ekranı görme yetkisi yoksa gidilmez, yalnız kaynağın adı söylenir.</summary>
+    private async Task KaynagaGit(JsonElement r)
+    {
+        try
+        {
+            var k = await Api.GetObjectAsync("/api/stock/movements/source?documentId=" + Uri.EscapeDataString(Str(r, "documentId")) +
+                "&type=" + Uri.EscapeDataString(Str(r, "movementType")) + "&note=" + Uri.EscapeDataString(Str(r, "note")));
+            if (!Bool(k, "found")) { Snackbar.Add("Bu hareketin bağlı olduğu bir kaynak kaydı yok (doğrudan girilmiş hareket).", Severity.Info); return; }
+            if (!Bool(k, "erisim")) { Snackbar.Add("Kaynak: " + Str(k, "etiket") + " — bu ekranı görme yetkiniz yok.", Severity.Warning); return; }
+            Nav.NavigateTo(Str(k, "webYolu"));
+        }
+        catch (Exception ex) { Snackbar.Add("Kaynak bulunamadı: " + ex.Message, Severity.Error); }
+    }
 
     /// <summary>E2.4/ZB-3: filtrelenmiş listedeki verilen yöndeki (giriş=+1 / çıkış=-1) miktar toplamı.
     /// Yalnız ekrandaki veriden hesaplanır; sunucuya ek istek YOKTUR.</summary>

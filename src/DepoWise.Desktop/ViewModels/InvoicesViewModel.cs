@@ -303,6 +303,21 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
     public void OpenEntity(string entityId)
     {
         if (entityId.StartsWith("kabul:", StringComparison.Ordinal)) _ = KabuldenFormAc(entityId["kabul:".Length..]);
+        else if (entityId.StartsWith("fatura:", StringComparison.Ordinal)) _ = FaturayiAc(entityId["fatura:".Length..]);
+    }
+
+    /// <summary>⭐ M-56 2/2: stok hareketinden kaynağa gitme — süzgeçler o faturanın numarasına ayarlanır (iptal olsa da görünür),
+    /// liste yüklenir ve fatura seçilir (detay paneli açılır).</summary>
+    internal async Task FaturayiAc(string faturaId)
+    {
+        InvoiceRecord d;
+        try { d = await Task.Run(() => DesktopServices.InvoiceQueries.Get(_session, faturaId)); }
+        catch (Exception ex) { Status = "Fatura açılamadı: " + ex.Message; return; }
+        Search = d.InvoiceNo; DirectionFilter = ""; StatusFilter = ""; Page = 1;
+        await Load();
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { });   // Load satırları arayüz kuyruğuna bırakır
+        Selected = Rows.FirstOrDefault(x => x.Id == faturaId);
+        if (Selected is null) Status = "Fatura listede bulunamadı (şube kapsamı dışında olabilir).";
     }
 
     internal async Task KabuldenFormAc(string belgeId)

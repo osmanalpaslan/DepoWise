@@ -259,6 +259,18 @@
         try { _requests = await Api.OptionsAsync("/api/requests?status=approved", "id", "docNo"); } catch { }
         try { _costCenters = await Api.OptionsAsync("/api/cost-centers/options", "id", "name"); } catch { }
         await Load();
+        await AcParametresiniUygula();
+    }
+
+    // ⭐ M-56 2/2 (AR-GE 2026-10-25): derin bağlantı ?ac=<kimlik> — stok hareketinden kaynağa gitme. Liste yüklendikten sonra
+    // kayıt detayda açılır; listede yoksa kullanıcı sessiz bırakılmaz.
+    [SupplyParameterFromQuery(Name = "ac")] public string? Ac { get; set; }
+    private async Task AcParametresiniUygula()
+    {
+        if (string.IsNullOrWhiteSpace(Ac) || _rows is null) return;
+        var hit = _rows.FirstOrDefault(r => Str(r, "id") == Ac);
+        if (hit.ValueKind == JsonValueKind.Object) await OpenDetail(hit);
+        else { _ok = false; _msg = "Sipariş bulunamadı (silinmiş veya yetki dışı olabilir)."; }
     }
 
     private async Task ReloadSuppliers(string _)

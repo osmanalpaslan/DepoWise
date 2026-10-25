@@ -252,6 +252,18 @@
         try { _equipment = await Api.OptionsAsync("/api/equipment", "id", "name"); } catch { }
         _assignOptions = _personnel;
         await Load();
+        await AcParametresiniUygula();
+    }
+
+    // ⭐ M-56 2/2 (AR-GE 2026-10-25): derin bağlantı ?ac=<kimlik> — stok hareketinden kaynağa gitme. Liste yüklendikten sonra
+    // kayıt detayda açılır; listede yoksa kullanıcı sessiz bırakılmaz.
+    [SupplyParameterFromQuery(Name = "ac")] public string? Ac { get; set; }
+    private async Task AcParametresiniUygula()
+    {
+        if (string.IsNullOrWhiteSpace(Ac) || _rows is null) return;
+        var hit = _rows.FirstOrDefault(r => Str(r, "id") == Ac);
+        if (hit.ValueKind == JsonValueKind.Object) await OpenDetail(hit);
+        else { _ok = false; _msg = "İş emri bulunamadı (silinmiş veya yetki dışı olabilir)."; }
     }
 
     private void OnAssignTypeChanged()

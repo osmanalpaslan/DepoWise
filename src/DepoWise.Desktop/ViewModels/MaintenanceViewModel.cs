@@ -680,11 +680,34 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     }
 
     /// <summary>Köprü: Araç Bakımları sekmesinde uyarıya sebep olan aracın EN SON bakım kaydını seçer (salt detay).</summary>
+    /// ⭐ M-56 2/2: "bakim:&lt;bakım&gt;:&lt;araç&gt;" / "ekbakim:&lt;bakım&gt;:&lt;ekipman&gt;" — stok hareketinden kaynağa gitme TAM kaydı açar.
     public void OpenEntity(string vehicleId)
     {
+        var p = vehicleId.Split(':');
+        if (p.Length == 3 && p[0] == "bakim") { AracBakiminiAc(p[1], p[2]); return; }
+        if (p.Length == 3 && p[0] == "ekbakim") { EkipmanBakiminiAc(p[1], p[2]); return; }
         SelectedTab = 1;                       // Araç Bakımları
         if (Maintenances.Count == 0) LoadMaint();
         SelectedMaint = Maintenances.FirstOrDefault(m => m.VehicleId == vehicleId); // en yeni (DESC) → detay paneli açılır
+    }
+
+    private void AracBakiminiAc(string bakimId, string aracId)
+    {
+        SelectedTab = 1;                       // Araç Bakımları
+        if (Maintenances.Count == 0) LoadMaint();
+        var hit = Maintenances.FirstOrDefault(m => m.Id == bakimId);
+        if (hit is null) { AracaDaralt(aracId); hit = Maintenances.FirstOrDefault(m => m.Id == bakimId); }   // liste sınırı dışında olabilir
+        SelectedMaint = hit;
+        Status = hit is null ? "Bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir)." : "Bakım kaydı açıldı.";
+    }
+
+    private void EkipmanBakiminiAc(string bakimId, string ekipmanId)
+    {
+        SelectedTab = 2;                       // Ekipman Bakımları
+        LoadEquipmentTab();
+        EqmSelected = EqmEquipment.FirstOrDefault(e => e.Id == ekipmanId);   // liste o ekipmana daralır
+        EqmSelectedRow = EqmRows.FirstOrDefault(r => r.Id == bakimId);
+        Status = EqmSelectedRow is null ? "Ekipman bakım kaydı bulunamadı (silinmiş veya yetki dışı olabilir)." : "Ekipman bakım kaydı açıldı.";
     }
 
     // ── Uyarı → bakım kaydı köprüsü (kullanıcı isteği 2026-09-02) ──────────────────────────────

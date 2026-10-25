@@ -126,5 +126,8 @@
   (M-60) birlikte yapılacak.
 - **M-56:** web kartlarında Belgeler paneli yalnız düzenleme formunda (kayıt düzenleme yetkisi olan görür); masaüstünde kart
   panelinde görme yetkisiyle görünür. Kayıt kartından belge EKLEME yok (Belgeler ekranından eklenir).
+- **M-56 kaynağa gitme:** bir harekete birden fazla kayıt bağlıysa tek kaynak açılır (sıra: sipariş → talep → iş emri → fatura).
+  Web ekipman bakımının ayrı detay paneli yok (kayıt listede vurgulanır). Bakım tüketimi satırının "Not" sütununda bakım kimliği
+  (uzun kod) görünmeye devam ediyor — okunur ad M-60 ortak tablo parçalarıyla ele alınabilir.
 - **Yeni Kayıt sepeti:** sepete yalnız mevcut malzemeler girer; birden fazla YENİ malzeme kartı tek seferde açılamaz (her yeni kart
   formdan; o kayıtta sepetle birlikte işlenir).

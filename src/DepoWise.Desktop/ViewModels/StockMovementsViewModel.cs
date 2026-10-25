@@ -162,6 +162,21 @@ public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTa
         Load();
     }
 
+    /// <summary>⭐ M-56 2/2 (AR-GE 2026-10-25, F-090): satırdan KAYNAĞA gitme — sipariş, talep, iş emri, fatura ya da bakım kaydı.
+    /// Kaynak tıklanınca (yerel veritabanından) çözülür; liste yüklenirken satır başına sorgu yapılmaz. Hedef ekranı görme yetkisi
+    /// yoksa gidilmez, yalnız kaynağın adı söylenir.</summary>
+    [RelayCommand]
+    private void KaynagaGit(StockMovementRow? row)
+    {
+        if (row is null) return;
+        HareketKaynagi? k;
+        try { k = DesktopServices.Stock.KaynakBul(_session, row.DocumentId, row.MovementType, row.Note); }
+        catch (Exception ex) { Status = "Kaynak bulunamadı: " + ex.Message; return; }
+        if (k is null) { Status = "Bu hareketin bağlı olduğu bir kaynak kaydı yok (doğrudan girilmiş hareket)."; return; }
+        if (!k.Erisim) { Status = $"Kaynak: {k.Etiket} — bu ekranı görme yetkiniz yok."; return; }
+        ShellViewModel.Current?.NavigateTo(k.EkranKey, k.HedefId);
+    }
+
     /// <summary>Köprü (madde 5, 2026-08-06): İşlem Geçmişi "Kaydı Görüntüle" → bu ekrana gelip malzeme
     /// kodu/adıyla arama yapar (belge bazlı derin bağlantı yok; malzeme bağlamı yeterli).</summary>
     public void OpenEntity(string entityId)

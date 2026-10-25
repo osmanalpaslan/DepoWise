@@ -108,6 +108,8 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     /// ise tıklanınca sunucu gerekçesiyle reddedilir (<see cref="StockService.GetDocumentForEdit"/>).</summary>
     public bool CanEditDoc => !IsReversed && DocumentId != null && MovementType is "in" or "out";
     public string StatusText => IsReversed ? "İptal edildi" : "";
+    /// <summary>⭐ M-56 2/2: "Kaynağa Git" düğmesi — belgeye bağlı ya da bakım tüketimi hareketi (kaynak tıklanınca çözülür).</summary>
+    public bool KaynakOlabilir => !string.IsNullOrEmpty(DocumentId) || MovementType is "usage" or "usage_reverse";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
     /// <summary>STK-B1: hareket türü etiketi TEK KAYNAKTAN gelir (<see cref="MovementTypeOptions"/>).

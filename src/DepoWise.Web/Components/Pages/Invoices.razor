@@ -366,6 +366,8 @@ else
     /// <summary>⭐ M-25: Satın Alma ekranındaki "Faturalaştır" → /invoices?kabul=&lt;mal kabul belgesi&gt;.</summary>
     [SupplyParameterFromQuery(Name = "kabul")] public string? Kabul { get; set; }
     private string? _kabulBelgesi, _kabulNotu;
+    /// <summary>⭐ M-56 2/2: stok hareketinden kaynağa gitme → /invoices?ac=&lt;fatura&gt; (detay doğrudan açılır).</summary>
+    [SupplyParameterFromQuery(Name = "ac")] public string? Ac { get; set; }
 
     private sealed class Opt
     {
@@ -445,6 +447,7 @@ else
         await Load();
         if (string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase)) await OpenNew();
         else if (!string.IsNullOrWhiteSpace(Kabul)) await KabuldenAc(Kabul!);
+        else if (!string.IsNullOrWhiteSpace(Ac)) await Select(new Row { Id = Ac! });
     }
 
     // ═══ M-25 (AR-GE 2026-10-18, F-072) — MAL KABULDEN FATURA ═══

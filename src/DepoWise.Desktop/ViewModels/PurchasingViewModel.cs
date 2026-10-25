@@ -37,7 +37,7 @@ public sealed partial class ReceiveLineVm : ObservableObject
 /// YEREL çalışır (çevrimdışı dahil): sipariş + mal kabul yerel SQLite'a yazılır, senkron taşır.
 /// Mal kabul MEVCUT stok girişini kullanır (serviste, tek transaction, idempotent).
 /// </summary>
-public sealed partial class PurchasingViewModel : ViewModelBase
+public sealed partial class PurchasingViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -344,5 +344,14 @@ public sealed partial class PurchasingViewModel : ViewModelBase
             Status = $"PDF kaydedildi: {hedef}";
         }
         catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
+    /// <summary>⭐ M-56 2/2: derin bağlantı (stok hareketinden kaynağa gitme, genel arama) — süzgeçler temizlenir, kayıt seçilir.</summary>
+    public void OpenEntity(string entityId)
+    {
+        SearchText = ""; FilterStatus = "Tümü";
+        Load();
+        Selected = Items.FirstOrDefault(x => x.Id == entityId);
+        if (Selected is null) Status = "Sipariş bulunamadı (silinmiş veya yetki dışı olabilir).";
     }
 }

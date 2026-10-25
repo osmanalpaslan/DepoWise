@@ -61,7 +61,7 @@
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <DockPanel HorizontalAlignment="Left">
                 <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloMovements}" DockPanel.Dock="Top">
-                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130" MaxWidth="130"/>
                         <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="90" MaxWidth="90"/>
                         <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="90" MaxWidth="90"/>
@@ -72,12 +72,13 @@
                         <SelectableTextBlock Grid.Column="7" Text="DEPO / ŞANTİYE" MinWidth="150" MaxWidth="150"/>
                         <SelectableTextBlock Grid.Column="8" Text="NOT / BELGE" MinWidth="120" MaxWidth="120"/>
                         <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90" MaxWidth="90"/>
+                        <SelectableTextBlock Grid.Column="10" Text="KAYNAK" MinWidth="110" MaxWidth="110"/>
                     </Grid>
                 </Border>
                 <ListBox x:Name="TabloMovements" Classes="Table" ItemsSource="{Binding Movements}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="m:StockMovementRow">
-                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}"/>
                                 <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"/>
@@ -87,7 +88,13 @@
                                 <SelectableTextBlock Grid.Column="6" Text="{Binding Unit}" MinWidth="70" MaxWidth="70" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Unit}"/>
                                 <SelectableTextBlock Grid.Column="7" Text="{Binding LocationFlowText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LocationFlowText}"/>
                                 <SelectableTextBlock Grid.Column="8" Text="{Binding NoteText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="{Binding NoteText}"/>
-                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Classes="Helper" IsVisible="{Binding IsReversed}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}"/>
+                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" Classes="Helper" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}"/>
+                                <!-- ⭐ M-56 2/2: satırdan kaynağa (sipariş / talep / iş emri / fatura / bakım) -->
+                                <Button Grid.Column="10" Classes="Secondary" Content="Kaynağa Git" MinWidth="110" MaxWidth="110" Padding="6,2"
+                                        IsVisible="{Binding KaynakOlabilir}"
+                                        Command="{Binding $parent[UserControl].((vm:StockMovementsViewModel)DataContext).KaynagaGitCommand}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip.Tip="Bu hareketi oluşturan kaydı (sipariş, talep, iş emri, fatura ya da bakım) açar."/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

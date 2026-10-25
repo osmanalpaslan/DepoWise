@@ -21,7 +21,7 @@ public sealed record WoStatusOption(string Code, string Label);
 /// YEREL çalışır (çevrimdışı dahil); senkron taşır. Tüketim MEVCUT stok çıkışıyla (serviste, idempotent).
 /// PK-F2: kapanan iş emri değiştirilemez — panel salt-okunura düşer.
 /// </summary>
-public sealed partial class WorkOrdersViewModel : ViewModelBase
+public sealed partial class WorkOrdersViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -346,5 +346,14 @@ public sealed partial class WorkOrdersViewModel : ViewModelBase
             Status = $"PDF kaydedildi: {hedef}";
         }
         catch (Exception ex) { Status = "Yazdırılamadı: " + ex.Message; }
+    }
+
+    /// <summary>⭐ M-56 2/2: derin bağlantı (stok hareketinden kaynağa gitme, genel arama) — süzgeçler temizlenir, kayıt seçilir.</summary>
+    public void OpenEntity(string entityId)
+    {
+        SearchText = ""; FilterStatus = "Tümü";
+        Load();
+        Selected = Items.FirstOrDefault(x => x.Id == entityId);
+        if (Selected is null) Status = "İş emri bulunamadı (silinmiş veya yetki dışı olabilir).";
     }
 }

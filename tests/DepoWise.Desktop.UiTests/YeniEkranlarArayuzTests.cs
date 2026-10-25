@@ -241,4 +241,45 @@ public class YeniEkranlarArayuzTests
         Assert.Empty(Gorunen<ProgressBar>(view).Where(p => p.Classes.Contains("FuelWeek")));
         w.Close();
     }
+    /// <summary>⭐ M-56 2/2: stok hareketi satırında "Kaynağa Git" çizilir; kaynak YEREL veritabanından (SQLite lehçesi) bulunur ve
+    /// hedef ekranlar derin bağlantıyla kaydı açar (iş emri, talep); bakım "Uyarılar" kısayolu doğru sekmede açılır.</summary>
+    [AvaloniaFact]
+    public void UIT15_Hareketten_Kaynaga_Gitme()
+    {
+        var s = Ortam();
+        var mat = DesktopServices.Materials.Create(s, new NewMaterial("KYN-01", "Kaynak Malzemesi"));
+        var wo = DesktopServices.WorkOrders.Create(s, new DepoWise.Infrastructure.WorkOrders.NewWorkOrder("UI-IE-15", "Kaynak işi"));
+        var belge = DesktopServices.Stock.ReceiveIn(s, new[] { new StockLine(mat, 3m) }, Guid.NewGuid().ToString("N")).DocumentId;
+        using (var c = DesktopServices.Factory!.Create())
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "INSERT INTO work_order_links(id, work_order_id, company_id, entity_type, entity_id, created_at, updated_at) " +
+                              $"VALUES('{Guid.NewGuid():N}','{wo}','{s.CompanyId}','stock_document','{belge}',1,1);";
+            cmd.ExecuteNonQuery();
+        }
+
+        var vm = new StockMovementsViewModel(s) { Search = "KYN-01" };
+        vm.LoadCommand.Execute(null);
+        var view = new StockMovementsView { DataContext = vm };
+        var w = Ac(view);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains(Gorunen<Button>(view), b => (b.Content as string) == "Kaynağa Git");
+        Goruntu(w, "stok-hareketleri-kaynak");
+        w.Close();
+
+        var satir = vm.Movements.Single(m => m.DocumentId == belge);
+        var k = DesktopServices.Stock.KaynakBul(s, satir.DocumentId, satir.MovementType, satir.Note)!;
+        Assert.Equal(("is_emri", "work_orders", wo), (k.Tur, k.EkranKey, k.HedefId));
+        var ie = new WorkOrdersViewModel(s);
+        ie.OpenEntity(k.HedefId);
+        Assert.Equal(wo, ie.Selected?.Id);
+
+        var talep = DesktopServices.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(
+            new[] { new DepoWise.Infrastructure.Requests.RequestItemInput(mat, 1m) }));
+        var tv = new RequestsViewModel(s) { Search = "olmayan" };
+        tv.OpenEntity(talep.Id);
+        Assert.Equal(talep.Id, tv.Selected?.Id);   // arama süzgeci temizlenip kayıt seçildi
+
+        Assert.Equal(3, new MaintenanceViewModel(s, 3).SelectedTab);
+    }
 }

@@ -23,7 +23,7 @@ namespace DepoWise.Desktop.ViewModels;
 /// kaydedildikten sonra düzenleme/silme YOK; yalnız onay/ret akışı kalır. Onay/ret RequestService
 /// durum makinesi + buton yetkisiyle (master/yetkili) korunur.
 /// </summary>
-public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
+public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi, IDeepLinkTarget
 {
 
     // ⭐ FAZ 4.3 (kullanıcı isteği 2026-09-06) — "her kaydın kendine ait bir log ekranı olmalı".
@@ -612,6 +612,16 @@ public sealed partial class RequestsViewModel : ViewModelBase, IKayitLoguKaynagi
         var id = Selected.Id;
         try { action(id); RejectReason = ""; Load(); Status = ok; }
         catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
+    }
+
+    /// <summary>⭐ M-56 2/2: derin bağlantı (stok hareketinden kaynağa gitme, genel arama) — süzgeçler temizlenir, kayıt seçilir.</summary>
+    public void OpenEntity(string entityId)
+    {
+        Search = ""; SelectedFilter = "Tümü";
+        SelectedTab = 0;
+        Load();   // arama/süzgeç değişimi de yükler; son yükleme seçimi temizlediği için seçim en sonda
+        Selected = Items.FirstOrDefault(x => x.Id == entityId);
+        if (Selected is null) Status = "Talep bulunamadı (silinmiş veya yetki dışı olabilir).";
     }
 }
 
