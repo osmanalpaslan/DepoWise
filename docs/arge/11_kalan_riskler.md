@@ -163,3 +163,4 @@
 - **CANLIDA web personel listeleri boş (2026-10-26 M-69 bulgusu):** 2026-09-04'ten beri web'in personel açılır listeleri ilk açılışta
   boş; web Stok İşlemleri'nde zorunlu "Personel" seçilemediği için web'den stok girişi/çıkışı yapılamıyor (masaüstü etkilenmez).
   Düzeltme AR-GE dalında; AR-GE yayın yasağı nedeniyle canlıya AR-GE sonu yayınıyla gelir — kullanıcıya bildirildi.
+- **Yayın sonrası teknik borç (M-75 kalanı):** Program.cs / ReportService / ShellViewModel bölünmesi ve web için tam tipli API sözleşmesi — gerekçe günlükte; sessiz kırılma riski WebApiSozlesmeTests ile kapatıldı.

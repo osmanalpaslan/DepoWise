@@ -867,3 +867,12 @@
 - Masaüstü, kurulum programı ve arayüz testleri aynı sürüme (12.1.4, 2026-10-09). Derleme 0 hata; arayüz 70/70 — görsel tarama
   eşiği (30 ekran × 3 genişlik, bulgu 0) dahil: kesilme/taşma yok. 12.1'de eskiyen API'ler (`Watermark` → `PlaceholderText`,
   `SystemDecorations` → `WindowDecorations`) ayrı adımda taşındı.
+
+### M-75 — Web ↔ API sözleşme testi (F-134); dosya bölme ertelendi (F-132, F-133) (2026-10-26)
+- `WebApiSozlesmeTests` WS1–WS2: web kodunda liste olarak okunan HER uç (GetArrayAsync / OptionsAsync / LoadList — bugün 74 uç)
+  kaynaktan çıkarılır, gerçek API'ye çağrılır; yanıt dizi ya da `{items: [...]}` değilse kırmızı. Yeni uç ya da biçim değişikliği
+  kendiliğinden kapsanır. Mutasyon: personel ucu tanınmayan biçime çevrilince açık mesajla kırıldı.
+- **Bilinçli ertelendi (yayın sonrası):** `Program.cs` (6.234 satır, 438 uç) ve `ReportService`/`ShellViewModel` bölünmesi. Gerekçe:
+  uçlar dosyadaki yerel yardımcılara bağlı ve 42 test bu dosyanın metnine bakıyor → büyük, riskli, kullanıcıya görünmeyen bir yeniden
+  düzenleme; yayın öncesi kararlılığı tehlikeye atar. Asıl risk olan "sessiz web kırılması" bu sözleşme testiyle kapatıldı.
+  Tam tipli DTO'ya geçiş (F-134'ün geri kalanı) de aynı gerekçeyle yayın sonrasına.
