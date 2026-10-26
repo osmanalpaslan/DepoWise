@@ -222,7 +222,22 @@ SessionContext? Session(HttpContext ctx)
 
 // ── Sağlık ──
 app.MapGet("/", () => Results.Ok(new { app = "DepoWise.Api", status = "ok" }));
-app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow }));
+// ⭐ M-72 (AR-GE 2026-10-25, F-067): disk doluluk SEVİYESİ de döner ("ok" | "warning" ≥%75 | "critical" ≥%90 — durum ekranıyla
+// aynı eşikler). Disk dolunca SQLite yazamaz → tam kesinti (ADR-070); dış kesinti takibi (GitHub Actions) bunu okuyup alarm verir.
+// Yanıt yine 200: Fly sağlık kontrolü yeniden başlatma yapar, yeniden başlatma diski boşaltmaz (döngüye sokmasın).
+// Herkese açık uç olduğu için yalnız seviye verilir — sayı, yol, dosya adı YOK. Ölçüm hatası işi bozmaz ("unknown").
+app.MapGet("/health", () =>
+{
+    string disk;
+    try
+    {
+        var d = svc.ReleasePackages.GetDiskInfo();
+        var yuzde = d.TotalBytes > 0 ? (double)d.UsedBytes / d.TotalBytes * 100.0 : 0;
+        disk = yuzde >= 90 ? "critical" : yuzde >= 75 ? "warning" : "ok";
+    }
+    catch { disk = "unknown"; }
+    return Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow, disk });
+});
 
 // #19 — Canlı sunucu durumu (YALNIZ süper admin). Süreç + veri + canlılık metrikleri (web animasyonlu ekran poll eder).
 app.MapGet("/api/server/status", (HttpContext ctx) =>

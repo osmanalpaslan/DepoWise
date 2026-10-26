@@ -32,6 +32,15 @@ jobs:
           }
           hata=0
           kontrol "API" "https://depowise-erp.fly.dev/health" || hata=1
+          # ⭐ M-72 (F-067): disk doluluk seviyesi — /health "disk": ok | warning (≥%75) | critical (≥%90) | unknown.
+          # critical → görev KIRMIZI (e-posta); warning → sarı uyarı satırı. Alan yoksa (eski sürüm) sessiz geçilir.
+          disk=$(curl -s --max-time 25 "https://depowise-erp.fly.dev/health" | sed -n 's/.*"disk":"\([a-z]*\)".*/\1/p')
+          case "$disk" in
+            critical) echo "::error::API diski KRITIK doluluk (>=%90) — disk dolunca SQLite yazamaz, kesinti olur"; hata=1 ;;
+            warning)  echo "::warning::API diski %75 ustu dolu — temizlik/ genisletme planla" ;;
+            ok)       echo "OK   Disk (ok)" ;;
+            *)        echo "Disk seviyesi okunamadi ('$disk') — eski surum olabilir" ;;
+          esac
           # Herkese açık firma listesi veritabanından okunur → API'nin DB bağlantısını da doğrular.
           kontrol "API + Veritabani" "https://depowise-erp.fly.dev/api/public/companies" || hata=1
           if [ "$WEB_DE" = "true" ]; then kontrol "Web" "https://depowise-web.fly.dev/login" || hata=1; fi
