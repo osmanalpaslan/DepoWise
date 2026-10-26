@@ -16,8 +16,10 @@ async function apiGiris() {
   return (await r.json()).token;
 }
 
+// Jeton bir kez alınır: her çağrıda yeniden giriş, sunucunun giriş sınırına (5 dk / 30 deneme) takılıyordu (M-52 koşusu).
+let _jeton = null;
 async function api(yol, govde, yontem) {
-  const token = await apiGiris();
+  const token = _jeton ??= await apiGiris();
   const r = await fetch(API + yol, {
     method: yontem || (govde ? 'POST' : 'GET'),
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },

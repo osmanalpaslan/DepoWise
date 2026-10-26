@@ -201,6 +201,25 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
         OnPropertyChanged(nameof(CanNext));
     }
 
+    // ⭐ M-52 (AR-GE 2026-10-27): e-Fatura (UBL-TR XML) içe alma — dosya seç → özet onayı → alış faturası (web ile aynı servis/metin).
+    [RelayCommand]
+    private async Task EFaturaIceAl()
+    {
+        var yol = await FilePickerService.PickFileAsync("e-Fatura dosyası seçin", "e-Fatura (XML)", "*.xml");
+        if (yol is null) return;
+        try
+        {
+            var xml = await System.IO.File.ReadAllTextAsync(yol);
+            var t = DesktopServices.EFatura.Onizle(_session, xml);
+            if (t.DahaOnceAlindi) { Status = $"{t.FaturaNo} numaralı e-Fatura daha önce içe alınmış."; return; }
+            if (!await ConfirmService.AskAsync(t.Ozet, "e-Fatura İçe Al", "Evet, İçe Al")) return;
+            var r = DesktopServices.EFatura.IceAl(_session, xml, _session.OperatingBranchId);
+            Status = $"e-Fatura içe alındı: {r.InvoiceNo} (dış no {t.FaturaNo}).";
+            await Load();
+        }
+        catch (Exception ex) { Status = "e-Fatura içe alınamadı: " + ex.Message; }
+    }
+
     [RelayCommand] private async Task Find() { Page = 1; await Load(); }
     [RelayCommand] private async Task PrevPage() { if (CanPrev) { Page--; await Load(); } }
     [RelayCommand] private async Task NextPage() { if (CanNext) { Page++; await Load(); } }

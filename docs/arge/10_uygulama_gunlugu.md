@@ -923,3 +923,14 @@
 - **Testler:** `TedarikciKopruTests` TK1–TK8; mutasyon: ad eşleştirme birebir yapılınca TK2+TK5 kırıldı. Arayüz 71/71. Riskli paket
   (cari/tanım/satın alma/fatura/yakıt deposu/içe aktarma/eşitleme/finans) 727/728 → tek kırmızı: web cari ekranında ikinci "ana" düğme
   (liste şablonu kuralı) → "Eşleştir" çerçeveli yapıldı; şablon/düğme/onay paketi 21/21.
+
+### M-52 (1/2) — e-Fatura (UBL-TR XML) içe alma (F-141, K-02=a; 2026-10-27)
+- `EFaturaService`: tedarikçiden gelen e-Fatura/e-Arşiv dosyası güvenli okunur (DTD/dış varlık kapalı, en fazla 5 MB) → fatura no,
+  UUID, tarih, para birimi, satıcı (VKN/TCKN, ünvan, vergi dairesi), satırlar (miktar/birim/fiyat/iskonto/KDV/tevkifat), ödenecek
+  tutar. Satıcı vergi no ile cariye eşlenir; yoksa tedarikçi carisi açılır (M-53 köprüsü tanımı da açar). ALIŞ faturası olarak
+  kaydedilir; satırlar malzemeye bağlanmaz (stok etkilenmez — mal kabul ayrı akış). Aynı belge (UUID) ikinci kez alınamaz.
+  Hesaplanan toplam dosyadakinden saparsa uyarı. İki ortam: Faturalar › "e-Fatura İçe Al" → özet onayı (aynı metin) → kayıt.
+- **Testler:** `EFaturaTests` EF1–EF6 (XXE dahil), `EFaturaApiTests` EA1–EA2, yerel tarayıcı `efatura.spec.js` (dosya yükle → onay →
+  fatura; ikinci kez "daha önce"). Mutasyon: işlem kimliği UUID'den kopunca EF3 kırıldı. Paket 230/230, arayüz 71/71, yerel 5/5.
+  Test yardımcısı jetonu saklar (her çağrıda giriş, sunucunun giriş sınırına takılıyordu).
+- **(2/2) Logo/Mikro aktarım dosyası:** kullanıcıdan hangi program/sürüm kullanıldığı soruldu (biçimler farklı).

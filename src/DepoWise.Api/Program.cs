@@ -3059,6 +3059,19 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
 }).RequireAuthorization();
 
 // ⭐ M-53 (AR-GE 2026-10-26, F-059): Tanımlar ↔ Cari eşlenmemiş tedarikçiler (eski veri) + yönetici toplu eşleme (masaüstüyle aynı servis).
+// ⭐ M-52 (AR-GE 2026-10-27, F-141): e-Fatura (UBL-TR XML) içe alma — önizleme + onaylı kayıt (masaüstüyle aynı servis).
+app.MapPost("/api/invoices/efatura/preview", (HttpContext c, EFaturaDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var t = svc.EFatura.Onizle(s, d.Xml ?? "");
+    return Results.Ok(new { faturaNo = t.FaturaNo, dahaOnceAlindi = t.DahaOnceAlindi, ozet = t.Ozet, uyarilar = t.Uyarilar });
+}).RequireAuthorization();
+app.MapPost("/api/invoices/efatura/import", (HttpContext c, EFaturaDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.EFatura.IceAl(s, d.Xml ?? "", Doc(d.BranchId));
+    return Results.Ok(new { id = r.Id, invoiceNo = r.InvoiceNo, alreadyExisted = r.AlreadyExisted });
+}).RequireAuthorization();
 app.MapGet("/api/parties/supplier-unmatched", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(svc.TedarikciKopru.Eslesmemis(s).Select(k => new { tur = k.Tur, id = k.Id, ad = k.Ad }))
                   : Results.Unauthorized()).RequireAuthorization();
@@ -6043,7 +6056,8 @@ record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchI
     bool? Yolda = null);   // ⭐ M-27: iki adımlı transfer
 record TransitReceiveDto(string? OperationId, List<TransitReceiveLineDto>? Lines, string? DefectNote = null);   // ⭐ M-27 (+2026-10-25 kusurlu)
 record TransitReceiveLineDto(string MaterialId, decimal Quantity, decimal? Defective = null, bool? ReturnDefective = null);
-record AsgariStokDto(string? LocationId, decimal? MinQty);   // ⭐ M-31: MinQty null/0 → depoya özel değer kaldırılır
+record AsgariStokDto(string? LocationId, decimal? MinQty);
+record EFaturaDto(string? Xml, string? BranchId);   // ⭐ M-52   // ⭐ M-31: MinQty null/0 → depoya özel değer kaldırılır
 record AsgariTalepKalemDto(string MaterialId, decimal Quantity);
 record AsgariTalepDto(string? LocationId, List<AsgariTalepKalemDto>? Items, string? Note);
 record StockReverseDto(string DocumentId, string? Reason);

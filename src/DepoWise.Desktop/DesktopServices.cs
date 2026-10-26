@@ -124,6 +124,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Assignments.ZimmetKitService ZimmetKit { get; private set; } = null!;   // ⭐ M-50
     public static DepoWise.Infrastructure.Materials.AsgariStokService AsgariStok { get; private set; } = null!;   // ⭐ M-31
     public static DepoWise.Infrastructure.Accounting.TedarikciKopruService TedarikciKopru { get; private set; } = null!;   // ⭐ M-53
+    public static DepoWise.Infrastructure.Accounting.EFaturaService EFatura { get; private set; } = null!;   // ⭐ M-52
     public static DepoWise.Infrastructure.Operations.YakitSupheService YakitSuphe { get; private set; } = null!;   // ⭐ M-44
     public static DepoWise.Infrastructure.Reporting.KodOkutmaService KodOkutma { get; private set; } = null!;   // ⭐ M-49
     public static DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; private set; } = null!;   // EMR-01
@@ -288,6 +289,7 @@ public static class DesktopServices
         ZimmetKit = new DepoWise.Infrastructure.Assignments.ZimmetKitService(Factory, clock);   // ⭐ M-50
         AsgariStok = new DepoWise.Infrastructure.Materials.AsgariStokService(Factory, Requests, clock);   // ⭐ M-31
         TedarikciKopru = new DepoWise.Infrastructure.Accounting.TedarikciKopruService(Factory, clock);   // ⭐ M-53
+        EFatura = new DepoWise.Infrastructure.Accounting.EFaturaService(Factory, Parties, Invoices);   // ⭐ M-52
         YakitSuphe = new DepoWise.Infrastructure.Operations.YakitSupheService(Factory);   // ⭐ M-44
         KodOkutma = new DepoWise.Infrastructure.Reporting.KodOkutmaService(Factory);   // ⭐ M-49
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);

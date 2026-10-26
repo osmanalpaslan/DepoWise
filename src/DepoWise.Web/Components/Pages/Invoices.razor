@@ -56,6 +56,17 @@ else
             <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
                           HelperText="Boş = tüm yetkili şubeler" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            @* ⭐ M-52 (AR-GE 2026-10-27): e-Fatura (UBL-TR XML) içe alma — masaüstüyle aynı servis ve özet metni *@
+            @if (Auth.CanCreate("invoices"))
+            {
+                <MudTooltip Text="Tedarikçiden gelen e-Fatura (UBL-TR XML) dosyasını okur; özeti gösterir, onaylarsanız alış faturası olarak kaydeder.">
+                    <MudFileUpload T="IBrowserFile" Accept=".xml" FilesChanged="EFaturaSecildi" Disabled="_busy">
+                        <ActivatorContent>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">e-Fatura İçe Al</MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                </MudTooltip>
+            }
             @* ⭐ M-54 (F-057): filtrelenmiş TÜM sonuç — liste ile aynı süzgeç (FiltreQuery) *@
             @if (Auth.CanView("export"))
             {
@@ -483,6 +494,34 @@ else
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
     private async Task Go(int p) { _page = p; await Load(); }
+
+    private async Task EFaturaSecildi(IBrowserFile? dosya)
+    {
+        if (dosya is null) return;
+        string xml;
+        try
+        {
+            using var akis = dosya.OpenReadStream(5 * 1024 * 1024);
+            using var okuyucu = new System.IO.StreamReader(akis);
+            xml = await okuyucu.ReadToEndAsync();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Dosya okunamadı: " + ex.Message; return; }
+        var (err, t) = await Api.PostJsonWithErrorAsync("/api/invoices/efatura/preview", new { xml });
+        if (err is not null || t is not { } on) { _ok = false; _msg = "e-Fatura içe alınamadı: " + (err ?? "önizleme alınamadı"); return; }
+        var no = on.TryGetProperty("faturaNo", out var f) ? f.GetString() : "";
+        if (on.TryGetProperty("dahaOnceAlindi", out var d) && d.GetBoolean()) { _ok = false; _msg = $"{no} numaralı e-Fatura daha önce içe alınmış."; return; }
+        var ozet = on.TryGetProperty("ozet", out var o) ? o.GetString() ?? "" : "";
+        if (!await Dialog.Confirm(ozet, "Evet, İçe Al")) return;
+        _busy = true;
+        try
+        {
+            var (err2, r) = await Api.PostJsonWithErrorAsync("/api/invoices/efatura/import", new { xml, branchId = Auth.BranchId });
+            _ok = err2 is null;
+            _msg = err2 is null && r is { } j ? $"e-Fatura içe alındı: {j.GetProperty("invoiceNo").GetString()} (dış no {no})." : "e-Fatura içe alınamadı: " + err2;
+            if (_ok) await Load();
+        }
+        finally { _busy = false; }
+    }
 
     private async Task Load()
     {
