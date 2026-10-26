@@ -848,3 +848,17 @@
 - "Hakkında" iki ortamda yer tutucuydu → uygulama adı, program sürümü, firma, son güncelleme notu + Güncelleme Notları'na geçiş
   (web `/about`; sahipsiz kalan "yakında" sayfası kaldırıldı). Testler `BelgeVeHakkindaTests` BH1–BH2; menü/ekran/onay/düğme/mobil
   paketi 154/154; arayüz 70/70; web 0 hata. Ayrıca yarım SignalR sohbet denemesi kullanıcı onayıyla arşivlendi (1c93405c).
+
+### M-69 — Web kayıt akışları gerçek tarayıcıda, yerel ortamda (F-022, 2026-10-26)
+- `scripts/run_web_e2e_yerel.ps1`: BOŞ geçici SQLite veritabanıyla yerel API (5391) + web (5392) başlatır, `tests/web-e2e/yerel/`
+  testlerini koşar, kapatır. Güvenlik: `DEPOWISE_PG_URL` boşaltılır, `.env.test.local` okunmaz, ayar yalnız localhost kabul eder.
+- Testler (`yerel/stok-kayit.spec.js`): yeni malzeme girişi — "Kaydet" ve onay ÇİFT tıklansa da TEK kayıt · depo çıkışı · hareket
+  iptali (ters kayıt). Etki ekrandan değil API'den (stok miktarı) okunur. 3/3, ~35 sn.
+- **Bulgu 1 (canlıda da var, 2026-09-04'ten beri):** `/api/personnel` `{items, hasMore}` döndüğünden beri web'in ortak liste
+  okuyucusu (`GetArrayAsync`) onu okuyamıyor, SESSİZCE boş liste veriyordu → web Stok İşlemleri'nde zorunlu "Personel" listesi boş
+  (web'den stok girişi/çıkışı kaydedilemez); Yakıt/Günlük Faaliyet/Talep/Araç/Zimmet personel listeleri ilk açılışta boş.
+  Düzeltme: okuyucu iki biçimi de okur, başka biçimde açık hata verir.
+- **Bulgu 2:** "Kaydet"e çift tıklamada iki onay penceresi üst üste açılıyordu (ikisi onaylanırsa çift kayıt riski). Düzeltme ortak
+  onay yardımcısında: açık bir onay/gerekçe penceresi varken yenisi açılmaz (tüm web ekranları).
+- **Mutasyon:** onay kilidi kaldırılınca çift tıklama testi (2 pencere), okuyucu eski hâline dönünce personel seçimi kırıldı.
+  Kaynak kilidi `WebKayitAkislariTests` WK1–WK3; web paketi 328/328.

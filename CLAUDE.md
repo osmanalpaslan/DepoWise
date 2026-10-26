@@ -60,7 +60,8 @@
   ortalama süreye kurulur. Koşu sırasında boş bekleme yok: sıradaki işin kodu/yaması derlemeden hazırlanır (genel kural). `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
-  web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma).
+  web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma);
+  web KAYIT akışları `scripts/run_web_e2e_yerel.ps1` (M-69: boş geçici DB + yerel API/web, yalnız localhost; web formu değişen işte koş).
 - Kritik alanlarda her zaman test: tenant, yetki, rollback, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı, eski şema.
 
 ## 5. Yayın ve üretim

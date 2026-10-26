@@ -588,8 +588,16 @@ public sealed class ApiClient
     {
         var resp = await Gonder(Req(HttpMethod.Get, path));
         if (!resp.IsSuccessStatusCode) throw new HttpRequestException(await ErrorMessageAsync(resp, path));
-        var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement[]>();
-        return doc ?? Array.Empty<System.Text.Json.JsonElement>();
+        // ⭐ M-69 (AR-GE 2026-10-26, yerel tarayıcı testi bulgusu): sayfalı uçlar (ör. /api/personnel, LST-01 2026-09-04'ten beri)
+        // { items: [...], hasMore } döner. Eskiden burada düz dizi beklenip okuma hata verince çağıranlar SESSİZCE boş liste
+        // gösteriyordu → web Stok İşlemleri'nde zorunlu "Personel" listesi boştu, stok girişi/çıkışı kaydedilemiyordu.
+        // Artık iki biçim de okunur; başka biçim gelirse açık hata (sessiz boşluk yok).
+        var kok = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        if (kok.ValueKind == System.Text.Json.JsonValueKind.Array) return kok.EnumerateArray().ToArray();
+        if (kok.ValueKind == System.Text.Json.JsonValueKind.Object && kok.TryGetProperty("items", out var ogeler)
+            && ogeler.ValueKind == System.Text.Json.JsonValueKind.Array) return ogeler.EnumerateArray().ToArray();
+        if (kok.ValueKind is System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined) return Array.Empty<System.Text.Json.JsonElement>();
+        throw new HttpRequestException($"{path}: beklenmeyen yanıt biçimi (liste değil).");
     }
 
     /// <summary>Tek JSON nesne dönen uçlar için (özet vb.).

@@ -26,8 +26,32 @@ public static class DialogExtensions
     private static string Birlestir(string standart, string? ek)
         => string.IsNullOrWhiteSpace(ek) ? standart : standart + "\n\n" + ek!.Trim();
 
+    // ⭐ M-69 (AR-GE 2026-10-26, yerel tarayıcı testi bulgusu): "Kaydet"e ÇİFT tıklanınca iki onay penceresi üst üste açılıyordu
+    // (ilk tıklama onayı beklerken ikinci tıklama da işleyiciye giriyordu); ikisi de onaylanırsa kayıt İKİ KEZ yazılabilirdi.
+    // Kural: aynı oturumda (IDialogService devre başınadır) bir onay/gerekçe penceresi AÇIKKEN yeni onay istenirse açılmaz ve
+    // "hayır" sayılır → ikinci tıklama sessizce yok sayılır. Sıralı onaylar (biri kapanınca diğeri) etkilenmez.
+    private sealed class AcikPencere { public bool Var; }
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDialogService, AcikPencere> _acik = new();
+
+    private static bool Kilitle(IDialogService dialog)
+    {
+        var d = _acik.GetValue(dialog, _ => new AcikPencere());
+        lock (d) { if (d.Var) return false; d.Var = true; return true; }
+    }
+    private static void Birak(IDialogService dialog)
+    {
+        if (_acik.TryGetValue(dialog, out var d)) lock (d) d.Var = false;
+    }
+
     public static async Task<bool> Confirm(this IDialogService dialog, string message,
         string okText = "Evet", string cancelText = "Vazgeç", bool danger = false)
+    {
+        if (!Kilitle(dialog)) return false;   // zaten açık bir onay var (çift tıklama) → yok say
+        try { return await ConfirmCore(dialog, message, okText, cancelText, danger); }
+        finally { Birak(dialog); }
+    }
+
+    private static async Task<bool> ConfirmCore(IDialogService dialog, string message, string okText, string cancelText, bool danger)
     {
         var p = new DialogParameters
         {
@@ -49,6 +73,14 @@ public static class DialogExtensions
     public static async Task<string?> AskReason(this IDialogService dialog, string message,
         string title = "İptal", string label = "İptal gerekçesi",
         string okText = "İptal Et", string cancelText = "Vazgeç")
+    {
+        if (!Kilitle(dialog)) return null;   // zaten açık bir pencere var (çift tıklama) → yok say
+        try { return await AskReasonCore(dialog, message, title, label, okText, cancelText); }
+        finally { Birak(dialog); }
+    }
+
+    private static async Task<string?> AskReasonCore(IDialogService dialog, string message, string title, string label,
+        string okText, string cancelText)
     {
         var p = new DialogParameters
         {

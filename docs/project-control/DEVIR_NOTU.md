@@ -7,12 +7,12 @@
 ## 1. Nerede kaldık
 - Dal: `arge/2026-10-kapsamli` (AR-GE çalışması). Faz sırası B7 → B8 (TAMAM) → **B9 (sürüyor)** → Z.
 - 2026-10-26'da biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
-  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 ·
+  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 ·
   yarım SignalR sohbet denemesinin arşivlenmesi (kullanıcı onayıyla).
 - **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
 ## 2. Sıradaki işler (B9 kalanı, sırayla)
-M-69 (web kayıt akışlarını yerel tarayıcı testi, Playwright) → M-74 (Avalonia 12.1) → M-75 (büyük dosya bölme / tipli web-API
+M-74 (Avalonia 12.1) → M-75 (büyük dosya bölme / tipli web-API
 istemcisi — isteğe bağlı "Evet") → düşük öncelik: M-31 (depo bazında asgari stok + öneri), M-53 (tedarikçi tek yer), M-52
 (Logo/Mikro aktarım + e-Fatura XML), M-82 (olası mükerrer uyarısı) → B9 sonu iki ortam denetimi → **B9+Z TAM TAKIM**
 (~4.500 test, son ölçüm 2 sa 28 dk; hatırlatıcı tam ortalamaya) + arayüz testleri → **Z**: `docs/arge/12_yayin_oncesi_kontrol.md`.
@@ -30,6 +30,7 @@ Ertelenenler: M-01 (yayın öncesi hatırlatılacak), M-42, M-40. Yapılmayacak:
 - Test düzeni: her işte hedefli + kritik alanda mutasyon + riskli paket, her iş ayrı commit; tam takım B9+Z sonunda.
   Her koşuda ortalama süre + bitiş saati söylenir, ortalamaya ulaşınca kontrol (hafıza: `depowise-test-suresi`).
   Koşu sürerken boş bekleme yok. "Şube" = "şantiye" (ikisi birden).
+- Web formu değişen işte yerel kayıt testi: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_web_e2e_yerel.ps1` (~1 dk).
 - Yanıtlar yalnız Türkçe ve sade (kullanıcının yazılım bilgisi az). Commit mesajı Türkçe, `git commit -F`, sonda
   `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`.
 
