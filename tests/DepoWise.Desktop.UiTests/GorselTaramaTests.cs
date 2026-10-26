@@ -240,7 +240,12 @@ public class GorselTaramaTests
             Dispatcher.UIThread.RunJobs();
             Dispatcher.UIThread.RunJobs();
             Dispatcher.UIThread.RunJobs();   // oran bağlaması (Bounds.Height) ikinci yerleşim turunda oturur
-            try { w.CaptureRenderedFrame()?.Save(Path.Combine(Klasor(), $"{ad}-{ek}.png")); } catch { }
+            // ⭐ M-70 (AR-GE 2026-10-26, F-023): ekran görüntüsü hatası artık YUTULMAZ — görüntü alınamazsa test kırmızı.
+            var png = Path.Combine(Klasor(), $"{ad}-{ek}.png");
+            var kare = w.CaptureRenderedFrame();
+            Assert.True(kare is not null, $"{ad} ({ek}): ekran görüntüsü alınamadı");
+            kare!.Save(png);
+            Assert.True(new FileInfo(png).Length > 0, $"{ad} ({ek}): ekran görüntüsü boş");
             sonuc[ek] = Olc(w);
             w.Close();
         }
@@ -251,6 +256,9 @@ public class GorselTaramaTests
             var eski = File.Exists(dosya) ? File.ReadAllLines(dosya).Where(l => !l.StartsWith(ad + "\t")).ToList() : new List<string>();
             File.WriteAllLines(dosya, eski.Concat(satirlar.Count > 0 ? satirlar : new[] { $"{ad}\t-\t(bulgu yok)" }));
         }
+        // ⭐ M-70 (F-023): EŞİK — 2026-10-26 itibarıyla 30 ekranın hiçbirinde bulgu yok; bulgu sayısı ARTMAZ (eşik 0).
+        // Eskiden bulgular yalnız dosyaya yazılıyordu ("30/30 geçti" iddiasızdı). Yeni bir kesilme/taşma görülürse test KIRMIZI.
+        Assert.True(satirlar.Count == 0, $"{ad}: görsel bulgu var →\n" + string.Join("\n", satirlar));
         return sonuc;
     }
 
