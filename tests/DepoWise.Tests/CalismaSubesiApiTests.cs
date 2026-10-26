@@ -161,7 +161,7 @@ public class CalismaSubesiApiTests : IAsyncLifetime
         Assert.Contains("if (!string.IsNullOrEmpty(_auth.BranchId)) r.Headers.TryAddWithoutValidation(\"X-Calisma-Subesi\", _auth.BranchId);", req);
 
         var program = File.ReadAllText(Path.Combine(kok.FullName, "src/DepoWise.Api/Program.cs"));
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(program, "X-Calisma-Subesi\"\\]").Count);   // tek okuma noktası
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(program, "X-Calisma-Subesi\"\\]"));   // tek okuma noktası
         // Oturumun geneline uygulanmadı: Session()/S() başlığı okumaz.
         var oturum = program[program.IndexOf("SessionContext? Session(HttpContext ctx)", StringComparison.Ordinal)..];
         oturum = oturum[..oturum.IndexOf("return svc.SessionFor(company, userId);", StringComparison.Ordinal)];

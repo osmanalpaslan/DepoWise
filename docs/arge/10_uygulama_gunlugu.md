@@ -816,3 +816,11 @@
   (adı/amacı gereği; ekranda şube stoğu gösterilmiyor) · "Şablon Dışı" raporu ve "Atanmamış" stok satırlarının kısıtlı
   kullanıcıdaki toplamı → kullanıcıya sorulacak (11_kalan_riskler) · eski yan-panel faaliyet düzenleme kodu (masaüstü
   `BeginMetaEdit`, web `SaveEdit`, `/api/daily/{id}/metadata`) kullanılmıyor — B9 sonunda temizlik adayı.
+
+### M-68 — Çevrimdışı uçtan uca: iki bilgisayar + sunucu (F-019, F-145, 2026-10-26)
+- İki ayrı yerel veritabanı (iki masaüstü) gerçek senkron uçlarıyla (business-push/pull) tek sunucuya bağlanır; stok çevrimdışı yazılır.
+- `IkiBilgisayarCevrimdisiTests` E1 (bilgisayar 1'in kaydı sunucuya ve bilgisayar 2'ye ulaşır) · E2 (iki bilgisayar aynı stoğu çevrimdışı
+  düşer: sunucu ikisini de kabul eder, bakiye −3 ve "eksi stok" listesinde — K-06; iki taraf aynı bakiyede buluşur, kopya yok) ·
+  E3 (aynı paketin üç kez gönderimi kopya üretmez) · E4 (farklı depolara kayıtlar birleşir, üç tarafın defteri aynı).
+- **Mutasyon:** sunucu gönderim sonrası bakiye yeniden hesabı kaldırılınca 4 testin 4'ü kırıldı. Kopya önleme kayıt kimliği (birincil
+  anahtar) ile — ayrıca bozulamaz. Ürün kodu değişmedi (yalnız test).
