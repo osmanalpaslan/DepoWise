@@ -232,6 +232,10 @@ public sealed partial class StockService
             var b = YoldaOku(conn, tx, s.CompanyId, documentId);
             if (b.Durum is "kapandi" or "teslim") { tx.Commit(); return; }   // zaten kapalı — zararsız
             if (b.Durum is null) throw new InvalidOperationException("Bu transfer tek adımlıdır; yolda miktarı yok.");
+            // ⭐ 2026-10-26 (iki ortam denetimi): teslim almadaki kuralın aynısı — kaybı YALNIZ hedef şube/şantiye kapatır;
+            // gönderen taraf kendi gönderisini "kayıp" yazıp stoktan düşemez (iki ortamda düğme zaten yalnız hedefte görünür).
+            if (!string.IsNullOrEmpty(s.OperatingBranchId) && !string.Equals(s.OperatingBranchId, b.To, StringComparison.Ordinal))
+                throw new ForbiddenException("Kaybı kapatmak için hedef şube/şantiyeyle giriş yapın (gönderen taraf kapatamaz).");
             BranchAccess.Require(s, b.To, "yolda kayıp kapatma");
             var satirlar = YoldaKalemleri(conn, tx, s.CompanyId, documentId, b.To).Where(k => k.Yolda > 0).ToList();
             for (int i = 0; i < satirlar.Count; i++)

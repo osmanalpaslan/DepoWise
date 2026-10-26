@@ -406,18 +406,19 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         // STK-02: bakiye artık (malzeme + lokasyon) anahtarlı. Doğrudan JOIN malzeme satırlarını
-        // ÇOĞALTIRDI (aracın uyumlu malzemesi her depo için tekrar listelenirdi). Amaç FİRMA GENELİ
-        // stok olduğu için lokasyonlar toplayan alt sorguda tek satıra indirilir.
+        // ÇOĞALTIRDI (aracın uyumlu malzemesi her depo için tekrar listelenirdi). Lokasyonlar toplayan alt sorguda tek satıra
+        // indirilir — ⭐ 2026-10-26 (iki ortam denetimi): malzeme listesi/kartıyla AYNI şube kapsamı (StokKapsami).
         cmd.CommandText = $@"
 SELECT m.id, m.code, m.name, COALESCE(b.quantity,'0'), c.name, pc.name
 FROM material_compatible_vehicles mcv
 JOIN materials m ON m.id = mcv.material_id AND m.company_id = @c AND m.is_deleted = 0
-LEFT JOIN {SqlDialect.StockTotalSubquery(conn)} b ON b.material_id = m.id AND b.company_id = m.company_id
+LEFT JOIN {SqlDialect.StockTotalSubquery(conn, StokKapsami.Sql(s))} b ON b.material_id = m.id AND b.company_id = m.company_id
 LEFT JOIN material_categories c ON c.id = m.category_id AND c.company_id = m.company_id AND c.is_deleted = 0
 LEFT JOIN material_categories pc ON pc.id = c.parent_id AND pc.company_id = m.company_id AND pc.is_deleted = 0
 WHERE mcv.vehicle_id = @v;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@v", vehicleId);
+        StokKapsami.Bagla(cmd, s);
         var list = new List<MaterialStock>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

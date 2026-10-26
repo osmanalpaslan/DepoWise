@@ -905,7 +905,8 @@ app.MapGet("/api/me/menu", (HttpContext ctx) =>
 // ── Ana ekran: kritik uyarılar (bakım + muayene/sigorta + düşük stok + yakıt) ──
 app.MapGet("/api/dashboard", (HttpContext ctx) =>
 {
-    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var s0 = Session(ctx); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(ctx, s0);   // düşük stok uyarısı çalışma şubesinin stoğuna bakar (masaüstüyle aynı)
     var sum = svc.Dashboard.GetSummary(s);
     return Results.Ok(new
     {
@@ -992,6 +993,19 @@ app.MapPost("/api/companies/{id}/reactivate", (HttpContext ctx, string id) =>
 // ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
+// ⭐ 2026-10-26 (iki ortam denetimi — kullanıcı istekleri 2 ve 3): WEB'in çalışma şubesi. Masaüstü oturumu giriş ekranında seçilen
+// şubeyi (OperatingBranchId) taşır; web oturumu (JWT) taşımıyordu → birden çok şubeye yetkili kullanıcı web'de "Şube X" ile girse
+// bile malzeme stoğu FİRMA toplamı görünüyor, "gönderen taraf teslim alamaz" kuralı sunucuda devreye girmiyordu.
+// Web her istekte X-Calisma-Subesi başlığını gönderir; YALNIZ stok toplamı (StokKapsami) ve teslim/kayıp uçları bunu kullanır
+// (oturumun geneline uygulanmadı: web listeleri bugünkü kapsamıyla kalır). Güvenlik: başlık kapsamı GENİŞLETEMEZ — şube firmaya ait
+// ve kullanıcıya izinli değilse YOK SAYILIR (eski davranış); oturumda zaten çalışma şubesi varsa (masaüstü) dokunulmaz.
+SessionContext CalismaSubesi(HttpContext ctx, SessionContext s)
+{
+    var b = ctx.Request.Headers["X-Calisma-Subesi"].ToString().Trim();
+    if (b.Length == 0 || !string.IsNullOrEmpty(s.OperatingBranchId)) return s;
+    if (!svc.Branches.BelongsToCompany(s.CompanyId, b) || !DepoWise.Application.Security.BranchAccess.CanAccess(s, b)) return s;
+    return ReportSession(s, b, svc.Branches.BelongsToCompany);
+}
 
 // ⭐ GUI-01 (2026-08-13): GİRİŞ şube listesi kullanıcının ŞUBE KAPSAMIYLA kırpılır. Önceden firmanın TÜM
 // şubeleri dönüyordu; kapsamı A+B olan kullanıcı yetkisi OLMAYAN "Şube C" ile giriş yapabiliyordu.
@@ -1169,7 +1183,8 @@ app.MapGet("/api/materials/grid", (HttpContext c,
     string? compatibleVehicles, string? equivalents, int page, int pageSize, string? sort, bool? desc,
     bool criticalOnly = false) =>   // A1 (Aurora): yalnız kritik (stok<=min); varsayilan false = eski davranis
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);   // stok sütunu/kritik filtresi çalışma şubesinin stoğu
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
@@ -1206,7 +1221,8 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
     string? compatibleVehicles, string? equivalents, string? sort, bool? desc,
     bool criticalOnly = false, string? format = null) =>   // A1 (Aurora): ekranla aynı "yalnız kritik" filtresi · ⭐ format=pdf → yazdırma
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);   // dışa aktarım ekrandaki stokla aynı
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
@@ -1218,7 +1234,8 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
 }).RequireAuthorization();
 app.MapGet("/api/materials/{id}", (HttpContext c, string id) =>
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);   // kart toplamı çalışma şubesinin stoğu
     var m = svc.Materials.GetDetail(s, id);
     // ⭐ FAZ 3b: fiyat gizliyse alan yanıta HİÇ konmaz (K2). Görünürken kayıt doğrudan döner →
     // mevcut yanıt sözleşmesi harfiyen korunur.
@@ -2908,7 +2925,8 @@ app.MapGet("/api/stock/in-transit", (HttpContext c) =>
     })) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/stock/in-transit/{documentId}/receive", (HttpContext c, string documentId, TransitReceiveDto d) =>
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);   // "gönderen taraf teslim alamaz" kuralı web'de de sunucuda uygulanır
     // ⭐ 2026-10-25: satır başına sağlam (quantity) + kusurlu (defective; returnDefective = göndericiye iade, aksi fire) + kusur açıklaması.
     svc.Stock.TeslimAl(s, documentId, (d.Lines ?? new List<TransitReceiveLineDto>())
         .Select(l => new DepoWise.Infrastructure.Materials.TeslimSatiri(l.MaterialId, l.Quantity, l.Defective ?? 0m, l.ReturnDefective == true)).ToList(),
@@ -2917,7 +2935,8 @@ app.MapPost("/api/stock/in-transit/{documentId}/receive", (HttpContext c, string
 }).RequireAuthorization();
 app.MapPost("/api/stock/in-transit/{documentId}/close-loss", (HttpContext c, string documentId, StockReverseDto d) =>
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);   // kaybı yalnız hedef kapatır
     svc.Stock.YoldaKayipKapat(s, documentId, d.Reason ?? "");
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -5047,7 +5066,7 @@ app.MapGet("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Vehicles.Get(s, id)) : Results.Unauthorized()).RequireAuthorization();
 // Araç detay sekmeleri: uyumlu malzemeler + araç bakımları + hareketler
 app.MapGet("/api/vehicles/{id}/materials", (HttpContext c, string id) =>
-    S(c) is { } s ? Results.Ok(svc.Materials.MaterialsForVehicle(s, id)) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(svc.Materials.MaterialsForVehicle(CalismaSubesi(c, s), id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}/maintenance", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}/movements", (HttpContext c, string id) =>

@@ -222,6 +222,9 @@ public sealed class ApiClient
     {
         var r = new HttpRequestMessage(m, url);
         if (_auth.Token is not null) r.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _auth.Token);
+        // ⭐ 2026-10-26: girişte seçilen ÇALIŞMA şubesi/şantiyesi ("Tüm Şubeler"de gönderilmez). Sunucu yalnız stok toplamı ve
+        // teslim/kayıp uçlarında kullanır; kapsamı genişletemez (izinli değilse yok sayılır) — masaüstüyle aynı stok görünür.
+        if (!string.IsNullOrEmpty(_auth.BranchId)) r.Headers.TryAddWithoutValidation("X-Calisma-Subesi", _auth.BranchId);
         return r;
     }
 
