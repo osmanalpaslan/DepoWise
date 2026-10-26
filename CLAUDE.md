@@ -2,6 +2,7 @@
 > Kısa tutulur: her mesajda yüklenir. Ayrıntı `docs/` altındadır (harita: `docs/README.md`). Son sadeleştirme 2026-10-10.
 
 ## 0. Oturum ve git
+- **`docs/project-control/DEVIR_NOTU.md` VARSA ÖNCE ONU OKU** (yarım kalan iş + sıradaki adımlar; başka hesap/oturumdan devir).
 - Başta `git pull`; güncel durum **yalnız** `docs/project-control/CURRENT_PHASE.md`'den okunur. `docs/arsiv/` geçmiştir — tarama.
 - Her anlamlı değişiklikten hemen sonra commit + push; push öncesi `CURRENT_PHASE.md`'ye kısa girdi.
 - **Kullanıcının commitlenmemiş sohbet/SignalR çalışması** (`ChatHub.cs`, `Program.cs` sohbet bölümleri, iki csproj, `ChatDock.razor`,

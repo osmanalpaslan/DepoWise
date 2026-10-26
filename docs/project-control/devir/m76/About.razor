@@ -1,0 +1,49 @@
+@page "/about"
+@using DepoWise.Application.Security
+@inject AuthState Auth
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+@*
+    ⭐ M-76 (AR-GE 2026-10-26, F-062): "Hakkında" artık "yakında" yer tutucusu değil — masaüstüyle aynı bilgiler: uygulama adı,
+    masaüstü programının güncel sürümü, firma, son güncelleme notu + Güncelleme Notları'na geçiş. Herkese açık ("about" modülü).
+*@
+
+<MudText Typo="Typo.h5" Class="dw-pagetitle mb-4">Hakkında</MudText>
+
+<MudPaper Class="pa-6" Elevation="1" Style="max-width:720px;">
+    <MudStack Spacing="3">
+        <MudText Typo="Typo.h6">Alpnex</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Şantiye, depo, araç-makine ve stok yönetimi.</MudText>
+        <MudDivider />
+        <MudSimpleTable Dense="true" Elevation="0">
+            <tbody>
+                <tr><td>Masaüstü programı</td><td>@(_surum is null ? "—" : "Sürüm " + _surum)</td></tr>
+                <tr><td>Firma</td><td>@Auth.CompanyDisplay</td></tr>
+                @if (_sonNot is not null)
+                {
+                    <tr><td>Son güncelleme</td><td>@_sonNot.TarihMetni — @_sonNot.Baslik</td></tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+        <div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("update-notes"))">Güncelleme Notları</MudButton>
+        </div>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string? _surum;
+    private readonly GuncellemeNotu? _sonNot = GuncellemeNotlari.SonWeb;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var d = await Api.GetObjectAsync("/api/releases/latest");
+            if (d.ValueKind == System.Text.Json.JsonValueKind.Object && d.TryGetProperty("version", out var v)
+                && v.ValueKind == System.Text.Json.JsonValueKind.String) _surum = v.GetString();
+        }
+        catch { _surum = null; }   // sunucuya ulaşılamazsa "—" (sayfa yine açılır)
+    }
+}
