@@ -5,9 +5,11 @@
 - **`docs/project-control/DEVIR_NOTU.md` VARSA ÖNCE ONU OKU** (yarım kalan iş + sıradaki adımlar; başka hesap/oturumdan devir).
 - Başta `git pull`; güncel durum **yalnız** `docs/project-control/CURRENT_PHASE.md`'den okunur. `docs/arsiv/` geçmiştir — tarama.
 - Her anlamlı değişiklikten hemen sonra commit + push; push öncesi `CURRENT_PHASE.md`'ye kısa girdi.
-- **Kullanıcının commitlenmemiş sohbet/SignalR çalışması** (`ChatHub.cs`, `Program.cs` sohbet bölümleri, iki csproj, `ChatDock.razor`,
-  `ApiClient.cs`, `.gitignore`, `docs/ARAC_KURULUMU.md`, `docs/kilavuzlar/` …) commit'e GİRMEZ. `Program.cs`'te yalnız kendi
-  değişikliklerini index'e koy (HEAD + kendi yamaların → `git update-index`). Kullanıcı değişikliğini silme/ezme/resetleme.
+- **Kullanıcının commitlenmemiş dosyaları** commit'e GİRMEZ, silinmez/ezilmez (her seferinde `git status` ile bak; kendi değişikliğin
+  karışık dosyadaysa yalnız onu `scripts/kismi_stage.mjs` ile index'e koy). 2026-10-26: yarım kalmış SignalR "anlık sohbet" denemesi
+  kullanıcı onayıyla `docs/arsiv/rapor/2026-09-07_anlik_sohbet_denemesi.patch` olarak arşivlendi ve çalışma kopyasından kaldırıldı
+  (sohbet yoklamayla çalışır). Kalan yerel dosyalar: `docs/ARAC_KURULUMU.md`, `docs/kilavuzlar/`, `docs/SECURITY_CREDENTIAL_ROTATION_PLAN.md`,
+  `scripts/prod_salt_oku.sh`, `.claude/skills/alpnex-arayuz-hareket/` (takip edilmiyor).
 
 ## 1. Kullanıcı ve çalışma biçimi
 - Yazılım bilgisi yok: kısa, sade Türkçe; İngilizce terim (Türkçesi). Soru yalnız sonucu değiştiren ürün belirsizliğinde.

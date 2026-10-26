@@ -35,11 +35,11 @@ Ertelenenler: M-01 (yayın öncesi hatırlatılacak), M-42, M-40. Yapılmayacak:
 - **Hiçbir koşulda canlıya yayın yok**, üretim veritabanında migration yok, dağıtım otomasyonu tetiklenmez (AR-GE süresince).
   Üretim verisi yalnız okunur, testlerde kullanılmaz. Sırlar ekrana yazılmaz.
 - Madde/faz arasında **onay sorulmaz** ("yetki sende"); ara özet için durulmaz.
-- **Kullanıcının commitlenmemiş dosyaları ASLA commit'e girmez:** `.gitignore`, `Program.cs` sohbet/SignalR kısımları,
-  `DepoWise.Desktop.csproj`, `DepoWise.Web.csproj`, `AlertsView.axaml`, `ChatDock.razor`, `ApiClient.cs` (sohbet kısmı),
-  takip edilmeyenler (`ChatHub.cs`, `docs/ARAC_KURULUMU.md`, `docs/kilavuzlar/`, `docs/SECURITY_CREDENTIAL_ROTATION_PLAN.md`,
-  `scripts/prod_salt_oku.sh`, `.claude/skills/alpnex-arayuz-hareket/`). `git add -A` YASAK. Bu dosyalarda kendi değişikliğin varsa
-  yalnız onu `node scripts/kismi_stage.mjs <dosya> <yama.mjs> work|stage` ile kaydet (skill: `guvenli-commit`).
+- **Kullanıcının commitlenmemiş dosyaları ASLA commit'e girmez** (`git add -A` YASAK; her seferinde `git status`). 2026-10-26: yarım
+  SignalR sohbet denemesi kullanıcı onayıyla `docs/arsiv/rapor/2026-09-07_anlik_sohbet_denemesi.patch` olarak arşivlendi ve kaldırıldı
+  (sohbet yoklamayla çalışır; artık Program.cs/csproj/ChatDock/ApiClient TEMİZ). Yalnız ilk bilgisayarda kalan takip edilmeyen yerel
+  dosyalar: `docs/ARAC_KURULUMU.md`, `docs/kilavuzlar/`, `docs/SECURITY_CREDENTIAL_ROTATION_PLAN.md`, `scripts/prod_salt_oku.sh`,
+  `.claude/skills/alpnex-arayuz-hareket/` — dokunma. Karışık dosyada kendi değişikliğin olursa `node scripts/kismi_stage.mjs` (skill `guvenli-commit`).
 - Test düzeni: her işte hedefli + kritik alanda mutasyon + riskli paket, her iş ayrı commit; tam takım B9+Z sonunda.
   Her koşuda ortalama süre + bitiş saati söylenir, ortalamaya ulaşınca kontrol (hafıza: `depowise-test-suresi`).
   Koşu sürerken boş bekleme yok. "Şube" = "şantiye" (ikisi birden).
