@@ -777,3 +777,28 @@
   web sabit kehribar (`Color.Warning`, tema rengi değişse de kehribar kalır).
 - **Testler:** `KullaniciIstekleri1025Tests` KI1–KI3; arayüz UIT34 (menü kabuğu çizilir, opaklık/boyut/hover kayması, ekran görüntüsü
   `menu-hover`); menü/tasarım/mobil/düğme sırası/şablon/erişilebilirlik paketi 159/159; arayüz 70/70; web derlemesi temiz.
+
+### İstek 4 — Günlük Faaliyet kayıtlarının tüm alanlarıyla düzenlenmesi (2026-10-26, 93f068a9)
+- Bakım tipli kayıtta tanım/alt tanım/teknisyen/sayaç/tarih/açıklama ve malzeme satırları (miktar değiştir, ekle, kaldır) düzenlenir.
+  Tek işlemde: eski bakım iptal (stok aynı depoya geri döner) → yeni bakım yazılır → faaliyet yeni bakıma bağlanır + denetim kaydı;
+  tekrar gönderim güvenli (işlem kimliği `:duzelt`). Sıra önce iptal, sonra kayıt (sayaç geriye gitme yanlış alarmı olmasın).
+- Engeller (uyarı bandı, düzenleme açılmaz): iptal edilmiş kayıt, kapanmış dönem, bağlı bakım ayrıca iptal edilmiş. Transfer kaydında
+  araç ve kayıt türü kilitli (bilgi bandı). Düzenlemeye başlarken standart düzenleme onayı (iki ortam).
+- API: `GET /api/daily/{id}/duzenleme`, `PUT /duzelt-bakim?version=`, `PUT /duzelt-hareket?version=`.
+- **Ara bulgu:** kapanan kabuk `ShellViewModel.Current`'ta kalıyordu → ana ekran hızlı işlem testi (UIT33) sıraya bağlı kırılıyordu;
+  `Release()` artık temizliyor.
+- **Testler:** `FaaliyetDuzeltmeTests` FD1–FD9; mutasyon (eski bakım iptali atlanınca) 4 test kırıldı; faaliyet paketi 84/84;
+  bakım/sayaç/dönem paketi 334/334; arayüz 70/70.
+
+### M-72 — Sunucu sağlık kontrolü + disk doluluk alarmı (F-067, 3b3d699f)
+- `/health` disk SEVİYESİ de döner (ok / warning ≥%75 / critical ≥%90 / unknown; sayı/yol yok, yanıt yine 200). `fly.toml` sağlık
+  kontrolü; kesinti takibi critical'ı kırmızı (e-posta), warning'i uyarı sayar. Etkisi sonraki yayında. Testler SK1–SK3 + 14/14.
+
+### M-73 — Kullanılmayan paket/kod temizliği (F-100–F-105, 2026-10-26)
+- **F-100:** `Semi.Avalonia` paketi kaldırıldı (kodda kullanımı yoktu; tema seçeneği 2026-08-08'de kaldırılmıştı).
+- **F-105:** el ile ikiz dosyalara eşitlik testi: `VehicleStatus` (kod birebir), `BranchGuard` (uyarı metni + kural).
+- **Bilinçli bırakılanlar:** F-101 `Infrastructure/Org/BranchService`/`CompanyService` — uygulamada kullanılmıyor ama `OrgPersonnelTests`
+  onları sınıyor (silmek test silmek olur; ileride Organization sürümüyle birleştirme ayrı iş). F-102 masaüstü `BackupViewModel` —
+  menüde yok ama B3 M-19'da güvenli hâle getirilen geri yükleme akışını taşıyor ve GYO3 ile korunuyor; ekran yeniden açılırsa hazır.
+  F-103 eski `/sync/push`/`pull` — protokol kararı gerektirir (kalan risk listesinde). F-104 boş Domain projesi — zararsız, bırakıldı.
+- **Testler:** `IkizDosyaEsitligiTests` IK1–IK3 + tema/geri yükleme/şube koruması/Org paketi 51/51; arayüz 70/70 (tema açılışı).
