@@ -832,3 +832,11 @@
   listesi/cari bakiye/yakıt toplamında iki ortam aynı servis yöntemi. **Bulunan ayrışma:** "Toplam Alınan / Dağıtılan" masaüstünde
   görünen sayfanın, web'de son 200 kaydın toplamıydı → yeni `FuelService.Toplamlar` (tüm kayıtlar, iptaller hariç, listeyle aynı
   şube kapsamı) iki ortamda. Mutasyon: API eski hesaba dönünce SP2+SP3 kırıldı. Yakıt paketi 149/149, arayüz 70/70.
+- **(3/3) gerçek boyutta migration provası (F-020):** `PostgresMigrationProvasiTests` MP1 — canlı sürümde (98) duran PG'ye 100.000 hareket
+  + 2.000 malzeme yazılır, 99→120 zinciri koşar: 22 adım ~2,5 sn, satır sayıları aynı, servis yeni şemada bakiyeyi doğru hesaplar.
+  **Bulgu (canlıya geçişi etkileyecekti):** 099 adımı mevcut satırları damgalamak için UPDATE'i tetikleyiciyi kurduktan SONRA
+  çalıştırıyordu; tetikleyici "yalnız damga değişen güncellemeyi" eski değere (NULL) çevirdiği için 100.000 satırın HİÇBİRİ
+  damgalanmıyordu. İlk tam çekimin NULL güvenlik ağı veri kaybını önlüyordu, ama niyet gerçekleşmiyordu. Düzeltme: damga
+  tetikleyiciden ÖNCE (099 canlıda henüz koşmadı — şema 98). Eski sırayla MP1 kırmızıydı (100.000 NULL) = bozma kanıtı.
+  Riskli paket (PG/migration/senkron/iki bilgisayar) 400/400, 13,5 dk. Ara bulgu: prova verisi geride kalınca 29 PG testi 50 MB güvenlik
+  kapısıyla reddedildi → prova kendi verisini siliyor (kapı gevşetilmedi).

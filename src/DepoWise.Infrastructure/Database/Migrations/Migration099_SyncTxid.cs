@@ -88,9 +88,13 @@ public sealed class Migration099_SyncTxid : IMigration
                 // belgelenmiş geri alma adımını (company_id kolonunu düşürme) bozuyordu (CompanyIdMigrationTests yakaladı).
                 Exec($"CREATE INDEX IF NOT EXISTS ix_{table}_txid ON {table}(server_txid);");
                 Exec($"DROP TRIGGER IF EXISTS trg_{table}_txid ON {table};");
+                // ⭐ M-70 (AR-GE 2026-10-26, migration provası bulgusu): damga TETİKLEYİCİDEN ÖNCE. Eskiden sonra yapılıyordu;
+                // tetikleyici "yalnız server_txid değişen güncelleme"yi eski değere (NULL) geri çevirdiği için mevcut satırların
+                // HİÇBİRİ damgalanmıyordu (100.000 satırlık provada 100.000 NULL). İlk çekimin NULL güvenlik ağı veri kaybını
+                // önlüyordu ama niyet ("bir kez damgalanır") gerçekleşmiyordu. Canlı şema 98 — bu adım canlıda henüz koşmadı.
+                Exec($"UPDATE {table} SET server_txid = pg_current_xact_id()::text::bigint WHERE server_txid IS NULL;");
                 Exec($"CREATE TRIGGER trg_{table}_txid BEFORE INSERT OR UPDATE ON {table} " +
                      "FOR EACH ROW EXECUTE FUNCTION dw_set_server_txid();");
-                Exec($"UPDATE {table} SET server_txid = pg_current_xact_id()::text::bigint WHERE server_txid IS NULL;");
             }
         }
     }
