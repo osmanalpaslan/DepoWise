@@ -76,6 +76,10 @@
 
 
 
+        <!-- ⭐ 2026-10-25: düzenlenemeyen kayıt için UYARI BANDI (nedenini söyler) -->
+        <ctrl:InfoBar Grid.Row="2" Kind="Warning" Title="Kayıt düzenlenemez" Message="{Binding DuzenlemeUyarisi}" VerticalAlignment="Top" Margin="0,16,0,0"
+                      IsVisible="{Binding DuzenlemeUyarisi, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
         <!-- İş #5: metadata düzenleme paneli — yalnız yan etkisiz alanlar. -->
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMetaEdit}">
             <StackPanel Spacing="10" MaxWidth="620" HorizontalAlignment="Left">
@@ -108,15 +112,20 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormBaslik}" Classes="SectionTitle"/>
+                <!-- ⭐ 2026-10-25 tam düzenleme: araç devri kaydında kilitli alan notu -->
+                <ctrl:InfoBar Kind="Warning" Message="{Binding KilitliAlanNotu}"
+                              IsVisible="{Binding KilitliAlanNotu, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"
+                                  IsEnabled="{Binding TurSecilebilir}" ToolTip.Tip="Düzeltmede kayıt tipi değişmez (tip değişecekse kaydı iptal edip yeniden girin)."/>
                     </ctrl:FormField>
                     <!-- Araç: Depo Çıkışı'nda OPSİYONEL (malzeme çıkışı aracsız da olabilir), diğerlerinde zorunlu. -->
                     <ctrl:FormField Label="Araç" IsRequired="{Binding !IsStockExit}" Width="240">
                         <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
-                                        DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
+                                        DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."
+                                        IsEnabled="{Binding AracSecilebilir}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Tarih" Width="150">
                         <ctrl:TarihKutusu SelectedDate="{Binding FormDate}"/>
@@ -538,8 +547,9 @@
                                     <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                         <!-- İş #5: yalnız YAN ETKİSİZ alanlar (açıklama/operatör/süre).
                                              Stok veya araç durumu değişecekse "İptal Et" + yeniden giriş. -->
+                                        <!-- ⭐ 2026-10-25: TAM düzenleme (malzeme/miktar/sayaç dahil); sorunlu kayıtta uyarı bandı -->
                                         <Button Classes="Ghost" Content="Düzenle" MinWidth="70"
-                                                Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).BeginMetaEditCommand}"
+                                                Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).BeginEditCommand}"
                                                 CommandParameter="{Binding}"/>
                                         <Button Classes="Ghost" Content="İptal Et" MinWidth="80"
                                                 Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"

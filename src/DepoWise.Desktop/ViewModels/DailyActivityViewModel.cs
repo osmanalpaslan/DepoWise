@@ -516,11 +516,84 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         MntLocation = _mntLocationDefault;   // BKM-04: yeni kayıt varsayılan depoyla açılır
         ExitScope = "Şube İçi"; ExitMaterial = null; ExitMaterialSearch = ""; ExitBalanceText = "";
         ExitQuantity = 0; ExitToBranch = null; ExitPersonnel = null; RefreshExitMaterials();
+        DuzeltmeyiKapat();
         ShowForm = true;
     }
 
+    // ═══ ⭐ TAM DÜZENLEME (kullanıcı isteği 2026-10-25) ═══════════════════════════════════════════════════════════════
+    // "Düzenle" kaydı YENİ KAYIT formunun TAMAMINDA mevcut değerlerle açar (malzemeler, miktarlar, sayaç, tanım dahil). Kaydet tek
+    // işlemde düzeltir (servis: eski bakım iptal + yeni bakım; stok aynı depoya geri döner). Sorunlu kayıtta form AÇILMAZ, neden
+    // uyarı bandında gösterilir. Kayıt tipi düzeltmede değişmez; araç devri (transfer) kaydında araç kilitli.
+    private string? _duzeltId;
+    private long _duzeltVersion;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DuzeltmeModu))]
+    [NotifyPropertyChangedFor(nameof(FormBaslik))]
+    [NotifyPropertyChangedFor(nameof(TurSecilebilir))]
+    private bool _duzeltmeAcik;
+    public bool DuzeltmeModu => DuzeltmeAcik;
+    public bool TurSecilebilir => !DuzeltmeAcik;
+    public string FormBaslik => DuzeltmeAcik ? "KAYDI DÜZENLE" : "YENİ KAYIT";
+    /// <summary>Düzenlenemeyen kaydın nedeni (uyarı bandı); null = bant gizli.</summary>
+    [ObservableProperty] private string? _duzenlemeUyarisi;
+    /// <summary>Araç devri kaydında kilitli alan notu; null = kilit yok.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AracSecilebilir))]
+    private string? _kilitliAlanNotu;
+    public bool AracSecilebilir => KilitliAlanNotu is null;
+
+    private void DuzeltmeyiKapat() { _duzeltId = null; DuzeltmeAcik = false; KilitliAlanNotu = null; }
+
     [RelayCommand]
-    private void CancelForm() => ShowForm = false;
+    private async Task BeginEdit(DailyActivityGridRow? row)
+    {
+        if (row is null) return;
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        DuzenlemeUyarisi = null;
+        DuzenlemeVerisi v;
+        try { v = DesktopServices.DailyActivity.DuzenlemeIcinOku(_session, row.Id); }
+        catch (Exception ex) { DuzenlemeUyarisi = "Kayıt okunamadı: " + ex.Message; return; }
+        if (v.Engel is not null) { DuzenlemeUyarisi = "Bu kayıt düzenlenemez: " + v.Engel; return; }
+        if (!await ConfirmService.ConfirmEditAsync()) return;   // FAZ 4.2: standart düzenleme onayı (web ile aynı)
+
+        EnsurePickers();
+        NewRecord();   // formu temiz aç, sonra doldur
+        FormKind = v.ActivityType switch
+        {
+            "maintenance" => "Bakım",
+            ExtraActivityTypes.ExtraOil => "İlave Yağ",
+            ExtraActivityTypes.ExtraFilter => "İlave Filtre",
+            ExtraActivityTypes.Repair => "Tamir",
+            _ => v.MovementKind == "transfer" ? "Transfer" : "Hareket",
+        };
+        FormVehicle = Vehicles.FirstOrDefault(x => x.Id == v.VehicleId);   // (sayaç alanını sıfırlar — sayaç aşağıda doldurulur)
+        FormDate = DateTimeOffset.FromUnixTimeMilliseconds(v.ActivityDate).ToLocalTime();
+        FormDescription = v.Description ?? "";
+        FormFrom = Branches.FirstOrDefault(x => x.Id == v.FromLocationId);
+        FormTo = Branches.FirstOrDefault(x => x.Id == v.ToLocationId);
+        FormOperator = Personnel.FirstOrDefault(x => x.Id == v.OperatorId);
+        FormDuration = v.DurationDays ?? 0;
+        if (v.Bakim is { } b)
+        {
+            MDef = MaintDefs.FirstOrDefault(x => x.Id == b.DefinitionId);   // alt tanımları yükler
+            MSubDef = MaintSubDefs.FirstOrDefault(x => x.Id == b.SubDefinitionId);
+            MTechnician = Personnel.FirstOrDefault(x => x.Id == b.TechnicianId);
+            MMeter = b.PerformedKm ?? b.PerformedHour;
+            MntLines.Clear();
+            foreach (var m in b.Malzemeler)
+                MntLines.Add(new MntMaterialLine(m.MaterialId, m.Code, m.Name) { Quantity = m.Quantity, FromTeamStock = m.FromTeamStock });
+            RefreshMntMaterials();
+            MntLocation = Branches.FirstOrDefault(x => x.Id == b.StockLocationId);
+        }
+        _duzeltId = v.Id;
+        _duzeltVersion = v.Version;
+        KilitliAlanNotu = v.KilitliAlanlar;
+        DuzeltmeAcik = true;
+        Status = "Düzenleme: değerleri değiştirip Kaydet'e basın. Malzeme satırı ekleyebilir, silebilir, miktarı değiştirebilirsiniz.";
+    }
+
+    [RelayCommand]
+    private void CancelForm() { ShowForm = false; DuzeltmeyiKapat(); }
 
     // ── Bakım: alt tanım + malzeme ──
     partial void OnMDefChanged(MaintenanceDefinitionRow? value)
@@ -636,9 +709,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     if (ExitToBranch is null) { FormError = "Hedef şube seçin."; return; }
                     if (ExitToBranch.Id == fromx) { FormError = "Hedef şube, kendi şubenizden farklı olmalı."; return; }
                     if (!await ConfirmService.AskAsync("Şube dışı çıkış (transfer) kaydedilsin mi?", "Depo Çıkışı — Şube Dışı")) return;
-                    DesktopServices.Stock.Transfer(_session, ExitMaterial.Id, ExitQuantity, fromx, ExitToBranch.Id, opx, notex,
-                        personnelId: null, vehicleId: FormVehicle?.Id);
-                    Status = "Şube dışı çıkış (transfer) kaydedildi (Stok Hareketleri'nde görünür).";
+                    // ⭐ 2026-10-25 (istek 3): şube dışı çıkış HER ZAMAN iki adımlı — hedef teslim alıp onaylayınca stoğuna girer
+                    DesktopServices.Stock.YoldaGonder(_session, new[] { new StockLine(ExitMaterial.Id, ExitQuantity) }, fromx, ExitToBranch.Id, opx, notex,
+                        vehicleId: FormVehicle?.Id);
+                    Status = $"Malzeme yola çıktı — {ExitToBranch.Name} teslim alıp onaylayınca stoğuna girecek (Giriş-Çıkış → Yoldaki transferler).";
                 }
                 ShowForm = false; Load();
             }
@@ -653,11 +727,28 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
             if (MDef is null) { FormError = "Bakım tanımı seçin."; return; }
             if (MMeter is null) { FormError = $"{MMeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; return; }
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
-            if (!await ConfirmService.AskAsync(MntLines.Count == 0 ? "Bakım kaydı eklensin mi?"
-                    : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", "Yeni Kayıt")) return;
+            if (!await ConfirmService.AskAsync(DuzeltmeAcik ? DuzeltmeOnayMetni()
+                    : MntLines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                    : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", DuzeltmeAcik ? "Kaydı Düzelt" : "Yeni Kayıt")) return;
             try
             {
                 var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
+                var bakimDto = new NewMaintenance(
+                    VehicleId: FormVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
+                    TechnicianId: MTechnician?.Id,
+                    Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                    PerformedKm: MMeterIsHour ? null : MMeter,
+                    PerformedHour: MMeterIsHour ? MMeter : null,
+                    PerformedDate: IsGunuTarihi.Ms(FormDate),
+                    Materials: materials,
+                    StockLocationId: MntLocation?.Id, RequireMeter: true);
+                if (DuzeltmeAcik && _duzeltId is not null)   // ⭐ 2026-10-25 tam düzenleme
+                {
+                    DesktopServices.DailyActivity.DuzeltBakim(_session, _duzeltId, bakimDto, Guid.NewGuid().ToString("N"), _duzeltVersion);
+                    ShowForm = false; DuzeltmeyiKapat(); Load();
+                    Status = "Kayıt düzeltildi (eski malzeme çıkışı geri alındı, yeni değerler yazıldı).";
+                    return;
+                }
                 DesktopServices.DailyActivity.SaveMaintenanceActivity(_session, new NewMaintenance(
                     VehicleId: FormVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
                     TechnicianId: MTechnician?.Id,
@@ -678,10 +769,24 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         if (IsMaintenance)
         {
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
-            if (!await ConfirmService.AskAsync(MntLines.Count == 0 ? $"{FormKind} kaydı eklensin mi?"
-                    : $"{FormKind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", "Yeni Kayıt")) return;
+            if (!await ConfirmService.AskAsync(DuzeltmeAcik ? DuzeltmeOnayMetni()
+                    : MntLines.Count == 0 ? $"{FormKind} kaydı eklensin mi?"
+                    : $"{FormKind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", DuzeltmeAcik ? "Kaydı Düzelt" : "Yeni Kayıt")) return;
             try
             {
+                if (DuzeltmeAcik && _duzeltId is not null)   // ⭐ 2026-10-25 tam düzenleme (tanım sabit kalır — servis korur)
+                {
+                    DesktopServices.DailyActivity.DuzeltBakim(_session, _duzeltId, new NewMaintenance(
+                        VehicleId: FormVehicle.Id, DefinitionId: "", TechnicianId: MTechnician?.Id,
+                        Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                        PerformedKm: MMeterIsHour ? null : MMeter, PerformedHour: MMeterIsHour ? MMeter : null,
+                        PerformedDate: IsGunuTarihi.Ms(FormDate),
+                        Materials: MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList(),
+                        StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"), _duzeltVersion);
+                    ShowForm = false; DuzeltmeyiKapat(); Load();
+                    Status = "Kayıt düzeltildi (eski malzeme çıkışı geri alındı, yeni değerler yazıldı).";
+                    return;
+                }
                 var extraType = FormKind switch
                 {
                     "İlave Yağ" => ExtraActivityTypes.ExtraOil, "İlave Filtre" => ExtraActivityTypes.ExtraFilter,
@@ -705,10 +810,23 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         }
 
         // Hareket / Transfer
-        var confirm = IsTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?";
-        if (!await ConfirmService.AskAsync(confirm, "Yeni Kayıt")) return;
+        var confirm = DuzeltmeAcik ? "Kayıt düzeltilsin mi?"
+            : IsTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?";
+        if (!await ConfirmService.AskAsync(confirm, DuzeltmeAcik ? "Kaydı Düzelt" : "Yeni Kayıt")) return;
         try
         {
+            if (DuzeltmeAcik && _duzeltId is not null)   // ⭐ 2026-10-25 tam düzenleme
+            {
+                DesktopServices.DailyActivity.DuzeltHareket(_session, _duzeltId, new NewMovementActivity(
+                    MovementKind: IsTransfer ? "transfer" : "movement", VehicleId: FormVehicle.Id,
+                    FromLocationId: FormFrom?.Id, ToLocationId: FormTo?.Id, OperatorId: FormOperator?.Id,
+                    DurationDays: FormDuration > 0 ? (int)FormDuration : null,
+                    Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                    ActivityDate: IsGunuTarihi.Ms(FormDate)), _duzeltVersion);
+                ShowForm = false; DuzeltmeyiKapat(); Load();
+                Status = "Kayıt düzeltildi.";
+                return;
+            }
             DesktopServices.DailyActivity.SaveMovement(_session, new NewMovementActivity(
                 MovementKind: IsTransfer ? "transfer" : "movement",
                 VehicleId: FormVehicle.Id,
@@ -757,6 +875,11 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         MetaError = null;
         ShowMetaEdit = true;
     }
+
+    private string DuzeltmeOnayMetni() =>
+        "Kayıt düzeltilsin mi?\n\nEski kaydın malzeme çıkışı stoğa geri alınır, yeni değerlerle yeniden yazılır" +
+        (MntLines.Count > 0 ? $" (malzemeler şu depodan düşülecek: {MntLocationText})" : "") +
+        ". Araç sayacı geçerli kayıtlardan yeniden hesaplanır. İşlem tek adımda yapılır; bir sorun olursa hiçbir şey değişmez.";
 
     [RelayCommand]
     private void CancelMetaEdit() { ShowMetaEdit = false; MetaError = null; _metaId = null; }

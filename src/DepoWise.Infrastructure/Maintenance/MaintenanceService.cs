@@ -124,13 +124,29 @@ public sealed class MaintenanceService
 
     private string SaveOnce(SessionContext s, NewMaintenance dto, string operationId)
     {
-        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate(); // negatif stok / sayaç için serialize
+        var id = SaveCore(conn, tx, s, dto, operationId);
+        tx.Commit();
+        return id;
+    }
+
+    /// <summary>
+    /// ⭐ PAYLAŞIMLI TRANSACTION GİRİŞİ — kaydetme (2026-10-25, Günlük Faaliyet TAM DÜZENLEME). <see cref="CancelInTransaction"/>'ın eşi:
+    /// faaliyet düzeltmesinde eski bakımın iptali + yeni bakımın yazılması TEK atomik işlemdir; bir adım hata verirse (eksi stok kuralı,
+    /// kapanmış dönem, yabancı kayıt…) HİÇBİR ŞEY değişmez. İş kuralları <see cref="Save"/> ile AYNI gövdeden (SaveCore) geçer.
+    /// ⚠️ YETKİ KONTROL ETMEZ (çağıran yapar) → <c>internal</c>.
+    /// </summary>
+    internal string SaveInTransaction(DbConnection conn, DbTransaction tx, SessionContext s, NewMaintenance dto, string operationId)
+        => SaveCore(conn, tx, s, dto, operationId);
+
+    /// <summary>Kaydın ortak gövdesi — transaction'ı AÇMAZ/KAPATMAZ (çağırana aittir).</summary>
+    private string SaveCore(DbConnection conn, DbTransaction tx, SessionContext s, NewMaintenance dto, string operationId)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         var existing = FindByOperation(conn, tx, s.CompanyId, operationId);
-        if (existing is not null) { tx.Commit(); return existing; } // idempotent
+        if (existing is not null) return existing; // idempotent
         DonemKilidi.Dogrula(s, dto.PerformedDate, "bakım kaydı");   // ⭐ M-30: kapanmış döneme bakım (ve malzeme düşümü) girilmez
 
         EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
@@ -201,7 +217,6 @@ public sealed class MaintenanceService
             : "{\"teamStockMaterials\":[" + string.Join(",", teamStockUsed.Select(m => "\"" + m + "\"")) + "]}";
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", id, AuditActions.Create, s.UserId,
             AfterJson: afterJson), _clock);
-        tx.Commit();
         return id;
     }
 

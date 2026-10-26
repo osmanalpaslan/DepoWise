@@ -1003,6 +1003,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         DeveloperMode.Changed -= OnDeveloperModeChanged;
         ServerAuthClient.SessionExpiredRaised -= OnSessionExpired;
         Chat.Dispose();   // sohbet yoklaması eski kabukla birlikte DURMALI (MAS-01 kusuru tekrarlanmasın)
+        if (ReferenceEquals(Current, this)) Current = null;   // kapanan kabuk ortak değerde asılı kalmasın (ana ekran hızlı işlemleri ona bakar)
     }
 
     private bool _sessionExpiredHandled;

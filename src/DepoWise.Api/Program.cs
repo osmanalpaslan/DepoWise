@@ -4963,6 +4963,29 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
         StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId)), Op(d.OperationId));   // BKM-04 · M-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
+// ⭐ 2026-10-25 (kullanıcı isteği): Günlük Faaliyet TAM DÜZENLEME — form verisi (+ engel metni) ve tek işlemde düzeltme.
+// Bakım tipi: eski bakım iptal + yeni bakım (stok aynı depoya geri döner); hareket: alanlar (transferde araç/tür kilitli).
+app.MapGet("/api/daily/{id}/duzenleme", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.DailyActivity.DuzenlemeIcinOku(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/daily/{id}/duzelt-bakim", (HttpContext c, string id, MaintenanceDto d, long? version) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
+    svc.DailyActivity.DuzeltBakim(s, id, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
+        d.VehicleId, d.DefinitionId ?? "", d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
+        StockLocationId: d.BranchId, InvoiceNo: Doc(d.InvoiceNo), PartyId: Doc(d.PartyId),
+        RequireMeter: !string.IsNullOrEmpty(d.DefinitionId)), Op(d.OperationId), version);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapPut("/api/daily/{id}/duzelt-hareket", (HttpContext c, string id, MovementDto d, long? version) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.DailyActivity.DuzeltHareket(s, id, new DepoWise.Infrastructure.Operations.NewMovementActivity(
+        string.IsNullOrWhiteSpace(d.MovementKind) ? "movement" : d.MovementKind, d.VehicleId, d.FromLocationId, d.ToLocationId,
+        d.OperatorId, d.DurationDays, Doc(d.Description), d.ActivityDate), version);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 // İptal ONAYI için etki özeti (bağlı bakım + malzeme satırı) — salt-okuma.
 app.MapGet("/api/daily/{id}/cancel-impact", (HttpContext c, string id) =>
 {

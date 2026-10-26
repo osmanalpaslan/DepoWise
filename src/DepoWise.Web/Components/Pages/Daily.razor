@@ -19,13 +19,14 @@
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:880px;">
         @* E1.3/ZB-6: bölüm başlığı ortak forma dili (.dw-formsection). *@
-        <div class="dw-formsection" style="border-top:none; margin-top:0; padding-top:0;">YENİ KAYIT</div>
+        <div class="dw-formsection" style="border-top:none; margin-top:0; padding-top:0;">@(_duzeltId is null ? "YENİ KAYIT" : "KAYDI DÜZENLE")</div>
+        @if (_kilitliNot is not null) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@_kilitliNot</MudAlert> }
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3">
                 @* 2026-09-03 (kullanıcı isteği): seçenekler YETKİYE göre süzülür (/api/daily/allowed-types;
                    asıl liste süzmesi serviste — yan kapı yok). Hiç tip anahtarı verilmemiş kullanıcı
                    hepsini görür (geçiş güvenli). "Depo Çıkışı" tip değildir → daima listelenir. *@
-                <MudSelect T="string" @bind-Value="_kind" Label="Kayıt Tipi" Margin="Margin.Dense" Variant="Variant.Outlined">
+                <MudSelect T="string" @bind-Value="_kind" Label="Kayıt Tipi" Margin="Margin.Dense" Variant="Variant.Outlined" Disabled="@(_duzeltId is not null)">
                     @foreach (var secenek in _kindOptions)
                     {
                         <MudSelectItem T="string" Value="@secenek">@secenek</MudSelectItem>
@@ -34,7 +35,8 @@
             </MudItem>
             <MudItem xs="12" md="6">
                 <MudAutocomplete T="ApiClient.Opt" Label="@(_kind == "Depo Çıkışı" ? "Araç (opsiyonel)" : "Araç *")" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
-                                 ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+                                 ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true"
+                                 Disabled="@(_kilitliNot is not null)" />
             </MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
@@ -188,6 +190,11 @@
         </MudStack>
     </div>
 
+    @* ⭐ 2026-10-25: düzenlenemeyen kayıt için uyarı bandı (nedenini söyler) *@
+@if (_duzenlemeUyarisi is not null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3" ShowCloseIcon="true" CloseIconClicked="@(() => _duzenlemeUyarisi = null)">@_duzenlemeUyarisi</MudAlert>
+}
     @* İş #5: yalnız YAN ETKİSİZ alanlar. Stok/araç durumu değişecekse iptal edip yeniden girin. *@
 @if (_editId is not null)
 {
@@ -586,7 +593,8 @@
                         personnelId = (string?)null, vehicleId = _vehicle?.Id, note = Empty(_desc)
                     });
                 _ok = exErr is null;
-                _msg = exErr ?? (inBranch ? "Şube içi çıkış kaydedildi (Stok Hareketleri'nde görünür)." : "Şube dışı çıkış (transfer) kaydedildi.");
+                _msg = exErr ?? (inBranch ? "Şube içi çıkış kaydedildi (Stok Hareketleri'nde görünür)."
+                    : "Malzeme yola çıktı — hedef şube/şantiye teslim alıp onaylayınca stoğuna girecek (Giriş-Çıkış → Yoldaki transferler).");   // 2026-10-25 iki adımlı
                 if (_ok) { Clear(); await Load(); }
             }
             catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
@@ -604,9 +612,10 @@
                 if (string.IsNullOrEmpty(_mDefId)) { _msg = "Bakım tanımı seçin."; _ok = false; _busy = false; return; }
                 if (_mMeter is null) { _msg = $"{MeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; _ok = false; _busy = false; return; }
                 // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
-                if (!await Dialog.Confirm(_lines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnay : _lines.Count == 0 ? "Bakım kaydı eklensin mi?"
                         : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/maintenance", _dailyOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide
+                err = await GonderAsync(_duzeltId is null ? "/api/daily/maintenance" : $"/api/daily/{_duzeltId}/duzelt-bakim?version={_duzeltVersion}",
+                    _duzeltId is not null, _dailyOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide · 2026-10-25 düzeltme = PUT
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                     description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
@@ -617,9 +626,17 @@
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
             {
                 // Masaüstüyle birebir aynı metin — parite.
-                if (!await Dialog.Confirm(_lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
+                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnay : _lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
                         : $"{_kind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/extra", _dailyOp.Ekle(new   // ⭐ M-04
+                err = _duzeltId is not null
+                    ? await Api.PutAsync($"/api/daily/{_duzeltId}/duzelt-bakim?version={_duzeltVersion}", _dailyOp.Ekle(new   // 2026-10-25: tanım sunucuda korunur
+                    {
+                        vehicleId = _vehicle.Id, definitionId = "", technicianId = _mTech,
+                        description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
+                        materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
+                        branchId = _mLocationId
+                    }))
+                    : await Api.PostAsync("/api/daily/extra", _dailyOp.Ekle(new   // ⭐ M-04
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
                     description = Empty(_desc), performedKm = MeterKm, performedHour = MeterHour, performedDate = Ms(_date),
@@ -630,15 +647,17 @@
             else
             {
                 var isTransfer = _kind == "Transfer";
-                if (!await Dialog.Confirm(isTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?")) { _busy = false; return; }
-                err = await Api.PostAsync("/api/daily/movement", _dailyOp.Ekle(new   // ⭐ M-04
+                if (!await Dialog.Confirm(_duzeltId is not null ? "Kayıt düzeltilsin mi?"
+                        : isTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?")) { _busy = false; return; }
+                err = await GonderAsync(_duzeltId is null ? "/api/daily/movement" : $"/api/daily/{_duzeltId}/duzelt-hareket?version={_duzeltVersion}",
+                    _duzeltId is not null, _dailyOp.Ekle(new   // ⭐ M-04 · 2026-10-25 düzeltme = PUT
                 {
                     movementKind = isTransfer ? "transfer" : "movement", vehicleId = _vehicle.Id,
                     fromLocationId = _from, toLocationId = _to, operatorId = _operator, durationDays = _duration,
                     description = Empty(_desc), activityDate = Ms(_date)
                 }));
             }
-            _ok = err is null; _msg = err ?? "Kaydedildi.";
+            _ok = err is null; _msg = err ?? (_duzeltId is not null ? "Kayıt düzeltildi." : "Kaydedildi.");
             if (_ok) { _dailyOp.Tamamlandi(); Clear(); await Load(); }   // M-04: başarılı kayıttan sonra yeni kimlik
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
@@ -653,18 +672,69 @@
     private int? _editDuration;
     private long _editVersion;
 
+    // ═══ ⭐ TAM DÜZENLEME (kullanıcı isteği 2026-10-25) — masaüstüyle aynı ═══
+    // "Düzenle" kaydı YENİ KAYIT formunda mevcut değerlerle açar (malzemeler, miktarlar, sayaç, tanım dahil); Kaydet tek işlemde
+    // düzeltir (sunucu: eski bakım iptal + yeni bakım). Sorunlu kayıtta form açılmaz, neden uyarı bandında. Tür sabit; araç devri
+    // kaydında araç kilitli.
+    private string? _duzeltId, _duzenlemeUyarisi, _kilitliNot;
+    private long _duzeltVersion;
+
     private async Task BeginEdit(JsonElement row)
     {
-        if (Bool(row, "isCancelled")) { _msg = "İptal edilmiş kayıt düzenlenemez."; _ok = false; return; }
-        // ⭐ FAZ 4.2: standart işlem onayı (kullanıcı isteği 2026-09-06).
-        if (!await Dialog.ConfirmEdit()) return;
-        _editId = Str(row, "id");
-        _editVersion = row.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0L;
-        _editDescription = Str(row, "description");
-        _editOperator = NullS(row, "operatorId");
-        _editDuration = row.TryGetProperty("durationDays", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt32() : null;
-        _editError = null;
+        _duzenlemeUyarisi = null;
+        var id = Str(row, "id");
+        JsonElement v;
+        try { v = await Api.GetObjectAsync($"/api/daily/{id}/duzenleme"); }
+        catch (Exception ex) { _duzenlemeUyarisi = "Kayıt okunamadı: " + ex.Message; return; }
+        var engel = NullS(v, "engel");
+        if (engel is not null) { _duzenlemeUyarisi = "Bu kayıt düzenlenemez: " + engel; return; }
+        if (!await Dialog.ConfirmEdit()) return;   // FAZ 4.2: standart işlem onayı
+
+        Clear();
+        var tur = Str(v, "activityType");
+        _kind = tur switch
+        {
+            "maintenance" => "Bakım", "extra_oil" => "İlave Yağ", "extra_filter" => "İlave Filtre", "repair" => "Tamir",
+            _ => NullS(v, "movementKind") == "transfer" ? "Transfer" : "Hareket",
+        };
+        var vid = NullS(v, "vehicleId");
+        if (vid is not null)
+        {
+            _vehicle = (await Api.OptionsAsync("/api/vehicles", "id", "display")).FirstOrDefault(o => o.Id == vid);
+            // sayaç türü burada okunur; işaretçi güncellenir ki çizimdeki "araç değişti" sıfırlaması doldurulan sayacı silmesin
+            _meterVid = vid;
+            try { var a = await Api.GetObjectAsync($"/api/vehicles/{vid}"); _meterUnit = Str(a, "meterUnit"); _curMeter = Dec(a, "currentMeter"); } catch { }
+        }
+        _date = DateTimeOffset.FromUnixTimeMilliseconds(v.GetProperty("activityDate").GetInt64()).LocalDateTime;
+        _desc = Str(v, "description");
+        _from = NullS(v, "fromLocationId"); _to = NullS(v, "toLocationId"); _operator = NullS(v, "operatorId");
+        _duration = v.TryGetProperty("durationDays", out var dd) && dd.ValueKind == JsonValueKind.Number ? dd.GetInt32() : null;
+        if (v.TryGetProperty("bakim", out var b) && b.ValueKind == JsonValueKind.Object)
+        {
+            _mDefId = Str(b, "definitionId");
+            _lastMDef = _mDefId;   // çizimdeki "tanım değişti" sıfırlaması alt tanımı silmesin
+            _mSubOpts = await Api.OptionsAsync($"/api/maintenance/definitions?parentDefId={_mDefId}", "id", "name");
+            _mSubId = NullS(b, "subDefinitionId");
+            _mTech = NullS(b, "technicianId");
+            _mMeter = b.TryGetProperty("performedKm", out var km) && km.ValueKind == JsonValueKind.Number ? km.GetDecimal()
+                    : b.TryGetProperty("performedHour", out var hr) && hr.ValueKind == JsonValueKind.Number ? hr.GetDecimal() : null;
+            _lines.Clear();
+            foreach (var m in b.GetProperty("malzemeler").EnumerateArray())
+                _lines.Add(new Line(Str(m, "materialId"), $"{Str(m, "code")} — {Str(m, "name")}", m.GetProperty("quantity").GetDecimal())
+                    { FromTeamStock = m.TryGetProperty("fromTeamStock", out var ft) && ft.ValueKind == JsonValueKind.True });
+            _mLocationId = NullS(b, "stockLocationId");
+        }
+        _duzeltId = id;
+        _duzeltVersion = v.GetProperty("version").GetInt64();
+        _kilitliNot = NullS(v, "kilitliAlanlar");
+        _msg = "Düzenleme: değerleri değiştirip Kaydet'e basın. Malzeme satırı ekleyebilir, silebilir, miktarı değiştirebilirsiniz."; _ok = true;
     }
+
+    private const string DuzeltmeOnay = "Kayıt düzeltilsin mi?\n\nEski kaydın malzeme çıkışı stoğa geri alınır, yeni değerlerle yeniden yazılır; " +
+        "araç sayacı geçerli kayıtlardan yeniden hesaplanır. İşlem tek adımda yapılır; bir sorun olursa hiçbir şey değişmez.";
+
+    /// <summary>Yeni kayıt = POST, düzeltme = PUT (aynı gövde).</summary>
+    private Task<string?> GonderAsync(string yol, bool duzeltme, object govde) => duzeltme ? Api.PutAsync(yol, govde) : Api.PostAsync(yol, govde);
 
     private async Task SaveEdit()
     {
@@ -713,6 +783,7 @@
         _mDefId = _mSubId = _mTech = null; _mMeter = null; _matSel = null; _matQty = 0; _lines.Clear();
         _mLocationId = DefaultLocationId();   // BKM-04: yeni kayıt varsayılan depoyla açılır
         _exitScope = "Şube İçi"; _exitMaterial = null; _exitQty = 0; _exitTo = _exitPersonnel = null;
+        _duzeltId = null; _kilitliNot = null;   // 2026-10-25 tam düzenleme modu kapanır
     }
 
     /// <summary>"Kayıt Tipi" görünen adı → sunucunun activity_type kodu (kullanıcı isteği 2026-07-19).</summary>

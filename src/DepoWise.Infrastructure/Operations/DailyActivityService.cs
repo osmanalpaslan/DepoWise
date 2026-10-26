@@ -33,6 +33,18 @@ public sealed record NewMovementActivity(
     string MovementKind, string? VehicleId = null, string? FromLocationId = null, string? ToLocationId = null,
     string? OperatorId = null, int? DurationDays = null, string? Description = null, long? ActivityDate = null);
 
+/// <summary>⭐ 2026-10-25 TAM DÜZENLEME — formu doldurmak için kaydın tam hâli. <paramref name="Engel"/> null değilse kayıt düzenlenemez
+/// (uyarı paneli bu metni gösterir); <paramref name="KilitliAlanlar"/> null değilse bazı alanlar kilitli (araç devri kaydı).</summary>
+public sealed record DuzenlemeVerisi(string Id, string ActivityType, string? MovementKind, string? VehicleId, string? FromLocationId,
+    string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long ActivityDate, long Version,
+    DuzenlemeBakim? Bakim, string? Engel, string? KilitliAlanlar);
+
+/// <summary>Bakım tipi faaliyetin bakım kısmı (tanım, sayaç, malzemeler, düşülen depo).</summary>
+public sealed record DuzenlemeBakim(string MaintenanceId, string DefinitionId, string? SubDefinitionId, string? TechnicianId,
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, IReadOnlyList<DuzenlemeMalzeme> Malzemeler, string? StockLocationId);
+
+public sealed record DuzenlemeMalzeme(string MaterialId, string Code, string Name, decimal Quantity, bool FromTeamStock);
+
 public sealed record DailyActivityRecord(string Id, string ActivityType, string? MovementKind, string? VehicleId,
     string? MaintenanceId, string? Description, long ActivityDate);
 
@@ -665,6 +677,217 @@ WHERE da.company_id = @c";
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id,
             AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ TAM DÜZENLEME (kullanıcı isteği 2026-10-25: "malzemelerin miktarlarını düzenleyemiyorum veya kaldıramıyorum; tüm alanlarda
+    // güncelleme yapabilmek istiyorum — sorun çıkaracak bir durum varsa uyarı paneliyle engelle, yoksa engel olma").
+    //
+    // Eskiden yalnız açıklama/operatör/süre düzenlenebiliyordu (UpdateMetadata): malzeme satırları STOK DEFTERİNİ, sayaç ARAÇ SAYACINI
+    // değiştirdiği için geriye dönük düzenleme "defter ana kaynaktır / bakiye doğrudan değişmez" kuralıyla çelişirdi. Çözüm, kuralı
+    // BOZMADAN: düzeltme = TEK atomik işlemde eski bakımın İPTALİ (malzemeler ters hareketle aynı depoya geri döner, sayaç geçerli
+    // kayıtlardan yeniden hesaplanır) + yeni değerlerle YENİ bakım (yeni stok düşümü). Faaliyet satırı AYNI kalır (listede tek kayıt),
+    // yalnız yeni bakıma bağlanır. Herhangi bir adım hata verirse (kapanmış dönem, yabancı kayıt…) hiçbir şey değişmez.
+    // Engeller (uyarı paneli): iptal edilmiş kayıt; bağlı bakımı ayrıca iptal edilmiş kayıt; kapanmış dönem; araç devri (transfer)
+    // kaydında araç ve kayıt türü (araç pasife alındı — o alanlar kilitli, diğer alanlar düzenlenir).
+    // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Düzenleme formunu doldurmak için kaydın tam hâli + (varsa) DÜZENLEME ENGELİ metni (null = düzenlenebilir).</summary>
+    public DuzenlemeVerisi DuzenlemeIcinOku(SessionContext s, string id)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        string tur; string? hk, arac, from, to, opr, desc, mid; int? dur; long tarih, ver; bool silindi;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT activity_type, movement_kind, vehicle_id, from_location_id, to_location_id, operator_id, duration_days, " +
+                              "description, maintenance_id, activity_date, version, is_deleted FROM daily_activities WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) throw new ForbiddenException("Faaliyet kaydı bulunamadı veya başka firmaya ait.");
+            string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
+            tur = r.GetString(0); hk = S(1); arac = S(2); from = S(3); to = S(4); opr = S(5);
+            dur = r.IsDBNull(6) ? null : Convert.ToInt32(r.GetValue(6));
+            desc = S(7); mid = S(8); tarih = Convert.ToInt64(r.GetValue(9)); ver = Convert.ToInt64(r.GetValue(10)); silindi = Convert.ToInt64(r.GetValue(11)) != 0;
+        }
+
+        string? engel = null;
+        if (silindi) engel = "İptal edilmiş kayıt düzenlenemez.";
+        else if (s.DonemKilidi is not null && !DonemAcik(s, tarih)) engel = "Kapanmış döneme ait kayıt düzenlenemez (dönem kilidi).";
+
+        DuzenlemeBakim? bakim = null;
+        if (!string.IsNullOrEmpty(mid))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT maintenance_def_id, sub_definition_id, technician_id, performed_km, performed_hour, performed_date, is_cancelled " +
+                              "FROM vehicle_maintenances WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@id", mid);
+            cmd.AddWithValue("@c", s.CompanyId);
+            using (var r = cmd.ExecuteReader())
+                if (r.Read())
+                {
+                    string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
+                    decimal? D(int i) => r.IsDBNull(i) ? null : Money.Parse(r.GetValue(i).ToString());
+                    if (Convert.ToInt64(r.GetValue(6)) != 0 && engel is null) engel = "Bağlı bakım kaydı ayrıca iptal edilmiş; faaliyet düzenlenemez.";
+                    bakim = new DuzenlemeBakim(mid, r.GetString(0), S(1), S(2), D(3), D(4), r.IsDBNull(5) ? null : Convert.ToInt64(r.GetValue(5)),
+                        BakimMalzemeleri(conn, s.CompanyId, mid), BakimDeposu(conn, s.CompanyId, mid));
+                }
+        }
+        var kilitli = tur == "movement" && hk == "transfer"
+            ? "Araç devri (transfer) kaydında araç ve kayıt türü değiştirilemez (araç pasife alındı); diğer alanlar düzenlenebilir."
+            : null;
+        return new DuzenlemeVerisi(id, tur, hk, arac, from, to, opr, dur, desc, tarih, ver, bakim, engel, kilitli);
+    }
+
+    private static bool DonemAcik(SessionContext s, long tarih)
+    {
+        try { DonemKilidi.Dogrula(s, tarih, "düzenleme"); return true; } catch { return false; }
+    }
+
+    private static IReadOnlyList<DuzenlemeMalzeme> BakimMalzemeleri(DbConnection conn, string companyId, string maintenanceId)
+    {
+        var l = new List<DuzenlemeMalzeme>();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT mm.material_id, m.code, m.name, mm.quantity, mm.from_team_stock FROM maintenance_materials mm " +
+                          "JOIN materials m ON m.id=mm.material_id AND m.company_id=mm.company_id " +
+                          "WHERE mm.maintenance_id=@id AND mm.company_id=@c ORDER BY m.code;";
+        cmd.AddWithValue("@id", maintenanceId);
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            l.Add(new DuzenlemeMalzeme(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetValue(3).ToString()),
+                !r.IsDBNull(4) && Convert.ToInt64(r.GetValue(4)) != 0));
+        return l;
+    }
+
+    /// <summary>Malzemelerin düşüldüğü depo — defterdeki kullanım hareketinden (bakım kaydında ayrı kolon yok; iptal de buradan okur).</summary>
+    private static string? BakimDeposu(DbConnection conn, string companyId, string maintenanceId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT branch_id FROM stock_movements WHERE company_id=@c AND document_id=@id AND direction<0 LIMIT 1;";
+        cmd.AddWithValue("@id", maintenanceId);
+        cmd.AddWithValue("@c", companyId);
+        var v = cmd.ExecuteScalar();
+        return v is string sv && sv.Length > 0 ? sv : null;
+    }
+
+    /// <summary>
+    /// BAKIM TİPİ faaliyeti (Bakım / İlave Yağ / İlave Filtre / Tamir) TAM düzeltir: tek atomik işlemde eski bakım iptal edilir
+    /// (malzemeler aynı depoya geri döner, sayaç yeniden hesaplanır) ve yeni değerlerle yeni bakım yazılır; faaliyet satırı aynı kalır.
+    /// Tekrar gönderim (aynı <paramref name="operationId"/>) ikinci düzeltme yapmaz.
+    /// </summary>
+    public void DuzeltBakim(SessionContext s, string id, NewMaintenance yeni, string operationId, long? expectedVersion = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+        var once = DuzenlemeIcinOku(s, id);
+        if (once.Engel is not null) throw new InvalidOperationException(once.Engel);
+        if (once.Bakim is null) throw new InvalidOperationException("Bu kayıt bakım tipi değil.");
+        if (once.ActivityType != "maintenance")   // İlave Yağ/Filtre/Tamir: kullanıcıya sorulmayan sabit tanım korunur
+            yeni = yeni with { DefinitionId = once.Bakim.DefinitionId, SubDefinitionId = null, SubDefinitionNote = null };
+
+        StockBalanceWriter.Run(() =>
+        {
+            using var conn = _factory.Create();
+            using var tx = conn.BeginImmediate();
+            using (var chk = conn.CreateCommand())   // tekrar gönderim (aynı işlem kimliği) — zaten uygulanmış, ikinci düzeltme YOK
+            {
+                chk.Transaction = tx;
+                chk.CommandText = "SELECT COUNT(*) FROM vehicle_maintenances WHERE company_id=@c AND operation_id=@op;";
+                chk.AddWithValue("@c", s.CompanyId);
+                chk.AddWithValue("@op", operationId + ":duzelt");
+                if (Convert.ToInt64(chk.ExecuteScalar()) > 0) { tx.Commit(); return; }
+            }
+            // SIRA ÖNEMLİ: önce eski bakım iptal (stok aynı depoya geri döner, sayaç geçerli kayıtlardan yeniden hesaplanır), SONRA yeni
+            // bakım — yoksa eski kaydın km'si hâlâ geçerli sayılır ve daha düşük km'ye düzeltme "sayaç geriye gidemez" hatası verirdi.
+            _maintenance.CancelInTransaction(conn, tx, s, once.Bakim.MaintenanceId, "Günlük faaliyet düzeltmesi");
+            var yeniMid = _maintenance.SaveInTransaction(conn, tx, s, yeni, operationId + ":duzelt");
+            var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "UPDATE daily_activities SET maintenance_id=@m, vehicle_id=@v, description=@d, activity_date=@ad, " +
+                                  "version=version+1, updated_at=@now WHERE id=@id AND company_id=@c AND is_deleted=0"
+                                  + EditLockGuard.Clause(expectedVersion) + ";";
+                EditLockGuard.Bind(cmd, expectedVersion);
+                cmd.AddWithValue("@m", yeniMid);
+                cmd.AddWithValue("@v", yeni.VehicleId);
+                cmd.AddWithValue("@d", (object?)TrimOrNull(yeni.Description) ?? DBNull.Value);
+                cmd.AddWithValue("@ad", yeni.PerformedDate ?? once.ActivityDate);
+                cmd.AddWithValue("@now", now);
+                cmd.AddWithValue("@id", id);
+                cmd.AddWithValue("@c", s.CompanyId);
+                if (cmd.ExecuteNonQuery() == 0)
+                {
+                    EditLockGuard.ThrowIfStale(conn, tx, "daily_activities", id, s.CompanyId, expectedVersion);
+                    throw new ForbiddenException("Faaliyet kaydı bulunamadı, iptal edilmiş veya başka firmaya ait.");
+                }
+            }
+            AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Update, s.UserId,
+                BeforeJson: $"{{\"maintenanceId\":\"{once.Bakim.MaintenanceId}\"}}",
+                AfterJson: $"{{\"maintenanceId\":\"{yeniMid}\",\"duzeltme\":true}}"), _clock);
+            tx.Commit();
+        }, $"daily:duzelt id={id} op={operationId}");
+    }
+
+    /// <summary>HAREKET / TRANSFER faaliyetini düzeltir (stok etkisi yok). Transfer (araç devri) kaydında araç ve tür KİLİTLİ;
+    /// hareket → transfer'e çevrilirse araç pasife alınır (yeni kayıttaki kural).</summary>
+    public void DuzeltHareket(SessionContext s, string id, NewMovementActivity yeni, long? expectedVersion = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (yeni.MovementKind is not ("movement" or "transfer")) throw new ArgumentException("Geçersiz hareket tipi.");
+        if (yeni.DurationDays is < 0) throw new ArgumentException("Süre negatif olamaz.");
+        var once = DuzenlemeIcinOku(s, id);
+        if (once.Engel is not null) throw new InvalidOperationException(once.Engel);
+        if (once.ActivityType != "movement") throw new InvalidOperationException("Bu kayıt hareket/transfer tipi değil.");
+        if (once.KilitliAlanlar is not null && (yeni.MovementKind != "transfer" || yeni.VehicleId != once.VehicleId))
+            throw new InvalidOperationException(once.KilitliAlanlar);
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        if (yeni.VehicleId is not null) EnsureVehicleOwned(conn, tx, s.CompanyId, yeni.VehicleId);
+        EnsureOwned(conn, tx, "branches", s.CompanyId, yeni.FromLocationId, "Şube bulunamadı veya başka firmaya ait.");
+        EnsureOwned(conn, tx, "branches", s.CompanyId, yeni.ToLocationId, "Şube bulunamadı veya başka firmaya ait.");
+        EnsureOwned(conn, tx, "personnel", s.CompanyId, yeni.OperatorId, "Personel bulunamadı veya başka firmaya ait.");
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE daily_activities SET movement_kind=@mk, vehicle_id=@v, from_location_id=@f, to_location_id=@t, operator_id=@o, " +
+                              "duration_days=@dur, description=@d, activity_date=@ad, version=version+1, updated_at=@now " +
+                              "WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
+            cmd.AddWithValue("@mk", yeni.MovementKind);
+            cmd.AddWithValue("@v", (object?)yeni.VehicleId ?? DBNull.Value);
+            cmd.AddWithValue("@f", (object?)yeni.FromLocationId ?? DBNull.Value);
+            cmd.AddWithValue("@t", (object?)yeni.ToLocationId ?? DBNull.Value);
+            cmd.AddWithValue("@o", (object?)yeni.OperatorId ?? DBNull.Value);
+            cmd.AddWithValue("@dur", yeni.DurationDays is { } dd ? dd : DBNull.Value);
+            cmd.AddWithValue("@d", (object?)TrimOrNull(yeni.Description) ?? DBNull.Value);
+            cmd.AddWithValue("@ad", yeni.ActivityDate ?? once.ActivityDate);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "daily_activities", id, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Faaliyet kaydı bulunamadı, iptal edilmiş veya başka firmaya ait.");
+            }
+        }
+        if (once.MovementKind != "transfer" && yeni.MovementKind == "transfer" && yeni.VehicleId is not null)
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "UPDATE vehicles SET status='passive', version=version+1, updated_at=@now WHERE id=@v AND company_id=@c AND status<>'passive';";
+                cmd.AddWithValue("@now", now);
+                cmd.AddWithValue("@v", yeni.VehicleId);
+                cmd.AddWithValue("@c", s.CompanyId);
+                cmd.ExecuteNonQuery();
+            }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Update, s.UserId,
+            AfterJson: "{\"duzeltme\":true}"), _clock);
         tx.Commit();
     }
 

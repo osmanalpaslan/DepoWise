@@ -783,6 +783,8 @@ public class YeniEkranlarArayuzTests
         Assert.Equal(Avalonia.Media.Transformation.TransformOperations.Parse("translateX(3px)").ToString(), link.RenderTransform?.ToString());
         Goruntu(w, "menu-hover");
         w.Close();
+        shell.Release();
+        Assert.Null(ShellViewModel.Current);   // sıradaki testler (UIT33: kabuk yok → hızlı işlem yok) kabuktan etkilenmez
     }
 
     /// <summary>UIT32 — ⭐ M-65 (2/2) tanım ekranları: kısa form SAĞ YAN SAYFADA açılır (SideSheet); liste görünür kalır ve
