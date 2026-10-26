@@ -784,6 +784,28 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim OFFSET @off;";
 
     /// <summary>Depo girişleri (salt okuma) — en yeni önce.</summary>
     /// <param name="includeCancelled">Y3: varsayılan GİZLİ; true ise iptal edilenler de gelir.</param>
+    /// <summary>⭐ M-70 (AR-GE 2026-10-26, F-021 parite bulgusu): "Toplam Alınan / Toplam Dağıtılan" — TÜM kayıtlar (iptaller hariç),
+    /// listelerle aynı şube kapsamı. Eskiden masaüstü GÖRÜNEN SAYFANIN, web SON 200 KAYDIN toplamını gösteriyordu: kayıt sayısı
+    /// büyüyünce iki ortam hem gerçek toplamdan hem birbirinden ayrışıyordu. İki ortam artık bu tek hesabı kullanır.</summary>
+    public (decimal Alinan, decimal Dagitilan) Toplamlar(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        decimal Topla(string tablo, string kapsamKolonu)
+        {
+            using var cmd = conn.CreateCommand();
+            // Tablo/kolon adları YALNIZ aşağıdaki iki sabit çağrıdan gelir — dışarıdan girdi DEĞİLDİR.
+            cmd.CommandText = $"SELECT liters FROM {tablo} WHERE company_id=@c AND is_deleted=0" + BranchScope.Sql(s, kapsamKolonu) + ";";
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
+            decimal t = 0m;
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) t += Money.Parse(r.IsDBNull(0) ? null : r.GetString(0));
+            return t;
+        }
+        return (Topla("fuel_depot_entries", "op_branch_id"), Topla("fuel_distributions", "op_branch_id"));
+    }
+
     public IReadOnlyList<FuelDepotRow> ListDepotEntries(SessionContext s, int limit = 200,
         bool includeCancelled = false)
     {

@@ -824,3 +824,11 @@
   E3 (aynı paketin üç kez gönderimi kopya üretmez) · E4 (farklı depolara kayıtlar birleşir, üç tarafın defteri aynı).
 - **Mutasyon:** sunucu gönderim sonrası bakiye yeniden hesabı kaldırılınca 4 testin 4'ü kırıldı. Kopya önleme kayıt kimliği (birincil
   anahtar) ile — ayrıca bozulamaz. Ürün kodu değişmedi (yalnız test).
+
+### M-70 — Sonuç eşitliği, görsel eşik (F-021, F-023; 2026-10-26)
+- **(1/3) görsel tarama:** G01–G30 bulguları yalnız dosyaya yazılıyordu → eşik 0 (bugün hiçbir ekranda bulgu yok); ekran görüntüsü
+  hatası artık yutulmuyor (03f02346).
+- **(2/3) servis = API (aynı tohum veri):** `ServisApiPariteTests` SP1 stok depo kırılımı/toplam · SP2 yakıt toplamları · SP3 bakım
+  listesi/cari bakiye/yakıt toplamında iki ortam aynı servis yöntemi. **Bulunan ayrışma:** "Toplam Alınan / Dağıtılan" masaüstünde
+  görünen sayfanın, web'de son 200 kaydın toplamıydı → yeni `FuelService.Toplamlar` (tüm kayıtlar, iptaller hariç, listeyle aynı
+  şube kapsamı) iki ortamda. Mutasyon: API eski hesaba dönünce SP2+SP3 kırıldı. Yakıt paketi 149/149, arayüz 70/70.

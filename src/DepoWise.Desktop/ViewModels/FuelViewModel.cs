@@ -385,11 +385,9 @@ public sealed partial class FuelViewModel : ViewModelBase, IKayitLoguKaynagi
             DepoTotalCount = depoGrid.TotalCount;
             DepoTotalPages = depoGrid.TotalPages;
 
-            // İptal edilenler toplamlara GİRMEZ (bakiye zaten servis tarafında filtreli).
-            // ⚠ Bu toplam artık GÖRÜNEN SAYFANIN toplamıdır — eskiden de öyleydi (200 satırın toplamı),
-            // ama şimdi kullanıcı sayfa boyutunu seçebildiği için bunu ETİKETTE açıkça yazıyoruz.
-            TotalDistributed = Distributions.Where(x => !x.IsCancelled).Sum(x => x.Liters);
-            TotalReceived = DepotEntries.Where(x => !x.IsCancelled).Sum(x => x.Liters);
+            // ⭐ M-70 (2026-10-26, parite): "Toplam Alınan / Dağıtılan" TÜM kayıtların toplamı (iptaller hariç) — web ile aynı
+            // servis hesabı. Eskiden görünen sayfanın toplamıydı (web'de son 200 kayıt): iki ortam ayrışıyordu.
+            (TotalReceived, TotalDistributed) = DesktopServices.Fuel.Toplamlar(_session);
             // Aylık özet TÜM kayıtlardan (sayfadan bağımsız) — hata listeyi düşürmesin.
             MonthlySummary.Clear();
             try

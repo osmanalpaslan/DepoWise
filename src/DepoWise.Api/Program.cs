@@ -4789,8 +4789,9 @@ app.MapGet("/api/fuel/depot", (HttpContext c, bool? includeCancelled) => S(c) is
 app.MapGet("/api/fuel/summary", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var received = svc.Fuel.ListDepotEntries(s).Sum(e => e.Liters);
-    var distributed = svc.Fuel.ListDistributions(s).Sum(e => e.Liters);
+    // ⭐ M-70 (AR-GE 2026-10-26, parite): eskiden SON 200 kaydın toplamıydı (masaüstü görünen sayfanın) → iki ortam ayrışıyordu.
+    // Artık tüm kayıtlar (iptaller hariç), masaüstüyle aynı servis hesabı.
+    var (received, distributed) = svc.Fuel.Toplamlar(s);
     return Results.Ok(new
     {
         depotBalance = svc.Fuel.GetDepotBalance(s),
