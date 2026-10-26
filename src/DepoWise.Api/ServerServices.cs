@@ -93,6 +93,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Assignments.ZimmetKitService ZimmetKit => _zimmetKit ??= new(Factory);   // ⭐ M-50
     public DepoWise.Infrastructure.Materials.AsgariStokService AsgariStok => _asgariStok ??= new(Factory, Requests);   // ⭐ M-31
     private DepoWise.Infrastructure.Materials.AsgariStokService? _asgariStok;
+    public DepoWise.Infrastructure.Accounting.TedarikciKopruService TedarikciKopru => _tedarikciKopru ??= new(Factory);   // ⭐ M-53
+    private DepoWise.Infrastructure.Accounting.TedarikciKopruService? _tedarikciKopru;
     private DepoWise.Infrastructure.Assignments.ZimmetKitService? _zimmetKit;
     public DepoWise.Infrastructure.Operations.YakitSupheService YakitSuphe => _yakitSuphe ??= new(Factory);   // ⭐ M-44
     private DepoWise.Infrastructure.Operations.YakitSupheService? _yakitSuphe;

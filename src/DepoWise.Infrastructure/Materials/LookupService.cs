@@ -242,7 +242,12 @@ ORDER BY name;";
         // TEKİLLEŞTİRME (madde 9+11): aynı ad + aynı ayırt edici (parent_id/brand_type/brand_id) zaten varsa
         // YENİ satır AÇMA — mevcut Tanım ID'yi döndür. Böylece aynı isimli birden çok tanım oluşmaz (tek Tanım ID).
         var existing = FindByName(conn, tx, table, s.CompanyId, name, extra);
-        if (existing is not null) { tx.Commit(); return existing; }
+        if (existing is not null)
+        {
+            // ⭐ M-53: mevcut tedarikçi tanımının carisi yoksa şimdi bağlanır (tedarikçi tek yerde).
+            if (table == "suppliers") DepoWise.Infrastructure.Accounting.TedarikciKopruService.CariBagla(conn, tx, s.CompanyId, existing, name, now, s.MachineCode);
+            tx.Commit(); return existing;
+        }
 
         var id = Guid.NewGuid().ToString("N");
         var cols = "id, company_id, name, created_at, updated_at, version, is_deleted";
@@ -261,6 +266,8 @@ ORDER BY name;";
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Create, s.UserId), _clock);
+        // ⭐ M-53 (AR-GE 2026-10-26, F-059): yeni tedarikçi tanımı → tedarikçi carisi aynı işlemde (aynı adlı serbest cari varsa ona bağlanır).
+        if (table == "suppliers") DepoWise.Infrastructure.Accounting.TedarikciKopruService.CariBagla(conn, tx, s.CompanyId, id, name, now, s.MachineCode);
         tx.Commit();
         return id;
     }

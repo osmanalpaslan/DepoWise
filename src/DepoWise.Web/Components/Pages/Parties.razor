@@ -32,6 +32,16 @@
 else
 {
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+    @* ⭐ M-53 (AR-GE 2026-10-26): eşlenmemiş tedarikçi uyarısı (yalnız yönetici) — masaüstüyle aynı metin ve onay. *@
+    @if (_tedarikciEsleme > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+            <div class="d-flex align-center flex-wrap" style="gap:12px;">
+                <span>@_tedarikciEsleme tedarikçi kaydı Tanımlar ile Cari arasında eşlenmemiş (aynı firma iki yerde ayrı görünebilir).</span>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="TedarikcileriEsle">Eşleştir</MudButton>
+            </div>
+        </MudAlert>
+    }
 
     <MudPaper Class="pa-4 mb-3" Elevation="2">
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
@@ -405,9 +415,28 @@ else
     private int _page = 1, _total;
     private string _pageText = "";
 
+    private int _tedarikciEsleme;
+
+    private async Task TedarikciEslemeKontrol()
+    {
+        if (!Auth.IsAdmin) { _tedarikciEsleme = 0; return; }
+        try { _tedarikciEsleme = (await Api.GetArrayAsync("/api/parties/supplier-unmatched")).Length; } catch { _tedarikciEsleme = 0; }
+    }
+
+    private async Task TedarikcileriEsle()
+    {
+        if (!await Dialog.Confirm("Eşlenmemiş tedarikçiler eşleştirilsin mi?\n\nAynı adlı tedarikçi tanımı ile cari birbirine bağlanır; " +
+                "karşılığı olmayanlar için karşılık oluşturulur. Mevcut kayıtlar silinmez.", "Evet, Eşleştir")) return;
+        var r = await Api.PostJsonAsync("/api/parties/supplier-unmatched/match", new { });
+        _ok = r is not null;
+        _msg = r is { } j && j.TryGetProperty("matched", out var m) ? $"{m.GetInt32()} tedarikçi kaydı eşleştirildi." : "Eşleştirilemedi.";
+        await TedarikciEslemeKontrol();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.CanView("parties")) return;
+        await TedarikciEslemeKontrol();
         await AlanGorunurlugunuYukle();   // FAZ 3b-5: kolon çizmeden ÖNCE
         try
         {

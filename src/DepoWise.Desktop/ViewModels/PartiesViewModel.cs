@@ -107,6 +107,39 @@ public sealed partial class PartiesViewModel : ViewModelBase
         // Ortak şube kapsamı — seçim değişince liste yenilenir (kullanıcı Ara demek zorunda kalmasın).
         BranchScope = new BranchScopeSelector(session, () => _ = Load());
         _ = Load();
+        TedarikciEslemeKontrol();
+    }
+
+    // ⭐ M-53 (AR-GE 2026-10-26): Tanımlar ↔ Cari eşlenmemiş tedarikçiler (eski veri) — yalnız yöneticiye uyarı + tek tıkla eşleme.
+    [ObservableProperty] private string? _tedarikciEslemeUyarisi;
+    public bool TedarikciEslemeVar => TedarikciEslemeUyarisi is not null;
+    partial void OnTedarikciEslemeUyarisiChanged(string? value) => OnPropertyChanged(nameof(TedarikciEslemeVar));
+
+    private void TedarikciEslemeKontrol()
+    {
+        if (!AccessControl.IsAdmin(_session)) { TedarikciEslemeUyarisi = null; return; }
+        try
+        {
+            var n = DesktopServices.TedarikciKopru.Eslesmemis(_session).Count;
+            TedarikciEslemeUyarisi = n == 0 ? null
+                : $"{n} tedarikçi kaydı Tanımlar ile Cari arasında eşlenmemiş (aynı firma iki yerde ayrı görünebilir).";
+        }
+        catch { TedarikciEslemeUyarisi = null; }
+    }
+
+    [RelayCommand]
+    private async Task TedarikcileriEsle()
+    {
+        if (!await ConfirmService.AskAsync("Eşlenmemiş tedarikçiler eşleştirilsin mi?\n\nAynı adlı tedarikçi tanımı ile cari birbirine bağlanır; " +
+                "karşılığı olmayanlar için karşılık oluşturulur. Mevcut kayıtlar silinmez.", "Tedarikçi Eşleme", "Evet, Eşleştir")) return;
+        try
+        {
+            var n = DesktopServices.TedarikciKopru.TopluEsle(_session);
+            Status = $"{n} tedarikçi kaydı eşleştirildi.";
+            TedarikciEslemeKontrol();
+            await Load();
+        }
+        catch (Exception ex) { Status = "Eşleştirilemedi: " + ex.Message; }
     }
 
     partial void OnSelectedChanged(PartyListRow? value) => _ = LoadCard(value);

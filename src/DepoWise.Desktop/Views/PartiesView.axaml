@@ -59,7 +59,11 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <ctrl:SelectionBar Grid.Row="1" Margin="0,12,0,0" SelectedCount="{Binding SeciliSayisi}">
+        <StackPanel Grid.Row="1" Margin="0,12,0,0" Spacing="8">
+        <!-- ⭐ M-53: eşlenmemiş tedarikçi uyarısı (yalnız yönetici) -->
+        <ctrl:InfoBar Kind="Warning" Title="Tedarikçi eşlemesi" Message="{Binding TedarikciEslemeUyarisi}"
+                      ActionText="Eşleştir" ActionCommand="{Binding TedarikcileriEsleCommand}" IsVisible="{Binding TedarikciEslemeVar}"/>
+        <ctrl:SelectionBar SelectedCount="{Binding SeciliSayisi}">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="Secondary" Content="Düzenle" Command="{Binding EditPartyCommand}" IsVisible="{Binding CanEdit}"/>
                 <Button Classes="Secondary" Content="Hareket Ekle" Command="{Binding NewEntryCommand}" IsVisible="{Binding CanCreate}"
@@ -71,6 +75,7 @@
                         ToolTip.Tip="Hesap hareketi olan cari silinemez; bu durumda pasif yapın."/>
             </StackPanel>
         </ctrl:SelectionBar>
+        </StackPanel>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,16,420" Margin="0,16,0,0">
 

@@ -910,3 +910,16 @@
   tek depo), "Excel'e Aktar", altta "Depoya özel asgari stok" tanımla/kaldır (onaylı). Menü toplamları bilinçli güncellendi (masaüstü
   62→63, web 70→71, katalog 73→74). Testler: arayüz UIT35 (71/71), yerel tarayıcı `asgari-stok.spec.js` (öneri → seç → talep →
   API'de doğrulandı; yerel 4/4), menü/ekran/onay/mobil/şablon paketi 414/414.
+
+### M-53 — Tedarikçi tek yerde: Tanımlar ↔ Cari köprüsü kendiliğinden (F-059, 2026-10-27)
+- **Sorun:** tedarikçi tanımı (yakıt deposu, satın alma, malzeme kartı bunu kullanır) ile cari kartı (fatura/ödeme defteri) ayrıydı;
+  köprü (`parties.supplier_id`) elle kuruluyordu → aynı firma iki yerde ayrı açılıyor, raporlar bölünüyordu.
+- **Kural:** yeni tedarikçi tanımı → bağlı tedarikçi carisi (TDR- kodlu) aynı işlemde; tedarikçi/karma cari açılınca ya da türü
+  tedarikçiye çevrilince tanım açılır/bağlanır. Aynı adlı (boşluk/harf farkı önemsiz) serbest karşılık varsa YENİSİ açılmaz, ona
+  bağlanır. Aynı adlı tanım başka cariye bağlı ya da silinmişse cari bağsız kalır ve raporda görünür (insan kararı). Yeni tablo yok.
+- **Eski veri:** cari ekranında (iki ortam, yalnız yönetici) "N tedarikçi kaydı eşlenmemiş" uyarısı + onaylı "Eşleştir" (toplu;
+  canlı veriye kendiliğinden dokunulmaz). API `GET /api/parties/supplier-unmatched`, `POST …/match`.
+- **Ara bulgu:** ilk paket koşusunda 3 test aynı adlı ikinci tedarikçi carisinde "benzersizlik" hatasıyla durdu → koruma eklendi (TK7).
+- **Testler:** `TedarikciKopruTests` TK1–TK8; mutasyon: ad eşleştirme birebir yapılınca TK2+TK5 kırıldı. Arayüz 71/71. Riskli paket
+  (cari/tanım/satın alma/fatura/yakıt deposu/içe aktarma/eşitleme/finans) 727/728 → tek kırmızı: web cari ekranında ikinci "ana" düğme
+  (liste şablonu kuralı) → "Eşleştir" çerçeveli yapıldı; şablon/düğme/onay paketi 21/21.

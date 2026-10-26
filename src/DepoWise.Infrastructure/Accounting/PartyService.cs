@@ -164,6 +164,8 @@ VALUES(@id,@c,@code,@title,@type,@person,@tofc,@tno,@nid,@phone,@mail,@addr,@cit
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "party", id, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"code\":\"{dto.Code.Trim()}\"}}"), _clock);
+        // ⭐ M-53 (AR-GE 2026-10-26, F-059): tedarikçi/karma cari → tedarikçi tanımı aynı işlemde (elle eşleme gerekmez).
+        TedarikciKopruService.TedarikciBagla(conn, tx, s.CompanyId, id, now);
         tx.Commit();
         return id;
     }
@@ -219,6 +221,8 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(dto.Vers
         }
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "party", id, AuditActions.Update, s.UserId), _clock);
+        // ⭐ M-53: türü tedarikçiye/karmaya çevrilen ya da köprüsü boşaltılan cari → tedarikçi tanımına bağlanır.
+        TedarikciKopruService.TedarikciBagla(conn, tx, s.CompanyId, id, now);
         tx.Commit();
     }
 

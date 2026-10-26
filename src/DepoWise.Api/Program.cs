@@ -3058,6 +3058,12 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
     });
 }).RequireAuthorization();
 
+// ⭐ M-53 (AR-GE 2026-10-26, F-059): Tanımlar ↔ Cari eşlenmemiş tedarikçiler (eski veri) + yönetici toplu eşleme (masaüstüyle aynı servis).
+app.MapGet("/api/parties/supplier-unmatched", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.TedarikciKopru.Eslesmemis(s).Select(k => new { tur = k.Tur, id = k.Id, ad = k.Ad }))
+                  : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/parties/supplier-unmatched/match", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(new { matched = svc.TedarikciKopru.TopluEsle(s) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/parties/{id}", (HttpContext c, string id, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
