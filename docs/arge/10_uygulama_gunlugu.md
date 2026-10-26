@@ -876,3 +876,14 @@
   uçlar dosyadaki yerel yardımcılara bağlı ve 42 test bu dosyanın metnine bakıyor → büyük, riskli, kullanıcıya görünmeyen bir yeniden
   düzenleme; yayın öncesi kararlılığı tehlikeye atar. Asıl risk olan "sessiz web kırılması" bu sözleşme testiyle kapatıldı.
   Tam tipli DTO'ya geçiş (F-134'ün geri kalanı) de aynı gerekçeyle yayın sonrasına.
+
+### B6 kayıtları eşitlemeye (Migration121; M-31 hazırlığında bulundu, 2026-10-26)
+- **Sorun:** B6'da eklenen 116 zimmet iade tarihi, 117 zimmet tutanağı, 118 ekipman taşıma geçmişi, 119 zimmet kiti, 120 günlük kontrol
+  + madde listesi eşitleme listesinde YOKTU → masaüstünde girilen kayıt yalnız o bilgisayarda kalıyor, web'de girilen masaüstüne
+  inmiyordu. B6 testleri tek veritabanında koştuğu için görülmedi (B6 canlıda değil — kullanıcı verisi etkilenmedi).
+- **Değişiklik:** altı tablo eşitleme listesine (yabancı anahtar hedeflerinden sonra). Migration121 (yalnız ekleme): sunucu damgası
+  (PG'de damga tetikleyiciden ÖNCE) + masaüstü yerel değişiklik sayacı. Yetki: servislerle aynı modül; madde listesini eşitlemeyle de
+  YALNIZ yönetici değiştirir. Taşıma geçmişi ve günlük kontrol değiştirilemez defter; tutanak kararında ilk karar kazanır; başka
+  firmanın ekipman/araç/personeline bağlanan satır reddedilir. Sayım taslakları bilinçli olarak dışarıda (bilgisayardaki yarım iş).
+- **Testler:** `B6EsitlemeTests` BE1–BE4 (iki bilgisayar + sunucu, gerçek senkron uçları). Mutasyon: değiştirilemezlik kaldırılınca
+  BE2, yönetici kuralı kaldırılınca BE3 kırıldı.

@@ -160,6 +160,16 @@ public sealed class BusinessSyncService
         // bu yüzden listenin SONUNA eklendi. Eski istemciler bu tabloyu bilmez ve SESSİZCE atlar —
         // davranış gerçek testle kanıtlandı (CustomRaporSenkronOnDogrulamaTests, 5/5).
         "custom_report_defs",
+        // ⭐ AR-GE 2026-10-26 (Migration121): B6 TABLOLARI. Eşitleme listesinde YOKTU → masaüstünde girilen günlük kontrol, ekipman
+        // taşıma geçmişi, zimmet iade tarihi/tutanağı/kiti yalnız o bilgisayarda kalıyor, web'dekiler masaüstüne inmiyordu.
+        // Yabancı anahtarlarının hedefleri (personnel, equipment, vehicles, work_orders) YUKARIDA. Sayım taslakları (stock_count_drafts)
+        // BİLİNÇLİ olarak yok: taslak, sayımı yapan bilgisayardaki yarım iştir.
+        "assignment_due_dates",
+        "assignment_receipts",
+        "assignment_kits",
+        "equipment_moves",
+        "daily_check_templates",
+        "daily_checks",
         // ⭐ M-06 (AR-GE 2026-10-17): masaüstü İŞLEM GEÇMİŞİ — yalnız GÖNDERİM yönünde (YalnizGonderim), sunucuda yalnız eklenir.
         // En sonda: yabancı anahtarı yoktur, diğer kayıtlardan sonra gitmesi doğaldır.
         "audit_logs",
@@ -240,6 +250,13 @@ public sealed class BusinessSyncService
         // ⭐ ARA İŞ 4: custom rapor tanımı push'u "reports" ÜST KAPISINA bağlıdır — rapor yetkisi
         // olmayan kullanıcı tanım gönderemez (senkron yolu yetki kapısını ATLAMAZ).
         ["custom_report_defs"] = "reports",
+        // ⭐ AR-GE 2026-10-26 (Migration121) — B6 tabloları; servislerin kendi yetki kuralıyla aynı modül.
+        ["assignment_due_dates"] = "assignments",
+        ["assignment_receipts"] = "assignments",
+        ["assignment_kits"] = "assignments",
+        ["equipment_moves"] = "equipment",
+        ["daily_checks"] = "vehicles",
+        ["daily_check_templates"] = "vehicles",   // ⚠ ayrıca YALNIZ YÖNETİCİ (Apply.CanWrite) — servis kuralıyla aynı
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
@@ -424,6 +441,11 @@ public sealed class BusinessSyncService
             ["equipment_maintenances"] = ("equipment_id", "equipment"),
             ["equipment_maintenance_materials"] = ("material_id", "materials"),
             ["equipment_inspections"] = ("equipment_id", "equipment"),
+            // AR-GE 2026-10-26 (Migration121): eşitlemeye açılan B6 tabloları — başka firmanın kaydına bağlanamaz.
+            ["equipment_moves"] = ("equipment_id", "equipment"),
+            ["daily_checks"] = ("vehicle_id", "vehicles"),
+            ["assignment_receipts"] = ("personnel_id", "personnel"),
+            ["assignment_due_dates"] = ("personnel_id", "personnel"),
         };
 
     /// <summary>
@@ -1503,6 +1525,7 @@ public sealed class BusinessSyncService
     private static readonly HashSet<string> EzmeYasak = new(StringComparer.Ordinal)
     {
         "fuel_distributions", "fuel_depot_entries", "vehicle_maintenances", "equipment_maintenances", "material_requests",
+        "assignment_receipts",   // AR-GE 2026-10-26: zimmet tutanağı kararı (kabul/ret) bir kez verilir — ilk karar kazanır
     };
 
     /// <summary>
@@ -1536,6 +1559,8 @@ public sealed class BusinessSyncService
             // ⭐ M-06: işlem geçmişi modül yetkisine bağlı DEĞİL — her kullanıcı kendi bilgisayarındaki geçmişi gönderebilir.
             // Firma oturumdan zorlanır, satır yalnız eklenir (LedgerTables), kaynak bilgisayar sunucuda işaretlenir.
             if (YalnizGonderim.Contains(table)) return true;
+            // AR-GE 2026-10-26: günlük kontrol madde listesini servis gibi eşitleme de YALNIZ YÖNETİCİYE açar (modül yetkisi yetmez).
+            if (table == "daily_check_templates") return AccessControl.IsAdmin(session);
             if (!TableModule.TryGetValue(table, out var moduleKey)) return false; // eşlenmemiş tabloya izin yok
             return AccessControl.Can(session, moduleKey, PermissionAction.Create)
                 || AccessControl.Can(session, moduleKey, PermissionAction.Edit);
@@ -2072,7 +2097,8 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
     /// push ile güncellenebilir. ⭐ M-06: <c>audit_logs</c> da burada — işlem geçmişi push ile HİÇ değiştirilemez (ortak kolon
     /// yok → var olan satırda "DO NOTHING").</summary>
     internal static readonly HashSet<string> LedgerTables = new(StringComparer.Ordinal)
-        { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements", "audit_logs" };
+        { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements", "audit_logs",
+          "equipment_moves", "daily_checks" };   // AR-GE 2026-10-26: taşıma geçmişi ve günlük kontrol (İSG kanıtı) değiştirilemez
 
     /// <summary>
     /// ⭐ M-06 (AR-GE 2026-10-17, 05 F-035) — YALNIZ GÖNDERİLEN tablolar: masaüstünden sunucuya gider, sunucudan masaüstüne

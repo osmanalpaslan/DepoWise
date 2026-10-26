@@ -125,5 +125,6 @@ public static class MigrationCatalog
         new Migration118_EquipmentMoves(),     // 2026-10-19 AR-GE M-48: ekipman taşıma / konum geçmişi — yalnız CREATE TABLE
         new Migration119_AssignmentKits(),     // 2026-10-19 AR-GE M-50: zimmet kit (set) şablonu — yalnız CREATE TABLE
         new Migration120_DailyChecks(),        // 2026-10-19 AR-GE M-43: günlük makine kontrol listesi — yalnız CREATE TABLE
+        new Migration121_SyncB6Tables(),       // 2026-10-26 AR-GE: B6 tabloları eşitlemeye — yalnız ADD COLUMN/INDEX/TRIGGER
     };
 }
