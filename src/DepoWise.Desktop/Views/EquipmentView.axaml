@@ -16,7 +16,7 @@
                       PrimaryActionText="Yeni Ekipman" PrimaryActionCommand="{Binding NewEquipmentCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: kod / ad / seri / tür / şube"/>
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" PlaceholderText="Ara: kod / ad / seri / tür / şube"/>
                     <ComboBox Classes="Field" Width="120" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
@@ -139,8 +139,8 @@
                         <SelectableTextBlock Text="TAŞI" Classes="SectionTitle" IsVisible="{Binding CanEdit}"/>
                         <StackPanel Spacing="6" IsVisible="{Binding CanEdit}">
                             <ctrl:LookupBox ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding TasimaSube}" PlaceholderText="Hedef şube / şantiye..."/>
-                            <TextBox Classes="Field" Text="{Binding TasimaKonum}" Watermark="Konum (ör. 3. kat, konteyner) — opsiyonel"/>
-                            <TextBox Classes="Field" Text="{Binding TasimaNot}" Watermark="Not (ör. kamyonla, irsaliye no) — opsiyonel"/>
+                            <TextBox Classes="Field" Text="{Binding TasimaKonum}" PlaceholderText="Konum (ör. 3. kat, konteyner) — opsiyonel"/>
+                            <TextBox Classes="Field" Text="{Binding TasimaNot}" PlaceholderText="Not (ör. kamyonla, irsaliye no) — opsiyonel"/>
                             <Button Classes="Secondary" Content="Taşı" Command="{Binding TasiCommand}"
                                     ToolTip.Tip="Ekipmanı hedef şubeye/konuma taşır; kimden, kime, ne zaman bilgisi konum geçmişine yazılır."/>
                         </StackPanel>

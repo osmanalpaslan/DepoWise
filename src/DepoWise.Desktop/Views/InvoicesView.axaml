@@ -20,7 +20,7 @@
                       PrimaryActionText="{Binding YeniFaturaMetni}" PrimaryActionCommand="{Binding NewInvoiceFormCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <TextBox Classes="Field" Width="230" Watermark="Fatura no / karşı belge no / cari"
+                    <TextBox Classes="Field" Width="230" PlaceholderText="Fatura no / karşı belge no / cari"
                              Text="{Binding Search}"/>
                     <ComboBox Classes="Field" Width="160" ItemsSource="{Binding DirectionFilters}"
                               SelectedValue="{Binding DirectionFilter}" SelectedValueBinding="{Binding Key}"
@@ -149,7 +149,7 @@
 
                         <ctrl:FormField Label="Karşı Taraf Belge No">
                             <TextBox Classes="Field" Text="{Binding FExternalNo}" MaxLength="60"
-                                     Watermark="Satıcının kendi fatura numarası"/>
+                                     PlaceholderText="Satıcının kendi fatura numarası"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Fatura Tarihi" IsRequired="True">
                             <CalendarDatePicker Classes="Field" SelectedDate="{Binding FInvoiceDate}"/>
@@ -182,7 +182,7 @@
                                                             IsVisible="{Binding MaterialId, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                 </Grid>
                                                 <TextBox Classes="Field" Text="{Binding MaterialSearch}"
-                                                         Watermark="Malzeme ara (kod veya ad) — hizmet satırında boş bırakın"/>
+                                                         PlaceholderText="Malzeme ara (kod veya ad) — hizmet satırında boş bırakın"/>
                                                 <ItemsControl ItemsSource="{Binding Results}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="vm:InvoicesViewModel+Option">
@@ -194,7 +194,7 @@
                                                 </ItemsControl>
                                             </StackPanel>
                                             <TextBox Classes="Field" Text="{Binding Description}"
-                                                     Watermark="Açıklama (malzeme seçilmediyse zorunlu)"/>
+                                                     PlaceholderText="Açıklama (malzeme seçilmediyse zorunlu)"/>
                                             <Grid ColumnDefinitions="*,8,*" >
                                                 <ctrl:FormField Grid.Column="0" Label="Miktar">
                                                     <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" Increment="1"/>

@@ -63,7 +63,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <TextBox Classes="Field" Text="{Binding KusurNotu}" Watermark="Kusur açıklaması (kusurlu miktar varsa zorunlu)"
+                                        <TextBox Classes="Field" Text="{Binding KusurNotu}" PlaceholderText="Kusur açıklaması (kusurlu miktar varsa zorunlu)"
                                                  IsVisible="{Binding TeslimAlabilir}" AutomationProperties.Name="Kusur açıklaması"/>
                                         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding TeslimAlabilir}">
                                             <Button Classes="Secondary" Content="Kayıp Olarak Kapat"

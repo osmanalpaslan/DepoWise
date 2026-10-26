@@ -14,7 +14,7 @@
                       PrimaryActionText="Yeni Duyuru" PrimaryActionCommand="{Binding NewAnnouncementCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: başlık / metin / şube"/>
+                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" PlaceholderText="Ara: başlık / metin / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                     <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}"/>

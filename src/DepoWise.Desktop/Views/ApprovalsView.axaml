@@ -75,7 +75,7 @@
                 </ItemsControl>
                 <SelectableTextBlock Text="Ret Gerekçesi (reddetmek için zorunlu)"/>
                 <TextBox Classes="Field" Text="{Binding RejectReason}"
-                         Watermark="Örn: Bütçe uygun değil"/>
+                         PlaceholderText="Örn: Bütçe uygun değil"/>
             </StackPanel>
         </Border>
     </Grid>

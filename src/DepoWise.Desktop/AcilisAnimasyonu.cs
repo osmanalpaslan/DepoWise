@@ -44,7 +44,7 @@ public sealed class AcilisAnimasyonu : Window
         Title = "Alpnex";
         Width = Genislik; Height = Yukseklik;
         CanResize = false;
-        SystemDecorations = Avalonia.Controls.WindowDecorations.None;
+        WindowDecorations = Avalonia.Controls.WindowDecorations.None;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Brushes.Transparent;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };

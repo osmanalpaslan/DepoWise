@@ -18,7 +18,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Kasa / Banka">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <TextBox Classes="Field" Width="230" Watermark="Kod / hesap adı / banka"
+                    <TextBox Classes="Field" Width="230" PlaceholderText="Kod / hesap adı / banka"
                              Text="{Binding Search}"/>
                     <ComboBox Classes="Field" Width="150" ItemsSource="{Binding KindFilters}"
                               SelectedValue="{Binding KindFilter}" SelectedValueBinding="{Binding Key}"
@@ -162,7 +162,7 @@
                             </ctrl:FormField>
                             <ctrl:FormField Label="IBAN">
                                 <TextBox Classes="Field" Text="{Binding FIban}" MaxLength="34"
-                                         Watermark="TR ile başlar, 26 karakter — zorunlu değil"/>
+                                         PlaceholderText="TR ile başlar, 26 karakter — zorunlu değil"/>
                             </ctrl:FormField>
                         </StackPanel>
 

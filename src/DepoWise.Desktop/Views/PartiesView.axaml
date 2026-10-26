@@ -18,7 +18,7 @@
                       PrimaryActionText="{Binding YeniCariMetni}" PrimaryActionCommand="{Binding NewPartyCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <TextBox Classes="Field" Width="230" Watermark="Kod / ünvan / vergi no / telefon"
+                    <TextBox Classes="Field" Width="230" PlaceholderText="Kod / ünvan / vergi no / telefon"
                              Text="{Binding Search}"/>
                     <ComboBox Classes="Field" Width="170" ItemsSource="{Binding TypeOptions}"
                               SelectedValue="{Binding TypeFilter}" SelectedValueBinding="{Binding Key}"
@@ -140,11 +140,11 @@
                         </ctrl:FormField>
                         <ctrl:FormField Label="Vergi No (VKN)">
                             <TextBox Classes="Field" Text="{Binding FTaxNo}" MaxLength="10"
-                                     Watermark="10 hane — zorunlu değil"/>
+                                     PlaceholderText="10 hane — zorunlu değil"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="T.C. Kimlik No">
                             <TextBox Classes="Field" Text="{Binding FNationalId}" MaxLength="11"
-                                     Watermark="11 hane — zorunlu değil"/>
+                                     PlaceholderText="11 hane — zorunlu değil"/>
                         </ctrl:FormField>
 
                         <ctrl:FormField Label="Telefon">
@@ -287,7 +287,7 @@
                             <SelectableTextBlock Text="HAREKET DÜZELTME" Classes="CardLabel"/>
                             <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
                                 Text="Aşağıdan bir hareket seçip gerekçe yazın. Hareket SİLİNMEZ; aynı tutarda ters kayıt yazılır ve ikisi de bakiyeden düşer."/>
-                            <TextBox Classes="Field" Text="{Binding ReverseReason}" Watermark="Düzeltme gerekçesi"/>
+                            <TextBox Classes="Field" Text="{Binding ReverseReason}" PlaceholderText="Düzeltme gerekçesi"/>
                             <Button Classes="Secondary" Content="Seçili Hareketi Ters Çevir"
                                     Command="{Binding ReverseEntryCommand}"/>
                         </StackPanel>

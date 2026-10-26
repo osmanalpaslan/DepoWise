@@ -177,7 +177,7 @@
                 <Border Classes="Panel">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBox Grid.Column="0" Text="{Binding AgacArama}" Watermark="Ekran / alan ara…"
+                            <TextBox Grid.Column="0" Text="{Binding AgacArama}" PlaceholderText="Ekran / alan ara…"
                                      ToolTip.Tip="Yazdıkça ağaç süzülür; eşleşmeyen gruplar gizlenir."/>
                             <CheckBox Grid.Column="1" Content="Yalnız verilenler" Margin="12,0,0,0"
                                       IsChecked="{Binding YalnizVerilenler}"

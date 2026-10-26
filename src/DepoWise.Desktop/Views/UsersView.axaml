@@ -50,10 +50,10 @@
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): iletişim alanları. E-posta ileride uyarıların
                          e-postayla gönderilebilmesinin de ön koşuludur. -->
                     <ctrl:FormField Label="E-posta" Width="240" HelpText="Örn. ad@firma.com — boş bırakılabilir.">
-                        <TextBox Classes="Field" Text="{Binding NewEmail}" Watermark="ad@firma.com"/>
+                        <TextBox Classes="Field" Text="{Binding NewEmail}" PlaceholderText="ad@firma.com"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Cep Telefonu" Width="200" HelpText="Örn. 0500 111 22 33 — boş bırakılabilir.">
-                        <TextBox Classes="Field" Text="{Binding NewPhone}" Watermark="0500 111 22 33"/>
+                        <TextBox Classes="Field" Text="{Binding NewPhone}" PlaceholderText="0500 111 22 33"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Unvan / Görev" Width="200" HelpText="Örn. Depo Sorumlusu, Şantiye Şefi.">
                         <TextBox Classes="Field" Text="{Binding NewTitle}"/>

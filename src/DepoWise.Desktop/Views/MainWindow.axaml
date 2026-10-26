@@ -64,7 +64,7 @@
                 <!-- Menü arama -->
                 <Border DockPanel.Dock="Top" Padding="10,6">
                     <TextBox x:Name="MenuAramaKutusu" Text="{Binding MenuSearch}"
-                             Watermark="Ekran ara…" Classes="Search"/>
+                             PlaceholderText="Ekran ara…" Classes="Search"/>
                 </Border>
                 <ScrollViewer>
                     <StackPanel Margin="8,6">
@@ -335,7 +335,7 @@
                            IsVisible="{Binding $parent[Window].Bounds.Width,
                                        Converter={x:Static vm:GenislikEsikConverter.Instance},
                                        ConverterParameter=1300}">
-                        <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="170" Watermark="Ara… (Enter)"
+                        <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="170" PlaceholderText="Ara… (Enter)"
                                  Text="{Binding SearchText}" a11y:AutomationProperties.Name="Global arama">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding RunSearchCommand}"/>
@@ -811,7 +811,7 @@
                                                                  IsVisible="{Binding Hata, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBox Grid.Column="0" Classes="Field" Text="{Binding Taslak}"
-                                                         Watermark="Mesaj yazın…" AcceptsReturn="False">
+                                                         PlaceholderText="Mesaj yazın…" AcceptsReturn="False">
                                                     <TextBox.KeyBindings>
                                                         <KeyBinding Gesture="Enter"
                                                                     Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}"
@@ -868,7 +868,7 @@
                         </Border>
 
                         <Border DockPanel.Dock="Top" Padding="10,8,10,4">
-                            <TextBox Classes="Search" Text="{Binding Chat.Arama}" Watermark="Kullanıcı ara…"/>
+                            <TextBox Classes="Search" Text="{Binding Chat.Arama}" PlaceholderText="Kullanıcı ara…"/>
                         </Border>
 
                         <!-- Çevrimdışıyken sohbet çalışmaz: sahte liste göstermek yerine açıkça söylenir. -->

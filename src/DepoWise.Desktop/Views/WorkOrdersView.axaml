@@ -16,7 +16,7 @@
                       PrimaryActionText="Yeni İş Emri" PrimaryActionCommand="{Binding NewOrderCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: no / başlık / şantiye / sorumlu"/>
+                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" PlaceholderText="Ara: no / başlık / şantiye / sorumlu"/>
                     <ComboBox Classes="Field" Width="140" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"

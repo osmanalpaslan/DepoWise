@@ -937,12 +937,12 @@
                               <DataTemplate x:DataType="vm:KontrolMaddesiSatiri">
                                 <StackPanel Spacing="2" Margin="0,1">
                                   <CheckBox IsChecked="{Binding Uygun}" Content="{Binding Madde}"/>
-                                  <TextBox Classes="Field" Text="{Binding Not}" Watermark="Uygun değil — kısa not" IsVisible="{Binding !Uygun}"/>
+                                  <TextBox Classes="Field" Text="{Binding Not}" PlaceholderText="Uygun değil — kısa not" IsVisible="{Binding !Uygun}"/>
                                 </StackPanel>
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
-                          <TextBox Classes="Field" Text="{Binding KontrolNotu}" Watermark="Genel not (isteğe bağlı)"/>
+                          <TextBox Classes="Field" Text="{Binding KontrolNotu}" PlaceholderText="Genel not (isteğe bağlı)"/>
                           <CheckBox IsChecked="{Binding KontrolArizaAc}" Content="Uygun olmayan varsa arıza bildir"
                                     ToolTip.Tip="İşaretliyse: araç Arızalı olur ve taslak arıza iş emri açılır (açık arıza zaten varsa yeni açılmaz)."/>
                           <Button Classes="Secondary" Content="Kontrolü Kaydet" Command="{Binding KontrolKaydetCommand}" HorizontalAlignment="Left"/>

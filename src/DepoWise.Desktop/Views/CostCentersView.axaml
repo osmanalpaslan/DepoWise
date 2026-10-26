@@ -15,7 +15,7 @@
                       PrimaryActionText="Yeni Merkez" PrimaryActionCommand="{Binding NewCenterCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" Watermark="Ara: kod / ad / açıklama"/>
+                    <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" PlaceholderText="Ara: kod / ad / açıklama"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>

@@ -84,7 +84,7 @@ public class TarihKutusu : UserControl
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         _kutu.Classes.Add("Field");
-        _kutu.Bind(TextBox.WatermarkProperty, this.GetObservable(WatermarkProperty));
+        _kutu.Bind(TextBox.PlaceholderTextProperty, this.GetObservable(WatermarkProperty));
 
         _takvimDugmesi = new Button
         {

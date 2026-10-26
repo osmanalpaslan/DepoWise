@@ -44,7 +44,7 @@
                     <ComboBox Classes="Field" Width="150" ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding FilterSource}"/>
                     <ctrl:LookupBox Width="160" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FilterBranch}"
                                     PlaceholderText="Şantiye (tümü)"/>
-                    <TextBox Classes="Field" Width="160" Text="{Binding SearchText}" Watermark="Ara: başlık / not / şantiye"/>
+                    <TextBox Classes="Field" Width="160" Text="{Binding SearchText}" PlaceholderText="Ara: başlık / not / şantiye"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle bu ayın TÜM takvim öğelerini Excel dosyası olarak kaydeder."/>

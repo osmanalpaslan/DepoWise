@@ -31,7 +31,7 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <TextBox Classes="Field" Width="170" PasswordChar="●" Watermark="Şube şifresi"
+                    <TextBox Classes="Field" Width="170" PasswordChar="●" PlaceholderText="Şube şifresi"
                              Text="{Binding ExportBranchPassword}" IsVisible="{Binding ShowExportBranchPassword}"
                              ToolTip.Tip="Giriş yaptığınız şubeden farklı bir şube seçtiniz; o şubenin şifresi gerekir (şifresi olmayan şube serbesttir)."/>
                     <Button Classes="Primary"  Command="{Binding ExportCommand}">
@@ -62,7 +62,7 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <!-- 2026-09-03: farklı şubeye aktarımda o şubenin şifresi istenir (girişteki kuralın aynısı). -->
-                    <TextBox Classes="Field" Width="170" PasswordChar="●" Watermark="Şube şifresi"
+                    <TextBox Classes="Field" Width="170" PasswordChar="●" PlaceholderText="Şube şifresi"
                              Text="{Binding ImportBranchPassword}" IsVisible="{Binding ShowImportBranchPassword}"
                              ToolTip.Tip="Giriş yaptığınız şubeden farklı bir şube seçtiniz; o şubenin şifresi gerekir (şifresi olmayan şube serbesttir)."/>
                     <Button Classes="Secondary"  Command="{Binding DownloadTemplateCommand}">

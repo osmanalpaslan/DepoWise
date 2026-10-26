@@ -14,7 +14,7 @@
                       PrimaryActionText="Yeni Proje" PrimaryActionCommand="{Binding NewProjectCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: ad / şantiye / sorumlu / konum"/>
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" PlaceholderText="Ara: ad / şantiye / sorumlu / konum"/>
                     <ComboBox Classes="Field" Width="130" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <!-- ⭐ M-54: liste ile aynı süzgeç; sunucudan web ile aynı dosya -->

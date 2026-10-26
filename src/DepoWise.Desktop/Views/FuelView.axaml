@@ -175,7 +175,7 @@
                                 <Border Classes="TableFilterRow" DockPanel.Dock="Top">
                                     <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center" Margin="10,8">
                                         <ctrl:FormField Label="Araç (kod / plaka)" Width="170">
-                                            <TextBox Classes="Field" Text="{Binding AramaArac}" Watermark="ör. EKS-001">
+                                            <TextBox Classes="Field" Text="{Binding AramaArac}" PlaceholderText="ör. EKS-001">
                                                 <TextBox.KeyBindings>
                                                     <KeyBinding Gesture="Enter" Command="{Binding SorgulaCommand}"/>
                                                 </TextBox.KeyBindings>
@@ -188,7 +188,7 @@
                                             <ctrl:TarihKutusu SelectedDate="{Binding AramaBitis}"/>
                                         </ctrl:FormField>
                                         <ctrl:FormField Label="Ara (kod / plaka / açıklama)" Width="220">
-                                            <TextBox Classes="Field" Text="{Binding AramaMetni}" Watermark="Enter ile ara">
+                                            <TextBox Classes="Field" Text="{Binding AramaMetni}" PlaceholderText="Enter ile ara">
                                                 <TextBox.KeyBindings>
                                                     <KeyBinding Gesture="Enter" Command="{Binding SorgulaCommand}"/>
                                                 </TextBox.KeyBindings>
@@ -383,7 +383,7 @@
                                         </ctrl:FormField>
                                         <!-- ⭐ M-49: QR / barkod okutma (USB okuyucu kodu yazıp Enter'a basar) -->
                                         <ctrl:FormField Label="QR / barkod okut" Width="170" HelpText="Okutun ya da kodu yazıp Enter.">
-                                            <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. EKS-001"
+                                            <TextBox Classes="Field" Text="{Binding OkunanKod}" PlaceholderText="ör. EKS-001"
                                                      ToolTip.Tip="Araç etiketindeki QR'ı okutun: iç kodu ya da plakası TAM eşleşen araç seçilir.">
                                                 <TextBox.KeyBindings>
                                                     <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>

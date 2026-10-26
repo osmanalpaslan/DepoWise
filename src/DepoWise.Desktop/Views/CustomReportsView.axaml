@@ -33,7 +33,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <StackPanel Spacing="4">
                         <SelectableTextBlock Text="Rapor Adı"/>
-                        <TextBox Classes="Field" Width="260" Text="{Binding Name}" Watermark="Örn: Kritik Stok Dökümü"/>
+                        <TextBox Classes="Field" Width="260" Text="{Binding Name}" PlaceholderText="Örn: Kritik Stok Dökümü"/>
                     </StackPanel>
                     <StackPanel Spacing="4">
                         <SelectableTextBlock Text="Veri Kaynağı"/>
@@ -64,7 +64,7 @@
                                 <Grid ColumnDefinitions="220,*" Margin="0,3">
                                     <CheckBox Grid.Column="0" IsChecked="{Binding Selected}" Content="{Binding Label}"/>
                                     <TextBox Grid.Column="1" Classes="Field" Text="{Binding Filter}"
-                                             Watermark="Filtre (isteğe bağlı) — aranacak değer"/>
+                                             PlaceholderText="Filtre (isteğe bağlı) — aranacak değer"/>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

@@ -15,7 +15,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Atanmamış Stok Dağıtımı">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <TextBox Classes="Field" Width="200" Watermark="Kod / ad ara..." Text="{Binding Search}"/>
+                    <TextBox Classes="Field" Width="200" PlaceholderText="Kod / ad ara..." Text="{Binding Search}"/>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding LoadCommand}"/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>

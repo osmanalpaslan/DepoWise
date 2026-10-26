@@ -20,7 +20,7 @@
                       PrimaryActionText="{Binding YeniIslemMetni}" PrimaryActionCommand="{Binding NewEntryCommand}">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
-                    <TextBox Classes="Field" Width="250" Watermark="Açıklama / belge no / cari"
+                    <TextBox Classes="Field" Width="250" PlaceholderText="Açıklama / belge no / cari"
                              Text="{Binding Search}"/>
                     <ComboBox Classes="Field" Width="150" ItemsSource="{Binding TypeFilters}"
                               SelectedValue="{Binding TypeFilter}" SelectedValueBinding="{Binding Key}">
@@ -156,11 +156,11 @@
                         </ctrl:FormField>
                         <ctrl:FormField Label="Belge No">
                             <TextBox Classes="Field" Text="{Binding FDocNo}" MaxLength="60"
-                                     Watermark="Makbuz / dekont numarası"/>
+                                     PlaceholderText="Makbuz / dekont numarası"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Referans">
                             <TextBox Classes="Field" Text="{Binding FReferenceNo}" MaxLength="60"
-                                     Watermark="Banka referansı, çek no vb."/>
+                                     PlaceholderText="Banka referansı, çek no vb."/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Açıklama">
                             <TextBox Classes="Field" Text="{Binding FDescription}" AcceptsReturn="True" MinHeight="60"/>

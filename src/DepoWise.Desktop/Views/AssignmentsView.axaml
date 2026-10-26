@@ -18,7 +18,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Zimmet">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" Watermark="Ara: personel / varlık / şube"/>
+                    <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" PlaceholderText="Ara: personel / varlık / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
@@ -90,7 +90,7 @@
                             </ctrl:FormField>
                             <!-- ⭐ M-49: QR / barkod okutma — teslimde okutulan kalem listeye eklenir -->
                             <ctrl:FormField Label="QR / barkod okut" Width="170">
-                                <TextBox Classes="Field" Text="{Binding OkunanKod}" Watermark="ör. JN-012"
+                                <TextBox Classes="Field" Text="{Binding OkunanKod}" PlaceholderText="ör. JN-012"
                                          ToolTip.Tip="Etiketteki QR'ı okutun: seçili varlık türünde kodu TAM eşleşen kayıt seçilir; Teslim işleminde listeye eklenir.">
                                     <TextBox.KeyBindings>
                                         <KeyBinding Gesture="Enter" Command="{Binding KodOkutCommand}"/>
@@ -118,7 +118,7 @@
                                                 <Button Classes="Secondary" Content="Kiti Listeye Yükle" Command="{Binding KitYukleCommand}" VerticalAlignment="Bottom"
                                                         ToolTip.Tip="Seçili kitin kalemlerini teslim listesine ekler. Sonra personeli seçip Kaydet'e basın."/>
                                                 <ctrl:FormField Label="Kit adı" Width="200" HelpText="Yeni kit ya da güncelleme için.">
-                                                    <TextBox Classes="Field" Text="{Binding KitAdi}" Watermark="ör. Kaynakçı seti"/>
+                                                    <TextBox Classes="Field" Text="{Binding KitAdi}" PlaceholderText="ör. Kaynakçı seti"/>
                                                 </ctrl:FormField>
                                                 <Button Classes="Secondary" Content="Listeyi Kit Olarak Kaydet" Command="{Binding KitKaydetCommand}" VerticalAlignment="Bottom"
                                                         IsEnabled="{Binding CanWrite}" ToolTip.Tip="Teslim listesindeki kalemleri adlandırılmış kit olarak saklar (aynı adlı kit varsa güncellenir)."/>

@@ -4,7 +4,7 @@
         x:Class="DepoWise.Desktop.Views.SyncWindow"
         x:DataType="vm:SyncViewModel"
         Title="Eşitleniyor" Width="460" Height="380"
-        SystemDecorations="None" CanResize="False" ShowInTaskbar="False"
+        WindowDecorations="None" CanResize="False" ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource AppBackgroundBrush}">
 
     <Border Background="{DynamicResource SidebarBackgroundBrush}"
