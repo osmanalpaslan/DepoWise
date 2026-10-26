@@ -895,3 +895,13 @@
 - **Bulgu (canlıda da var):** malzeme kartından "doğrudan stok değişikliği" uyarı kaydı (`stock_change_logs`) masaüstünde yerel
   kalıyor, web'in "Stok Değişiklik Kaydı" ekranında görünmüyordu. Migration122 ile eşitlemede (değiştirilemez, şube kapsamlı,
   malzeme yetkisi). `B6EsitlemeTests` BE5; mutasyon: listeden çıkarılınca BE5 + EK1 kırıldı.
+
+### M-31 — Depo bazında asgari stok + satın alma öneri listesi (F-114; Migration123, 2026-10-26)
+- **Kural:** geçerli asgari = depoya özel değer (varsa) ya da malzeme kartının genel asgarisi; genel değer YALNIZ malzemenin o depoda
+  bakiye kaydı varsa uygulanır (yoksa her boş şantiye firmadaki her malzeme için öneri üretirdi). Depodaki stok asgarinin altındaysa
+  öneri; önerilen = asgari − mevcut. Sistem sipariş VERMEZ: kullanıcı seçer, miktarı düzeltir, TEK depo için malzeme talebi oluşur.
+- **Veri:** `material_location_mins` (kimlik `{malzeme}:{depo}` → iki bilgisayarda aynı çift kopya üretmez), eşitlemede (malzeme
+  yetkisi, şube kapsamlı, yabancı firma referansı reddi). Kapsam: çalışma şubesi ya da yetkili şubeler (web başlığıyla aynı).
+- **API:** `GET/PUT /api/materials/{id}/location-mins`, `GET /api/stock/min-suggestions[?locationId]`, `…/export`, `POST …/request`.
+- **Testler:** `AsgariStokTests` AS1–AS7 (servis), `AsgariStokApiTests` AA1–AA3; mutasyon: genel asgari her depoya uygulanınca
+  AS2+AS3+AS5, kapsam süzgeci kalkınca AS4 kırıldı. Riskli paket (PG/migration/senkron/talep) 549/549, 19 dk.

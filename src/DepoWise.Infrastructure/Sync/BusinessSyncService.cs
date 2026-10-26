@@ -172,6 +172,8 @@ public sealed class BusinessSyncService
         "daily_checks",
         // ⭐ AR-GE 2026-10-26 (Migration122): malzeme kartından doğrudan stok değişikliği uyarı kaydı — masaüstünde yerelde kalıyordu.
         "stock_change_logs",
+        // ⭐ M-31 (Migration123): depo bazında asgari stok — materials ve branches(ayna) YUKARIDA.
+        "material_location_mins",
         // ⭐ M-06 (AR-GE 2026-10-17): masaüstü İŞLEM GEÇMİŞİ — yalnız GÖNDERİM yönünde (YalnizGonderim), sunucuda yalnız eklenir.
         // En sonda: yabancı anahtarı yoktur, diğer kayıtlardan sonra gitmesi doğaldır.
         "audit_logs",
@@ -260,6 +262,7 @@ public sealed class BusinessSyncService
         ["daily_checks"] = "vehicles",
         ["daily_check_templates"] = "vehicles",   // ⚠ ayrıca YALNIZ YÖNETİCİ (Apply.CanWrite) — servis kuralıyla aynı
         ["stock_change_logs"] = "materials",      // Migration122: kaydı yazan servis materials:Edit ister
+        ["material_location_mins"] = "materials", // M-31: AsgariStokService.Ayarla materials:Edit ister
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
@@ -328,6 +331,7 @@ public sealed class BusinessSyncService
             ["stock_movements"] = "branch_id",
             ["material_requests"] = "branch_id",
             ["stock_change_logs"] = "branch_id",   // Migration122: şube kullanıcısına başka şubenin kaydı inmez (NULL gizlenmez)
+            ["material_location_mins"] = "location_id",   // M-31: kullanıcıya yalnız kendi depolarının asgari tanımı
         };
 
     /// <summary>
@@ -451,6 +455,7 @@ public sealed class BusinessSyncService
             ["assignment_receipts"] = ("personnel_id", "personnel"),
             ["assignment_due_dates"] = ("personnel_id", "personnel"),
             ["stock_change_logs"] = ("material_id", "materials"),
+            ["material_location_mins"] = ("material_id", "materials"),
         };
 
     /// <summary>

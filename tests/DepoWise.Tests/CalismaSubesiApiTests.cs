@@ -166,6 +166,6 @@ public class CalismaSubesiApiTests : IAsyncLifetime
         var oturum = program[program.IndexOf("SessionContext? Session(HttpContext ctx)", StringComparison.Ordinal)..];
         oturum = oturum[..oturum.IndexOf("return svc.SessionFor(company, userId);", StringComparison.Ordinal)];
         Assert.DoesNotContain("Calisma", oturum);
-        Assert.Equal(7, System.Text.RegularExpressions.Regex.Matches(program, @"CalismaSubesi\((c|ctx), s0?\)").Count);   // pano, liste, dışa aktarım, kart, araç kartı, teslim, kayıp
+        Assert.Equal(9, System.Text.RegularExpressions.Regex.Matches(program, @"CalismaSubesi\((c|ctx), s0?\)").Count);   // pano, liste, dışa aktarım, kart, araç kartı, teslim, kayıp + M-31 öneri listesi ve aktarımı
     }
 }

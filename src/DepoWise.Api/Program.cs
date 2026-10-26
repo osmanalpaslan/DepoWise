@@ -2933,6 +2933,43 @@ app.MapPost("/api/stock/in-transit/{documentId}/receive", (HttpContext c, string
         d.OperationId ?? "", Doc(d.DefectNote));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+// ⭐ M-31 (AR-GE 2026-10-26, F-114) — DEPO BAZINDA ASGARİ STOK + ÖNERİ LİSTESİ (masaüstüyle aynı servis: AsgariStokService).
+// Öneri kapsamı çalışma şubesine göre (web X-Calisma-Subesi başlığı → CalismaSubesi); sistem sipariş VERMEZ, kullanıcı seçtiği
+// önerilerden talep oluşturur (mevcut talep/onay akışı).
+app.MapGet("/api/materials/{id}/location-mins", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.AsgariStok.Liste(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/materials/{id}/location-mins", (HttpContext c, string id, AsgariStokDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.AsgariStok.Ayarla(s, id, d.LocationId ?? "", d.MinQty);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapGet("/api/stock/min-suggestions", (HttpContext c, string? locationId) =>
+{
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = CalismaSubesi(c, s0);
+    return Results.Ok(svc.AsgariStok.Oneriler(s, Doc(locationId)).Select(o => new
+    {
+        materialId = o.MaterialId, code = o.Code, name = o.Name, unit = o.Unit, locationId = o.LocationId, locationName = o.LocationName,
+        mevcut = o.Mevcut, asgari = o.Asgari, onerilen = o.Onerilen, kaynak = o.Kaynak, kaynakMetni = o.KaynakMetni,
+    }));
+}).RequireAuthorization();
+app.MapGet("/api/stock/min-suggestions/export", (HttpContext c, string? locationId, string? format) =>
+{
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s0, "export", DepoWise.Application.Security.PermissionAction.View);
+    var s = CalismaSubesi(c, s0);
+    return TabloCikti(c, DepoWise.Infrastructure.Materials.AsgariStokService.ToTableModel(svc.AsgariStok.Oneriler(s, Doc(locationId))),
+        format, "Asgari Stok Onerileri");
+}).RequireAuthorization();
+app.MapPost("/api/stock/min-suggestions/request", (HttpContext c, AsgariTalepDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var h = svc.AsgariStok.TalepOlustur(s, d.LocationId ?? "",
+        (d.Items ?? new List<AsgariTalepKalemDto>()).Select(k => new DepoWise.Infrastructure.Requests.RequestItemInput(k.MaterialId, k.Quantity)).ToList(),
+        Doc(d.Note));
+    return Results.Ok(new { id = h.Id, docNo = h.DocNo });
+}).RequireAuthorization();
 app.MapPost("/api/stock/in-transit/{documentId}/close-loss", (HttpContext c, string documentId, StockReverseDto d) =>
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
@@ -6000,6 +6037,9 @@ record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchI
     bool? Yolda = null);   // ⭐ M-27: iki adımlı transfer
 record TransitReceiveDto(string? OperationId, List<TransitReceiveLineDto>? Lines, string? DefectNote = null);   // ⭐ M-27 (+2026-10-25 kusurlu)
 record TransitReceiveLineDto(string MaterialId, decimal Quantity, decimal? Defective = null, bool? ReturnDefective = null);
+record AsgariStokDto(string? LocationId, decimal? MinQty);   // ⭐ M-31: MinQty null/0 → depoya özel değer kaldırılır
+record AsgariTalepKalemDto(string MaterialId, decimal Quantity);
+record AsgariTalepDto(string? LocationId, List<AsgariTalepKalemDto>? Items, string? Note);
 record StockReverseDto(string DocumentId, string? Reason);
 record StockCorrectLineDto(string MaterialId, decimal Quantity, decimal? UnitPrice = null);
 record StockCorrectDto(List<StockCorrectLineDto>? Lines, string? BranchId, string? PersonnelId, string? VehicleId, string? Note,
