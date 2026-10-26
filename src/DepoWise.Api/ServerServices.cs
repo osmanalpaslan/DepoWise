@@ -97,6 +97,8 @@ public sealed class ServerServices
     private DepoWise.Infrastructure.Accounting.TedarikciKopruService? _tedarikciKopru;
     public DepoWise.Infrastructure.Accounting.EFaturaService EFatura => _eFatura ??= new(Factory, Parties, Invoices);   // ⭐ M-52
     private DepoWise.Infrastructure.Accounting.EFaturaService? _eFatura;
+    public DepoWise.Infrastructure.Accounting.MuhasebeAktarimService MuhasebeAktarim => _muhasebeAktarim ??= new(Factory);   // ⭐ M-52 (2/2)
+    private DepoWise.Infrastructure.Accounting.MuhasebeAktarimService? _muhasebeAktarim;
     private DepoWise.Infrastructure.Assignments.ZimmetKitService? _zimmetKit;
     public DepoWise.Infrastructure.Operations.YakitSupheService YakitSuphe => _yakitSuphe ??= new(Factory);   // ⭐ M-44
     private DepoWise.Infrastructure.Operations.YakitSupheService? _yakitSuphe;

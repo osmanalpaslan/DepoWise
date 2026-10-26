@@ -56,6 +56,16 @@ else
             <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
                           HelperText="Boş = tüm yetkili şubeler" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            @* ⭐ M-52 (2/2): muhasebe aktarım dosyası — masaüstüyle aynı dönem seçenekleri ve servis *@
+            @if (Auth.CanView("export"))
+            {
+                <MudSelect T="string" @bind-Value="_aktarimDonemi" Label="Aktarım dönemi" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px">
+                    @foreach (var (k, l) in _donemler) { <MudSelectItem T="string" Value="@k">@l</MudSelectItem> }
+                </MudSelect>
+                <MudTooltip Text="Seçili dönemin faturalarını muhasebe programına aktarılabilir genel Excel olarak indirir (Faturalar, KDV Dökümü, Cariler; iptaller hariç).">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AccountBalance" OnClick="MuhasebeAktarimi" Disabled="_busy">Muhasebe Aktarımı</MudButton>
+                </MudTooltip>
+            }
             @* ⭐ M-52 (AR-GE 2026-10-27): e-Fatura (UBL-TR XML) içe alma — masaüstüyle aynı servis ve özet metni *@
             @if (Auth.CanCreate("invoices"))
             {
@@ -494,6 +504,17 @@ else
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
     private async Task Go(int p) { _page = p; await Load(); }
+
+    // Masaüstüyle aynı dönem seçenekleri (MuhasebeAktarimService.Donemler) — web Infrastructure'a başvurmadığı için anahtar/etiket burada.
+    private static readonly (string Key, string Label)[] _donemler = { ("bu-ay", "Bu ay"), ("gecen-ay", "Geçen ay"), ("son-3-ay", "Son 3 ay"), ("bu-yil", "Bu yıl") };
+    private string _aktarimDonemi = "gecen-ay";
+
+    private async Task MuhasebeAktarimi()
+    {
+        var (bytes, fileName) = await Api.GetFileAsync($"/api/invoices/accounting-export?donem={_aktarimDonemi}", $"Muhasebe Aktarimi {DateTime.Now:yyyy-MM-dd}.xlsx");
+        if (bytes is null) { _ok = false; _msg = "Aktarım dosyası hazırlanamadı (dışa aktarım yetkiniz olmayabilir)."; return; }
+        await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
 
     private async Task EFaturaSecildi(IBrowserFile? dosya)
     {

@@ -45,9 +45,20 @@ public sealed class ExcelExportService
     }
 
 
-    public byte[] Export(TableModel model)
+    public byte[] Export(TableModel model) => ExportMany(new[] { model });
+
+    /// <summary>⭐ M-52: birden çok tablo → aynı dosyada ayrı sayfalar (ör. muhasebe aktarımı: Faturalar, KDV Dökümü, Cariler).</summary>
+    public byte[] ExportMany(IReadOnlyList<TableModel> models)
     {
         using var wb = new XLWorkbook();
+        foreach (var m in models) SayfaYaz(wb, m);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    private void SayfaYaz(XLWorkbook wb, TableModel model)
+    {
         var ws = wb.Worksheets.Add(Sanitize(model.Title));
 
         for (int c = 0; c < model.Headers.Count; c++)
@@ -70,10 +81,6 @@ public sealed class ExcelExportService
             ws.Row(rowNum).Style.Font.Bold = true;
         }
         ws.Columns().AdjustToContents();
-
-        using var ms = new MemoryStream();
-        wb.SaveAs(ms);
-        return ms.ToArray();
     }
 
     /// <summary>Hücreyi yazar. NumCell → HAM sayı (Excel'de toplanabilir/analiz edilebilir; biçimli metin değil).</summary>

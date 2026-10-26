@@ -933,4 +933,10 @@
 - **Testler:** `EFaturaTests` EF1–EF6 (XXE dahil), `EFaturaApiTests` EA1–EA2, yerel tarayıcı `efatura.spec.js` (dosya yükle → onay →
   fatura; ikinci kez "daha önce"). Mutasyon: işlem kimliği UUID'den kopunca EF3 kırıldı. Paket 230/230, arayüz 71/71, yerel 5/5.
   Test yardımcısı jetonu saklar (her çağrıda giriş, sunucunun giriş sınırına takılıyordu).
-- **(2/2) Logo/Mikro aktarım dosyası:** kullanıcıdan hangi program/sürüm kullanıldığı soruldu (biçimler farklı).
+- **(2/2) Muhasebe aktarım dosyası:** kullanıcı kararı "Bilmiyorum / genel Excel" → programdan bağımsız, standart sütunlu Excel
+  (): Bilgi · Faturalar (fatura başına: tarih, no, dış no, tür, cari kodu/ünvan, VKN/TCKN, vergi dairesi, para
+  birimi, kur, brüt, iskonto, matrah, KDV, tevkifat, genel toplam, vade) · KDV Dökümü (fatura × KDV oranı: matrah, KDV, tevkifat) ·
+  Cariler (dönemde faturası olanlar). İptaller hariç; şube kapsamlı; fatura görme + dışa aktarım yetkisi. Dönem (Bu ay / Geçen ay /
+  Son 3 ay / Bu yıl) sunucuda TR gününe göre hesaplanır. İki ortam Faturalar ekranında "Muhasebe Aktarımı" + dönem seçimi. API
+  . Testler  MA1–MA6,  EA3; mutasyon: iptaller
+  dahil edilince MA1 kırıldı. Paket 193/193, arayüz 71/71.

@@ -57,6 +57,17 @@ public class EFaturaApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, bozuk.StatusCode);
     }
 
+    /// <summary>EA3 — M-52 (2/2): muhasebe aktarım dosyası API'den 4 sayfalı Excel olarak iner (web'in yolu).</summary>
+    [Fact]
+    public async Task EA3_Muhasebe_Aktarimi_Excel_Iner()
+    {
+        await _client.PostAsJsonAsync("/api/invoices/efatura/import", new { xml = EFaturaTests.Ornek(uuid: "6f1f6a0e-3333-4c3b-9d8e-0000000000a3") });
+        var r = await _client.GetAsync("/api/invoices/accounting-export?donem=bu-yil");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        using var wb = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await r.Content.ReadAsByteArrayAsync()));
+        Assert.Equal(new[] { "Bilgi", "Faturalar", "KDV Dökümü", "Cariler" }, wb.Worksheets.Select(w => w.Name).ToArray());
+    }
+
     [Fact]
     public void EA2_Iki_Ortam_Ayni_Ozet_Ve_Onay()
     {

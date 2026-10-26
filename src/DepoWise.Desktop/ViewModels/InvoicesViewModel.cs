@@ -220,6 +220,26 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
         catch (Exception ex) { Status = "e-Fatura içe alınamadı: " + ex.Message; }
     }
 
+    // ⭐ M-52 (2/2): muhasebe aktarım dosyası — dönem seçilir, genel Excel (Faturalar, KDV Dökümü, Cariler) kaydedilir (web ile aynı servis).
+    public IReadOnlyList<string> AktarimDonemleri { get; } = DepoWise.Infrastructure.Accounting.MuhasebeAktarimService.Donemler.Select(d => d.Label).ToList();
+    [ObservableProperty] private string _aktarimDonemi = "Geçen ay";
+
+    [RelayCommand]
+    private async Task MuhasebeAktarimi()
+    {
+        if (!CanExport) { FormError = "Dışa aktarım yetkiniz yok."; return; }
+        try
+        {
+            var anahtar = DepoWise.Infrastructure.Accounting.MuhasebeAktarimService.Donemler.First(d => d.Label == AktarimDonemi).Key;
+            var hedef = await FilePickerService.SaveExcelAsync($"Muhasebe Aktarimi {DateTime.Now:yyyy-MM-dd}.xlsx");
+            if (hedef is null) return;
+            var sayfalar = await Task.Run(() => DesktopServices.MuhasebeAktarim.Hazirla(_session, anahtar));
+            await System.IO.File.WriteAllBytesAsync(hedef, DesktopServices.Excel.ExportMany(sayfalar));
+            Status = $"Muhasebe aktarım dosyası kaydedildi ({sayfalar[1].Rows.Count} fatura): {hedef}";
+        }
+        catch (Exception ex) { FormError = "Aktarım dosyası hazırlanamadı: " + ex.Message; }
+    }
+
     [RelayCommand] private async Task Find() { Page = 1; await Load(); }
     [RelayCommand] private async Task PrevPage() { if (CanPrev) { Page--; await Load(); } }
     [RelayCommand] private async Task NextPage() { if (CanNext) { Page++; await Load(); } }

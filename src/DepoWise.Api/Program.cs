@@ -3060,6 +3060,14 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
 
 // ⭐ M-53 (AR-GE 2026-10-26, F-059): Tanımlar ↔ Cari eşlenmemiş tedarikçiler (eski veri) + yönetici toplu eşleme (masaüstüyle aynı servis).
 // ⭐ M-52 (AR-GE 2026-10-27, F-141): e-Fatura (UBL-TR XML) içe alma — önizleme + onaylı kayıt (masaüstüyle aynı servis).
+// ⭐ M-52 (2/2): muhasebe aktarım dosyası (genel Excel: Bilgi, Faturalar, KDV Dökümü, Cariler) — dönem sunucuda hesaplanır.
+app.MapGet("/api/invoices/accounting-export", (HttpContext c, string? donem) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var sayfalar = svc.MuhasebeAktarim.Hazirla(s, donem);
+    return Results.File(svc.Excel.ExportMany(sayfalar), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        $"Muhasebe Aktarimi {DateTime.UtcNow:yyyy-MM-dd}.xlsx");
+}).RequireAuthorization();
 app.MapPost("/api/invoices/efatura/preview", (HttpContext c, EFaturaDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
