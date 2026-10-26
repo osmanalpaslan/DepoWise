@@ -887,3 +887,11 @@
   firmanın ekipman/araç/personeline bağlanan satır reddedilir. Sayım taslakları bilinçli olarak dışarıda (bilgisayardaki yarım iş).
 - **Testler:** `B6EsitlemeTests` BE1–BE4 (iki bilgisayar + sunucu, gerçek senkron uçları). Mutasyon: değiştirilemezlik kaldırılınca
   BE2, yönetici kuralı kaldırılınca BE3 kırıldı.
+
+### Nöbetçi: her firma tablosunun eşitleme kararı + stok değişiklik kaydı eşitlemeye (Migration122, 2026-10-26)
+- `EsitlemeKarariTests` EK1–EK2: şemadaki `company_id` taşıyan her tablo ya eşitleme listesinde ya da GEREKÇESİYLE "eşitlenmez"
+  listesinde olmalı (43 tablo sınıflandırıldı: org/tanım eşitlemesiyle inenler, masaüstünde de çevrimiçi ekranlar, kişisel, eşitleme/
+  oturum iç tabloları, türetilmiş bakiye). Yeni tablo ekleyen karar vermeden test geçmez — B6 türü unutma tekrarlanamaz.
+- **Bulgu (canlıda da var):** malzeme kartından "doğrudan stok değişikliği" uyarı kaydı (`stock_change_logs`) masaüstünde yerel
+  kalıyor, web'in "Stok Değişiklik Kaydı" ekranında görünmüyordu. Migration122 ile eşitlemede (değiştirilemez, şube kapsamlı,
+  malzeme yetkisi). `B6EsitlemeTests` BE5; mutasyon: listeden çıkarılınca BE5 + EK1 kırıldı.

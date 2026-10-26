@@ -164,3 +164,6 @@
   boş; web Stok İşlemleri'nde zorunlu "Personel" seçilemediği için web'den stok girişi/çıkışı yapılamıyor (masaüstü etkilenmez).
   Düzeltme AR-GE dalında; AR-GE yayın yasağı nedeniyle canlıya AR-GE sonu yayınıyla gelir — kullanıcıya bildirildi.
 - **Yayın sonrası teknik borç (M-75 kalanı):** Program.cs / ReportService / ShellViewModel bölünmesi ve web için tam tipli API sözleşmesi — gerekçe günlükte; sessiz kırılma riski WebApiSozlesmeTests ile kapatıldı.
+- **Canlıda (AR-GE sonu yayınına kadar):** masaüstündeki "doğrudan stok değişikliği" uyarı kayıtları web'de görünmüyor (Migration122
+  ile düzeltildi; canlıya AR-GE yayınıyla gelir). Yayından ÖNCE masaüstünde yazılmış eski kayıtların yerel değişiklik sayacı boş
+  olduğundan bunlar kendiliğinden gönderilmez — yayın sonrası gerekirse "tam gönderim" (TamGonderimIste) ile bir kez gönderilir.

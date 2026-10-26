@@ -22,6 +22,7 @@ namespace DepoWise.Tests;
 ///  BE1 — bilgisayar 1'in çevrimdışı B6 kayıtları sunucuda ve bilgisayar 2'de aynen görünür (servisler üzerinden okunur)
 ///  BE2 — taşıma geçmişi ve günlük kontrol DEĞİŞTİRİLEMEZ: yerelde oynanıp gönderilse de sunucudaki kayıt aynı kalır
 ///  BE3 — günlük kontrol madde listesini eşitlemeyle de YALNIZ YÖNETİCİ değiştirir (modül yetkisi yetmez — servis kuralıyla aynı)
+///  BE5 — malzeme kartından doğrudan stok değişikliği uyarı kaydı (Migration122) sunucuya ve bilgisayar 2'ye ulaşır
 ///  BE4 — liste kilidi: Migration121'in açtığı tablolar eşitleme listesinde, sayım taslağı bilinçli olarak dışarıda
 /// </summary>
 [Collection("PostgresSchema")]   // ApiTestHost süreç-genelinde ortam değişkeni yazar → seri koşmalı
@@ -33,7 +34,7 @@ public class B6EsitlemeTests : IAsyncLifetime
     private const string Pass = "Test!2026";
 
     private Pc _pc1 = null!, _pc2 = null!;
-    private string _uid = "", _subeA = "", _subeB = "", _ekipman = "", _arac = "", _personel = "";
+    private string _uid = "", _subeA = "", _subeB = "", _ekipman = "", _arac = "", _personel = "", _malzeme = "";
 
     private sealed class Saat : IClock { public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.FromUnixTimeMilliseconds(1_760_000_000_000); }
 
@@ -87,6 +88,7 @@ public class B6EsitlemeTests : IAsyncLifetime
         _ekipman = Sunucu.Equipment.Create(Yonetici, new NewEquipment("EKP-1", "Kırıcı", BranchId: _subeA));
         _arac = Sunucu.Vehicles.Create(Yonetici, new NewVehicle("ARC-1", "34B601", 2020, 100, "km", _subeA));
         _personel = Sunucu.Personnel.Create(Yonetici, new DepoWise.Infrastructure.Org.NewPersonnel("Veli Usta", null, null, _subeA));
+        _malzeme = Sunucu.Materials.Create(Yonetici, new DepoWise.Infrastructure.Materials.NewMaterial("B6-M1", "Filtre"));
         _pc1 = await KurAsync("1");
         _pc2 = await KurAsync("2");
     }
@@ -186,6 +188,21 @@ public class B6EsitlemeTests : IAsyncLifetime
         Assert.Equal(new[] { "Asıl liste" }, new GunlukKontrolService(Sunucu.Factory).Maddeler(Yonetici));
         new BusinessSyncService(Sunucu.Factory).Apply(Yonetici, paket);           // yönetici gönderirse uygulanır
         Assert.Equal(new[] { "Yetkisiz değişiklik" }, new GunlukKontrolService(Sunucu.Factory).Maddeler(Yonetici));
+    }
+
+    [Fact]
+    public async Task BE5_Stok_Degisiklik_Kaydi_Eslenir()
+    {
+        var s = _pc1.Oturum;
+        var stok = new DepoWise.Infrastructure.Materials.StockService(_pc1.Db, _pc1.Saat);
+        new DepoWise.Infrastructure.Materials.StockChangeLogService(_pc1.Db, stok, _pc1.Saat).Record(s, _malzeme, 7m, continued: false, "uyarı metni");
+        await _pc1.GonderAsync();
+        await _pc2.CekAsync();
+        foreach (var (ad, db) in new[] { ("sunucu", Sunucu.Factory), ("bilgisayar 2", (IDbConnectionFactory)_pc2.Db) })
+        {
+            var liste = new DepoWise.Infrastructure.Materials.StockChangeLogService(db, new DepoWise.Infrastructure.Materials.StockService(db)).List(Yonetici);
+            Assert.True(liste.Count == 1, ad + ": stok değişiklik kaydı");
+        }
     }
 
     [Fact]

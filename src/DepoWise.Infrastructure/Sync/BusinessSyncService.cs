@@ -170,6 +170,8 @@ public sealed class BusinessSyncService
         "equipment_moves",
         "daily_check_templates",
         "daily_checks",
+        // ⭐ AR-GE 2026-10-26 (Migration122): malzeme kartından doğrudan stok değişikliği uyarı kaydı — masaüstünde yerelde kalıyordu.
+        "stock_change_logs",
         // ⭐ M-06 (AR-GE 2026-10-17): masaüstü İŞLEM GEÇMİŞİ — yalnız GÖNDERİM yönünde (YalnizGonderim), sunucuda yalnız eklenir.
         // En sonda: yabancı anahtarı yoktur, diğer kayıtlardan sonra gitmesi doğaldır.
         "audit_logs",
@@ -257,6 +259,7 @@ public sealed class BusinessSyncService
         ["equipment_moves"] = "equipment",
         ["daily_checks"] = "vehicles",
         ["daily_check_templates"] = "vehicles",   // ⚠ ayrıca YALNIZ YÖNETİCİ (Apply.CanWrite) — servis kuralıyla aynı
+        ["stock_change_logs"] = "materials",      // Migration122: kaydı yazan servis materials:Edit ister
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
@@ -324,6 +327,7 @@ public sealed class BusinessSyncService
             ["personnel"] = "branch_id",
             ["stock_movements"] = "branch_id",
             ["material_requests"] = "branch_id",
+            ["stock_change_logs"] = "branch_id",   // Migration122: şube kullanıcısına başka şubenin kaydı inmez (NULL gizlenmez)
         };
 
     /// <summary>
@@ -446,6 +450,7 @@ public sealed class BusinessSyncService
             ["daily_checks"] = ("vehicle_id", "vehicles"),
             ["assignment_receipts"] = ("personnel_id", "personnel"),
             ["assignment_due_dates"] = ("personnel_id", "personnel"),
+            ["stock_change_logs"] = ("material_id", "materials"),
         };
 
     /// <summary>
@@ -2098,7 +2103,7 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
     /// yok → var olan satırda "DO NOTHING").</summary>
     internal static readonly HashSet<string> LedgerTables = new(StringComparer.Ordinal)
         { "stock_movements", "party_ledger", "finance_transactions", "assignment_movements", "audit_logs",
-          "equipment_moves", "daily_checks" };   // AR-GE 2026-10-26: taşıma geçmişi ve günlük kontrol (İSG kanıtı) değiştirilemez
+          "equipment_moves", "daily_checks", "stock_change_logs" };   // AR-GE 2026-10-26: taşıma geçmişi ve günlük kontrol (İSG kanıtı) değiştirilemez
 
     /// <summary>
     /// ⭐ M-06 (AR-GE 2026-10-17, 05 F-035) — YALNIZ GÖNDERİLEN tablolar: masaüstünden sunucuya gider, sunucudan masaüstüne

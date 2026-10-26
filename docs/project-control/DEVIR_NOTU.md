@@ -7,7 +7,7 @@
 ## 1. Nerede kaldık
 - Dal: `arge/2026-10-kapsamli` (AR-GE çalışması). Faz sırası B7 → B8 (TAMAM) → **B9 (sürüyor)** → Z.
 - 2026-10-26'da biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
-  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) ·
+  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) · eşitleme nöbetçisi + Migration122 ·
   yarım SignalR sohbet denemesinin arşivlenmesi (kullanıcı onayıyla).
 - **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
