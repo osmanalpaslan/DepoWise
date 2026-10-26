@@ -434,7 +434,7 @@ public class MenuRenkTests
         Assert.Equal(24, AppScreens.Groups.Select(g => g.Title).Distinct().Count());
         // 71 → 72: Kiralık Araçlar (2026-10-10, kullanıcı isteği). Araçlar grubunda, "vehicles" modülünde.
         // 72 → 73: Güncelleme Notları (2026-10-11, kullanıcı isteği). Ayarlar grubunda, herkese açık "about" modülünde.
-        Assert.Equal(73, AppScreens.All.Count);
+        Assert.Equal(74, AppScreens.All.Count);   // 2026-10-26 M-31: Asgari Stok Önerileri
     }
 
     /// <summary>⭐ Token adı üretimi tek biçimdir — iki platform isimlendirmede ayrışamaz.</summary>

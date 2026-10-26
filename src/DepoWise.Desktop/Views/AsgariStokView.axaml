@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="DepoWise.Desktop.Views.AsgariStokView"
+             x:DataType="vm:AsgariStokViewModel">
+
+    <!-- ⭐ M-31 (AR-GE 2026-10-26): asgari stok önerileri + depoya özel asgari tanımı. Web: /stock/min-suggestions (aynı servis). -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Asgari Stok Önerileri">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
+                            ToolTip.Tip="Ekrandaki önerilerin TAMAMINI (seçili depo için) Excel dosyasına aktarır."/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Padding="14,12" Margin="0,16,0,0">
+            <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" VerticalAlignment="Center">
+                <ctrl:FormField Label="Depo / Şantiye" Width="260">
+                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Depolar}" SelectedItem="{Binding SeciliDepo}"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Classes="Helper" VerticalAlignment="Bottom" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="560"
+                                     Text="Depodaki stok asgarinin altındaysa öneri çıkar. Sistem sipariş vermez: seçip miktarı gözden geçirin, talep oluşturun."/>
+            </WrapPanel>
+        </Border>
+
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <DockPanel HorizontalAlignment="Left">
+                    <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloItems}" DockPanel.Dock="Top">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="SEÇ" MinWidth="50" MaxWidth="50"/>
+                            <SelectableTextBlock Grid.Column="1" Text="DEPO / ŞANTİYE" MinWidth="160" MaxWidth="160"/>
+                            <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="240" MaxWidth="240"/>
+                            <SelectableTextBlock Grid.Column="3" Text="MEVCUT" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="4" Text="ASGARİ" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="5" Text="ÖNERİLEN" MinWidth="90" MaxWidth="90"/>
+                            <SelectableTextBlock Grid.Column="6" Text="TALEP MİKTARI" MinWidth="130" MaxWidth="130"/>
+                            <SelectableTextBlock Grid.Column="7" Text="ASGARİ KAYNAĞI" MinWidth="130" MaxWidth="130"/>
+                        </Grid>
+                    </Border>
+                    <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AsgariOneriSatiri">
+                                <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding Secili}" MinWidth="50" MaxWidth="50" VerticalAlignment="Center"
+                                              AutomationProperties.Name="Talebe ekle"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Oneri.LocationName}" MinWidth="160" MaxWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Oneri.LocationName}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MalzemeMetni}" MinWidth="240" MaxWidth="240" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MalzemeMetni}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding MevcutMetni}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding AsgariMetni}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding OnerilenMetni}" MinWidth="90" MaxWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <NumericUpDown Grid.Column="6" Value="{Binding TalepMiktari}" Minimum="0" FormatString="0.##" Increment="1"
+                                                   MinWidth="130" MaxWidth="130" VerticalAlignment="Center" AutomationProperties.Name="Talep miktarı"/>
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding Oneri.KaynakMetni}" MinWidth="130" MaxWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+              </ScrollViewer>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Öneri yok" Message="Seçili depoda asgarinin altına düşen malzeme yok." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+            <Button Classes="Primary" Content="Seçilenlerden Talep Oluştur" Command="{Binding TalepOlusturCommand}" IsEnabled="{Binding CanRequest}"
+                    ToolTip.Tip="Seçili önerilerden (aynı depo) tek malzeme talebi oluşturur; talep onay akışına girer."/>
+            <SelectableTextBlock Text="{Binding Status}" Classes="Helper" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+
+        <!-- Depoya özel asgari tanımı (yoksa malzeme kartının genel asgarisi geçerli) -->
+        <Border Grid.Row="4" Classes="Panel" Padding="14,12" Margin="0,16,0,0" IsVisible="{Binding CanWrite}">
+            <StackPanel Spacing="10">
+                <TextBlock Text="Depoya özel asgari stok" FontWeight="SemiBold"/>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12">
+                    <ctrl:FormField Label="Malzeme" Width="320">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Malzemeler}" SelectedItem="{Binding TanimMalzeme}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Depo / Şantiye" Width="220">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Depolar}" SelectedItem="{Binding TanimDepo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Asgari miktar" Width="140">
+                        <NumericUpDown Value="{Binding TanimAsgari}" Minimum="0" FormatString="0.##" Increment="1" HorizontalAlignment="Stretch"/>
+                    </ctrl:FormField>
+                    <Button Classes="Secondary" Content="Depoya Özeli Kaldır" Command="{Binding TanimKaldirCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding TanimKaydetCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                </WrapPanel>
+                <ItemsControl ItemsSource="{Binding Tanimlar}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:DepoAsgari">
+                            <SelectableTextBlock Classes="Helper" Text="{Binding LocationName, StringFormat='• {0}'}" ToolTip.Tip="{Binding Asgari, StringFormat='Asgari: {0:0.##}'}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

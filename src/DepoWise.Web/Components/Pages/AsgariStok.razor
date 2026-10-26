@@ -1,0 +1,234 @@
+@page "/stock/min-suggestions"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+@*
+    ⭐ M-31 (AR-GE 2026-10-26, F-114) — ASGARİ STOK ÖNERİLERİ. Masaüstü AsgariStokView ile aynı servis/alanlar/düğmeler.
+    Depodaki stok asgarinin altındaysa öneri; sistem sipariş VERMEZ — kullanıcı seçip miktarı düzeltir, tek depo için talep oluşturur.
+    Alt panel: depoya özel asgari tanımla / kaldır (yoksa malzeme kartının genel asgarisi geçerli).
+*@
+
+@if (!Auth.CanView("materials"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Malzemeler).</MudAlert>
+}
+else
+{
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5" Class="dw-pagetitle">Asgari Stok Önerileri</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">Depodaki stok asgarinin altındaysa öneri çıkar. Sistem sipariş vermez: seçip miktarı gözden geçirin, talep oluşturun.</MudText>
+    </div>
+    <MudStack Row="true" Spacing="2">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        <MudTooltip Text="Ekrandaki önerilerin TAMAMINI (seçili depo için) Excel dosyasına aktarır.">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="_exporting" OnClick="ExcelAktar">Excel'e Aktar</MudButton>
+        </MudTooltip>
+    </MudStack>
+</div>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudSelect T="string" Value="_depo" ValueChanged="DepoDegisti" Label="Depo / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" Dense="true">
+        @if (Auth.IsAllBranches()) { <MudSelectItem T="string" Value="@("")">Tüm depolarım</MudSelectItem> }
+        @foreach (var d in _depolar) { <MudSelectItem T="string" Value="@d.Id">@d.Name</MudSelectItem> }
+    </MudSelect>
+</MudPaper>
+
+<MudPaper Class="pa-4" Elevation="2">
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Öneri yok — seçili depoda asgarinin altına düşen malzeme yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="Satir">
+            <HeaderContent>
+                <MudTh>SEÇ</MudTh><MudTh>DEPO / ŞANTİYE</MudTh><MudTh>MALZEME</MudTh>
+                <MudTh Style="text-align:right">MEVCUT</MudTh><MudTh Style="text-align:right">ASGARİ</MudTh>
+                <MudTh Style="text-align:right">ÖNERİLEN</MudTh><MudTh>TALEP MİKTARI</MudTh><MudTh>ASGARİ KAYNAĞI</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><MudCheckBox T="bool" @bind-Value="context.Secili" Dense="true" aria-label="Talebe ekle" /></MudTd>
+                <MudTd>@context.Depo</MudTd>
+                <MudTd>@context.Malzeme</MudTd>
+                <MudTd Style="text-align:right">@context.Mevcut.ToString("0.##") @context.Birim</MudTd>
+                <MudTd Style="text-align:right">@context.Asgari.ToString("0.##")</MudTd>
+                <MudTd Style="text-align:right"><b>@context.Onerilen.ToString("0.##")</b></MudTd>
+                <MudTd><MudNumericField T="decimal" @bind-Value="context.TalepMiktari" Min="0m" Format="0.##" HideSpinButtons="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:120px" aria-label="Talep miktarı" /></MudTd>
+                <MudTd>@context.Kaynak</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-3" Spacing="2">
+        @if (Auth.CanCreate("requests"))
+        {
+            <MudTooltip Text="Seçili önerilerden (aynı depo) tek malzeme talebi oluşturur; talep onay akışına girer.">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="TalepOlustur">Seçilenlerden Talep Oluştur</MudButton>
+            </MudTooltip>
+        }
+        @if (_msg is not null) { <MudText Typo="Typo.body2" Color="@(_ok ? Color.Success : Color.Error)">@_msg</MudText> }
+    </MudStack>
+</MudPaper>
+
+@if (Auth.CanEdit("materials"))
+{
+<MudPaper Class="pa-4 mt-4" Elevation="2">
+    <MudText Typo="Typo.subtitle1" Class="mb-2"><b>Depoya özel asgari stok</b></MudText>
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="5"><LookupSelect Label="Malzeme" Value="_tMalzeme" ValueChanged="MalzemeDegisti" Items="_malzemeler" SearchPath="/api/materials" NameField="name" /></MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="string" @bind-Value="_tDepo" Label="Depo / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                @foreach (var d in _depolar) { <MudSelectItem T="string" Value="@d.Id">@d.Name</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2"><MudNumericField T="decimal" @bind-Value="_tAsgari" Label="Asgari miktar" Min="0m" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        <MudItem xs="6" md="2" Class="d-flex align-center" Style="gap:8px">
+            <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="TanimKaldir">Depoya Özeli Kaldır</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="TanimKaydet">Kaydet</MudButton>
+        </MudItem>
+    </MudGrid>
+    @foreach (var t in _tanimlar) { <MudText Typo="Typo.body2" Class="mud-text-secondary">• @t.Name: @t.Asgari.ToString("0.##")</MudText> }
+</MudPaper>
+}
+}
+
+@code {
+    private sealed class Satir
+    {
+        public string MaterialId = "", LocationId = "", Depo = "", Malzeme = "", Kaynak = "";
+        public string? Birim;
+        public decimal Mevcut, Asgari, Onerilen;
+        public bool Secili { get; set; }
+        public decimal TalepMiktari { get; set; }
+    }
+    private sealed record Depo(string Id, string Name);
+    private sealed record Tanim(string Name, decimal Asgari);
+
+    private List<Satir>? _rows;
+    private List<Depo> _depolar = new();
+    private List<ApiClient.Opt> _malzemeler = new();
+    private List<Tanim> _tanimlar = new();
+    private string _depo = "";
+    private string? _tMalzeme, _tDepo, _msg;
+    private decimal _tAsgari;
+    private bool _busy, _ok, _exporting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var subeler = await Api.GetArrayAsync("/api/branches");
+            _depolar = subeler.Select(b => new Depo(S(b, "id"), S(b, "name"))).Where(d => d.Id != "").ToList();
+        }
+        catch { _depolar = new(); }
+        _depo = Auth.IsAllBranches() ? "" : (Auth.BranchId ?? "");
+        _tDepo = Auth.IsAllBranches() ? _depolar.FirstOrDefault()?.Id : Auth.BranchId;
+        try { _malzemeler = (await Api.OptionsAsync("/api/materials", "id", "code", "name")).Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions).ToList(); } catch { }
+        await Load();
+    }
+
+    private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static decimal D(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+
+    private async Task DepoDegisti(string v) { _depo = v; await Load(); }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/stock/min-suggestions" + (_depo == "" ? "" : "?locationId=" + Uri.EscapeDataString(_depo)));
+            _rows = arr.Select(e => new Satir
+            {
+                MaterialId = S(e, "materialId"), LocationId = S(e, "locationId"), Depo = S(e, "locationName"),
+                Malzeme = $"{S(e, "code")} — {S(e, "name")}", Birim = S(e, "unit"), Kaynak = S(e, "kaynakMetni"),
+                Mevcut = D(e, "mevcut"), Asgari = D(e, "asgari"), Onerilen = D(e, "onerilen"), TalepMiktari = D(e, "onerilen"),
+            }).ToList();
+        }
+        catch (Exception ex) { _rows = new(); _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task TalepOlustur()
+    {
+        var secilen = (_rows ?? new()).Where(r => r.Secili).ToList();
+        if (secilen.Count == 0) { _msg = "Talep için en az bir öneri seçin."; _ok = false; return; }
+        var depolar = secilen.Select(r => r.LocationId).Distinct().ToList();
+        if (depolar.Count > 1) { _msg = "Talep tek depo için oluşturulur — aynı depodaki önerileri seçin (ya da üstten depo seçin)."; _ok = false; return; }
+        if (secilen.Any(r => r.TalepMiktari <= 0)) { _msg = "Talep miktarı sıfırdan büyük olmalı."; _ok = false; return; }
+        if (!await Dialog.Confirm($"{secilen[0].Depo} için {secilen.Count} malzemelik talep oluşturulsun mu?\n\n" +
+                string.Join("\n", secilen.Select(r => $"• {r.Malzeme}: {r.TalepMiktari:0.##}")), "Evet, Oluştur")) return;
+        _busy = true;
+        try
+        {
+            var r = await Api.PostJsonAsync("/api/stock/min-suggestions/request", new
+            {
+                locationId = depolar[0], items = secilen.Select(x => new { materialId = x.MaterialId, quantity = x.TalepMiktari }).ToList(),
+            });
+            _ok = r is not null;
+            _msg = r is { } j ? $"Talep oluşturuldu: {S(j, "docNo")} (Talepler ekranından onaya gönderebilirsiniz)." : "Talep oluşturulamadı.";
+            if (_ok) foreach (var x in secilen) x.Secili = false;
+        }
+        catch (Exception ex) { _ok = false; _msg = "Talep oluşturulamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ExcelAktar()
+    {
+        if (!Auth.CanView("export")) { Snackbar.Add("Dışa aktarım (export) yetkiniz yok.", Severity.Warning); return; }
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var (bytes, fileName) = await Api.GetFileAsync("/api/stock/min-suggestions/export" + (_depo == "" ? "" : "?locationId=" + Uri.EscapeDataString(_depo)),
+                "Asgari Stok Onerileri.xlsx");
+            if (bytes is not null)
+                await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        finally { _exporting = false; }
+    }
+
+    private async Task MalzemeDegisti(string? v)
+    {
+        _tMalzeme = v;
+        _tanimlar = new();
+        if (string.IsNullOrEmpty(v)) return;
+        try
+        {
+            var arr = await Api.GetArrayAsync($"/api/materials/{v}/location-mins");
+            _tanimlar = arr.Select(e => new Tanim(S(e, "locationName"), D(e, "asgari"))).ToList();
+        }
+        catch { }
+    }
+
+    private async Task TanimKaydet()
+    {
+        if (string.IsNullOrEmpty(_tMalzeme) || string.IsNullOrEmpty(_tDepo)) { _msg = "Malzeme ve depo seçin."; _ok = false; return; }
+        if (_tAsgari <= 0) { _msg = "Asgari miktar sıfırdan büyük olmalı (kaldırmak için 'Depoya Özeli Kaldır')."; _ok = false; return; }
+        var depoAdi = _depolar.FirstOrDefault(d => d.Id == _tDepo)?.Name ?? "";
+        if (!await Dialog.Confirm($"Seçili malzeme için {depoAdi} deposunda asgari stok {_tAsgari:0.##} olsun mu?", "Evet, Kaydet")) return;
+        await Yaz(_tAsgari, "kaydedildi");
+    }
+
+    private async Task TanimKaldir()
+    {
+        if (string.IsNullOrEmpty(_tMalzeme) || string.IsNullOrEmpty(_tDepo)) { _msg = "Malzeme ve depo seçin."; _ok = false; return; }
+        var depoAdi = _depolar.FirstOrDefault(d => d.Id == _tDepo)?.Name ?? "";
+        if (!await Dialog.Confirm($"Seçili malzeme için {depoAdi} deposuna özel asgari kaldırılsın mı? (malzeme kartının genel asgarisi geçerli olur)", "Evet, Kaldır")) return;
+        await Yaz(null, "kaldırıldı");
+    }
+
+    private async Task Yaz(decimal? deger, string ne)
+    {
+        _busy = true;
+        try
+        {
+            var err = await Api.PutAsync($"/api/materials/{_tMalzeme}/location-mins", new { locationId = _tDepo, minQty = deger });
+            _ok = err is null;
+            _msg = err ?? $"Depoya özel asgari {ne}.";
+            if (_ok) { await MalzemeDegisti(_tMalzeme); await Load(); }
+        }
+        finally { _busy = false; }
+    }
+}

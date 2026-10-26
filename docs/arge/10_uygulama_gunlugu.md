@@ -905,3 +905,8 @@
 - **API:** `GET/PUT /api/materials/{id}/location-mins`, `GET /api/stock/min-suggestions[?locationId]`, `…/export`, `POST …/request`.
 - **Testler:** `AsgariStokTests` AS1–AS7 (servis), `AsgariStokApiTests` AA1–AA3; mutasyon: genel asgari her depoya uygulanınca
   AS2+AS3+AS5, kapsam süzgeci kalkınca AS4 kırıldı. Riskli paket (PG/migration/senkron/talep) 549/549, 19 dk.
+- **(2/2) Ekranlar (iki ortam):** "Malzeme ve Stok › Malzemeler › Asgari Stok Önerileri" (masaüstü `AsgariStokView`, web
+  `/stock/min-suggestions`): depo seçimi, öneri tablosu (seç + talep miktarı düzeltilebilir), "Seçilenlerden Talep Oluştur" (onaylı,
+  tek depo), "Excel'e Aktar", altta "Depoya özel asgari stok" tanımla/kaldır (onaylı). Menü toplamları bilinçli güncellendi (masaüstü
+  62→63, web 70→71, katalog 73→74). Testler: arayüz UIT35 (71/71), yerel tarayıcı `asgari-stok.spec.js` (öneri → seç → talep →
+  API'de doğrulandı; yerel 4/4), menü/ekran/onay/mobil/şablon paketi 414/414.

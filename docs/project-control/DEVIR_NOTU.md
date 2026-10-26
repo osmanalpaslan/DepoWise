@@ -7,12 +7,12 @@
 ## 1. Nerede kaldık
 - Dal: `arge/2026-10-kapsamli` (AR-GE çalışması). Faz sırası B7 → B8 (TAMAM) → **B9 (sürüyor)** → Z.
 - 2026-10-26'da biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
-  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) · eşitleme nöbetçisi + Migration122 ·
+  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) · eşitleme nöbetçisi + Migration122 · M-31 ·
   yarım SignalR sohbet denemesinin arşivlenmesi (kullanıcı onayıyla).
 - **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
 ## 2. Sıradaki işler (B9 kalanı, sırayla)
-Düşük öncelik (sırayla): M-31 (depo bazında asgari stok + öneri), M-53 (tedarikçi tek yer), M-52
+Düşük öncelik (sırayla): M-53 (tedarikçi tek yer), M-52
 (Logo/Mikro aktarım + e-Fatura XML), M-82 (olası mükerrer uyarısı) → B9 sonu iki ortam denetimi → **B9+Z TAM TAKIM**
 (~4.500 test, son ölçüm 2 sa 28 dk; hatırlatıcı tam ortalamaya) + arayüz testleri → **Z**: `docs/arge/12_yayin_oncesi_kontrol.md`.
 Ertelenenler: M-01 (yayın öncesi hatırlatılacak), M-42, M-40. Yapılmayacak: M-45, M-77. Kaynak: `docs/arge/13_kullanici_secimleri.md`.

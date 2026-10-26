@@ -1586,6 +1586,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Sistem Logu";
                 CurrentContext = "İşlem kayıtları (salt okunur, silinemez)";
                 break;
+            case "stock:min_suggestions":   // ⭐ M-31
+                CurrentPage = new AsgariStokViewModel(_session);
+                CurrentTitle = "Asgari Stok Önerileri";
+                CurrentContext = "Depo bazında asgari stok — öneriden talep";
+                break;
             case "stock_change_log":
                 CurrentPage = new StockChangeLogViewModel(_session);
                 CurrentTitle = "Stok Değişiklik Kaydı";

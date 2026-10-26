@@ -56,6 +56,7 @@ public static class MenuIcons
         ["stock.entry"]               = "stock-entry",
         ["stock.movements"]           = "movements",
         ["stock.count"]               = "count",
+        ["stock.min_suggestions"]     = "alerts",   // M-31: asgarinin altına düşen stok uyarısı
         ["material_templates"]        = "template",
         ["stock.distribute"]          = "distribute",
 

@@ -149,6 +149,8 @@ public static class AppScreens
         new AppScreen("stock.entry", "stock", "Malzemeler", "Giriş-Çıkış", Both, "stock", "stock"),
         new AppScreen("stock.movements", "stock", "Malzemeler", "Stok Hareketleri", Both, "stock/movements", "stock:movements"),
         new AppScreen("stock.count", "stock", "Malzemeler", "Stok Sayım", Both, "stock/count", "stock:count"),
+        // ⭐ M-31 (AR-GE 2026-10-26): depo bazında asgari stok önerileri + depoya özel asgari tanımı (malzeme modülü).
+        new AppScreen("stock.min_suggestions", "materials", "Malzemeler", "Asgari Stok Önerileri", Both, "stock/min-suggestions", "stock:min_suggestions"),
         // Malzeme Şablonları menüde YALNIZ masaüstünde (web'de ekran var ama menüde listelenmiyordu).
         new AppScreen("material_templates", "material_templates", "Malzemeler", "Malzeme Şablonları", D, null, "material_templates:templates"),
         // STK-08 — web'de Stok İşlemleri ekranından açılır, menüde listelenmez.

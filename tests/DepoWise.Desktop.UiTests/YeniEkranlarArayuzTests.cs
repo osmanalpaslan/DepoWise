@@ -758,6 +758,33 @@ public class YeniEkranlarArayuzTests
         vm.Dispose();
     }
 
+    /// <summary>UIT35 — ⭐ M-31 Asgari Stok Önerileri: depoda asgarinin altına düşen malzeme tabloda (önerilen miktar talep miktarına
+    /// başlangıç değeri), "Excel'e Aktar" ve "Seçilenlerden Talep Oluştur" görünür; seçili satırdan talep oluşur (onay penceresi
+    /// headless'ta yok sayılmaz → servis yoluyla aynı işlemin sonucu doğrulanır).</summary>
+    [AvaloniaFact]
+    public void UIT35_Asgari_Stok_Onerileri()
+    {
+        var s = Ortam();
+        var depo = DesktopServices.Branches.List(s).First(b => BranchAccess.CanAccess(s, b.Id)).Id;
+        var m = DesktopServices.Materials.Create(s, new NewMaterial("UIT35-" + Guid.NewGuid().ToString("N")[..6], "Asgari test malzemesi"));
+        DesktopServices.Stock.ReceiveIn(s, new[] { new StockLine(m, 2m) }, Guid.NewGuid().ToString("N"), branchId: depo);
+        DesktopServices.AsgariStok.Ayarla(s, m, depo, 7m);
+
+        var vm = new AsgariStokViewModel(s);
+        var view = new AsgariStokView { DataContext = vm };
+        var w = Ac(view, 1300, 900);
+        var satir = Assert.Single(vm.Items, x => x.Oneri.MaterialId == m);
+        Assert.Equal(5m, satir.TalepMiktari);                                         // önerilen = 7 − 2
+        var metinler = Gorunen<TextBlock>(view).Select(t => t.Text).ToList();
+        Assert.Contains("Asgari Stok Önerileri", metinler);
+        var dugmeler = Gorunen<Button>(view).Select(b => b.Content as string).ToList();
+        Assert.Contains("Excel'e Aktar", dugmeler);
+        Assert.Contains("Seçilenlerden Talep Oluştur", dugmeler);
+        Assert.Contains("Depoya Özeli Kaldır", dugmeler);
+        Goruntu(w, "asgari-stok");
+        w.Close();
+    }
+
     /// <summary>UIT34 — kullanıcı isteği 2026-10-25: menü ekran adları belirgin (tam opak, 13,5 pt) ve üzerine gelince NET vurgu
     /// (kehribar zemin + sağa kayma); seçili satır ayrıca kalın. Kabuk çizilir, bir ekran bağlantısına "fare üzerinde" durumu verilir.</summary>
     [AvaloniaFact]
