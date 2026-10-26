@@ -1,28 +1,15 @@
 # DEVİR NOTU — başka bir Claude hesabı/oturumu buradan devam eder
 
-> Yazıldı: 2026-10-26 ~17:50 (önceki oturum, plan kotası dolmak üzereyken). **Yeni oturum: önce bu dosyayı, sonra
-> `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.** Bu not iş bitince güncellenir ya da silinir.
+> Güncellendi: 2026-10-26 ~18:10. **Yeni oturum: önce bu dosyayı, sonra `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.**
+> Başka bilgisayarda: önce `git pull` (dal `arge/2026-10-kapsamli`); hafıza/genel kurallar için bir kez `~/.claude-yedek/geri-yukle.ps1`;
+> PG test sunucusu yoksa `scripts/pg_test_sunucu.ps1`. Bu not her oturum sonunda güncellenir; AR-GE bitince silinir.
 
 ## 1. Nerede kaldık
 - Dal: `arge/2026-10-kapsamli` (AR-GE çalışması). Faz sırası B7 → B8 (TAMAM) → **B9 (sürüyor)** → Z.
-- Bugün biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
-  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (1/3, 2/3).
-- **YARIM (commitlenmedi, çalışma kopyasında):**
-  1. `src/DepoWise.Infrastructure/Database/Migrations/Migration099_SyncTxid.cs` — PG'de damga UPDATE'i tetikleyiciden ÖNCE
-     (bulgu: eski sırada mevcut satırların hiçbiri damgalanmıyordu). + `tests/DepoWise.Tests/PostgresMigrationProvasiTests.cs`
-     (MP1: 98'de duran PG'ye 100 bin hareket → 99→120 zinciri; sonunda kendi verisini siler).
-     Durum: MP1 tek başına GEÇTİ. Riskli paket (Postgres|Migration|Sync|Senkron|Ufuk|Esitleme|IkiBilgisayar, ~400 test, ~13 dk)
-     ilk koşuda 29 PG testi "veritabanı 64 MB > 50 MB" güvenlik kapısıyla reddedildi (prova verisi geride kalmıştı) → test
-     temizliği eklendi, paket yeniden koşuluyordu. **Yapılacak:** paketi tekrar koş; geçerse günlüğe
-     `devir/m70_3_gunluk.txt` metnini "### M-70" bölümüne ekle, commit et (mesaj: "M-70 (3/3): ...").
-  2. **M-76 (belgeler)** — yapıldı ama commitlenmedi: `docs/UI_DESIGN_SPEC.md`, `TEST_LISTESI.md`, `TEST_ORTAMI.md` →
-     `docs/arsiv/kok/` (git mv ile, index'te), `docs/README.md` güncellendi, `.claude/rules/list-screens.md` (ListColumns tek dosya).
-     **Kalan:** "Hakkında" ekranı iki ortamda yer tutucu → hazır dosyalar `docs/project-control/devir/m76/`:
-     `About.razor` → `src/DepoWise.Web/Components/Pages/`, `AboutView.axaml` → `src/DepoWise.Desktop/Views/`,
-     `AboutViewModel.cs` → `src/DepoWise.Desktop/ViewModels/`, `BelgeVeHakkindaTests.cs` → `tests/DepoWise.Tests/`;
-     `AppScreens.cs`'te `"about"` satırında `"soon/about"` → `"about"`. Sonra: hedefli test + arayüz testi + web derlemesi,
-     günlük, commit. `devir/` klasörünü iş bitince sil.
-  - ⚠ M-70 (3/3) ve M-76 AYRI commit: `git commit -F mesaj -- <dosyalar>` ile yalnız ilgili dosyaları kaydet (git mv'ler index'te).
+- 2026-10-26'da biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
+  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 ·
+  yarım SignalR sohbet denemesinin arşivlenmesi (kullanıcı onayıyla).
+- **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
 ## 2. Sıradaki işler (B9 kalanı, sırayla)
 M-69 (web kayıt akışlarını yerel tarayıcı testi, Playwright) → M-74 (Avalonia 12.1) → M-75 (büyük dosya bölme / tipli web-API

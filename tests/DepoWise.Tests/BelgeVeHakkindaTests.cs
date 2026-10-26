@@ -33,6 +33,7 @@ public class BelgeVeHakkindaTests
         }
         Assert.Contains("NavigateCommand.Execute(\"about:notes\")", mas);
         Assert.Contains("Nav.NavigateTo(\"update-notes\")", web);
+        Assert.False(File.Exists(Path.Combine(Kok(), "src/DepoWise.Web/Components/Pages/Soon.razor")));   // "yakında" sayfası kalktı (kullanan menü yok)
     }
 
     [Fact]

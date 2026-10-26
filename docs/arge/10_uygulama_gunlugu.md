@@ -840,3 +840,11 @@
   tetikleyiciden ÖNCE (099 canlıda henüz koşmadı — şema 98). Eski sırayla MP1 kırmızıydı (100.000 NULL) = bozma kanıtı.
   Riskli paket (PG/migration/senkron/iki bilgisayar) 400/400, 13,5 dk. Ara bulgu: prova verisi geride kalınca 29 PG testi 50 MB güvenlik
   kapısıyla reddedildi → prova kendi verisini siliyor (kapı gevşetilmedi).
+
+### M-76 — Belge kayması + "Hakkında" (F-062, 2026-10-26)
+- Eskiyen `UI_DESIGN_SPEC.md` (B8 öncesi), `TEST_LISTESI.md` (2026-06 elle liste), `TEST_ORTAMI.md` (eski yerel kurulum; varsayılan
+  şifre/Neon dönemi) → `docs/arsiv/kok/`; belge haritası güncel kaynaklara (testing kuralı, `arge/08`, AR-GE belgeleri) yönlendirir;
+  `list-screens.md` kolon kataloğunu doğru anlatır (tek dosya, web'e bağlı — "ayna" yok).
+- "Hakkında" iki ortamda yer tutucuydu → uygulama adı, program sürümü, firma, son güncelleme notu + Güncelleme Notları'na geçiş
+  (web `/about`; sahipsiz kalan "yakında" sayfası kaldırıldı). Testler `BelgeVeHakkindaTests` BH1–BH2; menü/ekran/onay/düğme/mobil
+  paketi 154/154; arayüz 70/70; web 0 hata. Ayrıca yarım SignalR sohbet denemesi kullanıcı onayıyla arşivlendi (1c93405c).

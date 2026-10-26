@@ -436,7 +436,7 @@ public class AppScreensParityTests
             // yapıldı. Ekran süper admin yetkilerini taklit ettiği için devredilemez; paylaşılan "settings"
             // modülü onu firma personeline de açıyordu. Bağlantı SAYISI değişmedi (ekran kaybı yok).
             // 2026-09-03: Alan Ayarları (field_settings) bilinçli eklendi (ADR-198).
-            ("Ayarlar", new[] { ("definitions", "definitions"), ("field_settings", "field-settings"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about"), ("", "update-notes") }),   // 2026-10-11: Güncelleme Notları
+            ("Ayarlar", new[] { ("definitions", "definitions"), ("field_settings", "field-settings"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "about"), ("", "update-notes") }),   // 2026-10-11: Güncelleme Notları · 2026-10-26 M-76: Hakkında gerçek sayfa (/about)
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Web)

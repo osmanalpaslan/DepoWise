@@ -14,8 +14,8 @@ paths:
 Malzemeler/Araçlar (ve aynı deseni kullanan her ekran) formuna/listesine **yeni bir alan** eklerken, o alan
 filtrelenebilir olacaksa aynı PR'da şunlar YAPILIR (birini atlama — ekran sessizce filtrelenemez kalır):
 
-1. **Kolon kataloğu** (`DepoWise.Application/Ui/ListColumns.cs` + AYNASI `DepoWise.Web/Services/ListColumns.cs`,
-   ikisi BİRLİKTE): yeni `ListColumn(Key, Label, IsNumeric: true/false)` ekle. `IsNumeric: true` yalnız
+1. **Kolon kataloğu** (`DepoWise.Application/Ui/ListColumns.cs` — TEK dosya; web onu csproj `Compile Include … Link=`
+   ile derler, ayrı kopya YOK — M-76 2026-10-26): yeni `ListColumn(Key, Label, IsNumeric: true/false)` ekle. `IsNumeric: true` yalnız
    gerçekten sayısal (fiyat/stok/yıl/sayaç gibi) alanlarda — metin kalırsa "içerir" araması geçerli olur.
 2. **Filtre kaydı** (`MaterialService.SearchGrid` / `VehicleService.SearchGrid` benzeri): `GridFilter` record'una
    yeni parametre + `GridQuery.ColumnFilter(alias, filter.YeniAlan, kind, rawAlias)` satırı ekle. Hesaplanan/

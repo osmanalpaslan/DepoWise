@@ -313,7 +313,7 @@ public static class AppScreens
         // ve rol tavanı matrisini değiştirirdi); ekran düzeyindeki kapı sözde-anahtarla verilir.
         new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer", WebPermOverride: "@super"),
         new AppScreen("theme", "theme", "Ayarlar", "Tema", Both, "theme", "theme", WebPermOverride: ""),
-        new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "soon/about", "about", WebPermOverride: ""),
+        new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "about", "about", WebPermOverride: ""),
         // ⭐ 2026-10-11 (kullanıcı isteği): yapılan yenilikleri takip ekranı. "about" modülü HERKESE açıktır (deny-by-default istisnası).
         new AppScreen("about.notes", "about", "Ayarlar", "Güncelleme Notları", Both, "update-notes", "about:notes", WebPermOverride: ""),
     };
