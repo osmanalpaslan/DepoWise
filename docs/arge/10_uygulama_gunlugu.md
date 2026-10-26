@@ -862,3 +862,8 @@
   onay yardımcısında: açık bir onay/gerekçe penceresi varken yenisi açılmaz (tüm web ekranları).
 - **Mutasyon:** onay kilidi kaldırılınca çift tıklama testi (2 pencere), okuyucu eski hâline dönünce personel seçimi kırıldı.
   Kaynak kilidi `WebKayitAkislariTests` WK1–WK3; web paketi 328/328.
+
+### M-74 — Avalonia 12.0.4 → 12.1.4 (F-131, 2026-10-26)
+- Masaüstü, kurulum programı ve arayüz testleri aynı sürüme (12.1.4, 2026-10-09). Derleme 0 hata; arayüz 70/70 — görsel tarama
+  eşiği (30 ekran × 3 genişlik, bulgu 0) dahil: kesilme/taşma yok. 12.1'de eskiyen API'ler (`Watermark` → `PlaceholderText`,
+  `SystemDecorations` → `WindowDecorations`) ayrı adımda taşındı.
