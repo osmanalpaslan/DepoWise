@@ -612,7 +612,7 @@
                 if (string.IsNullOrEmpty(_mDefId)) { _msg = "Bakım tanımı seçin."; _ok = false; _busy = false; return; }
                 if (_mMeter is null) { _msg = $"{MeterLabel} zorunlu — bakımın yapıldığı sayacı girin (güncel sayaçla aynı olabilir)."; _ok = false; _busy = false; return; }
                 // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
-                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnay : _lines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnayMetni() : _lines.Count == 0 ? "Bakım kaydı eklensin mi?"
                         : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
                 err = await GonderAsync(_duzeltId is null ? "/api/daily/maintenance" : $"/api/daily/{_duzeltId}/duzelt-bakim?version={_duzeltVersion}",
                     _duzeltId is not null, _dailyOp.Ekle(new   // ⭐ M-04: işlem kimliği istemcide · 2026-10-25 düzeltme = PUT
@@ -626,7 +626,7 @@
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
             {
                 // Masaüstüyle birebir aynı metin — parite.
-                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnay : _lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
+                if (!await Dialog.Confirm(_duzeltId is not null ? DuzeltmeOnayMetni() : _lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
                         : $"{_kind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
                 err = _duzeltId is not null
                     ? await Api.PutAsync($"/api/daily/{_duzeltId}/duzelt-bakim?version={_duzeltVersion}", _dailyOp.Ekle(new   // 2026-10-25: tanım sunucuda korunur
@@ -657,7 +657,9 @@
                     description = Empty(_desc), activityDate = Ms(_date)
                 }));
             }
-            _ok = err is null; _msg = err ?? (_duzeltId is not null ? "Kayıt düzeltildi." : "Kaydedildi.");
+            _ok = err is null; _msg = err ?? (_duzeltId is null ? "Kaydedildi."
+                : _kind is "Hareket" or "Transfer" ? "Kayıt düzeltildi."
+                : "Kayıt düzeltildi (eski malzeme çıkışı geri alındı, yeni değerler yazıldı).");   // masaüstüyle aynı
             if (_ok) { _dailyOp.Tamamlandi(); Clear(); await Load(); }   // M-04: başarılı kayıttan sonra yeni kimlik
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
@@ -730,8 +732,11 @@
         _msg = "Düzenleme: değerleri değiştirip Kaydet'e basın. Malzeme satırı ekleyebilir, silebilir, miktarı değiştirebilirsiniz."; _ok = true;
     }
 
-    private const string DuzeltmeOnay = "Kayıt düzeltilsin mi?\n\nEski kaydın malzeme çıkışı stoğa geri alınır, yeni değerlerle yeniden yazılır; " +
-        "araç sayacı geçerli kayıtlardan yeniden hesaplanır. İşlem tek adımda yapılır; bir sorun olursa hiçbir şey değişmez.";
+    // Masaüstüyle (DailyActivityViewModel.DuzeltmeOnayMetni) birebir aynı metin — parite (iki ortam denetimi 2026-10-26).
+    private string DuzeltmeOnayMetni() =>
+        "Kayıt düzeltilsin mi?\n\nEski kaydın malzeme çıkışı stoğa geri alınır, yeni değerlerle yeniden yazılır" +
+        (_lines.Count > 0 ? $" (malzemeler şu depodan düşülecek: {LocationText})" : "") +
+        ". Araç sayacı geçerli kayıtlardan yeniden hesaplanır. İşlem tek adımda yapılır; bir sorun olursa hiçbir şey değişmez.";
 
     /// <summary>Yeni kayıt = POST, düzeltme = PUT (aynı gövde).</summary>
     private Task<string?> GonderAsync(string yol, bool duzeltme, object govde) => duzeltme ? Api.PutAsync(yol, govde) : Api.PostAsync(yol, govde);

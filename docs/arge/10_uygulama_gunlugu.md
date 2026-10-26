@@ -802,3 +802,17 @@
   menüde yok ama B3 M-19'da güvenli hâle getirilen geri yükleme akışını taşıyor ve GYO3 ile korunuyor; ekran yeniden açılırsa hazır.
   F-103 eski `/sync/push`/`pull` — protokol kararı gerektirir (kalan risk listesinde). F-104 boş Domain projesi — zararsız, bırakıldı.
 - **Testler:** `IkizDosyaEsitligiTests` IK1–IK3 + tema/geri yükleme/şube koruması/Org paketi 51/51; arayüz 70/70 (tema açılışı).
+
+### İki ortam denetimi — 7 kullanıcı isteği (2026-10-26)
+- **Düzeltildi (2b9cbe85):** web oturumu çalışma şubesini sunucuya taşımıyordu → web'de çok şubeli kullanıcı firma toplamı stok
+  görüyor, "gönderen teslim alamaz" sunucuda çalışmıyordu. Web `X-Calisma-Subesi` başlığı; API yalnız 7 uçta (pano, malzeme
+  listesi/dışa aktarım/kart, araç kartı, teslim, kayıp) kullanır; kapsamı genişletemez. Kayıp kapatma da yalnız hedefte.
+  Araç kartı uyumlu malzeme stoğu şube kapsamında. Testler CS1–CS5 (iki mutasyon yakalandı).
+- **Düzeltildi (bu commit):** masaüstü Depo Çıkışı stok göstergesi çalışma şubesinin deposu (eskiden firma toplamı); yeni kayıt
+  eski "düzenlenemez" bandını temizler; web düzeltme onayı + başarı mesajı masaüstüyle birebir; web şube şifresi "hatalı" ile
+  "doğrulanamadı" mesajlarını ayırır (ikisinde de giriş yok). Testler DP1–DP3.
+- **Bilinçli / açık bırakılan:** malzeme kartındaki depo kırılımı tüm depoları gösterir ("malzeme başka nerede var" bilgisi; toplam
+  satırı şube kapsamlı) · `GET /api/stock/balance/{id}`, hızlı arama `stock` alanı ve "Şablonlu (Genel)" raporu firma geneli
+  (adı/amacı gereği; ekranda şube stoğu gösterilmiyor) · "Şablon Dışı" raporu ve "Atanmamış" stok satırlarının kısıtlı
+  kullanıcıdaki toplamı → kullanıcıya sorulacak (11_kalan_riskler) · eski yan-panel faaliyet düzenleme kodu (masaüstü
+  `BeginMetaEdit`, web `SaveEdit`, `/api/daily/{id}/metadata`) kullanılmıyor — B9 sonunda temizlik adayı.

@@ -156,3 +156,7 @@
 - **ŞUBE ŞİFRESİ AÇIĞI CANLIDA (bilinçli bekletiliyor):** canlı kodda da (master) masaüstünde sunucu "doğrulayamadı" deyince ve
   internetsiz girişte şube şifresi atlanabiliyor; sunucuda firma kimliği boş girişte şifre varsayılan firmada aranıyor. Düzeltme AR-GE
   dalında yapılıyor; **kullanıcı kararı: AR-GE bitene kadar canlıya acil yayın YOK** — AR-GE sonu yayınıyla düzelir.
+- **Stok kapsamı — kullanıcıya sorulacak iki ayrıntı (iki ortam denetimi 2026-10-26):** (a) "Malzeme — Şablon Dışı" raporu firma
+  geneli stok toplar (şube oturumunda da) — şubeye göre mi olmalı? (b) "Tüm Şubeler"le giren ve yalnız bazı şubelere yetkili
+  kullanıcıda malzeme listesi "Atanmamış" (deposu belirsiz) stoğu saymaz, "Stok Durumu" raporu sayar — hangisi esas alınsın?
+  İkisi de veri sızıntısı değil, yalnız toplam farkı.

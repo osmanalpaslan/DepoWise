@@ -517,6 +517,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         ExitScope = "Şube İçi"; ExitMaterial = null; ExitMaterialSearch = ""; ExitBalanceText = "";
         ExitQuantity = 0; ExitToBranch = null; ExitPersonnel = null; RefreshExitMaterials();
         DuzeltmeyiKapat();
+        DuzenlemeUyarisi = null;   // önceki "düzenlenemez" bandı yeni kayıt formunda kalmasın
         ShowForm = true;
     }
 
@@ -655,7 +656,13 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         ExitMaterial = m;
         ExitMaterialSearch = $"{m.Code} - {m.Name}";
         ExitMaterialResults.Clear();
-        try { ExitBalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(_session, m.Id):0.##}"; }
+        // ⭐ 2026-10-26 (iki ortam denetimi): çıkış çalışma şubesinin deposundan düşer → gösterge de o deponun stoğu (eskiden firma toplamı).
+        try
+        {
+            ExitBalanceText = string.IsNullOrEmpty(_session.OperatingBranchId)
+                ? $"Mevcut stok: {DesktopServices.Stock.GetBalance(_session, m.Id):0.##}"
+                : $"Bu şubedeki stok: {DesktopServices.Stock.GetBalanceAt(_session, m.Id, _session.OperatingBranchId):0.##}";
+        }
         catch { ExitBalanceText = ""; }
     }
 

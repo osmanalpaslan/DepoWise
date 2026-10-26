@@ -283,17 +283,19 @@ public sealed class ApiClient
         return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);
     }
 
-    /// <summary>Şube şifresi doğrular (anonim public uç). Şifre yoksa serbest.</summary>
-    public async Task<bool> VerifyBranchAsync(string companyId, string branchId, string? branchPassword)
+    /// <summary>Şube şifresi doğrular (anonim public uç). Şifre yoksa serbest.
+    /// ⭐ 2026-10-26 (iki ortam denetimi): true = doğru · false = hatalı · null = doğrulanamadı (sunucuya ulaşılamadı / çok fazla
+    /// deneme) — masaüstüyle aynı ayrım. Çağıran YALNIZ true'da girişe izin verir (kapalı tarafa düşer).</summary>
+    public async Task<bool?> VerifyBranchAsync(string companyId, string branchId, string? branchPassword)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/public/verify-branch", new { companyId, branchId, branchPassword });
-            if (!resp.IsSuccessStatusCode) return false;
+            if (!resp.IsSuccessStatusCode) return null;
             var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
             return e.TryGetProperty("ok", out var ok) && ok.ValueKind == System.Text.Json.JsonValueKind.True;
         }
-        catch { return false; }
+        catch { return null; }
     }
 
     /// <summary>ADIM 2: şube seçildi → oturumu tamamla (AuthState + menü).</summary>

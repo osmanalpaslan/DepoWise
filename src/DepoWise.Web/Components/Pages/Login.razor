@@ -761,7 +761,9 @@
             if (SelectedBranchHasPassword)
             {
                 var ok = await Api.VerifyBranchAsync(_authData.CompanyId, _branchId!, _branchPassword);
-                if (!ok) { _error = "Şube şifresi hatalı."; return; }
+                if (ok == false) { _error = "Şube şifresi hatalı."; return; }
+                // ⭐ 2026-10-26: masaüstüyle aynı ayrım — ulaşılamadı/çok deneme ayrı mesaj; yine giriş YOK (yalnız true geçer).
+                if (ok != true) { _error = "Şube şifresi doğrulanamadı (sunucuya ulaşılamadı ya da çok fazla deneme yapıldı). Biraz sonra tekrar deneyin."; return; }
             }
             var branchId = allBranches ? null : _branchId;
             await Api.FinalizeSignInAsync(_authData, branchId, _username.Trim());
