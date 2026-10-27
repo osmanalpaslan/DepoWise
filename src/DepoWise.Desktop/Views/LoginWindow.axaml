@@ -255,6 +255,20 @@
                         </Border>
                     </StackPanel>
 
+                    <!-- ⭐ M-01: iki adımlı giriş kodu (yalnız sunucu isteyince görünür) -->
+                    <StackPanel Spacing="7" IsVisible="{Binding MfaGerekli}">
+                        <TextBlock Classes="Lbl" Text="Doğrulama kodu"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding MfaKodu}" PlaceholderText="123456" MaxLength="12"
+                                         AutomationProperties.Name="Doğrulama kodu"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="Telefonunuzdaki doğrulama uygulamasında (Google Authenticator) Alpnex için gösterilen 6 haneli kodu girin. Telefonunuz yanınızda değilse kurtarma kodlarınızdan birini yazabilirsiniz."
+                                   Foreground="#B7C2D2" TextWrapping="Wrap" FontSize="12"/>
+                    </StackPanel>
+
                     <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}" Foreground="#B7C2D2" Margin="0,2,0,0"/>
 
                     <SelectableTextBlock Text="{Binding Error}" Foreground="#FF9B9B" TextWrapping="Wrap"

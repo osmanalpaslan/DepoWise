@@ -129,5 +129,6 @@ public static class MigrationCatalog
         new Migration122_SyncStockChangeLogs(), // 2026-10-26 AR-GE: stok değişiklik kaydı eşitlemeye — yalnız ADD COLUMN/INDEX/TRIGGER
         new Migration123_MaterialLocationMins(), // 2026-10-26 AR-GE M-31: depo bazında asgari stok — yalnız CREATE TABLE (+ eşitleme altyapısı)
         new Migration124_InvoiceDuplicateDismissals(), // 2026-10-27 AR-GE M-82: "mükerrer değil" kararları — yalnız CREATE TABLE (+ eşitleme altyapısı)
+        new Migration125_PackageSignatureAndMfa(), // 2026-10-27 M-01: paket imzası + süper admin iki adımlı giriş — yalnız ADD COLUMN + CREATE TABLE (eşitlenmez)
     };
 }

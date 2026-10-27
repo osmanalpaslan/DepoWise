@@ -230,17 +230,21 @@ public sealed class ApiClient
 
     /// <summary>ADIM 1 (2 aşamalı giriş): kullanıcı adı+parola doğrular; oturuma HENÜZ girmez — kullanıcının
     /// firma adı + şubelerini döndürür (kullanıcı firma listesini görmez). Hata → (mesaj, null).</summary>
-    public async Task<(string? Error, LoginResponse? Data)> AuthenticateAsync(string username, string password)
+    /// <summary>⭐ M-01: <paramref name="totpCode"/> = iki adımlı giriş kodu. Sunucu kod isterse <c>MfaRequired</c> true döner
+    /// (şifre doğru; giriş ekranı kod adımına geçer).</summary>
+    public async Task<(string? Error, LoginResponse? Data, bool MfaRequired)> AuthenticateAsync(string username, string password,
+        string? totpCode = null)
     {
-        var resp = await _http.PostAsJsonAsync("/api/auth/login", new { username, password });
+        var resp = await _http.PostAsJsonAsync("/api/auth/login", new { username, password, totpCode });
         if (!resp.IsSuccessStatusCode)
         {
             try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-                  if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Giriş başarısız.", null); } catch { }
-            return ("Kullanıcı adı veya parola hatalı.", null);
+                  var mfa = e.TryGetProperty("mfaRequired", out var mr) && mr.ValueKind == System.Text.Json.JsonValueKind.True;
+                  if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Giriş başarısız.", null, mfa); } catch { }
+            return ("Kullanıcı adı veya parola hatalı.", null, false);
         }
         var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
-        return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);
+        return data is null ? ("Sunucu yanıtı okunamadı.", null, false) : (null, data, false);
     }
 
     /// <summary>İLK GİRİŞ şifre belirleme: mustChangePassword kullanıcı yeni şifresini AYNI login ekranından
@@ -837,7 +841,9 @@ public sealed class ApiClient
     }
 
     /// <summary>Sürüm yayınla: dosyanın SHA-256'sı otomatik hesaplanır; API'ye çok-parçalı gönderilir. Hata → mesaj, başarı → null.</summary>
-    public async Task<string?> PublishReleaseAsync(string version, string? notes, string fileName, byte[] fileBytes)
+    /// <summary>⭐ M-01: <paramref name="signature"/> = yayın bilgisayarında üretilen imza (scripts/publish_release.mjs yanına
+    /// "&lt;paket&gt;.imza" dosyası yazar). Sunucu imzasız paketi kabul etmez.</summary>
+    public async Task<string?> PublishReleaseAsync(string version, string? notes, string fileName, byte[] fileBytes, string signature)
     {
         var checksum = Convert.ToHexString(SHA256.HashData(fileBytes));
         using var form = new MultipartFormDataContent
@@ -847,7 +853,8 @@ public sealed class ApiClient
             { new StringContent(fileBytes.Length.ToString()), "sizeBytes" },
             { new StringContent("0.0.0"), "minSupportedVersion" },
             { new StringContent(notes ?? ""), "releaseNotes" },
-            { new StringContent("0"), "signed" },
+            { new StringContent("1"), "signed" },
+            { new StringContent(signature.Trim()), "signature" },
         };
         var fileContent = new ByteArrayContent(fileBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");

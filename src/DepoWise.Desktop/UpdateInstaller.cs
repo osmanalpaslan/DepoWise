@@ -19,10 +19,11 @@ public static class UpdateInstaller
     /// <summary>Zip'i doğrula + staging'e aç + yardımcıyı başlat. Başarılıysa çağıran uygulamayı KAPATMALI.
     /// Yardımcı önce mevcut kurulumu YEDEKLER; kopyalama başarısızsa yedekten GERİ ALIR ve eski sürümü başlatır
     /// (bozuk/yarım güncelleme kalıcı olmaz). Paket bütünlüğü checksum + ana exe varlığı ile doğrulanır.</summary>
-    public static void InstallAndRestart(byte[] zipBytes, string version, string expectedSha)
+    public static void InstallAndRestart(byte[] zipBytes, string version, string expectedSha, string? signature)
     {
         // ⭐ UPD-01: checksum BOŞSA da kurulum yapılmaz (eskiden atlanıyordu). Tek kapı UpdateService'tedir.
-        UpdateService.RequireVerifiedPackage(zipBytes, expectedSha);
+        // ⭐ M-01: imza da şart (resmi yayın değilse kurulum YOK).
+        UpdateService.RequireSignedPackage(zipBytes, version, expectedSha, signature);
 
         var installDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex");

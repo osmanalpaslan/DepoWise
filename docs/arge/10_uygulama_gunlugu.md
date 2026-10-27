@@ -971,3 +971,24 @@
 - Bulgu (ölçüm düzeltildi; ilk not 34.587 sn'lik daha eski koşuyla kıyaslamıştı): önceki tam koşuya (B7+B8) göre testlerin toplam süresi %20 arttı (56.539 → 68.080 sn; çoğu sınıf aynı, artış ImportFullFields ×3,5 ve Finance ×2,4 — koşu sonundaki kalabalıkta; tek başına 1–3 sn). Asıl kayıp seri kuyrukta: her ApiTestHost testi boş sunucu veritabanını sıfırdan kuruyordu (124 migration + 600.000 turluk tohum şifre özetleri), testler arası ~2,5 sn, toplam ~39 dk (iki koşuda da aynı).
 - **Hızlandırma:** ApiTestHost boş sunucu veritabanını süreç başına BİR KEZ şablon olarak kurar (sunucunun kendi açılış yolu); her
   test taze kopyasını alır → yalıtım aynı, kontrol gevşetilmedi, şifre özeti tur sayısı (600.000) değişmedi. Ölçüm: ApiTestHost kullanan 77 sınıf 619/619 geçti (19 dk 34 sn); testler arası boşluk test başına ~2,5–3,2 sn → 1,9 sn. Tam koşudaki kazanç bir sonraki tam koşuda ölçülecek.
+
+### M-01 — Güncelleme paketi imzası + süper admin iki adımlı giriş (K-20; Migration125, 2026-10-27)
+- **Kullanıcı kararı (2026-10-27):** "Kendi imzamız ve Google Authenticator uygun; bunları da ekleyip güncellemeyi canlıya almak
+  istiyorum." Ücretli kod imzalama sertifikası YOK. Eski masaüstleri ZORUNLU güncellensin (M-12 en düşük sürüm = yeni sürüm);
+  yayın testler biter bitmez.
+- **Paket imzası:** ECDSA P-256 anahtar çifti (`scripts/paket_imza_anahtari_olustur.mjs`); GİZLİ anahtar yalnız yayın bilgisayarında
+  (`~/.claude-yedek/anahtarlar/`), AÇIK anahtar programa gömülü (`PaketImzasi.Anahtarlar`). İmza sürüm+özete bağlı (eski paket yeni
+  sürüm adıyla yayınlanamaz). Kapılar: sunucu imzasız/sahte paketi diske dokunmadan reddeder, yüklenen dosyanın özeti imzalı
+  özetle tutmazsa yayındaki paket ezilmez; masaüstü gerçek kurulum (`UpdateInstaller`) ve ilk kurulum aracı (`SetupRunner`)
+  imzasızı kurmaz; imzasız yayın "güncelleme yok" sayılır (kurulamayacak paket zorunlu güncelleme kilidi yaratmaz). Kurulum aracı
+  (AlpnexSetup.exe) yüklemesi de imzalı. Web "Güncelleme Yönetimi" formuna imza alanı. Yayın betikleri imzalar (`scripts/lib/yayin_ortak.mjs`),
+  `--min` ile en düşük sürüm verilir.
+- **İki adımlı giriş (TOTP, RFC 6238):** yalnız süper admin rolleri kurar; kurulum web girişinde (özel kod gibi, bir kez): QR → ilk
+  kod → 8 tek kullanımlık kurtarma kodu. Gizli bilgi veritabanında AES-GCM ile şifreli (`DEPOWISE_MFA_ANAHTARI`), tablo eşitlenmez.
+  Aynı kod iki kez kullanılamaz (koşullu UPDATE), kullanıcı başına 5 deneme / 5 dk. Web: kod adımı (6), kurulum (7), kurtarma kodları
+  (8). Masaüstü: sunucu isteyince kod kutusu; kodu açık hesap ÇEVRİMDIŞI giremez; 429 "çevrimdışı" sayılmaz.
+- **Testler:** `PaketImzasiTests` PI1–PI8 (Node imzası C#'ta doğrulanır, üretim anahtar çifti eşleşmesi ayrıca doğrulandı),
+  `IkiAdimliGirisTests` MF1–MF6 (RFC örnekleri) + MA1–MA3 + MI1; yerel tarayıcı `iki-adimli-giris.spec.js` (kurulum + kodla giriş).
+  4 eski test imzalı pakete taşındı (beklentiler korundu; imzasız paketin "zorunlu güncelleme" saymaması bilinçli sıkılaştırma).
+  Mutasyon: sunucu imza kontrolü, tekrar koruması (iki katman), senkron girişi kod kapısı, politika imza kapısı kaldırılınca ilgili
+  4 test kırmızı. Paket 205/205 (PG dahil), arayüz 71/71, yerel tarayıcı 7/7.

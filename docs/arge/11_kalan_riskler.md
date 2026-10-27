@@ -170,3 +170,9 @@
 - **Fatura ek tablosunda eşitleme kaynağı yok (B9 denetimi 2026-10-27, düşük):** denetçi bir fatura yan tablosunun eşitleme referans
   kaydı olmadığını not etti; tablo yalnız sunucuda yazılıyor/okunuyor, masaüstü yerel kopyası kullanılmıyor → bugün zararsız.
   İleride masaüstü bu tabloyu yerelde okursa `CrossCompanyRefs`/`Tables` kaydı eklenmeli (EsitlemeKarariTests nöbetçisi uyarır).
+- **İmza anahtarı yedeği (M-01, 2026-10-27):** gizli paket imza anahtarı şu an yalnız yayın bilgisayarında
+  (`~/.claude-yedek/anahtarlar/DepoWise_paket_imza_ozel.pem`). Özel GitHub yedeğine gönderimi güvenlik denetimi engelledi; yedekleme
+  yolu kullanıcıyla kararlaştırılacak. Anahtar kaybolursa: yeni anahtar üretilir, AÇIK anahtarı programa eklenmiş bir sürüm
+  ESKİ anahtarla imzalanamayacağı için masaüstlerine elle (kurulum aracıyla) yeniden kurulum gerekir.
+- **İki adımlı giriş kurtarma (M-01):** telefon + kurtarma kodları birlikte kaybolursa ekranda kurtarma yolu yok; veritabanında
+  `user_mfa` satırı silinerek (onaylı, denetimli) kapatılır.

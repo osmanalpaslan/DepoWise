@@ -26,10 +26,11 @@ public readonly record struct SemVer(int Major, int Minor, int Patch) : ICompara
     public override string ToString() => $"{Major}.{Minor}.{Patch}";
 }
 
-/// <summary>Yayınlanan güncelleme paketi (web yönetiminden). checksum = SHA-256 hex.</summary>
+/// <summary>Yayınlanan güncelleme paketi (web yönetiminden). checksum = SHA-256 hex.
+/// ⭐ M-01: <paramref name="Signature"/> = sürüm+özet üzerindeki ECDSA imzası (<see cref="PaketImzasi"/>); kurulum ister.</summary>
 public sealed record UpdatePackage(
     string Version, string ChecksumSha256, long SizeBytes, string MinSupportedVersion,
-    string? ReleaseNotes, bool Signed, string? DownloadUrl = null);
+    string? ReleaseNotes, bool Signed, string? DownloadUrl = null, string? Signature = null);
 
 public sealed record UpdateCheckResult(
     bool UpdateAvailable, string CurrentVersion, string? LatestVersion,

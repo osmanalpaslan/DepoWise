@@ -79,14 +79,15 @@ public class UpdateIntegrityTests
     {
         var src = File.ReadAllText(Path.Combine(RepoRoot(), "src", "DepoWise.Desktop", "UpdateInstaller.cs"));
 
-        Assert.Contains("UpdateService.RequireVerifiedPackage(zipBytes, expectedSha)", src);
+        // ⭐ M-01: kapı artık özet + İMZA (RequireSignedPackage içinde RequireVerifiedPackage da çalışır).
+        Assert.Contains("UpdateService.RequireSignedPackage(zipBytes, version, expectedSha, signature)", src);
         // Eski "boşsa atla" kalıbı geri gelmemeli.
         Assert.DoesNotContain("IsNullOrWhiteSpace(expectedSha)", src);
     }
 
     // ── 3) Sürüm karşılaştırma (mevcut davranışın kilidi) ─────────────────────────────────────
     private static UpdatePackage Pkt(string v, string min = "0.0.0")
-        => new(v, DogruSha, Paket.Length, min, null, false);
+        => new(v, DogruSha, Paket.Length, min, null, true, null, TestImza.Imzala(v, DogruSha));   // ⭐ M-01: imzalı
 
     [Fact]
     public void UPD01_Surum_Karsilastirmasi_Dogru()

@@ -56,6 +56,8 @@
     <Compile Include="..\DepoWise.Application\Setup\SetupManifest.cs" Link="Core\SetupManifest.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupPrerequisites.cs" Link="Core\SetupPrerequisites.cs" />
     <Compile Include="..\DepoWise.Application\Setup\SetupDownloader.cs" Link="Core\SetupDownloader.cs" />
+    <!-- M-01: kurulumda paket imzası doğrulaması (masaüstü güncelleyicisiyle AYNI dosya, aynı açık anahtar). -->
+    <Compile Include="..\DepoWise.Application\Update\PaketImzasi.cs" Link="Core\PaketImzasi.cs" />
   </ItemGroup>
 
 </Project>

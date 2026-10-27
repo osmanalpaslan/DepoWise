@@ -287,7 +287,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
             UpdateAvailable = res.UpdateAvailable;
             UpdateMessage = res.UpdateAvailable
                 ? $"Yeni sürüm mevcut: {res.LatestVersion} (mevcut {res.CurrentVersion})"
-                  + (res.SignedWarning ? " — UYARI: paket imzasız." : "")
+                  + (res.SignedWarning ? " — UYARI: paket imzası doğrulanamadı, kurulmayacak." : "")
                 : $"Uygulama güncel (sürüm {res.CurrentVersion}).";
         }
         catch (Exception ex) { UpdateMessage = "Güncelleme kontrolü başarısız: " + ex.Message; }
@@ -324,7 +324,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
                 "Yeniden Başlatılıyor", "Tamam");
             UpdateMessage = "Yeniden başlatılıyor…";
             // GERÇEK kurulum: dosyaları kurulum dizinine kopyalar + sürümü yazar + uygulamayı yeniden açar.
-            DepoWise.Desktop.UpdateInstaller.InstallAndRestart(bytes, pkg.Version, pkg.ChecksumSha256);
+            DepoWise.Desktop.UpdateInstaller.InstallAndRestart(bytes, pkg.Version, pkg.ChecksumSha256, pkg.Signature);
             Environment.Exit(0);
         }
         catch (Exception ex)

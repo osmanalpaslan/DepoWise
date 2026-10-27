@@ -177,6 +177,8 @@ static Task Write(HttpContext ctx, int code, string msg)
 // var; bu sayaç farklı kullanıcı adlarıyla taramayı keser. NAT arkasındaki ofisler (aynı IP'den çok kullanıcı)
 // kilitlenmesin diye pencere gevşek tutuldu: 30 istek / 5 dk / IP.
 var loginLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
+// ⭐ M-01: iki adımlı giriş kodu tahmini — KULLANICI başına 5 deneme / 5 dk (6 hane = 1 milyon olasılık; IP değiştirerek aşılamaz).
+var mfaLimiter = new RateLimiter(5, TimeSpan.FromMinutes(5));
 // Anonim liste uçları (firma/şube listesi) için gevşek sınır — normal girişi etkilemez, bot taramasını (scraping) keser.
 var publicLimiter = new RateLimiter(120, TimeSpan.FromMinutes(1));
 // ⭐ DEN-2026-08-26 — ANONİM KALMASI ZORUNLU UÇLAR İÇİN HIZ SINIRI.
@@ -341,6 +343,7 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
         : svc.Auth.Login(dto.CompanyId!, dto.Username, dto.Password);
     if (!res.Success || res.Session is null)
         return Results.Json(new { error = res.Locked ? $"Kilitli ({res.SecondsRemaining}sn)" : res.Error }, statusCode: 401);
+    if (IkiAdimKapisi(res.Session.UserId, dto.TotpCode) is { } ikiAdimRet) return ikiAdimRet;   // ⭐ M-01
     // Gerçek şube seçildiyse ŞUBE ŞİFRESİ doğrulanır (şifresiz şube serbest). "Tüm Şubeler" sanal seçimdir.
     // ⭐ (kullanıcı bildirimi 2026-10-25): eskiden bu kontrol kimlik doğrulamadan ÖNCE ve firma boşsa varsayılan "DEPOWISE" firmasında
     // yapılıyordu → başka firmanın şubesi bulunamıyor, "şifresiz" sayılıp kapı açılıyordu. Artık kullanıcının KENDİ firmasında.
@@ -445,10 +448,14 @@ app.MapPost("/api/auth/sync-login", (HttpContext http, LoginDto dto) =>
         return Results.Json(new { error = $"Çok fazla giriş denemesi. {rl.RetrySeconds} sn sonra tekrar deneyin." }, statusCode: 429);
     var bundle = svc.Auth.ExportForSync(dto.CompanyId ?? "", dto.Username, dto.Password);
     if (bundle is null) return Results.Json(new { error = "Kullanıcı adı veya parola hatalı." }, statusCode: 401);
+    // ⭐ M-01: kodu açık hesapta paket (yerel parola özeti dahil) ve jeton KOD DOĞRULANMADAN verilmez.
+    if (IkiAdimKapisi(bundle.UserId, dto.TotpCode) is { } ikiAdimRet) return ikiAdimRet;
     // ⭐ M-11 / F-051 (AR-GE 2026-10-18): oturum jetonu da AYNI yanıtta döner → masaüstü şifreyi ikinci/üçüncü kez
     // göndermez (her doğrulama pahalı + giriş sınırından hak yer). Kilit kuralı /login ile aynı; kilitliyse jeton yok.
     // Alanlar paketle aynı düzeyde kalır (eski masaüstleri "token"ı yok sayar).
     var paket = System.Text.Json.JsonSerializer.SerializeToNode(bundle, System.Text.Json.JsonSerializerOptions.Web)!.AsObject();
+    // ⭐ M-01: masaüstü bu kullanıcının çevrimdışı girişini kapatır (kod yerelde doğrulanamaz; gizli bilgi masaüstüne inmez).
+    paket["mfa"] = svc.IkiAdim.Etkin(bundle.UserId);
     if (svc.Auth.SenkronGirisiniOnayla(bundle.CompanyId, dto.Username, bundle.UserId))
         paket["token"] = JwtTokens.Issue(jwtKey, bundle.UserId, bundle.CompanyId, svc.OturumDonemi.Oku(bundle.UserId));
     return Results.Json(paket);
@@ -2487,6 +2494,67 @@ app.MapPost("/api/settings/developer", (HttpContext c, DeveloperDto d) =>
 // Firma Tanım PASİFE ALIR; burası GERİ ALINAMAZ SİLER. Koruma: süper admin + şifre + özel kod + kendi firması yasak.
 
 /// Özel kod durumu — web login "ilk defa oluştur" ekranını buna göre gösterir.
+// ═══ ⭐ M-01 (K-20, 2026-10-27) — SÜPER ADMİN İKİ ADIMLI GİRİŞ (doğrulama uygulaması) ═══
+// Kurulum yalnız web'de (özel kod gibi); kod sorusu web + masaüstü girişinde. Ayrıntı: IkiAdimliGirisService.
+IResult? IkiAdimKapisi(string userId, string? kod)
+{
+    if (!svc.IkiAdim.Etkin(userId)) return null;
+    if (string.IsNullOrWhiteSpace(kod))
+        return Results.Json(new { error = "Doğrulama uygulamasındaki 6 haneli kodu girin.", mfaRequired = true }, statusCode: 401);
+    if (!mfaLimiter.Check("mfa:" + userId).Allowed)
+        return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin.", mfaRequired = true }, statusCode: 429);
+    return svc.IkiAdim.GirisDogrula(userId, kod)
+        ? null
+        : Results.Json(new { error = "Doğrulama kodu hatalı.", mfaRequired = true }, statusCode: 401);
+}
+
+app.MapGet("/api/auth/mfa/status", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var d = svc.IkiAdim.DurumOku(s.UserId);
+    return Results.Ok(new { canSetup = DepoWise.Infrastructure.Security.IkiAdimliGirisService.KurabilirMi(s), serverReady = svc.IkiAdim.AnahtarVar,
+        enabled = d.Etkin, remainingRecovery = d.KalanKurtarmaKodu });
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/mfa/setup", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!DepoWise.Infrastructure.Security.IkiAdimliGirisService.KurabilirMi(s)) return Results.Json(new { error = "İki adımlı giriş yalnız süper admin hesaplarında kurulur." }, statusCode: 403);
+    string hesap;
+    using (var conn = svc.Factory.Create())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = "SELECT username FROM users WHERE id=@u;";
+        cmd.AddWithValue("@u", s.UserId);
+        hesap = cmd.ExecuteScalar() as string ?? "superadmin";
+    }
+    try
+    {
+        var k = svc.IkiAdim.KurulumBaslat(s, hesap);
+        return Results.Ok(new { secret = k.GizliBase32, uri = k.OtpAuthAdresi, qrPng = k.QrPngBase64 });
+    }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/mfa/confirm", (HttpContext c, MfaKodDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!mfaLimiter.Check("mfa:" + s.UserId).Allowed)
+        return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin." }, statusCode: 429);
+    try { return Results.Ok(new { recoveryCodes = svc.IkiAdim.KurulumOnayla(s, d.Code) }); }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/mfa/disable", (HttpContext c, MfaKodDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!mfaLimiter.Check("mfa:" + s.UserId).Allowed)
+        return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin." }, statusCode: 429);
+    try { svc.IkiAdim.Kapat(s, d.Code); return Results.Ok(new { ok = true }); }
+    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+
 app.MapGet("/api/auth/special-code/status", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -5675,22 +5743,28 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
     var size = long.TryParse(form["sizeBytes"], out var sz) ? sz : 0;
     var min = form["minSupportedVersion"].ToString();
     var notes = form["releaseNotes"].ToString();
-    var signed = form["signed"].ToString() == "1";
+    var signature = form["signature"].ToString();
+    // ⭐ M-01 (K-20, 2026-10-27): imza, sürüm+özet için GÖMÜLÜ açık anahtarla doğrulanır — DOSYAYA DOKUNMADAN ÖNCE.
+    // Süper admin şifresi ele geçse bile gizli anahtar olmadan yayın yapılamaz (masaüstü ayrıca kendisi de doğrular).
+    if (!DepoWise.Application.Update.PaketImzasi.Dogrula(version, checksum, signature))
+        return Results.Json(new { error = DepoWise.Application.Update.PaketImzasi.RetMetni }, statusCode: 400);
+    var signed = true;
     string? downloadUrl = null;
     var file = form.Files["file"];
-    if (file is not null)
-    {
-        // GUV-A1: paket boyutu üst sınırı — süper admin olsa bile kazara/yanlış bir yükleme
-        // sunucu diskini (~974 MB) doldurup sistemi kilitlememeli. Bugünkü paket ~86 MB.
-        if (file.Length > ReleaseStore.MaxPackageBytes)
-            return Results.Json(new { error = $"Paket çok büyük ({file.Length / 1024 / 1024} MB). " +
-                $"Üst sınır {ReleaseStore.MaxPackageBytes / 1024 / 1024} MB." }, statusCode: 400);
-        await using var fs = file.OpenReadStream();
-        await svc.ReleasePackages.SaveAsync(version, fs, ctx.RequestAborted);
-        downloadUrl = $"/api/releases/{version}/download";
-    }
+    if (file is null)
+        return Results.Json(new { error = "Paket dosyası yok." }, statusCode: 400);
+    // GUV-A1: paket boyutu üst sınırı — süper admin olsa bile kazara/yanlış bir yükleme
+    // sunucu diskini (~974 MB) doldurup sistemi kilitlememeli. Bugünkü paket ~86 MB.
+    if (file.Length > ReleaseStore.MaxPackageBytes)
+        return Results.Json(new { error = $"Paket çok büyük ({file.Length / 1024 / 1024} MB). " +
+            $"Üst sınır {ReleaseStore.MaxPackageBytes / 1024 / 1024} MB." }, statusCode: 400);
+    await using var fs = file.OpenReadStream();
+    // Yüklenen dosyanın özeti imzalı özetle TUTMALI; tutmazsa yayındaki paket ezilmez.
+    if (await svc.ReleasePackages.SaveVerifiedAsync(version, fs, checksum, ctx.RequestAborted) is null)
+        return Results.Json(new { error = "Yüklenen dosya bildirilen özetle (checksum) uyuşmuyor; paket kaydedilmedi." }, statusCode: 400);
+    downloadUrl = $"/api/releases/{version}/download";
     var id = svc.Releases.Publish(s, new NewRelease(version, checksum, size,
-        string.IsNullOrWhiteSpace(min) ? "0.0.0" : min, string.IsNullOrWhiteSpace(notes) ? null : notes, signed, downloadUrl));
+        string.IsNullOrWhiteSpace(min) ? "0.0.0" : min, string.IsNullOrWhiteSpace(notes) ? null : notes, signed, downloadUrl, signature.Trim()));
     return Results.Ok(new { id, downloadUrl });
 }).RequireAuthorization();
 // ── Masaüstü kurulum aracı (setup) indirme/yükleme ──
@@ -5707,9 +5781,24 @@ app.MapPost("/api/setup", async (HttpContext ctx) =>
     var s = Session(ctx); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
     var form = await ctx.Request.ReadFormAsync();
     var file = form.Files["file"]; if (file is null) return Results.BadRequest(new { error = "file yok" });
+    // ⭐ M-01 (2026-10-27): kurulum aracı da İMZALI olmalı — yeni kullanıcıların indirdiği dosyayı süper admin şifresiyle
+    // değiştirmek yetmesin. İmza "kurulum-araci" etiketi + dosya özeti üzerinde; dosya önce geçici yere yazılıp özeti hesaplanır.
     var dir = Path.Combine(dataDir, "setup"); Directory.CreateDirectory(dir);
-    await using var fs = File.Create(Path.Combine(dir, "AlpnexSetup.exe"));
-    await file.OpenReadStream().CopyToAsync(fs, ctx.RequestAborted);
+    var hedef = Path.Combine(dir, "AlpnexSetup.exe");
+    var gecici = hedef + ".yukleniyor";
+    string ozet;
+    await using (var fs = File.Create(gecici))
+    {
+        await file.OpenReadStream().CopyToAsync(fs, ctx.RequestAborted);
+        fs.Position = 0;
+        ozet = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(fs, ctx.RequestAborted));
+    }
+    if (!DepoWise.Application.Update.PaketImzasi.Dogrula(DepoWise.Application.Update.PaketImzasi.KurulumAraciEtiketi, ozet, form["signature"].ToString()))
+    {
+        try { File.Delete(gecici); } catch { }
+        return Results.Json(new { error = DepoWise.Application.Update.PaketImzasi.RetMetni }, statusCode: 400);
+    }
+    File.Move(gecici, hedef, overwrite: true);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -5864,7 +5953,9 @@ app.MapDelete("/api/backups", (HttpContext ctx, string company, DateOnly from, D
 app.Run();
 
 // ── İstek gövde tipleri ──
-record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
+record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null,
+    string? TotpCode = null);   // ⭐ M-01: iki adımlı giriş kodu (uygulama ya da kurtarma kodu)
+record MfaKodDto(string? Code);
 record SelectCompanyDto(string? CompanyId);
 record ImportUndoDto(string? PartiKimligi);   // ⭐ M-14
 record DonemKilidiDto(long? Tarih);           // ⭐ M-30: null = kilidi kaldır

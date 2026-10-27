@@ -4,13 +4,14 @@ using System.Text.Json;
 
 namespace DepoWise.Application.Setup;
 
-/// <summary>Kurulacak Alpnex paketi.</summary>
+/// <summary>Kurulacak Alpnex paketi. ⭐ M-01: <paramref name="Signature"/> = yayın imzası (kurulumda doğrulanır).</summary>
 public sealed record SetupPackageInfo(
     string Version,
     string DownloadUrl,
     string? Sha256,
     long SizeBytes,
-    string MinSupportedVersion);
+    string MinSupportedVersion,
+    string? Signature = null);
 
 /// <summary>Sistem ön-koşulu (kurulabilir bir bileşen DEĞİL — makinenin karşılaması gereken şart).</summary>
 public sealed record SetupRequirement(string Id, string Label, long Value);
@@ -139,7 +140,8 @@ public static class SetupManifestReader
             url ?? "",
             Metin(e, "checksum") ?? Metin(e, "sha256") ?? Metin(e, "checksumSha256"),
             Sayi(e, "sizeBytes"),
-            Metin(e, "minSupportedVersion") ?? "0.0.0");
+            Metin(e, "minSupportedVersion") ?? "0.0.0",
+            Metin(e, "signature"));
     }
 
     private static string? Metin(JsonElement e, string ad)

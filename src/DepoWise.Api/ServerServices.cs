@@ -31,6 +31,9 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Sync.MachineResetService MachineReset { get; }
     /// <summary>"Özel kod" — Kalıcı Silme ekranının kilidi (yalnız süper admin).</summary>
     public SpecialCodeService SpecialCode { get; }
+    /// <summary>⭐ M-01: süper admin iki adımlı giriş. Şifreleme anahtarı DEPOWISE_MFA_ANAHTARI (base64, 32 bayt); yoksa kurulum
+    /// yapılamaz ve kodlu giriş doğrulanamaz (kodu açık hesap giremez — fail-closed).</summary>
+    public IkiAdimliGirisService IkiAdim { get; }
     public DepoWise.Infrastructure.Organization.CompanyGrantService CompanyGrants { get; }
     public DepoWise.Infrastructure.Organization.RoleGrantService RoleGrants { get; }
     /// <summary>G5 — ekran platform görünürlüğü (firma bazlı; katalog varsayılanını yalnız DARALTIR).</summary>
@@ -201,6 +204,8 @@ public sealed class ServerServices
         CompanyLocalReset = new DepoWise.Infrastructure.Organization.CompanyLocalResetService(Factory, clock);
         MachineReset = new DepoWise.Infrastructure.Sync.MachineResetService(Factory, clock);
         SpecialCode = new SpecialCodeService(Factory, clock);
+        IkiAdim = new IkiAdimliGirisService(Factory,
+            IkiAdimliGirisService.AnahtarCoz(Environment.GetEnvironmentVariable("DEPOWISE_MFA_ANAHTARI")), clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
         ScreenVisibility = new DepoWise.Infrastructure.Organization.ScreenVisibilityService(Factory, clock);
         FieldRequirements = new DepoWise.Infrastructure.Organization.FieldRequirementService(Factory, clock);   // 2026-09-03

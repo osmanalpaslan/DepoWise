@@ -26,6 +26,7 @@ $env:DEPOWISE_SERVER_DATA = $veri
 $env:DEPOWISE_JWT_KEY = "e2e-yerel-jwt-anahtari-0123456789-0123456789"
 $env:DEPOWISE_SEED_SUPERADMIN_PASSWORD = $sifre
 $env:DEPOWISE_SEED_ADMIN_PASSWORD = $sifre
+$env:DEPOWISE_MFA_ANAHTARI = "ZTJlLXllcmVsLW1mYS1hbmFodGFyaS0zMi1iYXl0LTA="   # M-01: iki adimli giris (yalniz yerel test anahtari)
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 $env:DEPOWISE_CORS_ORIGINS = $webAdres
 

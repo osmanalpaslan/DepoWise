@@ -7,7 +7,8 @@ using System.Data.Common;
 namespace DepoWise.Infrastructure.Update;
 
 public sealed record NewRelease(string Version, string ChecksumSha256, long SizeBytes,
-    string MinSupportedVersion = "0.0.0", string? ReleaseNotes = null, bool Signed = false, string? DownloadUrl = null);
+    string MinSupportedVersion = "0.0.0", string? ReleaseNotes = null, bool Signed = false, string? DownloadUrl = null,
+    string? Signature = null);
 
 /// <summary>
 /// Sürüm yayın yönetimi — yalnız Süper Admin. Checksum/sürüm doğrulaması; en güncel sürümü döndürür.
@@ -51,12 +52,12 @@ public sealed class ReleaseService
             cmd.Transaction = tx;
             cmd.CommandText = mevcutId is null
                 ? @"
-INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, published_at, created_at, is_deleted)
-VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@now,@now,0);"
+INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, signature, published_at, created_at, is_deleted)
+VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@sig,@now,@now,0);"
                 : @"
 UPDATE app_releases
    SET checksum_sha256=@cs, size_bytes=@sz, min_supported_version=@min, release_notes=@notes,
-       signed=@signed, download_url=@url, published_at=@now, is_deleted=0
+       signed=@signed, download_url=@url, signature=@sig, published_at=@now, is_deleted=0
  WHERE id=@id;";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@v", dto.Version);
@@ -66,6 +67,7 @@ UPDATE app_releases
             cmd.AddWithValue("@notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
             cmd.AddWithValue("@signed", dto.Signed ? 1 : 0);
             cmd.AddWithValue("@url", (object?)dto.DownloadUrl ?? DBNull.Value);
+            cmd.AddWithValue("@sig", (object?)dto.Signature ?? DBNull.Value);   // ⭐ M-01
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
@@ -92,7 +94,7 @@ UPDATE app_releases
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url " +
+            "SELECT version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, signature " +
             "FROM app_releases WHERE is_deleted=0;";
         UpdatePackage? best = null;
         SemVer bestV = default;
@@ -105,7 +107,7 @@ UPDATE app_releases
                 bestV = v;
                 best = new UpdatePackage(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetString(3),
                     r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5) == 1,
-                    r.IsDBNull(6) ? null : r.GetString(6));
+                    r.IsDBNull(6) ? null : r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7));
             }
         }
         return best;

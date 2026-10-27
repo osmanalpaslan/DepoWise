@@ -21,6 +21,11 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _rememberMe = true;
 
+    // ⭐ M-01: iki adımlı giriş — sunucu kod isteyince adım 1'de kod kutusu açılır.
+    [ObservableProperty] private bool _mfaGerekli;
+    [ObservableProperty] private string _mfaKodu = "";
+    partial void OnUsernameChanged(string value) { MfaGerekli = false; MfaKodu = ""; }
+
     // Adım: 1 = kimlik, 2 = şube seçimi, 4 = ilk giriş şifre belirleme
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStep1))]
@@ -186,10 +191,19 @@ public sealed partial class LoginViewModel : ViewModelBase
         try
         {
             // KAYNAK-OTORİTE web: internet varsa parola web ile doğrulanır (yerele yazılır); yoksa yerelden.
-            var srv = await ServerAuthClient.AuthenticateAsync(Username.Trim(), Password);
+            if (MfaGerekli && string.IsNullOrWhiteSpace(MfaKodu)) { Error = "Doğrulama uygulamasındaki 6 haneli kodu girin."; return; }
+            var srv = await ServerAuthClient.AuthenticateAsync(Username.Trim(), Password, MfaGerekli ? MfaKodu.Trim() : null);
             if (srv.State == ServerAuthClient.AuthState.WrongPassword)
             {
                 Error = "Kullanıcı adı veya parola hatalı.";
+                return;
+            }
+            if (srv.State == ServerAuthClient.AuthState.MfaRequired)
+            {
+                // İlk kez: kod kutusu açılır (hata metni yok). Kod girilmişse sunucunun metni (hatalı / çok deneme) gösterilir.
+                if (MfaGerekli) Error = string.IsNullOrWhiteSpace(srv.Mesaj) ? "Doğrulama kodu hatalı." : srv.Mesaj;
+                MfaGerekli = true;
+                MfaKodu = "";
                 return;
             }
 
@@ -205,6 +219,13 @@ public sealed partial class LoginViewModel : ViewModelBase
                     Error = $"Çok fazla hatalı deneme. {result.SecondsRemaining} sn sonra tekrar deneyin.";
                     return;
                 }
+            }
+            // ⭐ M-01: iki adımlı girişi açık hesap çevrimdışı giremez (kod yalnız sunucuda doğrulanır).
+            if (srv.State != ServerAuthClient.AuthState.Ok && result.Success && result.Session is not null
+                && ServerAuthClient.IkiAdimAcik(result.Session.UserId))
+            {
+                Error = "Bu hesapta iki adımlı giriş açık; doğrulama kodu sunucuda kontrol edilir. İnternete bağlanıp tekrar deneyin.";
+                return;
             }
             if (!result.Success || result.Session is null)
             {

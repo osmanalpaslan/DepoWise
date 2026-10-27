@@ -11,7 +11,7 @@
     Giriş ekranı — Aurora görünümü.
     DİKKAT: Bu dosyanın @code bloğu ESKİSİYLE BİREBİR AYNIDIR. Yalnız markup ve
     <style> bloğu yenilendi. Akış aynı: 1=kimlik · 2=firma (süper admin) ·
-    3=şube · 4=ilk giriş şifre · 5=özel kod (ADR-083).
+    3=şube · 4=ilk giriş şifre · 5=özel kod (ADR-083) · 6=iki adımlı giriş kodu · 7=iki adımlı giriş kurulumu · 8=kurtarma kodları (M-01).
     Kullanılan varlıklar: logo.png, login-hero.png (ikisi de wwwroot'ta mevcut).
     ============================================================================ *@
 
@@ -120,6 +120,53 @@
                     <input type="password" placeholder="••••••" @bind="_code2" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
                 </div>
                 <button class="dw-btn" @onclick="DoSetSpecialCode" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "KODU OLUŞTUR")</button>
+            }
+            else if (_step == 6)
+            {
+                @* ⭐ M-01: İKİ ADIMLI GİRİŞ — şifre doğru, hesapta doğrulama uygulaması açık. *@
+                <h1 class="dw-title">Doğrulama Kodu</h1>
+                <p class="dw-sub">Telefonunuzdaki doğrulama uygulamasını (Google Authenticator) açın ve <b>Alpnex</b> için gösterilen
+                    6 haneli kodu girin. Telefonunuz yanınızda değilse kurtarma kodlarınızdan birini yazabilirsiniz.</p>
+                <label class="dw-label">Kod</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="text" inputmode="numeric" placeholder="123456" @bind="_totp" @bind:event="oninput" @onkeyup="OnKeyTotp"
+                           autocomplete="one-time-code" maxlength="12" />
+                </div>
+                <button class="dw-btn" @onclick="DoTotp" disabled="@_busy">@(_busy ? "Doğrulanıyor…" : "DOĞRULA")</button>
+                <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
+            }
+            else if (_step == 7)
+            {
+                @* ⭐ M-01: süper admin hesabında iki adımlı giriş henüz kurulmamış → ŞİMDİ kurulur (özel kod gibi, bir kez). *@
+                <h1 class="dw-title">İki Adımlı Giriş</h1>
+                <p class="dw-sub">Süper admin hesabı tüm firmaları yönetir; şifre tek başına yetmez. Telefonunuza <b>Google Authenticator</b>
+                    (ücretsiz) kurun, <b>+</b> → <b>QR kodu tara</b> ile aşağıdaki kodu okutun ve uygulamanın gösterdiği 6 haneli kodu girin.</p>
+                @if (_mfaKurulum is not null)
+                {
+                    <div style="display:flex;justify-content:center;margin:8px 0;">
+                        <img src="data:image/png;base64,@_mfaKurulum.Value.Qr" alt="Doğrulama uygulaması QR kodu" style="width:200px;height:200px;background:#fff;padding:6px;border-radius:8px;" />
+                    </div>
+                    <p class="dw-hint">QR okutamıyorsanız uygulamaya elle girin: <code style="user-select:all;word-break:break-all;">@_mfaKurulum.Value.Gizli</code></p>
+                }
+                <label class="dw-label">Uygulamadaki 6 haneli kod</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="text" inputmode="numeric" placeholder="123456" @bind="_totp" @bind:event="oninput" @onkeyup="OnKeyMfaKur"
+                           autocomplete="one-time-code" maxlength="6" />
+                </div>
+                <button class="dw-btn" @onclick="DoMfaOnayla" disabled="@(_busy || _mfaKurulum is null)">@(_busy ? "Doğrulanıyor…" : "ETKİNLEŞTİR")</button>
+            }
+            else if (_step == 8)
+            {
+                @* ⭐ M-01: kurtarma kodları YALNIZ BİR KEZ gösterilir (sunucuda yalnız özetleri durur). *@
+                <h1 class="dw-title">Kurtarma Kodları</h1>
+                <p class="dw-sub">İki adımlı giriş açıldı. Telefonunuz kaybolursa bu kodlardan biriyle girebilirsiniz; her kod <b>bir kez</b>
+                    kullanılır. Kodları yazdırıp ya da güvenli bir yere not edip saklayın — <b>bir daha gösterilmeyecek</b>.</p>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0;font-family:monospace;font-size:15px;user-select:all;">
+                    @foreach (var k in _kurtarmaKodlari) { <div style="padding:6px 8px;border:1px solid rgba(128,128,128,.35);border-radius:6px;text-align:center;">@k</div> }
+                </div>
+                <button class="dw-btn" @onclick="KurtarmaKodlariTamam">KODLARI SAKLADIM, DEVAM</button>
             }
             else if (_step == 2)
             {
@@ -587,6 +634,9 @@
         3 => "Adım 3 / 3 · Şube",
         4 => "Güvenlik · Şifre belirleme",
         5 => "Güvenlik · Özel kod",
+        6 => "Güvenlik · Doğrulama kodu",
+        7 => "Güvenlik · İki adımlı giriş",
+        8 => "Güvenlik · Kurtarma kodları",
         _ => "",
     };
 
@@ -621,29 +671,56 @@
         _busy = true;
         try
         {
-            var (err, data) = await Api.AuthenticateAsync(_username.Trim(), _password);
+            var (err, data, mfa) = await Api.AuthenticateAsync(_username.Trim(), _password);
+            // ⭐ M-01: şifre doğru, hesapta iki adımlı giriş açık → kod adımı (hata metni gösterilmez, kod henüz girilmedi).
+            if (mfa) { _totp = ""; _step = 6; return; }
             if (err is not null || data is null) { _error = err ?? "Giriş başarısız."; return; }
-            _authData = data;
-            _isSuperAdmin = data.IsSuperAdmin;
-
-            // GÜVENLİK: yeni kullanıcı / admin-reset → önce kendi şifresini belirlemek zorunda (Adım 4).
-            if (data.MustChangePassword) { _newPass = ""; _newPass2 = ""; _step = 4; return; }
-
-            // Süper admin: önce FİRMA seçer (Adım 2). Diğerleri doğrudan şube seçimine (Adım 3).
-            if (data.IsSuperAdmin && data.Companies is { Count: > 0 })
-            {
-                _companies = data.Companies;
-                _selectedCompanyId = null;
-                _step = 2;
-            }
-            else
-            {
-                LoadBranchStep(data);
-                _step = 3;
-            }
+            GirisDevam(data);
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    // ── ⭐ M-01 ADIM 6: iki adımlı giriş kodu ──
+    private string _totp = "";
+    private async Task OnKeyTotp(KeyboardEventArgs e) { if (e.Key == "Enter") await DoTotp(); }
+    private async Task DoTotp()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_totp)) { _error = "Doğrulama kodunu girin."; return; }
+        _busy = true;
+        try
+        {
+            var (err, data, _) = await Api.AuthenticateAsync(_username.Trim(), _password, _totp.Trim());
+            if (err is not null || data is null) { _error = err ?? "Doğrulama kodu hatalı."; _totp = ""; return; }
+            _totp = "";
+            GirisDevam(data);
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Kimlik (ve gerekiyorsa kod) doğrulandı → ilk şifre / firma / şube adımı.</summary>
+    private void GirisDevam(LoginResponse data)
+    {
+        _authData = data;
+        _isSuperAdmin = data.IsSuperAdmin;
+
+        // GÜVENLİK: yeni kullanıcı / admin-reset → önce kendi şifresini belirlemek zorunda (Adım 4).
+        if (data.MustChangePassword) { _newPass = ""; _newPass2 = ""; _step = 4; return; }
+
+        // Süper admin: önce FİRMA seçer (Adım 2). Diğerleri doğrudan şube seçimine (Adım 3).
+        if (data.IsSuperAdmin && data.Companies is { Count: > 0 })
+        {
+            _companies = data.Companies;
+            _selectedCompanyId = null;
+            _step = 2;
+        }
+        else
+        {
+            LoadBranchStep(data);
+            _step = 3;
+        }
     }
 
     // ── ADIM 4: İLK GİRİŞ şifre belirleme (yeni kullanıcı / admin-reset) ──
@@ -699,10 +776,60 @@
             var err = await Api.PostAsync("/api/auth/special-code", new { code = _code1.Trim() });
             if (err is not null) { _error = "Özel kod kaydedilemedi: " + err; return; }
             _code1 = ""; _code2 = "";
+            if (await MfaKurulumuGerekliAsync()) { await MfaKurulumBaslatAsync(); _step = 7; return; }   // ⭐ M-01
             Nav.NavigateTo("/", forceLoad: true);
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    // ── ⭐ M-01 ADIM 7–8: iki adımlı giriş kurulumu (yalnız süper admin, bir kez) ──
+    private (string Qr, string Gizli)? _mfaKurulum;
+    private List<string> _kurtarmaKodlari = new();
+    private async Task OnKeyMfaKur(KeyboardEventArgs e) { if (e.Key == "Enter") await DoMfaOnayla(); }
+
+    /// <summary>Hata olursa akışı KESME (false) — giriş engellenmez; bir sonraki girişte yine sorulur.</summary>
+    private async Task<bool> MfaKurulumuGerekliAsync()
+    {
+        if (!Auth.IsSuperAdmin) return false;
+        try
+        {
+            var st = await Api.GetObjectAsync("/api/auth/mfa/status");
+            bool B(string ad) => st.TryGetProperty(ad, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True;
+            return B("canSetup") && B("serverReady") && !B("enabled");
+        }
+        catch { return false; }
+    }
+
+    private async Task MfaKurulumBaslatAsync()
+    {
+        _totp = ""; _mfaKurulum = null; _error = null;
+        var (err, d) = await Api.PostJsonWithErrorAsync("/api/auth/mfa/setup", new { });
+        if (err is not null || d is null) { _error = "Kurulum başlatılamadı: " + (err ?? "yanıt yok"); return; }
+        _mfaKurulum = (d.Value.GetProperty("qrPng").GetString() ?? "", d.Value.GetProperty("secret").GetString() ?? "");
+    }
+
+    private async Task DoMfaOnayla()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_totp)) { _error = "Uygulamadaki 6 haneli kodu girin."; return; }
+        _busy = true;
+        try
+        {
+            var (err, d) = await Api.PostJsonWithErrorAsync("/api/auth/mfa/confirm", new { code = _totp.Trim() });
+            if (err is not null || d is null) { _error = err ?? "Doğrulama kodu hatalı."; _totp = ""; return; }
+            _kurtarmaKodlari = d.Value.GetProperty("recoveryCodes").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+            _totp = ""; _mfaKurulum = null;
+            _step = 8;
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private void KurtarmaKodlariTamam()
+    {
+        _kurtarmaKodlari = new();
+        Nav.NavigateTo("/", forceLoad: true);
     }
 
     // ── ADIM 2: (süper admin) firma seç → o firma bağlamında yeni token + şubeler ──
@@ -735,7 +862,7 @@
     {
         _step = 1; _error = null;
         _selectedCompanyId = null; _branchId = null; _branchPassword = null;
-        _newPass = ""; _newPass2 = "";
+        _newPass = ""; _newPass2 = ""; _totp = "";
     }
 
     // Şube adımından geri: süper admin ise firma seçimine, değilse kimliğe.
@@ -774,6 +901,8 @@
             await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
             // Süper adminin özel kodu yoksa ŞİMDİ oluşturulur (ADR-083). Diğer rollerde bu adım hiç çıkmaz.
             if (await NeedsSpecialCodeAsync()) { _code1 = ""; _code2 = ""; _step = 5; return; }
+            // ⭐ M-01: süper adminde iki adımlı giriş kurulu değilse ŞİMDİ kurulur (sunucu anahtarı hazırsa).
+            if (await MfaKurulumuGerekliAsync()) { await MfaKurulumBaslatAsync(); _step = 7; return; }
             Nav.NavigateTo("/", forceLoad: true);
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }

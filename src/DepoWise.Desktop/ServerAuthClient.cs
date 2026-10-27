@@ -24,7 +24,8 @@ public static class ServerAuthClient
 
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 
-    public enum AuthState { Ok, WrongPassword, Offline }
+    /// <summary>⭐ M-01: <c>MfaRequired</c> = şifre doğru, hesapta iki adımlı giriş açık → kod istenir (ya da girilen kod hatalı).</summary>
+    public enum AuthState { Ok, WrongPassword, Offline, MfaRequired }
     /// <summary>
     /// Sunucu kimlik doğrulama sonucu.
     ///
@@ -34,7 +35,37 @@ public static class ServerAuthClient
     /// öneriyordu. Çevrimiçi girişte artık otorite doğrudan buradan gelir.
     /// </summary>
     public readonly record struct AuthResult(AuthState State, string? CompanyId,
-        string? BranchId = null, IReadOnlyList<string>? ScopeBranchIds = null);
+        string? BranchId = null, IReadOnlyList<string>? ScopeBranchIds = null, string? Mesaj = null);
+
+    // ── ⭐ M-01: iki adımlı giriş — çevrimdışı giriş kapısı ─────────────────────────────────────────
+    // Kod yalnız sunucuda doğrulanır (gizli bilgi masaüstüne inmez). Bu yüzden kodu açık hesap internetsiz GİREMEZ; aksi hâlde
+    // şifreyi bilen biri ağı kesip yerel girişle ikinci adımı atlardı. Bilgi her çevrimiçi girişte sunucudan tazelenir.
+    private static string MfaAnahtari(string userId) => "mfa_user:" + userId;
+
+    /// <summary>Bu kullanıcının hesabında iki adımlı giriş açık mı (son çevrimiçi girişte sunucunun söylediği)?</summary>
+    public static bool IkiAdimAcik(string userId)
+    {
+        try { return DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, MfaAnahtari(userId)) == "1"; }
+        catch { return false; }
+    }
+
+    private static void IkiAdimBilgisiniYaz(string userId, bool acik)
+    {
+        try { DesktopServices.Settings.Set(DesktopServices.DefaultCompanyId, MfaAnahtari(userId), acik ? "1" : null, userId); }
+        catch { /* yazılamazsa bir sonraki çevrimiçi girişte tekrar denenir */ }
+    }
+
+    /// <summary>Sunucunun iki adımlı giriş yanıtı mı? (401/429 + mfaRequired) — metni döndürür.</summary>
+    private static string? IkiAdimYaniti(string govde)
+    {
+        try
+        {
+            using var d = JsonDocument.Parse(govde);
+            if (!(d.RootElement.TryGetProperty("mfaRequired", out var m) && m.ValueKind == JsonValueKind.True)) return null;
+            return d.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
+        }
+        catch { return null; }
+    }
 
     public sealed record LoginCompany(string Id, string Name) { public override string ToString() => Name; }
     /// <summary>ŞB-01: <paramref name="Kind"/> ve <paramref name="ParentId"/> sona EKLENDİ (geriye uyumlu —
@@ -317,14 +348,14 @@ public static class ServerAuthClient
     /// <summary>SUNUCU ile kimlik doğrula (web KAYNAK-OTORİTE). Sunucuya erişilirse: parola doğruysa kullanıcıyı
     /// yerele yazar (hash güncellenir) → Ok + firma id; parola/kullanıcı yanlışsa → WrongPassword. Sunucuya
     /// erişilemiyorsa → Offline (çağıran yerel DB ile devam eder). companyId BOŞ → tüm firmalar taranır.</summary>
-    public static async Task<AuthResult> AuthenticateAsync(string username, string password)
+    public static async Task<AuthResult> AuthenticateAsync(string username, string password, string? totpCode = null)
     {
         var url = ResolveServerUrl();
         if (string.IsNullOrWhiteSpace(url)) return new(AuthState.Offline, null);
         var baseUrl = url!.TrimEnd('/');
         try
         {
-            var json = JsonSerializer.Serialize(new { companyId = "", username, password });
+            var json = JsonSerializer.Serialize(new { companyId = "", username, password, totpCode });
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync(baseUrl + "/api/auth/sync-login", content);
 
@@ -349,14 +380,29 @@ public static class ServerAuthClient
                     DesktopServices.Auth.ImportUserScopes(bundle); // şube kapsamı
                 }
                 catch { /* yerel ayna eksik kalabilir; oturum yine de ÇEVRİMİÇİ kurulur */ }
+                IkiAdimBilgisiniYaz(bundle.UserId, YanittaIkiAdim(body));   // ⭐ M-01: çevrimdışı giriş kapısı için
                 await StoreTokenAsync(baseUrl, username, password, YanittakiJeton(body)); // Eşitle için JWT sakla
                 return new(AuthState.Ok, bundle.CompanyId, bundle.BranchId, bundle.ScopeBranchIds);
             }
+            // ⭐ M-01: kod istendi / kod hatalı / çok deneme (429) → KOD adımı. 429 burada "çevrimdışı" SAYILMAZ (yerel girişe düşmez).
+            if (resp.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.TooManyRequests
+                && IkiAdimYaniti(await resp.Content.ReadAsStringAsync()) is { } mfaMetni)
+                return new(AuthState.MfaRequired, null, Mesaj: mfaMetni);
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 return new(AuthState.WrongPassword, null); // web'de parola değişmiş/yanlış → yerel de reddedilir
             return new(AuthState.Offline, null); // 5xx vb. → çevrimdışı gibi davran
         }
         catch { return new(AuthState.Offline, null); } // ağ yok → çevrimdışı
+    }
+
+    private static bool YanittaIkiAdim(string govde)
+    {
+        try
+        {
+            using var d = JsonDocument.Parse(govde);
+            return d.RootElement.TryGetProperty("mfa", out var m) && m.ValueKind == JsonValueKind.True;
+        }
+        catch { return false; }
     }
 
     /// <summary>İLK GİRİŞ şifre belirleme: saklanan token (AuthenticateAsync sonrası) ile sunucuda kendi şifresini

@@ -47,7 +47,8 @@ public class ZorunluGuncellemeTests : IAsyncLifetime
 
     private ServerServices Svc => _host.Services.GetRequiredService<ServerServices>();
 
-    private static UpdatePackage Paket(string v, string min = "0.0.0") => new(v, new string('a', 64), 1, min, null, false, "http://x");
+    // ⭐ M-01: politika yalnız İMZALI yayını sayar (imzasız → Yok, PaketImzasiTests.PI4) → test paketleri test anahtarıyla imzalı.
+    private static UpdatePackage Paket(string v, string min = "0.0.0") => TestImza.Paket(v, min) with { DownloadUrl = "http://x" };
 
     [Fact]
     public void ZG1_Karar()

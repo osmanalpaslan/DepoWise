@@ -35,6 +35,35 @@ public sealed class ReleaseStore
         return path;
     }
 
+    /// <summary>⭐ M-01 (2026-10-27): paketi önce geçici dosyaya yazar, SHA-256'sını hesaplar; bildirilen özetle TUTARSA yerine koyar.
+    /// Tutmazsa geçici dosya silinir, yayındaki paket EZİLMEZ ve null döner (imza özete bağlı → özet de dosyaya bağlı olmalı).</summary>
+    public async Task<string?> SaveVerifiedAsync(string version, Stream content, string expectedSha256Hex, CancellationToken ct)
+    {
+        var path = Path.Combine(_root, $"DepoWise-{Safe(version)}.pkg");
+        var tmp = path + ".yukleniyor";
+        string actual;
+        await using (var fs = File.Create(tmp))
+        {
+            using var sha = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+            var buf = new byte[81920];
+            int n;
+            while ((n = await content.ReadAsync(buf, ct)) > 0)
+            {
+                sha.AppendData(buf, 0, n);
+                await fs.WriteAsync(buf.AsMemory(0, n), ct);
+            }
+            actual = Convert.ToHexString(sha.GetHashAndReset());
+        }
+        if (!string.Equals(actual, expectedSha256Hex?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            try { File.Delete(tmp); } catch { }
+            return null;
+        }
+        File.Move(tmp, path, overwrite: true);
+        PruneOld();
+        return path;
+    }
+
     /// <summary>En yeni KeepCount paket dışındaki .pkg dosyalarını siler (en son yazılan = en yeni).
     /// Temizlik başarısız olursa yayın bozulmaz (sessiz geçilir; bir sonraki yayında tekrar denenir).</summary>
     private void PruneOld()

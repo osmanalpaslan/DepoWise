@@ -1110,7 +1110,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                     SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
                     var dl = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
                         p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
-                    AutoUpdateService.SetPending(dl, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
+                    AutoUpdateService.SetPending(dl, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes, latest.Signature);
                     SetConn("#3B82F6", "İndirildi — yeniden başlatma bekleniyor.");
                 }
 

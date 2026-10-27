@@ -4,9 +4,15 @@
 > ilerledikçe doldurulur; "hatırlatma" maddeleri kullanıcı kararıyla ertelenmiş ama yayından önce mutlaka konuşulacak işlerdir.
 
 ## A) Kullanıcının "canlıya alırken hatırlat" dediği maddeler
-- [ ] **K-20 / M-01 — Güncelleme paketlerinin dijital imzası + süper admin için iki adımlı giriş (MFA).**
-  Kullanıcı 2026-10-13'te "şimdi değil (b), gerçekten canlıya alınacağı zaman hatırlat" dedi.
-  Risk (değişmedi): süper admin şifresi sızarsa tüm masaüstlerine sahte güncelleme kurulabilir (04 G4-1, F-030).
+- [x] **K-20 / M-01 — Güncelleme paketlerinin dijital imzası + süper admin için iki adımlı giriş (MFA).** 2026-10-27 kullanıcı
+  kararıyla YAPILDI (kendi imzamız + Google Authenticator, ücretsiz). Yayın günü adımları:
+  1. `DEPOWISE_MFA_ANAHTARI` (rastgele 32 bayt, base64; ekrana yazılmaz) → `flyctl secrets set … -a depowise-erp`. Anahtar ayrıca
+     özel hafıza deposuna. Yoksa kurulum yapılamaz (giriş etkilenmez).
+  2. Masaüstü paketi `publish_release.mjs … --min <yeni sürüm>` ile İMZALI yayınlanır; `/api/releases/latest` → imzalı=evet.
+  3. Kurulum aracı (AlpnexSetup.exe) yeni sürümle derlenip `publish_setup.mjs` ile İMZALI yüklenir (imza doğrulayan sürüm).
+  4. Süper admin ilk web girişinde iki adımlı girişi kurar (QR + kurtarma kodları kullanıcıda). Yayın betiğinin girişi için gizli
+     anahtar `DEPOWISE_ADMIN_TOTP` (kullanıcı ortam değişkeni) ya da her yayında `DEPOWISE_ADMIN_KOD`.
+  5. Gizli imza anahtarının yedeği (kaybolursa masaüstlerine güncelleme gönderilemez) — kullanıcıyla kararlaştırılır.
 - [ ] **K-15 — `/api/public/companies` giriş öncesi tüm firma adlarını veriyor.** Kullanıcı "sorun değil" dedi; yeni
   müşteri eklenmeden önce bir kez daha sorulacak (müşteri adlarının herkese açık olması).
 - [ ] **M-42 — Bilgisayar kapalıyken hatırlatma** (kullanıcı: "Daha sonra").

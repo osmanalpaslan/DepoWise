@@ -37,9 +37,12 @@ public sealed class UpdateService
         if (latest is null || !SemVer.TryParse(latest.Version, out var lv) || !SemVer.TryParse(current, out var cv))
             return new UpdateCheckResult(false, current, latest?.Version, false, false);
 
+        // ⭐ M-01: imzası geçersiz yayın sunulmaz (indirilmez, zorunluluk doğurmaz); yalnız uyarı bayrağı kalkar.
+        if (!PaketImzasi.Dogrula(latest.Version, latest.ChecksumSha256, latest.Signature))
+            return new UpdateCheckResult(false, current, latest.Version, false, true);
         var available = lv.CompareTo(cv) > 0;
         bool belowMin = SemVer.TryParse(latest.MinSupportedVersion, out var minV) && cv.CompareTo(minV) < 0;
-        return new UpdateCheckResult(available, current, latest.Version, belowMin, !latest.Signed);
+        return new UpdateCheckResult(available, current, latest.Version, belowMin, false);
     }
 
     public static bool VerifyChecksum(byte[] content, string expectedSha256Hex)
@@ -69,6 +72,17 @@ public sealed class UpdateService
 
         if (!VerifyChecksum(content, expectedSha256Hex!))
             throw new UpdateFailedException("Paket checksum doğrulamasını geçemedi (bozuk indirme).");
+    }
+
+    /// <summary>
+    /// ⭐ M-01 (K-20, 2026-10-27) — GERÇEK KURULUM KAPISI: özet (bozuk indirme) + İMZA (resmi yayın mı). İkisi de FAIL-CLOSED.
+    /// Özeti de paketi de sunucu verir; imza ise yalnız yayın bilgisayarındaki gizli anahtarla üretilebilir.
+    /// </summary>
+    public static void RequireSignedPackage(byte[] content, string version, string? expectedSha256Hex, string? signature)
+    {
+        RequireVerifiedPackage(content, expectedSha256Hex);
+        if (!PaketImzasi.Dogrula(version, expectedSha256Hex, signature))
+            throw new UpdateFailedException(PaketImzasi.RetMetni);
     }
 
     /// <summary>

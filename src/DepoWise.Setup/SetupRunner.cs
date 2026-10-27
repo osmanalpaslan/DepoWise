@@ -73,6 +73,9 @@ public sealed class SetupRunner
             // ── 2) DOĞRULA — FAIL-CLOSED, atlanamaz ──
             progress.Report(new SetupState(SetupStep.Dogrulama, "Paket doğrulanıyor…", 100));
             await Task.Run(() => SetupPackageVerifier.RequireVerifiedPackage(tmpZip, pkg.Sha256, pkg.SizeBytes), ct);
+            // ⭐ M-01: özet tutsa da paket RESMİ yayın olmalı (imza gizli anahtarla üretilir; sunucuyu ele geçirmek yetmez).
+            if (!DepoWise.Application.Update.PaketImzasi.Dogrula(pkg.Version, pkg.Sha256, pkg.Signature))
+                throw new SetupVerificationException("IMZA_GECERSIZ", DepoWise.Application.Update.PaketImzasi.RetMetni);
 
             // ── 3) KUR ──
             progress.Report(new SetupState(SetupStep.Kurulum, "Kuruluyor…", 0));

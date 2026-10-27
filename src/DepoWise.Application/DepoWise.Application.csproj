@@ -4,6 +4,11 @@
     <ProjectReference Include="..\DepoWise.Domain\DepoWise.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- M-01: test anahtarıyla imzalı paketleri test sunucusunda yayınlamak için (PaketImzasi.EkAnahtarlar). -->
+    <InternalsVisibleTo Include="DepoWise.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

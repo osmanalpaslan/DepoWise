@@ -39,6 +39,14 @@ cd "$D" && flyctl deploy --config fly.web.toml --remote-only    # depowise-web (
 Deploy hatasında: log oku (`flyctl logs -a <app>`), düzelt, commit, YENİ temiz kopyadan tekrar. Bellek/swap ayarını
 fly.web.toml'da ÜST düzeyde tut (bir `[bölüm]` altına yazılırsa yok sayılır).
 
+## 3b. ⭐ M-01 (2026-10-27): İMZA + İKİ ADIMLI GİRİŞ
+- Paket ve kurulum aracı İMZALI yayınlanır; sunucu/masaüstü imzasızı reddeder. Gizli anahtar:
+  `~/.claude-yedek/anahtarlar/DepoWise_paket_imza_ozel.pem` (ya da `DEPOWISE_IMZA_ANAHTARI`). Yoksa yayın YAPILAMAZ — yeni anahtar
+  üretme (`paket_imza_anahtari_olustur.mjs` üzerine yazmaz); kullanıcıya sor.
+- Süper adminde iki adımlı giriş açıksa betik kodu `DEPOWISE_ADMIN_TOTP` (gizli anahtar) ya da `DEPOWISE_ADMIN_KOD` ile alır.
+- Zorunlu güncelleme gerekiyorsa `--min <sürüm>`; rutin yayında VERİLMEZ (7 günlük erteleme yeter).
+- Kurulum aracı: `dotnet publish src/DepoWise.Setup …` → `node scripts/publish_setup.mjs <AlpnexSetup.exe>` (imzalı).
+
 ## 4. Masaüstü sürümü (yalnız masaüstü kodu değiştiyse)
 Sürüm = `GuncellemeNotlari` en üst notundaki `MasaustuSurumu` (son yayından +1, ör. 1.0.196 → 1.0.197).
 ```powershell

@@ -32,6 +32,11 @@ public static class GuncellemePolitikasi
             || son.CompareTo(cv) <= 0)
             return new GuncellemeDurumu(GuncellemeKarari.Yok, 0, null);
 
+        // ⭐ M-01: imzası geçersiz yayın "güncelleme yok" sayılır — kurulamayacak bir paket zorunlu güncellemeye dönüşüp
+        // masaüstünü kilitlemesin (imzasız sürüm zaten kurulmaz; sunucu da artık kabul etmez).
+        if (!PaketImzasi.Dogrula(enSon.Version, enSon.ChecksumSha256, enSon.Signature))
+            return new GuncellemeDurumu(GuncellemeKarari.Yok, 0, null);
+
         if (SemVer.TryParse(enSon.MinSupportedVersion, out var min) && cv.CompareTo(min) < 0)
             return new GuncellemeDurumu(GuncellemeKarari.Zorunlu, 0,
                 $"Bu sürüm ({cv}) artık desteklenmiyor (en düşük {min}). Güncelleme kritik bir düzeltme içeriyor ve zorunludur.");

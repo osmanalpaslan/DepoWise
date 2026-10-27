@@ -25,6 +25,8 @@ public sealed class ApiTestHost : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Tohum (seed) süper admin — firma/kullanıcı kurmak için.</summary>
     public const string SeedUser = "superadmin";
     public const string SeedPassword = "ApiTest!2026";
+    /// <summary>⭐ M-01: test sunucusunun iki adımlı giriş şifreleme anahtarı (32 bayt, base64) — üretim anahtarı DEĞİL.</summary>
+    public const string MfaAnahtari = "dGVzdC1tZmEtYW5haHRhcmktMzItYmF5dC0wMTIzNDU=";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -36,6 +38,7 @@ public sealed class ApiTestHost : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("DEPOWISE_SEED_ADMIN_PASSWORD", SeedPassword);
         Environment.SetEnvironmentVariable("DEPOWISE_JWT_KEY", "api-test-jwt-key-0123456789-0123456789");
         Environment.SetEnvironmentVariable("DEPOWISE_PG_URL", null);   // ← canlı/PG'ye bağlanmayı ENGELLE
+        Environment.SetEnvironmentVariable("DEPOWISE_MFA_ANAHTARI", MfaAnahtari);   // ⭐ M-01: iki adımlı giriş (test anahtarı)
         File.Copy(SablonVeritabani(), Path.Combine(_dataDir, "depowise-server.db"));
     }
 

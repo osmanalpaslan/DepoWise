@@ -26,6 +26,8 @@ public static class AutoUpdateService
     public static byte[]? PendingBytes { get; private set; }
     public static string? PendingVersion { get; private set; }
     public static string? PendingChecksum { get; private set; }
+    /// <summary>⭐ M-01: bekleyen paketin imzası (kurulumda doğrulanır).</summary>
+    public static string? PendingSignature { get; private set; }
     /// <summary>⭐ 2026-10-11: bekleyen sürümün KULLANICIYA DÖNÜK notu (sunucudaki yayın notu). Güncelleme ÖNCESİ
     /// pencerelerinde "Bu sürümde neler var" olarak gösterilir. Boş olabilir.</summary>
     public static string? PendingNotes { get; private set; }
@@ -51,11 +53,11 @@ public static class AutoUpdateService
         catch { return true; }
     }
 
-    public static void SetPending(byte[] bytes, string version, string checksum, string? notes = null)
-    { PendingBytes = bytes; PendingVersion = version; PendingChecksum = checksum; PendingNotes = notes; }
+    public static void SetPending(byte[] bytes, string version, string checksum, string? notes = null, string? signature = null)
+    { PendingBytes = bytes; PendingVersion = version; PendingChecksum = checksum; PendingNotes = notes; PendingSignature = signature; }
 
     public static void ClearPending()
-    { PendingBytes = null; PendingVersion = null; PendingChecksum = null; PendingNotes = null; }
+    { PendingBytes = null; PendingVersion = null; PendingChecksum = null; PendingNotes = null; PendingSignature = null; }
 
     // ═══ İNDİRİLEN PAKET DİSKTE SAKLANIR (kullanıcı bildirimi 2026-09-07) ═══════════════════════
     //
@@ -179,14 +181,14 @@ public static class AutoUpdateService
             // Önceki oturumda inmiş ve DİSKTE duruyorsa yeniden indirme (checksum doğrulanır).
             if (OnbellektenOku(latest.Version, latest.ChecksumSha256) is { } saklanan)
             {
-                SetPending(saklanan, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
+                SetPending(saklanan, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes, latest.Signature);
                 return true;
             }
 
             status?.Invoke($"Güncelleme indiriliyor (sürüm {latest.Version})…");
             var bytes = await DesktopServices.UpdateDownload.DownloadAsync(
                 latest.DownloadUrl!, p => progress?.Invoke(p));
-            SetPending(bytes, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes);
+            SetPending(bytes, latest.Version, latest.ChecksumSha256, latest.ReleaseNotes, latest.Signature);
             OnbellegeYaz(latest.Version, bytes);
             return true;
         }
@@ -212,7 +214,7 @@ public static class AutoUpdateService
         if (!HasPending) return false;
         try
         {
-            UpdateInstaller.InstallAndRestart(PendingBytes!, PendingVersion!, PendingChecksum!);
+            UpdateInstaller.InstallAndRestart(PendingBytes!, PendingVersion!, PendingChecksum!, PendingSignature);
         }
         catch (Exception ex)
         {

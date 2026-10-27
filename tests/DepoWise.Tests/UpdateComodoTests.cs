@@ -89,15 +89,18 @@ public class UpdateComodoTests : IDisposable
     public void Updater_Check_GuncellemeVarMi_MinSupported_SignedWarning()
     {
         var svc = new UpdateService(_installRoot); // current 0.0.0
-        var pkgSigned = new UpdatePackage("1.0.0", new string('A', 64), 10, "0.5.0", null, Signed: true);
+        var pkgSigned = TestImza.Paket("1.0.0", min: "0.5.0");
         var c1 = svc.Check(pkgSigned);
         Assert.True(c1.UpdateAvailable);
         Assert.False(c1.SignedWarning);
+        Assert.True(c1.BelowMinSupported);      // current 0.0.0 < min 0.5.0
 
-        var pkgUnsigned = pkgSigned with { Signed = false, MinSupportedVersion = "1.0.0" };
+        // ⭐ M-01: imzası doğrulanamayan yayın SUNULMAZ (eskiden yalnız uyarı verip kuruluyordu) ve zorunluluk doğurmaz.
+        var pkgUnsigned = pkgSigned with { Signature = null, MinSupportedVersion = "1.0.0" };
         var c2 = svc.Check(pkgUnsigned);
         Assert.True(c2.SignedWarning);          // imzasız → şeffaf uyarı
-        Assert.True(c2.BelowMinSupported);      // current 0.0.0 < min 1.0.0
+        Assert.False(c2.UpdateAvailable);       // indirilmez/kurulmaz
+        Assert.False(c2.BelowMinSupported);     // kurulamayacak paket zorunlu güncelleme kilidi yaratmaz
     }
 
     // ---- Updater: bozuk paket kurulmaz ----

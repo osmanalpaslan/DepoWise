@@ -6,48 +6,53 @@
 //   DEPOWISE_ADMIN_PASS  - Super Admin sifresi
 //   (istege bagli) DEPOWISE_API - varsayilan https://depowise-erp.fly.dev
 //
+// ⭐ M-01 (2026-10-27): paket IMZALANIR (gizli anahtar: scripts/lib/yayin_ortak.mjs) — sunucu ve masaustu imzasizi reddeder.
+//   Imza ayrica "<zip>.imza" dosyasina yazilir (web "Guncelleme Yonetimi" formuna yapistirmak icin).
+//   Hesapta iki adimli giris aciksa kod DEPOWISE_ADMIN_TOTP / DEPOWISE_ADMIN_KOD ile verilir.
+//   --min X.Y.Z : en dusuk desteklenen surum (eski masaustleri ZORUNLU guncellemeye girer; varsayilan 0.0.0).
+//
 // Kullanim:
-//   node scripts/publish_release.mjs <zipYolu> <surum> "<notlar>"
+//   node scripts/publish_release.mjs <zipYolu> <surum> "<notlar>" [--min X.Y.Z]
 // Ornek:
 //   node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.35.zip 1.0.35 "foto opt + guvenlik + login/sube"
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { superAdminGiris, imzala } from "./lib/yayin_ortak.mjs";
 
 const API = process.env.DEPOWISE_API || "https://depowise-erp.fly.dev";
-const user = process.env.DEPOWISE_ADMIN_USER;
-const pass = process.env.DEPOWISE_ADMIN_PASS;
-const [zipPath, version, notes = ""] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const minIdx = argv.indexOf("--min");
+const minSupported = minIdx >= 0 ? argv[minIdx + 1] : "0.0.0";
+if (minIdx >= 0) argv.splice(minIdx, 2);
+const [zipPath, version, notes = ""] = argv;
 
-if (!user || !pass) { console.error("HATA: DEPOWISE_ADMIN_USER / DEPOWISE_ADMIN_PASS ortam degiskeni yok."); process.exit(1); }
-if (!zipPath || !version) { console.error("HATA: kullanim: node scripts/publish_release.mjs <zipYolu> <surum> \"<notlar>\""); process.exit(1); }
+if (!zipPath || !version) { console.error("HATA: kullanim: node scripts/publish_release.mjs <zipYolu> <surum> \"<notlar>\" [--min X.Y.Z]"); process.exit(1); }
 if (!fs.existsSync(zipPath)) { console.error("HATA: zip bulunamadi: " + zipPath); process.exit(1); }
+if (!/^\d+\.\d+\.\d+$/.test(minSupported || "")) { console.error("HATA: --min X.Y.Z biciminde olmali."); process.exit(1); }
 
-// 1) Login (companyId yok => LoginAnyCompany; sube yok)
-const loginResp = await fetch(`${API}/api/auth/login`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ username: user, password: pass }),
-});
-if (!loginResp.ok) { console.error(`HATA: login ${loginResp.status} - ${await loginResp.text()}`); process.exit(1); }
-const login = await loginResp.json();
-if (!login.token) { console.error("HATA: token alinamadi: " + JSON.stringify(login)); process.exit(1); }
-if (!login.isSuperAdmin) { console.error("HATA: bu kullanici Super Admin degil; surum yayinlama yetkisi yok."); process.exit(1); }
-console.log(`Giris OK (superAdmin, firma=${login.companyName}). Paket yukleniyor...`);
-
-// 2) Checksum + boyut
+// 1) Checksum + boyut + IMZA (girişten önce: anahtar yoksa sunucuya hiç gidilmez)
 const buf = fs.readFileSync(zipPath);
 const checksum = crypto.createHash("sha256").update(buf).digest("hex");
 const size = buf.length;
+let signature;
+try { signature = imzala(version, checksum); } catch (e) { console.error("HATA: imza uretilemedi: " + e.message); process.exit(1); }
+fs.writeFileSync(zipPath + ".imza", signature);
+
+// 2) Login (companyId yok => LoginAnyCompany; sube yok; iki adimli giris kodu gerekirse ortamdan)
+let login;
+try { login = await superAdminGiris(API); } catch (e) { console.error("HATA: " + e.message); process.exit(1); }
+console.log(`Giris OK (superAdmin, firma=${login.companyName}). Paket yukleniyor... (en dusuk desteklenen surum: ${minSupported})`);
 
 // 3) Multipart form ile yayinla
 const form = new FormData();
 form.append("version", version);
 form.append("checksum", checksum);
 form.append("sizeBytes", String(size));
-form.append("minSupportedVersion", "0.0.0");
+form.append("minSupportedVersion", minSupported);
 form.append("releaseNotes", notes);
-form.append("signed", "0");
+form.append("signed", "1");
+form.append("signature", signature);
 form.append("file", new Blob([buf], { type: "application/octet-stream" }), path.basename(zipPath));
 
 const pubResp = await fetch(`${API}/api/releases`, {
@@ -61,7 +66,7 @@ console.log(`YAYINLANDI: surum=${version} checksum=${checksum.slice(0,12)}... bo
 
 // 4) Dogrulama: latest artik bu surum mu?
 const latest = await (await fetch(`${API}/api/releases/latest`)).json();
-console.log(`DOGRULAMA: sunucudaki en guncel surum = ${latest?.version ?? "(yok)"}`);
+console.log(`DOGRULAMA: sunucudaki en guncel surum = ${latest?.version ?? "(yok)"} · imzali=${latest?.signature ? "evet" : "HAYIR"} · en dusuk=${latest?.minSupportedVersion}`);
 
 // ── 5) YEREL ARŞİV TEMİZLİĞİ (kullanıcı isteği 2026-08-11) ──────────────────────────────────
 // SORUN: her yayında artifacts/rc altında bir .zip (~85 MB) + açılmış klasör (~240 MB) kalıyordu.
