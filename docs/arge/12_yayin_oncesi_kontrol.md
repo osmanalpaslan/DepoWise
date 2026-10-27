@@ -69,6 +69,5 @@
 ## D) Yayından sonra (teknik borç, acele yok)
 - M-75 kalanı: `Program.cs` / `ReportService` / `ShellViewModel` bölünmesi, web için tipli API sözleşmesi (`WebApiSozlesmeTests` sessiz kırılmayı yakalıyor).
 - M-40 (ertelendi), M-42 ("Daha sonra").
-- **Tam test koşusu yavaşladı:** testlerin toplam süresi 34.587 sn (2026-10-25) → 68.080 sn (2026-10-27); artış tek sınıfta değil, geneline
-  yayılmış (en ağır: RaporKapsamliTarama 46 dk). Kök neden bulunup kontroller gevşetilmeden hızlandırılacak (yayın öncesi tam koşu
-  bu süreyi doğrudan etkiler).
+- **Tam test koşusu süresi (2026-10-27):** önceki tam koşuya (B7+B8) göre testlerin toplam süresi %20 arttı (56.539 → 68.080 sn; çoğu sınıf aynı, artış ImportFullFields ×3,5 ve Finance ×2,4 — koşu sonundaki kalabalıkta; tek başına 1–3 sn). Asıl kayıp seri kuyrukta: her ApiTestHost testi boş sunucu veritabanını sıfırdan kuruyordu (124 migration + 600.000 turluk tohum şifre özetleri), testler arası ~2,5 sn, toplam ~39 dk (iki koşuda da aynı). ApiTestHost şablon veritabanıyla hızlandırıldı (Ölçüm: ApiTestHost kullanan 77 sınıf 619/619 geçti (19 dk 34 sn); testler arası boşluk test başına ~2,5–3,2 sn → 1,9 sn. Tam koşudaki kazanç bir sonraki tam koşuda ölçülecek.);
+  yayın öncesi tam koşuda yeni süre ölçülür.

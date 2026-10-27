@@ -968,4 +968,6 @@
 - **Z:** `12_yayin_oncesi_kontrol.md` B5–B9 yayın günü notlarıyla tamamlandı (C bölümü: dal birleştirme, 26 migration, güncelleme
   notu, canlıda bekleyen iki hatanın doğrulanması, eşitlemeye katılan tablolar, sağlık kontrolü, masaüstü görünüm, web çalışma şubesi).
   M-01 (paket imzası + süper admin MFA) yayın kararında kullanıcıya hatırlatılacak. **Yayın yapılmadı** (AR-GE yayın yasağı).
-- Bulgu: testlerin toplam süresi iki katına çıktı (34.587 → 68.080 sn, genele yayılı) → hızlandırma iş listesinde (kök neden).
+- Bulgu (ölçüm düzeltildi; ilk not 34.587 sn'lik daha eski koşuyla kıyaslamıştı): önceki tam koşuya (B7+B8) göre testlerin toplam süresi %20 arttı (56.539 → 68.080 sn; çoğu sınıf aynı, artış ImportFullFields ×3,5 ve Finance ×2,4 — koşu sonundaki kalabalıkta; tek başına 1–3 sn). Asıl kayıp seri kuyrukta: her ApiTestHost testi boş sunucu veritabanını sıfırdan kuruyordu (124 migration + 600.000 turluk tohum şifre özetleri), testler arası ~2,5 sn, toplam ~39 dk (iki koşuda da aynı).
+- **Hızlandırma:** ApiTestHost boş sunucu veritabanını süreç başına BİR KEZ şablon olarak kurar (sunucunun kendi açılış yolu); her
+  test taze kopyasını alır → yalıtım aynı, kontrol gevşetilmedi, şifre özeti tur sayısı (600.000) değişmedi. Ölçüm: ApiTestHost kullanan 77 sınıf 619/619 geçti (19 dk 34 sn); testler arası boşluk test başına ~2,5–3,2 sn → 1,9 sn. Tam koşudaki kazanç bir sonraki tam koşuda ölçülecek.

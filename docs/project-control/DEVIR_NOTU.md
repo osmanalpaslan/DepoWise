@@ -13,8 +13,8 @@
 
 ## 2. Sıradaki işler
 B9+Z tam takım 4606/4606 (2 sa 54 dk), arayüz 71/71, yerel tarayıcı 5/5; Z belgesi `docs/arge/12_yayin_oncesi_kontrol.md` hazır.
-1. **Tam koşu hızlandırma:** testlerin toplam süresi iki katına çıktı (34.587 → 68.080 sn, genele yayılı) — kök nedeni bul,
-   kontrolleri gevşetmeden düzelt (ölçüm: `artifacts/dw_tam_b9z.trx` sınıf süreleri).
+1. **Tam koşu hızlandırma — ilk adım TAMAM (2026-10-27):** ApiTestHost şablon veritabanı (seri kuyrukta testler arası ~2,5 sn idi).
+   Yeni tam koşu süresi bir sonraki tam koşuda (yayın öncesi) ölçülür. Kalan aday: koşu sonunda 8 paralel sınıfın kalabalığı.
 2. **Yayın YALNIZ kullanıcı açıkça "canlıya al" derse:** önce M-01 (paket imzası + MFA) ve `12`deki A/C maddeleri hatırlatılır,
    yayın öncesi tam koşu yeniden yapılır, sonra `master`a birleştirme + `yayin` skill'i.
 Ertelenenler: M-01, M-42, M-40. Yayın sonrası: M-75 kalanı. Kaynak: `docs/arge/13_kullanici_secimleri.md`.

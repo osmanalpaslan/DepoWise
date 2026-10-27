@@ -36,6 +36,32 @@ public sealed class ApiTestHost : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("DEPOWISE_SEED_ADMIN_PASSWORD", SeedPassword);
         Environment.SetEnvironmentVariable("DEPOWISE_JWT_KEY", "api-test-jwt-key-0123456789-0123456789");
         Environment.SetEnvironmentVariable("DEPOWISE_PG_URL", null);   // ← canlı/PG'ye bağlanmayı ENGELLE
+        File.Copy(SablonVeritabani(), Path.Combine(_dataDir, "depowise-server.db"));
+    }
+
+    private static readonly object SablonKilidi = new();
+    private static string? _sablon;
+
+    /// <summary>⭐ Tam koşu hızlandırma (2026-10-27): her test aynı boş sunucu veritabanını sıfırdan kuruyordu (124 migration +
+    /// 600.000 turluk iki tohum şifre özeti) — tam koşunun seri kuyruğunda testler arası ~2,5 sn, toplam ~39 dk. Şablon süreç
+    /// başına BİR KEZ, sunucunun kendi açılış yoluyla (<see cref="DepoWise.Api.ServerServices"/>) kurulur; her test onun TAZE
+    /// KOPYASINI alır → yalıtım aynı (her testin kendi dosyası). Açılışta migration/tohum yine çalışır, yalnız yapacak işi kalmaz.</summary>
+    private static string SablonVeritabani()
+    {
+        lock (SablonKilidi)
+        {
+            if (_sablon is not null && File.Exists(_sablon)) return _sablon;
+            var dizin = Path.Combine(Path.GetTempPath(), "depowise_apisablon_" + Guid.NewGuid().ToString("N"));
+            var svc = new DepoWise.Api.ServerServices(dizin);
+            using (var conn = svc.Factory.Create())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";   // her şey ana dosyada olsun (kopya tek dosya)
+                cmd.ExecuteNonQuery();
+            }
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            return _sablon = Path.Combine(dizin, "depowise-server.db");
+        }
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
