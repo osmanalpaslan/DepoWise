@@ -460,6 +460,26 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        // ⭐ 2026-10-27 AR-GE yayını (B1–B9 + M-01): kapsamlı yenileme. Eski masaüstleri ZORUNLU güncellenir (en düşük sürüm 1.0.203).
+        new("2026-10-27-buyuk-yenileme", new DateOnly(2026, 10, 27), "1.0.203", "Büyük yenileme: güvenlik, yeni ekranlar ve daha güvenilir eşitleme", new GuncellemeMaddesi[]
+        {
+            new("Bu güncelleme zorunludur: eski sürümle açılan bilgisayarlar önce güncellenir. Güncellemeden sonra bir kez yeniden giriş yapmanız istenebilir; verileriniz korunur."),
+            new("Güvenlik: güncellemeler artık Alpnex'e özel dijital imza taşır; imzası tutmayan ya da değiştirilmiş bir güncelleme kurulmaz."),
+            new("Güvenlik: süper admin hesabı için iki adımlı giriş — şifrenin yanında telefondaki Google Authenticator uygulamasının 6 haneli kodu istenir. Kurulum ilk web girişinde yapılır."),
+            new("Şube / şantiye şifresi artık her durumda sorulur (internet bağlantısı olmasa da). Şifre değişince açık oturumlar kapanır."),
+            new("Bilgisayarlar arası eşitleme güçlendirildi: zimmet, ekipman taşıma ve günlük kontrol kayıtları artık tüm bilgisayarlarda ve web'de görünür; yalnız değişen kayıtlar indiği için eşitleme daha hızlı."),
+            new("Stok: iki adımlı «yolda» transfer (gönderen gönderir, alan teslim alır), şube dışı çıkışta teslim alma ve kusurlu bildirimi, kör sayım ve sayım taslağı, aynı ürün için çift stok uyarısı, ay kapanışı ile geçmiş döneme kayıt kilidi."),
+            new("Yeni «Asgari Stok Önerileri» ekranı: depo/şantiye bazında asgari miktar belirleyin; altına düşen malzemeler listelenir ve seçtiklerinizden tek tıkla malzeme talebi oluşturulur."),
+            new("Satın alma ve fatura: faturayı mal kabulden oluşturma, e-Fatura dosyasını içe alma, muhasebeciye verilecek Excel dosyası, olası mükerrer fatura uyarısı, otomatik sipariş/irsaliye numarası ve tedarikçilerin tek yerde tutulması."),
+            new("Talep ve onay: talepten stoktan gönderme ya da sipariş açma; tüm onaylar tek ekranda ve toplu onay."),
+            new("Araç ve ekipman: toplu yakıt girişi ve şüpheli yakıt uyarısı, araçtan arıza bildirip iş emri açma, sayaç geçmişi, «ya da gün» bakım planı, kira sözleşmesi, periyodik kontrol, günlük kontrol listesi, duruş raporu."),
+            new("Zimmet: iade tarihi, imzalı zimmet tutanağı (PDF), zimmet kiti ve formlarda QR kodu okutma."),
+            new("Günlük Faaliyet kayıtları tüm alanlarıyla düzeltilebilir; bakım malzemesi değişince stok kendiliğinden düzelir."),
+            new("Raporlar: yeni Eksi Stok İstisna, Ay Sonu Stok Değeri ve Makine Kullanım Oranı raporları; rapor görünümünü kaydetme, PDF ve yazdırma. Yoğun listelerde Excel ve yazdır düğmeleri."),
+            new("Görünüm ve kullanım: daha okunaklı renkler ve yazı tipi, tüm ekranlarda aynı düğme sırası (İptal … Kaydet), klavye kısayolları ve yeni «Hakkında» ekranı."),
+            new("Web'de personel seçim listelerinin boş gelmesi düzeltildi; web'den stok girişi ve çıkışı yeniden yapılabilir. Aynı işlemde iki kez onay penceresi açılması da giderildi.", Web),
+            new("Kayıt kartlarında ilgili belgeler görünür; stok hareketinden kaynağına (sipariş, talep, iş emri, fatura) tek tıkla gidilir."),
+        }),
         // 1.0.201 hotfix (2026-10-13, ayrı dalda yayınlandı) ile .NET 10 yayını birleşti → altyapı notu 1.0.202.
         new("2026-10-17-altyapi", new DateOnly(2026, 10, 17), "1.0.202", "Güvenlik ve altyapı güncellemesi", new GuncellemeMaddesi[]
         {
