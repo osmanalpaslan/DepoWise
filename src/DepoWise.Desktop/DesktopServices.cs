@@ -126,6 +126,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Accounting.TedarikciKopruService TedarikciKopru { get; private set; } = null!;   // ⭐ M-53
     public static DepoWise.Infrastructure.Accounting.EFaturaService EFatura { get; private set; } = null!;   // ⭐ M-52
     public static DepoWise.Infrastructure.Accounting.MuhasebeAktarimService MuhasebeAktarim { get; private set; } = null!;   // ⭐ M-52 (2/2)
+    public static DepoWise.Infrastructure.Accounting.MukerrerFaturaService MukerrerFatura { get; private set; } = null!;   // ⭐ M-82
     public static DepoWise.Infrastructure.Operations.YakitSupheService YakitSuphe { get; private set; } = null!;   // ⭐ M-44
     public static DepoWise.Infrastructure.Reporting.KodOkutmaService KodOkutma { get; private set; } = null!;   // ⭐ M-49
     public static DepoWise.Infrastructure.WorkOrders.WorkOrderService WorkOrders { get; private set; } = null!;   // EMR-01
@@ -292,6 +293,7 @@ public static class DesktopServices
         TedarikciKopru = new DepoWise.Infrastructure.Accounting.TedarikciKopruService(Factory, clock);   // ⭐ M-53
         EFatura = new DepoWise.Infrastructure.Accounting.EFaturaService(Factory, Parties, Invoices);   // ⭐ M-52
         MuhasebeAktarim = new DepoWise.Infrastructure.Accounting.MuhasebeAktarimService(Factory, clock);   // ⭐ M-52 (2/2)
+        MukerrerFatura = new DepoWise.Infrastructure.Accounting.MukerrerFaturaService(Factory, clock);   // ⭐ M-82
         YakitSuphe = new DepoWise.Infrastructure.Operations.YakitSupheService(Factory);   // ⭐ M-44
         KodOkutma = new DepoWise.Infrastructure.Reporting.KodOkutmaService(Factory);   // ⭐ M-49
         WorkOrders = new DepoWise.Infrastructure.WorkOrders.WorkOrderService(Factory, clock);

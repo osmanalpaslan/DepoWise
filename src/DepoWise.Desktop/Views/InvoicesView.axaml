@@ -73,13 +73,41 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <ctrl:SelectionBar Grid.Row="1" Margin="0,12,0,0" SelectedCount="{Binding SeciliSayisi}">
+        <StackPanel Grid.Row="1" Margin="0,12,0,0" Spacing="8">
+        <!-- ⭐ M-82: olası mükerrer faturalar -->
+        <ctrl:InfoBar Kind="Warning" Title="Olası mükerrer fatura" Message="{Binding MukerrerUyarisi}"
+                      ActionText="Göster / Gizle" ActionCommand="{Binding MukerrerGosterCommand}" IsVisible="{Binding MukerrerVar}"/>
+        <ItemsControl ItemsSource="{Binding MukerrerGruplari}" IsVisible="{Binding MukerrerAcik}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="acc:MukerrerGrup">
+                    <Border Classes="Panel" Padding="12,8" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Baslik}" FontWeight="SemiBold"/>
+                                <ItemsControl ItemsSource="{Binding Faturalar}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="acc:MukerrerFatura">
+                                            <SelectableTextBlock Classes="Helper" Text="{Binding Metin, StringFormat='• {0}'}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Mükerrer Değil" VerticalAlignment="Center"
+                                    Command="{Binding $parent[UserControl].((vm:InvoicesViewModel)DataContext).MukerrerDegilIsaretleCommand}" CommandParameter="{Binding}"
+                                    ToolTip.Tip="Bu faturalar farklı faturalardır — uyarıdan çıkar (firma geneli). Yanlış girilen varsa onu listeden iptal edin."/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ctrl:SelectionBar SelectedCount="{Binding SeciliSayisi}">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="Danger" Content="İptal Et" Command="{Binding OpenCancelPanelCommand}"
                         IsEnabled="{Binding CanCancelSelected}" IsVisible="{Binding CanEdit}"
                         ToolTip.Tip="Fatura silinmez; ters stok ve ters cari kaydı üretilerek etkisi sıfırlanır."/>
             </StackPanel>
         </ctrl:SelectionBar>
+        </StackPanel>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,16,460" Margin="0,16,0,0">
 

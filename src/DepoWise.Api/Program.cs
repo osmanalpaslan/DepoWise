@@ -3060,6 +3060,19 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
 
 // ⭐ M-53 (AR-GE 2026-10-26, F-059): Tanımlar ↔ Cari eşlenmemiş tedarikçiler (eski veri) + yönetici toplu eşleme (masaüstüyle aynı servis).
 // ⭐ M-52 (AR-GE 2026-10-27, F-141): e-Fatura (UBL-TR XML) içe alma — önizleme + onaylı kayıt (masaüstüyle aynı servis).
+// ⭐ M-82 (AR-GE 2026-10-27, F-183): olası mükerrer faturalar + "mükerrer değil" kararı (masaüstüyle aynı servis).
+app.MapGet("/api/invoices/possible-duplicates", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.MukerrerFatura.Gruplar(s).Select(g => new
+    {
+        kesin = g.Kesin, baslik = g.Baslik,
+        faturalar = g.Faturalar.Select(f => new { id = f.Id, metin = f.Metin }),
+    })) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/invoices/possible-duplicates/dismiss", (HttpContext c, MukerrerDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.MukerrerFatura.MukerrerDegil(s, d.Ids ?? new List<string>());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 // ⭐ M-52 (2/2): muhasebe aktarım dosyası (genel Excel: Bilgi, Faturalar, KDV Dökümü, Cariler) — dönem sunucuda hesaplanır.
 app.MapGet("/api/invoices/accounting-export", (HttpContext c, string? donem) =>
 {
@@ -6065,7 +6078,8 @@ record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchI
 record TransitReceiveDto(string? OperationId, List<TransitReceiveLineDto>? Lines, string? DefectNote = null);   // ⭐ M-27 (+2026-10-25 kusurlu)
 record TransitReceiveLineDto(string MaterialId, decimal Quantity, decimal? Defective = null, bool? ReturnDefective = null);
 record AsgariStokDto(string? LocationId, decimal? MinQty);
-record EFaturaDto(string? Xml, string? BranchId);   // ⭐ M-52   // ⭐ M-31: MinQty null/0 → depoya özel değer kaldırılır
+record EFaturaDto(string? Xml, string? BranchId);   // ⭐ M-52
+record MukerrerDto(List<string>? Ids);   // ⭐ M-82   // ⭐ M-31: MinQty null/0 → depoya özel değer kaldırılır
 record AsgariTalepKalemDto(string MaterialId, decimal Quantity);
 record AsgariTalepDto(string? LocationId, List<AsgariTalepKalemDto>? Items, string? Note);
 record StockReverseDto(string DocumentId, string? Reason);

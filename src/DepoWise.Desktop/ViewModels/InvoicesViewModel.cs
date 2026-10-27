@@ -117,6 +117,41 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
         // Ortak şube kapsamı — seçim değişince liste yenilenir (kullanıcı Ara demek zorunda kalmasın).
         BranchScope = new BranchScopeSelector(session, () => _ = Load());
         _ = Load();
+        MukerrerYukle();
+    }
+
+    // ⭐ M-82 (AR-GE 2026-10-27): olası mükerrer faturalar — uyarı bandı + liste; "Mükerrer Değil" ya da yanlış olanı iptal (web ile aynı).
+    public System.Collections.ObjectModel.ObservableCollection<MukerrerGrup> MukerrerGruplari { get; } = new();
+    [ObservableProperty] private string? _mukerrerUyarisi;
+    [ObservableProperty] private bool _mukerrerAcik;
+    public bool MukerrerVar => MukerrerUyarisi is not null;
+    partial void OnMukerrerUyarisiChanged(string? value) => OnPropertyChanged(nameof(MukerrerVar));
+
+    private void MukerrerYukle()
+    {
+        MukerrerGruplari.Clear();
+        try { foreach (var g in DesktopServices.MukerrerFatura.Gruplar(_session)) MukerrerGruplari.Add(g); }
+        catch { }
+        MukerrerUyarisi = MukerrerGruplari.Count == 0 ? null
+            : $"{MukerrerGruplari.Count} olası mükerrer fatura grubu var — yanlış gireni iptal edin ya da \"Mükerrer Değil\" deyin.";
+        if (MukerrerGruplari.Count == 0) MukerrerAcik = false;
+    }
+
+    [RelayCommand] private void MukerrerGoster() => MukerrerAcik = !MukerrerAcik;
+
+    [RelayCommand]
+    private async Task MukerrerDegilIsaretle(MukerrerGrup? g)
+    {
+        if (g is null) return;
+        if (!await ConfirmService.AskAsync($"Bu {g.Faturalar.Count} fatura birbirinden FARKLI faturalar olarak işaretlensin mi?\n\n" +
+                string.Join("\n", g.Faturalar.Select(f => "• " + f.Metin)), "Mükerrer Değil", "Evet, Farklı Faturalar")) return;
+        try
+        {
+            DesktopServices.MukerrerFatura.MukerrerDegil(_session, g.Faturalar.Select(f => f.Id).ToList());
+            Status = "Mükerrer değil olarak işaretlendi.";
+            MukerrerYukle();
+        }
+        catch (Exception ex) { FormError = "İşaretlenemedi: " + ex.Message; }
     }
 
     partial void OnDetailChanged(InvoiceRecord? value) => OnPropertyChanged(nameof(CanCancelSelected));
@@ -130,6 +165,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase, IDeepLinkTarget
     private async Task Load()
     {
         Busy = true; FormError = null;
+        MukerrerYukle();   // ⭐ M-82: iptal/kayıt sonrası uyarı tazelenir
         try
         {
             await Task.Run(() =>

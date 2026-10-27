@@ -36,6 +36,33 @@
 else
 {
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+    @* ⭐ M-82 (AR-GE 2026-10-27): olası mükerrer faturalar — masaüstüyle aynı metin, onay ve servis *@
+    @if (_mukerrer.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+            <div class="d-flex align-center flex-wrap" style="gap:12px;">
+                <span>@_mukerrer.Count olası mükerrer fatura grubu var — yanlış gireni iptal edin ya da "Mükerrer Değil" deyin.</span>
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _mukerrerAcik = !_mukerrerAcik)">Göster / Gizle</MudButton>
+            </div>
+        </MudAlert>
+        @if (_mukerrerAcik)
+        {
+            @foreach (var g in _mukerrer)
+            {
+                <MudPaper Class="pa-3 mb-2" Elevation="1">
+                    <div class="d-flex align-center justify-space-between flex-wrap" style="gap:8px;">
+                        <div>
+                            <MudText Typo="Typo.body2"><b>@g.Baslik</b></MudText>
+                            @foreach (var f in g.Faturalar) { <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">• @f.Metin</MudText> }
+                        </div>
+                        <MudTooltip Text="Bu faturalar farklı faturalardır — uyarıdan çıkar (firma geneli). Yanlış girilen varsa onu listeden iptal edin.">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => MukerrerDegil(g))">Mükerrer Değil</MudButton>
+                        </MudTooltip>
+                    </div>
+                </MudPaper>
+            }
+        }
+    }
 
     @* ── FİLTRE ────────────────────────────────────────────────────────────────── *@
     <MudPaper Class="pa-4 mb-3" Elevation="2">
@@ -505,6 +532,33 @@ else
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
     private async Task Go(int p) { _page = p; await Load(); }
 
+    private sealed record MkFatura(string Id, string Metin);
+    private sealed record MkGrup(string Baslik, List<MkFatura> Faturalar);
+    private List<MkGrup> _mukerrer = new();
+    private bool _mukerrerAcik;
+
+    private async Task MukerrerYukle()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/invoices/possible-duplicates");
+            _mukerrer = arr.Select(g => new MkGrup(g.GetProperty("baslik").GetString() ?? "",
+                g.GetProperty("faturalar").EnumerateArray().Select(f => new MkFatura(f.GetProperty("id").GetString() ?? "", f.GetProperty("metin").GetString() ?? "")).ToList())).ToList();
+        }
+        catch { _mukerrer = new(); }
+        if (_mukerrer.Count == 0) _mukerrerAcik = false;
+    }
+
+    private async Task MukerrerDegil(MkGrup g)
+    {
+        if (!await Dialog.Confirm($"Bu {g.Faturalar.Count} fatura birbirinden FARKLI faturalar olarak işaretlensin mi?\n\n" +
+                string.Join("\n", g.Faturalar.Select(f => "• " + f.Metin)), "Evet, Farklı Faturalar")) return;
+        var (err, _) = await Api.PostJsonWithErrorAsync("/api/invoices/possible-duplicates/dismiss", new { ids = g.Faturalar.Select(f => f.Id).ToList() });
+        _ok = err is null;
+        _msg = err is null ? "Mükerrer değil olarak işaretlendi." : "İşaretlenemedi: " + err;
+        await MukerrerYukle();
+    }
+
     // Masaüstüyle aynı dönem seçenekleri (MuhasebeAktarimService.Donemler) — web Infrastructure'a başvurmadığı için anahtar/etiket burada.
     private static readonly (string Key, string Label)[] _donemler = { ("bu-ay", "Bu ay"), ("gecen-ay", "Geçen ay"), ("son-3-ay", "Son 3 ay"), ("bu-yil", "Bu yıl") };
     private string _aktarimDonemi = "gecen-ay";
@@ -546,6 +600,7 @@ else
 
     private async Task Load()
     {
+        await MukerrerYukle();   // ⭐ M-82: iptal/kayıt sonrası uyarı tazelenir
         _busy = true; _rows = null; _detail = null;
         try
         {

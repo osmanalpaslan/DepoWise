@@ -940,3 +940,12 @@
   Son 3 ay / Bu yıl) sunucuda TR gününe göre hesaplanır. İki ortam Faturalar ekranında "Muhasebe Aktarımı" + dönem seçimi. API
   `GET /api/invoices/accounting-export?donem=`. Testler `MuhasebeAktarimTests` MA1–MA6, `EFaturaApiTests` EA3; mutasyon: iptaller
   dahil edilince MA1 kırıldı. Paket 193/193, arayüz 71/71.
+
+### M-82 — Olası mükerrer fatura uyarısı (F-183; Migration124, 2026-10-27)
+- **Kural (yalnız etkin faturalar):** kesin = aynı cari + yön + belge (dış) no (boşluk/harf farkı önemsiz); olası = aynı cari + yön +
+  gün + genel toplam ve en az birinde belge no boş (iki farklı belge no → farklı faturalar). Kullanıcı yanlış olanı mevcut iptalle
+  iptal eder ya da "Mükerrer Değil" der; karar firma geneli ve eşitlenir (`invoice_duplicate_dismissals`, kimlik çift-sıralı → kopya yok).
+  Grup, içindeki HER çift işaretlenmeden düşmez. İki ortam: Faturalar ekranında uyarı bandı + liste + onaylı "Mükerrer Değil".
+  API `GET /api/invoices/possible-duplicates`, `POST …/dismiss`.
+- **Testler:** `MukerrerFaturaTests` MK1–MK6, `EFaturaApiTests` EA4 (API + iki ortam metni); mutasyon: "farklı belge no farklı
+  faturadır" kuralı kaldırılınca MK2 kırıldı. Riskli paket (PG/migration/senkron/fatura) 463/463, 20 dk; arayüz 71/71.

@@ -68,6 +68,30 @@ public class EFaturaApiTests : IAsyncLifetime
         Assert.Equal(new[] { "Bilgi", "Faturalar", "KDV Dökümü", "Cariler" }, wb.Worksheets.Select(w => w.Name).ToArray());
     }
 
+    /// <summary>EA4 — M-82: aynı e-Fatura numarası iki farklı belgeyle (UUID) iki kez girilirse olası mükerrer grubu API'de görünür;
+    /// "mükerrer değil" sonrası düşer. İki ortam aynı uyarı metni ve onay düğmesini kullanır.</summary>
+    [Fact]
+    public async Task EA4_Olasi_Mukerrer_Api_Ve_Iki_Ortam()
+    {
+        foreach (var u in new[] { "6f1f6a0e-4444-4c3b-9d8e-0000000000b1", "6f1f6a0e-4444-4c3b-9d8e-0000000000b2" })
+            (await _client.PostAsJsonAsync("/api/invoices/efatura/import", new { xml = EFaturaTests.Ornek(uuid: u, vkn: "5555555555") })).EnsureSuccessStatusCode();
+        var gruplar = await ApiTestHost.JsonAsync(await _client.GetAsync("/api/invoices/possible-duplicates"));
+        var g = gruplar.EnumerateArray().Single(x => x.GetProperty("kesin").GetBoolean());
+        var ids = g.GetProperty("faturalar").EnumerateArray().Select(f => f.GetProperty("id").GetString()).ToList();
+        Assert.Equal(2, ids.Count);
+        (await _client.PostAsJsonAsync("/api/invoices/possible-duplicates/dismiss", new { ids })).EnsureSuccessStatusCode();
+        Assert.DoesNotContain((await ApiTestHost.JsonAsync(await _client.GetAsync("/api/invoices/possible-duplicates"))).EnumerateArray(),
+            x => x.GetProperty("faturalar").EnumerateArray().Any(f => ids.Contains(f.GetProperty("id").GetString())));
+
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "DepoWise.sln"))) d = d.Parent;
+        var mas = File.ReadAllText(Path.Combine(d!.FullName, "src/DepoWise.Desktop/ViewModels/InvoicesViewModel.cs"));
+        var web = File.ReadAllText(Path.Combine(d.FullName, "src/DepoWise.Web/Components/Pages/Invoices.razor"));
+        foreach (var k in new[] { "olası mükerrer fatura grubu var — yanlış gireni iptal edin ya da", "fatura birbirinden FARKLI faturalar olarak işaretlensin mi?",
+                                  "\"Evet, Farklı Faturalar\"", "Mükerrer değil olarak işaretlendi." })
+        { Assert.Contains(k, mas); Assert.Contains(k, web); }
+    }
+
     [Fact]
     public void EA2_Iki_Ortam_Ayni_Ozet_Ve_Onay()
     {

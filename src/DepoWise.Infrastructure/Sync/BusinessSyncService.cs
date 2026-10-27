@@ -174,6 +174,8 @@ public sealed class BusinessSyncService
         "stock_change_logs",
         // ⭐ M-31 (Migration123): depo bazında asgari stok — materials ve branches(ayna) YUKARIDA.
         "material_location_mins",
+        // ⭐ M-82 (Migration124): olası mükerrer faturada "mükerrer değil" kararları — invoices YUKARIDA.
+        "invoice_duplicate_dismissals",
         // ⭐ M-06 (AR-GE 2026-10-17): masaüstü İŞLEM GEÇMİŞİ — yalnız GÖNDERİM yönünde (YalnizGonderim), sunucuda yalnız eklenir.
         // En sonda: yabancı anahtarı yoktur, diğer kayıtlardan sonra gitmesi doğaldır.
         "audit_logs",
@@ -263,6 +265,7 @@ public sealed class BusinessSyncService
         ["daily_check_templates"] = "vehicles",   // ⚠ ayrıca YALNIZ YÖNETİCİ (Apply.CanWrite) — servis kuralıyla aynı
         ["stock_change_logs"] = "materials",      // Migration122: kaydı yazan servis materials:Edit ister
         ["material_location_mins"] = "materials", // M-31: AsgariStokService.Ayarla materials:Edit ister
+        ["invoice_duplicate_dismissals"] = "invoices",   // M-82: MukerrerFaturaService.MukerrerDegil invoices:Edit ister
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
@@ -456,6 +459,7 @@ public sealed class BusinessSyncService
             ["assignment_due_dates"] = ("personnel_id", "personnel"),
             ["stock_change_logs"] = ("material_id", "materials"),
             ["material_location_mins"] = ("material_id", "materials"),
+            ["invoice_duplicate_dismissals"] = ("invoice_a", "invoices"),
         };
 
     /// <summary>
