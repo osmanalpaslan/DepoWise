@@ -1,5 +1,38 @@
 // Ortak giriş yardımcısı: kimlik → (süper adminse firma) → şube adımlarını tamamlar. Canlıda YALNIZ OKUR.
 const { expect } = require('@playwright/test');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// ⭐ M-01 (2026-10-28): süper admin test hesabında iki adımlı giriş AÇIK. Gizli anahtar yalnız bu bilgisayarda
+// (.env.test.local → DEPOWISE_TEST_TOTP). Sunucu aynı kodu iki kez kabul etmez ve ±1 adım (30 sn) tolerans tanır →
+// her girişte henüz kullanılmamış en küçük adım seçilir; gerekirse bir sonraki adım beklenir. Kullanılan adım dosyada
+// tutulur (Playwright hata sonrası çalışanı yeniden başlatır; bellekteki sayaç kaybolurdu).
+const ADIM_DOSYASI = path.join(os.tmpdir(), 'dw_e2e_totp_adim.txt');
+function totpKodu(gizliB32, adim) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let tampon = 0, bit = 0; const b = [];
+  for (const c of gizliB32.replace(/\s/g, '').toUpperCase()) { tampon = (tampon << 5) | A.indexOf(c); bit += 5; if (bit >= 8) { b.push((tampon >> (bit - 8)) & 255); bit -= 8; } }
+  let n = BigInt(adim);
+  const sayac = Buffer.alloc(8);
+  for (let i = 7; i >= 0; i--) { sayac[i] = Number(n & 0xffn); n >>= 8n; }
+  const h = crypto.createHmac('sha1', Buffer.from(b)).update(sayac).digest();
+  const o = h[h.length - 1] & 15;
+  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1000000).padStart(6, '0');
+}
+/** Kullanılmamış bir doğrulama kodu (gizli anahtar tanımlı değilse null). */
+async function birKerelikKod() {
+  const gizli = process.env.DEPOWISE_TEST_TOTP;
+  if (!gizli) return null;
+  let son = -1;
+  try { son = parseInt(fs.readFileSync(ADIM_DOSYASI, 'utf8'), 10) || -1; } catch (e) {}
+  const simdi = () => Math.floor(Date.now() / 30000);
+  const adim = Math.max(simdi() - 1, son + 1);
+  while (adim > simdi() + 1) await new Promise(r => setTimeout(r, 1000));   // tolerans penceresine girene kadar bekle
+  fs.writeFileSync(ADIM_DOSYASI, String(adim));
+  return totpKodu(gizli, adim);
+}
 
 async function girisYap(page, user, pass, firmaAdi) {
   // 2026-10-11: giriş sayfasında açılış animasyonu (oturum başına bir kez) formu örter → testlerde atlanır;
@@ -24,6 +57,22 @@ async function girisYap(page, user, pass, firmaAdi) {
     for (const i of [0, 1]) { await yeni.nth(i).click(); await expect(yeni.nth(i)).toBeEditable(); await yeni.nth(i).fill(pass); }
     await belirle.click();
     await page.waitForTimeout(1500);
+  }
+  // M-01: iki adımlı giriş — "Doğrulama Kodu" adımı (açık hesap) ya da zorunlu kurulum ekranı (henüz kurulmamış).
+  const dogrula = page.locator('button.dw-btn', { hasText: 'DOĞRULA' });
+  const kurulum = page.locator('button.dw-btn', { hasText: 'ETKİNLEŞTİR' });
+  const ikinci = await Promise.race([
+    dogrula.waitFor({ timeout: 8_000 }).then(() => 'kod').catch(() => null),
+    kurulum.waitFor({ timeout: 8_000 }).then(() => 'kurulum').catch(() => null),
+    page.locator('select.dw-select:visible').first().waitFor({ timeout: 8_000 }).then(() => null).catch(() => null),
+  ]);
+  if (ikinci === 'kurulum') throw new Error('Test hesabında iki adımlı giriş kurulmamış (DEPOWISE_TEST_TOTP) — scripts/e2e_test_hesabi_mfa.mjs');
+  if (ikinci === 'kod') {
+    const kod = await birKerelikKod();
+    if (!kod) throw new Error('.env.test.local içinde DEPOWISE_TEST_TOTP yok — test hesabı doğrulama kodu istiyor');
+    await page.getByPlaceholder('123456').fill(kod);
+    await dogrula.click();
+    await expect(dogrula).toBeHidden({ timeout: 20_000 });
   }
   // Sonraki adımlar (süper adminde FİRMA, sonra ŞUBE): seçim kutusu varsa seçili/ilk değerle devam et.
   for (let adim = 0; adim < 3 && new URL(page.url()).pathname.startsWith('/login'); adim++) {
@@ -73,4 +122,4 @@ async function apiToken(request, user, pass, companyId, branchId) {
   return { api, token: j.token ?? j.accessToken };
 }
 
-module.exports = { girisYap, apiToken, yeniliklerKapat };
+module.exports = { girisYap, apiToken, yeniliklerKapat, birKerelikKod };

@@ -3,7 +3,12 @@
 > Yalnız son ~10 günün girdileri burada durur (her oturumda okunur → kısa kalmalı). Daha eskisi:
 > `../arsiv/project-control/CURRENT_PHASE_GECMIS_2026-08-11_2026-09-30.md`.
 
-**Özet (2026-10-12):** YAYINDA — masaüstü **1.0.200** + Web f51c711 (tablo başlığı hizası, Cari/Hesap `/new` yetki kapısı). API değişmedi (bff079a). Sıradaki: kullanıcı talebi.
+**Özet (2026-10-28):** YAYINDA — AR-GE büyük yenileme (master = ddfc38e0): API + web + masaüstü **1.0.203** (imzalı, ZORUNLU güncelleme: en düşük 1.0.203) + imzalı kurulum aracı. Şema 125. Sıradaki: kullanıcı web'de süper admin iki adımlı girişini kurar; duman testi hesabının iki adımlı girişi (kullanıcı onayı bekliyor).
+
+## ✅ 2026-10-28 YAYIN — AR-GE (dal `arge/2026-10-kapsamli` → master), masaüstü 1.0.203
+- Kapı: yayın öncesi tam takım **4629/4629** (atlanan 0, 2 sa 47 dk, `artifacts/dw_tam_yayin.trx`; PI9/MA4/MA5/MF7 içinde), arayüz 71/71, yerel tarayıcı 7/7, iki ortam denetimi.
+- Sıra: şifreli elle yedek (107 tablo, Drive) → master ileri sarma → sırlar `--stage` (erp: MFA + istemci IP anahtarı; web: IP anahtarı, özetler aynı) → API (şema 125 canlıda doğrulandı: `app_releases.signature`, `user_mfa`) → web → masaüstü 1.0.203 (imzalı, 15 madde not; indirilen paketin özeti sunucuyla aynı) → kurulum aracı (imzalı).
+- Canlı duman testi: 5/14 geçti (personel yetki + genel sayfalar). 9 test süper admin yetkili TEST hesabıyla giriyor → web onu tasarım gereği iki adımlı giriş kurulumuna yönlendiriyor (hata değil; 9'u da aynı ekranda). Çözüm hazır: `scripts/e2e_test_hesabi_mfa.mjs` + duman yardımcısı kodu kendisi üretir; test hesabında açmak kullanıcı onayı bekliyor.
 
 ## 🔧 2026-10-17/18 AR-GE B1 (dal `arge/2026-10-kapsamli`, YAYIN YOK) — veri güvenliği ve senkron bütünlüğü
 - Biten (her biri testli + mutasyonla kanıtlı, ayrıntı `docs/arge/10_uygulama_gunlugu.md`): M-02 firma ezme kapısı · M-05 defter değişmezliği · M-04 web işlem kimliği · M-03 çekme ufku (Migration099) + yerel değişiklik sayacı/yankı kesme (100) · M-15 gönderilemeyen kayıtlar (101) · M-79 sıfırlamadan önce gönder · M-80 sunucu dönemi · M-17 sayfalı çekme + sayfalı gönderim · M-84 gzip · M-85 tek geçiş · M-20 istatistik · M-78/K-21 bilgisayar kodlu numara (102) · K-22 KOD-2 · K-05 eksi stok uyarıları · M-16 eksi stok uyarısı · M-18 ezme yasağı · M-81 geçişte tam gönderim · M-06 işlem geçmişi sunucuya (103) · M-08 şifreli günlük yedek (+ prova başarılı).

@@ -6,7 +6,7 @@
 //   • Zimmet: Teslim formunda "Listeye Ekle".
 //   • Sunucu kataloğu: Depo Çıkışları raporu + Teslim Alan filtresi.
 const { test, expect } = require('@playwright/test');
-const { girisYap: giris } = require('./yardimci');
+const { girisYap: giris, birKerelikKod } = require('./yardimci');
 
 async function girisYap(page) {
   const user = process.env.DEPOWISE_TEST_USER, pass = process.env.DEPOWISE_TEST_PASS;
@@ -84,7 +84,7 @@ test('Sunucu kataloğu: Depo Çıkışları raporu ve Teslim Alan filtresi', asy
   test.skip(!user || !pass, '.env.test.local içinde test kullanıcısı yok');
   // Süper admin test kullanıcısı firma kimliği gerektirebilir (.env'de yalnız firma ADI var) → giriş olmazsa ATLA, hata sayma.
   const api = (process.env.DEPOWISE_TEST_API || 'https://depowise-erp.fly.dev').replace(/\/$/, '');
-  const g = await request.post(api + '/api/auth/login', { data: { username: user, password: pass } });
+  const g = await request.post(api + '/api/auth/login', { data: { username: user, password: pass, totpCode: await birKerelikKod() } });
   test.skip(!g.ok(), 'API doğrudan girişi firma seçimi istiyor — katalog web testlerinde dolaylı doğrulanıyor');
   const j = await g.json();
   const r = await request.get(api + '/api/reports/catalog', { headers: { Authorization: 'Bearer ' + (j.token ?? j.accessToken) } });
