@@ -687,7 +687,7 @@
     private async Task DoTotp()
     {
         _error = null;
-        if (string.IsNullOrWhiteSpace(_totp)) { _error = "Doğrulama kodunu girin."; return; }
+        if (string.IsNullOrWhiteSpace(_totp)) { _error = "Doğrulama uygulamasındaki 6 haneli kodu girin."; return; }
         _busy = true;
         try
         {
@@ -819,6 +819,12 @@
             var (err, d) = await Api.PostJsonWithErrorAsync("/api/auth/mfa/confirm", new { code = _totp.Trim() });
             if (err is not null || d is null) { _error = err ?? "Doğrulama kodu hatalı."; _totp = ""; return; }
             _kurtarmaKodlari = d.Value.GetProperty("recoveryCodes").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+            // Açılışla eski oturumlar düştü (güvenlik) → bu oturum sunucunun verdiği YENİ jetonla sürer; tarayıcı deposu da güncellenir.
+            if (d.Value.TryGetProperty("token", out var yeni) && yeni.GetString() is { Length: > 0 } jeton)
+            {
+                Auth.JetonuYenile(jeton);
+                await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}|{Auth.BranchId}|{Safe(Auth.CompanyName)}|{Safe(Auth.UserName)}");
+            }
             _totp = ""; _mfaKurulum = null;
             _step = 8;
         }

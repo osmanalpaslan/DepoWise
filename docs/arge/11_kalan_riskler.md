@@ -170,9 +170,14 @@
 - **Fatura ek tablosunda eşitleme kaynağı yok (B9 denetimi 2026-10-27, düşük):** denetçi bir fatura yan tablosunun eşitleme referans
   kaydı olmadığını not etti; tablo yalnız sunucuda yazılıyor/okunuyor, masaüstü yerel kopyası kullanılmıyor → bugün zararsız.
   İleride masaüstü bu tabloyu yerelde okursa `CrossCompanyRefs`/`Tables` kaydı eklenmeli (EsitlemeKarariTests nöbetçisi uyarır).
-- **İmza anahtarı yedeği (M-01, 2026-10-27):** gizli paket imza anahtarı şu an yalnız yayın bilgisayarında
+- **İmza anahtarı yedeği (M-01, 2026-10-27): ÇÖZÜLDÜ** — kullanıcı onayıyla özel GitHub yedeğinde (claude-ortak-hafiza/anahtarlar; sahte yayın için ayrıca süper admin şifresi + kod gerekir). Eski not: anahtar yalnız yayın bilgisayarındaydı
   (`~/.claude-yedek/anahtarlar/DepoWise_paket_imza_ozel.pem`). Özel GitHub yedeğine gönderimi güvenlik denetimi engelledi; yedekleme
   yolu kullanıcıyla kararlaştırılacak. Anahtar kaybolursa: yeni anahtar üretilir, AÇIK anahtarı programa eklenmiş bir sürüm
   ESKİ anahtarla imzalanamayacağı için masaüstlerine elle (kurulum aracıyla) yeniden kurulum gerekir.
 - **İki adımlı giriş kurtarma (M-01):** telefon + kurtarma kodları birlikte kaybolursa ekranda kurtarma yolu yok; veritabanında
   `user_mfa` satırı silinerek (onaylı, denetimli) kapatılır.
+- **M-01 denetiminde kabul edilen küçük riskler (2026-10-27):** (a) yayın betiği isteğe bağlı olarak kod gizli bilgisini
+  (`DEPOWISE_ADMIN_TOTP`) yayın bilgisayarında tutabilir — o bilgisayar imza anahtarını zaten taşıdığı için ek risk sınırlı; istenirse
+  yalnız elle kod (`DEPOWISE_ADMIN_KOD`) kullanılır. (b) Web'deki zorunlu kurulum adımı arayüz düzeyinde; kurulmadan da giriş yapılabilir
+  (kimse kilitlenmesin). (c) Masaüstü eski "Güncelleme Yönetimi" ekranındaki "Kur" bir deneme akışıdır (gerçek kurulum değil), imza istemez.
+  (d) Masaüstü çevrimdışı kapısı, o bilgisayarın son çevrimiçi girişte öğrendiği bilgiye dayanır; etki yalnız o bilgisayarın yerel verisi.

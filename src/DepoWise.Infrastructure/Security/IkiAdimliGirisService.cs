@@ -96,7 +96,13 @@ public sealed class IkiAdimliGirisService
         var anahtar = AnahtarGerekli();
         var k = Oku(s.UserId) ?? throw new InvalidOperationException("Önce kurulumu başlatın.");
         if (k.EtkinlesmeAni is not null) throw new InvalidOperationException("İki adımlı giriş zaten açık.");
-        var adim = Totp.Dogrula(Coz(anahtar, k.GizliSifreli), kod, _clock.UtcNow, 0)
+        byte[] gizli;
+        try { gizli = Coz(anahtar, k.GizliSifreli); }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
+        {
+            throw new InvalidOperationException("Kurulum bilgisi okunamadı (sunucu anahtarı değişmiş olabilir). Kurulumu yeniden başlatın.");
+        }
+        var adim = Totp.Dogrula(gizli, kod, _clock.UtcNow, 0)
                    ?? throw new ArgumentException("Doğrulama kodu hatalı. Uygulamadaki güncel 6 haneli kodu girin.");
         var kodlar = Enumerable.Range(0, KurtarmaKoduSayisi).Select(_ => YeniKurtarmaKodu()).ToList();
         var simdi = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -104,9 +110,12 @@ public sealed class IkiAdimliGirisService
         using var tx = conn.BeginTransaction();
         Exec(conn, tx, "UPDATE user_mfa SET enabled_at=@t, last_step=@a, recovery_hashes=@r, updated_at=@t WHERE user_id=@u;",
             ("@t", simdi), ("@a", adim), ("@r", JsonSerializer.Serialize(kodlar.Select(Ozet).ToList())), ("@u", s.UserId));
+        // Açılmadan ÖNCE alınmış (belki çalınmış) jetonlar artık geçmez — yenilemeyle sonsuza dek yaşamasınlar (denetim 2026-10-27).
+        OturumDonemi.Arttir(conn, tx, s.UserId);
         // Denetim: gizli bilgi/kod DEĞİL, açıldığı gerçeği yazılır.
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "user_mfa", s.UserId, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
+        OturumDonemi.Unut(s.UserId);
         return kodlar;
     }
 
@@ -114,15 +123,17 @@ public sealed class IkiAdimliGirisService
     /// Başarılı kod "kullanıldı" olarak işaretlenir — aynı kod ikinci kez kabul edilmez.</summary>
     public bool GirisDogrula(string userId, string? kod)
     {
-        if (_anahtar is null || string.IsNullOrWhiteSpace(kod)) return false;
+        if (string.IsNullOrWhiteSpace(kod)) return false;
         var k = Oku(userId);
         if (k?.EtkinlesmeAni is null) return false;
         var temiz = Totp.Temizle(kod);
         if (temiz.Length == Totp.Hane && temiz.All(char.IsAsciiDigit))
         {
+            // Uygulama kodu sunucu anahtarı ister; KURTARMA KODU istemez (anahtar kaybolsa da süper admin kurtarma koduyla girer).
+            if (_anahtar is null) return false;
             byte[] gizli;
             try { gizli = Coz(_anahtar, k.GizliSifreli); }
-            catch (CryptographicException) { return false; }   // anahtar değişmiş → kimse kodla giremez (fail-closed)
+            catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException) { return false; }   // fail-closed
             var adim = Totp.Dogrula(gizli, temiz, _clock.UtcNow, k.SonAdim);
             if (adim is null) return false;
             using var conn = _factory.Create();
@@ -164,8 +175,10 @@ public sealed class IkiAdimliGirisService
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         Exec(conn, tx, "DELETE FROM user_mfa WHERE user_id=@u;", ("@u", s.UserId));
+        OturumDonemi.Arttir(conn, tx, s.UserId);   // kapatma da güvenlik değişikliğidir: açık oturumlar yeniden giriş ister
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "user_mfa", s.UserId, AuditActions.Delete, s.UserId), _clock);
         tx.Commit();
+        OturumDonemi.Unut(s.UserId);
     }
 
     // ── iç yardımcılar ──────────────────────────────────────────────────────────────────────────────

@@ -177,7 +177,7 @@ static Task Write(HttpContext ctx, int code, string msg)
 // var; bu sayaç farklı kullanıcı adlarıyla taramayı keser. NAT arkasındaki ofisler (aynı IP'den çok kullanıcı)
 // kilitlenmesin diye pencere gevşek tutuldu: 30 istek / 5 dk / IP.
 var loginLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
-// ⭐ M-01: iki adımlı giriş kodu tahmini — KULLANICI başına 5 deneme / 5 dk (6 hane = 1 milyon olasılık; IP değiştirerek aşılamaz).
+// ⭐ M-01: iki adımlı giriş kodu tahmini — KULLANICI başına 5 HATALI deneme / 5 dk (6 hane = 1 milyon olasılık; IP değiştirerek aşılamaz).
 var mfaLimiter = new RateLimiter(5, TimeSpan.FromMinutes(5));
 // Anonim liste uçları (firma/şube listesi) için gevşek sınır — normal girişi etkilemez, bot taramasını (scraping) keser.
 var publicLimiter = new RateLimiter(120, TimeSpan.FromMinutes(1));
@@ -2501,11 +2501,11 @@ IResult? IkiAdimKapisi(string userId, string? kod)
     if (!svc.IkiAdim.Etkin(userId)) return null;
     if (string.IsNullOrWhiteSpace(kod))
         return Results.Json(new { error = "Doğrulama uygulamasındaki 6 haneli kodu girin.", mfaRequired = true }, statusCode: 401);
-    if (!mfaLimiter.Check("mfa:" + userId).Allowed)
+    if (mfaLimiter.Dolu("mfa:" + userId))
         return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin.", mfaRequired = true }, statusCode: 429);
-    return svc.IkiAdim.GirisDogrula(userId, kod)
-        ? null
-        : Results.Json(new { error = "Doğrulama kodu hatalı.", mfaRequired = true }, statusCode: 401);
+    if (svc.IkiAdim.GirisDogrula(userId, kod)) return null;
+    _ = mfaLimiter.Check("mfa:" + userId);   // yalnız HATALI kod sayılır — doğru kodla giren kişi sınırı doldurmaz (denetim 2026-10-27)
+    return Results.Json(new { error = "Doğrulama kodu hatalı.", mfaRequired = true }, statusCode: 401);
 }
 
 app.MapGet("/api/auth/mfa/status", (HttpContext c) =>
@@ -2539,20 +2539,27 @@ app.MapPost("/api/auth/mfa/setup", (HttpContext c) =>
 app.MapPost("/api/auth/mfa/confirm", (HttpContext c, MfaKodDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!mfaLimiter.Check("mfa:" + s.UserId).Allowed)
+    if (mfaLimiter.Dolu("mfa:" + s.UserId))   // yalnız HATALI kod sayılır (giriş kapısıyla aynı kural)
         return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin." }, statusCode: 429);
-    try { return Results.Ok(new { recoveryCodes = svc.IkiAdim.KurulumOnayla(s, d.Code) }); }
+    try
+    {
+        var kodlar = svc.IkiAdim.KurulumOnayla(s, d.Code);
+        // Açılışla eski jetonlar düştü → bu oturuma YENİ dönemle jeton (kullanıcı ekrandan atılmaz).
+        return Results.Ok(new { recoveryCodes = kodlar, token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId, svc.OturumDonemi.Oku(s.UserId)) });
+    }
     catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
-    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    catch (ArgumentException ex) { _ = mfaLimiter.Check("mfa:" + s.UserId); return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
 
 app.MapPost("/api/auth/mfa/disable", (HttpContext c, MfaKodDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!mfaLimiter.Check("mfa:" + s.UserId).Allowed)
+    if (mfaLimiter.Dolu("mfa:" + s.UserId))
         return Results.Json(new { error = "Çok fazla hatalı kod denemesi. Birkaç dakika sonra tekrar deneyin." }, statusCode: 429);
     try { svc.IkiAdim.Kapat(s, d.Code); return Results.Ok(new { ok = true }); }
-    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    catch (ArgumentException ex) { _ = mfaLimiter.Check("mfa:" + s.UserId); return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
 
 app.MapGet("/api/auth/special-code/status", (HttpContext c) =>
@@ -5744,6 +5751,11 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
     var min = form["minSupportedVersion"].ToString();
     var notes = form["releaseNotes"].ToString();
     var signature = form["signature"].ToString();
+    // ⭐ Denetim 2026-10-27: en düşük desteklenen sürüm imzalı değil → yayın sürümünü AŞAMAZ. Aksi hâlde şifreyi ele geçiren biri
+    // gerçek imzalı paketi "en düşük 99.0.0" ile yeniden yayınlayıp TÜM masaüstlerinin veri göndermesini kapatabilirdi.
+    if (DepoWise.Application.Update.SemVer.TryParse(version, out var yayinV) && DepoWise.Application.Update.SemVer.TryParse(min, out var minV)
+        && minV.CompareTo(yayinV) > 0)
+        return Results.Json(new { error = "En düşük desteklenen sürüm, yayınlanan sürümden yüksek olamaz." }, statusCode: 400);
     // ⭐ M-01 (K-20, 2026-10-27): imza, sürüm+özet için GÖMÜLÜ açık anahtarla doğrulanır — DOSYAYA DOKUNMADAN ÖNCE.
     // Süper admin şifresi ele geçse bile gizli anahtar olmadan yayın yapılamaz (masaüstü ayrıca kendisi de doğrular).
     if (!DepoWise.Application.Update.PaketImzasi.Dogrula(version, checksum, signature))

@@ -110,6 +110,9 @@ public sealed class AuthState
 
     public event Action? Changed;
 
+    /// <summary>⭐ M-01: güvenlik değişikliği (iki adımlı giriş açıldı) eski jetonları düşürünce sunucunun verdiği yeni jeton.</summary>
+    public void JetonuYenile(string token) => Token = token;
+
     public void SignIn(string token, string userId, string companyId, bool isSuperAdmin, string? branchId = null,
         string? companyName = null, string? userName = null)
     {

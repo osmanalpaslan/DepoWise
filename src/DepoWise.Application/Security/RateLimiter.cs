@@ -67,6 +67,15 @@ public sealed class RateLimiter
         }
     }
 
+    /// <summary>⭐ M-01: sayacı ARTTIRMADAN dolu mu bakar (yalnız HATALI denemeyi saymak için: önce Dolu, hata olursa Check).</summary>
+    public bool Dolu(string key)
+    {
+        lock (_lock)
+        {
+            return _state.TryGetValue(key, out var e) && _now() - e.WindowStart < _window && e.Count >= _max;
+        }
+    }
+
     public void Reset(string key)
     {
         lock (_lock) _state.Remove(key);

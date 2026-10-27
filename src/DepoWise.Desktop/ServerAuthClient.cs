@@ -51,7 +51,11 @@ public static class ServerAuthClient
 
     private static void IkiAdimBilgisiniYaz(string userId, bool acik)
     {
-        try { DesktopServices.Settings.Set(DesktopServices.DefaultCompanyId, MfaAnahtari(userId), acik ? "1" : null, userId); }
+        try
+        {
+            if (IkiAdimAcik(userId) == acik) return;   // değişmediyse yazma (her girişte gereksiz ayar/denetim kaydı olmasın)
+            DesktopServices.Settings.Set(DesktopServices.DefaultCompanyId, MfaAnahtari(userId), acik ? "1" : null, userId);
+        }
         catch { /* yazılamazsa bir sonraki çevrimiçi girişte tekrar denenir */ }
     }
 

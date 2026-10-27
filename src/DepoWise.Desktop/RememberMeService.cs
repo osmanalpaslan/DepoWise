@@ -48,6 +48,8 @@ public static class RememberMeService
     public static void Save(SessionContext session)
     {
         if (!OperatingSystem.IsWindows()) return; // DPAPI yalnız Windows
+        // ⭐ M-01 (denetim 2026-10-27): iki adımlı girişi açık hesap hatırlanmaz — açılışta kodsuz oturum kurulurdu.
+        if (ServerAuthClient.IkiAdimAcik(session.UserId)) { Clear(); return; }
         try
         {
             var token = SyncCrypto.NewKey();
@@ -108,6 +110,8 @@ public static class RememberMeService
                 valid = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
             }
             if (!valid) { Clear(); return null; }
+            // ⭐ M-01: hatırlama, iki adımlı giriş açılmadan önce kaydedilmiş olabilir → kodu açık hesapta kullanılmaz.
+            if (ServerAuthClient.IkiAdimAcik(userId)) { Clear(); return null; }
 
             return DesktopServices.Auth.CreateSessionForUser(companyId, userId);
         }

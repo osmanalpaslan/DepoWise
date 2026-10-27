@@ -992,3 +992,9 @@
   4 eski test imzalı pakete taşındı (beklentiler korundu; imzasız paketin "zorunlu güncelleme" saymaması bilinçli sıkılaştırma).
   Mutasyon: sunucu imza kontrolü, tekrar koruması (iki katman), senkron girişi kod kapısı, politika imza kapısı kaldırılınca ilgili
   4 test kırmızı. Paket 205/205 (PG dahil), arayüz 71/71, yerel tarayıcı 7/7.
+- **M-01 iki ortam denetimi (salt okuma, 2026-10-27):** kodu atlatan jeton yolu YOK. Düzeltilen: anahtarsız sunucuda kurtarma kodu
+  çalışmıyordu (kilitlenme) · açma/kapatma eski jetonları düşürmüyordu (artık düşürür; onay yanıtı yeni jeton verir, web oturumu
+  sürer) · "en düşük sürüm" yayın sürümünü aşabiliyordu (tüm masaüstlerini kilitleme) · deneme sınırı doğru kodu da sayıyordu
+  (giriş + onay + kapatma) · masaüstü "Beni Hatırla" kodu açık hesapta 30 gün kodsuz açılıyordu · her girişte gereksiz ayar kaydı ·
+  bozuk kurulum verisinde 500 · web/masaüstü boş kod metni farkı. Testler MF7–MF8, MA4–MA5, PI9 + MI1 genişletildi; paket 93/93,
+  arayüz 71/71, yerel tarayıcı 7/7.

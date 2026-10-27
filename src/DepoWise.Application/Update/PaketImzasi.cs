@@ -11,11 +11,14 @@ namespace DepoWise.Application.Update;
 ///
 /// <b>Kapatılan risk (04 G4-1, F-030):</b> paket bütünlüğü yalnız SHA-256 ile kontrol ediliyordu; özeti de paketi de
 /// SUNUCU veriyor. Süper admin şifresini ele geçiren biri sahte paket + ona uyan özet yükleyip TÜM masaüstlerine kod
-/// çalıştırabilirdi. Artık paket, yalnız yayın bilgisayarında duran GİZLİ anahtarla imzalanır (ECDSA P-256 / SHA-256);
+/// çalıştırabilirdi. Artık paket, yayın tarafında tutulan GİZLİ anahtarla imzalanır (ECDSA P-256 / SHA-256);
 /// masaüstü, kurulum aracı ve sunucu imzayı programa GÖMÜLÜ açık anahtarla doğrular. Sunucuyu ele geçirmek imza üretmeye yetmez.
 ///
 /// <b>İmzalanan metin</b> sürümü ve özeti birlikte bağlar (<see cref="ImzaMetni"/>): eski ama gerçek bir paket, yeni sürüm
 /// etiketiyle yeniden yayınlanamaz (sürüm düşürme saldırısı).
+///
+/// <b>Gizli anahtarın yeri:</b> yayın bilgisayarı + kullanıcı onayıyla (2026-10-27) özel GitHub yedek deposu. Tek başına yetmez: sahte
+/// paketi sunucuya yüklemek için ayrıca süper admin şifresi + iki adımlı giriş kodu gerekir.
 ///
 /// <b>Anahtar değişimi:</b> yeni açık anahtar <see cref="Anahtarlar"/> listesine EKLENİR; eski anahtar, tüm masaüstleri yeni
 /// listeyi taşıyan sürüme geçene kadar listede kalır. Gizli anahtar: <c>scripts/paket_imza_anahtari_olustur.mjs</c>.

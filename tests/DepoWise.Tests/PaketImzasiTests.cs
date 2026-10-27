@@ -17,6 +17,7 @@ namespace DepoWise.Tests;
 ///  PI5 — kurulum aracı imzayı sunucu yanıtından okur ve doğrular
 ///  PI6 — sunucu: imzasız / sahte imzalı paket diske DOKUNMADAN reddedilir; imzalı paket kabul edilir ve imza yayınla döner
 ///  PI7 — sunucu: imza doğru ama yüklenen dosya özetle uyuşmuyor → reddedilir, yayındaki paket EZİLMEZ
+///  PI9 — (denetim) sunucu: en düşük desteklenen sürüm yayın sürümünü aşamaz (imzalı paketle tüm masaüstlerini kilitleme)
 ///  PI8 — sunucu: kurulum aracı (AlpnexSetup.exe) da yalnız imzalı yüklenir
 /// </summary>
 [Collection("PostgresSchema")]   // ApiTestHost süreç-genelinde ortam değişkeni yazar → seri koşmalı
@@ -189,6 +190,27 @@ public class PaketImzasiTests
 
         Assert.Equal(HttpStatusCode.OK, (await admin.PostAsync("/api/setup", F(TestImza.Imzala(PaketImzasi.KurulumAraciEtiketi, Sha(exe))))).StatusCode);
         Assert.Equal(exe, await (await host.Anonymous().GetAsync("/api/setup/download")).Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task PI9_En_Dusuk_Surum_Yayin_Surumunu_Asamaz()
+    {
+        await using var host = new ApiTestHost();
+        var admin = await host.LoginSeedAsync();
+        var icerik = RandomNumberGenerator.GetBytes(512);
+        MultipartFormDataContent F(string min) => new()
+        {
+            { new StringContent("7.0.3"), "version" },
+            { new StringContent(Sha(icerik)), "checksum" },
+            { new StringContent(icerik.Length.ToString()), "sizeBytes" },
+            { new StringContent(min), "minSupportedVersion" },
+            { new StringContent(TestImza.Imzala("7.0.3", Sha(icerik))), "signature" },
+            { new ByteArrayContent(icerik), "file", "DepoWise-7.0.3.pkg" },
+        };
+        var r = await admin.PostAsync("/api/releases", F("99.0.0"));
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.Contains("en düşük", (await r.Content.ReadAsStringAsync()).ToLowerInvariant());
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsync("/api/releases", F("7.0.3"))).StatusCode);   // eşit: zorunlu güncelleme geçerli
     }
 
     private static string Kok()

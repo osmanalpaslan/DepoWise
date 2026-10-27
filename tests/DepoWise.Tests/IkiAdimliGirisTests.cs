@@ -22,6 +22,10 @@ namespace DepoWise.Tests;
 ///  MA1 — API: kod açık süper admin kodsuz giremez (web girişi + masaüstü senkron girişi); doğru kodla girer; paket "mfa" taşır
 ///  MA2 — API: kodsuz kullanıcılar etkilenmez; personel kurulum yapamaz
 ///  MA3 — API: kod tahmini kullanıcı başına sınırlı (429, mfaRequired)
+///  MF7 — (denetim) sunucu anahtarı kaybolsa da KURTARMA KODU çalışır (süper admin kilitlenmez)
+///  MF8 — (denetim) açma ve kapatma oturum dönemini artırır: önceden alınmış jetonlar geçmez
+///  MA4 — (denetim) API: açılış eski jetonu düşürür, onay yanıtındaki yeni jeton çalışır
+///  MA5 — (denetim) deneme sınırı yalnız HATALI kodu sayar (doğru kodla giren sınırı doldurmaz)
 ///  MI1 — iki ortam: web 6/7/8. adımlar, masaüstü kod kutusu + çevrimdışı giriş kapısı + 429 "çevrimdışı" sayılmaz
 /// </summary>
 [Collection("PostgresSchema")]   // ApiTestHost süreç-genelinde ortam değişkeni yazar → seri koşmalı
@@ -177,6 +181,47 @@ public class IkiAdimliGirisTests
         finally { Sil(yol); }
     }
 
+    [Fact]
+    public void MF7_Anahtarsiz_Sunucuda_Kurtarma_Kodu_Calisir()
+    {
+        var (f, yol) = Db();
+        try
+        {
+            var saat = new Saat();
+            var svc = new IkiAdimliGirisService(f, Anahtar, saat);
+            var k = svc.KurulumBaslat(Super(), "superadmin");
+            var kodlar = svc.KurulumOnayla(Super(), Kod(k.GizliBase32, saat.UtcNow, -1));
+            var anahtarsiz = new IkiAdimliGirisService(f, null, saat);
+            Assert.False(anahtarsiz.GirisDogrula("u-super", Kod(k.GizliBase32, saat.UtcNow)));   // uygulama kodu: anahtar şart
+            Assert.True(anahtarsiz.GirisDogrula("u-super", kodlar[3]));                          // kurtarma kodu: anahtarsız da geçer
+            Assert.False(anahtarsiz.GirisDogrula("u-super", kodlar[3]));                         // yine tek kullanımlık
+        }
+        finally { Sil(yol); }
+    }
+
+    [Fact]
+    public void MF8_Acma_Ve_Kapatma_Eski_Oturumlari_Dusurur()
+    {
+        var (f, yol) = Db();
+        try
+        {
+            var saat = new Saat();
+            var uid = new DepoWise.Infrastructure.Security.UserService(f, saat).EnsureInitialAdmin("CO-MFA", "mfa_donem", "Donem!2026x", RoleKeys.SuperAdmin);
+            var s = new SessionContext(uid, "CO-MFA", new[] { RoleKeys.SuperAdmin }, PermissionSet.Empty);
+            var donem = new OturumDonemi(f);
+            var once = donem.Oku(uid);
+            var svc = new IkiAdimliGirisService(f, Anahtar, saat);
+            var k = svc.KurulumBaslat(s, "mfa_donem");
+            Assert.Equal(once, donem.Oku(uid));                                   // yarım kurulum oturumlara dokunmaz
+            svc.KurulumOnayla(s, Kod(k.GizliBase32, saat.UtcNow, -1));
+            var acildi = donem.Oku(uid);
+            Assert.True(acildi > once);
+            svc.Kapat(s, Kod(k.GizliBase32, saat.UtcNow));
+            Assert.True(donem.Oku(uid) > acildi);
+        }
+        finally { Sil(yol); }
+    }
+
     // ── API ────────────────────────────────────────────────────────────────────────────────────────
 
     private const string Co = "MFA-CO";
@@ -207,7 +252,10 @@ public class IkiAdimliGirisTests
         var gizli = kurulum.GetProperty("secret").GetString()!;
         var onay = await super.PostAsJsonAsync("/api/auth/mfa/confirm", new { code = Kod(gizli, DateTimeOffset.UtcNow) });
         Assert.Equal(HttpStatusCode.OK, onay.StatusCode);
-        var kurtarma = (await ApiTestHost.JsonAsync(onay)).GetProperty("recoveryCodes").EnumerateArray().Select(x => x.GetString()!).ToList();
+        var onayGovde = await ApiTestHost.JsonAsync(onay);
+        var kurtarma = onayGovde.GetProperty("recoveryCodes").EnumerateArray().Select(x => x.GetString()!).ToList();
+        // Açılış eski jetonları düşürür (MA4) → durum, onayın verdiği YENİ jetonla okunur.
+        super.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", onayGovde.GetProperty("token").GetString());
         var durum = await ApiTestHost.JsonAsync(await super.GetAsync("/api/auth/mfa/status"));
         Assert.True(durum.GetProperty("enabled").GetBoolean());
 
@@ -277,6 +325,38 @@ public class IkiAdimliGirisTests
     }
 
     [Fact]
+    public async Task MA4_Acilis_Eski_Jetonu_Dusurur_Yeni_Jeton_Calisir()
+    {
+        var (host, _, sube) = await Kur();
+        await using var _h = host;
+        var eski = await host.LoginAsync("mfa_super", Pass, Co, sube);
+        Assert.Equal(HttpStatusCode.OK, (await eski.GetAsync("/api/auth/mfa/status")).StatusCode);
+        var gizli = (await ApiTestHost.JsonAsync(await eski.PostAsJsonAsync("/api/auth/mfa/setup", new { }))).GetProperty("secret").GetString()!;
+        var onay = await ApiTestHost.JsonAsync(await eski.PostAsJsonAsync("/api/auth/mfa/confirm", new { code = Kod(gizli, DateTimeOffset.UtcNow) }));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await eski.GetAsync("/api/auth/mfa/status")).StatusCode);   // eski jeton düştü
+        Assert.Equal(HttpStatusCode.Unauthorized, (await eski.PostAsync("/api/auth/refresh", null)).StatusCode); // yenilenemez de
+        var yeni = host.Anonymous();
+        yeni.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", onay.GetProperty("token").GetString());
+        var d = await ApiTestHost.JsonAsync(await yeni.GetAsync("/api/auth/mfa/status"));
+        Assert.True(d.GetProperty("enabled").GetBoolean());                                                   // oturum sürüyor
+    }
+
+    [Fact]
+    public async Task MA5_Deneme_Siniri_Yalniz_Hatali_Kodu_Sayar()
+    {
+        var (host, _, sube) = await Kur();
+        await using var _h = host;
+        var super = await host.LoginAsync("mfa_super", Pass, Co, sube);
+        var gizli = (await ApiTestHost.JsonAsync(await super.PostAsJsonAsync("/api/auth/mfa/setup", new { }))).GetProperty("secret").GetString()!;
+        Assert.Equal(HttpStatusCode.OK, (await super.PostAsJsonAsync("/api/auth/mfa/confirm", new { code = Kod(gizli, DateTimeOffset.UtcNow) })).StatusCode);
+
+        for (int i = 0; i < 4; i++) Assert.Equal(HttpStatusCode.Unauthorized, (await Giris(host, "mfa_super", sube, (200000 + i).ToString())).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Giris(host, "mfa_super", sube, Kod(gizli, DateTimeOffset.UtcNow, +1))).StatusCode);   // doğru kod
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Giris(host, "mfa_super", sube, "299999")).StatusCode);   // 5. HATA: hâlâ 401
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await Giris(host, "mfa_super", sube, "299998")).StatusCode); // 6.: sınır doldu
+    }
+
+    [Fact]
     public void MI1_Iki_Ortam_Arayuz_Sozlesmesi()
     {
         string Oku(string rel) => File.ReadAllText(Path.Combine(Kok(), rel));
@@ -296,6 +376,13 @@ public class IkiAdimliGirisTests
         var istemci = Oku("src/DepoWise.Desktop/ServerAuthClient.cs");
         Assert.Contains("System.Net.HttpStatusCode.TooManyRequests", istemci);   // 429 kod adımında kalır, yerel girişe düşmez
         Assert.Contains("IkiAdimBilgisiniYaz(bundle.UserId, YanittaIkiAdim(body));", istemci);
+        // Denetim: "Beni Hatırla" kodu açık hesapta ne kaydedilir ne kullanılır; web açılıştan sonra yeni jetonla sürer.
+        var hatirla = Oku("src/DepoWise.Desktop/RememberMeService.cs");
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(hatirla, @"ServerAuthClient\.IkiAdimAcik\(").Count);
+        Assert.Contains("Auth.JetonuYenile(jeton);", web);
+        // İki ortam aynı uyarı metni (boş kod).
+        Assert.Contains("\"Doğrulama uygulamasındaki 6 haneli kodu girin.\"", web);
+        Assert.Contains("\"Doğrulama uygulamasındaki 6 haneli kodu girin.\"", vm);
     }
 
     private static string Kok()
