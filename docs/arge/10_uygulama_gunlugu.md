@@ -961,3 +961,11 @@
   düşüp seçim kayboluyordu (sunucu ilk açılışta yavaşken). Yardımcı `otomatikSec` seçimin tuttuğunu doğrulayıp yazma+seçmeyi bütün
   olarak yeniden dener; iş sonucu (stok 5→3) yine API'den sınanır.
 - **Testler:** hedefli 36/36, arayüz 71/71, yerel tarayıcı 5/5.
+
+### B9+Z tam takım ve Z — yayın öncesi kontrol (2026-10-27)
+- **Tam takım 4606/4606** (başarısız 0, atlanan 0; 18:53 → 21:49, 2 sa 54 dk; yeni B9 testleri sonuçta: 42 test bu oturumun sınıflarından),
+  arayüz 71/71, yerel tarayıcı 5/5. Sonuç kopyası `artifacts/dw_tam_b9z.trx`. Koşu sırasında başka test/derleme yapılmadı.
+- **Z:** `12_yayin_oncesi_kontrol.md` B5–B9 yayın günü notlarıyla tamamlandı (C bölümü: dal birleştirme, 26 migration, güncelleme
+  notu, canlıda bekleyen iki hatanın doğrulanması, eşitlemeye katılan tablolar, sağlık kontrolü, masaüstü görünüm, web çalışma şubesi).
+  M-01 (paket imzası + süper admin MFA) yayın kararında kullanıcıya hatırlatılacak. **Yayın yapılmadı** (AR-GE yayın yasağı).
+- Bulgu: testlerin toplam süresi iki katına çıktı (34.587 → 68.080 sn, genele yayılı) → hızlandırma iş listesinde (kök neden).
