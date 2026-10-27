@@ -431,6 +431,7 @@ else
         _ok = r is not null;
         _msg = r is { } j && j.TryGetProperty("matched", out var m) ? $"{m.GetInt32()} tedarikçi kaydı eşleştirildi." : "Eşleştirilemedi.";
         await TedarikciEslemeKontrol();
+        if (_ok) await Load();   // yeni açılan tedarikçi carileri listede hemen görünsün (masaüstüyle aynı)
     }
 
     protected override async Task OnInitializedAsync()

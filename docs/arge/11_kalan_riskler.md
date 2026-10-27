@@ -167,3 +167,6 @@
 - **Canlıda (AR-GE sonu yayınına kadar):** masaüstündeki "doğrudan stok değişikliği" uyarı kayıtları web'de görünmüyor (Migration122
   ile düzeltildi; canlıya AR-GE yayınıyla gelir). Yayından ÖNCE masaüstünde yazılmış eski kayıtların yerel değişiklik sayacı boş
   olduğundan bunlar kendiliğinden gönderilmez — yayın sonrası gerekirse "tam gönderim" (TamGonderimIste) ile bir kez gönderilir.
+- **Fatura ek tablosunda eşitleme kaynağı yok (B9 denetimi 2026-10-27, düşük):** denetçi bir fatura yan tablosunun eşitleme referans
+  kaydı olmadığını not etti; tablo yalnız sunucuda yazılıyor/okunuyor, masaüstü yerel kopyası kullanılmıyor → bugün zararsız.
+  İleride masaüstü bu tabloyu yerelde okursa `CrossCompanyRefs`/`Tables` kaydı eklenmeli (EsitlemeKarariTests nöbetçisi uyarır).

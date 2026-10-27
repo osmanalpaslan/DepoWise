@@ -2,7 +2,7 @@
 // Canlı testler yalnız okur; buradaki testler KAYIT YAZAR: yeni malzeme girişi (çift tıklamada TEK kayıt), depo çıkışı,
 // hareket iptali. Sonuçlar API'den okunur (ekranda "başarılı" yazması yetmez — veritabanındaki gerçek etki sınanır).
 const { test, expect } = require('@playwright/test');
-const { api, tohumla, subeyleGiris, secim, yaz, onayla } = require('./yardimci-yerel');
+const { api, tohumla, subeyleGiris, secim, otomatikSec, yaz, onayla } = require('./yardimci-yerel');
 
 const KOD = 'E2E-' + Date.now().toString(36).toUpperCase();
 let ids;
@@ -44,10 +44,7 @@ test('Depo çıkışı stoğu düşürür', async ({ page }) => {
   await page.goto('/stock');
   await page.waitForLoadState('networkidle');
   await page.getByText('Depo Çıkışı', { exact: true }).first().click();
-  const malzeme = page.locator('.mud-input-control', { has: page.locator('label', { hasText: 'Malzeme *' }) }).locator('input').first();
-  await malzeme.click();
-  await malzeme.fill(KOD);
-  await page.locator('.mud-popover-open .mud-list-item', { hasText: KOD }).first().click();
+  await otomatikSec(page, 'Malzeme *', KOD);
   await yaz(page, 'Çıkacak Miktar', 2);
   await secim(page, 'Teslim Eden / Alan (Personel) *', 'Ali Depocu');
   await page.getByRole('button', { name: 'Kaydet', exact: true }).click();

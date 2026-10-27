@@ -18,7 +18,7 @@
         <MudDivider />
         <MudSimpleTable Dense="true" Elevation="0">
             <tbody>
-                <tr><td>Masaüstü programı</td><td>@(_surum is null ? "—" : "Sürüm " + _surum)</td></tr>
+                <tr><td>Son yayınlanan masaüstü sürümü</td><td>@(_surum is null ? "—" : "Sürüm " + _surum)</td></tr>
                 <tr><td>Firma</td><td>@Auth.CompanyDisplay</td></tr>
                 @if (_sonNot is not null)
                 {

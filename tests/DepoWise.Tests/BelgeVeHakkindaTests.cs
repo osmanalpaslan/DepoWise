@@ -26,7 +26,7 @@ public class BelgeVeHakkindaTests
         Assert.StartsWith("@page \"/about\"", web);
         var mas = Oku("src/DepoWise.Desktop/Views/AboutView.axaml") + Oku("src/DepoWise.Desktop/ViewModels/AboutViewModel.cs");
         Assert.DoesNotContain("yakında", mas, StringComparison.OrdinalIgnoreCase);
-        foreach (var (w, m) in new[] { ("Masaüstü programı", "Program sürümü"), ("Firma", "Firma"), ("Son güncelleme", "Son güncelleme"), ("Güncelleme Notları", "Güncelleme Notları") })
+        foreach (var (w, m) in new[] { ("Son yayınlanan masaüstü sürümü", "Program sürümü"), ("Firma", "Firma"), ("Son güncelleme", "Son güncelleme"), ("Güncelleme Notları", "Güncelleme Notları") })
         {
             Assert.Contains(w, web);
             Assert.Contains(m, mas);

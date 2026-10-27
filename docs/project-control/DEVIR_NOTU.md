@@ -1,20 +1,19 @@
 # DEVİR NOTU — başka bir Claude hesabı/oturumu buradan devam eder
 
-> Güncellendi: 2026-10-27 ~01:10. **Yeni oturum: önce bu dosyayı, sonra `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.**
+> Güncellendi: 2026-10-27 ~19:00. **Yeni oturum: önce bu dosyayı, sonra `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.**
 > Başka bilgisayarda: önce `git pull` (dal `arge/2026-10-kapsamli`); hafıza/genel kurallar için bir kez `~/.claude-yedek/geri-yukle.ps1`;
 > PG test sunucusu yoksa `scripts/pg_test_sunucu.ps1`. Bu not her oturum sonunda güncellenir; AR-GE bitince silinir.
 
 ## 1. Nerede kaldık
 - Dal: `arge/2026-10-kapsamli` (AR-GE çalışması). Faz sırası B7 → B8 (TAMAM) → **B9 (sürüyor)** → Z.
 - 2026-10-26/27'de biten ve gönderilen (her biri testli, ayrı commit; ayrıntı `docs/arge/10_uygulama_gunlugu.md`):
-  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) · eşitleme nöbetçisi + Migration122 · M-31 · M-53 · M-52 (e-Fatura + genel Excel aktarımı) ·
+  kullanıcının 7 isteği (2026-10-25) · iki ortam denetimi düzeltmeleri · M-72 · M-73 · M-68 · M-70 (3/3) · M-76 · M-69 · M-74 · M-75 · B6 eşitleme (Migration121) · eşitleme nöbetçisi + Migration122 · M-31 · M-53 · M-52 (e-Fatura + genel Excel aktarımı) · M-82 (Migration124, şema 124) · B9 sonu iki ortam denetimi (4 ayrışma düzeltildi) ·
   yarım SignalR sohbet denemesinin arşivlenmesi (kullanıcı onayıyla).
 - **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
 ## 2. Sıradaki işler (B9 kalanı, sırayla)
-M-82 (olası mükerrer fatura uyarısı; tasarım: aynı cari+yön+dış no = kesin, aynı cari+gün+toplam = olası; "mükerrer değil"
-işareti) → B9 sonu iki ortam denetimi → **B9+Z TAM TAKIM**
-(~4.500 test, son ölçüm 2 sa 28 dk; hatırlatıcı tam ortalamaya) + arayüz testleri → **Z**: `docs/arge/12_yayin_oncesi_kontrol.md`.
+B9 geliştirme maddeleri ve B9 sonu denetimi BİTTİ. Sıradaki: **B9+Z TAM TAKIM**
+(~4.700 test, trx kopyası `artifacts/dw_tam_b9z.trx`, son ölçüm 2 sa 28 dk; hatırlatıcı tam ortalamaya) + arayüz testleri → **Z**: `docs/arge/12_yayin_oncesi_kontrol.md`.
 Ertelenenler: M-01 (yayın öncesi hatırlatılacak), M-42, M-40. Yapılmayacak: M-45, M-77. Kaynak: `docs/arge/13_kullanici_secimleri.md`.
 
 ## 3. Kesin kurallar (kullanıcı)

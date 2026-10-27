@@ -36,6 +36,8 @@ public sealed partial class AsgariStokViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public ObservableCollection<AsgariSecim> Depolar { get; } = new();
+    /// <summary>Depoya özel tanım için YALNIZ gerçek depolar ("Tüm depolarım" yok — web ile aynı; iki ortam denetimi 2026-10-27).</summary>
+    public ObservableCollection<AsgariSecim> TanimDepolari { get; } = new();
     public ObservableCollection<AsgariSecim> Malzemeler { get; } = new();
     public ObservableCollection<AsgariOneriSatiri> Items { get; } = new();
     public ObservableCollection<DepoAsgari> Tanimlar { get; } = new();
@@ -65,6 +67,7 @@ public sealed partial class AsgariStokViewModel : ViewModelBase
                 Malzemeler.Add(new AsgariSecim(m.Id, $"{m.Code} — {m.Name}"));
         }
         catch (Exception ex) { LoadError = ex.Message; }
+        foreach (var d in Depolar.Where(d => d.Id is not null)) TanimDepolari.Add(d);
         SeciliDepo = Depolar.FirstOrDefault(d => d.Id == session.OperatingBranchId) ?? Depolar.FirstOrDefault();
         TanimDepo = Depolar.FirstOrDefault(d => d.Id is not null && (session.OperatingBranchId is null || d.Id == session.OperatingBranchId));
         Load();

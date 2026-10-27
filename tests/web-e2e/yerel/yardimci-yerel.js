@@ -79,6 +79,19 @@ async function secim(page, etiket, secenek) {
   await expect(page.locator('.mud-popover-open .mud-list-item')).toHaveCount(0);
 }
 
+/** MudAutocomplete: metni yaz, öneriyi seç ve seçimin TUTTUĞUNU doğrula. Liste sunucudan yeniden çizilirken tıklama
+ *  eski satıra düşüp kaybolabiliyordu (2026-10-27, ilk açılışta yavaş sunucuda görüldü); yazma+seçme bütün olarak
+ *  yeniden denenir. Asıl iş sonucu (stok vb.) testte ayrıca API'den sınanır. */
+async function otomatikSec(page, etiket, metin) {
+  const girdi = page.locator('.mud-input-control', { has: page.locator('label', { hasText: etiket }) }).first().locator('input').first();
+  await expect(async () => {
+    await girdi.fill(metin);
+    await page.locator('.mud-popover-open .mud-list-item', { hasText: metin }).first().click({ timeout: 3_000 });
+    await expect(page.locator('.mud-popover-open .mud-list-item')).toHaveCount(0, { timeout: 2_000 });
+    await expect(girdi).toHaveValue(new RegExp(metin), { timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
+
 /** MudTextField/NumericField: etiketine göre doldur. */
 async function yaz(page, etiket, deger) {
   const alan = page.locator('.mud-input-control', { has: page.locator('label', { hasText: etiket }) }).first().locator('input, textarea').first();
@@ -95,4 +108,4 @@ async function onayla(page, dugme) {
   await expect(page.locator('.mud-dialog')).toHaveCount(0, { timeout: 15_000 });
 }
 
-module.exports = { api, tohumla, subeyleGiris, secim, yaz, onayla, FIRMA };
+module.exports = { api, tohumla, subeyleGiris, secim, otomatikSec, yaz, onayla, FIRMA };

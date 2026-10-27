@@ -949,3 +949,15 @@
   API `GET /api/invoices/possible-duplicates`, `POST …/dismiss`.
 - **Testler:** `MukerrerFaturaTests` MK1–MK6, `EFaturaApiTests` EA4 (API + iki ortam metni); mutasyon: "farklı belge no farklı
   faturadır" kuralı kaldırılınca MK2 kırıldı. Riskli paket (PG/migration/senkron/fatura) 463/463, 20 dk; arayüz 71/71.
+
+### B9 sonu — iki ortam denetimi (salt okuma ajanı, 2026-10-27)
+- Hata yok; 4 ayrışma düzeltildi: (1) web "Hakkında"da masaüstü sürümü satırı "Son yayınlanan masaüstü sürümü" oldu (web, bilgisayarda
+  kurulu sürümü bilemez; masaüstündeki "Program sürümü" kurulu sürümdür); (2) masaüstü Asgari Stok tanım panelinde depo listesinden
+  "Tüm depolarım" çıkarıldı (web gibi yalnız gerçek depolar); (3) web asgari tanım onay metni malzeme adını da söylüyor (masaüstüyle aynı
+  cümle); (4) web Cariler'de "Tedarikçileri Eşle" sonrası liste yenileniyor (yeni açılan cariler hemen görünür).
+- Kuşkulu iki nokta değerlendirildi: B6 eşitleme testi iki tabloyu zaten sınıyor (iddia yanlış); `invoice_b…` tablosunun eşitleme
+  kaynağı yok → zararsız, kalan risklere not edildi.
+- Yerel tarayıcı testinde kararsızlık bulundu: malzeme otomatik tamamlama listesi sunucudan yeniden çizilirken tıklama eski satıra
+  düşüp seçim kayboluyordu (sunucu ilk açılışta yavaşken). Yardımcı `otomatikSec` seçimin tuttuğunu doğrulayıp yazma+seçmeyi bütün
+  olarak yeniden dener; iş sonucu (stok 5→3) yine API'den sınanır.
+- **Testler:** hedefli 36/36, arayüz 71/71, yerel tarayıcı 5/5.

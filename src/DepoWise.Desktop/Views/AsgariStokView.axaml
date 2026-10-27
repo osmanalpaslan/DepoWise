@@ -88,7 +88,7 @@
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Malzemeler}" SelectedItem="{Binding TanimMalzeme}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Depo / Şantiye" Width="220">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Depolar}" SelectedItem="{Binding TanimDepo}"/>
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding TanimDepolari}" SelectedItem="{Binding TanimDepo}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Asgari miktar" Width="140">
                         <NumericUpDown Value="{Binding TanimAsgari}" Minimum="0" FormatString="0.##" Increment="1" HorizontalAlignment="Stretch"/>

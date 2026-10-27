@@ -202,12 +202,14 @@ else
         catch { }
     }
 
+    private string MalzemeAdi() => _malzemeler.FirstOrDefault(m => m.Id == _tMalzeme)?.Name ?? "Seçili malzeme";
+
     private async Task TanimKaydet()
     {
         if (string.IsNullOrEmpty(_tMalzeme) || string.IsNullOrEmpty(_tDepo)) { _msg = "Malzeme ve depo seçin."; _ok = false; return; }
         if (_tAsgari <= 0) { _msg = "Asgari miktar sıfırdan büyük olmalı (kaldırmak için 'Depoya Özeli Kaldır')."; _ok = false; return; }
         var depoAdi = _depolar.FirstOrDefault(d => d.Id == _tDepo)?.Name ?? "";
-        if (!await Dialog.Confirm($"Seçili malzeme için {depoAdi} deposunda asgari stok {_tAsgari:0.##} olsun mu?", "Evet, Kaydet")) return;
+        if (!await Dialog.Confirm($"{MalzemeAdi()} için {depoAdi} deposunda asgari stok {_tAsgari:0.##} olsun mu?", "Evet, Kaydet")) return;
         await Yaz(_tAsgari, "kaydedildi");
     }
 
@@ -215,7 +217,7 @@ else
     {
         if (string.IsNullOrEmpty(_tMalzeme) || string.IsNullOrEmpty(_tDepo)) { _msg = "Malzeme ve depo seçin."; _ok = false; return; }
         var depoAdi = _depolar.FirstOrDefault(d => d.Id == _tDepo)?.Name ?? "";
-        if (!await Dialog.Confirm($"Seçili malzeme için {depoAdi} deposuna özel asgari kaldırılsın mı? (malzeme kartının genel asgarisi geçerli olur)", "Evet, Kaldır")) return;
+        if (!await Dialog.Confirm($"{MalzemeAdi()} için {depoAdi} deposuna özel asgari kaldırılsın mı? (malzeme kartının genel asgarisi geçerli olur)", "Evet, Kaldır")) return;
         await Yaz(null, "kaldırıldı");
     }
 
