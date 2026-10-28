@@ -122,40 +122,59 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding HasSelection}">
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <SelectableTextBlock Text="Seçili:" Classes="Helper" VerticalAlignment="Center"/>
-                <SelectableTextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
-                <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+        <!-- ⭐ iOS tasarım (2026-10-28): seçili kişi kartı — üstte simge + ad + unvan ve eylemler; altta belgeler, zimmetler ve
+             tutanaklar açılır bölümlerde (önceden hepsi tek yatay şeritteydi). Komutlar ve koşullar aynı. -->
+        <Border Grid.Row="2" Classes="IosKart" Margin="0,16,0,0" Padding="16,14" IsVisible="{Binding HasSelection}">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#30D158">
+                        <PathIcon Data="{DynamicResource IconPersonnel}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                        <SelectableTextBlock Text="{Binding Selected.FullName}" FontSize="17" FontWeight="Bold"
+                                             Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                        <SelectableTextBlock Text="{Binding Selected.Title}" Classes="Helper"
+                                             IsVisible="{Binding Selected.Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                    <WrapPanel Grid.Column="2" VerticalAlignment="Center" ItemSpacing="8" LineSpacing="8">
+                        <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                        <!-- ⭐ M-47: zimmet tutanağı -->
+                        <Button Classes="Secondary" Content="Zimmet Tutanağı" Command="{Binding TutanakOlusturCommand}" IsVisible="{Binding HasZimmet}"
+                                ToolTip.Tip="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir."/>
+                        <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                    </WrapPanel>
+                </Grid>
                 <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
-                <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}" Margin="0,8,0,8"/>
-                <!-- ⭐ M-47: zimmet tutanağı -->
-                <Button Classes="Secondary" Content="Zimmet Tutanağı" Command="{Binding TutanakOlusturCommand}" IsVisible="{Binding HasZimmet}"
-                        ToolTip.Tip="Bu kişinin şu anki zimmetlerini donduran, imza alanlı tutanak PDF'i üretir; imzalı dönünce Kabul işaretlenir."/>
-                <ItemsControl ItemsSource="{Binding Tutanaklar}" IsVisible="{Binding HasTutanak}" VerticalAlignment="Center">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="asg:ZimmetTutanagi">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center"/>
-                                <Button Classes="Ghost" Content="PDF" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakPdfCommand}" CommandParameter="{Binding}"/>
-                                <Button Classes="Ghost" Content="Kabul" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakKabulCommand}" CommandParameter="{Binding}"
-                                        ToolTip.Tip="İmzalı tutanak döndü: kabul edildi olarak işaretle."/>
-                                <Button Classes="Ghost" Content="Ret" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakRetCommand}" CommandParameter="{Binding}"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <!-- ⭐ M-46: personelin zimmetleri -->
-                <SelectableTextBlock Text="Zimmetleri:" Classes="Helper" VerticalAlignment="Center" IsVisible="{Binding HasZimmet}" Margin="12,0,0,0"/>
-                <ItemsControl ItemsSource="{Binding Zimmetleri}" IsVisible="{Binding HasZimmet}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="asg:ZimmetIadesi">
-                            <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" Margin="0,0,12,0"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}"/>
+                <WrapPanel ItemSpacing="12" LineSpacing="8">
+                    <!-- ⭐ M-46: personelin zimmetleri -->
+                    <Expander Classes="IosAcilir" Header="{Binding Zimmetleri.Count, StringFormat='Zimmetleri ({0})'}" IsExpanded="False"
+                              IsVisible="{Binding HasZimmet}" MinWidth="320" HorizontalAlignment="Left">
+                        <ItemsControl ItemsSource="{Binding Zimmetleri}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="asg:ZimmetIadesi">
+                                    <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" Margin="0,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+                    <Expander Classes="IosAcilir" Header="{Binding Tutanaklar.Count, StringFormat='Tutanaklar ({0})'}" IsExpanded="False"
+                              IsVisible="{Binding HasTutanak}" MinWidth="320" HorizontalAlignment="Left">
+                        <ItemsControl ItemsSource="{Binding Tutanaklar}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="asg:ZimmetTutanagi">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <SelectableTextBlock Text="{Binding Ozet}" Classes="Helper" VerticalAlignment="Center"/>
+                                        <Button Classes="Ghost" Content="PDF" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakPdfCommand}" CommandParameter="{Binding}"/>
+                                        <Button Classes="Ghost" Content="Kabul" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakKabulCommand}" CommandParameter="{Binding}"
+                                                ToolTip.Tip="İmzalı tutanak döndü: kabul edildi olarak işaretle."/>
+                                        <Button Classes="Ghost" Content="Ret" Command="{Binding $parent[ItemsControl].((vm:PersonnelViewModel)DataContext).TutanakRetCommand}" CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+                </WrapPanel>
             </StackPanel>
         </Border>
 

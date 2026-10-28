@@ -121,7 +121,13 @@
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
                 <ScrollViewer>
                     <StackPanel Spacing="12">
-                        <SelectableTextBlock Text="{Binding Selected.Title}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <!-- ⭐ iOS tasarım (2026-10-28): kart başı — renkli simge + başlık (ortalı) -->
+                        <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,4,0,4">
+                            <Border Classes="IkonKutu" Width="56" Height="56" CornerRadius="16" Background="#FF9F0A" HorizontalAlignment="Center">
+                                <PathIcon Width="28" Height="28" Data="{DynamicResource IconDocuments}"/>
+                            </Border>
+                            <SelectableTextBlock Text="{Binding Selected.Title}" Classes="PageTitle" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Classes="Primary" Content="İndir" Command="{Binding DownloadCommand}"/>
                             <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
