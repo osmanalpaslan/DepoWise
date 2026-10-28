@@ -54,7 +54,7 @@
                 <!-- Malzeme şablonu GERİ EKLENDİ (kullanıcı isteği 2026-08-08): yeni kayıtta şablon seçilince
                      alanlar şablondan dolar (düzenlemede yalnız bağ kurulur, alanlar EZİLMEZ). Şablonları
                      yönetmek için: Malzemeler > Malzeme Şablonları ekranı. -->
-                <ctrl:FormField Label="Şablon" Width="480"
+                <ctrl:FormField HorizontalAlignment="Left" Label="Şablon" Width="480"
                                 HelpText="Seçilince alanlar şablondan doldurulur (isteğe bağlı; boş bırakılabilir).">
                     <Grid ColumnDefinitions="*,Auto">
                         <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"

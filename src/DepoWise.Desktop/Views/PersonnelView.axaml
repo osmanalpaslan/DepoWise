@@ -95,7 +95,7 @@
                 <CheckBox Content="Mevcut kullanıcıyı bağla"
                           IsChecked="{Binding FGrantAccess}" IsVisible="{Binding ShowGrantToggle}"/>
                 <StackPanel Spacing="10" IsVisible="{Binding ShowAccountFields}">
-                    <ctrl:FormField Label="Bağlanacak Kullanıcı" IsRequired="True" Width="360"
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Bağlanacak Kullanıcı" IsRequired="True" Width="360"
                                     IsVisible="{Binding HasLinkableUsers}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch"
                                   ItemsSource="{Binding LinkableUsers}" SelectedItem="{Binding FLinkUser}">

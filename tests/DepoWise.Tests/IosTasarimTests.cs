@@ -97,4 +97,33 @@ public class IosTasarimTests
                 ihlal.Add(Path.GetFileName(f) + ": " + m.Groups[1].Value);
         Assert.True(ihlal.Count == 0, "gri yıkıcı düğme: " + string.Join(", ", ihlal));
     }
+
+    /// <summary>IOS-HIZ1 — sabit genişlikli form alanı (FormField Width=…) DİKEY bir StackPanel içindeyse hizası açıkça belirtilir;
+    /// yoksa Avalonia onu ortalar ve alan diğerlerinden sağa kayar (2026-10-29 görsel taramada Kullanıcı "Not", Bakım "depo").</summary>
+    [Fact]
+    public void IOSHIZ1_Sabit_Genislikli_Alan_Dikey_Sutunda_Kaymaz()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        var ihlal = new List<string>();
+        var etiket = new Regex(@"<!--[\s\S]*?-->|<(/?)([A-Za-z_][\w:.]*)\b([^>]*?)(/?)>");
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+        {
+            var yigin = new List<(string Ad, string Nit)>();
+            foreach (Match m in etiket.Matches(File.ReadAllText(f)))
+            {
+                if (m.Value.StartsWith("<!--")) continue;
+                var ad = m.Groups[2].Value; var nit = m.Groups[3].Value;
+                if (m.Groups[1].Value == "/")
+                {
+                    while (yigin.Count > 0) { var son = yigin[^1]; yigin.RemoveAt(yigin.Count - 1); if (son.Ad == ad) break; }
+                    continue;
+                }
+                if (ad == "ctrl:FormField" && Regex.IsMatch(nit, @"\sWidth=""\d+""") && !nit.Contains("HorizontalAlignment=") && !nit.Contains("Grid.Column=")
+                    && yigin.Count > 0 && yigin[^1].Ad == "StackPanel" && !yigin[^1].Nit.Contains("Orientation=\"Horizontal\""))
+                    ihlal.Add(Path.GetFileName(f) + ": " + Regex.Match(nit, @"Label=""([^""]*)""").Groups[1].Value);
+                if (m.Groups[4].Value != "/") yigin.Add((ad, nit));
+            }
+        }
+        Assert.True(ihlal.Count == 0, "dikey sütunda hizasız sabit genişlikli alan: " + string.Join(", ", ihlal));
+    }
 }

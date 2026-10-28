@@ -187,7 +187,7 @@
                             <TextBox Classes="Field" Text="{Binding ReplacementReason}" PlaceholderText="Ör. motor arızası" MaxLength="500"/>
                         </ctrl:FormField>
                     </StackPanel>
-                    <ctrl:FormField Label="Değişim Nedeni" Width="300" IsVisible="{Binding IsEditMode}"
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Değişim Nedeni" Width="300" IsVisible="{Binding IsEditMode}"
                                     HelpText="Bu araç bir değişim kaydıyla geldiyse nedeni düzeltilebilir.">
                         <TextBox Classes="Field" Text="{Binding ReplacementReason}" MaxLength="500"/>
                     </ctrl:FormField>

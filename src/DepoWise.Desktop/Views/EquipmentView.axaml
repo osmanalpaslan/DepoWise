@@ -64,7 +64,7 @@
                         <TextBox Classes="Field" Text="{Binding FormStatusNote}"/>
                     </ctrl:FormField>
                 </StackPanel>
-                <ctrl:FormField Label="Açıklama" Width="800">
+                <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="800">
                     <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
                 </ctrl:FormField>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"

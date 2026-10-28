@@ -59,7 +59,7 @@
                                         PlaceholderText="Merkez seç / ara..."/>
                     </ctrl:FormField>
                 </WrapPanel>
-                <ctrl:FormField Label="Açıklama" Width="700">
+                <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="700">
                     <TextBox Classes="Field" Text="{Binding FormNote}"/>
                 </ctrl:FormField>
                 <SelectableTextBlock Text="SİPARİŞ SATIRLARI" Classes="SectionTitle"/>

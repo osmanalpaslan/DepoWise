@@ -281,7 +281,7 @@
                             <!-- BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO. Varsayılan oturum şubesidir,
                                  kullanıcı değiştirebilir. "Atanmamış" seçenek olarak SUNULMAZ (yeni stok
                                  yazma hedefi olamaz). Liste yereldendir → çevrimdışı çalışır. -->
-                            <ctrl:FormField Label="Malzemenin çekildiği depo" Width="320"
+                            <ctrl:FormField HorizontalAlignment="Left" Label="Malzemenin çekildiği depo" Width="320"
                                             HelpText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir; gerekirse değiştirin."
                                             IsVisible="{Binding !MntHasNoLocation}">
                                 <ComboBox Classes="Field" HorizontalAlignment="Stretch"

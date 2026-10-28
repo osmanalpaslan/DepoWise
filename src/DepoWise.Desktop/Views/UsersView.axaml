@@ -59,7 +59,7 @@
                         <TextBox Classes="Field" Text="{Binding NewTitle}"/>
                     </ctrl:FormField>
                 </WrapPanel>
-                <ctrl:FormField Label="Not" Width="480" HelpText="Serbest not — ör. 'şantiye tableti', 'muhasebe ortak hesabı'.">
+                <ctrl:FormField Label="Not" Width="480" HorizontalAlignment="Left" HelpText="Serbest not — ör. 'şantiye tableti', 'muhasebe ortak hesabı'.">
                     <TextBox Classes="Field" Text="{Binding NewNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"/>
                 </ctrl:FormField>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14" IsVisible="{Binding ShowCreateOnlyFields}">
@@ -100,7 +100,7 @@
                 <CheckBox IsChecked="{Binding NewViewAllBranches}" Margin="0,4"
                           IsVisible="{Binding ShowAllBranchesOption}"
                           Content="Tüm Şubeler yetkisi (yalnız Süper Admin — tüm şube verisiyle çalışır)"/>
-                <ctrl:FormField Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding ShowTemplateOption}"
+                <ctrl:FormField HorizontalAlignment="Left" Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding ShowTemplateOption}"
                                 HelpText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
                         <ComboBox.ItemTemplate>

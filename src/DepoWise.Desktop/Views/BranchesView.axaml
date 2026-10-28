@@ -45,7 +45,7 @@
                         <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
                     </ctrl:FormField>
                 </WrapPanel>
-                <ctrl:FormField Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
+                <ctrl:FormField HorizontalAlignment="Left" Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
                     <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}"
                                     PlaceholderText="Üst şube seç / ara..."/>
                 </ctrl:FormField>
