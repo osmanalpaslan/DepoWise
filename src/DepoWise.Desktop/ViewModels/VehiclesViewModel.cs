@@ -1110,6 +1110,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public ObservableCollection<InspectionRow> VehicleInspections { get; } = new();
     public ObservableCollection<MaintenanceRow> VehicleMaintenances { get; } = new();
     public ObservableCollection<MovementDisplay> VehicleMovements { get; } = new();
+    /// <summary>⭐ iOS tasarım (2026-10-28, kullanıcı onayı): araç kartında bakım / muayene / sigorta ilerleme çubukları.</summary>
+    public ObservableCollection<BakimCubugu> BakimCubuklari { get; } = new();
+    public bool HasBakimCubugu => BakimCubuklari.Count > 0;
 
     // ── 2026-09-30: bağımlı Ana → Alt kategori filtresi (Sorgula / Filtreleri Temizle). Veri araç
     //    seçilince BİR KEZ okunur; süzme istemcide (MaterialStockGroups — hızlı düzenleme penceresiyle aynı).
@@ -1139,6 +1142,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     private void ClearVehicleTabs()
     {
         VehicleMaterials.Clear(); VehicleInspections.Clear(); VehicleMaintenances.Clear(); VehicleMovements.Clear();
+        BakimCubuklari.Clear(); OnPropertyChanged(nameof(HasBakimCubugu));
         _aracMalzemeleri = new(); MatTopOptions.Clear(); MatSubOptions.Clear();   // önceki aracın filtre seçenekleri kalmasın
     }
 
@@ -1151,6 +1155,16 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         MalzemeleriListele();
         try { foreach (var i in DesktopServices.Inspection.List(_session).Where(x => x.VehicleCode == code)) VehicleInspections.Add(i); } catch { }
         try { foreach (var mt in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) VehicleMaintenances.Add(mt); } catch { }
+        // ⭐ iOS tasarım: ilerleme çubukları — bakım uyarısının kendi oranı + muayene/sigorta belgesinin son→sonraki tarih aralığı.
+        try
+        {
+            foreach (var a in DesktopServices.Maintenance.GetAlerts(_session).Where(x => x.VehicleId == vehicleId))
+                BakimCubuklari.Add(BakimCubugu.Bakimdan(a));
+        }
+        catch { }
+        foreach (var i in VehicleInspections.Where(x => !x.Superseded && x.NextDate is not null))
+            BakimCubuklari.Add(BakimCubugu.Belgeden(i, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        OnPropertyChanged(nameof(HasBakimCubugu));
 
         // İşlem Geçmişi (madde 4): Günlük Faaliyet hareket kayıtları + sistem olayları (oluşturma/transfer/
         // güncelleme/sayaç) TEK kronolojik listede birleşir.
@@ -1353,3 +1367,45 @@ public sealed record VehicleRow(string Id, string Code, string? Plate, string St
 
 /// <summary>Araç durumu seçim satırı — kutuda Türkçe ad görünür, servise KOD gider.</summary>
 public sealed record StatusPick(string Code, string Label);
+
+/// <summary>⭐ iOS tasarım (2026-10-28): araç kartındaki bir ilerleme çubuğu satırı. <see cref="Oran"/> 0–1 (taşma 1'e kırpılır);
+/// renk ve sağdaki metin uyarı seviyesinden gelir (gecikti = kırmızı, yaklaşıyor = turuncu, güncel = yeşil).</summary>
+public sealed record BakimCubugu(string Ad, string Sag, double Oran, string Seviye)
+{
+    public double Yuzde => Math.Clamp(Oran, 0, 1) * 100;
+    public Avalonia.Media.IBrush Renk => Avalonia.Media.Brush.Parse(Seviye switch
+    {
+        "gecikti" => "#FF453A", "yaklasiyor" => "#FF9F0A", _ => "#30D158",
+    });
+    public bool Gecikti => Seviye == "gecikti";
+
+    public static BakimCubugu Bakimdan(DepoWise.Infrastructure.Maintenance.MaintenanceAlert a)
+    {
+        var seviye = a.Level switch
+        {
+            DepoWise.Application.Maintenance.AlertLevel.Overdue => "gecikti",
+            DepoWise.Application.Maintenance.AlertLevel.Critical or DepoWise.Application.Maintenance.AlertLevel.Approaching => "yaklasiyor",
+            _ => "guncel",
+        };
+        var sag = a.NeverPerformed ? "İlk bakım bekliyor"
+            : seviye == "gecikti" ? "Gecikti"
+            : $"%{Math.Clamp(a.Progress, 0, 1) * 100:0} doldu";
+        return new BakimCubugu(a.DefinitionName, sag, a.NeverPerformed ? 0 : a.Progress, seviye);
+    }
+
+    public static BakimCubugu Belgeden(DepoWise.Infrastructure.Maintenance.InspectionRow i, long simdiMs)
+    {
+        var seviye = i.Level switch
+        {
+            DepoWise.Infrastructure.Maintenance.DateAlertLevel.Expired => "gecikti",
+            DepoWise.Infrastructure.Maintenance.DateAlertLevel.Approaching => "yaklasiyor",
+            _ => "guncel",
+        };
+        double oran = 1;
+        if (i.LastDate is { } bas && i.NextDate is { } bit && bit > bas)
+            oran = (simdiMs - bas) / (double)(bit - bas);
+        else if (seviye != "gecikti") oran = 0.5;
+        var tarih = DateTimeOffset.FromUnixTimeMilliseconds(i.NextDate!.Value).LocalDateTime.ToString("dd.MM.yyyy");
+        return new BakimCubugu(DepoWise.Application.Ui.InspectionDocTypes.Label(i.DocType), seviye == "gecikti" ? tarih + " · süresi geçti" : tarih, oran, seviye);
+    }
+}

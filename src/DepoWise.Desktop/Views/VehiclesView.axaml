@@ -32,19 +32,18 @@
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
-                    <!-- ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı. -->
-                    <Button Classes="Secondary" Content="Sayaçları Onar" Command="{Binding RecalcMetersCommand}"
-                            IsVisible="{Binding CanWrite}"
-                            ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
-                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
-                    <!-- ⭐ M-35: araç kartından arıza bildir / iş emri aç -->
-                    <Button Classes="Secondary" Content="Arıza Bildir" Command="{Binding ArizaBildirCommand}" IsEnabled="{Binding HasSelection}"
-                            IsVisible="{Binding CanOpenWorkOrder}"
-                            ToolTip.Tip="Seçili aracı &quot;Arızalı&quot; yapar ve taslak iş emri açar; iş emri tamamlanınca araç yeniden Aktif olur, arıza süresi ölçülür."/>
-                    <Button Classes="Secondary" Content="İş Emri Aç" Command="{Binding AractanIsEmriCommand}" IsEnabled="{Binding HasSelection}"
-                            IsVisible="{Binding CanOpenWorkOrder}"
-                            ToolTip.Tip="Seçili araç için bakım/iş emri taslağı açar (bakım uyarısını işe dönüştürmek için); araç durumu değişmez."/>
+                    <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı onayı): seyrek kullanılan toplu işlem "…" menüsünde; seçili araca ait
+                         QR Etiketi / Arıza Bildir / İş Emri Aç düğmeleri sağdaki ARAÇ KARTINA taşındı. -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" IsVisible="{Binding CanWrite}"
+                            AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <!-- ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı. -->
+                                <MenuItem Header="Sayaçları Onar" Command="{Binding RecalcMetersCommand}"
+                                          ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -863,23 +862,67 @@
                           ToolTip.Tip="Araç iade edildi: durum Pasif olur, kira bitişi seçilen gün yazılır. Geçmiş kayıtlar korunur."/>
                 </StackPanel>
                 <WrapPanel>
-                  <!-- M-64: ekranın tek ana düğmesi araç çubuğunda; seçili kayıt eylemleri ikincil, yıkıcı olan en sonda -->
-                  <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,0"
-                          Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                  <!-- M-64: ekranın tek ana düğmesi araç çubuğunda; yıkıcı eylem en sonda. iOS tasarım (2026-10-28): "Düzenle" kart başındaki
+                       yuvarlak eylem düğmelerine taşındı. -->
                   <Button Classes="Danger" Content="Sil"
                           Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
                 </WrapPanel>
               </StackPanel>
               <DockPanel>
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                  <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
-                  <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
-                </Grid>
-                <TabControl>
+                <!-- ⭐ iOS tasarım (2026-10-28): kart başı — büyük simge, kod, plaka · marka model, durum; altında yuvarlak eylem düğmeleri. -->
+                <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,0,0,12">
+                  <StackPanel HorizontalAlignment="Center" Spacing="6">
+                    <Border Classes="IkonKutu" Width="60" Height="60" CornerRadius="17" Background="#0A84FF" HorizontalAlignment="Center">
+                      <PathIcon Width="30" Height="30" Data="{DynamicResource IconVehicles}"/>
+                    </Border>
+                    <SelectableTextBlock Text="{Binding Selected.Code}" FontSize="22" FontWeight="ExtraBold" HorizontalAlignment="Center"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <SelectableTextBlock Text="{Binding Detail.Plate}" Classes="Helper" HorizontalAlignment="Center"/>
+                    <ctrl:StatusBadge Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}" HorizontalAlignment="Center"/>
+                  </StackPanel>
+                  <UniformGrid Rows="1" ColumnSpacing="6">
+                    <Button Classes="IosEylem" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" ToolTip.Tip="Aracı düzenle">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconEdit}"/></Border><TextBlock Text="Düzenle"/></StackPanel>
+                    </Button>
+                    <!-- ⭐ M-35: araç kartından arıza bildir / iş emri aç -->
+                    <Button Classes="IosEylem" Command="{Binding ArizaBildirCommand}" IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanOpenWorkOrder}"
+                            ToolTip.Tip="Seçili aracı &quot;Arızalı&quot; yapar ve taslak iş emri açar; iş emri tamamlanınca araç yeniden Aktif olur, arıza süresi ölçülür.">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconWarning}"/></Border><TextBlock Text="Arıza Bildir"/></StackPanel>
+                    </Button>
+                    <Button Classes="IosEylem" Command="{Binding AractanIsEmriCommand}" IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanOpenWorkOrder}"
+                            ToolTip.Tip="Seçili araç için bakım/iş emri taslağı açar (bakım uyarısını işe dönüştürmek için); araç durumu değişmez.">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconWorkOrders}"/></Border><TextBlock Text="İş Emri Aç"/></StackPanel>
+                    </Button>
+                    <Button Classes="IosEylem" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                            ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="F0 M3 3h7v7H3Z M5 5v3h3V5Z M14 3h7v7h-7Z M16 5v3h3V5Z M3 14h7v7H3Z M5 16v3h3v-3Z M14 14h3v3h-3Z M18 14h3v3h-3Z M14 18h3v3h-3Z M18 18h3v3h-3Z"/></Border><TextBlock Text="QR Etiketi"/></StackPanel>
+                    </Button>
+                  </UniformGrid>
+                </StackPanel>
+                <TabControl Classes="IosSekme">
                   <!-- GENEL -->
                   <TabItem Header="Genel">
                     <ScrollViewer>
-                      <StackPanel Spacing="10" Margin="0,8,0,0">
+                      <StackPanel Spacing="12" Margin="0,10,0,0">
+                        <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı onayı): bakım / muayene / sigorta ilerleme çubukları -->
+                        <StackPanel Spacing="10" IsVisible="{Binding HasBakimCubugu}">
+                          <TextBlock Text="Bakım ve Muayene" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                          <ItemsControl ItemsSource="{Binding BakimCubuklari}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:BakimCubugu">
+                                <StackPanel Spacing="5" Margin="0,0,0,10">
+                                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBlock Grid.Column="0" Text="{Binding Ad}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Sag}" FontSize="12.5" Classes="BakimSag" Classes.gecikti="{Binding Gecikti}"/>
+                                  </Grid>
+                                  <ProgressBar Classes="IosCubuk" Minimum="0" Maximum="100" Value="{Binding Yuzde}" Foreground="{Binding Renk}"/>
+                                </StackPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                        <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
                         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                               DataContext="{Binding Detail}">
                           <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Plaka" Classes="Helper" Margin="0,2,12,2"/>
@@ -903,6 +946,7 @@
                           <SelectableTextBlock Grid.Row="9" Grid.Column="0" Text="Motor No" Classes="Helper" Margin="0,2,12,2"/>
                           <SelectableTextBlock Grid.Row="9" Grid.Column="1" Text="{Binding EngineNo}" Classes="Body"/>
                         </Grid>
+                        </Border>
                         <StackPanel Spacing="2">
                           <SelectableTextBlock Text="Sayaç" Classes="Helper"/>
                           <SelectableTextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>

@@ -736,6 +736,61 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS2 — ⭐ iOS tasarım (2026-10-28, kullanıcı onayı): araç listesinde seyrek toplu işlem ("Sayaçları Onar") "•••"
+    /// menüsünde; seçili araca ait QR Etiketi / Arıza Bildir / İş Emri Aç / Düzenle sağdaki ARAÇ KARTINDA yuvarlak eylem düğmesi;
+    /// araç çubuğunda artık yoklar. Muayene belgesi olan araçta bakım/muayene ilerleme çubuğu görünür.</summary>
+    [AvaloniaFact]
+    public void UITIOS2_Arac_Karti_Eylemler_Ve_Bakim_Cubugu()
+    {
+        var s = Ortam();
+        var kod = "IOS2-" + Guid.NewGuid().ToString("N")[..5];
+        var id = DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(kod, "06IOS2"));
+        var gun = 86_400_000L; var simdi = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        try
+        {
+            DesktopServices.Inspection.Save(s, new DepoWise.Infrastructure.Maintenance.NewInspection(id, "inspection", simdi - 200 * gun, simdi + 165 * gun));
+            var vm = new VehiclesViewModel(s);
+            var view = new VehiclesView { DataContext = vm };
+            var w = Ac(view, 1400, 900);
+            for (int i = 0; i < 50 && !vm.HasRows; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            var toolbar = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Toolbar>().First();
+            var cubukDugmeleri = Gorunen<Button>(toolbar).Select(b => b.Content as string).ToList();
+            Assert.Contains("•••", cubukDugmeleri);
+            foreach (var tasinan in new[] { "QR Etiketi", "Arıza Bildir", "İş Emri Aç", "Sayaçları Onar" })
+                Assert.DoesNotContain(tasinan, cubukDugmeleri);
+
+            vm.Selected = vm.Items.First(r => r.Code == kod);
+            for (int i = 0; i < 50 && !vm.HasBakimCubugu; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            Dispatcher.UIThread.RunJobs();
+            var eylemler = Gorunen<Button>(view).Where(b => b.Classes.Contains("IosEylem"))
+                .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)).ToList();
+            Assert.Contains("QR Etiketi", eylemler);
+            Assert.Contains("Düzenle", eylemler);
+            var cubuk = Assert.Single(vm.BakimCubuklari, c => c.Ad == "Muayene");                 // kod değil Türkçe ad
+            Assert.InRange(cubuk.Yuzde, 50, 60);                                  // 200 / 365 gün geçti
+            Assert.Contains(view.GetVisualDescendants().OfType<ProgressBar>(), p => p.Classes.Contains("IosCubuk") && p.IsEffectivelyVisible);
+            Goruntu(w, "arac-kart-ios");
+            w.Close();
+        }
+        finally { DesktopServices.Vehicles.Delete(s, id); }   // ortak test veritabanı: Kiralık testinin araç listesini kirletme
+    }
+
+    /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
+    /// aralığından; taşma yüzde 100'de kesilir.</summary>
+    [Fact]
+    public void UITIOS3_Bakim_Cubugu_Hesabi()
+    {
+        var gec = BakimCubugu.Bakimdan(new DepoWise.Infrastructure.Maintenance.MaintenanceAlert("v", "d", "Yağ", DepoWise.Application.Maintenance.AlertLevel.Overdue, 1.3, 13000, 10000));
+        Assert.Equal(("Gecikti", 100d, true), (gec.Sag, gec.Yuzde, gec.Gecikti));
+        var ilk = BakimCubugu.Bakimdan(new DepoWise.Infrastructure.Maintenance.MaintenanceAlert("v", "d", "Filtre", DepoWise.Application.Maintenance.AlertLevel.Normal, 0.4, 0, 500, NeverPerformed: true));
+        Assert.Equal(("İlk bakım bekliyor", 0d), (ilk.Sag, ilk.Yuzde));
+        var yak = BakimCubugu.Bakimdan(new DepoWise.Infrastructure.Maintenance.MaintenanceAlert("v", "d", "Fren", DepoWise.Application.Maintenance.AlertLevel.Approaching, 0.9, 900, 1000));
+        Assert.Equal(("%90 doldu", "yaklasiyor"), (yak.Sag, yak.Seviye));
+        var belge = BakimCubugu.Belgeden(new DepoWise.Infrastructure.Maintenance.InspectionRow("K", "P", "Sigorta", 1000, 3000, "", "",
+            DepoWise.Infrastructure.Maintenance.DateAlertLevel.Normal), simdiMs: 2500);
+        Assert.Equal(75d, belge.Yuzde);
+    }
+
     /// <summary>UIT33 — ⭐ M-65 ana ekran "Hızlı işlemler": yalnız menüde görünen ekranlar (yetki menüyle aynı kaynaktan), katalog
     /// sırasıyla; her katalog anahtarı gerçek bir masaüstü ekranına gider; menü boşsa bölüm görünmez.</summary>
     [AvaloniaFact]

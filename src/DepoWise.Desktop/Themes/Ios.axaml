@@ -160,6 +160,88 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
     </Style>
 
+    <!-- Kart başı yuvarlak eylem düğmesi (iOS kişi kartı gibi): üstte yumuşak aksan daire + simge, altta etiket -->
+    <Style Selector="Button.IosEylem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="2,4"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.IosEylem:pointerover /template/ ContentPresenter, Button.IosEylem:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.IosEylem Border">
+        <Setter Property="Width" Value="44"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="CornerRadius" Value="22"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+    </Style>
+    <Style Selector="Button.IosEylem:pointerover Border">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.IosEylem PathIcon">
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/>
+    </Style>
+    <Style Selector="Button.IosEylem:pointerover PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.IosEylem TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Button.IosEylem:disabled">
+        <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+
+    <!-- İlerleme çubuğu (bakım / muayene / sigorta): 8 px yuvarlak, iz rengi sessiz -->
+    <Style Selector="ProgressBar.IosCubuk">
+        <Setter Property="Height" Value="8"/>
+        <Setter Property="MinHeight" Value="8"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.BakimSag">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.BakimSag.gecikti">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
+    <!-- Kart içi sekmeler: büyük Fluent başlıkları yerine küçük hap sekmeler (seçili = dolu yüzey) -->
+    <Style Selector="TabControl.IosSekme TabItem">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TabControl.IosSekme TabItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+    </Style>
+    <Style Selector="TabControl.IosSekme TabItem:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="TabControl.IosSekme TabItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TabControl.IosSekme TabItem /template/ Border#PART_SelectedPipe">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
