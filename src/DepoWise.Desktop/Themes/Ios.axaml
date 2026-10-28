@@ -383,6 +383,26 @@
         <Setter Property="LetterSpacing" Value="-0.4"/>
     </Style>
 
+    <!-- Ekran düzeyi sekmeler (Zimmet, Stok Sayımı, Giriş-Çıkış): büyük Fluent çizgili başlık yerine hap sekme (seçili = dolu yüzey) -->
+    <Style Selector="TabControl.EkranSekme > TabItem">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Margin" Value="0,0,6,8"/>
+        <Setter Property="Padding" Value="16,6"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="TabControl.EkranSekme > TabItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+    </Style>
+    <Style Selector="TabControl.EkranSekme > TabItem:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="TabControl.EkranSekme > TabItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TabControl.EkranSekme > TabItem /template/ Border#PART_SelectedPipe">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>

@@ -126,7 +126,13 @@
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasDefSelection}">
                             <ScrollViewer>
                                 <StackPanel Spacing="10">
-                                    <SelectableTextBlock Text="{Binding SelectedDef.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <!-- ⭐ iOS tasarım (2026-10-28): kart başı — renkli simge + başlık -->
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                        <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#FF9F0A" VerticalAlignment="Top">
+                                            <PathIcon Data="{DynamicResource IconDefinition}"/>
+                                        </Border>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding SelectedDef.Name}" Classes="PageTitle" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </Grid>
                                     <ctrl:StatusBadge Kind="Info" Text="{Binding SelectedDef.IntervalDisplay}" HorizontalAlignment="Left"/>
                                     <SelectableTextBlock Text="{Binding SelectedDef.Description}" Classes="Helper" TextWrapping="Wrap"
                                                IsVisible="{Binding SelectedDef.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
@@ -438,7 +444,14 @@
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasMaintSelection}">
                             <ScrollViewer>
                                 <StackPanel Spacing="10">
-                                    <SelectableTextBlock Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <!-- ⭐ iOS tasarım (2026-10-28): kart başı — renkli simge + başlık -->
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                        <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#FF9F0A" VerticalAlignment="Top">
+                                            <PathIcon Data="{DynamicResource IconMaintenance}"/>
+                                        </Border>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" DataContext="{Binding SelectedMaint}">
                                         <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Araç" Classes="Helper" Margin="0,2,12,2"/>
                                         <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleWithPlate}" Classes="Body"/>
@@ -449,8 +462,9 @@
                                         <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Sonraki" Classes="Helper" Margin="0,2,12,2"/>
                                         <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding NextDueDisplay}" Classes="Body"/>
                                     </Grid>
-                                    <Border Classes="Divider"/>
-                                    <SelectableTextBlock Text="KULLANILAN MALZEMELER" Classes="SectionTitle"/>
+                                    </Border>
+                                    <TextBlock Text="Kullanılan malzemeler" Classes="IosFormBaslik"/>
+                                    <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
                                     <ItemsControl ItemsSource="{Binding MaintMaterials}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceMaterialRow">
@@ -461,7 +475,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <Border Classes="Divider"/>
+                                    </Border>
                                     <!-- İş #5: yalnız YAN ETKİSİZ alanlar düzenlenir. Malzeme ve sayaç
                                          değişikliği için "Bakımı İptal Et" + yeniden giriş kullanılır. -->
                                     <StackPanel Spacing="6" IsVisible="{Binding CanCancelSelected}">
@@ -486,11 +500,15 @@
                                                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMetaEditCommand}"/>
                                             </StackPanel>
                                         </StackPanel>
-                                        <Border Classes="Divider"/>
+                                        <!-- iOS tasarım: yıkıcı işlem açılır bölümde (kapalı) — kazara tıklanmaz -->
+                                        <Expander Classes="IosAcilir" Header="Bakımı iptal et" IsExpanded="False">
+                                        <StackPanel Spacing="6">
                                         <ctrl:FormField Label="İptal Gerekçesi">
                                             <TextBox Classes="Field" Text="{Binding CancelReason}"/>
                                         </ctrl:FormField>
                                         <Button Classes="Danger" Content="Bakımı İptal Et" HorizontalAlignment="Left" Command="{Binding CancelMaintCommand}"/>
+                                        </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
