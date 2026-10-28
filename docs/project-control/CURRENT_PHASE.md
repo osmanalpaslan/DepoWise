@@ -9,7 +9,8 @@
 - Kullanıcı örnekleri onayladı (Alpnex turuncusu, 4 yeni parça, önce 3 ekran → onay → tümü). Örnek + gerçek ekran görüntüleri: claude.ai/artifact/V2VJyFZTCZoH3RAaPjPeEw.
 - Bitti: e528c89c ortak görünüm (palet/köşe/düğme/tablo başlığı/menü) · 7e0f04d5 Ana Ekran (+ araç dağılım çubuğu, Themes/Ios.axaml) · b3ca785f Araç Listesi (eylemler kartta, "•••" menü, bakım çubukları) · 88cdcde5 Yeni Araç formu (grup kutuları, önizleme, kontrol listesi). Arayüz 74/74.
 - Kullanıcı onayladı + tasarımı bana bıraktı (açılır bölümler, düğme gruplama, sağ tık). Sonra: d0f58431 sade üst çubuk (Eşitle/arama kalktı, arama Ctrl+K) + kullanıcı kartı sol altta + kart kapağı = ilk fotoğraf · 42f6b228 sağ tık menüsü 13 ekran · cd241a7e simgeli Yenile (30), PDF menüsü, Talep/Yakıt sağ tık · 754a7686 araç kartı/formu açılır bölümler · be3a4603 tüm Expander iOS + detay başlıkları. Arayüz 76/76.
-- Sıradaki: ekran ekran yoğun ekranlar (Bakım, Yakıt, Uyarılar, Talepler, İş Emirleri, Personel, Cari, Finans, Ekipman, Takvim, Malzeme kartı açılır bölümleri), sonra tanım/ayar/rapor; tablo satırlarına renkli simge.
+- Ekran ekran (2026-10-29): 10f2c10b Malzeme+Ekipman kartları · c78a6a7f Personel kartı + Belge/Proje/Şube/Firma başlıkları · bd783ce0 İş Emri · 0ce991ca Talep+Cari · 91dc4d43 Bakım kartları + ekran sekmeleri hap · d4e816ca Uyarılar. Arayüz 77/77, her adım alan paketiyle.
+- Kalan: Yakıt, Takvim, Finans/Faturalar, Duyurular, Maliyet Merkezleri, tanım/ayar/rapor ekranları; tablo satırlarına renkli simge (ortak tablo — dikkatli).
 
 ## 📌 2026-10-28 ÇALIŞMA BİÇİMİ — TOPLU YAYIN (kullanıcı kararı, kalıcı)
 - Otomatik yayın KALKTI: işler biriktirilir (testli, ayrı commit + push), canlıya çıkmaz. Tam takım ve yayın YALNIZ kullanıcı "yayınlayalım" deyince. Ayrıntı CLAUDE.md §4–§5.
