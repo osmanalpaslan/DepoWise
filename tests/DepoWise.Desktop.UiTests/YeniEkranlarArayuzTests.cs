@@ -571,6 +571,77 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-HF1 — 2026-10-29 (kullanıcı isteği): Giriş-Çıkış "Son hareketler" tablosunda diğer tablolardaki gibi SÜTUN
+    /// FİLTRELERİ — başlığın altında, her sütun başlıkla AYNI genişlikte (hiza). Kod filtresi listeyi süzer; sonuç boşken tablo +
+    /// filtre satırı görünür kalır ("Filtreye uyan hareket yok"), Temizle geri getirir. Ayrıca (2026-10-29 madde 1) hücre metni
+    /// sütun çizgisine DEĞMEZ: yazı kutusu ile çizgi arasında boşluk var. Görüntü giris-cikis-filtre.png.</summary>
+    [AvaloniaFact]
+    public void UITHF1_Son_Hareketler_Sutun_Filtreleri()
+    {
+        var s = Ortam();
+        var kod = "HF-" + Guid.NewGuid().ToString("N")[..5];
+        var mat = DesktopServices.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(kod, "Filtre deneme malzemesi"));
+        var belge = DesktopServices.Stock.ReceiveIn(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(mat, 3m, 1m) }, "uithf1-" + kod).DocumentId;
+        try
+        {
+            var vm = new StockEntryViewModel(s) { SeciliSekme = 1 };
+            var view = new StockEntryView { DataContext = vm };
+            var w = Ac(view, 1400, 900);
+            Dispatcher.UIThread.RunJobs();
+            var satir = view.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("TableFilterRow") && b.IsEffectivelyVisible);
+            Assert.Equal(6, satir.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.HucreFiltre>().Count());
+            Assert.Single(satir.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.TarihKutusu>());
+
+            // hiza: filtre satırı kolonları başlık kolonlarıyla aynı genişlikte (madde 1 boşluğu dahil)
+            for (int i = 0; i < 20; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            var baslik = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("TableHeader") && b.IsEffectivelyVisible)
+                .GetVisualDescendants().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 9);
+            var filtreGrid = satir.GetVisualDescendants().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 9);
+            for (int k = 0; k < 8; k++)
+                Assert.True(Math.Abs(baslik.ColumnDefinitions[k].ActualWidth - filtreGrid.ColumnDefinitions[k].ActualWidth) < 1.5,
+                    $"kolon {k}: başlık {baslik.ColumnDefinitions[k].ActualWidth} filtre {filtreGrid.ColumnDefinitions[k].ActualWidth}");
+
+            vm.HfKod.Value = kod;
+            vm.HareketFiltreleCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEmpty(vm.Movements);
+            Assert.All(vm.Movements, m => Assert.Equal(kod, m.Code));
+            Assert.True(vm.HareketFiltresiVar);
+
+            // madde 1: veri hücresinin yazısı sütun çizgisine değmez (çizgi kolonun sağ kenarında; hücrenin sağında boşluk var)
+            for (int i = 0; i < 20; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            var kodHucresi = view.GetVisualDescendants().OfType<SelectableTextBlock>().First(t => t.Text == kod && t.IsEffectivelyVisible);
+            var satirGrid = kodHucresi.FindAncestorOfType<Grid>()!;
+            var cizgi = satirGrid.Children.OfType<Border>().First(b => Grid.GetColumn(b) == Grid.GetColumn(kodHucresi) && b.Width == 1);
+            Assert.True(cizgi.Bounds.X - (kodHucresi.Bounds.X + kodHucresi.Bounds.Width) >= 5,
+                $"hücre çizgiye çok yakın: hücre sağı {kodHucresi.Bounds.Right}, çizgi {cizgi.Bounds.X}");
+            Assert.True(kodHucresi.Bounds.X - satirGrid.ColumnDefinitions.Take(Grid.GetColumn(kodHucresi)).Sum(c => c.ActualWidth) >= 5,
+                "hücre soldaki çizgiye çok yakın");
+            Goruntu(w, "giris-cikis-filtre");
+
+            vm.HfKod.Value = "YOK-" + kod;
+            vm.HareketFiltreleCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(vm.Movements);
+            Assert.True(vm.FiltreyeUyanYok);
+            Assert.False(vm.IsEmpty);                                  // "Hareket yok" paneli değil — tablo + filtre görünür kalır
+            Assert.True(satir.IsEffectivelyVisible);
+            Assert.Contains(Gorunen<SelectableTextBlock>(view), t => t.Text == "Filtreye uyan hareket yok.");
+
+            vm.HareketFiltreleriniTemizleCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(vm.HareketFiltresiVar);
+            Assert.Equal("", vm.HfKod.Value);
+            Assert.NotEmpty(vm.Movements);
+            w.Close();
+        }
+        finally
+        {
+            DesktopServices.Stock.ReverseDocument(s, belge, "UIT-HF1 test temizliği");
+            try { DesktopServices.Materials.Delete(s, mat); } catch { /* hareketi olan malzeme silinemeyebilir — kayıt pasif kalır */ }
+        }
+    }
+
     /// <summary>M-64 (Şablon B): Cari — "Yeni Cari" araç çubuğunda tek ana düğme; seçili kayda ait eylemler seçim çubuğunda
     /// (seçim yokken görünmez); sayfalama listenin altında ortak Pager.</summary>
     [AvaloniaFact]

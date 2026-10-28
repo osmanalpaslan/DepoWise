@@ -46,6 +46,14 @@ public static class ColumnRules
 
     /// <summary>Süsleme öğesini (ör. sütun genişliği tutamağı) "hücre değil" olarak işaretler.</summary>
     internal static void KuralIsaretle(Control c) => c.SetValue(IsRuleProperty, true);
+
+    /// <summary>2026-10-29 (kullanıcı isteği: "tabloların tümünde veriler sütun çizgilerine değmemeli"): hücrenin iki yanındaki
+    /// dış boşluk (px). Hücre genişliği (MinWidth = MaxWidth) DEĞİŞMEZ → yazı kesilmez; kolon bu kadar genişler.</summary>
+    public const double HucreBoslugu = 6;
+
+    /// <summary>Boşluk bu grid'e bir kez verildi mi (grid görsel ağaca yeniden bağlanınca ikinci kez eklenmesin).</summary>
+    private static readonly AttachedProperty<bool> BoslukVerildiProperty =
+        AvaloniaProperty.RegisterAttached<Grid, bool>("BoslukVerildi", typeof(ColumnRules));
     internal static bool KuralMi(Control c) => c.GetValue(IsRuleProperty);
 
     static ColumnRules()
@@ -88,6 +96,16 @@ public static class ColumnRules
         // Şablon (DataTemplate) içindeki grid'ler her satır için yeniden kurulur; çizgi zaten varsa
         // ikinci kez eklenmemeli.
         if (grid.Children.Any(c => c.GetValue(IsRuleProperty))) return;
+
+        // 2026-10-29: hücre boşluğu — çizgiden ÖNCE ve çizgiden bağımsız (tek kolonlu grid'de de). Başlık, filtre ve veri satırı
+        // grid'lerinin HEPSİ buradan geçer ve her hücreye AYNI miktar eklenir → kolonlar eşit büyür, hiza korunur. Mevcut
+        // dış boşluğun ÜSTÜNE eklenir (filtre hücresinin kendi sağ boşluğu gibi farklar aynen kalır).
+        if (!grid.GetValue(BoslukVerildiProperty))
+        {
+            grid.SetValue(BoslukVerildiProperty, true);
+            foreach (var c in grid.Children.Where(c => !c.GetValue(IsRuleProperty)))
+                c.Margin = new Thickness(c.Margin.Left + HucreBoslugu, c.Margin.Top, c.Margin.Right + HucreBoslugu, c.Margin.Bottom);
+        }
 
         // 2026-09-30: sütun genişliği ayarı + sağ tık menüsü (tüm tablolar) — çizgiden BAĞIMSIZ.
         KolonGenislik.Bagla(grid);
