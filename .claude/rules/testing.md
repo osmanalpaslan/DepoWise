@@ -9,9 +9,11 @@ paths:
 1. **Her iş:** hedefli testler + kritik alanda (tenant, yetki, senkron, stok/para, migration, güvenlik) mutasyon kanıtı +
    riskli alan paketi (işin dokunduğu ortak parçaları kullanan testler: senkron/migration/kopyalayıcı/PG/kaynak-metin…).
    Her iş AYRI commit.
-2. **Tam takım:** iki fazda bir — AR-GE grupları: **B3 sonu · B5+B6 · B7+B8 · B9+Z**; ayrıca geniş arayüz/ortak altyapı işinden
-   sonra ve **her yayından önce (zorunlu, atlanmaz)**. Arayüz değiştiyse `scripts/run_ui_tests.ps1` de.
-3. Tam koşu sırasında başka test/derleme YOK (yalnız belge/analiz). Trx kopyası `artifacts/dw_tam_<faz>.trx`.
+2. **Tam takım YALNIZ yayın öncesi** — kullanıcı "yayınlayalım" dediğinde (zorunlu, atlanmaz). Kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın":
+   tam koşu ~3 saate çıktı; işler biriktirilip toplu yayınlanır → "iki fazda bir" ve "geniş iş sonrası" ara tam koşular KALDIRILDI.
+   Geniş etkili işte (tenant/yetki/senkron/ortak altyapı) riskli alan paketi genişletilir. Arayüz değiştiyse `scripts/run_ui_tests.ps1`
+   (iş sonunda; kısa) ve yayın öncesinde yine.
+3. Tam koşu sırasında başka test/derleme YOK (yalnız belge/analiz). Trx kopyası `artifacts/dw_tam_<yayın>.trx`.
 4. Tam koşuda hata → commit'lerle kaynağı bul, düzelt, alan paketi + tam koşu tekrar.
 5. Yavaş test kontrolü gevşetilmeden hızlandırılır (kök neden); atlanmaz, silinmez, `Skip` edilmez.
 6. Yasak: yayın öncesi tam koşuyu atlamak · PG testlerini çıkarmak · beklentiyi gevşetmek · eski trx'i "geçti" saymak

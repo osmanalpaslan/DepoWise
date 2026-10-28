@@ -48,14 +48,15 @@
 
 ## 4. Test
 - **Tek yol:** `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 [-Filter "..."] [-Bekle] [-PostgresAtla]`.
-  Tam takım ~4.000 test / ~60 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
+  Tam takım ~4.630 test / ~2 sa 50 dk; PG testleri yerel sunucuda (`localhost:54329`, `scripts/pg_test_sunucu.ps1`).
 - Test tipine Claude karar verir, gerekçe tek satır. **Nihai düzen (kullanıcı onayı 2026-10-18; genel kural `~/.claude/CLAUDE.md`
   "TEST DÜZENİ", ayrıntı `.claude/rules/testing.md`):** her işte hedefli testler + kritik alanda mutasyon + riskli alan paketi
-  (senkron/migration/kopyalayıcı/PG/kaynak-metin), her iş ayrı commit. TAM takım **iki fazda bir** (AR-GE: B3 sonu · B5+B6 · B7+B8 ·
-  B9+Z), geniş arayüz/ortak altyapı işinde ve **yayın öncesi (zorunlu, atlanmaz)**. Tam koşu sırasında başka test/derleme yok.
+  (senkron/migration/kopyalayıcı/PG/kaynak-metin), her iş ayrı commit. **TAM takım YALNIZ yayın öncesi — kullanıcı "yayınlayalım" dediğinde (zorunlu, atlanmaz)** (kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın";
+  tam koşu ~3 saate çıktı). Ara dönemde tam koşu YOK; geniş etkili işte (tenant/yetki/senkron/ortak altyapı) riskli alan paketi
+  genişletilir. Tam koşu sırasında başka test/derleme yok.
   Yavaş test kontrolü gevşetmeden hızlandırılır; flaky testi tekrarla gizleme.
 - **Süre bildirimi + süreyi aşan koşu kontrolü (kullanıcı kuralı 2026-10-17):** her koşuda ortalama süre ve tahmini bitiş saati
-  söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~115–135 dk, senkron paketi ~22 dk…). **Ortalamaya ulaşıldığı AN**
+  söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~170 dk, senkron paketi ~22 dk…). **Ortalamaya ulaşıldığı AN**
   (pay yok; sıkılaştırma 2026-10-25) sormadan durum kontrol edilir ve bildirilir, sonra her +15 dk'da tekrar; hatırlatıcı tam
   ortalama süreye kurulur. Koşu sırasında boş bekleme yok: sıradaki işin kodu/yaması derlemeden hazırlanır (genel kural). `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
@@ -65,9 +66,10 @@
 - Kritik alanlarda her zaman test: tenant, yetki, rollback, negatif stok, sayaç geriye gitme, idempotency, çevrimdışı, eski şema.
 
 ## 5. Yayın ve üretim
-- **Yayın OTOMATİK (kullanıcı kararı 2026-10-11: "onaya gerek yok, bütün testler hatasız olunca otomatik yayınla"):**
-  yalnız eksiksiz geçen TAM koşu + arayüz testleri + (büyük işte) iki ortam denetimi sonrası; ardından canlı duman testi.
-  Yarım/kırık koşuyla ASLA. Kullanıcı aksini söylerse onaylı yayına dön. Release/update mekanizması değişikliği yine onay ister. Deploy **yalnız temiz kopyadan**:
+- **Yayın YALNIZ KULLANICI İSTEYİNCE — TOPLU YAYIN (kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın"; 2026-10-11 "otomatik yayın" kuralı KALKTI):**
+  düzeltme/geliştirmeler biriktirilir (her biri testli, ayrı commit + push; master = canlıdaki sürüm, biriken iş dalda) ama
+  kendiliğinden yayın turuna GEÇİLMEZ, "testler geçti, yayınlayayım mı?" diye de sorulmaz. Kullanıcı "yayınlayalım" deyince:
+  eksiksiz TAM koşu + arayüz testleri + (büyük işte) iki ortam denetimi → yayın → canlı duman testi. Yarım/kırık koşuyla ASLA. Release/update mekanizması değişikliği yine onay ister. Deploy **yalnız temiz kopyadan**:
   `git archive HEAD | tar -x -C %TEMP%/dw_deploy` → `flyctl deploy --config fly.toml --remote-only` (API, önce) → `fly.web.toml` (web).
 - Masaüstü: `dotnet publish src/DepoWise.Desktop -c Release -r win-x64 --self-contained -p:Version=X.Y.Z -o artifacts/rc/desktop-X.Y.Z`
   → zip `artifacts/rc/` içine → `node scripts/publish_release.mjs <zip> X.Y.Z "<not>"` (env `DEPOWISE_ADMIN_USER/PASS`).

@@ -1,6 +1,6 @@
 # DEVİR NOTU — başka bir Claude hesabı/oturumu buradan devam eder
 
-> Güncellendi: 2026-10-27 ~23:30. **Yeni oturum: önce bu dosyayı, sonra `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.**
+> Güncellendi: 2026-10-28. **Yeni oturum: önce bu dosyayı, sonra `CLAUDE.md` ve `docs/project-control/CURRENT_PHASE.md`'yi oku.**
 > Başka bilgisayarda: önce `git pull` (dal `arge/2026-10-kapsamli`); hafıza/genel kurallar için bir kez `~/.claude-yedek/geri-yukle.ps1`;
 > PG test sunucusu yoksa `scripts/pg_test_sunucu.ps1`. Bu not her oturum sonunda güncellenir; AR-GE bitince silinir.
 
@@ -13,20 +13,18 @@
 - **Yarım iş YOK** — çalışma kopyasında commitlenmemiş AR-GE değişikliği bırakılmadı.
 
 ## 2. Sıradaki işler
-B9+Z tam takım 4606/4606 (2 sa 54 dk), arayüz 71/71, yerel tarayıcı 5/5; Z belgesi `docs/arge/12_yayin_oncesi_kontrol.md` hazır.
-**KULLANICI 2026-10-27'de YAYINI ONAYLADI** ("güncellemeyi canlıya almak istiyorum"; M-01 eklendi; eski masaüstleri ZORUNLU
-güncellenir; yayın testler biter bitmez). Sıra:
-1. M-01 iki ortam denetimi bulguları (varsa) düzeltilir.
-2. **Yayın öncesi TAM KOŞU** (zorunlu) + arayüz + yerel tarayıcı.
-3. `yayin` skill'i: elle yedek (`scripts/yedek_al.ps1`) → `master`a birleştir → fly secret `DEPOWISE_MFA_ANAHTARI` (+ M-11
-   `DEPOWISE_ISTEMCI_IP_ANAHTARI` iki uygulamaya aynı) → API → web → masaüstü 1.0.203 `publish_release.mjs … --min 1.0.203` (İMZALI)
-   → kurulum aracı `publish_setup.mjs` (İMZALI) → canlı duman testi. Ayrıntı: `docs/arge/12_yayin_oncesi_kontrol.md` A/C.
-4. Kullanıcı ilk web girişinde iki adımlı girişi kurar (QR + kurtarma kodları kendisinde).
+**YAYINLANDI (2026-10-28):** API + web + masaüstü 1.0.203 (imzalı, zorunlu) + imzalı kurulum aracı; tam takım 4629/4629. Ayrıntı CURRENT_PHASE.
+- **YENİ ÇALIŞMA BİÇİMİ (kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın"):** düzeltme/geliştirmeler BİRİKTİRİLİR, her biri testli + ayrı commit + push, ama YAYIN YOK.
+  Tam takım da yalnız yayın öncesi. Kullanıcı "yayınlayalım" deyince: tam koşu → `yayin` skill'i.
+- Açık: duman testi hesabında (süper admin yetkili TEST hesabı) iki adımlı girişi açmak KULLANICI ONAYI bekliyor
+  (`scripts/e2e_test_hesabi_mfa.mjs`); onaya kadar canlı duman testinin 9 testi kurulum ekranında kalır.
+- Kullanıcı ilk web girişinde iki adımlı girişi kurar (QR + kurtarma kodları kendisinde). Sonraki masaüstü yayınında
+  `DEPOWISE_ADMIN_KOD` (o anki 6 haneli kod) gerekir.
 Gizli imza anahtarı: `~/.claude-yedek/anahtarlar/DepoWise_paket_imza_ozel.pem` (kullanıcı onayıyla özel GitHub yedeğinde).
-Ertelenenler: M-42, M-40. Yayın sonrası: M-75 kalanı. Kaynak: `docs/arge/13_kullanici_secimleri.md`.
+Ertelenenler: M-42, M-40. Sıradaki: M-75 kalanı + kullanıcı istekleri. Kaynak: `docs/arge/13_kullanici_secimleri.md`.
 
 ## 3. Kesin kurallar (kullanıcı)
-- AR-GE yayın yasağı 2026-10-27'de kullanıcı tarafından KALDIRILDI (yukarıdaki sıra). Yayın yalnız tam koşu geçince.
+- **Yayın yalnız kullanıcı "yayınlayalım" deyince** (toplu yayın, 2026-10-28); önce tam koşu. Otomatik yayın YOK.
   Üretim verisi yalnız okunur, testlerde kullanılmaz. Sırlar ekrana yazılmaz.
 - Madde/faz arasında **onay sorulmaz** ("yetki sende"); ara özet için durulmaz.
 - **Kullanıcının commitlenmemiş dosyaları ASLA commit'e girmez** (`git add -A` YASAK; her seferinde `git status`). 2026-10-26: yarım

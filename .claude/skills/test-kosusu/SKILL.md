@@ -14,7 +14,8 @@ karar verir, raporda tek satır gerekçe yazar.
 |---|---|
 | Tek dosya/servis değişti | `-Filter "FullyQualifiedName~<Sınıf>|FullyQualifiedName~<İlgili>"` (`-PostgresAtla` yalnız SQL'e dokunulmadıysa) |
 | Rapor/ekran/filtre/menü | + nöbetçiler: `ReportArchitecture|CustomRapor|ReportFilterParity|StockReportLocation|AppScreens|MenuRenk|IslemOnaylari` |
-| Yayın öncesi / geniş etki / tenant-yetki-senkron | **Tam takım** (~4.070 test, ~35–60 dk) — arka planda |
+| Yayın öncesi (YALNIZ kullanıcı "yayınlayalım" deyince) | **Tam takım** (~4.630 test, ~2 sa 50 dk) — arka planda |
+| Geniş etki / tenant-yetki-senkron (yayın dışı) | Genişletilmiş riskli alan paketi — tam takım YOK (2026-10-28 toplu yayın kuralı) |
 | Masaüstü görünüm değişti | `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia) → `artifacts/ui-ekran/*.png`'yi Read ile GÖZLE kontrol |
 | Web arayüzü değişti | Yayından SONRA `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu) |
 

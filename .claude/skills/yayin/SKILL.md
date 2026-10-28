@@ -1,12 +1,13 @@
 ---
 name: yayin
-description: DepoWise'ı canlıya yayınlar — API + web (Fly.io) ve masaüstü sürümü (otomatik güncelleme paketi). Kullanıcı "yayınla", "deploy et", "canlıya al", "yeni sürüm çıkar", "1.0.X yayınla" dediğinde ya da önden "testler geçince yayınla" onayı verdiğinde kullan. Test kapısı, temiz kopyadan deploy, sıra (API → web → masaüstü), güncelleme notu, canlı duman testi ve temizliği içerir.
+description: DepoWise'ı canlıya yayınlar — API + web (Fly.io) ve masaüstü sürümü (otomatik güncelleme paketi). YALNIZ kullanıcı "yayınlayalım", "yayınla", "deploy et", "canlıya al", "yeni sürüm çıkar", "1.0.X yayınla" dediğinde kullan — kendiliğinden ÇAĞRILMAZ (2026-10-28 toplu yayın kuralı). Test kapısı, temiz kopyadan deploy, sıra (API → web → masaüstü), güncelleme notu, canlı duman testi ve temizliği içerir.
 ---
 
 # Yayın (DepoWise)
 
-**Onay:** 2026-10-11'den beri DepoWise'da yayın OTOMATİK — aşağıdaki kapı tamamen geçince onay beklenmez (kullanıcı
-kararı, proje CLAUDE.md §5). Kullanıcı aksini söylerse onaylı yayına dön. Release/update mekanizmasının KENDİSİNİ
+**Onay:** 2026-10-28'den beri DepoWise'da yayın YALNIZ KULLANICI İSTEYİNCE (toplu yayın; kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın"; proje CLAUDE.md §5).
+İşler biriktirilir; testler geçse de kendiliğinden yayına geçilmez. Kullanıcı "yayınlayalım" deyince önce TAM koşu (~3 sa,
+`test-kosusu`), sonra aşağıdaki kapı ve adımlar sorulmadan yürür. 2026-10-11 "otomatik yayın" kuralı kalktı. Release/update mekanizmasının KENDİSİNİ
 değiştirmek ve ücret çıkaran adımlar yine onay ister (bu skill yalnız mevcut mekanizmayı kullanır).
 
 ## 0. Kapı — bunlar olmadan yayın YOK

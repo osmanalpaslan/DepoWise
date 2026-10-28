@@ -5,6 +5,9 @@
 
 **Özet (2026-10-28):** YAYINDA — AR-GE büyük yenileme (master = ddfc38e0): API + web + masaüstü **1.0.203** (imzalı, ZORUNLU güncelleme: en düşük 1.0.203) + imzalı kurulum aracı. Şema 125. Sıradaki: kullanıcı web'de süper admin iki adımlı girişini kurar; duman testi hesabının iki adımlı girişi (kullanıcı onayı bekliyor).
 
+## 📌 2026-10-28 ÇALIŞMA BİÇİMİ — TOPLU YAYIN (kullanıcı kararı, kalıcı)
+- Otomatik yayın KALKTI: işler biriktirilir (testli, ayrı commit + push), canlıya çıkmaz. Tam takım ve yayın YALNIZ kullanıcı "yayınlayalım" deyince. Ayrıntı CLAUDE.md §4–§5.
+
 ## ✅ 2026-10-28 YAYIN — AR-GE (dal `arge/2026-10-kapsamli` → master), masaüstü 1.0.203
 - Kapı: yayın öncesi tam takım **4629/4629** (atlanan 0, 2 sa 47 dk, `artifacts/dw_tam_yayin.trx`; PI9/MA4/MA5/MF7 içinde), arayüz 71/71, yerel tarayıcı 7/7, iki ortam denetimi.
 - Sıra: şifreli elle yedek (107 tablo, Drive) → master ileri sarma → sırlar `--stage` (erp: MFA + istemci IP anahtarı; web: IP anahtarı, özetler aynı) → API (şema 125 canlıda doğrulandı: `app_releases.signature`, `user_mfa`) → web → masaüstü 1.0.203 (imzalı, 15 madde not; indirilen paketin özeti sunucuyla aynı) → kurulum aracı (imzalı).
