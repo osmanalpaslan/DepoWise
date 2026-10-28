@@ -123,9 +123,15 @@
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
                 <ScrollViewer>
                     <StackPanel Spacing="10">
-                        <SelectableTextBlock Classes="PageTitle" TextWrapping="Wrap">
-                            <Run Text="{Binding Selected.WoNo}" /><Run Text=" — "/><Run Text="{Binding Selected.Title}"/>
-                        </SelectableTextBlock>
+                        <!-- ⭐ iOS tasarım (2026-10-28): kart başı — renkli simge + iş emri no ve başlık -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#FF453A" VerticalAlignment="Top">
+                                <PathIcon Data="{DynamicResource IconWorkOrders}"/>
+                            </Border>
+                            <SelectableTextBlock Grid.Column="1" Classes="PageTitle" TextWrapping="Wrap" VerticalAlignment="Center">
+                                <Run Text="{Binding Selected.WoNo}" /><Run Text=" — "/><Run Text="{Binding Selected.Title}"/>
+                            </SelectableTextBlock>
+                        </Grid>
                         <SelectableTextBlock Classes="Helper" TextWrapping="Wrap">
                             <Run Text="{Binding Selected.StatusDisplay}" FontWeight="SemiBold"/><Run Text=" · "/><Run Text="{Binding Selected.PriorityDisplay}"/><Run Text=" · "/><Run Text="{Binding Selected.BranchDisplay}"/><Run Text=" · Sorumlu: "/><Run Text="{Binding Selected.AssigneeDisplay}"/>
                         </SelectableTextBlock>
@@ -140,7 +146,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:WoStatusOption">
-                                    <Button Classes="Secondary" Content="{Binding Label}" Margin="0,0,8,4"
+                                    <Button Classes="Cip" Content="{Binding Label}" Margin="0,0,8,6"
                                             Command="{Binding $parent[UserControl].((vm:WorkOrdersViewModel)DataContext).SetStatusCommand}"
                                             CommandParameter="{Binding}"/>
                                 </DataTemplate>
@@ -148,8 +154,8 @@
                         </ItemsControl>
                         <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanAssignNow}" HorizontalAlignment="Left"/>
 
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="ATAMALAR" Classes="SectionTitle"/>
+                        <Expander Classes="IosAcilir" Header="Atamalar" IsExpanded="True">
+                        <StackPanel Spacing="8">
                         <ListBox Classes="Table" MaxHeight="130" ItemsSource="{Binding Assignments}" SelectedItem="{Binding SelectedAssignment}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="wo:WorkOrderAssignmentRow">
@@ -167,8 +173,10 @@
                             <Button Classes="Danger" Content="Kaldır" Command="{Binding RemoveAssignmentCommand}"/>
                         </StackPanel>
 
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="MALZEME TÜKETİMİ" Classes="SectionTitle"/>
+                        </StackPanel>
+                        </Expander>
+                        <Expander Classes="IosAcilir" Header="Malzeme tüketimi" IsExpanded="True">
+                        <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanConsumeNow}">
                             <ctrl:LookupBox Width="200" ItemsSource="{Binding MaterialOptions}" SelectedItem="{Binding ConsumeMaterial}"
                                             PlaceholderText="Malzeme seç / ara..."/>
@@ -177,8 +185,10 @@
                                     ToolTip.Tip="Şantiye deposundan NORMAL STOK ÇIKIŞI yapılır (tekrar gönderim kopya üretmez)."/>
                         </StackPanel>
 
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="MALİYET ÖZETİ" Classes="SectionTitle"/>
+                        </StackPanel>
+                        </Expander>
+                        <Expander Classes="IosAcilir" Header="Maliyet özeti" IsExpanded="False">
+                        <StackPanel Spacing="8">
                         <ItemsControl ItemsSource="{Binding Cost}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="acc:CostCenterSummaryRow">
@@ -190,8 +200,10 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="İLİŞKİLİ KAYITLAR" Classes="SectionTitle"/>
+                        </StackPanel>
+                        </Expander>
+                        <Expander Classes="IosAcilir" Header="İlişkili kayıtlar" IsExpanded="False">
+                        <StackPanel Spacing="8">
                         <ItemsControl ItemsSource="{Binding Links}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="wo:WorkOrderLinkRow">
@@ -203,8 +215,10 @@
                         </ItemsControl>
                         <SelectableTextBlock Classes="Helper" Text="Belgeler Evrak ekranından 'İş Emri' türüyle bağlanır." TextWrapping="Wrap"/>
 
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="GEÇMİŞ" Classes="SectionTitle"/>
+                        </StackPanel>
+                        </Expander>
+                        <Expander Classes="IosAcilir" Header="Geçmiş" IsExpanded="False">
+                        <StackPanel Spacing="8">
                         <ItemsControl ItemsSource="{Binding HistoryRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="wo:WorkOrderHistoryRow">
@@ -212,6 +226,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
