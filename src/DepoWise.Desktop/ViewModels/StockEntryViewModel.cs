@@ -208,6 +208,58 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [RelayCommand] private void SonrakiHareketSayfasi() { if (SonrakiSayfaVar) { HareketSayfa++; Load(); } }
     partial void OnHareketSayfaBoyutuChanged(int value) { HareketSayfa = 1; Load(); }
 
+    // ── 2026-10-29 (kullanıcı isteği): "Son hareketler" SÜTUN FİLTRELERİ — diğer tablolardaki gibi başlığın altında her sütunun
+    // kendi kutusu (HucreFiltre: metin Enter ile, seçim anında; Tarih gün seçici). Süzme SUNUCUDA, sayfalamadan önce (tüm kayıtlar).
+    // Filtre etkinken tablo başlığı + filtre satırı sonuç boş olsa da görünür kalır (yoksa kullanıcı filtreyi temizleyemezdi).
+    public ColumnFilterItem HfTip { get; } = Secim("type", "Tip", DepoWise.Application.Ui.MovementTypeOptions.All.Select(x => x.Label));
+    public ColumnFilterItem HfKod { get; } = new("code", "Kod");
+    public ColumnFilterItem HfMalzeme { get; } = new("name", "Malzeme");
+    public ColumnFilterItem HfYon { get; } = Secim("dir", "Yön", new[] { "Giriş", "Çıkış" });
+    public ColumnFilterItem HfMiktar { get; } = new("qty", "Miktar", isNumeric: true);
+    public ColumnFilterItem HfAciklama { get; } = new("note", "Açıklama");
+    [ObservableProperty] private DateTime? _hfTarih;
+    private bool _hfTemizleniyor;
+    partial void OnHfTarihChanged(DateTime? value) { if (!_hfTemizleniyor) HareketFiltrele(); }
+
+    private static ColumnFilterItem Secim(string key, string label, IEnumerable<string> secenekler)
+    {
+        var c = new ColumnFilterItem(key, label, isSelect: true);
+        foreach (var x in secenekler) c.Options.Add(x);
+        return c;
+    }
+    private IEnumerable<ColumnFilterItem> HareketKutulari => new[] { HfTip, HfKod, HfMalzeme, HfYon, HfMiktar, HfAciklama };
+    public bool HareketFiltresiVar => HfTarih is not null || HareketKutulari.Any(f => f.HasValue);
+    /// <summary>Tablo (başlık + filtre satırı) görünür mü: kayıt var YA DA filtre etkin.</summary>
+    public bool HareketTablosuGorunur => !HasError && (Movements.Count > 0 || HareketFiltresiVar);
+    public bool FiltreyeUyanYok => !HasError && HareketFiltresiVar && Movements.Count == 0;
+
+    [RelayCommand] private void HareketFiltrele() { HareketSayfa = 1; Load(); }
+
+    [RelayCommand]
+    private void HareketFiltreleriniTemizle()
+    {
+        _hfTemizleniyor = true;
+        try { foreach (var f in HareketKutulari) f.Value = ""; HfTarih = null; }
+        finally { _hfTemizleniyor = false; }
+        HareketFiltrele();
+    }
+
+    private (long? Bas, long? Bit, IReadOnlyList<string>? Turler, HareketSutunFiltresi Sutun) HareketSuzgeci()
+    {
+        // gün = UTC gün başı … gün sonu (Stok Hareketleri ekranıyla aynı kural)
+        long? bas = HfTarih is { } g ? new DateTimeOffset(g.Date, TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        long? bit = HfTarih is { } g2 ? new DateTimeOffset(g2.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds() : null;
+        IReadOnlyList<string>? turler = null;
+        if (HfTip.HasValue)
+        {
+            var k = DepoWise.Application.Ui.MovementTypeOptions.All.Where(x => x.Label == HfTip.Value.Trim()).Select(x => x.Key).ToList();
+            turler = k.Count > 0 ? k : new[] { "__yok__" };   // tanınmayan etiket → boş sonuç (filtre sessizce düşmesin)
+        }
+        string? V(ColumnFilterItem f) => f.HasValue ? f.Value.Trim() : null;
+        int? yon = HfYon.Value == "Giriş" ? 1 : HfYon.Value == "Çıkış" ? -1 : null;
+        return (bas, bit, turler, new HareketSutunFiltresi(V(HfKod), V(HfMalzeme), V(HfMiktar), V(HfAciklama), yon));
+    }
+
     public bool IsAllBranches => BranchGuard.IsAllBranches(_session);
 
     /// <summary>"Tüm Şubeler" modunda kullanıcının seçtiği ÇALIŞMA DEPOSU. Şubeye bağlı kullanıcıda
@@ -488,7 +540,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     private string? _loadError;
     public bool HasError => LoadError != null;
     public bool HasRows => Movements.Count > 0;
-    public bool IsEmpty => !HasError && Movements.Count == 0;
+    public bool IsEmpty => !HasError && Movements.Count == 0 && !HareketFiltresiVar;   // filtreliyken tablo + "filtreye uyan yok" görünür
 
     public StockEntryViewModel(SessionContext session)
     {
@@ -547,8 +599,9 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             // ⭐ LST-01: sabit 200 tavanı KALDIRILDI. Eskiden en yeni 200 hareket geliyor, ötesi
             // SESSİZCE düşüyordu (kullanıcı kaydı "kayboldu" sanıyordu). Artık sayfalanıyor ve
             // toplam sayı gösteriliyor.
-            var grid = DesktopServices.Stock.SearchMovementsGrid(_session, null, null, null, null, null, null,
-                HareketSayfa, HareketSayfaBoyutu);
+            var (hfBas, hfBit, hfTurler, hfSutun) = HareketSuzgeci();
+            var grid = DesktopServices.Stock.SearchMovementsGrid(_session, hfBas, hfBit, null, null, hfTurler, null,
+                HareketSayfa, HareketSayfaBoyutu, hfSutun);
             foreach (var m in grid.Items) Movements.Add(m);
             HareketToplam = grid.TotalCount;
             HareketToplamSayfa = grid.TotalPages;
@@ -579,6 +632,9 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasError));
+        OnPropertyChanged(nameof(HareketFiltresiVar));
+        OnPropertyChanged(nameof(HareketTablosuGorunur));
+        OnPropertyChanged(nameof(FiltreyeUyanYok));
     }
 
     partial void OnSelectedCategoryChanged(LookupItem? value)

@@ -1440,13 +1440,16 @@ app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string?
 // ⭐ LST-01 (2026-09-04) — STOK HAREKETLERİ: SAYFALANMIŞ liste (toplam sayı da döner).
 // Eski /api/stock/movements ucu sabit 1000 satır döndürüyordu; tavanın ötesindeki hareketler
 // SESSİZCE düşüyordu. Eski uç mevcut istemciler için AYNEN duruyor (kırılma yok).
+// 2026-10-29: Giriş-Çıkış "Son hareketler" sütun filtreleri (kod, malzeme, miktar, aciklama, yon=1/-1) — masaüstüyle aynı servis.
 app.MapGet("/api/stock/movements/grid", (HttpContext c, long? from, long? to, string? q,
                                           string[]? location, string[]? type, string[]? material,
-                                          int page, int pageSize) =>
+                                          int page, int pageSize, string? kod, string? malzeme, string? miktar,
+                                          string? aciklama, int? yon) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var res = svc.Stock.SearchMovementsGrid(s, from, to, q, location, type, material,
-        page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+        page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize,
+        new DepoWise.Infrastructure.Materials.HareketSutunFiltresi(kod, malzeme, miktar, aciklama, yon));
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize,

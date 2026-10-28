@@ -294,6 +294,28 @@
             </MudSelect>
         </MudStack>
     }
+        @* 2026-10-29 (kullanıcı isteği): SÜTUN FİLTRELERİ — masaüstüyle aynı alanlar ve aynı sunucu ucu (tüm kayıtlarda süzer).
+           Tablonun ÜSTÜNDE: sonuç boşken de görünür kalır (filtre temizlenebilsin). Metin alanları Enter ile, seçimler anında. *@
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+            <MudDatePicker @bind-Date="_hfTarih" @bind-Date:after="HrkFiltrele" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           Clearable="true" Style="max-width:160px" />
+            <MudSelect T="string" @bind-Value="_hfTip" @bind-Value:after="HrkFiltrele" Label="Tip" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Clearable="true" Style="max-width:200px">
+                @foreach (var t in DepoWise.Application.Ui.MovementTypeOptions.All) { <MudSelectItem T="string" Value="@t.Key">@t.Label</MudSelectItem> }
+            </MudSelect>
+            <MudTextField @bind-Value="_hfKod" Label="Kod" Margin="Margin.Dense" Variant="Variant.Outlined" OnKeyDown="HrkEnter" Style="max-width:140px" />
+            <MudTextField @bind-Value="_hfMalzeme" Label="Malzeme" Margin="Margin.Dense" Variant="Variant.Outlined" OnKeyDown="HrkEnter" Style="max-width:200px" />
+            <MudSelect T="string" @bind-Value="_hfYon" @bind-Value:after="HrkFiltrele" Label="Yön" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Clearable="true" Style="max-width:120px">
+                <MudSelectItem T="string" Value="@("1")">Giriş</MudSelectItem>
+                <MudSelectItem T="string" Value="@("-1")">Çıkış</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_hfMiktar" Label="Miktar" Margin="Margin.Dense" Variant="Variant.Outlined" OnKeyDown="HrkEnter" Style="max-width:120px"
+                          HelperText="5 · >5 · 5-10" />
+            <MudTextField @bind-Value="_hfAciklama" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" OnKeyDown="HrkEnter" Style="max-width:200px" />
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="HrkFiltrele">Filtrele</MudButton>
+            @if (HrkFiltreVar) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="HrkFiltreTemizle">Temizle</MudButton> }
+        </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     @* ⭐ FAZ K §13: liste YÜKLENEMEDİĞİNDE "Hareket yok." yazmak YANLIŞ bir cevaptır — kullanıcı
        kayıtların silindiğini/olmadığını sanır. Hata ile boş liste AYRI gösterilir; tekrar deneme sunulur. *@
@@ -305,7 +327,7 @@
             <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadMovements" Class="ml-2">Tekrar dene</MudButton>
         </MudAlert>
     }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Hareket yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">@(HrkFiltreVar ? "Filtreye uyan hareket yok." : "Hareket yok.")</MudText> }
     else
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh">
@@ -557,7 +579,7 @@
             // ⭐ LST-01 (2026-09-04): eski /api/stock ucu sabit 200 satır döndürüyordu ve sorgu en
             // yeniden başlıyordu → 200. kaydın ötesindeki hareketler SESSİZCE düşüyordu. Artık
             // sayfalanmış uç kullanılıyor; toplam sayı ekranda görünür.
-            var res = await Api.GetObjectAsync($"/api/stock/movements/grid?page={_hrkPage}&pageSize={_hrkPageSize}");
+            var res = await Api.GetObjectAsync($"/api/stock/movements/grid?page={_hrkPage}&pageSize={_hrkPageSize}{HrkFiltreSorgusu()}");
             _rows = res.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
                 ? it.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
             _hrkTotal = res.TryGetProperty("totalCount", out var tc) ? tc.GetInt32() : _rows.Length;
@@ -587,6 +609,32 @@
         _hrkPage = p; await LoadMovements();
     }
     private async Task HrkBoyut(int b) { _hrkPageSize = b; _hrkPage = 1; await LoadMovements(); }
+
+    // ── 2026-10-29: "Son Stok Hareketleri" sütun filtreleri (masaüstü StockEntryViewModel ile aynı alanlar/uç) ──
+    private DateTime? _hfTarih;
+    private string? _hfTip, _hfKod, _hfMalzeme, _hfYon, _hfMiktar, _hfAciklama;
+    private bool HrkFiltreVar => _hfTarih is not null || new[] { _hfTip, _hfKod, _hfMalzeme, _hfYon, _hfMiktar, _hfAciklama }
+        .Any(x => !string.IsNullOrWhiteSpace(x));
+    private string HrkFiltreSorgusu()
+    {
+        var qs = new System.Text.StringBuilder();
+        void Ekle(string ad, string? v) { if (!string.IsNullOrWhiteSpace(v)) qs.Append('&').Append(ad).Append('=').Append(Uri.EscapeDataString(v.Trim())); }
+        if (_hfTarih is { } g)
+        {
+            qs.Append("&from=").Append(DepoWise.Web.Services.FieldChecks.ToUnixMs(g));
+            qs.Append("&to=").Append(DepoWise.Web.Services.FieldChecks.ToUnixMs(g, endOfDay: true));
+        }
+        Ekle("type", _hfTip); Ekle("kod", _hfKod); Ekle("malzeme", _hfMalzeme); Ekle("yon", _hfYon);
+        Ekle("miktar", _hfMiktar); Ekle("aciklama", _hfAciklama);
+        return qs.ToString();
+    }
+    private async Task HrkFiltrele() { _hrkPage = 1; await LoadMovements(); }
+    private async Task HrkEnter(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) { if (e.Key == "Enter") await HrkFiltrele(); }
+    private async Task HrkFiltreTemizle()
+    {
+        _hfTarih = null; _hfTip = _hfKod = _hfMalzeme = _hfYon = _hfMiktar = _hfAciklama = null;
+        await HrkFiltrele();
+    }
 
     private async Task<List<(string, string)>> Lk(string table) => await LoadList($"/api/lookups/{table}", "id", "name");
 

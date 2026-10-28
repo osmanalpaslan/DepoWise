@@ -331,6 +331,26 @@ public class ApiMultiCompanyTests : IClassFixture<ApiMultiCompanyTests.Fixture>,
         }
     }
 
+    /// <summary>S8b — 2026-10-29: Giriş-Çıkış "Son hareketler" sütun filtreleri API'de (kod/malzeme/miktar/aciklama/yon).
+    /// A kendi kodunu bulur; B'nin malzeme kodu A'ya HİÇ gelmez (firma ayrımı süzgeçten bağımsız korunur).</summary>
+    [Fact]
+    public async Task S8b_Hareket_sutun_filtreleri_firma_ayrimi()
+    {
+        var a = await _fx.ClientAAsync();
+        async Task<JsonElement[]> Getir(string q)
+        {
+            var r = await a.GetAsync("/api/stock/movements/grid?page=1&pageSize=50" + q);
+            Assert.True(r.StatusCode == HttpStatusCode.OK, $"{q} → {(int)r.StatusCode}: {await BodyAsync(r)}");
+            using var d = JsonDocument.Parse(await BodyAsync(r));
+            return d.RootElement.GetProperty("items").EnumerateArray().Select(x => x.Clone()).ToArray();
+        }
+        var kendi = await Getir("&kod=" + Uri.EscapeDataString("MAT-" + _fx.CompanyA) + "&yon=1&miktar=100");
+        Assert.NotEmpty(kendi);
+        Assert.All(kendi, x => Assert.Equal("MAT-" + _fx.CompanyA, x.GetProperty("code").GetString()));
+        Assert.Empty(await Getir("&kod=" + Uri.EscapeDataString("MAT-" + _fx.CompanyB)));
+        Assert.Empty(await Getir("&kod=" + Uri.EscapeDataString("MAT-" + _fx.CompanyA) + "&yon=-1"));   // açılış girişi, çıkış yok
+    }
+
     // ── ham okuma yardımcıları (yalnız DOĞRULAMA için) ─────────────────────────────────────
 
     private static string UserIdOf(ServerServices svc, string companyId, string username)

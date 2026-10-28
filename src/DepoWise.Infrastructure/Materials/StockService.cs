@@ -77,6 +77,12 @@ public sealed record UnassignedPage(
 /// Kaydın sisteme girildiği GERÇEK zaman <c>stock_movements.created_at</c> sütununda ve audit
 /// kaydında olduğu gibi durur; bu satır nesnesi onu taşımaz.
 /// </summary>
+/// <summary>2026-10-29 (kullanıcı isteği): Giriş-Çıkış "Son hareketler" tablosunun SÜTUN filtreleri — diğer tablolarla aynı kural
+/// (<see cref="GridQuery"/>: metin "içerir", Miktar sayısal 5 · &gt;5 · 5-10). <paramref name="Yon"/>: 1 giriş, -1 çıkış, null hepsi.
+/// Tarih ve Tip mevcut parametrelerle (from/to, movementTypes) gider.</summary>
+public sealed record HareketSutunFiltresi(string? Kod = null, string? Malzeme = null, string? Miktar = null,
+    string? Aciklama = null, int? Yon = null);
+
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
     string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
@@ -1021,7 +1027,7 @@ WHERE sm.company_id = @c");
     public GridResult<StockMovementRow> SearchMovementsGrid(
         SessionContext s, long? fromMs, long? toMs, string? search,
         IReadOnlyList<string>? locationIds, IReadOnlyList<string>? movementTypes,
-        IReadOnlyList<string>? materialIds, int page = 1, int pageSize = 50)
+        IReadOnlyList<string>? materialIds, int page = 1, int pageSize = 50, HareketSutunFiltresi? sutun = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -1036,6 +1042,22 @@ WHERE sm.company_id = @c");
         if (fromMs is not null) where.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " >= @from");
         if (toMs is not null) where.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " <= @to");
         where.Append(filtre.Sql);
+        // 2026-10-29: sütun filtreleri — SAYFALAMADAN ÖNCE, sunucuda (tüm kayıtlarda); sayım ve sayfa aynı koşulu kullanır.
+        var sutunPs = new List<(string Name, object Value)>();
+        if (sutun is not null)
+        {
+            var (sw, _, sp) = GridQuery.Build(new[]
+            {
+                new GridQuery.ColumnFilter("m.code", sutun.Kod),
+                new GridQuery.ColumnFilter("m.name", sutun.Malzeme),
+                new GridQuery.ColumnFilter("sm.quantity", sutun.Miktar, GridQuery.ColumnKind.Numeric),
+                new GridQuery.ColumnFilter("COALESCE(sm.note,'')", sutun.Aciklama),
+            }, "sm.id", sqlite: SqlDialect.IsSqlite(conn));
+            if (sw.Trim().Length > 0) where.Append(" AND " + sw.Trim()["WHERE ".Length..]);
+            sutunPs = sp;
+            if (sutun.Yon is > 0) where.Append(" AND sm.direction > 0");
+            else if (sutun.Yon is < 0) where.Append(" AND sm.direction < 0");
+        }
 
         const string FromSql = @"
 FROM stock_movements sm
@@ -1053,6 +1075,7 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
             if (fromMs is not null) c.AddWithValue("@from", fromMs.Value);
             if (toMs is not null) c.AddWithValue("@to", toMs.Value);
             filtre.Bind(c);
+            GridQuery.AddParams(c, sutunPs);
         }
 
         int total;

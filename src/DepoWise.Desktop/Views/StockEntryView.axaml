@@ -385,7 +385,7 @@
         <!-- Son hareketler — kendi sekmesinde tam yükseklik -->
         <TabItem Header="Son hareketler">
         <Panel Margin="0,12,0,0">
-            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HareketTablosuGorunur}">
                 <DockPanel>
                     <!-- ⭐ LST-01: SAYFALAMA ÇUBUĞU. Liste eskiden sabit 200 kayıtla kesiliyor ve
                          kesildiğini SÖYLEMİYORDU → kullanıcı 200. kaydın ötesindeki hareketi
@@ -406,11 +406,11 @@
                     <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloMovements}" DockPanel.Dock="Top">
                         <!-- 2026-09-30 (kullanıcı isteği): KOD kolonu + satırda "Düzenle" (işlem kolonu 150 px). -->
                         <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120" MaxWidth="120"/>
-                            <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="80" MaxWidth="80"/>
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="150" MaxWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="110" MaxWidth="110"/>
                             <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="100" MaxWidth="100"/>
                             <SelectableTextBlock Grid.Column="3" Text="MALZEME" MinWidth="160"/>
-                            <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="60" MaxWidth="60"/>
+                            <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="96" MaxWidth="96"/>
                             <SelectableTextBlock Grid.Column="5" Text="MİKTAR" MinWidth="100" MaxWidth="100"/>
                             <!-- FAZ 3c: kapalıysa kolon BAŞLIĞIYLA birlikte hiç çizilmez. -->
                             <SelectableTextBlock Grid.Column="6" Text="B.FİYAT" MinWidth="80" MaxWidth="80"
@@ -419,15 +419,44 @@
                             <SelectableTextBlock Grid.Column="8" Text="" MinWidth="150" MaxWidth="150"/>
                         </Grid>
                     </Border>
+                    <!-- 2026-10-29 (kullanıcı isteği): SÜTUN FİLTRELERİ — diğer tablolardaki gibi başlığın altında; genişlikler başlıkla aynı.
+                         Metin kutusu Enter ile, seçim ve tarih anında süzer (sunucuda, tüm kayıtlarda). B.Fiyat filtresi yok. -->
+                    <Border Classes="TableFilterRow" DockPanel.Dock="Top">
+                        <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                            <ctrl:TarihKutusu Grid.Column="0" SelectedDate="{Binding HfTarih}" MinWidth="142" MaxWidth="142" Margin="0,0,8,0"
+                                              ToolTip.Tip="Bu günün hareketleri"/>
+                            <ctrl:HucreFiltre Grid.Column="1" DataContext="{Binding HfTip}" MinWidth="102" MaxWidth="102" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <ctrl:HucreFiltre Grid.Column="2" DataContext="{Binding HfKod}" MinWidth="92" MaxWidth="92" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <ctrl:HucreFiltre Grid.Column="3" DataContext="{Binding HfMalzeme}" MinWidth="152" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <ctrl:HucreFiltre Grid.Column="4" DataContext="{Binding HfYon}" MinWidth="88" MaxWidth="88" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <ctrl:HucreFiltre Grid.Column="5" DataContext="{Binding HfMiktar}" MinWidth="92" MaxWidth="92" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <Panel Grid.Column="6" MinWidth="80" MaxWidth="80" IsVisible="{Binding FiyatGorunur}"/>
+                            <ctrl:HucreFiltre Grid.Column="7" DataContext="{Binding HfAciklama}" MinWidth="112" Margin="0,0,8,0"
+                                              ApplyCommand="{Binding $parent[UserControl].((vm:StockEntryViewModel)DataContext).HareketFiltreleCommand}"/>
+                            <!-- kap HER ZAMAN yer kaplar: düğme gizliyken kolon 0'a düşüp esnek kolonları başlıktan kaydırmasın -->
+                            <Panel Grid.Column="8" MinWidth="150" MaxWidth="150">
+                                <Button Classes="Ghost" Content="Temizle" HorizontalAlignment="Left"
+                                        Command="{Binding HareketFiltreleriniTemizleCommand}" IsVisible="{Binding HareketFiltresiVar}"
+                                        ToolTip.Tip="Bu tablonun filtrelerini temizler"/>
+                            </Panel>
+                        </Grid>
+                    </Border>
+                    <SelectableTextBlock DockPanel.Dock="Top" Text="Filtreye uyan hareket yok." Classes="Helper" Margin="12,12"
+                                         IsVisible="{Binding FiltreyeUyanYok}"/>
                     <ListBox x:Name="TabloMovements" Classes="Table" ItemsSource="{Binding Movements}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" MaxWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}" />
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" MaxWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DateText}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="110" MaxWidth="110" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeText}" />
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}" />
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="60" MaxWidth="60" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="96" MaxWidth="96" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectionText}" />
                                     <SelectableTextBlock Grid.Column="5" Text="{Binding QtyText}" MinWidth="100" MaxWidth="100" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding QtyText}" />
                                     <SelectableTextBlock Grid.Column="6" Text="{Binding PriceText}" MinWidth="80" MaxWidth="80" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PriceText}" IsVisible="{Binding $parent[ListBox].((vm:StockEntryViewModel)DataContext).FiyatGorunur}" />
                                     <SelectableTextBlock Grid.Column="7" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
