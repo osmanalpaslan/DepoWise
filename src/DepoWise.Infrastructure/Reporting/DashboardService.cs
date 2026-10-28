@@ -295,7 +295,29 @@ public sealed class DashboardService
                 alerts[i] = alerts[i] with { Read = true };
 
         return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts,
-            openWo, overdueWo, openPo, bugun, annSerit);
+            openWo, overdueWo, openPo, bugun, annSerit, AracDurumlari(conn, s.CompanyId));
+    }
+
+    /// <summary>⭐ iOS tasarım (2026-10-28): araç durum dağılımı — toplam kartıyla aynı kapsam (firma, silinmemiş).</summary>
+    internal static VehicleStatusCounts AracDurumlari(DbConnection conn, string companyId)
+    {
+        int aktif = 0, bakim = 0, ariza = 0, pasif = 0;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT LOWER(COALESCE(status,'')), COUNT(*) FROM vehicles WHERE company_id=@c AND is_deleted=0 GROUP BY LOWER(COALESCE(status,''));";
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var adet = Convert.ToInt32(r.GetValue(1));
+            switch (r.GetString(0))
+            {
+                case DepoWise.Application.Ui.VehicleStatus.Maintenance: bakim += adet; break;
+                case DepoWise.Application.Ui.VehicleStatus.Faulty: ariza += adet; break;
+                case DepoWise.Application.Ui.VehicleStatus.Passive: pasif += adet; break;
+                default: aktif += adet; break;
+            }
+        }
+        return new VehicleStatusCounts(aktif, bakim, ariza, pasif);
     }
 
     private static Dictionary<string, string> LoadAlertReads(DbConnection conn, string userId)

@@ -51,6 +51,8 @@
         <StyleInclude Source="/Themes/Controls.axaml"/>
         <!-- Ortak bileşen stilleri (Faz 5; opt-in sınıf tabanlı) -->
         <StyleInclude Source="/Themes/Components.axaml"/>
+        <!-- ⭐ iOS tarzı parçalar (2026-10-28; yalnız masaüstü, opt-in sınıflar) -->
+        <StyleInclude Source="/Themes/Ios.axaml"/>
 
         <!-- ===== Sol menü stilleri (koyu tema, semantik token) ===== -->
         <Style Selector="Button.NavTop">

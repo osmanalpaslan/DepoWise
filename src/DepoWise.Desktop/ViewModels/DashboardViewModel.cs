@@ -152,6 +152,14 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
         ShellViewModel.Current?.Groups.SelectMany(g => g.Children).Select(c => c.Key) ?? Enumerable.Empty<string>());
     public bool HizliIslemVar => HizliIslemler.Count > 0;
 
+    // ⭐ iOS tasarım (2026-10-28): "Toplam Araç" kartının durum dağılımı (Aktif / Bakımda / Arızalı / Pasif).
+    public int AracToplam { get; private set; }
+    public int AracAktif { get; private set; }
+    public int AracBakimda { get; private set; }
+    public int AracArizali { get; private set; }
+    public int AracPasif { get; private set; }
+    public bool AracPasifVar => AracPasif > 0;
+
     public DashboardViewModel(SessionContext session)
     {
         _companyId = session.CompanyId;
@@ -162,20 +170,28 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
         {
             var s = DesktopServices.Dashboard.GetSummary(session);
             // Yalnız ilk kart vurgulu (Primary=true); diğerleri nötr koyu yüzey.
-            Cards.Add(new KpiCard(s.VehicleCount.ToString(), "Toplam Araç", "accent", Primary: true, NavKey: "vehicles", IconKey: "IconVehicles"));
-            Cards.Add(new KpiCard(s.MaterialCount.ToString(), "Malzeme Çeşidi", "neutral", Primary: false, NavKey: "materials", IconKey: "IconMaterials"));
-            Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials", IconKey: "IconWarning"));
-            Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve", IconKey: "IconRequests"));
-            Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null, IconKey: "IconUsers"));
+            // ⭐ iOS tasarım (2026-10-28): "Toplam Araç" ayrı geniş kartta (durum dağılım çubuğuyla); diğerleri renkli simgeli kartlar.
+            AracToplam = s.VehicleCount;
+            var d = s.VehicleStatuses ?? new VehicleStatusCounts(s.VehicleCount, 0, 0, 0);
+            (AracAktif, AracBakimda, AracArizali, AracPasif) = (d.Active, d.Maintenance, d.Faulty, d.Passive);
+            Cards.Add(new KpiCard(s.MaterialCount.ToString(), "Malzeme Çeşidi", "neutral", Primary: false, NavKey: "materials", IconKey: "IconMaterials",
+                Tile: "#A2845E"));
+            Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials", IconKey: "IconWarning",
+                Tile: "#FF9F0A", Caption: s.LowStockCount > 0 ? "Asgari miktarın altında" : "Her şey yeterli", CaptionWarn: s.LowStockCount > 0));
+            Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve", IconKey: "IconRequests",
+                Tile: "#4F5BD5", Caption: s.PendingRequestCount > 0 ? "Onay bekliyor" : null));
+            Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null, IconKey: "IconUsers",
+                Tile: "#30D158"));
             // PAN-01 (PK-L1): yeni özet kartları — YALNIZ kaynak yetkisi olana (null = yetki yok → kart yok).
             if (s.OpenWorkOrderCount is { } wo)
-                Cards.Add(new KpiCard(wo.ToString(), (s.OverdueWorkOrderCount ?? 0) > 0
-                    ? $"Açık İş Emri ({s.OverdueWorkOrderCount} gecikmiş)" : "Açık İş Emri",
+                Cards.Add(new KpiCard(wo.ToString(), "Açık İş Emri",
                     (s.OverdueWorkOrderCount ?? 0) > 0 ? "warning" : "neutral", Primary: false,
-                    NavKey: "work_orders", IconKey: "IconDailyActivity"));
+                    NavKey: "work_orders", IconKey: "IconDailyActivity", Tile: "#FF453A",
+                    Caption: (s.OverdueWorkOrderCount ?? 0) > 0 ? $"{s.OverdueWorkOrderCount} tanesi gecikmiş" : null,
+                    CaptionWarn: (s.OverdueWorkOrderCount ?? 0) > 0));
             if (s.OpenPurchaseOrderCount is { } po)
                 Cards.Add(new KpiCard(po.ToString(), "Açık Sipariş", "neutral", Primary: false,
-                    NavKey: "purchasing", IconKey: "IconMaterials"));
+                    NavKey: "purchasing", IconKey: "IconMaterials", Tile: "#32ADE6", Caption: po > 0 ? "Teslim bekleniyor" : null));
             // PAN-01: şeritler.
             ShowTodayCalendar = s.TodayCalendar is not null;
             foreach (var t in s.TodayCalendar ?? (IReadOnlyList<DashboardCalendarRow>)Array.Empty<DashboardCalendarRow>())
@@ -354,11 +370,32 @@ public sealed partial class DashboardViewModel
 /// (Themes/Icons.axaml); bulunamazsa kart ikonsuz çizilir — daha önce BEŞ kartın hepsi aynı
 /// kutu ikonunu taşıyordu ve kartlar birbirinden ayırt edilemiyordu.</summary>
 /// <summary>⭐ M-65: ana ekrandaki hızlı işlem düğmesi.</summary>
-public sealed record HizliIslem(string Baslik, string NavKey);
+public sealed record HizliIslem(string Baslik, string NavKey)
+{
+    // ⭐ iOS tasarım (2026-10-28): kutucuk açıklaması, renkli simge kutusu ve simge — ekran anahtarına göre.
+    public string Aciklama => NavKey switch
+    {
+        "stock" => "Stok girişi ya da çıkışı kaydet",
+        "assignments" => "Personele teslim ya da iade",
+        "stock:count" => "Sayım başlat ya da taslağa dön",
+        _ => "",
+    };
+    public Avalonia.Media.IBrush TileBrush => Avalonia.Media.Brush.Parse(NavKey switch
+    {
+        "stock" => "#0A84FF", "assignments" => "#5E5CE6", "stock:count" => "#30D158", _ => "#8E8E93",
+    });
+    public Avalonia.Media.Geometry? Icon => DesktopIcons.ForKpi(NavKey switch
+    {
+        "stock" => "IconMovements", "assignments" => "IconAssignments", "stock:count" => "IconCount", _ => "IconList",
+    });
+}
 
 public sealed record KpiCard(string Value, string Label, string Kind, bool Primary, string? NavKey = null,
-    string? IconKey = null)
+    string? IconKey = null, string Tile = "#8E8E93", string? Caption = null, bool CaptionWarn = false)
 {
     public Avalonia.Media.Geometry? Icon => DesktopIcons.ForKpi(IconKey);
     public bool HasIcon => Icon is not null;
+    /// <summary>iOS tasarım: renkli simge kutusunun zemini (beyaz simge).</summary>
+    public Avalonia.Media.IBrush TileBrush => Avalonia.Media.Brush.Parse(Tile);
+    public bool HasCaption => !string.IsNullOrEmpty(Caption);
 }

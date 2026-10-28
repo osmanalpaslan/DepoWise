@@ -753,7 +753,14 @@ public class YeniEkranlarArayuzTests
         var w = Ac(view, 1100, 700);
         Dispatcher.UIThread.RunJobs();
         Assert.False(vm.HizliIslemVar);
-        Assert.DoesNotContain(Gorunen<TextBlock>(view), t => t.Text == "HIZLI İŞLEMLER");
+        Assert.DoesNotContain(Gorunen<TextBlock>(view), t => t.Text == "Hızlı İşlemler");
+        // ⭐ iOS tasarım (2026-10-28): "Toplam Araç" kartında durum dağılım çubuğu görünür; parçalar toplamı tutar.
+        Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "Özet");
+        var cubuk = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.OranCubugu>().Single();
+        Assert.True(cubuk.IsEffectivelyVisible);
+        Assert.Equal(vm.AracToplam, vm.AracAktif + vm.AracBakimda + vm.AracArizali + vm.AracPasif);
+        Assert.Equal(vm.AracAktif, (int)cubuk.Deger1);
+        Goruntu(w, "ana-ekran-ios");
         w.Close();
         vm.Dispose();
     }

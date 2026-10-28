@@ -244,4 +244,38 @@ public class PanoTests : IDisposable
         _ = _svc.GetSummary(_admin);
         Assert.Equal(once, Foto());
     }
+
+    /// <summary>PAN-IOS1 — ⭐ iOS tasarım (2026-10-28): "Toplam Araç" kartının durum dağılımı. Toplamla aynı kapsam (firma,
+    /// silinmemiş), dört durum ayrı sayılır, tanınmayan/boş durum Aktif sayılır (araç varsayılan çalışır), başka firma karışmaz,
+    /// parçaların toplamı her zaman toplam kartına eşittir.</summary>
+    [Fact]
+    public void PANIOS1_Arac_Durum_Dagilimi()
+    {
+        var v = new DepoWise.Infrastructure.Vehicles.VehicleService(_f);
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("A-1"));
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("A-2"));
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("B-1", Status: "maintenance", StatusNote: "yağ"));
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("F-1", Status: "faulty", StatusNote: "motor"));
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("F-2", Status: "faulty", StatusNote: "fren"));
+        v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("P-1", Status: "passive"));
+        var bilinmeyen = v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("X-1"));
+        var silinen = v.Create(_admin, new DepoWise.Infrastructure.Vehicles.NewVehicle("S-1", Status: "faulty", StatusNote: "hurda"));
+        using (var conn = _f.Create())
+        {
+            using var c1 = conn.CreateCommand();
+            c1.CommandText = "UPDATE vehicles SET status='Eski Kod' WHERE id=@i;"; c1.AddWithValue("@i", bilinmeyen); c1.ExecuteNonQuery();
+            using var c2 = conn.CreateCommand();
+            c2.CommandText = "UPDATE vehicles SET is_deleted=1 WHERE id=@i;"; c2.AddWithValue("@i", silinen); c2.ExecuteNonQuery();
+        }
+        // Başka firma: sayılmaz.
+        Firma(_f, "PAN2");
+        var uid2 = new UserService(_f).EnsureInitialAdmin("PAN2", "admin2", "admin123", RoleKeys.CompanyAdmin);
+        var diger = new SessionContext(uid2, "PAN2", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        v.Create(diger, new DepoWise.Infrastructure.Vehicles.NewVehicle("Z-1", Status: "maintenance", StatusNote: "x"));
+
+        var ozet = _svc.GetSummary(_admin);
+        var d = Assert.IsType<VehicleStatusCounts>(ozet.VehicleStatuses);
+        Assert.Equal(new VehicleStatusCounts(Active: 3, Maintenance: 1, Faulty: 2, Passive: 1), d);
+        Assert.Equal(ozet.VehicleCount, d.Active + d.Maintenance + d.Faulty + d.Passive);
+    }
 }

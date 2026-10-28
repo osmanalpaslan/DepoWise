@@ -159,4 +159,9 @@ public sealed record DashboardSummary(
     IReadOnlyList<DashboardAlert> Alerts,
     int? OpenWorkOrderCount = null, int? OverdueWorkOrderCount = null, int? OpenPurchaseOrderCount = null,
     IReadOnlyList<DashboardCalendarRow>? TodayCalendar = null,
-    IReadOnlyList<DashboardAnnouncementRow>? ActiveAnnouncements = null);
+    IReadOnlyList<DashboardAnnouncementRow>? ActiveAnnouncements = null,
+    VehicleStatusCounts? VehicleStatuses = null);
+
+/// <summary>⭐ iOS tasarım (2026-10-28, kullanıcı onayı): ana ekrandaki "Toplam Araç" kartının durum dağılım çubuğu.
+/// Toplamla aynı kapsam (firma, silinmemiş); tanınmayan/boş durum <see cref="Ui.VehicleStatus.Active"/> sayılır (araç varsayılan çalışır).</summary>
+public sealed record VehicleStatusCounts(int Active, int Maintenance, int Faulty, int Passive);

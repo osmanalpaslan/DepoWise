@@ -1,0 +1,203 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      ⭐ iOS TARZI PARÇALAR (2026-10-28, kullanıcı onayı — örnek sayfa: claude.ai/artifact/V2VJyFZTCZoH3RAaPjPeEw).
+      Yalnız MASAÜSTÜ (web bugünkü görünümünde kalır — kullanıcı kararı). Tüm seçiciler sınıfla kapsanır (opt-in);
+      sınıfsız kontroller ETKİLENMEZ. Renkler tema token'ından (DynamicResource) → koyu/açık temada birlikte değişir.
+        Border.IosKart     — zemin üstündeki kart (18 köşe, ince kenar, hafif gölge)
+        Border.IosGrup     — iOS "gruplu liste" kabı (14 köşe); içindeki satırları Border.IosAyrac ayırır
+        Border.IkonKutu    — renkli simge kutusu (zemini kullanım yerinde verilir, simge beyaz)
+        Border.Hap         — küçük yuvarlak etiket (.basari/.uyari/.tehlike/.bilgi/.notr)
+        Button.Cip         — hap biçimli seçim düğmesi (.secili = dolu aksan)
+        Button.IosSatir    — gruplu listede tıklanan satır (zeminsiz, üzerine gelince hafif yüzey)
+        TextBlock.IosBaslik / IosUstBaslik / IosDipnot — bölüm başlığı, grup üst başlığı, grup altı açıklaması
+    -->
+
+    <Style Selector="Border.IosKart">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius16}"/>
+        <Setter Property="BoxShadow" Value="{StaticResource ShadowSm}"/>
+    </Style>
+    <Style Selector="Border.IosGrup">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="Border.IosAyrac">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="Margin" Value="58,0,0,0"/>
+    </Style>
+    <Style Selector="Border.IkonKutu">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.IkonKutu PathIcon">
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.IkonKutu.buyuk">
+        <Setter Property="Width" Value="42"/>
+        <Setter Property="Height" Value="42"/>
+        <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style Selector="Border.IkonKutu.buyuk PathIcon">
+        <Setter Property="Width" Value="21"/>
+        <Setter Property="Height" Value="21"/>
+    </Style>
+
+    <!-- Hap etiket: yarı saydam durum zemini + durum rengi yazı (yazı renkleri TemaKontrastTests ile ≥4,5:1) -->
+    <Style Selector="Border.Hap">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Padding" Value="10,3"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.Hap > TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Border.Hap.basari"><Setter Property="Background" Value="#2930D158"/></Style>
+    <Style Selector="Border.Hap.basari > TextBlock"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></Style>
+    <Style Selector="Border.Hap.uyari"><Setter Property="Background" Value="#2EFF9F0A"/></Style>
+    <Style Selector="Border.Hap.uyari > TextBlock"><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/></Style>
+    <Style Selector="Border.Hap.tehlike"><Setter Property="Background" Value="#29FF453A"/></Style>
+    <Style Selector="Border.Hap.tehlike > TextBlock"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>
+    <Style Selector="Border.Hap.bilgi"><Setter Property="Background" Value="#290A84FF"/></Style>
+    <Style Selector="Border.Hap.bilgi > TextBlock"><Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/></Style>
+
+    <!-- Hap biçimli seçim düğmesi (ana ekran uyarı kategorileri vb.) -->
+    <Style Selector="Button.Cip">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Padding" Value="12,6,7,6"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Cip /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="999"/>
+    </Style>
+    <Style Selector="Button.Cip:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip Border.adet">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="Padding" Value="6,1"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip Border.adet > TextBlock">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip.secili /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.Cip.secili">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip.secili PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip.secili TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.Cip.secili Border.adet">
+        <Setter Property="Background" Value="#2E000000"/>
+    </Style>
+
+    <!-- Gruplu listede tıklanan satır / kutucuk -->
+    <Style Selector="Button.IosSatir">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.IosSatir:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.IosSatir:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+    </Style>
+    <!-- Kart biçimli tıklanabilir düğme (hızlı işlem kutucuğu, KPI kartı): içerik Border.IosKart -->
+    <Style Selector="Button.IosKartDugme">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.IosKartDugme:pointerover /template/ ContentPresenter, Button.IosKartDugme:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.IosKartDugme:pointerover Border.IosKart">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+    </Style>
+
+    <!-- Tipografi -->
+    <Style Selector=":is(TextBlock).IosBaslik">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="19"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="LetterSpacing" Value="-0.2"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector=":is(TextBlock).IosUstBaslik">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="0.6"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="Margin" Value="16,0,0,8"/>
+    </Style>
+    <Style Selector=":is(TextBlock).IosDipnot">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="16,8,16,0"/>
+    </Style>
+    <!-- KPI kartı alt yazısı: sessiz; .uyari = dikkat isteyen durum (düşük stok, gecikmiş iş emri) -->
+    <Style Selector="TextBlock.KpiAlt">
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.KpiAlt.uyari">
+        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+    </Style>
+    <Style Selector=":is(TextBlock).IosBuyukSayi">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="32"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+        <Setter Property="LetterSpacing" Value="-0.6"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+</Styles>

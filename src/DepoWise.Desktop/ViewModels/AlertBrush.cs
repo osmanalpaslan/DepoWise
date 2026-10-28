@@ -18,3 +18,15 @@ public sealed class AlertBrush : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>⭐ iOS tasarım (2026-10-28): değer, <c>ConverterParameter</c> ile aynı metin mi? (seçili hap düğmesi: <c>Classes.secili</c>)</summary>
+public sealed class EsitMi : IValueConverter
+{
+    public static readonly EsitMi Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.Equals(value as string, parameter as string, StringComparison.Ordinal);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
