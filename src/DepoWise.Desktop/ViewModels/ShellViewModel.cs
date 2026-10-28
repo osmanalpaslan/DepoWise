@@ -98,6 +98,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     partial void OnCurrentPageChanged(ViewModelBase? value)
     {
         if (value is not null) value.PropertyChanged += SayfaDurumuDegisti;
+        _ilkYukleme = true;   // iOS madde 6: yeni ekranın İLK meşgul dönemi iskeletle gösterilir
+        _ilkMesgulGoruldu = false;
+        IskeletGorunur = false;
         SayfaMesgulGuncelle(value);   // M-62 (4/4): yeni ekranın meşgul durumu
     }
 
@@ -126,15 +129,31 @@ public sealed partial class ShellViewModel : ViewModelBase
         return false;
     }
 
+    // ⭐ iOS tasarım madde 6 (2026-10-29): YÜKLENİYOR İSKELETİ — ekran açılırken ilk yükleme 300 ms'yi aşarsa içerik alanında
+    // gri, yanıp sönen satır blokları (Border.Skeleton) gösterilir; boş tablo / "kayıt yok" yanıp sönmez. Yalnız İLK meşgul
+    // dönemde: sonraki yenilemelerde veri ekranda kalır, yalnız ince çubuk görünür.
+    [ObservableProperty] private bool _iskeletGorunur;
+    private bool _ilkYukleme;
+    private bool _ilkMesgulGoruldu;
+
     private void SayfaMesgulGuncelle(object? sayfa)
     {
         var surum = ++_mesgulSurumu;
-        if (!SayfaMesgulMu(sayfa)) { YukleniyorGorunur = false; return; }
+        if (!SayfaMesgulMu(sayfa))
+        {
+            YukleniyorGorunur = false;
+            IskeletGorunur = false;
+            if (_ilkMesgulGoruldu) _ilkYukleme = false;   // ilk yükleme bitti
+            return;
+        }
+        if (ReferenceEquals(sayfa, CurrentPage)) _ilkMesgulGoruldu = true;
         _ = System.Threading.Tasks.Task.Delay(YukleniyorGecikmeMs).ContinueWith(_ =>
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 // gecikme dolduğunda hâlâ AYNI meşguliyet sürüyorsa göster
-                if (surum == _mesgulSurumu && SayfaMesgulMu(CurrentPage)) YukleniyorGorunur = true;
+                if (surum != _mesgulSurumu || !SayfaMesgulMu(CurrentPage)) return;
+                YukleniyorGorunur = true;
+                IskeletGorunur = _ilkYukleme;
             }));
     }
     [ObservableProperty] private string _currentTitle = "";

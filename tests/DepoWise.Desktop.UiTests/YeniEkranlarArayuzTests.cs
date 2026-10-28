@@ -949,6 +949,54 @@ public class YeniEkranlarArayuzTests
         finally { shell.Release(); }
     }
 
+    /// <summary>UIT-IOS10 — ⭐ iOS tasarım madde 6: ekranın İLK yüklemesi 300 ms'yi aşınca içerik alanında iskelet görünür; iş bitince
+    /// gizlenir; aynı ekranın SONRAKİ yüklemesinde yalnız ince çubuk (veri ekranda kalır). Görüntü iskelet-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS10_Ilk_Yuklemede_Iskelet()
+    {
+        var shell = new ShellViewModel(Ortam());
+        try
+        {
+            var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            var iskelet = w.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "YukleniyorIskeleti");
+
+            var sayfa = new IskeletSahteSayfa { Busy = true };
+            shell.CurrentPage = sayfa;
+            Bekle();
+            Assert.True(shell.IskeletGorunur);
+            Assert.True(iskelet.IsEffectivelyVisible);
+            Goruntu(w, "iskelet-ios");
+
+            sayfa.Busy = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(shell.IskeletGorunur);
+            Assert.False(iskelet.IsEffectivelyVisible);
+
+            sayfa.Busy = true;   // yenileme: veri ekranda → yalnız ince çubuk
+            Bekle();
+            Assert.True(shell.YukleniyorGorunur);
+            Assert.False(shell.IskeletGorunur);
+            sayfa.Busy = false;
+            Dispatcher.UIThread.RunJobs();
+            w.Close();
+        }
+        finally { shell.Release(); }
+
+        static void Bekle()
+        {
+            System.Threading.Thread.Sleep(450);   // kabuktaki 300 ms gecikme (gerçek zaman) dolsun
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    private sealed class IskeletSahteSayfa : ViewModelBase
+    {
+        private bool _busy;
+        public bool Busy { get => _busy; set => SetProperty(ref _busy, value); }
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

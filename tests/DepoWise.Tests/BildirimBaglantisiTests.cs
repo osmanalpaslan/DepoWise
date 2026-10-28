@@ -48,7 +48,8 @@ public class BildirimBaglantisiTests
         var kabuk = Oku("src/DepoWise.Desktop/ViewModels/ShellViewModel.cs");
         Assert.Contains("e.PropertyName is \"Busy\" or \"IsBusy\" or \"IsLoading\"", kabuk);
         Assert.Contains("private const int YukleniyorGecikmeMs = 300;", kabuk);
-        Assert.Contains("if (!SayfaMesgulMu(sayfa)) { YukleniyorGorunur = false; return; }", kabuk);
+        Assert.Matches(@"if \(!SayfaMesgulMu\(sayfa\)\)\s*\{\s*YukleniyorGorunur = false;\s*IskeletGorunur = false;", kabuk);
+        Assert.Contains("IskeletGorunur = _ilkYukleme;", kabuk);   // iOS madde 6: iskelet yalnız ilk yüklemede
         Assert.Contains("SayfaMesgulGuncelle(value);", kabuk);
         var pencere = Oku("src/DepoWise.Desktop/Views/MainWindow.axaml");
         Assert.Contains("IsVisible=\"{Binding YukleniyorGorunur}\"", pencere);
