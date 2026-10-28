@@ -132,12 +132,19 @@
     <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center"/>
                                 <!-- Kullanıcı isteği (2026-09-02): yakıt kaydı düzeltilebilsin. Kayıt üzerine
                                      YAZILMAZ; eski kayıt iptal edilip düzeltilmiş kayıt oluşturulur (tek işlem). -->
-                                <Button Classes="Secondary" Content="Düzenle" Margin="8,0,0,0"
-                                        IsVisible="{Binding CanEditFuel}" Command="{Binding BeginEditDistributionCommand}"
-                                        ToolTip.Tip="Seçili yakıt dağıtımını düzeltir: eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar buna göre güncellenir."/>
-                                <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
-                                        IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
-                                        ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
+                                <!-- ⭐ iOS tasarım (2026-10-28): seçili dağıtım işlemleri "•••" menüsünde (ve satır sağ tık menüsünde); komut/yetki aynı -->
+                                <Button Classes="Secondary" Content="•••" Padding="12,8" Margin="8,0,0,0"
+                                        AutomationProperties.Name="Seçili dağıtım işlemleri" ToolTip.Tip="Seçili dağıtım: düzenle / iptal et">
+                                    <Button.Flyout>
+                                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                            <MenuItem Header="Düzenle" IsVisible="{Binding CanEditFuel}" Command="{Binding BeginEditDistributionCommand}"
+                                                      ToolTip.Tip="Seçili yakıt dağıtımını düzeltir: eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar buna göre güncellenir."/>
+                                            <Separator/>
+                                            <MenuItem Header="Kaydı İptal Et" IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
+                                                      ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
                                 <Button Classes="Secondary YenileDugme" Margin="8,0,0,0" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                                 <!-- ⭐ M-34: toplu dağıtım -->
                                 <Button Classes="Secondary" Content="Toplu Dağıtım" Margin="8,0,0,0" Command="{Binding ToggleTopluCommand}"

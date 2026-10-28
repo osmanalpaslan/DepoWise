@@ -157,7 +157,7 @@
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
                         <SelectableTextBlock Text="{Binding AgendaTitle}" Classes="SectionTitle" VerticalAlignment="Center"/>
                         <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEditEvents}"/>
-                        <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteEventCommand}" IsVisible="{Binding CanDeleteEvents}"/>
+                        <Button Classes="Danger" Content="Sil" Command="{Binding DeleteEventCommand}" IsVisible="{Binding CanDeleteEvents}"/>
                     </StackPanel>
                     <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Text="Bu aralıkta takvim öğesi yok."
                                          IsVisible="{Binding !HasAgenda}"/>

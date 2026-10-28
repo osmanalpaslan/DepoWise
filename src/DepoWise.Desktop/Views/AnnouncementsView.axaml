@@ -16,8 +16,16 @@
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="200" Text="{Binding SearchText}" PlaceholderText="Ara: başlık / metin / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
-                    <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
-                    <Button Classes="Secondary" Content="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}"/>
+                    <!-- ⭐ iOS tasarım (2026-10-28): seçili duyuru işlemleri "•••" menüsünde (ve satır sağ tık menüsünde); komut ve yetki aynı -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Seçili duyuru işlemleri" ToolTip.Tip="Seçili duyuru: düzenle / sil">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                                <Separator/>
+                                <MenuItem Header="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
