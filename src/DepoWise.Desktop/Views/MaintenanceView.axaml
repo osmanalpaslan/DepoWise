@@ -530,7 +530,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                 <Button Classes="Secondary YenileDugme" Command="{Binding LoadEquipmentTabCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                                 <Button Classes="Secondary" Content="Kaydet" Command="{Binding SaveEquipmentMaintenanceCommand}"/>
-                                <Button Classes="Secondary" Content="İptal Et" Command="{Binding CancelEquipmentMaintenanceCommand}"/>
+                                <Button Classes="Danger" Content="İptal Et" Command="{Binding CancelEquipmentMaintenanceCommand}"/>
                             </StackPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>

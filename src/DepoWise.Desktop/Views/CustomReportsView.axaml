@@ -20,7 +20,7 @@
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <Button Classes="Secondary YenileDugme" Command="{Binding YenileCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                     <Button Classes="Secondary" Content="Kaydet" Command="{Binding KaydetCommand}" IsVisible="{Binding CanCreate}"/>
-                    <Button Classes="Secondary" Content="Sil" Command="{Binding SilCommand}" IsVisible="{Binding CanDelete}"/>
+                    <Button Classes="Danger" Content="Sil" Command="{Binding SilCommand}" IsVisible="{Binding CanDelete}"/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

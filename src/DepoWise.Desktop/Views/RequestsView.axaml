@@ -374,7 +374,11 @@
                             <ScrollViewer>
                                 <StackPanel Spacing="12">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                                        <!-- ⭐ iOS tasarım (2026-10-28): başlık + renkli simge -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <Border Classes="IkonKutu" Background="#30D158"><PathIcon Data="{DynamicResource IconApprove}"/></Border>
+                                            <SelectableTextBlock Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
                                     </Grid>
                                     <SelectableTextBlock Text="KALEMLER" Classes="SectionTitle"/>

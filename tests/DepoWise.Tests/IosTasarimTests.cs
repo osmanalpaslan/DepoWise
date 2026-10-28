@@ -84,4 +84,17 @@ public class IosTasarimTests
         }
         Assert.True(adet >= 30, "simgeli yenile düğmesi: " + adet);
     }
+
+    /// <summary>IOS-YIK1 — yıkıcı işlem düğmesi ("Sil", "İptal Et", "Kaydı İptal Et") sıradan gri (Secondary) stilde olmaz: kırmızı
+    /// (Danger) ya da menüde. Tablo satırı içindeki sade (Ghost) satır işlemleri bilinçli olarak kapsam dışı.</summary>
+    [Fact]
+    public void IOSYIK1_Yikici_Dugme_Gri_Degil()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        var ihlal = new List<string>();
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+            foreach (Match m in Regex.Matches(File.ReadAllText(f), "<Button Classes=\"Secondary\"[^>]*Content=\"(Sil|İptal Et|Kaydı İptal Et)\""))
+                ihlal.Add(Path.GetFileName(f) + ": " + m.Groups[1].Value);
+        Assert.True(ihlal.Count == 0, "gri yıkıcı düğme: " + string.Join(", ", ihlal));
+    }
 }

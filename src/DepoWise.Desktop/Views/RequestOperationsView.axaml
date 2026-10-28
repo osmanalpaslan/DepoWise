@@ -80,7 +80,11 @@
                 <ScrollViewer>
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                            <!-- ⭐ iOS tasarım (2026-10-28): başlık + renkli simge -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <Border Classes="IkonKutu" Background="#4F5BD5"><PathIcon Data="{DynamicResource IconOperations}"/></Border>
+                                <SelectableTextBlock Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                            </StackPanel>
                             <ctrl:StatusBadge Grid.Column="1" Text="{Binding Selected.OperationStatusText}"
                                               Kind="{Binding Selected.OperationStatusColor, Converter={x:Static vm:OpsColorConverter.Instance}}"/>
                         </Grid>

@@ -224,7 +224,7 @@
                     <SelectableTextBlock Text="{Binding Selected.ScopeText}" Classes="Helper"
                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <Button Classes="Secondary" HorizontalAlignment="Stretch" Content="Düzenle" Command="{Binding BeginEditCommand}"/>
-                    <Button Classes="Ghost" HorizontalAlignment="Stretch" Content="Sil" Command="{Binding RequestDeleteCommand}"/>
+                    <Button Classes="Danger" HorizontalAlignment="Stretch" Content="Sil" Command="{Binding RequestDeleteCommand}"/>
                 </StackPanel>
             </Border>
         </Grid>

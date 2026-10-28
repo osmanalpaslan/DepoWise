@@ -134,7 +134,11 @@
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Spacing="8">
-                        <SelectableTextBlock Text="{Binding Selected.OrderNo}" Classes="PageTitle"/>
+                        <!-- ⭐ iOS tasarım (2026-10-28): başlık + renkli simge -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Border Classes="IkonKutu" Background="#32ADE6"><PathIcon Data="{DynamicResource IconPurchasing}"/></Border>
+                            <SelectableTextBlock Text="{Binding Selected.OrderNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <SelectableTextBlock Classes="Helper" TextWrapping="Wrap">
                             <Run Text="{Binding Selected.SupplierDisplay}"/><Run Text=" · "/><Run Text="{Binding Selected.BranchDisplay}"/><Run Text=" · MM: "/><Run Text="{Binding Selected.CostCenterDisplay}"/>
                         </SelectableTextBlock>
