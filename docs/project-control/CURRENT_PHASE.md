@@ -8,7 +8,8 @@
 ## 🎨 2026-10-28 iOS TARZI TASARIM — dal `tasarim/ios` (YALNIZ masaüstü, yayın yok)
 - Kullanıcı örnekleri onayladı (Alpnex turuncusu, 4 yeni parça, önce 3 ekran → onay → tümü). Örnek + gerçek ekran görüntüleri: claude.ai/artifact/V2VJyFZTCZoH3RAaPjPeEw.
 - Bitti: e528c89c ortak görünüm (palet/köşe/düğme/tablo başlığı/menü) · 7e0f04d5 Ana Ekran (+ araç dağılım çubuğu, Themes/Ios.axaml) · b3ca785f Araç Listesi (eylemler kartta, "•••" menü, bakım çubukları) · 88cdcde5 Yeni Araç formu (grup kutuları, önizleme, kontrol listesi). Arayüz 74/74.
-- Sıradaki: kullanıcı onayı → kalan ekranlar (tablo satırlarına renkli simge dahil, ortak bileşenlerden).
+- Kullanıcı onayladı + tasarımı bana bıraktı (açılır bölümler, düğme gruplama, sağ tık). Sonra: d0f58431 sade üst çubuk (Eşitle/arama kalktı, arama Ctrl+K) + kullanıcı kartı sol altta + kart kapağı = ilk fotoğraf · 42f6b228 sağ tık menüsü 13 ekran · cd241a7e simgeli Yenile (30), PDF menüsü, Talep/Yakıt sağ tık · 754a7686 araç kartı/formu açılır bölümler · be3a4603 tüm Expander iOS + detay başlıkları. Arayüz 76/76.
+- Sıradaki: ekran ekran yoğun ekranlar (Bakım, Yakıt, Uyarılar, Talepler, İş Emirleri, Personel, Cari, Finans, Ekipman, Takvim, Malzeme kartı açılır bölümleri), sonra tanım/ayar/rapor; tablo satırlarına renkli simge.
 
 ## 📌 2026-10-28 ÇALIŞMA BİÇİMİ — TOPLU YAYIN (kullanıcı kararı, kalıcı)
 - Otomatik yayın KALKTI: işler biriktirilir (testli, ayrı commit + push), canlıya çıkmaz. Tam takım ve yayın YALNIZ kullanıcı "yayınlayalım" deyince. Ayrıntı CLAUDE.md §4–§5.
