@@ -26,7 +26,7 @@
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
+                            ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur"/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

@@ -55,11 +55,39 @@
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
                 </Border>
-                <!-- Kullanıcı -->
-                <Border DockPanel.Dock="Bottom" Height="56" Padding="16,0"
-                        Background="{DynamicResource SurfaceElevatedBrush}">
-                    <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
+                <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı isteği): KULLANICI KARTI — üst çubuğun sağındaki kullanıcı düğmesi buraya taşındı.
+                     Baş harf dairesi + ad + firma; tıklanınca aynı menü (Sürüm · Derleme · Yereli Sıfırla · Çıkış) yukarı doğru açılır. -->
+                <Border DockPanel.Dock="Bottom" Padding="10,8,10,10">
+                    <Button Classes="KullaniciKarti" ToolTip.Tip="Hesap: sürüm bilgisi ve çıkış"
+                            a11y:AutomationProperties.Name="Hesap menüsü">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17"
+                                    Background="{DynamicResource AccentBrush}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Initial}" Foreground="{DynamicResource OnAccentBrush}" FontWeight="Bold"
+                                           FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding ActiveCompanyName}" FontSize="11.5"
+                                           Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <PathIcon Grid.Column="2" Width="12" Height="12" Data="M7 14l5-5 5 5z" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Grid>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="TopEdgeAlignedLeft">
+                                <MenuItem Header="{Binding Version, StringFormat='Sürüm {0}'}" IsEnabled="False"/>
+                                <MenuItem Header="{Binding BuildStamp, StringFormat='Derleme {0}'}" IsEnabled="False"/>
+                                <Separator/>
+                                <MenuItem Header="Yereli Sıfırla…" Command="{Binding ResetLocalAndResyncCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"
+                                          Foreground="{DynamicResource DangerBrush}"/>
+                                <Separator IsVisible="{Binding IsSuperAdmin}"/>
+                                <MenuItem Header="Çıkış" Command="{Binding LogoutCommand}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </Border>
                 <!-- Menü arama -->
                 <Border DockPanel.Dock="Top" Padding="10,6">
@@ -207,7 +235,9 @@
                     BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı isteği): sade üst çubuk — sağdaki öğeler aynı yükseklikte hap biçiminde.
+                     "Eşitle" düğmesi, global arama ve kullanıcı düğmesi KALDIRILDI (kullanıcı menüsü sol menünün altında). -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
 
                     <!-- 1) Menü daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" VerticalAlignment="Center"
@@ -235,7 +265,7 @@
                     </Grid>
 
                     <!-- 3) BAĞLAM: firma + şube tek kutuda -->
-                    <Border Grid.Column="2" Height="36" Padding="12,0" CornerRadius="10"
+                    <Border Grid.Column="3" Height="38" Padding="14,0" CornerRadius="19"
                             VerticalAlignment="Center" Margin="0,0,8,0"
                             Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
@@ -262,8 +292,8 @@
                     </Border>
 
                     <!-- 4) DURUM: bağlantı + senkron tek kutuda, tıklanınca durum paneli -->
-                    <Button Grid.Column="3" Classes="Ghost" Height="36" Padding="12,0"
-                            CornerRadius="10" VerticalAlignment="Center" Margin="0,0,8,0"
+                    <Button Grid.Column="4" Classes="UstHap" Height="38" Padding="12,0,14,0"
+                            VerticalAlignment="Center" Margin="0,0,8,0"
                             Command="{Binding ShowSyncStatusCommand}"
                             ToolTip.Tip="Senkron durumu: son gönderim/çekme zamanı, bekleyen ve gönderilemeyen kayıtlar">
                         <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
@@ -314,31 +344,21 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- 5) Tek birincil eylem -->
-                    <Button Grid.Column="4" Classes="Primary" Height="36" VerticalAlignment="Center"
-                            Command="{Binding SyncCommand}" IsEnabled="{Binding !IsSyncing}"
-                            ToolTip.Tip="Sunucudaki tanımları bu makineye çeker">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Width="15" Height="15" Foreground="{DynamicResource OnAccentBrush}"
-                                      Data="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/>
-                            <TextBlock Text="Eşitle" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
                     <!-- ⭐ ARA-01 (ADR-174) — GLOBAL ARAMA: Enter ile arar (anlık öneri yok, min 2 karakter).
                          Yeni yetki modülü YOK — sonuçlar serviste kaynak modül yetkisi + kapsamdan süzülür.
                          Yerel kaynaklar ÇEVRİMDIŞI aranır; Proje+Evrak çevrimiçiyse sunucudan eklenir. -->
                     <!-- ⭐ ÖLÇEKLENME (2026-09-06): 1300 px altında global arama kutusu (170 px) gizlenir.
                          Arama kaybolmaz — menü panelindeki "Ekran ara…" kutusu yerinde durur ve dar
                          pencerede üst barın taşmasını bu 178 px önler. -->
-                    <Panel Grid.Column="5" x:Name="GlobalSearchRoot" VerticalAlignment="Center" Margin="0,0,8,0"
-                           IsVisible="{Binding $parent[Window].Bounds.Width,
-                                       Converter={x:Static vm:GenislikEsikConverter.Instance},
-                                       ConverterParameter=1300}">
-                        <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="170" PlaceholderText="Ara… (Enter)"
+                    <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı isteği): kutu üst çubukta GÖRÜNMEZ; Ctrl+K ile açılır (barkod/QR okuyucu akışı
+                         BAR-01 aynen çalışır). Esc ya da boşken odak kaybı → yeniden gizlenir. -->
+                    <Panel Grid.Column="2" x:Name="GlobalSearchRoot" VerticalAlignment="Center" Margin="0,0,8,0"
+                           IsVisible="{Binding AramaGorunur}">
+                        <TextBox x:Name="GlobalSearchBox" Classes="Field" Width="240" PlaceholderText="Ara ya da QR okut… (Enter)"
                                  Text="{Binding SearchText}" a11y:AutomationProperties.Name="Global arama">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding RunSearchCommand}"/>
+                                <KeyBinding Gesture="Escape" Command="{Binding AramayiGizleCommand}"/>
                             </TextBox.KeyBindings>
                         </TextBox>
                         <Popup IsOpen="{Binding SearchOpen, Mode=TwoWay}" PlacementTarget="GlobalSearchBox"
@@ -397,7 +417,8 @@
 
                     <!-- ⭐ BLD-01 (ADR-172) — BİLDİRİM ÇANI: aktif VE okunmamış bildirim sayısı; tıkla → Uyarılar.
                          Sayaç girişte bir kez + Uyarılar ekranı etkileşimlerinde tazelenir (her geçişte değil). -->
-                    <Button Grid.Column="6" Classes="IconGhost" VerticalAlignment="Center" Margin="0,0,4,0"
+                    <Button Grid.Column="5" Classes="UstHap" Width="38" Height="38" Padding="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                             ToolTip.Tip="Bildirimler — okunmamış uyarı sayısı"
                             a11y:AutomationProperties.Name="Bildirimler"
                             Command="{Binding OpenAlertsCommand}">
@@ -415,8 +436,8 @@
                          Aktif ekrana ÖZEL işlemler tek bir menüde toplanır: kayıt geçmişi (log) ve ekran
                          bilgisi. Eskiden ekran bilgisi kullanıcı menüsündeydi (ekranla ilgisiz bir yer);
                          buraya taşındı. Menü içeriği ActiveKey ile birlikte tazelenir. -->
-                    <Button Grid.Column="7" Classes="Ghost" Height="36" Padding="10,0" CornerRadius="10"
-                            VerticalAlignment="Center" Margin="0,0,4,0"
+                    <Button Grid.Column="6" Classes="UstHap" Height="38" Padding="12,0,14,0"
+                            VerticalAlignment="Center"
                             ToolTip.Tip="Bu ekrana ait araçlar: kayıt geçmişi ve ekran bilgisi"
                             a11y:AutomationProperties.Name="Ekran araçları">
                         <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
@@ -443,47 +464,6 @@
                                           IsVisible="{Binding IsSuperAdmin}"/>
                                 <MenuItem Header="Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
                                           IsVisible="{Binding IsSuperAdmin}"/>
-                            </MenuFlyout>
-                        </Button.Flyout>
-                    </Button>
-
-                    <Border Grid.Column="8" Width="1" Height="26" Margin="12,0"
-                            Background="{DynamicResource BorderSubtleBrush}" VerticalAlignment="Center"/>
-
-                    <!-- 6) Kullanıcı menüsü — taşınan komutlar burada -->
-                    <Button Grid.Column="9" Classes="Ghost" Height="36" Padding="4,0,10,0"
-                            CornerRadius="10" VerticalAlignment="Center"
-                            ToolTip.Tip="{Binding DisplayName}">
-                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <Border Width="28" Height="28" CornerRadius="14"
-                                    Background="{DynamicResource AccentBrush}">
-                                <SelectableTextBlock Text="{Binding Initial}" Foreground="{DynamicResource OnAccentBrush}" FontWeight="Bold"
-                                                     FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <!-- 1200 px altında kullanıcı ADI gizlenir; baş harf dairesi ve ok yerinde
-                                 kalır, menü (Sürüm · Yereli Sıfırla · Çıkış) aynen açılır. Ad, düğmenin
-                                 ToolTip'inde zaten var — bilgi kaybı yok. -->
-                            <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" FontSize="12.5"
-                                                 VerticalAlignment="Center" MaxWidth="140"
-                                                 TextTrimming="CharacterEllipsis"
-                                                 IsVisible="{Binding $parent[Window].Bounds.Width,
-                                                             Converter={x:Static vm:GenislikEsikConverter.Instance},
-                                                             ConverterParameter=1200}"/>
-                            <PathIcon Width="13" Height="13" Data="M7 10l5 5 5-5z"
-                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </StackPanel>
-                        <Button.Flyout>
-                            <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                <MenuItem Header="{Binding Version, StringFormat='Sürüm {0}'}" IsEnabled="False"/>
-                                <MenuItem Header="{Binding BuildStamp, StringFormat='Derleme {0}'}" IsEnabled="False"/>
-                                <Separator/>
-                                @* LOG-01: "Ekran Bilgisi" ve "Basit Ekran Bilgisi" buradan ÇIKARILDI —
-                                   artık üst bardaki "Ekran Araçları" (⋯) menüsünde, ekrana özel olarak. *@
-                                <MenuItem Header="Yereli Sıfırla…" Command="{Binding ResetLocalAndResyncCommand}"
-                                          IsVisible="{Binding IsSuperAdmin}"
-                                          Foreground="{DynamicResource DangerBrush}"/>
-                                <Separator IsVisible="{Binding IsSuperAdmin}"/>
-                                <MenuItem Header="Çıkış" Command="{Binding LogoutCommand}"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

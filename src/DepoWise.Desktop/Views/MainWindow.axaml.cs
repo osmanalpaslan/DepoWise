@@ -49,12 +49,14 @@ public partial class MainWindow : Window
     /// pencere-kısayolu buydu). Odaktaki kontrol Ctrl+K'yı kendisi işlerse ona dokunulmaz.</summary>
     protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
     {
+        // ⭐ iOS tasarım (2026-10-28): kutu üst çubukta gizli → Ctrl+K önce görünür yapar (giriş sonrası kabuk varken).
         if (e.Key == Avalonia.Input.Key.K
             && e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control)
-            && GlobalSearchBox.IsEffectivelyVisible)
+            && DataContext is DepoWise.Desktop.ViewModels.ShellViewModel aramaKabugu)
         {
-            GlobalSearchBox.Focus();
-            GlobalSearchBox.SelectAll();
+            aramaKabugu.AramaGorunur = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => { GlobalSearchBox.Focus(); GlobalSearchBox.SelectAll(); },
+                Avalonia.Threading.DispatcherPriority.Input);
             e.Handled = true;
             return;
         }

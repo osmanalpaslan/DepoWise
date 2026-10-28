@@ -287,6 +287,60 @@
         <Setter Property="Opacity" Value="0.6"/>
     </Style>
 
+    <!-- Üst çubuk hapı (eşitleme durumu, bildirim, ekran araçları): firma/şube kutusuyla aynı yükseklik ve dil -->
+    <Style Selector="Button.UstHap">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="19"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.UstHap /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="19"/>
+    </Style>
+    <Style Selector="Button.UstHap:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+    </Style>
+
+    <!-- Sol menü altındaki kullanıcı kartı -->
+    <Style Selector="Button.KullaniciKarti">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.KullaniciKarti /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="14"/>
+    </Style>
+    <Style Selector="Button.KullaniciKarti:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+    </Style>
+
+    <!-- Kayıt kartı kapak fotoğrafı düğmesi (zeminsiz; üzerine gelince hafif büyür) -->
+    <Style Selector="Button.KapakFoto">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <Setter Property="Transitions">
+            <Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.KapakFoto:pointerover">
+        <Setter Property="RenderTransform" Value="scale(1.04)"/>
+    </Style>
+    <Style Selector="Button.KapakFoto:pointerover /template/ ContentPresenter, Button.KapakFoto:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>

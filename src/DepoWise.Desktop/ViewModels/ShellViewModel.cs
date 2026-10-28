@@ -1862,6 +1862,12 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _searchOpen;
+    /// <summary>⭐ iOS tasarım (2026-10-28, kullanıcı isteği): global arama kutusu üst çubukta gizli; Ctrl+K görünür yapar
+    /// (barkod/QR okuyucu akışı BAR-01). Kapat / Esc / sonuç açılınca yeniden gizlenir.</summary>
+    [ObservableProperty] private bool _aramaGorunur;
+
+    [RelayCommand]
+    private void AramayiGizle() { SearchOpen = false; AramaGorunur = false; }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSearchRemoteNote))]
     private string? _searchRemoteNote;
@@ -1895,7 +1901,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CloseSearch() => SearchOpen = false;
+    private void CloseSearch() { SearchOpen = false; AramaGorunur = false; }
 
     /// <summary>Sonuca tıkla → ilgili ekrana git; kayıt-açma altyapısı olan ekranlarda (IDeepLinkTarget)
     /// KAYIT da açılır — uyarılardaki mevcut davranışın aynısı (PK-K3).</summary>
@@ -1903,7 +1909,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     private void OpenSearchHit(DepoWise.Infrastructure.Search.SearchHit? hit)
     {
         if (hit is null) return;
-        SearchOpen = false;
+        SearchOpen = false; AramaGorunur = false;
         NavigateTo(hit.NavigateKey, hit.Id);
     }
 
@@ -1911,7 +1917,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     private void OpenSearchGroup(DepoWise.Infrastructure.Search.SearchGroup? group)
     {
         if (group is null) return;
-        SearchOpen = false;
+        SearchOpen = false; AramaGorunur = false;
         Navigate(group.NavigateKey);
     }
 

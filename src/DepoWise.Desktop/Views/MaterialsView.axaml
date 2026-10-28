@@ -34,7 +34,7 @@
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur"/>
+                            ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur"/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -726,9 +726,29 @@
                 </WrapPanel>
               </StackPanel>
               <ScrollViewer>
+              <StackPanel Spacing="10">
+                <!-- ⭐ iOS tasarım (2026-10-28): kart başı — kapak (ilk fotoğraf / simge), ad, kod -->
+                <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0,4,0,6">
+                    <!-- ⭐ iOS tasarım (2026-10-28): kapak — ilk eklenen fotoğraf (tıkla → büyüt); yoksa simge -->
+                    <Panel Width="72" Height="72" HorizontalAlignment="Center">
+                      <Border Classes="IkonKutu" Width="64" Height="64" CornerRadius="18" Background="#A2845E" HorizontalAlignment="Center"
+                              IsVisible="{Binding !KapakFotoVar}">
+                        <PathIcon Width="32" Height="32" Data="{DynamicResource IconMaterials}"/>
+                      </Border>
+                      <Button Classes="KapakFoto" IsVisible="{Binding KapakFotoVar}" ToolTip.Tip="Fotoğrafı büyüt"
+                              AutomationProperties.Name="Kapak fotoğrafını büyüt"
+                              Command="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
+                              CommandParameter="{Binding KapakFoto}">
+                        <Border CornerRadius="18" ClipToBounds="True" Width="72" Height="72">
+                          <Image Source="{Binding KapakFoto}" Stretch="UniformToFill"/>
+                        </Border>
+                      </Button>
+                    </Panel>
+                    <SelectableTextBlock Text="{Binding Detail.Name}" FontSize="20" FontWeight="ExtraBold" TextWrapping="Wrap"
+                                         TextAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <SelectableTextBlock Text="{Binding Detail.Code}" Classes="Helper" HorizontalAlignment="Center"/>
+                </StackPanel>
               <StackPanel Spacing="10" DataContext="{Binding Detail}">
-                <SelectableTextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
-                <SelectableTextBlock Text="{Binding Code}" Classes="Helper"/>
                 <Border Classes="Divider"/>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" >
                   <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Tür" Classes="Helper" Margin="0,2,12,2"/>
@@ -827,6 +847,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+              </StackPanel>
               </StackPanel>
               </ScrollViewer>
             </DockPanel>

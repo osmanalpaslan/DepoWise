@@ -477,6 +477,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
 
     public VehiclesViewModel(SessionContext session, bool kiralik = false)
     {
+        DetailPhotos.CollectionChanged += (_, _) => KapagiTazele();
         _session = session;
         IsRentalMode = kiralik;
         KiraBilgileriniYukle();   // ⭐ M-39
@@ -1267,6 +1268,11 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     // ═══════════ Fotoğraflar ═══════════
     public ObservableCollection<PhotoStage> Photos { get; } = new();
     public ObservableCollection<DetailPhoto> DetailPhotos { get; } = new();
+    /// <summary>⭐ iOS tasarım (2026-10-28, kullanıcı isteği): kart başında İLK EKLENEN fotoğraf (sunucu eklenme sırasıyla verir);
+    /// fotoğraf yoksa simge gösterilir.</summary>
+    public Avalonia.Media.Imaging.Bitmap? KapakFoto => DetailPhotos.FirstOrDefault()?.Image;
+    public bool KapakFotoVar => KapakFoto is not null;
+    private void KapagiTazele() { OnPropertyChanged(nameof(KapakFoto)); OnPropertyChanged(nameof(KapakFotoVar)); }
 
     [RelayCommand]
     private async Task AddPhotos()

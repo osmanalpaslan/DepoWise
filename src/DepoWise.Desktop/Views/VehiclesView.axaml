@@ -981,9 +981,21 @@
                 <!-- ⭐ iOS tasarım (2026-10-28): kart başı — büyük simge, kod, plaka · marka model, durum; altında yuvarlak eylem düğmeleri. -->
                 <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,0,0,12">
                   <StackPanel HorizontalAlignment="Center" Spacing="6">
-                    <Border Classes="IkonKutu" Width="60" Height="60" CornerRadius="17" Background="#0A84FF" HorizontalAlignment="Center">
-                      <PathIcon Width="30" Height="30" Data="{DynamicResource IconVehicles}"/>
-                    </Border>
+                    <!-- ⭐ iOS tasarım (2026-10-28): kapak — ilk eklenen fotoğraf (tıkla → büyüt); yoksa simge -->
+                    <Panel Width="72" Height="72" HorizontalAlignment="Center">
+                      <Border Classes="IkonKutu" Width="64" Height="64" CornerRadius="18" Background="#0A84FF" HorizontalAlignment="Center"
+                              IsVisible="{Binding !KapakFotoVar}">
+                        <PathIcon Width="32" Height="32" Data="{DynamicResource IconVehicles}"/>
+                      </Border>
+                      <Button Classes="KapakFoto" IsVisible="{Binding KapakFotoVar}" ToolTip.Tip="Fotoğrafı büyüt"
+                              AutomationProperties.Name="Kapak fotoğrafını büyüt"
+                              Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
+                              CommandParameter="{Binding KapakFoto}">
+                        <Border CornerRadius="18" ClipToBounds="True" Width="72" Height="72">
+                          <Image Source="{Binding KapakFoto}" Stretch="UniformToFill"/>
+                        </Border>
+                      </Button>
+                    </Panel>
                     <SelectableTextBlock Text="{Binding Selected.Code}" FontSize="22" FontWeight="ExtraBold" HorizontalAlignment="Center"
                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <SelectableTextBlock Text="{Binding Detail.Plate}" Classes="Helper" HorizontalAlignment="Center"/>
@@ -1003,7 +1015,7 @@
                       <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconWorkOrders}"/></Border><TextBlock Text="İş Emri Aç"/></StackPanel>
                     </Button>
                     <Button Classes="IosEylem" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — taranınca üst bar aramasından bu kayıt bulunur">
+                            ToolTip.Tip="Seçili aracın iç koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur">
                       <StackPanel Spacing="6"><Border><PathIcon Data="F0 M3 3h7v7H3Z M5 5v3h3V5Z M14 3h7v7h-7Z M16 5v3h3V5Z M3 14h7v7H3Z M5 16v3h3v-3Z M14 14h3v3h-3Z M18 14h3v3h-3Z M14 18h3v3h-3Z M18 18h3v3h-3Z"/></Border><TextBlock Text="QR Etiketi"/></StackPanel>
                     </Button>
                   </UniformGrid>

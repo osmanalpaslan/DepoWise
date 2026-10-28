@@ -468,6 +468,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
 
     public MaterialsViewModel(SessionContext session, bool openAdd = false)
     {
+        DetailPhotos.CollectionChanged += (_, _) => KapagiTazele();
         _session = session;
         FiyatGorunur = MaterialService.FiyatGorunur(session);
         var saved = DesktopServices.ListPrefs.GetColumns(session, "materials");
@@ -974,6 +975,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     // ═══════════ Fotoğraflar ═══════════
     public ObservableCollection<PhotoStage> Photos { get; } = new();
     public ObservableCollection<DetailPhoto> DetailPhotos { get; } = new();
+    /// <summary>⭐ iOS tasarım (2026-10-28, kullanıcı isteği): kart başında İLK EKLENEN fotoğraf (sunucu eklenme sırasıyla verir);
+    /// fotoğraf yoksa simge gösterilir.</summary>
+    public Avalonia.Media.Imaging.Bitmap? KapakFoto => DetailPhotos.FirstOrDefault()?.Image;
+    public bool KapakFotoVar => KapakFoto is not null;
+    private void KapagiTazele() { OnPropertyChanged(nameof(KapakFoto)); OnPropertyChanged(nameof(KapakFotoVar)); }
 
     [RelayCommand]
     private async Task AddPhotos()

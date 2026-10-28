@@ -810,6 +810,66 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS5 — ⭐ kullanıcı isteği 2026-10-28: üst çubukta "Eşitle" düğmesi ve global arama kutusu YOK; kullanıcı düğmesi
+    /// sol menünün ALTINDA kullanıcı kartı olarak (baş harf + ad + firma) ve menüsünde Çıkış duruyor; eşitleme durumu ve bildirim çanı üstte kalır.</summary>
+    [AvaloniaFact]
+    public void UITIOS5_Ust_Cubuk_Sade_Kullanici_Karti_Solda()
+    {
+        var shell = new ShellViewModel(Ortam());
+        var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+        w.Show();
+        Dispatcher.UIThread.RunJobs();
+        var dugmeMetinleri = w.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible)
+            .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)).ToList();
+        Assert.DoesNotContain("Eşitle", dugmeMetinleri);
+        // Global arama üst çubukta GİZLİ; Ctrl+K (AramaGorunur) açar — barkod/QR okutma akışı (BAR-01) korunur; Kapat gizler.
+        var arama = w.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "GlobalSearchBox");
+        Assert.False(arama.IsEffectivelyVisible);
+        shell.AramaGorunur = true; Dispatcher.UIThread.RunJobs();
+        Assert.True(arama.IsEffectivelyVisible);
+        shell.CloseSearchCommand.Execute(null); Dispatcher.UIThread.RunJobs();
+        Assert.False(arama.IsEffectivelyVisible);
+        var kart = w.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("KullaniciKarti"));
+        Assert.True(kart.IsEffectivelyVisible);
+        Assert.Contains(shell.DisplayName, kart.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+        var menu = Assert.IsType<MenuFlyout>(kart.Flyout);
+        Assert.Contains(menu.Items.OfType<MenuItem>(), m => (m.Header as string) == "Çıkış");
+        var ust = w.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("UstHap") && b.IsEffectivelyVisible).ToList();
+        Assert.Equal(3, ust.Count);                                           // eşitleme durumu · bildirim · ekran araçları
+        Goruntu(w, "kabuk-ios");
+        w.Close();
+        shell.Release();
+        Assert.Null(ShellViewModel.Current);   // UIT33 (kabuk yok → hızlı işlem yok) bu testten etkilenmesin
+    }
+
+    /// <summary>UIT-IOS6 — kullanıcı isteği 2026-10-28: kayıt kartı başında İLK fotoğraf; fotoğraf yoksa simge (araç + malzeme).</summary>
+    [AvaloniaFact]
+    public void UITIOS6_Kart_Kapagi_Ilk_Fotograf_Yoksa_Simge()
+    {
+        var bmp1 = new Avalonia.Media.Imaging.WriteableBitmap(new Avalonia.PixelSize(4, 4), new Avalonia.Vector(96, 96));
+        var bmp2 = new Avalonia.Media.Imaging.WriteableBitmap(new Avalonia.PixelSize(4, 4), new Avalonia.Vector(96, 96));
+        var arac = new VehiclesViewModel(Ortam());
+        Assert.False(arac.KapakFotoVar);
+        arac.DetailPhotos.Add(new DetailPhoto("f1", bmp1));
+        arac.DetailPhotos.Add(new DetailPhoto("f2", bmp2));
+        Assert.True(arac.KapakFotoVar);
+        Assert.Same(bmp1, arac.KapakFoto);                                     // ilk eklenen
+        arac.DetailPhotos.Clear();
+        Assert.False(arac.KapakFotoVar);
+        var malzeme = new MaterialsViewModel(Ortam());
+        Assert.False(malzeme.KapakFotoVar);
+        malzeme.DetailPhotos.Add(new DetailPhoto("m1", bmp2));
+        Assert.Same(bmp2, malzeme.KapakFoto);
+        Assert.Contains("Classes=\"KapakFoto\"", System.IO.File.ReadAllText(System.IO.Path.Combine(KokDizin(), "src/DepoWise.Desktop/Views/MaterialsView.axaml")));
+    }
+
+    private static string KokDizin()
+    {
+        var d = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !System.IO.File.Exists(System.IO.Path.Combine(d.FullName, "DepoWise.sln")) && !System.IO.File.Exists(System.IO.Path.Combine(d.FullName, "DepoWise.slnx"))) d = d.Parent;
+        return d!.FullName;
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
