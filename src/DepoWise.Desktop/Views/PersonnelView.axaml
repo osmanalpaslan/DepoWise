@@ -176,6 +176,15 @@
                     <!-- Tek tık = seçim. Çift tık = düzenleme formu (Malzemeler/Araçlar ile AYNI davranış). -->
                     <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                              DoubleTapped="OnRowDoubleTapped">
+                        <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                        <ListBox.ContextMenu>
+                            <ContextMenu Classes="SatirMenusu">
+                                <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="Zimmet Tutanağı" Command="{Binding TutanakOlusturCommand}" IsVisible="{Binding HasZimmet}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <Separator/>
+                                <MenuItem Header="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PersonnelRowVm">
                                 <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="*,*,Auto,Auto,Auto">

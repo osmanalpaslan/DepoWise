@@ -183,6 +183,14 @@
                 <Border Classes="Table" IsVisible="{Binding HasRows}">
                     <ScrollViewer>
                         <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                            <ListBox.ContextMenu>
+                                <ContextMenu Classes="SatirMenusu">
+                                    <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Sil" Command="{Binding RequestDeleteCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="m:MaterialTemplateRow">
                                     <Grid ColumnDefinitions="140,*,120,160">

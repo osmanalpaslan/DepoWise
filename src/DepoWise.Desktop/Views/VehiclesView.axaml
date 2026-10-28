@@ -791,6 +791,17 @@
                     <!-- Tek tık = detay paneli (SelectedItem). Çift tık = ayrı Düzelt/Kaydet/Sil penceresi. -->
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                              DoubleTapped="OnRowDoubleTapped">
+                        <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                        <ListBox.ContextMenu>
+                            <ContextMenu Classes="SatirMenusu">
+                                <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="Arıza Bildir" Command="{Binding ArizaBildirCommand}" IsVisible="{Binding CanOpenWorkOrder}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="İş Emri Aç" Command="{Binding AractanIsEmriCommand}" IsVisible="{Binding CanOpenWorkOrder}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <Separator/>
+                                <MenuItem Header="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:VehicleRow">
                                 <Grid ctrl:ColumnRules.Enabled="True">

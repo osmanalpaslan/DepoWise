@@ -162,6 +162,14 @@
                     <SelectableTextBlock DockPanel.Dock="Bottom" Classes="Body" Text="Bu aralıkta takvim öğesi yok."
                                          IsVisible="{Binding !HasAgenda}"/>
                     <ListBox Classes="Table" ItemsSource="{Binding AgendaRows}" SelectedItem="{Binding SelectedAgenda}">
+                        <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                        <ListBox.ContextMenu>
+                            <ContextMenu Classes="SatirMenusu">
+                                <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEditEvents}" IsEnabled="{Binding SelectedAgenda, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <Separator/>
+                                <MenuItem Header="Sil" Command="{Binding DeleteEventCommand}" IsVisible="{Binding CanDeleteEvents}" IsEnabled="{Binding SelectedAgenda, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="cal:CalendarItem">
                                 <StackPanel Spacing="1" Margin="0,2">

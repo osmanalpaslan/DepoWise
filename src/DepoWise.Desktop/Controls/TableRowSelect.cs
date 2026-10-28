@@ -60,8 +60,10 @@ public static class TableRowSelect
     private static void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not ListBox list) return;
-        // Yalnız SOL tuş satır seçer. Sağ tuş bağlam menüsü davranışına karışmayız.
-        if (!e.GetCurrentPoint(list).Properties.IsLeftButtonPressed) return;
+        // SOL ve SAĞ tuş satırı seçer. ⭐ iOS tasarım (2026-10-28): sağ tık menüsü (ListBox.ContextMenu) seçili kayda uygulanır →
+        // sağ tıklanan satır önce seçilmeli. Olay Handled yapılmaz → menü yine açılır. Orta tuş vb. dokunulmaz.
+        var tus = e.GetCurrentPoint(list).Properties;
+        if (!tus.IsLeftButtonPressed && !tus.IsRightButtonPressed) return;
         if (e.Source is not Visual source) return;
 
         // Gerçek etkileşimli kontrol içindeysek dokunma — o kontrolün kendi davranışı bozulmasın.

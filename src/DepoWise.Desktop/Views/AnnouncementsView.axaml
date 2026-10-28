@@ -72,6 +72,14 @@
                                      IsVisible="{Binding IsEmpty}"/>
                 <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                          IsVisible="{Binding HasRows}">
+                    <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                    <ListBox.ContextMenu>
+                        <ContextMenu Classes="SatirMenusu">
+                            <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <Separator/>
+                            <MenuItem Header="Sil" Command="{Binding DeleteAnnouncementCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:AnnouncementVm">
                             <StackPanel Spacing="2" Margin="0,4">

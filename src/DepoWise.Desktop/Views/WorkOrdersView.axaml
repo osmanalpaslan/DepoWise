@@ -94,6 +94,12 @@
                             </Grid>
                         </Border>
                         <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                            <ListBox.ContextMenu>
+                                <ContextMenu Classes="SatirMenusu">
+                                    <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanAssignNow}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="wo:WorkOrderRow">
                                     <Grid ctrl:ColumnRules.Enabled="True" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
