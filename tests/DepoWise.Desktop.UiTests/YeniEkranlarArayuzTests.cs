@@ -1040,6 +1040,41 @@ public class YeniEkranlarArayuzTests
         finally { DesktopServices.Vehicles.Delete(s, aktif); DesktopServices.Vehicles.Delete(s, pasif); }
     }
 
+    /// <summary>UIT-IOS12 — ⭐ iOS tasarım madde 5: ana düğme (Primary) basılınca hafifçe küçülür (scale 0.96), bırakınca 1'e döner —
+    /// "tıklamam işledi mi?" geri bildirimi. Tablo satırı basılınca KÜÇÜLMEZ (büyük listede hareket yok).</summary>
+    [AvaloniaFact]
+    public void UITIOS12_Basilinca_Kuculme()
+    {
+        var vm = new VehiclesViewModel(Ortam());
+        var view = new VehiclesView { DataContext = vm };
+        var w = Ac(view, 1400, 900);
+        for (int i = 0; i < 50 && !vm.HasRows; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var dugme = Gorunen<Button>(view).First(b => b.Classes.Contains("Primary"));
+        double Olcek(Avalonia.Visual v) => v.RenderTransform?.Value.M11 ?? 1.0;
+        void Ilerlet() { for (int t = 0; t < 30; t++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); } }
+        Avalonia.Point Orta(Control c) => Avalonia.VisualExtensions.TranslatePoint(c, new Avalonia.Point(c.Bounds.Width / 2, c.Bounds.Height / 2), w)!.Value;
+
+        Assert.Equal(1.0, Olcek(dugme), 3);
+        w.MouseDown(Orta(dugme), Avalonia.Input.MouseButton.Left);
+        Ilerlet();
+        Assert.Equal(0.96, Olcek(dugme), 3);
+        w.MouseUp(Orta(dugme), Avalonia.Input.MouseButton.Left);
+        Ilerlet();
+        Assert.Equal(1.0, Olcek(dugme), 3);
+        Dispatcher.UIThread.RunJobs();
+
+        var satir = view.GetVisualDescendants().OfType<ListBoxItem>()
+            .FirstOrDefault(i => i.IsEffectivelyVisible && i.FindAncestorOfType<ListBox>()?.Classes.Contains("Table") == true);
+        if (satir is not null)
+        {
+            w.MouseDown(Orta(satir), Avalonia.Input.MouseButton.Left);
+            Ilerlet();
+            Assert.Equal(1.0, Olcek(satir), 3);
+            w.MouseUp(Orta(satir), Avalonia.Input.MouseButton.Left);
+        }
+        w.Close();
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

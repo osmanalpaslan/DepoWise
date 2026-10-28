@@ -487,6 +487,32 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
+    <!-- ⭐ Madde 5 (2026-10-29): YUMUŞAK GEÇİŞLER — skill alpnex-arayuz-hareket: hareket yalnız "tıklamam işledi mi?" sorusuna
+         cevap; 120 ms ease-out (vurgu süresi), yalnız RenderTransform/fırça (düzen yeniden hesaplanmaz). Tablo/liste SATIRLARINA ve
+         ekran geçişine hareket YOK (büyük listede kekemelik). Basılınca iOS'taki gibi hafif küçülme; bırakınca geri döner. -->
+    <Style Selector="Button.Cip /template/ ContentPresenter, Button.IosSatir /template/ ContentPresenter, Button.IosKartDugme /template/ ContentPresenter, Button.IosEylem /template/ ContentPresenter, ListBox.HapSecici ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Transitions">
+            <Transitions><BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TabControl.EkranSekme > TabItem /template/ Border#PART_LayoutRoot">
+        <Setter Property="Transitions">
+            <Transitions><BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.Cip, Button.IosEylem, Button.IosKartDugme, ListBox.HapSecici ListBoxItem, Button.Primary, Button.Secondary">
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <Setter Property="Transitions">
+            <Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.Cip:pressed, Button.IosEylem:pressed, ListBox.HapSecici ListBoxItem:pressed, Button.Primary:pressed, Button.Secondary:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.96)"/>
+    </Style>
+    <Style Selector="Button.IosKartDugme:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+
     <!-- ⭐ Madde 2 (2026-10-29): "İşlem tamam" bildirimi iOS kartı — tema yüzeyi, yuvarlak köşe, renkli üst şerit YOK;
          içerik (yeşil onay kutusu + başlık + mesaj) MainWindow.BildirimIcerik'te. Kartın kapanma animasyonu Fluent temasında kalır. -->
     <Style Selector="NotificationCard.IosBildirim">

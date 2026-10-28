@@ -176,4 +176,17 @@ public class IosTasarimTests
         var servis = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Infrastructure", "Materials", "MaterialService.cs"));
         foreach (var d in new[] { "Stok Yok", "Düşük Stok", "Yeterli" }) Assert.Contains("'" + d + "'", servis);
     }
+
+    /// <summary>IOS-HRK1 — madde 5 (2026-10-29, skill alpnex-arayuz-hareket): iOS temasındaki TÜM geçişler 250 ms altında; basılınca
+    /// küçülme yalnız düğme/hap/kartta; tablo satırına (ListBox.Table) iOS temasında hareket eklenmez.</summary>
+    [Fact]
+    public void IOSHRK1_Yumusak_Gecisler_Sinirli()
+    {
+        var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml"));
+        var sureler = Regex.Matches(ios, @"Duration=""0:0:(\d+(?:\.\d+)?)""").Select(m => double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        Assert.True(sureler.Count >= 3, "geçiş sayısı: " + sureler.Count);
+        Assert.All(sureler, s => Assert.True(s <= 0.25, "250 ms üstü geçiş: " + s));
+        Assert.Contains("<Style Selector=\"Button.Cip:pressed, Button.IosEylem:pressed, ListBox.HapSecici ListBoxItem:pressed, Button.Primary:pressed, Button.Secondary:pressed\">", ios);
+        Assert.DoesNotContain("ListBox.Table", ios);
+    }
 }
