@@ -242,6 +242,51 @@
         <Setter Property="IsVisible" Value="False"/>
     </Style>
 
+    <!-- Form grubu (iOS ayarlar listesi gibi): zeminden ayrışan yuvarlak kutu; üstünde küçük sessiz başlık -->
+    <Style Selector="Border.IosFormGrup">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="Padding" Value="16,14"/>
+    </Style>
+    <Style Selector=":is(TextBlock).IosFormBaslik">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="0.3"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="Margin" Value="6,6,0,-6"/>
+    </Style>
+    <!-- Kontrol listesi işareti: tamam = yeşil dolu daire + tik, eksik = turuncu halka, isteğe bağlı = sessiz halka -->
+    <Style Selector="Panel.KontrolIsaret">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Panel.KontrolIsaret > Border">
+        <Setter Property="CornerRadius" Value="11"/>
+    </Style>
+    <Style Selector="Panel.KontrolIsaret > Border.tamam">
+        <Setter Property="Background" Value="#30D158"/>
+    </Style>
+    <Style Selector="Panel.KontrolIsaret > Border.tamam PathIcon">
+        <Setter Property="Width" Value="11"/>
+        <Setter Property="Height" Value="11"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Panel.KontrolIsaret > Border.eksik">
+        <Setter Property="BorderBrush" Value="#FF9F0A"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="Panel.KontrolIsaret > Border.istege">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Opacity" Value="0.6"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>

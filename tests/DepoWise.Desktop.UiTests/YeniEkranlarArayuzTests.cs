@@ -775,6 +775,41 @@ public class YeniEkranlarArayuzTests
         finally { DesktopServices.Vehicles.Delete(s, id); }   // ortak test veritabanı: Kiralık testinin araç listesini kirletme
     }
 
+    /// <summary>UIT-IOS4 — ⭐ iOS tasarım (2026-10-28, kullanıcı onayı): Yeni Araç formu bölümleri iOS grup kutularında; sağda
+    /// "Önizleme" ve "Kontrol listesi". Zorunlu alan girilince kontrol işareti "eksik" halkadan "tamam" tike döner; önizleme kodu gösterir.
+    /// İptal … Kaydet sırası (M-61) korunur.</summary>
+    [AvaloniaFact]
+    public void UITIOS4_Yeni_Arac_Formu_Gruplar_Onizleme_Kontrol()
+    {
+        var vm = new VehiclesViewModel(Ortam());
+        var view = new VehiclesView { DataContext = vm };
+        var w = Ac(view, 1400, 1000);
+        vm.ToggleAddCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.ShowAdd);
+        var gruplar = view.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("IosFormGrup") && b.IsEffectivelyVisible).ToList();
+        Assert.True(gruplar.Count >= 7, "görünür form grubu: " + gruplar.Count);            // kiralık dışında 7 bölüm
+        var metinler = Gorunen<TextBlock>(view).Select(t => t.Text).ToList();
+        Assert.Contains("Önizleme", metinler);
+        Assert.Contains("Kontrol listesi", metinler);
+        Assert.Contains("İç kod girilmedi", metinler);
+
+        Border Isaret(string ad) => view.GetVisualDescendants().OfType<Grid>()
+            .First(g => g.Children.OfType<TextBlock>().Any(t => t.Text == ad) && g.Children.OfType<Panel>().Any(p => p.Classes.Contains("KontrolIsaret")))
+            .Children.OfType<Panel>().First().Children.OfType<Border>().First(b => b.IsVisible);
+        Assert.Contains("eksik", Isaret("İç Kod").Classes);
+        vm.NewCode = "IOS4-KOD";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("tamam", Isaret("İç Kod").Classes);
+        Assert.Contains("IOS4-KOD", Gorunen<TextBlock>(view).Select(t => t.Text));
+        Assert.Contains("eksik", Isaret("Şantiye / Şube").Classes);
+
+        var sira = Gorunen<Button>(view).Select(b => b.Content as string).Where(x => x is "İptal" or "Kaydet").ToList();
+        Assert.Equal(new[] { "İptal", "Kaydet" }, sira);
+        Goruntu(w, "arac-yeni-ios");
+        w.Close();
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
