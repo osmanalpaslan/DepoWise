@@ -895,6 +895,29 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS8 — ⭐ iOS tasarım: AÇIK temada kabuk + ana ekran çizilir (gruplu zemin #F2F2F7, kartlar beyaz); görüntü
+    /// kabuk-ios-acik.png. Tema sonda KOYUYA döner (diğer testler etkilenmez).</summary>
+    [AvaloniaFact]
+    public void UITIOS8_Acik_Tema_Kabuk()
+    {
+        var shell = new ShellViewModel(Ortam());
+        try
+        {
+            DepoWise.Desktop.Theming.ThemeService.Apply(DepoWise.Desktop.Theming.ThemeService.Light, persist: false);
+            var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Avalonia.Styling.ThemeVariant.Light, Avalonia.Application.Current!.ActualThemeVariant);
+            Goruntu(w, "kabuk-ios-acik");
+            w.Close();
+        }
+        finally
+        {
+            DepoWise.Desktop.Theming.ThemeService.Apply(DepoWise.Desktop.Theming.ThemeService.Dark, persist: false);
+            shell.Release();
+        }
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
