@@ -1075,6 +1075,45 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS13 — ⭐ iOS tasarım madde 7: ana ekranda "Son 6 Ay Yakıt" çubuk grafiği — 6 ay, en yeni üstte "(bu ay)",
+    /// en yoğun ay tam çubuk, litre yazılı; yakıt dağıtımı yoksa kart gizli. Görüntü anaekran-yakit-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS13_Ana_Ekran_Yakit_Grafigi()
+    {
+        var s = Ortam();
+        string Op() => Guid.NewGuid().ToString("N");
+        var fuel = DesktopServices.Fuel;
+        var oncesi = new DashboardViewModel(s);
+        var oncedenVardi = oncesi.YakitGrafigiVar;   // ortak test veritabanında başka test dağıtım yapmış olabilir
+        var depo = fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(500m, 40m), Op());
+        var arac = DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("YKT-" + Guid.NewGuid().ToString("N")[..5], CurrentMeter: 1000m));
+        var dagitim = fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(arac, 120m, 1100m), Op());
+        try
+        {
+            var vm = new DashboardViewModel(s);
+            Assert.True(vm.YakitGrafigiVar);
+            Assert.Equal(6, vm.YakitAylari.Count);
+            Assert.EndsWith("(bu ay)", vm.YakitAylari[0].Ay);
+            Assert.Equal(100, vm.YakitAylari.Max(a => a.Oran));
+            Assert.All(vm.YakitAylari, a => Assert.EndsWith(" L", a.Litre));
+            var view = new DashboardView { DataContext = vm };
+            var w = Ac(view, 1400, 1000);
+            Dispatcher.UIThread.RunJobs();
+            var kart = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "YakitGrafigi");
+            Assert.True(kart.IsEffectivelyVisible);
+            Assert.Equal(6, kart.GetVisualDescendants().OfType<ProgressBar>().Count(p => p.Classes.Contains("IosCubuk")));
+            Goruntu(w, "anaekran-yakit-ios");
+            w.Close();
+        }
+        finally
+        {
+            fuel.CancelDistribution(s, dagitim, "UIT-IOS13 test temizliği");
+            fuel.CancelDepotEntry(s, depo, "UIT-IOS13 test temizliği");
+            DesktopServices.Vehicles.Delete(s, arac);   // ortak test veritabanı: Kiralık testinin araç listesini kirletme
+        }
+        if (!oncedenVardi) Assert.False(new DashboardViewModel(s).YakitGrafigiVar);   // iptal edilen dağıtım sayılmaz → kart gizli
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

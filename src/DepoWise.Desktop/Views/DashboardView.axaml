@@ -362,6 +362,41 @@
                         </Border>
                     </Button>
 
+                    <!-- ⭐ iOS madde 7: Son 6 Ay Yakıt — Yakıt Özeti çubuk dili; tek seri, tek renk; her ayın litresi yazılı (renk tek başına
+                         anlam taşımaz); üzerine gelince işlem sayısı + günlük ortalama. Tıklayınca Yakıt ekranı. Yetki/veri yoksa gizli. -->
+                    <Button Classes="IosKartDugme" IsVisible="{Binding YakitGrafigiVar}" x:Name="YakitGrafigi"
+                            Command="{Binding OpenCommand}" CommandParameter="fuel:dist" ToolTip.Tip="Yakıt ekranını aç"
+                            AutomationProperties.Name="Son 6 ay yakıt grafiği">
+                        <Border Classes="IosKart" Padding="16,14">
+                            <StackPanel Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border Classes="IkonKutu" Background="#FF9F0A">
+                                        <PathIcon Data="{DynamicResource IconFuel}"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                                        <TextBlock Text="Son 6 Ay Yakıt" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Dağıtılan litre · çubuk en yoğun aya göre" Classes="Helper" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding YakitAylari}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:YakitAyCubugu">
+                                            <StackPanel Spacing="4" Background="Transparent" ToolTip.Tip="{Binding Ayrinti}">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="{Binding Ay}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Litre}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                </Grid>
+                                                <ProgressBar Classes="IosCubuk" Minimum="0" Maximum="100" Value="{Binding Oran}"
+                                                             Foreground="{DynamicResource AccentBrush}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
                     <!-- Uygulama sürümü ve güncelleme (iOS ayar listesi gibi) -->
                     <StackPanel>
                         <TextBlock Text="UYGULAMA" Classes="IosUstBaslik"/>

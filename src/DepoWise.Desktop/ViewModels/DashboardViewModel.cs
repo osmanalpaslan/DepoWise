@@ -160,6 +160,30 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     public int AracPasif { get; private set; }
     public bool AracPasifVar => AracPasif > 0;
 
+    // ⭐ iOS tasarım madde 7 (2026-10-29): "Son 6 Ay Yakıt" — Yakıt Özeti'nin çubuk dili (ay · litre · en yoğun aya göre çubuk).
+    // Veri Yakıt ekranının AYNI servisinden (FuelService.MonthlySummary: yetki + şube kapsamı orada); yakıt yetkisi yoksa ya da
+    // 6 ayda hiç dağıtım yoksa kart HİÇ görünmez (boş grafik gürültüdür).
+    public ObservableCollection<YakitAyCubugu> YakitAylari { get; } = new();
+    public bool YakitGrafigiVar => YakitAylari.Count > 0;
+
+    private void YakitGrafigiYukle(SessionContext session)
+    {
+        YakitAylari.Clear();
+        try
+        {
+            if (!AccessControl.Can(session, "fuel", PermissionAction.View)) return;
+            var aylar = DesktopServices.Fuel.MonthlySummary(session, 6).Months;   // en yeni ay üstte
+            if (aylar.All(a => a.Liters <= 0)) return;
+            var enYuksek = aylar.Max(a => a.Liters);
+            foreach (var a in aylar)
+                YakitAylari.Add(new YakitAyCubugu(a.IsCurrentMonth ? a.MonthName + " (bu ay)" : a.MonthName + " " + a.YearText,
+                    a.LitersText, DepoWise.Infrastructure.Operations.FuelMonthSummary.Oran(a.Liters, enYuksek),
+                    a.CountText + " · günlük ort. " + a.DailyAverageText));
+        }
+        catch { YakitAylari.Clear(); }   // grafik ek bilgidir: hata ana ekranı düşürmez
+        finally { OnPropertyChanged(nameof(YakitGrafigiVar)); }
+    }
+
     public DashboardViewModel(SessionContext session)
     {
         _companyId = session.CompanyId;
@@ -200,6 +224,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
                 ActiveAnnouncements.Add(a);
             ShowAnnouncements = ActiveAnnouncements.Count > 0;
             OnPropertyChanged(nameof(TodayCalendarEmpty));
+            YakitGrafigiYukle(session);   // iOS madde 7
             foreach (var a in s.Alerts) if (!a.Read) _allAlerts.Add(a); // #18: okunmuşları ana ekranda gösterme
             ApplyAlertFilter();
         }
@@ -399,3 +424,6 @@ public sealed record KpiCard(string Value, string Label, string Kind, bool Prima
     public Avalonia.Media.IBrush TileBrush => Avalonia.Media.Brush.Parse(Tile);
     public bool HasCaption => !string.IsNullOrEmpty(Caption);
 }
+
+/// <summary>⭐ iOS madde 7: ana ekran yakıt grafiğinin bir ayı — Oran 0–100 (en yoğun aya göre; dağıtım varsa en az 4, görünsün).</summary>
+public sealed record YakitAyCubugu(string Ay, string Litre, double Oran, string Ayrinti);
