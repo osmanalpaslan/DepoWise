@@ -119,7 +119,7 @@
                             </Border>
                             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding DefsError}"
                                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadDefsCommand}" IsVisible="{Binding HasDefsError}"/>
-                            <ctrl:StatePanel Mode="Empty" Title="Tanım yok" Message="Henüz bakım tanımı eklenmedi." IsVisible="{Binding DefsEmpty}"/>
+                            <ctrl:StatePanel ActionText="{Binding AddDefButtonText}" ActionCommand="{Binding ToggleDefAddCommand}" Mode="Empty" Title="Tanım yok" Message="Henüz bakım tanımı eklenmedi." IsVisible="{Binding DefsEmpty}"/>
                         </Panel>
 
                         <!-- Tanım detayı -->
@@ -437,7 +437,7 @@
                             </Border>
                             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding MaintError}"
                                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadMaintCommand}" IsVisible="{Binding HasMaintError}"/>
-                            <ctrl:StatePanel Mode="Empty" Title="Bakım kaydı yok" Message="Henüz bakım kaydı girilmedi." IsVisible="{Binding MaintEmpty}"/>
+                            <ctrl:StatePanel ActionText="{Binding AddMntButtonText}" ActionCommand="{Binding ToggleMntAddCommand}" Mode="Empty" Title="Bakım kaydı yok" Message="Henüz bakım kaydı girilmedi." IsVisible="{Binding MaintEmpty}"/>
                         </Panel>
 
                         <!-- Detay -->

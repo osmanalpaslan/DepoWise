@@ -126,4 +126,31 @@ public class IosTasarimTests
         }
         Assert.True(ihlal.Count == 0, "dikey sütunda hizasız sabit genişlikli alan: " + string.Join(", ", ihlal));
     }
+
+    /// <summary>IOS-BOS1 — madde 1 (2026-10-29): ana eylemi olan ekranlarda "kayıt yok" paneli aynı ana eylemi (metin + komut → aynı
+    /// yetki) gösterir; kullanıcı boş ekranda ne yapacağını görür.</summary>
+    [Fact]
+    public void IOSBOS1_Bos_Ekranda_Ana_Eylem()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        int adet = 0; var ihlal = new List<string>();
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+        {
+            var x = File.ReadAllText(f);
+            foreach (Match m in Regex.Matches(x, @"<ctrl:StatePanel\s[^>]*Mode=""Empty""[^>]*>"))
+            {
+                var once = x[..m.Index];
+                var tb = Regex.Matches(once, @"<ctrl:Toolbar\s[^>]*>").LastOrDefault();
+                if (tb is null) continue;
+                var komut = Regex.Match(tb.Value, "PrimaryActionCommand=\"([^\"]+)\"");
+                var metin = Regex.Match(tb.Value, "PrimaryActionText=\"([^\"]+)\"");
+                if (!komut.Success || !metin.Success) continue;
+                adet++;
+                if (!m.Value.Contains($"ActionCommand=\"{komut.Groups[1].Value}\"") || !m.Value.Contains($"ActionText=\"{metin.Groups[1].Value}\""))
+                    ihlal.Add(Path.GetFileName(f));
+            }
+        }
+        Assert.True(adet >= 20, "ana eylemli boş panel: " + adet);
+        Assert.True(ihlal.Count == 0, "boş panelde ana eylem eksik/farklı: " + string.Join(", ", ihlal));
+    }
 }

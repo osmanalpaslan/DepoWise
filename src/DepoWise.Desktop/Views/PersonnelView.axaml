@@ -221,7 +221,15 @@
             </Border>
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Personel yok" Message="Henüz personel yok." IsVisible="{Binding IsEmpty}"/>
+            <ctrl:StatePanel ActionText="Yeni Personel" ActionCommand="{Binding NewPersonnelCommand}" Mode="Empty" Title="Personel yok" Message="Henüz personel yok.">
+                <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                <ctrl:StatePanel.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsEmpty"/>
+                        <Binding Path="!ShowAdd"/>
+                    </MultiBinding>
+                </ctrl:StatePanel.IsVisible>
+            </ctrl:StatePanel>
         </Panel>
 
         <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>

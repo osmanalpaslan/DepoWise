@@ -84,7 +84,7 @@
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                  ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Maliyet merkezi yok" Message="Yeni Merkez ile tanım oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="Yeni Merkez" ActionCommand="{Binding NewCenterCommand}" Mode="Empty" Title="Maliyet merkezi yok" Message="Yeni Merkez ile tanım oluşturabilirsiniz." IsVisible="{Binding IsEmpty}"/>
             </Panel>
 
             <!-- Özet -->

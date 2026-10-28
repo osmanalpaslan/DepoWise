@@ -208,9 +208,16 @@
                     </ScrollViewer>
                 </Border>
 
-                <ctrl:StatePanel Mode="Empty" Title="Şablon yok"
-                                 Message="Henüz malzeme şablonu oluşturulmadı. Sağ üstteki “Yeni Şablon” ile ekleyebilirsiniz."
-                                 IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="{Binding AddButtonText}" ActionCommand="{Binding ToggleAddCommand}" Mode="Empty" Title="Şablon yok"
+                                 Message="Henüz malzeme şablonu oluşturulmadı. Sağ üstteki “Yeni Şablon” ile ekleyebilirsiniz.">
+                    <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                    <ctrl:StatePanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsEmpty"/>
+                            <Binding Path="!ShowAdd"/>
+                        </MultiBinding>
+                    </ctrl:StatePanel.IsVisible>
+                </ctrl:StatePanel>
                 <ctrl:StatePanel Mode="Error" Title="Şablonlar yüklenemedi" Message="{Binding LoadError}"
                                  IsVisible="{Binding HasError}"/>
             </Panel>

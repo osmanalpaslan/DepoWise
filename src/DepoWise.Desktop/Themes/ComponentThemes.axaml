@@ -133,10 +133,11 @@
             <ControlTemplate>
                 <StackPanel Spacing="10" HorizontalAlignment="Center" MaxWidth="360">
                     <!-- ⭐ M-60: gri daire yer tutucu yerine durum simgesi (boş · hata · çevrimdışı · yetki yok) -->
-                    <Border x:Name="PART_Icon" Width="44" Height="44" CornerRadius="22"
+                    <!-- ⭐ iOS tasarım (2026-10-29): daha büyük, yuvarlak köşeli simge kutusu -->
+                    <Border x:Name="PART_Icon" Width="64" Height="64" CornerRadius="18"
                             HorizontalAlignment="Center"
                             Background="{DynamicResource SurfaceElevatedBrush}">
-                        <PathIcon x:Name="PART_Glyph" Width="20" Height="20" Data="{DynamicResource IconInbox}"
+                        <PathIcon x:Name="PART_Glyph" Width="28" Height="28" Data="{DynamicResource IconInbox}"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Border>
                     <!-- Yükleme göstergesi -->
@@ -144,17 +145,22 @@
                                  HorizontalAlignment="Center" IsVisible="False"
                                  Foreground="{DynamicResource AccentBrush}"/>
                     <TextBlock Text="{TemplateBinding Title}" HorizontalAlignment="Center"
-                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
-                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="17"
+                               FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"
                                IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                     <TextBlock Text="{TemplateBinding Message}" HorizontalAlignment="Center" TextAlignment="Center"
                                FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
                                Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"
                                IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                    <Button Classes="Secondary" HorizontalAlignment="Center" Margin="0,2,0,0"
-                            Content="{TemplateBinding ActionText}"
-                            Command="{TemplateBinding ActionCommand}"
-                            IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <!-- ⭐ iOS tasarım (2026-10-29, madde 1): boş listede eylem ANA düğme (turuncu) — "ilk kaydı ekle" yönlendirmesi;
+                         hata durumunda ("Tekrar Dene") sade düğme. Görünürlük: eylem metni varsa. -->
+                    <Panel HorizontalAlignment="Center" Margin="0,4,0,0"
+                           IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <Button x:Name="PART_Action" Classes="Primary" HorizontalAlignment="Center"
+                                Content="{TemplateBinding ActionText}" Command="{TemplateBinding ActionCommand}"/>
+                        <Button x:Name="PART_ActionSade" Classes="Secondary" HorizontalAlignment="Center" IsVisible="False"
+                                Content="{TemplateBinding ActionText}" Command="{TemplateBinding ActionCommand}"/>
+                    </Panel>
                 </StackPanel>
             </ControlTemplate>
         </Setter>
@@ -170,6 +176,12 @@
             <Setter Property="Data" Value="{DynamicResource IconCloudOff}"/><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
         </Style>
         <Style Selector="^:nopermission /template/ PathIcon#PART_Glyph"><Setter Property="Data" Value="{DynamicResource IconLock}"/></Style>
+        <Style Selector="^:error /template/ Button#PART_Action, ^:offline /template/ Button#PART_Action, ^:nopermission /template/ Button#PART_Action">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="^:error /template/ Button#PART_ActionSade, ^:offline /template/ Button#PART_ActionSade, ^:nopermission /template/ Button#PART_ActionSade">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
     </ControlTheme>
 
     <!-- ============ ⭐ M-60 Pager — tek sayfalama biçimi (tablonun altında, SOLDA — kullanıcı isteği 2026-07-19 "sol en altta") ============ -->

@@ -323,7 +323,7 @@
                         </Border>
                         <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                          ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                        <ctrl:StatePanel Mode="Empty" Title="Dağıtım yok" Message="Henüz yakıt dağıtımı kaydı yok." IsVisible="{Binding DistEmpty}"/>
+                        <ctrl:StatePanel ActionText="Yeni Dağıtım" ActionCommand="{Binding ToggleDistCommand}" Mode="Empty" Title="Dağıtım yok" Message="Henüz yakıt dağıtımı kaydı yok." IsVisible="{Binding DistEmpty}"/>
                     </Panel>
 
                     <!-- ═══ M-34 TOPLU DAĞITIM — Şablon C: ortak alanlar üstte, satırlar ortada (kalan alan), eylemler ALTTA ═══ -->
@@ -605,7 +605,7 @@
                                 </ListBox>
                             </DockPanel>
                         </Border>
-                        <ctrl:StatePanel Mode="Empty" Title="Depo girişi yok" Message="Henüz depo girişi kaydı yok." IsVisible="{Binding DepotEmpty}"/>
+                        <ctrl:StatePanel ActionText="Yeni Giriş" ActionCommand="{Binding ToggleDepotCommand}" Mode="Empty" Title="Depo girişi yok" Message="Henüz depo girişi kaydı yok." IsVisible="{Binding DepotEmpty}"/>
                     </Panel>
                 </Grid>
             </TabItem>

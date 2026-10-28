@@ -256,7 +256,7 @@
                             </Border>
                             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                            <ctrl:StatePanel Mode="Empty" Title="Talep yok" Message="Seçili filtreye uygun talep bulunamadı." IsVisible="{Binding IsEmpty}"/>
+                            <ctrl:StatePanel ActionText="Yeni Talep" ActionCommand="{Binding NewRequestCommand}" Mode="Empty" Title="Talep yok" Message="Seçili filtreye uygun talep bulunamadı." IsVisible="{Binding IsEmpty}"/>
                         </Panel>
 
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">

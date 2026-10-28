@@ -118,7 +118,15 @@
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                  ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Ekipman yok" Message="Henüz ekipman tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="Yeni Ekipman" ActionCommand="{Binding NewEquipmentCommand}" Mode="Empty" Title="Ekipman yok" Message="Henüz ekipman tanımlanmadı.">
+                    <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                    <ctrl:StatePanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsEmpty"/>
+                            <Binding Path="!ShowAdd"/>
+                        </MultiBinding>
+                    </ctrl:StatePanel.IsVisible>
+                </ctrl:StatePanel>
             </Panel>
 
             <!-- Detay -->

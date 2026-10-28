@@ -347,7 +347,7 @@
             </ScrollViewer>
 
             <!-- 2026-10-12 görsel tur: yeni kayıt formu açıkken bu panel formun ÜSTÜNE biniyordu ("Telefon" alanını örtüyordu). -->
-            <ctrl:StatePanel Grid.Column="2" Mode="Empty"
+            <ctrl:StatePanel Grid.Column="2" Mode="Empty" ActionText="{Binding YeniCariMetni}" ActionCommand="{Binding NewPartyCommand}"
                              Title="Cari seçin" Message="Soldaki listeden bir cari seçtiğinizde kartı ve hesap hareketleri burada görünür.">
                 <ctrl:StatePanel.IsVisible>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">

@@ -110,7 +110,7 @@
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                  ActionText="Tekrar Dene" ActionCommand="{Binding RefreshCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Firma yok" Message="Henüz firma tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="Yeni Firma" ActionCommand="{Binding NewCompanyCommand}" Mode="Empty" Title="Firma yok" Message="Henüz firma tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
             </Panel>
 
             <!-- Detay -->

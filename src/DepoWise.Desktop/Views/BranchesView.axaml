@@ -95,7 +95,7 @@
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                  ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Şube yok" Message="Henüz şube/şantiye tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="Yeni Şube" ActionCommand="{Binding NewBranchCommand}" Mode="Empty" Title="Şube yok" Message="Henüz şube/şantiye tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
             </Panel>
 
             <!-- Detay: şubeye atanmış kullanıcılar -->

@@ -564,7 +564,7 @@
             </Border>
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Faaliyet yok" Message="Filtre kriterine uygun faaliyet bulunamadı." IsVisible="{Binding IsEmpty}"/>
+            <ctrl:StatePanel ActionText="Yeni Kayıt Oluştur" ActionCommand="{Binding NewRecordCommand}" Mode="Empty" Title="Faaliyet yok" Message="Filtre kriterine uygun faaliyet bulunamadı." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
         <SelectableTextBlock Grid.Row="5" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>

@@ -127,7 +127,15 @@
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                                  ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-                <ctrl:StatePanel Mode="Empty" Title="Sipariş yok" Message="Yeni Sipariş ile başlayabilirsiniz." IsVisible="{Binding IsEmpty}"/>
+                <ctrl:StatePanel ActionText="Yeni Sipariş" ActionCommand="{Binding NewOrderCommand}" Mode="Empty" Title="Sipariş yok" Message="Yeni Sipariş ile başlayabilirsiniz.">
+                    <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                    <ctrl:StatePanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsEmpty"/>
+                            <Binding Path="!ShowAdd"/>
+                        </MultiBinding>
+                    </ctrl:StatePanel.IsVisible>
+                </ctrl:StatePanel>
             </Panel>
 
             <!-- Detay: satırlar + mal kabul -->

@@ -181,7 +181,15 @@
             </Border>
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Şablon yok" Message="Henüz araç genel tanımı eklenmedi." IsVisible="{Binding IsEmpty}"/>
+            <ctrl:StatePanel ActionText="{Binding AddButtonText}" ActionCommand="{Binding ToggleAddCommand}" Mode="Empty" Title="Şablon yok" Message="Henüz araç genel tanımı eklenmedi.">
+                <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                <ctrl:StatePanel.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsEmpty"/>
+                        <Binding Path="!ShowAdd"/>
+                    </MultiBinding>
+                </ctrl:StatePanel.IsVisible>
+            </ctrl:StatePanel>
           </Panel>
 
           <!-- Detay -->

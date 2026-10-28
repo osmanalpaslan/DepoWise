@@ -937,9 +937,16 @@
             <ctrl:StatePanel Mode="Error" Title="Liste yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}"
                              IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Araç yok"
-                             Message="Arama kriterine uygun araç bulunamadı."
-                             IsVisible="{Binding IsEmpty}"/>
+            <ctrl:StatePanel ActionText="{Binding AddButtonText}" ActionCommand="{Binding ToggleAddCommand}" Mode="Empty" Title="Araç yok"
+                             Message="Arama kriterine uygun araç bulunamadı.">
+                <!-- ekleme formu açıkken gizli (form zaten açık; düğmesi küçük pencerede taşıyordu) -->
+                <ctrl:StatePanel.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsEmpty"/>
+                        <Binding Path="!ShowAdd"/>
+                    </MultiBinding>
+                </ctrl:StatePanel.IsVisible>
+            </ctrl:StatePanel>
           </Panel>
 
           <!-- Detay (salt okuma) / Düzenle / Sil -->
