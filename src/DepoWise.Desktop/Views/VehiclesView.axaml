@@ -49,7 +49,7 @@
         </ctrl:Toolbar>
 
         <!-- ⭐ M-38: ARIZA DURUŞ SÜRESİ RAPORU (kiralık ekranı dışında; M-39 paneliyle aynı satırı paylaşır, ikisi aynı anda görünmez) -->
-        <Expander Grid.Row="1" Margin="0,12,0,0" Header="Arıza duruş süresi raporu" IsVisible="{Binding !IsRentalMode}">
+        <Expander Classes="IosAcilir" Grid.Row="1" Margin="0,12,0,0" Header="Arıza duruş süresi raporu" IsVisible="{Binding !IsRentalMode}">
             <StackPanel Spacing="6">
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="8">
                     <ctrl:TarihKutusu SelectedDate="{Binding DurusBas}" Width="140" ToolTip.Tip="Dönem başlangıcı"/>
@@ -77,7 +77,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Expander Header="Kira dönem maliyeti / geliri">
+            <Expander Classes="IosAcilir" Header="Kira dönem maliyeti / geliri">
                 <StackPanel Spacing="6">
                     <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="8">
                         <ctrl:TarihKutusu SelectedDate="{Binding KiraBas}" Width="140" ToolTip.Tip="Dönem başlangıcı"/>
@@ -1200,7 +1200,7 @@
                       <ItemsControl ItemsSource="{Binding VehicleMaterials}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="m:MaterialStockGroup">
-                            <Expander Header="{Binding Header}" IsExpanded="True" HorizontalAlignment="Stretch" Margin="0,0,0,6">
+                            <Expander Classes="IosAcilir" Header="{Binding Header}" IsExpanded="True" HorizontalAlignment="Stretch" Margin="0,0,0,6">
                               <ItemsControl ItemsSource="{Binding Items}">
                                 <ItemsControl.ItemTemplate>
                                   <DataTemplate x:DataType="m:MaterialStock">

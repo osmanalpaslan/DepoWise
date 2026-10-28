@@ -148,7 +148,7 @@
 
                     <StackPanel Grid.Row="1">
                     <!-- ⭐ M-44: ŞÜPHELİ KAYITLAR (yalnız işaret) -->
-                    <Expander Header="{Binding SupheliBasligi}" IsVisible="{Binding HasSupheli}" Margin="0,12,0,0"
+                    <Expander Classes="IosAcilir" Header="{Binding SupheliBasligi}" IsVisible="{Binding HasSupheli}" Margin="0,12,0,0"
                               ToolTip.Tip="Sayaç geri / şüpheli sıçrama / çok büyük litre / aracın ortalamasından sapan tüketim / aynı gün birden fazla dağıtım. Kayıt değişmez; hatalıysa düzeltin ya da araç kartında sayacı geçersiz sayın.">
                         <ItemsControl ItemsSource="{Binding Supheliler}" MaxHeight="220">
                             <ItemsControl.ItemTemplate>

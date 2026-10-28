@@ -376,6 +376,13 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
     </Style>
 
+    <!-- Detay kartlarında kayıt başlığı iOS "büyük başlık" gibi: daha iri ve kalın (tüm liste ekranlarının sağ kartı) -->
+    <Style Selector="Border.Panel :is(TextBlock).PageTitle">
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+        <Setter Property="LetterSpacing" Value="-0.4"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>

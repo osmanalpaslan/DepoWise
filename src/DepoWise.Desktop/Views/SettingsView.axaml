@@ -20,7 +20,7 @@
                 <ItemsControl ItemsSource="{Binding LookupSections}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:LookupSectionViewModel">
-                            <Expander Header="{Binding Title}" HorizontalAlignment="Stretch" Margin="0,0,0,10">
+                            <Expander Classes="IosAcilir" Header="{Binding Title}" HorizontalAlignment="Stretch" Margin="0,0,0,10">
                                 <StackPanel Spacing="10">
                                     <ItemsControl ItemsSource="{Binding Items}">
                                         <ItemsControl.ItemTemplate>
@@ -68,7 +68,7 @@
                 </ItemsControl>
 
                 <!-- Malzeme Alt Kategorileri (madde 10): kategori seç → alt kategorilerini ekle/düzenle/sil -->
-                <Expander Header="Malzeme — Alt Kategoriler" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                <Expander Classes="IosAcilir" Header="Malzeme — Alt Kategoriler" HorizontalAlignment="Stretch" Margin="0,0,0,10"
                           DataContext="{Binding SubCategorySection}">
                     <StackPanel Spacing="8" Margin="0,8,0,0">
                         <ctrl:LookupBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
@@ -103,7 +103,7 @@
 
                 <!-- Araç Modelleri (kullanıcı isteği 2026-09-03): marka seç → modellerini ekle/düzelt/sil.
                      Alt Kategori bölümüyle AYNI desen; eksik listelenen "model" tanımı böylece yönetilebilir. -->
-                <Expander Header="Araç — Modeller" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                <Expander Classes="IosAcilir" Header="Araç — Modeller" HorizontalAlignment="Stretch" Margin="0,0,0,10"
                           DataContext="{Binding VehicleModelSection}">
                     <StackPanel Spacing="8" Margin="0,8,0,0">
                         <ctrl:LookupBox ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"

@@ -148,7 +148,7 @@
         </Grid>
 
         <!-- Pasif firmalar (sözleşme yenileme / yeniden aktifleştirme) — yalnız süper adminde dolu olur -->
-        <Expander Grid.Row="3" Margin="0,16,0,0" IsVisible="{Binding HasDeleted}"
+        <Expander Classes="IosAcilir" Grid.Row="3" Margin="0,16,0,0" IsVisible="{Binding HasDeleted}"
                   Header="Pasif Firmalar — Sözleşme Yenileme">
             <StackPanel Spacing="8">
                 <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
