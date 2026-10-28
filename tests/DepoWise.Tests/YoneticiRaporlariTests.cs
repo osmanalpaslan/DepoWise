@@ -145,11 +145,38 @@ public class YoneticiRaporlariTests : IDisposable
         Assert.Equal("YF-1", t.Rows[0][K(t, "Kod")]);                         // en eksi önce
         Assert.Equal("-3", Metin(t.Rows[0][K(t, "Stok")]));
         Assert.Equal("Merkez Depo", t.Rows[0][K(t, "Depo / Şantiye")]);
-        Assert.Equal("bakım-1", t.Rows[0][K(t, "Son Çıkış Notu")]);
+        Assert.Equal("Bakım tüketimi", t.Rows[0][K(t, "Son Çıkış Notu")]);   // 2026-10-29: çözülemeyen bakım kimliği ham gösterilmez
         Assert.Equal(DepoWise.Application.Ui.MovementTypeOptions.Label("usage"), t.Rows[0][K(t, "Son Çıkış Türü")]);
         Assert.Equal("HF-2", t.Rows[1][K(t, "Kod")]);
         Assert.Equal("Şantiye B", t.Rows[1][K(t, "Depo / Şantiye")]);
         Assert.DoesNotContain(t.Rows, r => (string?)r[K(t, "Kod")] is "ELD-3" or "YAB-1");
+    }
+
+    /// <summary>YR2b — 2026-10-29 (kullanıcı bildirimi: "Son Çıkış Notu anlamadığım değerler listeliyor"): bakım tüketiminde not alanı
+    /// bakım KAYDININ KİMLİĞİDİR; rapor onu "Araç bakımı — EKS-01 (34EKS01)" olarak gösterir. Başka firmanın bakım kaydı aynı
+    /// kimlikle eşleşmez (firma ayrımı) → "Bakım tüketimi". Bakım dışı harekette kullanıcının notu olduğu gibi kalır.</summary>
+    [Fact]
+    public void YR2b_EksiStok_Bakim_Notu_Okunur()
+    {
+        Exec("PRAGMA foreign_keys=OFF;" +
+             "INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id,operation_id,created_at,updated_at) " +
+             $"VALUES('bk-a','A','{_aracA}','tanim','op-bk-a',1,1);" +
+             "INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id,operation_id,created_at,updated_at) " +
+             $"VALUES('bk-yabanci','B','{_aracB}','tanim','op-bk-b',1,1);");
+        _stock.ReceiveIn(_s, new[] { new StockLine(_m1, 5m, 12.5m) }, Op(), _depoA, docDate: Simdi - 5 * GunMs);
+        HamTuketim("A", _m1, _depoA, 8m, Simdi - 2 * GunMs, "bk-a");
+        _stock.ReceiveIn(_s, new[] { new StockLine(_m2, 1m, 4m) }, Op(), _depoB, docDate: Simdi - 5 * GunMs);
+        HamTuketim("A", _m2, _depoB, 3m, Simdi - GunMs, "bk-yabanci");
+
+        var t = Calistir(_s, "stock-negative");
+        var notlar = t.Rows.ToDictionary(r => (string)r[K(t, "Kod")]!, r => (string?)r[K(t, "Son Çıkış Notu")]);
+        Assert.Equal("Araç bakımı — EKS-01 (34EKS01)", notlar["YF-1"]);
+        Assert.Equal("Bakım tüketimi", notlar["HF-2"]);                       // B firmasının kaydı A'da çözülmez
+        Assert.DoesNotContain(t.Rows, r => ((string?)r[K(t, "Son Çıkış Notu")] ?? "").Contains("bk-"));
+
+        Assert.Equal("Şantiyeye gönderildi", ReportService.CikisNotu("out", "Şantiyeye gönderildi", "", "", "", false, false));
+        Assert.Equal("Ekipman bakımı — EKP-9", ReportService.CikisNotu("usage", "x", "", "", "EKP-9", false, true));
+        Assert.Equal("Araç bakımı — EKS-01", ReportService.CikisNotu("usage_reverse", "x", "EKS-01", "", "", true, false));
     }
 
     [Fact]

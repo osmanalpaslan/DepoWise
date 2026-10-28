@@ -85,9 +85,17 @@ WHERE b.company_id = @c AND b.quantity LIKE '-%'" + kSql + ";";
         {
             using var cmd = conn.CreateCommand();
             var ids = eksi.Select(x => x.Mat).Distinct().ToList();
+            // 2026-10-29 (kullanıcı bildirimi): bakım tüketiminde (usage) not alanı bakım KAYDININ KİMLİĞİDİR — ham gösterilince
+            // anlamsız harf-rakam dizisi çıkıyordu. Kimlik aynı sorguda araç/ekipman bakımına çözülür (N+1 yok; hareket ekranının
+            // "Kaynak" bağlantısıyla aynı kural: StockService.KaynakBul). Firma eşleşmesi her birleştirmede.
             cmd.CommandText = "SELECT sm.material_id, COALESCE(sm.branch_id,''), " + StockMovementFilterSql.IslemTarihiSql +
-                              ", sm.movement_type, COALESCE(sm.note,'') FROM stock_movements sm " +
+                              ", sm.movement_type, COALESCE(sm.note,''), COALESCE(v.internal_code,''), COALESCE(v.plate,''), COALESCE(e.code,'')" +
+                              ", CASE WHEN vm.id IS NULL THEN 0 ELSE 1 END, CASE WHEN em.id IS NULL THEN 0 ELSE 1 END FROM stock_movements sm " +
                               "LEFT JOIN stock_documents d ON d.id = sm.document_id AND d.company_id = sm.company_id " +
+                              "LEFT JOIN vehicle_maintenances vm ON sm.movement_type IN ('usage','usage_reverse') AND vm.id = sm.note AND vm.company_id = sm.company_id " +
+                              "LEFT JOIN vehicles v ON v.id = vm.vehicle_id AND v.company_id = vm.company_id " +
+                              "LEFT JOIN equipment_maintenances em ON sm.movement_type IN ('usage','usage_reverse') AND em.id = sm.note AND em.company_id = sm.company_id " +
+                              "LEFT JOIN equipment e ON e.id = em.equipment_id AND e.company_id = em.company_id " +
                               "WHERE sm.company_id=@c AND sm.direction < 0" + InList("sm.material_id", "@nm", ids) + ";";
             cmd.AddWithValue("@c", companyId);
             BindList(cmd, "@nm", ids);
@@ -96,7 +104,9 @@ WHERE b.company_id = @c AND b.quantity LIKE '-%'" + kSql + ";";
             {
                 var key = (r.GetString(0), r.GetString(1));
                 var t = Convert.ToInt64(r.GetValue(2));
-                if (!sonCikis.TryGetValue(key, out var e) || t > e.T) sonCikis[key] = (t, r.GetString(3), r.GetString(4));
+                if (!sonCikis.TryGetValue(key, out var e) || t > e.T)
+                    sonCikis[key] = (t, r.GetString(3), CikisNotu(r.GetString(3), r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
+                        Convert.ToInt32(r.GetValue(8)) == 1, Convert.ToInt32(r.GetValue(9)) == 1));
             }
         }
 
@@ -111,6 +121,18 @@ WHERE b.company_id = @c AND b.quantity LIKE '-%'" + kSql + ";";
             });
         }
         return new TableModel("Eksi Stok İstisna Raporu", basliklar, rows, numeric);
+    }
+
+    /// <summary>Eksi stok raporunun "Son Çıkış Notu": bakım tüketiminde iç kimlik yerine "Araç bakımı — ARC-01 (34 AB 123)" /
+    /// "Ekipman bakımı — EKP-01"; bakım kaydı bulunamazsa "Bakım tüketimi" (kimlik ASLA gösterilmez). Diğer hareketlerde
+    /// kullanıcının yazdığı not olduğu gibi.</summary>
+    public static string CikisNotu(string tur, string not, string aracKod, string plaka, string ekipmanKod, bool aracBakimi, bool ekipmanBakimi)
+    {
+        if (tur is not ("usage" or "usage_reverse")) return not;
+        if (aracBakimi)
+            return "Araç bakımı — " + (aracKod.Length > 0 ? aracKod : "?") + (plaka.Length > 0 ? " (" + plaka + ")" : "");
+        if (ekipmanBakimi) return "Ekipman bakımı — " + (ekipmanKod.Length > 0 ? ekipmanKod : "?");
+        return "Bakım tüketimi";
     }
 
     /// <summary>

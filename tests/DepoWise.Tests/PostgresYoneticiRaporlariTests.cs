@@ -64,7 +64,7 @@ public class PostgresYoneticiRaporlariTests
         var e = Assert.Single(eksi.Rows);
         Assert.Equal("PG-HF", e[0]);
         Assert.Equal(-3d, ((NumCell)e[3]!).Value);
-        Assert.Equal("bakım", e[6]);
+        Assert.Equal("Bakım tüketimi", e[6]);   // 2026-10-29: bakım notu (kimlik) ham gösterilmez; birleştirmeli sorgu PG'de de çalışır
         Assert.Single(reports.Run(s, "stock-negative", new ReportRequest(true, LocationIds: new[] { depo })).Rows);
 
         var gecmis = reports.Run(s, "stock-value-month", new ReportRequest(true, Simdi - 60 * GunMs, Simdi - 20 * GunMs));
