@@ -12,6 +12,7 @@
 - Ekran ekran (2026-10-29): 10f2c10b Malzeme+Ekipman kartları · c78a6a7f Personel kartı + Belge/Proje/Şube/Firma başlıkları · bd783ce0 İş Emri · 0ce991ca Talep+Cari · 91dc4d43 Bakım kartları + ekran sekmeleri hap · d4e816ca Uyarılar. Arayüz 77/77, her adım alan paketiyle.
 - 74b09214 Duyurular/Yakıt seçili kayıt işlemleri "•••" menüsünde, Takvim Sil kırmızı. Faturalar çubuğu bilinçli olarak aynı (Muhasebe Aktarımı dönem seçiciyle birlikte çalışır).
 - KARAR: tablo satırlarına simge EKLENMEDİ — sütun genişlikleri kullanıcı isteğiyle (2026-08-06) kaydedilebilir/sabit (Min=Max ColWidths) ve hiza testleri bunu korur; simge seçili kayıt kartında.
+- Tasarım önerileri (kullanıcı onayı 2026-10-29, 6/6 TAMAM): 1a285a2e boş ekranda ana eylem düğmesi · 29aa06bc "İşlem tamam" bildirimi iOS kartı ("Geri al" YOK: ters kayıt = iş kuralı, onay gerekir) · 49468f79 ilk yüklemede iskelet · f1978634 durum filtre hapları (7 ekran) · 41368581 basılınca küçülme + 120 ms geçişler · 51ed44f9 ana ekran "Son 6 Ay Yakıt" grafiği. Arayüz 83/83.
 - Kalan: tanım/ayar/rapor ekranları (genel iOS stilleri zaten uygulanıyor; ekran ekran ince ayar).
 
 ## 📌 2026-10-28 ÇALIŞMA BİÇİMİ — TOPLU YAYIN (kullanıcı kararı, kalıcı)
