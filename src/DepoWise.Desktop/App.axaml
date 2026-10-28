@@ -34,6 +34,11 @@
                 <GradientStop Color="#0BF5A623" Offset="0.4"/>
                 <GradientStop Color="#04F5A623" Offset="1"/>
             </LinearGradientBrush>
+            <!-- ⭐ iOS tasarım (2026-10-29): açma-kapama anahtarı açıkken iOS yeşili (Fluent varsayılanı sistem mavisiydi). -->
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#30D158"/>
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#3EDC66"/>
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#28B84C"/>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="Transparent"/>
             <!-- Aurora imzası: içerik alanına indigo derinlik ışıması (opsiyonel kullanım). -->
             <RadialGradientBrush x:Key="AuroraContentGlowBrush" Center="88%,-6%" GradientOrigin="88%,-6%"
                                  RadiusX="70%" RadiusY="60%">
