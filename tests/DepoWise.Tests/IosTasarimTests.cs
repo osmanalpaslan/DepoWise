@@ -153,4 +153,27 @@ public class IosTasarimTests
         Assert.True(adet >= 20, "ana eylemli boş panel: " + adet);
         Assert.True(ihlal.Count == 0, "boş panelde ana eylem eksik/farklı: " + string.Join(", ", ihlal));
     }
+
+    /// <summary>IOS-HAP1 — madde 4 (2026-10-29): liste üstü hazır filtre hapları. Durum açılır listesi olan ekranlarda hap sırası
+    /// (ListBox.HapSecici, aynı bağlantı); Araçlar/Malzemeler'de Durum hapları; eski durum açılır listesi kalmadı.</summary>
+    [Fact]
+    public void IOSHAP1_Hazir_Filtre_Haplari()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        string Oku(string ad) => File.ReadAllText(Path.Combine(dizin, ad));
+        foreach (var ad in new[] { "EquipmentView.axaml", "ProjectsView.axaml", "PurchasingView.axaml", "WorkOrdersView.axaml" })
+        {
+            Assert.Contains("ItemsSource=\"{Binding FilterStatusOptions}\" SelectedItem=\"{Binding FilterStatus}\"", Oku(ad));
+            Assert.Matches("<ListBox Classes=\"HapSecici\" ItemsSource=\"\\{Binding FilterStatusOptions\\}\"", Oku(ad));
+            Assert.DoesNotMatch("<ComboBox[^>]*FilterStatusOptions", Oku(ad));
+        }
+        Assert.Matches("<ListBox Classes=\"HapSecici\" ItemsSource=\"\\{Binding StatusFilters\\}\"", Oku("InvoicesView.axaml"));
+        foreach (var ad in new[] { "VehiclesView.axaml", "MaterialsView.axaml" })
+            Assert.Contains("<ListBox Classes=\"HapSecici\" ItemsSource=\"{Binding DurumHaplari}\" SelectedItem=\"{Binding SeciliDurumHapi}\"", Oku(ad));
+        var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml"));
+        Assert.Contains("<Style Selector=\"ListBox.HapSecici ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter\">", ios);
+        // Malzeme hapları servisin ürettiği durum metinleriyle birebir (yoksa hap hiçbir şey bulamaz)
+        var servis = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Infrastructure", "Materials", "MaterialService.cs"));
+        foreach (var d in new[] { "Stok Yok", "Düşük Stok", "Yeterli" }) Assert.Contains("'" + d + "'", servis);
+    }
 }

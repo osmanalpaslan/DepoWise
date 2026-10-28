@@ -252,7 +252,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             V(MaterialListColumns.Code), V(MaterialListColumns.Name), V(MaterialListColumns.Type),
             V(MaterialListColumns.Category), V(MaterialListColumns.Unit), V(MaterialListColumns.Brand),
             V(MaterialListColumns.Supplier), V(MaterialListColumns.UnitPrice), V(MaterialListColumns.Currency),
-            V(MaterialListColumns.MinStock), V(MaterialListColumns.Stock), V(MaterialListColumns.Status),
+            V(MaterialListColumns.MinStock), V(MaterialListColumns.Stock), V(MaterialListColumns.Status) ?? DurumHapiFiltresi,
             V(MaterialListColumns.Description), V(MaterialListColumns.CompatibleVehicles), V(MaterialListColumns.Equivalents));
     }
 
@@ -270,13 +270,47 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     /// <summary>Filtre değişince ilk sayfaya dönülür (web'de de öyle: _page = 1; Load()).</summary>
     partial void OnCriticalOnlyChanged(bool value) { Page = 1; Load(); }
 
+
+    // ── ⭐ iOS tasarım madde 4 (2026-10-29): LİSTE ÜSTÜ HAZIR DURUM HAPLARI (Düşük Stok / Stok Yok / Yeterli — MaterialService durum metinleri) ─────────────────────────────
+    // Hap "Durum" sütun filtresine yazar ve listeyi yeniler ("Tümü" = filtre boş). Sütun gizliyse de filtre uygulanır
+    // (BuildFilter yedeği). Filtrele/Temizle hap seçimini sütun filtresiyle eşitler.
+    public IReadOnlyList<string> DurumHaplari { get; } = new[] { "Tümü", "Düşük Stok", "Stok Yok", "Yeterli" };
+    [ObservableProperty] private string _seciliDurumHapi = "Tümü";
+    private bool _hapEsitleniyor;
+
+    partial void OnSeciliDurumHapiChanged(string value)
+    {
+        if (_hapEsitleniyor) return;
+        var alan = FilterFields.FirstOrDefault(x => x.Key == MaterialListColumns.Status);
+        if (alan is not null) alan.Value = value == "Tümü" ? "" : value;
+        Page = 1; Load();
+    }
+
+    // yalnız Durum sütunu GİZLİYKEN (filtre kutusu yokken) — sütun görünürken kutudaki değer tek kaynaktır
+    private string? DurumHapiFiltresi => FilterFields.Any(x => x.Key == MaterialListColumns.Status) ? null
+        : SeciliDurumHapi is { Length: > 0 } h && h != "Tümü" ? h : null;
+
+    private void DurumHapiniEsitle()
+    {
+        var deger = FilterFields.FirstOrDefault(x => x.Key == MaterialListColumns.Status)?.Value?.Trim();
+        _hapEsitleniyor = true;
+        try
+        {
+            if (FilterFields.Any(x => x.Key == MaterialListColumns.Status))
+                SeciliDurumHapi = DurumHaplari.FirstOrDefault(h => string.Equals(h, deger, StringComparison.OrdinalIgnoreCase)) ?? "Tümü";
+        }
+        finally { _hapEsitleniyor = false; }
+    }
+
     [RelayCommand]
-    private void ApplyFilters() { Page = 1; Load(); }
+    private void ApplyFilters() { DurumHapiniEsitle(); Page = 1; Load(); }
 
     [RelayCommand]
     private void ClearFilters()
     {
         foreach (var f in FilterFields) f.Value = "";
+        _hapEsitleniyor = true;
+        try { SeciliDurumHapi = "Tümü"; } finally { _hapEsitleniyor = false; }
         Page = 1; Load();
     }
 

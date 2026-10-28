@@ -29,13 +29,14 @@
                             <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <ComboBox Classes="Field" Width="140" ItemsSource="{Binding StatusFilters}"
-                              SelectedValue="{Binding StatusFilter}" SelectedValueBinding="{Binding Key}"
-                              ToolTip.Tip="İptal edilmiş faturalar da listelenebilir">
-                        <ComboBox.ItemTemplate>
+                    <!-- ⭐ iOS madde 4: durum filtresi açılır liste yerine hazır haplar (aynı bağlantı) -->
+                    <ListBox Classes="HapSecici" ItemsSource="{Binding StatusFilters}"
+                             SelectedValue="{Binding StatusFilter}" SelectedValueBinding="{Binding Key}"
+                             AutomationProperties.Name="Durum filtresi" ToolTip.Tip="İptal edilmiş faturalar da listelenebilir">
+                        <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                     <!-- ORTAK ŞUBE SEÇİCİ (G4-3e): ÇOKLU seçim — Raporlar ekranındaki desenin aynısı
                          (yeni bileşen uydurulmadı). Yalnız YETKİLİ şubeler listelenir.
                          "Hiçbiri seçili değil" = TÜM YETKİLİ ŞUBELER (firmanın tümü DEĞİL).

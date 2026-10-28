@@ -431,7 +431,9 @@ public class YeniEkranlarArayuzTests
             var view = new MaterialsView { DataContext = vm };
             var w = Ac(view);
             Dispatcher.UIThread.RunJobs();
-            double SatirMin() => view.GetVisualDescendants().OfType<ListBoxItem>().First(i => i.IsEffectivelyVisible).MinHeight;
+            // tablo SATIRI (ListBox.Table) — 2026-10-29: araç çubuğundaki durum hapları da ListBoxItem, onlar sayılmaz
+            double SatirMin() => view.GetVisualDescendants().OfType<ListBoxItem>()
+                .First(i => i.IsEffectivelyVisible && i.FindAncestorOfType<ListBox>()?.Classes.Contains("Table") == true).MinHeight;
 
             DepoWise.Desktop.Theming.ThemeService.ApplyDensity(DepoWise.Desktop.Theming.ThemeService.DensityCompact, persist: false);
             Dispatcher.UIThread.RunJobs();
@@ -995,6 +997,47 @@ public class YeniEkranlarArayuzTests
     {
         private bool _busy;
         public bool Busy { get => _busy; set => SetProperty(ref _busy, value); }
+    }
+
+    /// <summary>UIT-IOS11 — ⭐ iOS tasarım madde 4: Araçlar araç çubuğunda hazır DURUM hapları; "Pasif" hapı listeyi yalnız pasif
+    /// araçlara süzer ve Durum sütun filtresine yazar; "Temizle" hapı "Tümü"ye döndürür. Görüntü arac-haplar-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS11_Arac_Durum_Haplari()
+    {
+        var s = Ortam();
+        var ek = Guid.NewGuid().ToString("N")[..5];
+        var aktif = DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("HAP-A-" + ek, "06HAPA"));
+        var pasif = DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("HAP-P-" + ek, "06HAPP",
+            Status: DepoWise.Application.Ui.VehicleStatus.Passive));
+        try
+        {
+            var vm = new VehiclesViewModel(s);
+            var view = new VehiclesView { DataContext = vm };
+            var w = Ac(view, 1400, 900);
+            for (int i = 0; i < 50 && !vm.HasRows; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            var toolbar = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Toolbar>().First();
+            var haplar = Assert.Single(Gorunen<ListBox>(toolbar), l => l.Classes.Contains("HapSecici"));
+            Assert.Equal(new[] { "Tümü", "Aktif", "Pasif", "Bakımda", "Arızalı" }, haplar.Items.Cast<string>().ToArray());
+            Assert.Equal("Tümü", haplar.SelectedItem);
+
+            haplar.SelectedItem = "Pasif";   // kullanıcı hapa tıkladı
+            for (int i = 0; i < 50 && !vm.Items.Any(r => r.Code == "HAP-P-" + ek); i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            Assert.Equal("Pasif", vm.SeciliDurumHapi);
+            Assert.Contains(vm.Items, r => r.Code == "HAP-P-" + ek);
+            Assert.DoesNotContain(vm.Items, r => r.Code == "HAP-A-" + ek);
+            Assert.All(vm.Items, r => Assert.Equal(DepoWise.Application.Ui.VehicleStatus.Passive, r.Status));
+            Assert.Equal("Pasif", vm.FilterFields.Single(f => f.Key == DepoWise.Application.Ui.VehicleListColumns.Status).Value);
+            Dispatcher.UIThread.RunJobs();
+            Goruntu(w, "arac-haplar-ios");
+
+            vm.ClearFiltersCommand.Execute(null);
+            for (int i = 0; i < 50 && !vm.Items.Any(r => r.Status != DepoWise.Application.Ui.VehicleStatus.Passive); i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+            Assert.Equal("Tümü", vm.SeciliDurumHapi);
+            Assert.Equal("Tümü", haplar.SelectedItem);
+            Assert.Contains(vm.Items, r => r.Status != DepoWise.Application.Ui.VehicleStatus.Passive);
+            w.Close();
+        }
+        finally { DesktopServices.Vehicles.Delete(s, aktif); DesktopServices.Vehicles.Delete(s, pasif); }
     }
 
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih

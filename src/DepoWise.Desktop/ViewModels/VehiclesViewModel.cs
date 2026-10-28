@@ -306,7 +306,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         }
         return new VehicleGridFilter(
             V(VehicleListColumns.InternalCode), V(VehicleListColumns.Plate), V(VehicleListColumns.ProductionYear),
-            V(VehicleListColumns.Meter), V(VehicleListColumns.Status), V(VehicleListColumns.StatusNote),
+            V(VehicleListColumns.Meter), V(VehicleListColumns.Status) ?? DurumHapiFiltresi, V(VehicleListColumns.StatusNote),
             V(VehicleListColumns.VehicleType), V(VehicleListColumns.Category), V(VehicleListColumns.Brand),
             V(VehicleListColumns.Model), V(VehicleListColumns.Branch), V(VehicleListColumns.Driver),
             V(VehicleListColumns.ChassisNo), V(VehicleListColumns.EngineNo),
@@ -314,13 +314,47 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
             V(VehicleListColumns.RentalEnd), V(VehicleListColumns.ReplacedVehicle));
     }
 
+
+    // ── ⭐ iOS tasarım madde 4 (2026-10-29): LİSTE ÜSTÜ HAZIR DURUM HAPLARI (Aktif / Bakımda / Arızalı / Pasif) ─────────────────────────────
+    // Hap "Durum" sütun filtresine yazar ve listeyi yeniler ("Tümü" = filtre boş). Sütun gizliyse de filtre uygulanır
+    // (BuildFilter yedeği). Filtrele/Temizle hap seçimini sütun filtresiyle eşitler.
+    public IReadOnlyList<string> DurumHaplari { get; } = new[] { "Tümü" }.Concat(DepoWise.Application.Ui.VehicleStatus.All.Select(x => x.Label)).ToArray();
+    [ObservableProperty] private string _seciliDurumHapi = "Tümü";
+    private bool _hapEsitleniyor;
+
+    partial void OnSeciliDurumHapiChanged(string value)
+    {
+        if (_hapEsitleniyor) return;
+        var alan = FilterFields.FirstOrDefault(x => x.Key == VehicleListColumns.Status);
+        if (alan is not null) alan.Value = value == "Tümü" ? "" : value;
+        Page = 1; Load();
+    }
+
+    // yalnız Durum sütunu GİZLİYKEN (filtre kutusu yokken) — sütun görünürken kutudaki değer tek kaynaktır
+    private string? DurumHapiFiltresi => FilterFields.Any(x => x.Key == VehicleListColumns.Status) ? null
+        : SeciliDurumHapi is { Length: > 0 } h && h != "Tümü" ? h : null;
+
+    private void DurumHapiniEsitle()
+    {
+        var deger = FilterFields.FirstOrDefault(x => x.Key == VehicleListColumns.Status)?.Value?.Trim();
+        _hapEsitleniyor = true;
+        try
+        {
+            if (FilterFields.Any(x => x.Key == VehicleListColumns.Status))
+                SeciliDurumHapi = DurumHaplari.FirstOrDefault(h => string.Equals(h, deger, StringComparison.OrdinalIgnoreCase)) ?? "Tümü";
+        }
+        finally { _hapEsitleniyor = false; }
+    }
+
     [RelayCommand]
-    private void ApplyFilters() { Page = 1; Load(); }
+    private void ApplyFilters() { DurumHapiniEsitle(); Page = 1; Load(); }
 
     [RelayCommand]
     private void ClearFilters()
     {
         foreach (var f in FilterFields) f.Value = "";
+        _hapEsitleniyor = true;
+        try { SeciliDurumHapi = "Tümü"; } finally { _hapEsitleniyor = false; }
         Page = 1; Load();
     }
 

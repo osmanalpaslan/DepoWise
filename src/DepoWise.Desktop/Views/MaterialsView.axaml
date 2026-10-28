@@ -21,6 +21,9 @@
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" VerticalAlignment="Center" IsVisible="{Binding !ShowAdd}">
                     <!-- ⭐ M-64 (Şablon B): tek ana düğme araç çubuğunda ("Yeni Malzeme"); sayfa boyutu alttaki ortak Pager'da -->
+                    <!-- ⭐ iOS madde 4: hazır durum hapları ("Durum" sütun filtresine yazar) -->
+                    <ListBox Classes="HapSecici" ItemsSource="{Binding DurumHaplari}" SelectedItem="{Binding SeciliDurumHapi}"
+                             AutomationProperties.Name="Durum" ToolTip.Tip="Durum — tek tıkla listeyi süzer"/>
                     <Button Classes="Secondary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
                     <!-- G2-05: "Yalnız kritik" — web'deki (Materials.razor) düğmenin masaüstü karşılığı.

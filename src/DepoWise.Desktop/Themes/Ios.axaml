@@ -115,6 +115,49 @@
     <Style Selector="Button.Cip.secili">
         <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     </Style>
+
+    <!-- ⭐ Madde 4 (2026-10-29): ListBox.HapSecici — liste üstü HAZIR FİLTRE hapları. Açılır listenin (ComboBox) yerine geçer:
+         aynı ItemsSource + SelectedItem/SelectedValue bağlantısı (görünüm modeli değişmez); seçenekler tek tıkla görünür.
+         Görünüm Button.Cip ile aynı: seçili hap dolu aksan (Alpnex turuncu). -->
+    <Style Selector="ListBox.HapSecici">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="SelectionMode" Value="AlwaysSelected"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem">
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="ListBox.HapSecici ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
     <Style Selector="Button.Cip.secili PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     </Style>
