@@ -26,125 +26,85 @@
 
             <!-- Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25 -->
             <WrapPanel>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=material}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="material">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconMaterials}"/>
                         <TextBlock Text="Malzeme" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding MalzemeCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding MalzemeCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=maintenance}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="maintenance">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconMaintenance}"/>
                         <TextBlock Text="Bakım" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding BakimCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding BakimCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=inspection}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="inspection">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconWebAdmin}"/>
                         <TextBlock Text="Sigorta-Muayene" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding MuayeneCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding MuayeneCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=fuel}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="fuel">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconFuel}"/>
                         <TextBlock Text="Yakıt" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding YakitCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding YakitCount}"/></Border>
                     </StackPanel>
                 </Button>
                 <!-- BLD-01 (ADR-172): yeni kaynaklar + "Tümü" + tümünü okundu -->
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=document}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="document">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconAudit}"/>
                         <TextBlock Text="Evrak" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding EvrakCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding EvrakCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=work_order}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="work_order">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconRequests}"/>
                         <TextBlock Text="İş Emri" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding IsEmriCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding IsEmriCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=request}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="request">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconRequests}"/>
                         <TextBlock Text="Talep" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding TalepCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding TalepCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=announcement}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="announcement">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconAlerts}"/>
                         <TextBlock Text="Duyuru" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding DuyuruCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding DuyuruCount}"/></Border>
                     </StackPanel>
                 </Button>
                 <!-- 2026-10-10: kiralık araç kira bitişi uyarıları -->
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=rental}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="rental">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <PathIcon Width="15" Height="15" VerticalAlignment="Center" Data="{DynamicResource IconVehicles}"/>
                         <TextBlock Text="Kiralık" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding KiralikCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding KiralikCount}"/></Border>
                     </StackPanel>
                 </Button>
-                <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
+                <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding Filter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=all}"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="all">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <TextBlock Text="Tümü" VerticalAlignment="Center"/>
-                        <Border CornerRadius="999" Padding="7,1" VerticalAlignment="Center"
-                                Background="{DynamicResource AccentSoftBrush}">
-                            <TextBlock Text="{Binding ToplamCount}" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
+                        <Border Classes="adet"><TextBlock Text="{Binding ToplamCount}"/></Border>
                     </StackPanel>
                 </Button>
                 <Button Classes="Secondary" Margin="0,0,8,8" CornerRadius="999" Padding="14,7"
@@ -157,22 +117,21 @@
             <SelectableTextBlock Text="{Binding LoadError}" Foreground="{DynamicResource DangerBrush}"
                        IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
 
-            <ItemsControl ItemsSource="{Binding Alerts}" IsVisible="{Binding HasAlerts}">
+            <!-- ⭐ iOS tasarım (2026-10-28): uyarılar gruplu liste (ana ekranla aynı) -->
+            <Border Classes="IosGrup" IsVisible="{Binding HasAlerts}">
+            <ItemsControl ItemsSource="{Binding Alerts}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="rep:DashboardAlert">
-                        <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
-                                Margin="0,0,0,8" Opacity="{Binding RowOpacity}"
+                        <Button Classes="IosSatir" Opacity="{Binding RowOpacity}"
                                 Command="{Binding $parent[ItemsControl].((vm:AlertsViewModel)DataContext).OpenAlertCommand}"
                                 CommandParameter="{Binding}" ToolTip.Tip="İlgili ekranı aç">
-                            <Border Classes="AlertRow">
-                                <Grid ColumnDefinitions="4,Auto,*,Auto">
-                                    <Border Grid.Column="0" Width="4" CornerRadius="2"
-                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"/>
-                                    <Panel Grid.Column="1" Width="26" Height="26" Margin="10,0,0,0">
-                                        <Border CornerRadius="{StaticResource Radius6}"
-                                                Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}" Opacity="0.22"/>
-                                        <SelectableTextBlock Text="{Binding Icon}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Panel>
+                            <Border Padding="16,10,12,10" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="0,Auto,*,Auto">
+                                    <!-- renkli simge kutusu: kritik = kırmızı, yaklaşıyor = turuncu; simge uyarı TİPİNE göre -->
+                                    <Border Grid.Column="1" Classes="IkonKutu" VerticalAlignment="Top"
+                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}">
+                                        <PathIcon Data="{Binding Kind, Converter={x:Static vm:AlertIcon.Instance}}"/>
+                                    </Border>
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
                                         <SelectableTextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                         <SelectableTextBlock Text="{Binding Detail}" Classes="Helper" TextTrimming="CharacterEllipsis"/>
@@ -197,6 +156,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </Border>
 
             <!-- İlk açılış: kategori seçilmedi → yalnız yönlendirme ipucu (uyarı listelenmez). -->
             <Border IsVisible="{Binding ShowSelectPrompt}" Background="{DynamicResource SurfaceElevatedBrush}"
