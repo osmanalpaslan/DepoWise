@@ -14,23 +14,23 @@
 
         <!-- ============ KOYU (Aurora) ============ -->
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0D1220"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#0F1524"/>
-            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#10162A"/>
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#151B2B"/>
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#1A2133"/>
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#1F2739"/>
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#252E42"/>
-            <SolidColorBrush x:Key="AccentBrush" Color="#E0951B"/>
-            <SolidColorBrush x:Key="AccentHoverBrush" Color="#F5A623"/>
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0B0E15"/>
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#10141D"/>
+            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#0B0E15"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#151A25"/>
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#1B2130"/>
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#242B3C"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#262E40"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#F5A524"/>
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#FFB547"/>
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EAEEF7"/>
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8B98B2"/>
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#7B8AA6"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A9B1C2"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#8C94A7"/>
             <!-- 2026-10-01: tablo sütun ayırıcısı — soluk yazı renginin %45 saydam hâli (kullanıcı: çizgi belirgin olsun). -->
             <SolidColorBrush x:Key="ColumnRuleBrush" Color="#737B8AA6"/>
-            <SolidColorBrush x:Key="SuccessBrush" Color="#2CBF6D"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#3DD47A"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#F5A623"/>
-            <SolidColorBrush x:Key="DangerBrush" Color="#F06A5C"/>   <!-- M-59: 4,03 → ≥5,29:1 (yükseltilmiş yüzeyde) -->
+            <SolidColorBrush x:Key="DangerBrush" Color="#FF6B61"/>   <!-- M-59: 4,03 → ≥5,29:1 (yükseltilmiş yüzeyde) -->
             <SolidColorBrush x:Key="InfoBrush" Color="#818CF8"/>     <!-- M-59: 3,59 → ≥5,38:1 -->
             <!-- ⭐ M-59 (F-061/F-125) yeni token'lar: aksan YAZISI, birincil düğme yazısı, form/tablo sınırı (≥3:1), odak halkası -->
             <SolidColorBrush x:Key="AccentTextBrush" Color="#F5B54A"/>
@@ -39,22 +39,22 @@
             <SolidColorBrush x:Key="FocusRingBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="OverlayHoverBrush" Color="#14FFFFFF"/>
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#20FFFFFF"/>
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#38E0951B"/>
-            <SolidColorBrush x:Key="SelectedRowBrush" Color="#24E0951B"/>
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#29F5A524"/>
+            <SolidColorBrush x:Key="SelectedRowBrush" Color="#24F5A524"/>
 
             <!-- M7 (2a) — tablo baslik bandi: kehribar yuzey. Saydamlik KULLANILMAZ: Border.Table'in zemini
                  ne olursa olsun bant her ekranda ayni gorunsun diye katmanlar duzlestirilmis haldedir.
                  Bu alti firca SABIT kehribardir; ThemeService.ApplyAccent onlari ezmez (AmberBar* ile ayni ilke) —
                  kullanicinin sectigi aksan rengi SIRALANAN kolonda ve DOLU filtrede gorunur. -->
             <LinearGradientBrush x:Key="TableHeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#3A342F" Offset="0"/>
-                <GradientStop Color="#242732" Offset="1"/>
+                <GradientStop Color="#1D2333" Offset="0"/>
+                <GradientStop Color="#1A1F2D" Offset="1"/>
             </LinearGradientBrush>
-            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#4A3A1E"/>
-            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#D8B87C"/>
-            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#0D1220"/>
-            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#151B2B"/>
-            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#2A3550"/>
+            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#262E40"/>
+            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#A9B1C2"/>
+            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#121620"/>
+            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#1B2130"/>
+            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#2C3448"/>
 
             <!-- TRH-01: tarih alanı vurgusu. Sabit kehribar (marka) — ThemeService.ApplyAccent EZMEZ, çünkü
                  amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
@@ -78,13 +78,13 @@
 
         <!-- ============ AÇIK (Aurora) ============ -->
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F7F8FB"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F1F3F8"/>
-            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F2F2F7"/>
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#FAFAFC"/>
+            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#F2F2F7"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#F7F9FC"/>
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EDF1F7"/>
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E3E6ED"/>
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#F4F4F7"/>
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EBEBF0"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E2E2E8"/>
             <SolidColorBrush x:Key="AccentBrush" Color="#C07C0C"/>
             <SolidColorBrush x:Key="AccentHoverBrush" Color="#A66A08"/>
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14171C"/>
@@ -111,12 +111,12 @@
                  Bu alti firca SABIT kehribardir; ThemeService.ApplyAccent onlari ezmez (AmberBar* ile ayni ilke) —
                  kullanicinin sectigi aksan rengi SIRALANAN kolonda ve DOLU filtrede gorunur. -->
             <LinearGradientBrush x:Key="TableHeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#EFE7DA" Offset="0"/>
-                <GradientStop Color="#F4F3F0" Offset="1"/>
+                <GradientStop Color="#F7F7FA" Offset="0"/>
+                <GradientStop Color="#F3F3F7" Offset="1"/>
             </LinearGradientBrush>
-            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#DEC79A"/>
-            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#8A6410"/>
-            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#F1F3F8"/>
+            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#E2E2E8"/>
+            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#5B6170"/>
+            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#FAFAFC"/>
             <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#DCE1EA"/>
 

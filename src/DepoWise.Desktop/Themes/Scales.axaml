@@ -30,8 +30,8 @@
     <CornerRadius x:Key="Radius6">8</CornerRadius>
     <CornerRadius x:Key="Radius8">11</CornerRadius>
     <CornerRadius x:Key="Radius12">14</CornerRadius>
-    <CornerRadius x:Key="Radius16">16</CornerRadius>
-    <CornerRadius x:Key="Radius20">20</CornerRadius>
+    <CornerRadius x:Key="Radius16">18</CornerRadius>   <!-- iOS tarzı (2026-10-28): kart/panel 16 → 18 -->
+    <CornerRadius x:Key="Radius20">22</CornerRadius>
 
     <!-- Tipografi ölçeği (font boyutları) -->
     <sys:Double x:Key="FontPageTitle">20</sys:Double>

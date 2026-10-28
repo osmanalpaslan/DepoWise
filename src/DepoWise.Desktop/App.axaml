@@ -140,14 +140,7 @@
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup.active /template/ ContentPresenter">
-            <Setter Property="Background">
-                <Setter.Value>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                        <GradientStop Color="#3AE0951B" Offset="0"/>
-                        <GradientStop Color="#10E0951B" Offset="1"/>
-                    </LinearGradientBrush>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
         </Style>
         <!-- M6: menu grubu ikonu — pasifken ikincil renk, aktifken kullanicinin sectigi aksan rengi. -->
         <Style Selector="ToggleButton.NavGroup PathIcon">
@@ -189,7 +182,7 @@
         </Style>
         <Style Selector="Button.NavLink /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="9"/>
         </Style>
         <!-- ⭐ 2026-10-25: üzerine gelince NET, modern vurgu — kehribar yumuşak zemin, solda kehribar çizgi, ikon kehribar,
              satır hafifçe sağa kayar (yumuşak geçiş). Seçili satırdan ayırt edilir: seçili = koyu zemin + dolu çizgi + kalın yazı. -->
@@ -205,18 +198,21 @@
             <Setter Property="Opacity" Value="1"/>
         </Style>
         <!-- seçili satır: daha koyu zemin + sol mavi vurgu + okunur metin -->
+        <!-- ⭐ iOS tarzı (2026-10-28): seçili ekran iPadOS kenar çubuğu gibi DOLU aksan zemin + koyu yazı/ikon. -->
         <Style Selector="Button.NavLink.active">
             <Setter Property="Opacity" Value="1"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="RenderTransform" Value="translateX(0px)"/>
         </Style>
         <Style Selector="Button.NavLink.active PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
             <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.NavLink.active /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="CornerRadius" Value="9"/>
         </Style>
 
         <!-- ===== Menü alt-listesi: açılışta abartısız beliriş (opacity geçişi) ===== -->

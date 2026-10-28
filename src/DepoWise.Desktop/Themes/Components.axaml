@@ -60,8 +60,8 @@
         <Setter Property="Background">
             <Setter.Value>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#FBBF4A" Offset="0"/>
-                    <GradientStop Color="#F0980D" Offset="1"/>
+                    <GradientStop Color="#F8AD32" Offset="0"/>
+                    <GradientStop Color="#F3A11E" Offset="1"/>
                 </LinearGradientBrush>
             </Setter.Value>
         </Setter>
@@ -70,8 +70,8 @@
         <Setter Property="Background">
             <Setter.Value>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#FFCB63" Offset="0"/>
-                    <GradientStop Color="#F5A623" Offset="1"/>
+                    <GradientStop Color="#FFBA4D" Offset="0"/>
+                    <GradientStop Color="#F8AE35" Offset="1"/>
                 </LinearGradientBrush>
             </Setter.Value>
         </Setter>
@@ -79,10 +79,10 @@
 
     <!-- Secondary: nötr cam yüzey, tema-uyumlu yazı (eski sabit gri yerine) -->
     <Style Selector="Button.Secondary">
-        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="14,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -93,15 +93,15 @@
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
     </Style>
     <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
     </Style>
 
     <!-- Ghost: en hafif eylem — çerçevesiz, yalnız hover'da yüzey -->
     <Style Selector="Button.Ghost">
         <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -348,7 +348,7 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius16}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>
     <!-- M7 (2a): baslik bandi marka rengini tasir; filtre satiri (Border.TableFilterRow) uygulama zeminine iner.
@@ -521,8 +521,7 @@
     <!-- Seçili satır: kehribar tonu + sol aksan (webdeki seçili satırla aynı dil) -->
     <Style Selector="ListBox.Table ListBoxItem:selected /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-        <Setter Property="BorderThickness" Value="3,0,0,0"/>
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -545,10 +544,10 @@
     <!-- KPI kartı: etiket üstte küçük, değer altta iri (DashboardView) -->
     <!-- Height=104 / Width=200 Controls.axaml'den KORUNUYOR (kartlar eşit boy kalsın). -->
     <Style Selector="Border.Kpi">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius16}"/>
     </Style>
     <Style Selector="Border.Kpi:pointerover">
         <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>

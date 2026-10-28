@@ -33,7 +33,7 @@ public static class ThemeService
         ("teal",    "Turkuaz",   "#14B8A6"),
         ("cyan",    "Camgöbeği", "#0EA5C4"),
         ("rose",    "Gül",       "#F43F5E"),
-        ("amber",   "Kehribar",  "#E0951B"),
+        ("amber",   "Kehribar",  "#F5A524"),   // iOS tarzı (2026-10-28): tasarımdaki Alpnex turuncusu
         ("slate",   "Gri",       "#64748B"),
     };
 
