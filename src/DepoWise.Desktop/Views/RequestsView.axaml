@@ -265,16 +265,23 @@
                                     <DataTemplate x:DataType="vm:RequestsViewModel">
                                         <ScrollViewer>
                                             <StackPanel Spacing="12">
-                                                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
-                                                    <ctrl:StatusBadge Grid.Column="1" Margin="0,0,6,0" Kind="{Binding Selected.PriorityKind}" Text="{Binding Selected.PriorityText}"
-                                                                      ToolTip.Tip="Öncelik"/>
-                                                    <ctrl:StatusBadge Grid.Column="2" Margin="0,0,6,0" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"
-                                                                      ToolTip.Tip="Onay durumu"/>
-                                                    <ctrl:StatusBadge Grid.Column="3" Kind="{Binding Selected.OperationStatusKind}" Text="{Binding Selected.OperationStatusText}"
-                                                                      ToolTip.Tip="Operasyon durumu (talep onaylandıktan sonra başlar)"/>
+                                                <!-- ⭐ iOS tasarım (2026-10-28): kart başı — simge + belge no; rozetler altta sarılır (dar kartta sıkışmaz) -->
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#4F5BD5">
+                                                        <PathIcon Data="{DynamicResource IconRequests}"/>
+                                                    </Border>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
                                                 </Grid>
-                                                <SelectableTextBlock Text="KALEMLER" Classes="SectionTitle"/>
+                                                <WrapPanel ItemSpacing="6" LineSpacing="6">
+                                                    <ctrl:StatusBadge Kind="{Binding Selected.PriorityKind}" Text="{Binding Selected.PriorityText}"
+                                                                      ToolTip.Tip="Öncelik"/>
+                                                    <ctrl:StatusBadge Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"
+                                                                      ToolTip.Tip="Onay durumu"/>
+                                                    <ctrl:StatusBadge Kind="{Binding Selected.OperationStatusKind}" Text="{Binding Selected.OperationStatusText}"
+                                                                      ToolTip.Tip="Operasyon durumu (talep onaylandıktan sonra başlar)"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="Kalemler" Classes="IosFormBaslik"/>
+                                                <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
                                                 <ItemsControl ItemsSource="{Binding DetailItems}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="inf:RequestItemRow">
@@ -289,13 +296,14 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                                <Border Classes="Divider"/>
-                                                <SelectableTextBlock Text="DURUM GEÇMİŞİ" Classes="SectionTitle"/>
+                                                </Border>
+                                                <Expander Classes="IosAcilir" Header="Durum geçmişi" IsExpanded="False">
                                                 <ItemsControl ItemsSource="{Binding History}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="x:String"><SelectableTextBlock Text="{Binding}" Classes="Helper" Margin="0,2"/></DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                                </Expander>
                                                 <!-- ⭐ M-64 (Şablon B): ekranın tek ana düğmesi "Yeni Talep"; seçili talebin eylemleri ikincil, yıkıcı olan EN SONDA -->
                                                 <WrapPanel>
                                                     <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,8" Command="{Binding BeginEditRequestCommand}" IsVisible="{Binding CanEditSelected}"/>

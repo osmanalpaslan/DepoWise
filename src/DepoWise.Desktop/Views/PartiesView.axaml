@@ -246,18 +246,31 @@
             <ScrollViewer Grid.Column="2" IsVisible="{Binding ShowCard}">
                 <StackPanel Spacing="12">
 
+                    <!-- ⭐ iOS tasarım (2026-10-28): cari kartı başı — simge + ünvan + kod/tür; iletişim bilgileri gruplu yüzeyde -->
                     <Border Classes="Panel">
-                        <StackPanel Spacing="6">
-                            <SelectableTextBlock Text="GENEL BİLGİLER" Classes="CardLabel"/>
-                            <SelectableTextBlock Text="{Binding Selected.Party.Title}" Classes="SectionTitle" TextWrapping="Wrap"/>
-                            <SelectableTextBlock Text="{Binding Selected.Party.Code}" Classes="Helper"/>
-                            <SelectableTextBlock Text="{Binding Selected.Party.TypeText}" Classes="Helper"/>
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#30D158" VerticalAlignment="Top">
+                                    <PathIcon Data="{DynamicResource IconAccounting}"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                    <SelectableTextBlock Text="{Binding Selected.Party.Title}" Classes="PageTitle" FontSize="19" TextWrapping="Wrap"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SelectableTextBlock Text="{Binding Selected.Party.Code}" Classes="Helper"/>
+                                        <SelectableTextBlock Text="{Binding Selected.Party.TypeText}" Classes="Helper"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
+                            <StackPanel Spacing="2">
                             <SelectableTextBlock Text="{Binding Selected.Party.TaxOffice}" Classes="Helper"/>
                             <SelectableTextBlock Text="{Binding Selected.Party.TaxIdText}" Classes="Helper"/>
                             <SelectableTextBlock Text="{Binding Selected.Party.Phone}" Classes="Helper"/>
                             <SelectableTextBlock Text="{Binding Selected.Party.Email}" Classes="Helper"/>
                             <SelectableTextBlock Text="{Binding Selected.Party.City}" Classes="Helper"/>
                             <SelectableTextBlock Text="{Binding Selected.Party.StatusText}" Classes="Helper"/>
+                            </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 
@@ -265,6 +278,9 @@
                     <Border Classes="Panel">
                         <StackPanel Spacing="6">
                             <SelectableTextBlock Text="FİNANSAL ÖZET" Classes="CardLabel"/>
+                            <!-- iOS tasarım: bakiye büyük rakam (tutar yetkisi aynı: BakiyeGorunur) -->
+                            <SelectableTextBlock Text="{Binding BalanceText}" FontSize="26" FontWeight="ExtraBold" IsVisible="{Binding BakiyeGorunur}"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <!-- FAZ 3b-5: tutar satırları kapalıysa HİÇ oluşturulmaz. Hareket sayısı ve
                                  son hareket tarihi TUTAR DEĞİLDİR → kalır (varlık bilgisi sızıntı değil). -->
                             <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding BakiyeGorunur}">
@@ -287,16 +303,16 @@
                     </Border>
 
                     <!-- G4-1b: hareket düzeltme ters kayıtla yapılır (silme YOK). Gerekçe zorunludur. -->
-                    <Border Classes="Panel" IsVisible="{Binding CanEdit}">
+                    <!-- iOS tasarım: seyrek kullanılan düzeltme açılır bölümde (kapalı) -->
+                    <Expander Classes="IosAcilir" Header="Hareket düzeltme (ters kayıt)" IsExpanded="False" IsVisible="{Binding CanEdit}">
                         <StackPanel Spacing="6">
-                            <SelectableTextBlock Text="HAREKET DÜZELTME" Classes="CardLabel"/>
                             <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
                                 Text="Aşağıdan bir hareket seçip gerekçe yazın. Hareket SİLİNMEZ; aynı tutarda ters kayıt yazılır ve ikisi de bakiyeden düşer."/>
                             <TextBox Classes="Field" Text="{Binding ReverseReason}" PlaceholderText="Düzeltme gerekçesi"/>
                             <Button Classes="Secondary" Content="Seçili Hareketi Ters Çevir"
                                     Command="{Binding ReverseEntryCommand}"/>
                         </StackPanel>
-                    </Border>
+                    </Expander>
 
                     <Border Classes="Table" MinHeight="220">
                         <DockPanel>
