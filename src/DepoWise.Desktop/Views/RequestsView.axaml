@@ -223,6 +223,16 @@
                                     <!-- Tek tik = secim. Cift tik = duzenleme formu (Malzemeler/Araclar ile AYNI davranis). -->
                                     <ListBox x:Name="TabloItems" Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                                              DoubleTapped="OnRowDoubleTapped">
+                                        <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu Classes="SatirMenusu">
+                                                <MenuItem Header="Düzenle" Command="{Binding BeginEditRequestCommand}" IsVisible="{Binding CanEditSelected}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                <MenuItem Header="PDF" Command="{Binding ExportPdfCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                <MenuItem Header="Ekonomik PDF" Command="{Binding ExportEconomicPdfCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="İptal Et" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                            </ContextMenu>
+                                        </ListBox.ContextMenu>
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <!-- Kolon 4: ONAY durumu · Kolon 5: OPERASYON durumu (Faz 1, madde 15-16).
@@ -289,8 +299,15 @@
                                                 <!-- ⭐ M-64 (Şablon B): ekranın tek ana düğmesi "Yeni Talep"; seçili talebin eylemleri ikincil, yıkıcı olan EN SONDA -->
                                                 <WrapPanel>
                                                     <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,8" Command="{Binding BeginEditRequestCommand}" IsVisible="{Binding CanEditSelected}"/>
-                                                    <Button Classes="Secondary" Content="PDF" Margin="0,0,8,8" Command="{Binding ExportPdfCommand}"/>
-                                                    <Button Classes="Secondary" Content="Ekonomik PDF" Margin="0,0,8,8" Command="{Binding ExportEconomicPdfCommand}"/>
+                                                    <!-- ⭐ iOS tasarım (2026-10-28): iki PDF çıktısı tek açılır düğmede (aynı komutlar) -->
+                                                    <Button Classes="Secondary" Content="PDF ▾" Margin="0,0,8,8" ToolTip.Tip="Talebi PDF olarak kaydet">
+                                                        <Button.Flyout>
+                                                            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                                                <MenuItem Header="PDF" Command="{Binding ExportPdfCommand}"/>
+                                                                <MenuItem Header="Ekonomik PDF" Command="{Binding ExportEconomicPdfCommand}"/>
+                                                            </MenuFlyout>
+                                                        </Button.Flyout>
+                                                    </Button>
                                                     <Button Classes="Danger" Content="İptal Et" Margin="0,0,8,8" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
                                                 </WrapPanel>
                                             </StackPanel>
@@ -311,7 +328,7 @@
                 <Grid RowDefinitions="Auto,*" Margin="0,12,0,0">
                     <ctrl:Toolbar Grid.Row="0" Title="Talep Onaylama (Bekleyen)">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                            <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 

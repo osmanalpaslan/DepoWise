@@ -138,7 +138,7 @@
                                 <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
                                         IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
                                         ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
-                                <Button Classes="Secondary" Content="Yenile" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                                <Button Classes="Secondary YenileDugme" Margin="8,0,0,0" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                                 <!-- ⭐ M-34: toplu dağıtım -->
                                 <Button Classes="Secondary" Content="Toplu Dağıtım" Margin="8,0,0,0" Command="{Binding ToggleTopluCommand}"
                                         ToolTip.Tip="Birden çok araca tek tabloda yakıt dağıtımı girer; sonda tek onay, tek işlem."/>
@@ -275,6 +275,14 @@
                                     </Grid>
                                 </Border>
                                 <ListBox x:Name="TabloDistributions" Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
+                                    <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu Classes="SatirMenusu">
+                                            <MenuItem Header="Düzenle" Command="{Binding BeginEditDistributionCommand}" IsVisible="{Binding CanEditFuel}" IsEnabled="{Binding SelectedDistribution, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Kaydı İptal Et" Command="{Binding CancelDistributionCommand}" IsVisible="{Binding CanCancelFuel}" IsEnabled="{Binding SelectedDistribution, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:FuelRow">
                                             <Grid ctrl:ColumnRules.Enabled="True">
@@ -468,7 +476,7 @@
                                 <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
                                         IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDepotEntryCommand}"
                                         ToolTip.Tip="Seçili depo girişini iptal eder. Bakiyeyi eksiye düşürecekse engellenir."/>
-                                <Button Classes="Secondary" Content="Yenile" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                                <Button Classes="Secondary YenileDugme" Margin="8,0,0,0" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                             </StackPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
@@ -563,6 +571,12 @@
                                     </Grid>
                                 </Border>
                                 <ListBox x:Name="TabloDepotEntries" Classes="Table" ItemsSource="{Binding DepotEntries}" SelectedItem="{Binding SelectedDepotEntry}">
+                                    <!-- ⭐ iOS tasarım (2026-10-28): satır SAĞ TIK menüsü — seçili kayıt işlemleri (ekrandaki düğmelerle aynı komut ve koşul) -->
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu Classes="SatirMenusu">
+                                            <MenuItem Header="Kaydı İptal Et" Command="{Binding CancelDepotEntryCommand}" IsVisible="{Binding CanCancelFuel}" IsEnabled="{Binding SelectedDepotEntry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="op:FuelDepotRow">
                                             <Grid ctrl:ColumnRules.Enabled="True">

@@ -21,8 +21,8 @@
                         <DataTemplate x:DataType="sec:UserRow"><SelectableTextBlock Text="{Binding Username}"/></DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"
-                        IsVisible="{Binding !IsEditing}"/>
+                <Button Classes="Secondary YenileDugme" Command="{Binding LoadUsersCommand}"
+                        IsVisible="{Binding !IsEditing}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
 
                 <!-- YET-C3 (2026-08-19): ROL aynı ekranda. Rol, kullanıcının alabileceği yetkilerin
                      ÜST SINIRINI belirler; ayrı ekrana gitmek gerekmesin diye buraya alındı.

@@ -21,7 +21,7 @@
                             Command="{Binding UploadPhotosToServerCommand}" IsEnabled="{Binding !PhotoBusy}"
                             ToolTip.Tip="Bu bilgisayardaki araç/malzeme fotoğraflarını sunucuya yükler; hiçbir fotoğraf silinmez, zaten yüklü olanlar atlanır. Fotoğrafların BULUNDUĞU bilgisayarda çalıştırın."/>
                     <Button Classes="Secondary" Content="Klasörü Aç" Command="{Binding OpenFolderCommand}"/>
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

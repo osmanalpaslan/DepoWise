@@ -24,6 +24,7 @@ public class IosTasarimTests
     {
         "VehiclesView", "MaterialsView", "EquipmentView", "PersonnelView", "WorkOrdersView", "MaterialTemplatesView",
         "VehicleTemplatesView", "DocumentsView", "ProjectsView", "CostCentersView", "BranchesView", "AnnouncementsView", "CalendarView",
+        "RequestsView", "FuelView",
     }.Select(x => new object[] { x });
 
     [Theory]
@@ -62,5 +63,25 @@ public class IosTasarimTests
         var k = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Controls", "TableRowSelect.cs"));
         Assert.Contains("if (!tus.IsLeftButtonPressed && !tus.IsRightButtonPressed) return;", k);
         Assert.DoesNotContain("if (!e.GetCurrentPoint(list).Properties.IsLeftButtonPressed) return;", k);
+    }
+
+    /// <summary>IOS-YEN1 — "Yenile" yazılı düğme kalmadı; hepsi simgeli kare düğme, ekran okuyucu adı "Yenile" ve ipucu "Yenile (F5)".</summary>
+    [Fact]
+    public void IOSYEN1_Yenile_Simgeli_Ve_Erisilebilir()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        int adet = 0;
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+        {
+            var x = File.ReadAllText(f);
+            Assert.DoesNotContain("Content=\"Yenile\"", x);
+            foreach (Match m in Regex.Matches(x, @"<Button\s[^>]*YenileDugme[^>]*>"))
+            {
+                adet++;
+                Assert.Contains("AutomationProperties.Name=\"Yenile\"", m.Value);
+                Assert.Contains("ToolTip.Tip=\"Yenile (F5)\"", m.Value);
+            }
+        }
+        Assert.True(adet >= 30, "simgeli yenile düğmesi: " + adet);
     }
 }

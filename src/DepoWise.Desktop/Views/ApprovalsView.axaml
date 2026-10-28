@@ -16,7 +16,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Onaylamalarım">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding YenileCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                     <!-- M-61/K-10: Reddet solda, Onayla sağda (birincil en sağda) -->
                     <Button Classes="Secondary" Content="Reddet" Command="{Binding RejectCommand}"/>
                     <Button Classes="Secondary" Content="Onayla" Command="{Binding ApproveCommand}"/>

@@ -21,7 +21,7 @@
                     <ctrl:LookupBox Width="200" IsVisible="{Binding IsSuperAdmin}"
                                     ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}"
                                     PlaceholderText="Firma seç / ara..."/>
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

@@ -341,6 +341,20 @@
         <Setter Property="Background" Value="Transparent"/>
     </Style>
 
+    <!-- Yenile: yazı yerine simgeli kare düğme (iOS gibi sade; F5 kısayolu aynı işi yapar) -->
+    <Style Selector="Button.YenileDugme">
+        <Setter Property="Width" Value="38"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.YenileDugme PathIcon">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+
     <!-- Tipografi -->
     <Style Selector=":is(TextBlock).IosBaslik">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>

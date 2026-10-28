@@ -13,7 +13,7 @@
                 <PathIcon Width="20" Height="20" VerticalAlignment="Center"
                           Foreground="{DynamicResource AccentBrush}" Data="{DynamicResource IconAlerts}"/>
                 <SelectableTextBlock Text="Uyarılar" Classes="SectionTitle" VerticalAlignment="Center"/>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}" Margin="12,0,0,0"/>
+                <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" Margin="12,0,0,0" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
             </StackPanel>
             <SelectableTextBlock Classes="Helper"
                 Text="Aktif uyarılar kategori başlıkları altında (bakım, muayene/sigorta, stok, yakıt, evrak, iş emri, talep). 'Okundu' yalnız çan sayacını ve ana ekranı sakinleştirir — uyarı aktif olduğu sürece burada kalır, durumu kötüleşirse yeniden okunmamış olur."/>

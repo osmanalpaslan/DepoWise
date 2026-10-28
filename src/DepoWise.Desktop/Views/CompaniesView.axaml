@@ -13,7 +13,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Firma Tanım (Süper Admin)"
                       PrimaryActionText="Yeni Firma" PrimaryActionCommand="{Binding NewCompanyCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding RefreshCommand}"/>
+                <Button Classes="Secondary YenileDugme" Command="{Binding RefreshCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 

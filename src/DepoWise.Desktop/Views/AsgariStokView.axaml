@@ -14,7 +14,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Asgari Stok Önerileri">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
                             ToolTip.Tip="Ekrandaki önerilerin TAMAMINI (seçili depo için) Excel dosyasına aktarır."/>
                 </StackPanel>

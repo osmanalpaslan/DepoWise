@@ -65,7 +65,7 @@
             </Border>
 
             <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
-                <Button x:Name="RefreshBtn" Classes="Secondary" Content="Yenile"/>
+                <Button x:Name="RefreshBtn" Classes="Secondary YenileDugme" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                 <Button x:Name="CloseBtn" Classes="Primary" Content="Kapat" IsCancel="True"/>
             </StackPanel>
         </Grid>

@@ -18,7 +18,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Ekipler">
             <ctrl:Toolbar.FilterContent>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding YenileCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding YenileCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

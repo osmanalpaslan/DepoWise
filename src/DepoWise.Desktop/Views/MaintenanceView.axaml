@@ -26,7 +26,7 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Bakım Tanımları"
                                   PrimaryActionText="{Binding AddDefButtonText}" PrimaryActionCommand="{Binding ToggleDefAddCommand}">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadDefsCommand}"/>
+                            <Button Classes="Secondary YenileDugme" Command="{Binding LoadDefsCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -171,7 +171,7 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Araç Bakımları"
                                   PrimaryActionText="{Binding AddMntButtonText}" PrimaryActionCommand="{Binding ToggleMntAddCommand}">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadMaintCommand}"/>
+                            <Button Classes="Secondary YenileDugme" Command="{Binding LoadMaintCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -510,7 +510,7 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Ekipman Bakımları">
                         <ctrl:Toolbar.FilterContent>
                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadEquipmentTabCommand}"/>
+                                <Button Classes="Secondary YenileDugme" Command="{Binding LoadEquipmentTabCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                                 <Button Classes="Secondary" Content="Kaydet" Command="{Binding SaveEquipmentMaintenanceCommand}"/>
                                 <Button Classes="Secondary" Content="İptal Et" Command="{Binding CancelEquipmentMaintenanceCommand}"/>
                             </StackPanel>
@@ -593,7 +593,7 @@
                 <Grid RowDefinitions="Auto,*" Margin="0,12,0,0">
                     <ctrl:Toolbar Grid.Row="0" Title="Periyodik Bakım Uyarıları">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadAlertsCommand}"/>
+                            <Button Classes="Secondary YenileDugme" Command="{Binding LoadAlertsCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
                     <Panel Grid.Row="1" Margin="0,16,0,0">

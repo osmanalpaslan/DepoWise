@@ -15,7 +15,7 @@
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                     <SelectableTextBlock Text="Kurulu sürüm:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                    <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

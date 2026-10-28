@@ -20,7 +20,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Kullanıcılar"
                       PrimaryActionText="Yeni Kullanıcı" PrimaryActionCommand="{Binding NewUserCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                <Button Classes="Secondary YenileDugme" Command="{Binding LoadCommand}" ToolTip.Tip="Yenile (F5)" AutomationProperties.Name="Yenile"><PathIcon Data="{DynamicResource IconSync}"/></Button>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
