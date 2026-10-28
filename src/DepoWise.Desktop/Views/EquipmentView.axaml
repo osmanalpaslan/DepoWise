@@ -25,8 +25,7 @@
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
-                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur"/>
+                    <!-- iOS tasarım (2026-10-28): QR Etiketi ekipman kartında ve satır sağ tık menüsünde -->
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -124,45 +123,66 @@
 
             <!-- Detay -->
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+              <DockPanel>
+                <!-- M-64: yıkıcı eylem kartın en altında -->
+                <WrapPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                    <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                </WrapPanel>
                 <ScrollViewer>
                     <StackPanel Spacing="12">
-                        <SelectableTextBlock Text="{Binding Selected.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
-                            <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                        <!-- ⭐ iOS tasarım (2026-10-28): kart başı — simge, ad, kod; altında yuvarlak eylem düğmeleri -->
+                        <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0,4,0,2">
+                            <Border Classes="IkonKutu" Width="64" Height="64" CornerRadius="18" Background="#4F5BD5" HorizontalAlignment="Center">
+                                <PathIcon Width="32" Height="32" Data="{DynamicResource IconEquipment}"/>
+                            </Border>
+                            <SelectableTextBlock Text="{Binding Selected.Name}" Classes="PageTitle" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center"/>
+                            <SelectableTextBlock Text="{Binding Selected.Code}" Classes="Helper" HorizontalAlignment="Center"/>
                         </StackPanel>
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="{Binding Selected.Code}" Classes="Body"/>
-                        <SelectableTextBlock Text="{Binding Selected.TypeDisplay}" Classes="Body"/>
-                        <SelectableTextBlock Text="{Binding Selected.StatusDisplay}" Classes="Body"/>
-                        <SelectableTextBlock Text="{Binding Selected.BranchDisplay}" Classes="Body"/>
-                        <SelectableTextBlock Text="{Binding Selected.SerialDisplay}" Classes="Helper"/>
-                        <SelectableTextBlock Text="{Binding Selected.Location}" Classes="Helper" TextWrapping="Wrap"
-                                   IsVisible="{Binding Selected.Location, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
-                                   IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <UniformGrid Rows="1" ColumnSpacing="6">
+                            <Button Classes="IosEylem" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" ToolTip.Tip="Ekipmanı düzenle">
+                                <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconEdit}"/></Border><TextBlock Text="Düzenle"/></StackPanel>
+                            </Button>
+                            <Button Classes="IosEylem" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                                    ToolTip.Tip="Seçili ekipmanın koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur">
+                                <StackPanel Spacing="6"><Border><PathIcon Data="F0 M3 3h7v7H3Z M5 5v3h3V5Z M14 3h7v7h-7Z M16 5v3h3V5Z M3 14h7v7H3Z M5 16v3h3v-3Z M14 14h3v3h-3Z M18 14h3v3h-3Z M14 18h3v3h-3Z M18 18h3v3h-3Z"/></Border><TextBlock Text="QR Etiketi"/></StackPanel>
+                            </Button>
+                        </UniformGrid>
+                        <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,10">
+                            <StackPanel Spacing="4">
+                                <SelectableTextBlock Text="{Binding Selected.TypeDisplay}" Classes="Body"/>
+                                <SelectableTextBlock Text="{Binding Selected.StatusDisplay}" Classes="Body"/>
+                                <SelectableTextBlock Text="{Binding Selected.BranchDisplay}" Classes="Body"/>
+                                <SelectableTextBlock Text="{Binding Selected.SerialDisplay}" Classes="Helper"/>
+                                <SelectableTextBlock Text="{Binding Selected.Location}" Classes="Helper" TextWrapping="Wrap"
+                                           IsVisible="{Binding Selected.Location, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                <SelectableTextBlock Text="{Binding Selected.Description}" Classes="Helper" TextWrapping="Wrap"
+                                           IsVisible="{Binding Selected.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+                        </Border>
                         <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
                         <ctrl:KayitBelgeleri DataContext="{Binding Belgeler}" Margin="0,8,0,8"/>
-                        <!-- ⭐ M-48: TAŞIMA + KONUM GEÇMİŞİ -->
-                        <Border Classes="Divider"/>
-                        <SelectableTextBlock Text="TAŞI" Classes="SectionTitle" IsVisible="{Binding CanEdit}"/>
-                        <StackPanel Spacing="6" IsVisible="{Binding CanEdit}">
+                        <!-- ⭐ M-48: TAŞIMA + KONUM GEÇMİŞİ — iOS tasarım: açılır bölümler -->
+                        <Expander Classes="IosAcilir" Header="Taşı (başka şube / konuma)" IsExpanded="False" IsVisible="{Binding CanEdit}">
+                        <StackPanel Spacing="6">
                             <ctrl:LookupBox ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding TasimaSube}" PlaceholderText="Hedef şube / şantiye..."/>
                             <TextBox Classes="Field" Text="{Binding TasimaKonum}" PlaceholderText="Konum (ör. 3. kat, konteyner) — opsiyonel"/>
                             <TextBox Classes="Field" Text="{Binding TasimaNot}" PlaceholderText="Not (ör. kamyonla, irsaliye no) — opsiyonel"/>
                             <Button Classes="Secondary" Content="Taşı" Command="{Binding TasiCommand}"
                                     ToolTip.Tip="Ekipmanı hedef şubeye/konuma taşır; kimden, kime, ne zaman bilgisi konum geçmişine yazılır."/>
                         </StackPanel>
-                        <SelectableTextBlock Text="KONUM GEÇMİŞİ" Classes="SectionTitle" IsVisible="{Binding HasKonumGecmisi}"/>
-                        <ItemsControl ItemsSource="{Binding KonumGecmisi}" IsVisible="{Binding HasKonumGecmisi}">
+                        </Expander>
+                        <Expander Classes="IosAcilir" Header="Konum geçmişi" IsExpanded="False" IsVisible="{Binding HasKonumGecmisi}">
+                        <ItemsControl ItemsSource="{Binding KonumGecmisi}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="eq:EkipmanTasima">
                                     <SelectableTextBlock Text="{Binding Satir}" Classes="Helper" TextWrapping="Wrap"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
+              </DockPanel>
             </Border>
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
                 <SelectableTextBlock Text="Detay için bir ekipman seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>

@@ -33,8 +33,7 @@
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
                     <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
-                    <Button Classes="Secondary" Content="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
-                            ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur"/>
+                    <!-- iOS tasarım (2026-10-28): QR Etiketi malzeme kartındaki yuvarlak eylem düğmesinde ve satır sağ tık menüsünde -->
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -704,7 +703,9 @@
             <DockPanel>
               <!-- Eylemler (VM bağlamı) -->
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
-                <SelectableTextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
+                <!-- ⭐ iOS tasarım (2026-10-28): ilk fotoğraf kart başında; tümü açılır bölümde (kapalı) -->
+                <Expander Classes="IosAcilir" Header="{Binding DetailPhotos.Count, StringFormat='Fotoğraflar ({0})'}" IsExpanded="False"
+                          IsVisible="{Binding KapakFotoVar}">
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -724,12 +725,17 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint"
-                                     IsVisible="{Binding PhotosOffline}" TextWrapping="Wrap"/>
+                </Expander>
+                <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint" TextWrapping="Wrap">
+                    <SelectableTextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="PhotosOffline"/>
+                            <Binding Path="KapakFotoVar"/>
+                        </MultiBinding>
+                    </SelectableTextBlock.IsVisible>
+                </SelectableTextBlock>
                 <WrapPanel>
-                  <!-- M-64: ekranın tek ana düğmesi araç çubuğunda; seçili kayıt eylemleri ikincil, yıkıcı olan en sonda -->
-                  <Button Classes="Secondary" Content="Düzenle" Margin="0,0,8,0"
-                          Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                  <!-- M-64: yıkıcı eylem en sonda. iOS tasarım (2026-10-28): "Düzenle" kart başındaki yuvarlak eylem düğmelerinde. -->
                   <Button Classes="Danger" Content="Sil"
                           Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
                 </WrapPanel>
@@ -757,8 +763,24 @@
                                          TextAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <SelectableTextBlock Text="{Binding Detail.Code}" Classes="Helper" HorizontalAlignment="Center"/>
                 </StackPanel>
+                <UniformGrid Rows="1" ColumnSpacing="6" Margin="0,0,0,4">
+                    <Button Classes="IosEylem" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" ToolTip.Tip="Malzemeyi düzenle">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="{DynamicResource IconEdit}"/></Border><TextBlock Text="Düzenle"/></StackPanel>
+                    </Button>
+                    <Button Classes="IosEylem" Command="{Binding QrLabelCommand}" IsEnabled="{Binding HasSelection}"
+                            ToolTip.Tip="Seçili malzemenin koduyla yazdırılabilir QR etiketi (PNG) üretir — Ctrl+K ile açılan aramada okutulunca bu kayıt bulunur">
+                      <StackPanel Spacing="6"><Border><PathIcon Data="F0 M3 3h7v7H3Z M5 5v3h3V5Z M14 3h7v7h-7Z M16 5v3h3V5Z M3 14h7v7H3Z M5 16v3h3v-3Z M14 14h3v3h-3Z M18 14h3v3h-3Z M14 18h3v3h-3Z M18 18h3v3h-3Z"/></Border><TextBlock Text="QR Etiketi"/></StackPanel>
+                    </Button>
+                </UniformGrid>
               <StackPanel Spacing="10" DataContext="{Binding Detail}">
-                <Border Classes="Divider"/>
+                <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <SelectableTextBlock Grid.Column="0" Text="Mevcut stok" Classes="Helper" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding Stock}" FontSize="24" FontWeight="ExtraBold"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Grid>
+                </Border>
+                <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" >
                   <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Tür" Classes="Helper" Margin="0,2,12,2"/>
                   <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Type}" Classes="Body"/>
@@ -775,19 +797,15 @@
                   <SelectableTextBlock Grid.Row="6" Grid.Column="0" Text="Birim Fiyat" Classes="Helper" Margin="0,2,12,2"/>
                   <SelectableTextBlock Grid.Row="6" Grid.Column="1" Classes="Body" Text="{Binding UnitPrice}"/>
                 </Grid>
-
-                <StackPanel Spacing="2">
-                    <SelectableTextBlock Text="Mevcut Stok" Classes="Helper"/>
-                    <SelectableTextBlock Text="{Binding Stock}" Classes="Metric"/>
-                </StackPanel>
+                </Border>
 
                 <StackPanel IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="2">
                     <SelectableTextBlock Text="Açıklama" Classes="Helper"/>
                     <SelectableTextBlock Text="{Binding Description}" Classes="Body" TextWrapping="Wrap"/>
                 </StackPanel>
 
-                <Border Classes="Divider"/>
-                <SelectableTextBlock Text="MUADİLLER" Classes="SectionTitle"/>
+                <!-- ⭐ iOS tasarım (2026-10-28): seyrek bölümler açılır (kapalı); depo kırılımı açık -->
+                <Expander Classes="IosAcilir" Header="Muadiller" IsExpanded="False">
                 <ItemsControl ItemsSource="{Binding Equivalents}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="m:MaterialRefRow">
@@ -800,8 +818,9 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </Expander>
 
-                <SelectableTextBlock Text="UYUMLU ARAÇLAR" Classes="SectionTitle"/>
+                <Expander Classes="IosAcilir" Header="Uyumlu araçlar" IsExpanded="False">
                 <ItemsControl ItemsSource="{Binding CompatibleVehicles}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="m:MaterialRefRow">
@@ -814,14 +833,14 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </Expander>
 
                 <!-- STK-05: DEPO KIRILIMI — malzeme kartı FİRMA GENELİdir, stok DEPO BAZLIdır.
                      Üstteki "Stok" alanı tüm depoların TOPLAMIdır; buradaki satırlar hangi depoda ne kadar
                      olduğunu gösterir. "Atanmamış" bir depo DEĞİLDİR: geçmişte lokasyonu girilmemiş stoktur. -->
-                <SelectableTextBlock Text="DEPO KIRILIMI" Classes="SectionTitle"
-                                     IsVisible="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).HasLocationBalances}"/>
-                <ItemsControl ItemsSource="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).LocationBalances}"
-                              IsVisible="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).HasLocationBalances}">
+                <Expander Classes="IosAcilir" Header="Depo kırılımı" IsExpanded="True"
+                          IsVisible="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).HasLocationBalances}">
+                <ItemsControl ItemsSource="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).LocationBalances}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="m:StockLocationBalance">
                             <Grid ColumnDefinitions="*,Auto" Margin="0,2">
@@ -834,12 +853,13 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </Expander>
 
                 <!-- ⭐ M-56 (F-090): kayda bağlı belgeler -->
                 <ctrl:KayitBelgeleri DataContext="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).Belgeler}" Margin="0,8,0,8"/>
                 <!-- İşlem Geçmişi (madde 4, kullanıcı isteği 2026-08-06): TÜM stok hareketleri, kronolojik.
                      Çift tık → salt-okunur detay + "Kaydı Görüntüle" (madde 5). -->
-                <SelectableTextBlock Text="İŞLEM GEÇMİŞİ" Classes="SectionTitle"/>
+                <Expander Classes="IosAcilir" Header="İşlem geçmişi" IsExpanded="False">
                 <ListBox x:Name="HistoryList" ItemsSource="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).MaterialHistory}" MaxHeight="220"
                          DoubleTapped="OnHistoryDoubleTapped">
                     <ListBox.ItemTemplate>
@@ -856,6 +876,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                </Expander>
               </StackPanel>
               </StackPanel>
               </ScrollViewer>

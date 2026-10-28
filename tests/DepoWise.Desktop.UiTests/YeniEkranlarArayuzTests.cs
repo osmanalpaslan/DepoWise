@@ -874,6 +874,27 @@ public class YeniEkranlarArayuzTests
         return d!.FullName;
     }
 
+    /// <summary>UIT-IOS7 — ⭐ iOS tasarım (2026-10-28): malzeme kartı — kart başında yuvarlak eylem düğmeleri (Düzenle, QR Etiketi);
+    /// seyrek bölümler (Muadiller, Uyumlu araçlar, İşlem geçmişi) kapalı başlayan açılır bölüm; "Sil" kartın altında kalır.</summary>
+    [AvaloniaFact]
+    public void UITIOS7_Malzeme_Karti_Eylemler_Ve_Acilir_Bolumler()
+    {
+        var vm = new MaterialsViewModel(Ortam());
+        var view = new MaterialsView { DataContext = vm };
+        var w = Ac(view, 1400, 900);
+        for (int i = 0; i < 50 && vm.Items.Count == 0; i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        vm.Selected = vm.Items.First();
+        for (int i = 0; i < 30; i++) { Thread.Sleep(10); Dispatcher.UIThread.RunJobs(); }
+        var eylemler = Gorunen<Button>(view).Where(b => b.Classes.Contains("IosEylem"))
+            .SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)).ToList();
+        Assert.Contains("QR Etiketi", eylemler);
+        var acilirlar = view.GetVisualDescendants().OfType<Expander>().Where(e => e.Classes.Contains("IosAcilir")).ToList();
+        foreach (var ad in new[] { "Muadiller", "Uyumlu araçlar", "İşlem geçmişi" })
+            Assert.False(Assert.Single(acilirlar, e => (e.Header as string) == ad).IsExpanded);
+        Goruntu(w, "malzeme-kart-ios");
+        w.Close();
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
