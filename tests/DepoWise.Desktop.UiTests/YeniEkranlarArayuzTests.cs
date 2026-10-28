@@ -788,7 +788,11 @@ public class YeniEkranlarArayuzTests
         Dispatcher.UIThread.RunJobs();
         Assert.True(vm.ShowAdd);
         var gruplar = view.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("IosFormGrup") && b.IsEffectivelyVisible).ToList();
-        Assert.True(gruplar.Count >= 7, "görünür form grubu: " + gruplar.Count);            // kiralık dışında 7 bölüm
+        Assert.True(gruplar.Count >= 6, "görünür form grubu: " + gruplar.Count);            // kiralık dışında 7 bölüm; "Teknik" açılır (kapalı)
+        var teknik = view.GetVisualDescendants().OfType<Expander>().Single(e => (e.Header as string)?.StartsWith("Teknik") == true);
+        Assert.False(teknik.IsExpanded);                                                      // yeni kayıtta kapalı başlar
+        teknik.IsExpanded = true; Dispatcher.UIThread.RunJobs();
+        Assert.True(view.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("IosFormGrup") && b.IsEffectivelyVisible) >= 7);
         var metinler = Gorunen<TextBlock>(view).Select(t => t.Text).ToList();
         Assert.Contains("Önizleme", metinler);
         Assert.Contains("Kontrol listesi", metinler);

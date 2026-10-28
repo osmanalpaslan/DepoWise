@@ -329,7 +329,8 @@
                 </StackPanel></Border>
 
                 <!-- Teknik -->
-                <SelectableTextBlock Text="Teknik" Classes="IosFormBaslik"/>
+                <!-- iOS tasarım: isteğe bağlı teknik bilgiler açılır bölümde (yeni kayıtta kapalı, düzenlemede açık) -->
+                <Expander Classes="IosAcilir" Header="Teknik (şasi no, motor no)" IsExpanded="{Binding IsEditMode, Mode=OneWay}">
                 <Border Classes="IosFormGrup"><StackPanel Spacing="12">
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Şasi No" Width="240">
@@ -341,6 +342,7 @@
                 </StackPanel>
 
                 </StackPanel></Border>
+                </Expander>
 
                 <!-- Fotoğraflar -->
                 <SelectableTextBlock Text="Fotoğraflar" Classes="IosFormBaslik"/>
@@ -944,7 +946,9 @@
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
             <DockPanel>
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
-                <SelectableTextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
+                <!-- ⭐ iOS tasarım (2026-10-28): ilk fotoğraf kart başında; tümü açılır bölümde (varsayılan kapalı) → kart ferahlar -->
+                <Expander Classes="IosAcilir" Header="{Binding DetailPhotos.Count, StringFormat='Fotoğraflar ({0})'}" IsExpanded="False"
+                          IsVisible="{Binding KapakFotoVar}">
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -963,8 +967,16 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint"
-                                     IsVisible="{Binding PhotosOffline}" TextWrapping="Wrap"/>
+                </Expander>
+                <!-- çevrimdışı notu yalnız gösterilecek fotoğraf varken (fotoğrafsız araçta gereksiz kalabalık) -->
+                <SelectableTextBlock Text="{Binding PhotosOfflineNote}" Classes="Hint" TextWrapping="Wrap">
+                    <SelectableTextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="PhotosOffline"/>
+                            <Binding Path="KapakFotoVar"/>
+                        </MultiBinding>
+                    </SelectableTextBlock.IsVisible>
+                </SelectableTextBlock>
                 <!-- ⭐ M-39: KİRA SÖZLEŞMESİ — kiralayan/kiracı cari + yön (K-19: borç/alacak faturayla) -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsRentalMode}">
                   <SelectableTextBlock Text="KİRA SÖZLEŞMESİ" Classes="Helper"/>
@@ -1088,8 +1100,9 @@
                                                IsVisible="{Binding EskiSayacUyarisi, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         </StackPanel>
                         <!-- ⭐ M-36: SAYAÇ GEÇMİŞİ — yanlış okuma kayıt iptal edilmeden "geçersiz" sayılır -->
-                        <StackPanel Spacing="2" IsVisible="{Binding HasSayacGecmisi}">
-                          <SelectableTextBlock Text="SAYAÇ GEÇMİŞİ" Classes="Helper"/>
+                        <!-- ⭐ iOS tasarım (2026-10-28): açılır bölüm (varsayılan kapalı) -->
+                        <Expander Classes="IosAcilir" Header="Sayaç geçmişi" IsExpanded="False" IsVisible="{Binding HasSayacGecmisi}">
+                        <StackPanel Spacing="2">
                           <ItemsControl ItemsSource="{Binding SayacGecmisi}" MaxHeight="220">
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="inf:SayacOkumasi">
@@ -1105,9 +1118,10 @@
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
                         </StackPanel>
-                        <!-- ⭐ M-43: GÜNLÜK KONTROL LİSTESİ — uygun olmayan madde → isteğe bağlı arıza bildir -->
-                        <StackPanel Spacing="4" IsVisible="{Binding CanEdit}">
-                          <SelectableTextBlock Text="GÜNLÜK KONTROL" Classes="Helper"/>
+                        </Expander>
+                        <!-- ⭐ M-43: GÜNLÜK KONTROL LİSTESİ — uygun olmayan madde → isteğe bağlı arıza bildir. iOS tasarım: açılır bölüm (kapalı) -->
+                        <Expander Classes="IosAcilir" Header="Günlük kontrol" IsExpanded="False" IsVisible="{Binding CanEdit}">
+                        <StackPanel Spacing="4">
                           <ItemsControl ItemsSource="{Binding KontrolMaddeleri}">
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:KontrolMaddesiSatiri">
@@ -1130,6 +1144,7 @@
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
                         </StackPanel>
+                        </Expander>
                         <StackPanel Spacing="2"
                                     IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                           <SelectableTextBlock Text="Durum Açıklaması" Classes="Helper"/>
