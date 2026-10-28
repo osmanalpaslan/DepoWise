@@ -13,6 +13,7 @@
 - 74b09214 Duyurular/Yakıt seçili kayıt işlemleri "•••" menüsünde, Takvim Sil kırmızı. Faturalar çubuğu bilinçli olarak aynı (Muhasebe Aktarımı dönem seçiciyle birlikte çalışır).
 - KARAR: tablo satırlarına simge EKLENMEDİ — sütun genişlikleri kullanıcı isteğiyle (2026-08-06) kaydedilebilir/sabit (Min=Max ColWidths) ve hiza testleri bunu korur; simge seçili kayıt kartında.
 - Tasarım önerileri (kullanıcı onayı 2026-10-29, 6/6 TAMAM): 1a285a2e boş ekranda ana eylem düğmesi · 29aa06bc "İşlem tamam" bildirimi iOS kartı ("Geri al" YOK: ters kayıt = iş kuralı, onay gerekir) · 49468f79 ilk yüklemede iskelet · f1978634 durum filtre hapları (7 ekran) · 41368581 basılınca küçülme + 120 ms geçişler · 51ed44f9 ana ekran "Son 6 Ay Yakıt" grafiği. Arayüz 83/83.
+- Hata maddeleri (2026-10-29, 3/3 TAMAM): 50054da2 Eksi stok raporu "Son Çıkış Notu" bakım kimliği yerine okunur ad · 3d1701a4 Giriş-Çıkış son hareketler sütun filtreleri (masaüstü+web+API) · 9d94ab0e tablolarda hücre boşluğu (yazı çizgiye değmez). Rapor 531/531, API/parite 256/256, arayüz 84/84.
 - Kalan: tanım/ayar/rapor ekranları (genel iOS stilleri zaten uygulanıyor; ekran ekran ince ayar).
 
 ## 📌 2026-10-28 ÇALIŞMA BİÇİMİ — TOPLU YAYIN (kullanıcı kararı, kalıcı)
