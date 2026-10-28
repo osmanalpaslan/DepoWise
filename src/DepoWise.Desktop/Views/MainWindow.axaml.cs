@@ -39,9 +39,29 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 
+    // ⭐ iOS tasarım madde 2 (2026-10-29): kart Themes/Ios.axaml "IosBildirim" ile çizilir; içerik yeşil onay kutusu + başlık + mesaj.
+    // "Geri al" bilinçli olarak YOK: kayıtlar fiziksel silinmez, geri alma ters kayıt ister (iş kuralı değişikliği → onay gerekir).
     private void BildirimGoster(string mesaj)
-        => Avalonia.Threading.Dispatcher.UIThread.Post(() => _bildirim?.Show(new Avalonia.Controls.Notifications.Notification(
-            "İşlem tamam", mesaj, Avalonia.Controls.Notifications.NotificationType.Success, System.TimeSpan.FromSeconds(4))));
+        => Avalonia.Threading.Dispatcher.UIThread.Post(() => _bildirim?.Show(BildirimIcerik(mesaj),
+            Avalonia.Controls.Notifications.NotificationType.Success, System.TimeSpan.FromSeconds(4), classes: new[] { "IosBildirim" }));
+
+    internal static Control BildirimIcerik(string mesaj)
+    {
+        var simge = new PathIcon();
+        simge.Bind(PathIcon.DataProperty, simge.GetResourceObservable("IconCheck"));
+        var kutu = new Border
+        {
+            Classes = { "IkonKutu" },
+            Background = Avalonia.Media.Brush.Parse("#34C759"),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Child = simge,
+        };
+        var metin = new StackPanel { Spacing = 2, Margin = new Avalonia.Thickness(12, 0, 0, 0) };
+        metin.Children.Add(new TextBlock { Classes = { "Baslik" }, Text = "İşlem tamam" });
+        metin.Children.Add(new TextBlock { Classes = { "Mesaj" }, Text = mesaj });
+        DockPanel.SetDock(kutu, Dock.Left);
+        return new Border { Classes = { "IosBildirimIcerik" }, Child = new DockPanel { Children = { kutu, metin } } };
+    }
 
     /// <summary>BAR-01 (ADR-177): Ctrl+K → global arama kutusuna odak + tümünü seç. USB barkod/QR
     /// okuyucuyla taramadan önce tek tuşla kutuya gelinir; seçim sayesinde yeni tarama eskisini ezer.

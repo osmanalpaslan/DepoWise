@@ -918,6 +918,37 @@ public class YeniEkranlarArayuzTests
         }
     }
 
+    /// <summary>UIT-IOS9 — ⭐ iOS tasarım madde 2: başarı durumu ana pencerede iOS bildirim kartını açar (IosBildirim sınıfı,
+    /// renkli üst şerit gizli, "İşlem tamam" + mesaj); görüntü bildirim-ios.png. Hata metni kart AÇMAZ.</summary>
+    [AvaloniaFact]
+    public void UITIOS9_Basari_Bildirimi_Ios_Karti()
+    {
+        var shell = new ShellViewModel(Ortam());
+        try
+        {
+            var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            DepoWise.Desktop.Bildirimler.Durum("Malzeme kaydedilemedi: yetkiniz yok.");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(w.GetVisualDescendants().OfType<Avalonia.Controls.Notifications.NotificationCard>());
+
+            DepoWise.Desktop.Bildirimler.Durum("Malzeme kaydedildi.");
+            Dispatcher.UIThread.RunJobs();
+            var kart = Assert.Single(w.GetVisualDescendants().OfType<Avalonia.Controls.Notifications.NotificationCard>());
+            Assert.Contains("IosBildirim", kart.Classes);
+            var serit = kart.GetVisualDescendants().OfType<Panel>().FirstOrDefault(p => p.Name == "PART_HeaderBar");
+            Assert.True(serit is null || !serit.IsVisible, "renkli üst şerit görünür kaldı");
+            var metinler = kart.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("İşlem tamam", metinler);
+            Assert.Contains("Malzeme kaydedildi.", metinler);
+            for (var t = 0; t < 60; t++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); } // giriş animasyonu bitsin (görüntü için)
+            Goruntu(w, "bildirim-ios");
+            w.Close();
+        }
+        finally { shell.Release(); }
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
