@@ -16,8 +16,8 @@
 **YAYINLANDI (2026-10-28):** API + web + masaüstü 1.0.203 (imzalı, zorunlu) + imzalı kurulum aracı; tam takım 4629/4629. Ayrıntı CURRENT_PHASE.
 - **YENİ ÇALIŞMA BİÇİMİ (kullanıcı kararı 2026-10-28: "otomatik yayın turuna geçme, ben yayınlayalım dediğimde gerekli uzun testlerini yaparsın"):** düzeltme/geliştirmeler BİRİKTİRİLİR, her biri testli + ayrı commit + push, ama YAYIN YOK.
   Tam takım da yalnız yayın öncesi. Kullanıcı "yayınlayalım" deyince: tam koşu → `yayin` skill'i.
-- Açık: duman testi hesabında (süper admin yetkili TEST hesabı) iki adımlı girişi açmak KULLANICI ONAYI bekliyor
-  (`scripts/e2e_test_hesabi_mfa.mjs`); onaya kadar canlı duman testinin 9 testi kurulum ekranında kalır.
+- KAPANDI (2026-10-29, kullanıcı onayı): duman testi AYRI hesapla — `duman.test` (süper admin rolü, iki adımlı giriş AÇIK; `scripts/duman_test_hesabi_ac.mjs`).
+  Eski test kullanıcısı yanlışlıkla kullanıcının KENDİ hesabıydı → .env.test.local'dan silindi. Anahtarlar: .env.test.local + Drive `DepoWise_Anahtarlar`.
 - Kullanıcı ilk web girişinde iki adımlı girişi kurar (QR + kurtarma kodları kendisinde). Sonraki masaüstü yayınında
   `DEPOWISE_ADMIN_KOD` (o anki 6 haneli kod) gerekir.
 Gizli imza anahtarı: `~/.claude-yedek/anahtarlar/DepoWise_paket_imza_ozel.pem` (kullanıcı onayıyla özel GitHub yedeğinde).
