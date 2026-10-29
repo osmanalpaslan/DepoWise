@@ -106,195 +106,198 @@
         </Border>
 
         <!-- Tek form — Kayıt Tipi'ne göre alanlar değişir -->
-        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
             <!-- 2026-10-12: form yüksekliği SABİT piksel değil — ekran yüksekliğinin oranı (FormListeOrani, Depo Giriş ile aynı);
                  büyük ekranda form büyür, sığmazsa kendi içinde kayar, altta liste görünür kalır. -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormBaslik}" Classes="SectionTitle"/>
-                <!-- ⭐ 2026-10-25 tam düzenleme: araç devri kaydında kilitli alan notu -->
-                <ctrl:InfoBar Kind="Warning" Message="{Binding KilitliAlanNotu}"
-                              IsVisible="{Binding KilitliAlanNotu, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Kayıt Tipi" Width="160">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"
-                                  IsEnabled="{Binding TurSecilebilir}" ToolTip.Tip="Düzeltmede kayıt tipi değişmez (tip değişecekse kaydı iptal edip yeniden girin)."/>
-                    </ctrl:FormField>
-                    <!-- Araç: Depo Çıkışı'nda OPSİYONEL (malzeme çıkışı aracsız da olabilir), diğerlerinde zorunlu. -->
-                    <ctrl:FormField Label="Araç" IsRequired="{Binding !IsStockExit}" Width="240">
-                        <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
-                                        DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."
-                                        IsEnabled="{Binding AracSecilebilir}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Tarih" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormDate}"/>
-                    </ctrl:FormField>
-                </StackPanel>
+                <SelectableTextBlock Text="{Binding FormBaslik}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Faaliyet" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <!-- ⭐ 2026-10-25 tam düzenleme: araç devri kaydında kilitli alan notu -->
+                    <ctrl:InfoBar Kind="Warning" Message="{Binding KilitliAlanNotu}"
+                                  IsVisible="{Binding KilitliAlanNotu, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Kayıt Tipi" Width="160">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"
+                                      IsEnabled="{Binding TurSecilebilir}" ToolTip.Tip="Düzeltmede kayıt tipi değişmez (tip değişecekse kaydı iptal edip yeniden girin)."/>
+                        </ctrl:FormField>
+                        <!-- Araç: Depo Çıkışı'nda OPSİYONEL (malzeme çıkışı aracsız da olabilir), diğerlerinde zorunlu. -->
+                        <ctrl:FormField Label="Araç" IsRequired="{Binding !IsStockExit}" Width="240">
+                            <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
+                                            DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."
+                                            IsEnabled="{Binding AracSecilebilir}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tarih" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormDate}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
-                <!-- ===== HAREKET / TRANSFER ===== -->
-                <StackPanel Spacing="14" IsVisible="{Binding IsMovement}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <!-- "+" seçim standardı (kullanıcı isteği 2026-08-06, madde 5): arama-yazılabilir seçici. -->
-                        <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}"
-                                            PlaceholderText="Şube / şantiye seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}"
-                                            PlaceholderText="Şube / şantiye seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Operatör / Şoför" Width="200">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}"
-                                      PlaceholderText="Personel seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Süre (gün)" Width="120">
-                            <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <SelectableTextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
-                </StackPanel>
-
-                <!-- ===== BAKIM (+ İlave Yağ/İlave Filtre/Tamir — kullanıcı isteği 2026-07-19: AYNI alanlar,
-                     yalnız Bakım Tanımı/Alt Bakım bu 3 yeni türde YOK) ===== -->
-                <StackPanel Spacing="14" IsVisible="{Binding IsMaintenance}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsRealMaintenance}">
-                            <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
-                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}"
-                                                PlaceholderText="Bakım tanımı seç / ara..."/>
+                    <!-- ===== HAREKET / TRANSFER ===== -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsMovement}">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <!-- "+" seçim standardı (kullanıcı isteği 2026-08-06, madde 5): arama-yazılabilir seçici. -->
+                            <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}"
+                                                PlaceholderText="Şube / şantiye seç / ara..."/>
                             </ctrl:FormField>
-                            <ctrl:FormField Label="Alt Bakım" Width="240">
-                                <StackPanel Spacing="6">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}"
-                                                        PlaceholderText="Alt bakım seç / ara..."/>
-                                        <Button AutomationProperties.Name="Yeni alt bakım" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
-                                    </Grid>
-                                    <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
-                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
-                                        <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
-                                        <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
-                                    </Grid>
-                                </StackPanel>
+                            <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}"
+                                                PlaceholderText="Şube / şantiye seç / ara..."/>
                             </ctrl:FormField>
-                        </StackPanel>
-                        <ctrl:FormField Label="Teknisyen" Width="200">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}"
-                                      PlaceholderText="Personel seç / ara..."/>
+                            <ctrl:FormField Label="Operatör / Şoför" Width="200">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}"
+                                          PlaceholderText="Personel seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Süre (gün)" Width="120">
+                                <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                        <SelectableTextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
+                    </StackPanel>
+
+                    <!-- ===== BAKIM (+ İlave Yağ/İlave Filtre/Tamir — kullanıcı isteği 2026-07-19: AYNI alanlar,
+                         yalnız Bakım Tanımı/Alt Bakım bu 3 yeni türde YOK) ===== -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsMaintenance}">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsRealMaintenance}">
+                                <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}"
+                                                    PlaceholderText="Bakım tanımı seç / ara..."/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Alt Bakım" Width="240">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}"
+                                                            PlaceholderText="Alt bakım seç / ara..."/>
+                                            <Button AutomationProperties.Name="Yeni alt bakım" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
+                                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
+                                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <ctrl:FormField Label="Teknisyen" Width="200">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}"
+                                          PlaceholderText="Personel seç / ara..."/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <!-- 2026-10-04: TEK sayaç alanı — türü seçilen aracın sayacı; Bakımda zorunlu. -->
+                            <ctrl:FormField Label="{Binding MMeterLabel}" HelpText="{Binding MMeterHint}" Width="170">
+                                <NumericUpDown Classes="Field" Value="{Binding MMeter}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
+                                               IsEnabled="{Binding MMeterEnabled}"/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                        <!-- BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan oturum şubesi, kullanıcı
+                             değiştirebilir. "Atanmamış" seçenek olarak sunulmaz. Liste yereldendir (çevrimdışı). -->
+                        <ctrl:FormField HorizontalAlignment="Left" Label="Malzemenin çekildiği depo" Width="280"
+                                        HelpText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir."
+                                        IsVisible="{Binding !MntHasNoLocation}">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Branches}" SelectedItem="{Binding MntLocation}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <SelectableTextBlock IsVisible="{Binding MntHasNoLocation}" TextWrapping="Wrap" Classes="Helper"
+                                             Foreground="{DynamicResource WarningBrush}"
+                                             Text="Firmanızda tanımlı depo/şantiye yok. Kayıt yine de oluşturulur; malzemeler &quot;Atanmamış&quot; olarak düşülür."/>
+
+                        <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
+                            <StackPanel Spacing="6">
+                                <SelectableTextBlock Text="{Binding MntLocationText, StringFormat='Düşülecek depo: {0}'}"
+                                                     Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                                <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
+                                    <ScrollViewer>
+                                        <ItemsControl ItemsSource="{Binding MntMaterialResults}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:MaterialRefRow">
+                                                    <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Display}"
+                                                            Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).AddMntMaterialCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                                <ItemsControl ItemsSource="{Binding MntLines}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MntMaterialLine">
+                                            <!-- Bakım ekranıyla AYNI davranış (kullanıcı isteği 2026-08-08): işaretliyse
+                                                 malzeme kayda girer + maliyete dâhil olur, merkez depodan düşülmez. -->
+                                            <StackPanel Spacing="2" Margin="0,2">
+                                                <Grid ColumnDefinitions="*,120,Auto">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Display}" Classes="Body" VerticalAlignment="Center"/>
+                                                    <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                                    <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                            Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                                <CheckBox Content="Bakım Ekibi Stoğundan Kullanıldı" IsChecked="{Binding FromTeamStock, Mode=TwoWay}"
+                                                          ToolTip.Tip="İşaretlenirse merkez depo stoklarından düşülmez."/>
+                                                <SelectableTextBlock Text="İşaretlenirse merkez depo stoklarından düşülmez."
+                                                                     Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" Margin="24,0,0,0"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </ctrl:FormField>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <!-- 2026-10-04: TEK sayaç alanı — türü seçilen aracın sayacı; Bakımda zorunlu. -->
-                        <ctrl:FormField Label="{Binding MMeterLabel}" HelpText="{Binding MMeterHint}" Width="170">
-                            <NumericUpDown Classes="Field" Value="{Binding MMeter}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
-                                           IsEnabled="{Binding MMeterEnabled}"/>
+
+                    <!-- ===== DEPO ÇIKIŞI (MALZEME) — Giriş-Çıkış ile AYNI ortak servis (kullanıcı isteği 2026-08-07) ===== -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsStockExit}">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <ctrl:FormField Label="Çıkış Türü" Width="150">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Çıkacak Miktar" IsRequired="True" Width="140">
+                                <NumericUpDown Classes="Field" Value="{Binding ExitQuantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Hedef Şube / Şantiye" IsRequired="True" Width="200" IsVisible="{Binding ShowExitTargetBranch}">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ExitToBranch}"
+                                                PlaceholderText="Şube seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Teslim Alan (Personel)" Width="220" IsVisible="{Binding ShowExitPersonnel}">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding ExitPersonnel}"
+                                          PlaceholderText="Personel seç / ara..."/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                        <ctrl:FormField Label="Malzeme" IsRequired="True">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="Search" Text="{Binding ExitMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding ExitBalanceText}" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                </Grid>
+                                <Border Classes="Table" MaxHeight="130" IsVisible="{Binding ExitMaterialResults.Count}">
+                                    <ScrollViewer>
+                                        <ItemsControl ItemsSource="{Binding ExitMaterialResults}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:MaterialRefRow">
+                                                    <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Content="{Binding Display}"
+                                                            Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).PickExitMaterialCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
                         </ctrl:FormField>
                     </StackPanel>
-                    <!-- BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan oturum şubesi, kullanıcı
-                         değiştirebilir. "Atanmamış" seçenek olarak sunulmaz. Liste yereldendir (çevrimdışı). -->
-                    <ctrl:FormField HorizontalAlignment="Left" Label="Malzemenin çekildiği depo" Width="280"
-                                    HelpText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir."
-                                    IsVisible="{Binding !MntHasNoLocation}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding Branches}" SelectedItem="{Binding MntLocation}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <SelectableTextBlock IsVisible="{Binding MntHasNoLocation}" TextWrapping="Wrap" Classes="Helper"
-                                         Foreground="{DynamicResource WarningBrush}"
-                                         Text="Firmanızda tanımlı depo/şantiye yok. Kayıt yine de oluşturulur; malzemeler &quot;Atanmamış&quot; olarak düşülür."/>
 
-                    <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
-                        <StackPanel Spacing="6">
-                            <SelectableTextBlock Text="{Binding MntLocationText, StringFormat='Düşülecek depo: {0}'}"
-                                                 Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
-                            <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
-                                <ScrollViewer>
-                                    <ItemsControl ItemsSource="{Binding MntMaterialResults}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="m:MaterialRefRow">
-                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Display}"
-                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).AddMntMaterialCommand}"
-                                                        CommandParameter="{Binding}"/>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Border>
-                            <ItemsControl ItemsSource="{Binding MntLines}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:MntMaterialLine">
-                                        <!-- Bakım ekranıyla AYNI davranış (kullanıcı isteği 2026-08-08): işaretliyse
-                                             malzeme kayda girer + maliyete dâhil olur, merkez depodan düşülmez. -->
-                                        <StackPanel Spacing="2" Margin="0,2">
-                                            <Grid ColumnDefinitions="*,120,Auto">
-                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Display}" Classes="Body" VerticalAlignment="Center"/>
-                                                <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                                <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
-                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
-                                                        CommandParameter="{Binding}"/>
-                                            </Grid>
-                                            <CheckBox Content="Bakım Ekibi Stoğundan Kullanıldı" IsChecked="{Binding FromTeamStock, Mode=TwoWay}"
-                                                      ToolTip.Tip="İşaretlenirse merkez depo stoklarından düşülmez."/>
-                                            <SelectableTextBlock Text="İşaretlenirse merkez depo stoklarından düşülmez."
-                                                                 Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" Margin="24,0,0,0"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                    <ctrl:FormField Label="{Binding DescriptionLabel}">
+                        <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="44"/>
                     </ctrl:FormField>
-                </StackPanel>
-
-                <!-- ===== DEPO ÇIKIŞI (MALZEME) — Giriş-Çıkış ile AYNI ortak servis (kullanıcı isteği 2026-08-07) ===== -->
-                <StackPanel Spacing="14" IsVisible="{Binding IsStockExit}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Çıkış Türü" Width="150">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Çıkacak Miktar" IsRequired="True" Width="140">
-                            <NumericUpDown Classes="Field" Value="{Binding ExitQuantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Hedef Şube / Şantiye" IsRequired="True" Width="200" IsVisible="{Binding ShowExitTargetBranch}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ExitToBranch}"
-                                            PlaceholderText="Şube seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Teslim Alan (Personel)" Width="220" IsVisible="{Binding ShowExitPersonnel}">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding ExitPersonnel}"
-                                      PlaceholderText="Personel seç / ara..."/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <ctrl:FormField Label="Malzeme" IsRequired="True">
-                        <StackPanel Spacing="6">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBox Grid.Column="0" Classes="Search" Text="{Binding ExitMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding ExitBalanceText}" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                            </Grid>
-                            <Border Classes="Table" MaxHeight="130" IsVisible="{Binding ExitMaterialResults.Count}">
-                                <ScrollViewer>
-                                    <ItemsControl ItemsSource="{Binding ExitMaterialResults}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="m:MaterialRefRow">
-                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                        Content="{Binding Display}"
-                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).PickExitMaterialCommand}"
-                                                        CommandParameter="{Binding}"/>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Border>
-                        </StackPanel>
-                    </ctrl:FormField>
-                </StackPanel>
-
-                <ctrl:FormField Label="{Binding DescriptionLabel}">
-                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="44"/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

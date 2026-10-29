@@ -21,57 +21,60 @@
         <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
         <ctrl:SideSheet Grid.Row="2" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
             <StackPanel Spacing="14">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
-                    <ctrl:FormField Label="Firma Adı" IsRequired="True" Width="320">
-                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Firma" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                        <ctrl:FormField Label="Firma Adı" IsRequired="True" Width="320">
+                            <TextBox Classes="Field" Text="{Binding FormName}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Yetkili" Width="220">
+                            <TextBox Classes="Field" Text="{Binding FormAuthorized}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Maks. Admin (0=∞)" Width="150" HelpText="Admin kullanıcı kotası">
+                            <NumericUpDown Classes="Field" Value="{Binding FormMaxAdmins}" Minimum="0" Maximum="100000"
+                                           FormatString="0" ShowButtonSpinner="True"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Maks. Personel (0=∞)" Width="150" HelpText="Normal kullanıcı kotası">
+                            <NumericUpDown Classes="Field" Value="{Binding FormMaxUsers}" Minimum="0" Maximum="100000"
+                                           FormatString="0" ShowButtonSpinner="True"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Makine Kotası (0=∞)" Width="150" HelpText="Kayıtlı makine sayısı">
+                            <NumericUpDown Classes="Field" Value="{Binding FormMachineQuota}" Minimum="0" Maximum="100000"
+                                           FormatString="0" ShowButtonSpinner="True"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                        <ctrl:FormField Label="Vergi No" Width="200">
+                            <TextBox Classes="Field" Text="{Binding FormTaxNo}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Vergi Dairesi" Width="200">
+                            <TextBox Classes="Field" Text="{Binding FormTaxOffice}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Telefon" Width="180">
+                            <TextBox Classes="Field" Text="{Binding FormPhone}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                        <ctrl:FormField Label="E-posta" Width="260">
+                            <TextBox Classes="Field" Text="{Binding FormEmail}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <ctrl:FormField Label="Adres">
+                        <TextBox Classes="Field" Text="{Binding FormAddress}" AcceptsReturn="True" Height="60"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Yetkili" Width="220">
-                        <TextBox Classes="Field" Text="{Binding FormAuthorized}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Maks. Admin (0=∞)" Width="150" HelpText="Admin kullanıcı kotası">
-                        <NumericUpDown Classes="Field" Value="{Binding FormMaxAdmins}" Minimum="0" Maximum="100000"
-                                       FormatString="0" ShowButtonSpinner="True"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Maks. Personel (0=∞)" Width="150" HelpText="Normal kullanıcı kotası">
-                        <NumericUpDown Classes="Field" Value="{Binding FormMaxUsers}" Minimum="0" Maximum="100000"
-                                       FormatString="0" ShowButtonSpinner="True"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Makine Kotası (0=∞)" Width="150" HelpText="Kayıtlı makine sayısı">
-                        <NumericUpDown Classes="Field" Value="{Binding FormMachineQuota}" Minimum="0" Maximum="100000"
-                                       FormatString="0" ShowButtonSpinner="True"/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
-                    <ctrl:FormField Label="Vergi No" Width="200">
-                        <TextBox Classes="Field" Text="{Binding FormTaxNo}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Vergi Dairesi" Width="200">
-                        <TextBox Classes="Field" Text="{Binding FormTaxOffice}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Telefon" Width="180">
-                        <TextBox Classes="Field" Text="{Binding FormPhone}"/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
-                    <ctrl:FormField Label="E-posta" Width="260">
-                        <TextBox Classes="Field" Text="{Binding FormEmail}"/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <ctrl:FormField Label="Adres">
-                    <TextBox Classes="Field" Text="{Binding FormAddress}" AcceptsReturn="True" Height="60"/>
-                </ctrl:FormField>
-                <!-- Yeni firmaya bağlı ilk şube/şantiye (yalnız YENİ firmada görünür) -->
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10" IsVisible="{Binding ShowBranchField}">
-                    <ctrl:FormField Label="İlk Şube / Şantiye Adı" IsRequired="True" Width="320"
-                                    HelpText="Firma ile birlikte bu şube oluşturulur. Şubesiz firmaya kullanıcı eklenemez.">
-                        <TextBox Classes="Field" Text="{Binding FormBranchName}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Türü" Width="150">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding BranchKindOptions}" SelectedItem="{Binding FormBranchKind}"/>
-                    </ctrl:FormField>
-                </WrapPanel>
+                    <!-- Yeni firmaya bağlı ilk şube/şantiye (yalnız YENİ firmada görünür) -->
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10" IsVisible="{Binding ShowBranchField}">
+                        <ctrl:FormField Label="İlk Şube / Şantiye Adı" IsRequired="True" Width="320"
+                                        HelpText="Firma ile birlikte bu şube oluşturulur. Şubesiz firmaya kullanıcı eklenemez.">
+                            <TextBox Classes="Field" Text="{Binding FormBranchName}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Türü" Width="150">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding BranchKindOptions}" SelectedItem="{Binding FormBranchKind}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

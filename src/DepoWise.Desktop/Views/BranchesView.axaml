@@ -30,25 +30,28 @@
         <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
         <ctrl:SideSheet Grid.Row="2" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
             <StackPanel Spacing="14">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
-                    <ctrl:FormField Label="Ad" IsRequired="True" Width="260">
-                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Şube / Şantiye" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
+                        <ctrl:FormField Label="Ad" IsRequired="True" Width="260">
+                            <TextBox Classes="Field" Text="{Binding FormName}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tür" Width="140">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Şube Kodu" Width="150" IsVisible="{Binding IsAdmin}">
+                            <TextBox Classes="Field" Text="{Binding FormCode}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="{Binding PasswordLabel}" Width="200" IsVisible="{Binding IsAdmin}">
+                            <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}"
+                                        PlaceholderText="Üst şube seç / ara..."/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Tür" Width="140">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Şube Kodu" Width="150" IsVisible="{Binding IsAdmin}">
-                        <TextBox Classes="Field" Text="{Binding FormCode}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="{Binding PasswordLabel}" Width="200" IsVisible="{Binding IsAdmin}">
-                        <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <ctrl:FormField HorizontalAlignment="Left" Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
-                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}"
-                                    PlaceholderText="Üst şube seç / ara..."/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

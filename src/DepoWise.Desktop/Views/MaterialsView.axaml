@@ -45,263 +45,275 @@
         <!-- ===== Yeni Kayıt formu (gruplu) ===== -->
         <!-- 2026-10-12: form, liste GİZLİYKEN listenin esneyen (*) satırını kullanır — ekranda boş alan kalırken
              470 px'lik kutuya sıkışıp kaydırılmasın (kullanıcı bulgusu). Sığmazsa kendi içinde kayar. -->
-        <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top" IsVisible="{Binding ShowAdd}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="3" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top" IsVisible="{Binding ShowAdd}">
             <Border.KeyBindings>
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
             </Border.KeyBindings>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
 
-                <!-- Malzeme şablonu GERİ EKLENDİ (kullanıcı isteği 2026-08-08): yeni kayıtta şablon seçilince
-                     alanlar şablondan dolar (düzenlemede yalnız bağ kurulur, alanlar EZİLMEZ). Şablonları
-                     yönetmek için: Malzemeler > Malzeme Şablonları ekranı. -->
-                <ctrl:FormField HorizontalAlignment="Left" Label="Şablon" Width="480"
-                                HelpText="Seçilince alanlar şablondan doldurulur (isteğe bağlı; boş bırakılabilir).">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding MaterialTemplates}" SelectedItem="{Binding SelectedMaterialTemplate}"
-                                  PlaceholderText="Şablon seç / ara..."/>
-                        <Button Grid.Column="1" Classes="Ghost" Content="Temizle" Margin="8,0,0,0"
-                                ToolTip.Tip="Şablon bağını kaldırır (alanlar olduğu gibi kalır)"
-                                Command="{Binding ClearMaterialTemplateCommand}"/>
-                    </Grid>
-                </ctrl:FormField>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <!-- Malzeme şablonu GERİ EKLENDİ (kullanıcı isteği 2026-08-08): yeni kayıtta şablon seçilince
+                         alanlar şablondan dolar (düzenlemede yalnız bağ kurulur, alanlar EZİLMEZ). Şablonları
+                         yönetmek için: Malzemeler > Malzeme Şablonları ekranı. -->
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Şablon" Width="480"
+                                    HelpText="Seçilince alanlar şablondan doldurulur (isteğe bağlı; boş bırakılabilir).">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding MaterialTemplates}" SelectedItem="{Binding SelectedMaterialTemplate}"
+                                      PlaceholderText="Şablon seç / ara..."/>
+                            <Button Grid.Column="1" Classes="Ghost" Content="Temizle" Margin="8,0,0,0"
+                                    ToolTip.Tip="Şablon bağını kaldırır (alanlar olduğu gibi kalır)"
+                                    Command="{Binding ClearMaterialTemplateCommand}"/>
+                        </Grid>
+                    </ctrl:FormField>
 
+                </StackPanel></Border>
                 <!-- Grup 1: Tanım -->
-                <SelectableTextBlock Text="Tanım" Classes="FormBolum"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Kod" IsRequired="True" Width="170"
-                                    HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}">
-                        <TextBox Classes="Field" Text="{Binding NewCode}" TabIndex="0"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Ad" IsRequired="True" Width="300"
-                                    HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
-                        <TextBox Classes="Field" Text="{Binding NewName}" TabIndex="1"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Tür" Width="160">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
-                    </ctrl:FormField>
-                </StackPanel>
+                <SelectableTextBlock Text="Tanım" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Kod" IsRequired="True" Width="170"
+                                        HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}">
+                            <TextBox Classes="Field" Text="{Binding NewCode}" TabIndex="0"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Ad" IsRequired="True" Width="300"
+                                        HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
+                            <TextBox Classes="Field" Text="{Binding NewName}" TabIndex="1"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tür" Width="160">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
+                </StackPanel></Border>
                 <!-- Grup 2: Sınıflandırma (Tanımlar'dan beslenir; + ile yeni eklenir) -->
-                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="IosFormBaslik"/>
 
-                <ctrl:FormField Label="Kategori">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
-                                      PlaceholderText="Kategori seç / ara..."/>
-                            <Button AutomationProperties.Name="Yeni kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
-                                    ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCategoryName}" PlaceholderText="Yeni kategori adı"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddCategoryCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddCategoryCommand}"/>
-                        </Grid>
-                    </StackPanel>
-                </ctrl:FormField>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <ctrl:FormField Label="Kategori">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                          PlaceholderText="Kategori seç / ara..."/>
+                                <Button AutomationProperties.Name="Yeni kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
+                                        ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
+                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCategoryName}" PlaceholderText="Yeni kategori adı"/>
+                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddCategoryCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddCategoryCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ctrl:FormField>
 
-                <ctrl:FormField Label="Alt Kategori">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
-                                      PlaceholderText="Alt kategori seç / ara..."/>
-                            <Button AutomationProperties.Name="Yeni alt kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
-                                    ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubCategoryName}" PlaceholderText="Yeni alt kategori adı"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCategoryCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCategoryCommand}"/>
-                        </Grid>
-                    </StackPanel>
-                </ctrl:FormField>
+                    <ctrl:FormField Label="Alt Kategori">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                          PlaceholderText="Alt kategori seç / ara..."/>
+                                <Button AutomationProperties.Name="Yeni alt kategori" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [material_categories]}" Width="40" Margin="8,0,0,0"
+                                        ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
+                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubCategoryName}" PlaceholderText="Yeni alt kategori adı"/>
+                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCategoryCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCategoryCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ctrl:FormField>
 
-                <ctrl:FormField Label="Birim" IsRequired="True"
-                                HasError="{Binding HasUnitError}" ErrorText="{Binding UnitError}">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
-                                      PlaceholderText="Birim seç / ara..."/>
-                            <Button AutomationProperties.Name="Yeni birim" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}" Width="40" Margin="8,0,0,0"
-                                    ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewUnitName}" PlaceholderText="Yeni birim (adet, litre...)"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddUnitCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddUnitCommand}"/>
-                        </Grid>
-                    </StackPanel>
-                </ctrl:FormField>
+                    <ctrl:FormField Label="Birim" IsRequired="True"
+                                    HasError="{Binding HasUnitError}" ErrorText="{Binding UnitError}">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                          PlaceholderText="Birim seç / ara..."/>
+                                <Button AutomationProperties.Name="Yeni birim" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [units]}" Width="40" Margin="8,0,0,0"
+                                        ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
+                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewUnitName}" PlaceholderText="Yeni birim (adet, litre...)"/>
+                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddUnitCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddUnitCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ctrl:FormField>
 
-                <ctrl:FormField Label="Marka">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
-                                      PlaceholderText="Marka seç / ara..."/>
-                            <Button AutomationProperties.Name="Yeni marka" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}" Width="40" Margin="8,0,0,0"
-                                    ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka adı"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddBrandCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddBrandCommand}"/>
-                        </Grid>
-                    </StackPanel>
-                </ctrl:FormField>
+                    <ctrl:FormField Label="Marka">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                          PlaceholderText="Marka seç / ara..."/>
+                                <Button AutomationProperties.Name="Yeni marka" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [brands]}" Width="40" Margin="8,0,0,0"
+                                        ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
+                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka adı"/>
+                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddBrandCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddBrandCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ctrl:FormField>
 
-                <ctrl:FormField Label="Tedarikçi">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
-                                      PlaceholderText="Tedarikçi seç / ara..."/>
-                            <Button AutomationProperties.Name="Yeni tedarikçi" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
-                                    ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSupplierName}" PlaceholderText="Yeni tedarikçi adı"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSupplierCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSupplierCommand}"/>
-                        </Grid>
-                    </StackPanel>
-                </ctrl:FormField>
+                    <ctrl:FormField Label="Tedarikçi">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
+                                          PlaceholderText="Tedarikçi seç / ara..."/>
+                                <Button AutomationProperties.Name="Yeni tedarikçi" Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding [suppliers]}" Width="40" Margin="8,0,0,0"
+                                        ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
+                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSupplierName}" PlaceholderText="Yeni tedarikçi adı"/>
+                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSupplierCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSupplierCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ctrl:FormField>
 
+                </StackPanel></Border>
                 <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
-                <SelectableTextBlock Text="İlişkiler" Classes="FormBolum"/>
-                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar (çoklu seçim).">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
-                        </Grid>
-                        <Border Classes="Table" MaxHeight="160">
-                            <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:VehiclePick">
-                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
-                    </StackPanel>
-                </ctrl:FormField>
-
-                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara/ekle (çoklu); boş arama=tümü.">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (boş=tümü)"/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllEquivalentsCommand}"/>
-                        </Grid>
-                        <Border Classes="Table" MaxHeight="160">
-                            <ScrollViewer>
-                                <ItemsControl ItemsSource="{Binding EquivalentResults}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:MaterialRow">
-                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                    Content="{Binding CodeNameDisplay}" ToolTip.Tip="{Binding CodeNameDisplay}"
-                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
-                                                    CommandParameter="{Binding}"/>
+                <SelectableTextBlock Text="İlişkiler" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar (çoklu seçim).">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                                <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                            </Grid>
+                            <Border Classes="Table" MaxHeight="160">
+                                <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VehiclePick">
+                                            <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
                                         </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                        <ItemsControl ItemsSource="{Binding ChosenEquivalents}">
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+                        </StackPanel>
+                    </ctrl:FormField>
+
+                    <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara/ekle (çoklu); boş arama=tümü.">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" Classes="Search" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (boş=tümü)"/>
+                                <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllEquivalentsCommand}"/>
+                            </Grid>
+                            <Border Classes="Table" MaxHeight="160">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding EquivalentResults}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:MaterialRow">
+                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                        Content="{Binding CodeNameDisplay}" ToolTip.Tip="{Binding CodeNameDisplay}"
+                                                        Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding ChosenEquivalents}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MaterialRow">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding CodeNameDisplay}" Classes="Body" VerticalAlignment="Center"
+                                                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CodeNameDisplay}"/>
+                                            <Button Grid.Column="1" Classes="Ghost" Content="Kaldır"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemoveEquivalentPickCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ctrl:FormField>
+
+                </StackPanel></Border>
+                <!-- Fotoğraflar -->
+                <SelectableTextBlock Text="Fotoğraflar" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <StackPanel Spacing="8">
+                        <!-- ADR-182 (PK-F3): KAYITLI fotoğraflar YALNIZ burada (düzenleme formunda) silinebilir.
+                             Düğme ayrıca SİLME yetkisine bağlıdır — sunucu da Delete ister (arayüz kilidi tek
+                             başına güvenlik sayılmaz). Yeni kayıtta (EditId yok) bu blok görünmez. -->
+                        <SelectableTextBlock Text="Kayıtlı fotoğraflar" Classes="Hint" IsVisible="{Binding IsEditMode}"/>
+                        <ItemsControl ItemsSource="{Binding DetailPhotos}" IsVisible="{Binding IsEditMode}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:MaterialRow">
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding CodeNameDisplay}" Classes="Body" VerticalAlignment="Center"
-                                                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CodeNameDisplay}"/>
-                                        <Button Grid.Column="1" Classes="Ghost" Content="Kaldır"
-                                                Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemoveEquivalentPickCommand}"
+                                <DataTemplate x:DataType="vm:DetailPhoto">
+                                    <Panel Margin="0,0,8,8" Width="84" Height="84">
+                                        <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                                Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
+                                                CommandParameter="{Binding Image}">
+                                            <Border CornerRadius="8" ClipToBounds="True">
+                                                <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                            </Border>
+                                        </Button>
+                                        <Button AutomationProperties.Name="Sil" Classes="Icon" Content="×" Width="24" Height="24"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
+                                                IsVisible="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).CanDeletePhoto}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).DeleteDetailPhotoCommand}"
                                                 CommandParameter="{Binding}"/>
-                                    </Grid>
+                                    </Panel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
+                                Command="{Binding AddPhotosCommand}"/>
+                        <ItemsControl ItemsSource="{Binding Photos}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PhotoStage">
+                                    <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                            Background="{DynamicResource SurfaceElevatedBrush}">
+                                        <Panel>
+                                            <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                            <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemovePhotoCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Panel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
-                </ctrl:FormField>
 
-                <!-- Fotoğraflar -->
-                <SelectableTextBlock Text="Fotoğraflar" Classes="FormBolum"/>
-                <StackPanel Spacing="8">
-                    <!-- ADR-182 (PK-F3): KAYITLI fotoğraflar YALNIZ burada (düzenleme formunda) silinebilir.
-                         Düğme ayrıca SİLME yetkisine bağlıdır — sunucu da Delete ister (arayüz kilidi tek
-                         başına güvenlik sayılmaz). Yeni kayıtta (EditId yok) bu blok görünmez. -->
-                    <SelectableTextBlock Text="Kayıtlı fotoğraflar" Classes="Hint" IsVisible="{Binding IsEditMode}"/>
-                    <ItemsControl ItemsSource="{Binding DetailPhotos}" IsVisible="{Binding IsEditMode}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DetailPhoto">
-                                <Panel Margin="0,0,8,8" Width="84" Height="84">
-                                    <Button AutomationProperties.Name="Büyüt" Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
-                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).OpenPhotoCommand}"
-                                            CommandParameter="{Binding Image}">
-                                        <Border CornerRadius="8" ClipToBounds="True">
-                                            <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        </Border>
-                                    </Button>
-                                    <Button AutomationProperties.Name="Sil" Classes="Icon" Content="×" Width="24" Height="24"
-                                            HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
-                                            IsVisible="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).CanDeletePhoto}"
-                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).DeleteDetailPhotoCommand}"
-                                            CommandParameter="{Binding}"/>
-                                </Panel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
-                            Command="{Binding AddPhotosCommand}"/>
-                    <ItemsControl ItemsSource="{Binding Photos}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:PhotoStage">
-                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
-                                        Background="{DynamicResource SurfaceElevatedBrush}">
-                                    <Panel>
-                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
-                                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemovePhotoCommand}"
-                                                CommandParameter="{Binding}"/>
-                                    </Panel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-
+                </StackPanel></Border>
                 <!-- Grup 3: Fiyat & Stok -->
-                <SelectableTextBlock Text="Fiyat &amp; Stok" Classes="FormBolum"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Birim Fiyat (TRY)" Width="160" IsVisible="{Binding FiyatGorunur}">
-                        <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
-                                       FormatString="0.##" ShowButtonSpinner="False" TabIndex="2"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Min Stok" Width="150" HelpText="Düşük stok eşiği.">
-                        <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
-                                       FormatString="0.##" ShowButtonSpinner="False" TabIndex="3"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="0 dışında ise stok hareketi (eksi olabilir)." IsVisible="{Binding !IsEditMode}">
-                        <NumericUpDown Classes="Field" Value="{Binding NewOpeningStock}"
-                                       FormatString="0.##" ShowButtonSpinner="False" TabIndex="4"/>
-                    </ctrl:FormField>
-                </StackPanel>
+                <SelectableTextBlock Text="Fiyat &amp; Stok" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Birim Fiyat (TRY)" Width="160" IsVisible="{Binding FiyatGorunur}">
+                            <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
+                                           FormatString="0.##" ShowButtonSpinner="False" TabIndex="2"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Min Stok" Width="150" HelpText="Düşük stok eşiği.">
+                            <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
+                                           FormatString="0.##" ShowButtonSpinner="False" TabIndex="3"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="0 dışında ise stok hareketi (eksi olabilir)." IsVisible="{Binding !IsEditMode}">
+                            <NumericUpDown Classes="Field" Value="{Binding NewOpeningStock}"
+                                           FormatString="0.##" ShowButtonSpinner="False" TabIndex="4"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
-                <ctrl:FormField Label="Açıklama">
-                    <TextBox Classes="Field" Text="{Binding NewDescription}" AcceptsReturn="True" Height="56"/>
-                </ctrl:FormField>
+                    <ctrl:FormField Label="Açıklama">
+                        <TextBox Classes="Field" Text="{Binding NewDescription}" AcceptsReturn="True" Height="56"/>
+                    </ctrl:FormField>
 
+                </StackPanel></Border>
                 <!-- Eylemler -->
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding ClearCommand}" TabIndex="6"/>

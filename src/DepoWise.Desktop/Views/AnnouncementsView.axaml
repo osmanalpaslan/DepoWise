@@ -40,29 +40,32 @@
         <!-- ⭐ M-65 (AR-GE 2026-10-25, F-130): kısa form SAĞ YAN SAYFADA — liste görünür kalır; Esc = İptal -->
         <ctrl:SideSheet Grid.Row="2" Margin="0,16,0,0" IsOpen="{Binding ShowAdd}" CloseCommand="{Binding CancelAddCommand}">
             <StackPanel Spacing="12" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                    <ctrl:FormField Label="Başlık" IsRequired="True" Width="280">
-                        <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Duyuru" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                        <ctrl:FormField Label="Başlık" IsRequired="True" Width="280">
+                            <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Önem" Width="120">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ImportanceOptions}" SelectedItem="{Binding FormImportance}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hedef Şube" Width="200" HelpText="Boş = tüm firmaya.">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                            PlaceholderText="Şube seç / ara..."/>
+                        </ctrl:FormField>
+                        <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
+                        <ctrl:FormField Label="Yayın Başlangıcı" Width="150" HelpText="Boş = hemen.">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Yayın Bitişi" Width="150" HelpText="Boş = süresiz.">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <ctrl:FormField Label="Duyuru Metni">
+                        <TextBox Classes="Field" Text="{Binding FormBody}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Önem" Width="120">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ImportanceOptions}" SelectedItem="{Binding FormImportance}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Hedef Şube" Width="200" HelpText="Boş = tüm firmaya.">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Şube seç / ara..."/>
-                    </ctrl:FormField>
-                    <!-- PLAN tarihleri (ADR-162 emsali) — geri-tarih kapısına girmez. -->
-                    <ctrl:FormField Label="Yayın Başlangıcı" Width="150" HelpText="Boş = hemen.">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Yayın Bitişi" Width="150" HelpText="Boş = süresiz.">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
-                    </ctrl:FormField>
-                </WrapPanel>
-                <ctrl:FormField Label="Duyuru Metni">
-                    <TextBox Classes="Field" Text="{Binding FormBody}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

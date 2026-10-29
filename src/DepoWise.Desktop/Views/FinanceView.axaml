@@ -123,56 +123,59 @@
             <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
                 <Border Classes="Panel">
                     <StackPanel Spacing="8">
-                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
 
-                        <ctrl:FormField Label="Hesap Kodu" IsRequired="True">
-                            <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Hesap Adı" IsRequired="True">
-                            <TextBox Classes="Field" Text="{Binding FName}" MaxLength="150"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Hesap Türü" IsRequired="True">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}"
-                                      SelectedValue="{Binding FKind}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Şube">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}"
-                                      SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
-                                      ToolTip.Tip="Boş bırakılırsa hesap firma geneli olur ve her şubede görünür.">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
+                        <SelectableTextBlock Text="Hesap Bilgileri" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <ctrl:FormField Label="Hesap Kodu" IsRequired="True">
+                                <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Hesap Adı" IsRequired="True">
+                                <TextBox Classes="Field" Text="{Binding FName}" MaxLength="150"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Hesap Türü" IsRequired="True">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}"
+                                          SelectedValue="{Binding FKind}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Şube">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}"
+                                          SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
+                                          ToolTip.Tip="Boş bırakılırsa hesap firma geneli olur ve her şubede görünür.">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
 
-                        <!-- Banka alanları yalnız BANKA hesabında görünür. -->
-                        <StackPanel Spacing="8" IsVisible="{Binding ShowBankFields}">
-                            <ctrl:FormField Label="Banka Adı">
-                                <TextBox Classes="Field" Text="{Binding FBankName}"/>
-                            </ctrl:FormField>
-                            <ctrl:FormField Label="Banka Şubesi">
-                                <TextBox Classes="Field" Text="{Binding FBankBranch}"/>
-                            </ctrl:FormField>
-                            <ctrl:FormField Label="Hesap No">
-                                <TextBox Classes="Field" Text="{Binding FAccountNo}"/>
-                            </ctrl:FormField>
-                            <ctrl:FormField Label="IBAN">
-                                <TextBox Classes="Field" Text="{Binding FIban}" MaxLength="34"
-                                         PlaceholderText="TR ile başlar, 26 karakter — zorunlu değil"/>
-                            </ctrl:FormField>
-                        </StackPanel>
+                            <!-- Banka alanları yalnız BANKA hesabında görünür. -->
+                            <StackPanel Spacing="8" IsVisible="{Binding ShowBankFields}">
+                                <ctrl:FormField Label="Banka Adı">
+                                    <TextBox Classes="Field" Text="{Binding FBankName}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Banka Şubesi">
+                                    <TextBox Classes="Field" Text="{Binding FBankBranch}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Hesap No">
+                                    <TextBox Classes="Field" Text="{Binding FAccountNo}"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="IBAN">
+                                    <TextBox Classes="Field" Text="{Binding FIban}" MaxLength="34"
+                                             PlaceholderText="TR ile başlar, 26 karakter — zorunlu değil"/>
+                                </ctrl:FormField>
+                            </StackPanel>
 
-                        <ctrl:FormField Label="Not">
-                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
-                        </ctrl:FormField>
-                        <CheckBox Content="Varsayılan hesap" IsChecked="{Binding FIsDefault}"
-                                  ToolTip.Tip="Yeni işlemlerde bu hesap önerilir."/>
-                        <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
+                            <ctrl:FormField Label="Not">
+                                <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                            </ctrl:FormField>
+                            <CheckBox Content="Varsayılan hesap" IsChecked="{Binding FIsDefault}"
+                                      ToolTip.Tip="Yeni işlemlerde bu hesap önerilir."/>
+                            <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
 
+                        </StackPanel></Border>
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0" HorizontalAlignment="Right">
                             <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
                             <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveAccountCommand}"

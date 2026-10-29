@@ -27,45 +27,54 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="YENİ BELGE" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
-                        <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FVehicle}"
-                                        DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
+                <SelectableTextBlock Text="Yeni Belge" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Araç ve Belge" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
+                            <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FVehicle}"
+                                            DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Belge Tipi" Width="160">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding DocTypeOptions}" SelectedItem="{Binding FDocType}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Tarihler ve Sonuç" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Son Tarih" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FLastDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Sonraki Tarih" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FNextDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Yer / Kurum" Width="200">
+                            <TextBox Classes="Field" Text="{Binding FPlace}"/>
+                        </ctrl:FormField>
+                        <!-- ⭐ M-41: yasal periyodik kontrol kanıtı -->
+                        <ctrl:FormField Label="Yetkili Kişi / Firma" Width="220" IsRequired="True" IsVisible="{Binding IsPeriodicType}">
+                            <TextBox Classes="Field" Text="{Binding FInspector}" ToolTip.Tip="Kontrolü yapan yetkili kişi ya da firma (mevzuat kanıtı)."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Rapor No" Width="160" IsVisible="{Binding IsPeriodicType}">
+                            <TextBox Classes="Field" Text="{Binding FReportNo}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Sonuç" Width="150" IsVisible="{Binding IsInspectionType}">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Erteleme Tarihi" Width="150" IsRequired="True" IsVisible="{Binding IsPostponed}">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FPostponeDate}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Açıklama" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <ctrl:FormField Label="Açıklama">
+                        <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" Height="44"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Belge Tipi" Width="160">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding DocTypeOptions}" SelectedItem="{Binding FDocType}"/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Son Tarih" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FLastDate}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Sonraki Tarih" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FNextDate}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Yer / Kurum" Width="200">
-                        <TextBox Classes="Field" Text="{Binding FPlace}"/>
-                    </ctrl:FormField>
-                    <!-- ⭐ M-41: yasal periyodik kontrol kanıtı -->
-                    <ctrl:FormField Label="Yetkili Kişi / Firma" Width="220" IsRequired="True" IsVisible="{Binding IsPeriodicType}">
-                        <TextBox Classes="Field" Text="{Binding FInspector}" ToolTip.Tip="Kontrolü yapan yetkili kişi ya da firma (mevzuat kanıtı)."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Rapor No" Width="160" IsVisible="{Binding IsPeriodicType}">
-                        <TextBox Classes="Field" Text="{Binding FReportNo}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Sonuç" Width="150" IsVisible="{Binding IsInspectionType}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Erteleme Tarihi" Width="150" IsRequired="True" IsVisible="{Binding IsPostponed}">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FPostponeDate}"/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <ctrl:FormField Label="Açıklama">
-                    <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" Height="44"/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

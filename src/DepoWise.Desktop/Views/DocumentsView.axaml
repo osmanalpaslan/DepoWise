@@ -27,44 +27,55 @@
         </ctrl:Toolbar>
 
         <!-- Yeni/Düzenle formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="2" VerticalAlignment="Top" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <!-- 2. tur madde 3 (2026-10-29): gruplu form uzadı → form listenin esneyen satırında, kendi içinde kayar; açıkken liste gizli (Araçlar ile aynı) -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Belge Başlığı" IsRequired="True" Width="260">
-                        <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Belge" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Belge Başlığı" IsRequired="True" Width="260">
+                            <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Belge Türü" Width="200" HelpText="Serbest — örn. Fatura, Sigorta, Ruhsat.">
+                            <TextBox Classes="Field" Text="{Binding FormDocType}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Bağlı Kayıt Türü" Width="170">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}"
+                                      SelectedItem="{Binding FormEntityType}" IsEnabled="{Binding IsNew}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Bağlı Kayıt" Width="240" IsVisible="{Binding EntityPickVisible}">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding EntityOptions}" SelectedItem="{Binding FormEntity}"
+                                            PlaceholderText="Kayıt seç / ara..."/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Geçerlilik ve Dosya" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <!-- Tarih alanları KEHRİBAR temadan gelir (TRH-01 standardı) -->
+                        <ctrl:FormField Label="Geçerlilik Başlangıcı" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormValidFrom}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Geçerlilik Bitişi" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormValidUntil}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Dosya (en çok 7 MB)" Width="300" IsVisible="{Binding IsNew}">
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="12">
+                                <Button Classes="Secondary" Content="Dosya Seç" Command="{Binding PickFileCommand}"/>
+                                <SelectableTextBlock Text="{Binding FormFileDisplay}" Classes="Helper" VerticalAlignment="Center"
+                                           MaxWidth="180" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FormFileDisplay}"/>
+                            </WrapPanel>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Açıklama" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="740">
+                        <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Belge Türü" Width="200" HelpText="Serbest — örn. Fatura, Sigorta, Ruhsat.">
-                        <TextBox Classes="Field" Text="{Binding FormDocType}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Bağlı Kayıt Türü" Width="170">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}"
-                                  SelectedItem="{Binding FormEntityType}" IsEnabled="{Binding IsNew}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Bağlı Kayıt" Width="240" IsVisible="{Binding EntityPickVisible}">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding EntityOptions}" SelectedItem="{Binding FormEntity}"
-                                        PlaceholderText="Kayıt seç / ara..."/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <!-- Tarih alanları KEHRİBAR temadan gelir (TRH-01 standardı) -->
-                    <ctrl:FormField Label="Geçerlilik Başlangıcı" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormValidFrom}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Geçerlilik Bitişi" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormValidUntil}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Dosya (en çok 7 MB)" Width="300" IsVisible="{Binding IsNew}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="Secondary" Content="Dosya Seç" Command="{Binding PickFileCommand}"/>
-                            <SelectableTextBlock Text="{Binding FormFileDisplay}" Classes="Helper" VerticalAlignment="Center"
-                                       MaxWidth="180" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FormFileDisplay}"/>
-                        </StackPanel>
-                    </ctrl:FormField>
-                </StackPanel>
-                <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="740">
-                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
@@ -72,10 +83,11 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <!-- Liste + Detay -->
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,330">
+        <Grid Grid.Row="2" IsVisible="{Binding !ShowAdd}" Margin="0,16,0,0" ColumnDefinitions="*,330">
             <Panel Grid.Column="0">
                 <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                     <DockPanel>

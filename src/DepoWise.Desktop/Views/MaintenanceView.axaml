@@ -41,51 +41,53 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           MaxHeight="{Binding #TanimYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
                         <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
-                            <SelectableTextBlock Text="{Binding DefFormTitle}" Classes="SectionTitle"/>
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                                <ctrl:FormField Label="Tanım Adı" IsRequired="True" Width="280"
-                                                HasError="{Binding HasDefNameError}" ErrorText="{Binding DefNameError}">
-                                    <TextBox Classes="Field" Text="{Binding DefName}" />
+                            <SelectableTextBlock Text="{Binding DefFormTitle}" Classes="IosBaslik"/>
+                            <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                                    <ctrl:FormField Label="Tanım Adı" IsRequired="True" Width="280"
+                                                    HasError="{Binding HasDefNameError}" ErrorText="{Binding DefNameError}">
+                                        <TextBox Classes="Field" Text="{Binding DefName}" />
+                                    </ctrl:FormField>
+                                    <ctrl:FormField Label="Periyot" Width="140">
+                                        <NumericUpDown Classes="Field" Value="{Binding DefIntervalValue}" Minimum="0"
+                                                       FormatString="0.##" ShowButtonSpinner="False"/>
+                                    </ctrl:FormField>
+                                    <ctrl:FormField Label="Birim" Width="120">
+                                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding DefUnitDisplay}"/>
+                                    </ctrl:FormField>
+                                    <!-- ⭐ M-37: km/saat tanımına ek tarih periyodu -->
+                                    <ctrl:FormField Label="Ya da (gün)" Width="130" HelpText="Opsiyonel — hangisi önce dolarsa.">
+                                        <NumericUpDown Classes="Field" Value="{Binding DefIntervalDays}" Minimum="0" FormatString="0.##"
+                                                       ShowButtonSpinner="False" PlaceholderText="ör. 365"
+                                                       ToolTip.Tip="Km/saat periyoduna ek olarak gün periyodu (ör. 10.000 km YA DA 365 gün). Gün birimli tanımda kullanılmaz."/>
+                                    </ctrl:FormField>
+                                </WrapPanel>
+                                <ctrl:FormField Label="Açıklama">
+                                    <TextBox Classes="Field" Text="{Binding DefDescription}" AcceptsReturn="True" Height="52"/>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Periyot" Width="140">
-                                    <NumericUpDown Classes="Field" Value="{Binding DefIntervalValue}" Minimum="0"
-                                                   FormatString="0.##" ShowButtonSpinner="False"/>
-                                </ctrl:FormField>
-                                <ctrl:FormField Label="Birim" Width="120">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding DefUnitDisplay}"/>
-                                </ctrl:FormField>
-                                <!-- ⭐ M-37: km/saat tanımına ek tarih periyodu -->
-                                <ctrl:FormField Label="Ya da (gün)" Width="130" HelpText="Opsiyonel — hangisi önce dolarsa.">
-                                    <NumericUpDown Classes="Field" Value="{Binding DefIntervalDays}" Minimum="0" FormatString="0.##"
-                                                   ShowButtonSpinner="False" PlaceholderText="ör. 365"
-                                                   ToolTip.Tip="Km/saat periyoduna ek olarak gün periyodu (ör. 10.000 km YA DA 365 gün). Gün birimli tanımda kullanılmaz."/>
-                                </ctrl:FormField>
-                            </WrapPanel>
-                            <ctrl:FormField Label="Açıklama">
-                                <TextBox Classes="Field" Text="{Binding DefDescription}" AcceptsReturn="True" Height="52"/>
-                            </ctrl:FormField>
 
-                            <ctrl:FormField Label="İlişkili Araçlar (periyodik takip)"
-                                            HelpText="Seçilen araçlar bu bakım için periyodik takip edilir.">
-                                <StackPanel Spacing="6">
-                                    <Grid ColumnDefinitions="*,Auto,Auto">
-                                        <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
-                                        <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
-                                    </Grid>
-                                    <Border Classes="Table" MaxHeight="150">
-                                        <ListBox ItemsSource="{Binding FilteredVehicles}" Background="Transparent" BorderThickness="0">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:VehiclePick">
-                                                    <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
-                                    </Border>
-                                </StackPanel>
-                            </ctrl:FormField>
+                                <ctrl:FormField Label="İlişkili Araçlar (periyodik takip)"
+                                                HelpText="Seçilen araçlar bu bakım için periyodik takip edilir.">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                                        </Grid>
+                                        <Border Classes="Table" MaxHeight="150">
+                                            <ListBox ItemsSource="{Binding FilteredVehicles}" Background="Transparent" BorderThickness="0">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:VehiclePick">
+                                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </StackPanel>
+                                </ctrl:FormField>
 
+                            </StackPanel></Border>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDefCommand}"/>
                                 <Button Classes="Primary" Content="Kaydet" Command="{Binding AddDefCommand}"/>

@@ -131,7 +131,7 @@
 
                 <SelectableTextBlock Text="Tanım" Classes="IosFormBaslik"/>
                 <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
                     <ctrl:FormField Label="İç Kod" IsRequired="True" Width="180"
                                     HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}"
                                     HelpText="Benzersiz araç kodu.">
@@ -144,7 +144,7 @@
                         <NumericUpDown Classes="Field" Value="{Binding NewYear}" Minimum="0" Maximum="2100"
                                        FormatString="0" ShowButtonSpinner="False" TabIndex="2"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
 
                 </StackPanel></Border>
 
@@ -152,7 +152,7 @@
                 <StackPanel Spacing="12" IsVisible="{Binding IsRentalMode}">
                 <SelectableTextBlock Text="Kira Bilgisi" Classes="IosFormBaslik"/>
                 <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
                         <ctrl:FormField Label="Kiralayan Firma" IsRequired="True" Width="260"
                                         HelpText="Aracı kiraladığınız firma.">
                             <TextBox Classes="Field" Text="{Binding RentCompany}" MaxLength="200"/>
@@ -163,8 +163,8 @@
                         <ctrl:FormField Label="Kira Bitiş" Width="150" HelpText="Belli değilse boş bırakın.">
                             <ctrl:TarihKutusu SelectedDate="{Binding RentEnd}"/>
                         </ctrl:FormField>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    </WrapPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
                         <ctrl:FormField Label="Kira Bedeli (TL)" Width="160" HelpText="İsteğe bağlı.">
                             <NumericUpDown Classes="Field" Value="{Binding RentPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                         </ctrl:FormField>
@@ -175,7 +175,7 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
-                    </StackPanel>
+                    </WrapPanel>
                     <!-- ARAÇ DEĞİŞİMİ: arızalanan kiralık aracın yerine gelen araç. Yalnız YENİ kayıtta;
                          kaydedince giden araç otomatik PASİFE alınır, kira bitişi bu aracın başlangıcı olur. -->
                     <CheckBox Content="Bu araç, arızalanıp iade edilen bir kiralık aracın YERİNE geldi (değişim kaydı)"
@@ -199,7 +199,7 @@
 
                 <SelectableTextBlock Text="Durum ve Sayaç" Classes="IosFormBaslik"/>
                 <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
                     <ctrl:FormField Label="Durum" Width="160">
                         <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}"
                                   SelectedItem="{Binding NewStatusPick}" TabIndex="3" HorizontalAlignment="Stretch">
@@ -221,7 +221,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- Durum açıklaması (yalnız Bakımda / Arızalı) -->
                 <ctrl:FormField Label="Durum Açıklaması" IsVisible="{Binding IsNewMaintenance}"
@@ -335,14 +335,14 @@
                 <!-- iOS tasarım: isteğe bağlı teknik bilgiler açılır bölümde (yeni kayıtta kapalı, düzenlemede açık) -->
                 <Expander Classes="IosAcilir" Header="Teknik (şasi no, motor no)" IsExpanded="{Binding IsEditMode, Mode=OneWay}">
                 <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                <StackPanel Orientation="Horizontal" Spacing="14">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
                     <ctrl:FormField Label="Şasi No" Width="240">
                         <TextBox Classes="Field" Text="{Binding NewChassisNo}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Motor No" Width="240">
                         <TextBox Classes="Field" Text="{Binding NewEngineNo}"/>
                     </ctrl:FormField>
-                </StackPanel>
+                </WrapPanel>
 
                 </StackPanel></Border>
                 </Expander>

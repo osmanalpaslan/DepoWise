@@ -87,6 +87,8 @@ public class MasaustuTasarimPaketiTests
             // 2026-09-04 (ARA İŞ 6): Yakıt Dağıtımları'na tarih/araç/metin arama çubuğu eklendi.
             // Bu GERÇEK bir filtre satırıdır → aynı sınıfı kullanır ve sayıya dahildir.
             Path.Combine("Views", "FuelView.axaml"),
+            // 2026-10-29 (kullanıcı isteği): Giriş-Çıkış "Son hareketler" tablosuna başlık altı SÜTUN filtreleri → gerçek filtre bandı.
+            Path.Combine("Views", "StockEntryView.axaml"),
         };
 
         foreach (var göreli in beklenen)
@@ -117,7 +119,8 @@ public class MasaustuTasarimPaketiTests
         // (CellFilter sınıfını kodda ekler). XAML'de yalnız ortak rapor tablosunun kutusu kalır.
         Assert.Equal(1, Say($"Classes={T}CellFilter{T}"));
         // 2026-10-10: 37 → 41. Araç ekranına 4 KİRA kolonu filtresi (yalnız Kiralık Araçlar modunda görünür).
-        Assert.Equal(41, Say("<ctrl:HucreFiltre "));          // 15 Malzeme + 18 Araç + 8 Günlük Faaliyet
+        // 2026-10-29: 41 → 47. Giriş-Çıkış "Son hareketler" sütun filtreleri (Tip, Kod, Malzeme, Yön, Miktar, Açıklama — kullanıcı isteği).
+        Assert.Equal(47, Say("<ctrl:HucreFiltre "));          // 15 Malzeme + 18 Araç + 8 Günlük Faaliyet + 6 Giriş-Çıkış
         // 2026-09-06 (FAZ 4.8): 19 → 20. Kullanıcı isteği: "Araç bakımlarında tarih / araç kodu /
         // plaka sorgulama alanı ve butonları yok." Bakım listesine serbest arama kutusu eklendi.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.

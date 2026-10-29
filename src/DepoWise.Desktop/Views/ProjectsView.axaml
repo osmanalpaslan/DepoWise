@@ -29,40 +29,51 @@
         </ctrl:Toolbar>
 
         <!-- Yeni/Düzenle formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="2" VerticalAlignment="Top" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <!-- 2. tur madde 3 (2026-10-29): gruplu form uzadı → form listenin esneyen satırında, kendi içinde kayar; açıkken liste gizli (Araçlar ile aynı) -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Proje Adı" IsRequired="True" Width="260">
-                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                <SelectableTextBlock Text="Proje" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Proje Adı" IsRequired="True" Width="260">
+                            <TextBox Classes="Field" Text="{Binding FormName}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Durum" Width="140">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
+                        </ctrl:FormField>
+                        <!-- Tarih alanları KEHRİBAR temadan gelir (DatePicker Field stili, TRH-01 standardı) -->
+                        <ctrl:FormField Label="Başlangıç" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Bitiş" Width="150">
+                            <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Konum ve Sorumlu" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Bağlı Şantiye" Width="260" HelpText="Şimdilik tek şantiye bağlanır.">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                            PlaceholderText="Şantiye seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Sorumlu Personel" Width="240">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormManager}"
+                                            PlaceholderText="Personel seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Konum / Adres" Width="240">
+                            <TextBox Classes="Field" Text="{Binding FormLocation}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Açıklama" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="740">
+                        <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Durum" Width="140">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
-                    </ctrl:FormField>
-                    <!-- Tarih alanları KEHRİBAR temadan gelir (DatePicker Field stili, TRH-01 standardı) -->
-                    <ctrl:FormField Label="Başlangıç" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormStart}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Bitiş" Width="150">
-                        <ctrl:TarihKutusu SelectedDate="{Binding FormEnd}"/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Bağlı Şantiye" Width="260" HelpText="Şimdilik tek şantiye bağlanır.">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                        PlaceholderText="Şantiye seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Sorumlu Personel" Width="240">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormManager}"
-                                        PlaceholderText="Personel seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Konum / Adres" Width="240">
-                        <TextBox Classes="Field" Text="{Binding FormLocation}"/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="740">
-                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
-                </ctrl:FormField>
+                </StackPanel></Border>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
@@ -70,10 +81,11 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <!-- Liste + Detay -->
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,340">
+        <Grid Grid.Row="2" IsVisible="{Binding !ShowAdd}" Margin="0,16,0,0" ColumnDefinitions="*,340">
             <Panel Grid.Column="0">
                 <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                     <DockPanel>

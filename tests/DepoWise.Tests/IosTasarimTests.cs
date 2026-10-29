@@ -189,4 +189,25 @@ public class IosTasarimTests
         Assert.Contains("<Style Selector=\"Button.Cip:pressed, Button.IosEylem:pressed, ListBox.HapSecici ListBoxItem:pressed, Button.Primary:pressed, Button.Secondary:pressed\">", ios);
         Assert.DoesNotContain("ListBox.Table", ios);
     }
+
+    /// <summary>IOS-FORM1 — 2. tur madde 3 (2026-10-29): yeni kayıt formları iOS gruplu kutularda (IosFormGrup + IosFormBaslik);
+    /// eski düz bölüm başlığı (FormBolum) kalmadı; grup içindeki yan yana alanlar sarılır (WrapPanel) — dar pencerede kutudan taşmaz.</summary>
+    [Fact]
+    public void IOSFORM1_Formlar_Gruplu()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        var formlar = new[] { "Materials", "Equipment", "Personnel", "WorkOrders", "Purchasing", "Documents", "Projects", "Inspection",
+            "Users", "MaterialTemplates", "VehicleTemplates", "Requests", "DailyActivity", "Parties", "Announcements", "Calendar",
+            "CostCenters", "Branches", "Companies", "Maintenance", "Finance", "Vehicles" };
+        foreach (var ad in formlar)
+        {
+            var x = File.ReadAllText(Path.Combine(dizin, ad + "View.axaml"));
+            Assert.Contains("<Border Classes=\"IosFormGrup\">", x);
+            Assert.Contains("Classes=\"IosFormBaslik\"", x);
+            Assert.DoesNotContain("Classes=\"FormBolum\"", x);
+        }
+        // grup içi yan yana alanlar sarılır (dar pencerede kutudan taşmaz)
+        Assert.Contains("<WrapPanel Orientation=\"Horizontal\" ItemSpacing=\"14\" LineSpacing=\"12\">",
+            File.ReadAllText(Path.Combine(dizin, "EquipmentView.axaml")));
+    }
 }

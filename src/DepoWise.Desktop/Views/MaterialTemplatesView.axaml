@@ -27,7 +27,7 @@
         </ctrl:Toolbar>
 
         <!-- Yeni / düzenlenen şablon formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+        <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <Border.KeyBindings>
                 <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
                 <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
@@ -37,138 +37,146 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
 
-                <SelectableTextBlock Text="Tanım" Classes="FormBolum"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="260"
-                                    HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
-                        <TextBox Classes="Field" Text="{Binding NewName}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Örnek Kod" Width="160" HelpText="Malzeme formuna ön-dolgu olarak gelir">
-                        <TextBox Classes="Field" Text="{Binding NewCode}"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Tür" Width="170">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
-                    </ctrl:FormField>
-                </StackPanel>
+                <SelectableTextBlock Text="Tanım" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="260"
+                                        HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
+                            <TextBox Classes="Field" Text="{Binding NewName}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Örnek Kod" Width="160" HelpText="Malzeme formuna ön-dolgu olarak gelir">
+                            <TextBox Classes="Field" Text="{Binding NewCode}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tür" Width="170">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
-                <SelectableTextBlock Text="Sınıflandırma" Classes="FormBolum"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Kategori" Width="220">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding Categories}" SelectedItem="{Binding SelCategory}"
-                                  PlaceholderText="Kategori seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Birim" Width="200">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding Units}" SelectedItem="{Binding SelUnit}"
-                                  PlaceholderText="Birim seç / ara..."/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Marka" Width="220">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding Brands}" SelectedItem="{Binding SelBrand}"
-                                  PlaceholderText="Marka seç / ara..."/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Tedarikçi" Width="220">
-                        <ctrl:LookupBox HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelSupplier}"
-                                  PlaceholderText="Tedarikçi seç / ara..."/>
-                    </ctrl:FormField>
-                </StackPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Kategori" Width="220">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelCategory}"
+                                      PlaceholderText="Kategori seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Birim" Width="200">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelUnit}"
+                                      PlaceholderText="Birim seç / ara..."/>
+                        </ctrl:FormField>
+                    </WrapPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Marka" Width="220">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelBrand}"
+                                      PlaceholderText="Marka seç / ara..."/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tedarikçi" Width="220">
+                            <ctrl:LookupBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelSupplier}"
+                                      PlaceholderText="Tedarikçi seç / ara..."/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
-                <SelectableTextBlock Text="Stok / Fiyat" Classes="FormBolum"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Min. Stok" Width="150">
-                        <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
-                                       FormatString="0.##" ShowButtonSpinner="False"/>
-                    </ctrl:FormField>
-                    <!-- FAZ 3c: alan kapalıysa hiç oluşturulmaz. -->
-                    <ctrl:FormField Label="Birim Fiyat" Width="150" IsVisible="{Binding FiyatGorunur}">
-                        <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
-                                       FormatString="0.##" ShowButtonSpinner="False"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Para Birimi" Width="130">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding NewCurrency}"/>
-                    </ctrl:FormField>
-                </StackPanel>
+                </StackPanel></Border>
+                <SelectableTextBlock Text="Stok / Fiyat" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                        <ctrl:FormField Label="Min. Stok" Width="150">
+                            <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
+                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <!-- FAZ 3c: alan kapalıysa hiç oluşturulmaz. -->
+                        <ctrl:FormField Label="Birim Fiyat" Width="150" IsVisible="{Binding FiyatGorunur}">
+                            <NumericUpDown Classes="Field" Value="{Binding NewUnitPrice}" Minimum="0"
+                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Para Birimi" Width="130">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding NewCurrency}"/>
+                        </ctrl:FormField>
+                    </WrapPanel>
 
-                <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="480">
-                    <TextBox Classes="Field" Text="{Binding NewDescription}" AcceptsReturn="True" MaxHeight="90"/>
-                </ctrl:FormField>
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="480">
+                        <TextBox Classes="Field" Text="{Binding NewDescription}" AcceptsReturn="True" MaxHeight="90"/>
+                    </ctrl:FormField>
 
-                <!-- B-4 (PRT-01 Grup 2b): Uyumlu Araçlar — web'de (MaterialTemplates.razor) zaten yönetiliyordu,
-                     masaüstünde yalnız korunuyordu. Malzemeler ekranındaki VehiclePick deseninin aynısı. -->
-                <ctrl:FormField HorizontalAlignment="Left" Label="Uyumlu Araçlar" Width="480"
-                                HelpText="Bu şablondan oluşacak malzemenin takıldığı araçlar (çoklu seçim).">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
-                        </Grid>
-                        <Border Classes="Table" MaxHeight="160">
-                            <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:VehiclePick">
-                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
-                    </StackPanel>
-                </ctrl:FormField>
+                    <!-- B-4 (PRT-01 Grup 2b): Uyumlu Araçlar — web'de (MaterialTemplates.razor) zaten yönetiliyordu,
+                         masaüstünde yalnız korunuyordu. Malzemeler ekranındaki VehiclePick deseninin aynısı. -->
+                    <ctrl:FormField HorizontalAlignment="Left" Label="Uyumlu Araçlar" Width="480"
+                                    HelpText="Bu şablondan oluşacak malzemenin takıldığı araçlar (çoklu seçim).">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                                <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                                <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                            </Grid>
+                            <Border Classes="Table" MaxHeight="160">
+                                <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VehiclePick">
+                                            <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+                        </StackPanel>
+                    </ctrl:FormField>
 
+                </StackPanel></Border>
                 <!-- B-5 (PRT-01 Grup 2b): Şablon fotoğrafları — web'de zaten vardı, masaüstüne eklendi.
                      Aynı FileService/Storage altyapısı ve AYNI varlık adı ("material_template") kullanılır. -->
-                <SelectableTextBlock Text="Fotoğraflar" Classes="FormBolum"/>
-                <StackPanel Spacing="8">
-                    <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
-                            Command="{Binding AddPhotosCommand}"/>
+                <SelectableTextBlock Text="Fotoğraflar" Classes="IosFormBaslik"/>
+                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                    <StackPanel Spacing="8">
+                        <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
+                                Command="{Binding AddPhotosCommand}"/>
 
-                    <!-- Kaydedilmeyi bekleyenler -->
-                    <ItemsControl ItemsSource="{Binding Photos}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:PhotoStage">
-                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
-                                        Background="{DynamicResource SurfaceElevatedBrush}">
-                                    <Panel>
-                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
-                                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).RemovePhotoCommand}"
-                                                CommandParameter="{Binding}"/>
-                                    </Panel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        <!-- Kaydedilmeyi bekleyenler -->
+                        <ItemsControl ItemsSource="{Binding Photos}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PhotoStage">
+                                    <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                            Background="{DynamicResource SurfaceElevatedBrush}">
+                                        <Panel>
+                                            <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                            <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).RemovePhotoCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Panel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
-                    <!-- Kayıtlı fotoğraflar (yalnız düzenlemede dolar) -->
-                    <ItemsControl ItemsSource="{Binding DetailPhotos}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DetailPhoto">
-                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
-                                        Background="{DynamicResource SurfaceElevatedBrush}">
-                                    <Panel>
-                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                        <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
-                                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).DeleteDetailPhotoCommand}"
-                                                CommandParameter="{Binding}"/>
-                                    </Panel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                        <!-- Kayıtlı fotoğraflar (yalnız düzenlemede dolar) -->
+                        <ItemsControl ItemsSource="{Binding DetailPhotos}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DetailPhoto">
+                                    <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                            Background="{DynamicResource SurfaceElevatedBrush}">
+                                        <Panel>
+                                            <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                            <Button AutomationProperties.Name="Kaldır" Classes="Icon" Content="×" Width="24" Height="24"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).DeleteDetailPhotoCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Panel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
 
+                </StackPanel></Border>
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Button Classes="Ghost" Content="Vazgeç" Command="{Binding ClearCommand}"/>   <!-- M-61 (K-10): İptal … Kaydet — birincil en sağda -->
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}"/>

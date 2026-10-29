@@ -121,67 +121,70 @@
             <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
                 <Border Classes="Panel">
                     <StackPanel Spacing="8">
-                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
 
-                        <ctrl:FormField Label="Cari Kodu" IsRequired="True">
-                            <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Ünvan / Ad Soyad" IsRequired="True">
-                            <TextBox Classes="Field" Text="{Binding FTitle}" MaxLength="200"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Cari Tipi" IsRequired="True">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding FormTypeOptions}"
-                                      SelectedValue="{Binding FType}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:PartiesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <CheckBox Content="Gerçek kişi (şahıs)" IsChecked="{Binding FIsPerson}"
-                                  ToolTip.Tip="İşaretlenirse kimlik alanı T.C. Kimlik No olarak değerlendirilir."/>
+                        <SelectableTextBlock Text="Cari Bilgileri" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <ctrl:FormField Label="Cari Kodu" IsRequired="True">
+                                <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Ünvan / Ad Soyad" IsRequired="True">
+                                <TextBox Classes="Field" Text="{Binding FTitle}" MaxLength="200"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Cari Tipi" IsRequired="True">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding FormTypeOptions}"
+                                          SelectedValue="{Binding FType}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PartiesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <CheckBox Content="Gerçek kişi (şahıs)" IsChecked="{Binding FIsPerson}"
+                                      ToolTip.Tip="İşaretlenirse kimlik alanı T.C. Kimlik No olarak değerlendirilir."/>
 
-                        <ctrl:FormField Label="Vergi Dairesi">
-                            <TextBox Classes="Field" Text="{Binding FTaxOffice}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Vergi No (VKN)">
-                            <TextBox Classes="Field" Text="{Binding FTaxNo}" MaxLength="10"
-                                     PlaceholderText="10 hane — zorunlu değil"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="T.C. Kimlik No">
-                            <TextBox Classes="Field" Text="{Binding FNationalId}" MaxLength="11"
-                                     PlaceholderText="11 hane — zorunlu değil"/>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Vergi Dairesi">
+                                <TextBox Classes="Field" Text="{Binding FTaxOffice}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Vergi No (VKN)">
+                                <TextBox Classes="Field" Text="{Binding FTaxNo}" MaxLength="10"
+                                         PlaceholderText="10 hane — zorunlu değil"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="T.C. Kimlik No">
+                                <TextBox Classes="Field" Text="{Binding FNationalId}" MaxLength="11"
+                                         PlaceholderText="11 hane — zorunlu değil"/>
+                            </ctrl:FormField>
 
-                        <ctrl:FormField Label="Telefon">
-                            <TextBox Classes="Field" Text="{Binding FPhone}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="E-posta">
-                            <TextBox Classes="Field" Text="{Binding FEmail}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Adres">
-                            <TextBox Classes="Field" Text="{Binding FAddress}" AcceptsReturn="True" MinHeight="60"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="İl">
-                            <TextBox Classes="Field" Text="{Binding FCity}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="İlçe">
-                            <TextBox Classes="Field" Text="{Binding FDistrict}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Not">
-                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
-                        </ctrl:FormField>
-                        <!-- ⭐ MUH-01c — TEDARİKÇİ EŞLEMESİ. Şemada Migration066'dan beri vardı ama
-                             arayüzden kurulamıyordu; kurulmadan yakıt ve satın alma alımları cari
-                             defterine bağlanamıyor. Yakıt/satın alma tablolarına ikinci bir cari
-                             kolonu EKLENMEDİ — aynı satırda iki gerçeklik olurdu. -->
-                        <ctrl:FormField Label="Tedarikçi Eşlemesi"
-                                        HelpText="Opsiyonel — bu cari hangi tedarikçiyse seçin; yakıt ve satın alma alımları cari hesabına bağlanır.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}"
-                                            SelectedItem="{Binding FSupplier}"
-                                            PlaceholderText="Tedarikçi seç / ara..."/>
-                        </ctrl:FormField>
-                        <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
+                            <ctrl:FormField Label="Telefon">
+                                <TextBox Classes="Field" Text="{Binding FPhone}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="E-posta">
+                                <TextBox Classes="Field" Text="{Binding FEmail}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Adres">
+                                <TextBox Classes="Field" Text="{Binding FAddress}" AcceptsReturn="True" MinHeight="60"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="İl">
+                                <TextBox Classes="Field" Text="{Binding FCity}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="İlçe">
+                                <TextBox Classes="Field" Text="{Binding FDistrict}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Not">
+                                <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                            </ctrl:FormField>
+                            <!-- ⭐ MUH-01c — TEDARİKÇİ EŞLEMESİ. Şemada Migration066'dan beri vardı ama
+                                 arayüzden kurulamıyordu; kurulmadan yakıt ve satın alma alımları cari
+                                 defterine bağlanamıyor. Yakıt/satın alma tablolarına ikinci bir cari
+                                 kolonu EKLENMEDİ — aynı satırda iki gerçeklik olurdu. -->
+                            <ctrl:FormField Label="Tedarikçi Eşlemesi"
+                                            HelpText="Opsiyonel — bu cari hangi tedarikçiyse seçin; yakıt ve satın alma alımları cari hesabına bağlanır.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}"
+                                                SelectedItem="{Binding FSupplier}"
+                                                PlaceholderText="Tedarikçi seç / ara..."/>
+                            </ctrl:FormField>
+                            <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
 
+                        </StackPanel></Border>
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0" HorizontalAlignment="Right">
                             <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelFormCommand}"
                                     IsEnabled="{Binding !Saving}"/>
