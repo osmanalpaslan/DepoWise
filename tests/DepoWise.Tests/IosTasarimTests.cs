@@ -236,6 +236,8 @@ public class IosTasarimTests
             var panel = x[x.IndexOf("Classes=\"Panel BilgiPaneli\"", StringComparison.Ordinal)..];
             Assert.True(Regex.Matches(panel, "<Border Classes=\"OzellikSatir\">").Count >= enAz, ad + " özellik satırı");
             Assert.DoesNotContain("<Border Background=\"{DynamicResource SurfaceElevatedBrush}\" CornerRadius=\"12\" Padding=\"14,", panel);
+            // boş değer "—" (kullanıcı isteği 2026-10-29): her özellik değeri BosIseTire dönüştürücüsünden geçer
+            Assert.DoesNotMatch(@"Text=""\{Binding [A-Za-z.]+\}"" Classes=""OzellikDeger""", panel);
         }
         var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml"));
         Assert.Contains("<Style Selector=\"Border.BilgiPaneli ScrollViewer\">\n        <Setter Property=\"Padding\" Value=\"0,0,14,0\"/>", ios.Replace("\r\n", "\n"));

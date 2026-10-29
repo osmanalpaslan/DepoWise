@@ -1083,43 +1083,43 @@
                         <StackPanel DataContext="{Binding Detail}">
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Plaka" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding Plate}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Plate, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Makine tipi" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleTypeName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Kategori" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding CategoryName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding CategoryName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Marka" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding BrandName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding BrandName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Model" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleModelName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleModelName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Şantiye" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding BranchName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding BranchName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Sürücü" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding DriverName}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding DriverName, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Üretim yılı" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding ProductionYear}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding ProductionYear, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Şasi no" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding ChassisNo}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding ChassisNo, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                             <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                                 <SelectableTextBlock Grid.Column="0" Text="Motor no" Classes="OzellikEtiket"/>
-                                <SelectableTextBlock Grid.Column="1" Text="{Binding EngineNo}" Classes="OzellikDeger"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding EngineNo, Converter={x:Static vm:BosIseTire.Instance}}" Classes="OzellikDeger"/>
                             </Grid></Border>
                         </StackPanel>
                         <StackPanel Spacing="2">

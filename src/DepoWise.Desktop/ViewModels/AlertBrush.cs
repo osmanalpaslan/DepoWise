@@ -30,3 +30,19 @@ public sealed class EsitMi : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>2026-10-29 (kullanıcı isteği): bilgi panelindeki özellik satırında değer boşsa (null / boşluk) "—" gösterilir —
+/// satır boş kalıp "yüklenmedi mi?" sorusu doğmasın. Sayı/tarih gibi değerler metne çevrilir.</summary>
+public sealed class BosIseTire : IValueConverter
+{
+    public static readonly BosIseTire Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var metin = value switch { null => null, string s => s, IFormattable f => f.ToString(null, culture), _ => value.ToString() };
+        return string.IsNullOrWhiteSpace(metin) ? "—" : metin!;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

@@ -1315,6 +1315,18 @@ public class YeniEkranlarArayuzTests
         finally { shell.Release(); }
     }
 
+    /// <summary>UIT-TIRE1 — 2026-10-29 (kullanıcı isteği): bilgi panelinde boş değer "—" (BosIseTire); dolu değer aynen.</summary>
+    [Fact]
+    public void UITTIRE1_Bos_Deger_Tire()
+    {
+        var tire = BosIseTire.Instance;
+        var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+        Assert.Equal("—", tire.Convert(null, typeof(string), null, tr));
+        Assert.Equal("—", tire.Convert("  ", typeof(string), null, tr));
+        Assert.Equal("Bosch", tire.Convert("Bosch", typeof(string), null, tr));
+        Assert.Equal("2020", tire.Convert(2020, typeof(string), null, tr));
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]
