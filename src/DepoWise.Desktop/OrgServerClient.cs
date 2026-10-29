@@ -540,7 +540,8 @@ public static class OrgServerClient
             if (e.ValueKind != JsonValueKind.Object) continue;
             liste.Add(new DepoWise.Infrastructure.Chat.ChatKisi(
                 Str(e, "userId"), Str(e, "username"), NullS(e, "fullName"), NullS(e, "title"),
-                Bool(e, "online"), Int(e, "unread"), NullLong(e, "lastSeenAt")));
+                Bool(e, "online"), Int(e, "unread"), NullLong(e, "lastSeenAt"),
+                NullS(e, "sonMesaj"), NullLong(e, "sonMesajAt"), Bool(e, "sonMesajBenim")));   // 2026-10-29: eski sunucu göndermezse null/false
         }
         return liste;
     }

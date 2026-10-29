@@ -10,9 +10,27 @@ namespace DepoWise.Infrastructure.Chat;
 /// <summary>Sohbet kişisi: firmadaki bir kullanıcı + çevrimiçi durumu + okunmamış mesaj sayısı.</summary>
 /// <param name="Online">Son <see cref="ChatService.CevrimiciSaniye"/> saniye içinde görülmüş mü.</param>
 /// <param name="Unread">Bu kişiden gelen ve HENÜZ OKUNMAMIŞ mesaj sayısı.</param>
+/// <param name="SonMesaj">2026-10-29 (telefon gibi sohbet listesi): bu kişiyle olan EN SON mesajın metni (yoksa null).
+/// Alanlar SONA eklendi (isteğe bağlı) → eski sunucu göndermezse istemci "mesaj yok" sayar.</param>
 public sealed record ChatKisi(string UserId, string Username, string? FullName, string? Title,
-    bool Online, int Unread, long? LastSeenAt)
+    bool Online, int Unread, long? LastSeenAt,
+    string? SonMesaj = null, long? SonMesajAt = null, bool SonMesajBenim = false)
 {
+    /// <summary>Bu kişiyle hiç mesajlaşılmış mı (Sohbetler listesinde görünür).</summary>
+    public bool MesajVar => SonMesajAt is not null;
+    /// <summary>Listede son mesaj satırı: kendi mesajımsa "Siz: …".</summary>
+    public string SonMesajOzet => SonMesaj is null ? "" : (SonMesajBenim ? "Siz: " : "") + SonMesaj.Replace('\n', ' ');
+    /// <summary>Bugünse saat (14:05), değilse gün (28.10).</summary>
+    public string SonMesajZamani
+    {
+        get
+        {
+            if (SonMesajAt is not { } t) return "";
+            var z = DateTimeOffset.FromUnixTimeMilliseconds(t).LocalDateTime;
+            return z.Date == DateTime.Today ? z.ToString("HH:mm") : z.ToString("dd.MM");
+        }
+    }
+
     /// <summary>Listede gösterilen ad: ad-soyad varsa o, yoksa kullanıcı adı.</summary>
     public string Display => string.IsNullOrWhiteSpace(FullName) ? Username : FullName!;
     public string DurumMetni => Online ? "Çevrim içi" : "Çevrim dışı";
@@ -83,7 +101,19 @@ public sealed class ChatService
 SELECT u.id, u.username, u.full_name, u.title, u.last_seen_at,
   (SELECT COUNT(*) FROM chat_messages m
     WHERE m.company_id = @c AND m.sender_id = u.id AND m.recipient_id = @me
-      AND m.read_at IS NULL AND m.is_deleted = 0)
+      AND m.read_at IS NULL AND m.is_deleted = 0),
+  (SELECT s.body FROM chat_messages s
+    WHERE s.company_id = @c AND s.is_deleted = 0
+      AND ((s.sender_id = u.id AND s.recipient_id = @me) OR (s.sender_id = @me AND s.recipient_id = u.id))
+    ORDER BY s.created_at DESC, s.id DESC LIMIT 1),
+  (SELECT s.created_at FROM chat_messages s
+    WHERE s.company_id = @c AND s.is_deleted = 0
+      AND ((s.sender_id = u.id AND s.recipient_id = @me) OR (s.sender_id = @me AND s.recipient_id = u.id))
+    ORDER BY s.created_at DESC, s.id DESC LIMIT 1),
+  (SELECT s.sender_id FROM chat_messages s
+    WHERE s.company_id = @c AND s.is_deleted = 0
+      AND ((s.sender_id = u.id AND s.recipient_id = @me) OR (s.sender_id = @me AND s.recipient_id = u.id))
+    ORDER BY s.created_at DESC, s.id DESC LIMIT 1)
 FROM users u
 WHERE u.is_deleted = 0 AND u.is_active = 1 AND u.company_id = @c AND u.id <> @me
 ORDER BY u.full_name, u.username;");
@@ -102,7 +132,10 @@ ORDER BY u.full_name, u.username;");
                 r.IsDBNull(3) ? null : r.GetString(3),
                 gorulme is { } g && g >= esik,
                 (int)r.GetInt64(5),
-                gorulme));
+                gorulme,
+                r.IsDBNull(6) ? null : r.GetString(6),
+                r.IsDBNull(7) ? null : Convert.ToInt64(r.GetValue(7)),
+                !r.IsDBNull(8) && r.GetString(8) == actor.UserId));
         }
         return liste;
     }

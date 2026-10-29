@@ -80,6 +80,10 @@ public class SohbetPostgresTests
         var kisiler = chat.Kisiler(veli);
         var aliSatiri = Assert.Single(kisiler, k => k.UserId == aliId);
         Assert.Equal(2, aliSatiri.Unread);
+        // 2026-10-29: son mesaj (telefon gibi Sohbetler listesi) — PG'de LIMIT'li alt sorgu
+        Assert.Equal("İkinci mesaj.", aliSatiri.SonMesaj);
+        Assert.False(aliSatiri.SonMesajBenim);
+        Assert.NotNull(aliSatiri.SonMesajAt);
 
         // Kisiler() çağrısı VELİ'nin "görüldü" damgasını tazeler → Ali için Veli artık çevrim içi.
         Assert.True(Assert.Single(chat.Kisiler(ali), k => k.UserId == veliId).Online);

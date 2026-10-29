@@ -1255,6 +1255,66 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS16 — ⭐ 2. tur madde 6 (2026-10-29): sohbet TELEFON paneli — TEK panel; "Sohbetler" yalnız mesajlaşılan kişiler
+    /// (son mesaj/saat/okunmamış, en yeni üstte), "Yeni mesaj" tüm kişiler, kişiye dokununca konuşma AYNI panelde; ‹ Geri listeye
+    /// döner. Ayrı pencere yok. Balon: benimki turuncu (Balon.benim). Görüntüler sohbet-liste-ios.png, sohbet-konusma-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS16_Sohbet_Telefon_Paneli()
+    {
+        var shell = new ShellViewModel(Ortam());
+        try
+        {
+            var chat = shell.Chat;
+            Assert.True(chat.Kullanilabilir, "yönetici sohbeti görebilmeli");
+            var simdi = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var ali = new DepoWise.Infrastructure.Chat.ChatKisi("u-ali", "ali", "Ali Kaya", "Şantiye Şefi", true, 2, simdi,
+                "Yarın sabah malzeme gelecek", simdi - 60_000, false);
+            var ayse = new DepoWise.Infrastructure.Chat.ChatKisi("u-ayse", "ayse", "Ayşe Demir", null, false, 0, null,
+                "Tamam, teşekkürler", simdi - 3_600_000, true);
+            var veli = new DepoWise.Infrastructure.Chat.ChatKisi("u-veli", "veli", "Veli Can", null, false, 0, null);
+            foreach (var k in new[] { veli, ayse, ali }) chat.Kisiler.Add(k);
+            chat.Arama = "x"; chat.Arama = "";                      // süzgeci tetikle (yoklamadaki gibi)
+            Assert.Equal(new[] { "Ali Kaya", "Ayşe Demir" }, chat.Sohbetler.Select(k => k.Display));   // en yeni üstte; Veli yok
+            Assert.Equal(3, chat.GorunenKisiler.Count);
+            Assert.Equal("Siz: Tamam, teşekkürler", ayse.SonMesajOzet);
+
+            chat.PanelAcik = true;
+            var w = new MainWindow { DataContext = shell, Width = 1400, Height = 900 };
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            var panel = w.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "SohbetPaneli");
+            Assert.True(panel.IsEffectivelyVisible);
+            Assert.True(chat.SohbetlerGorunur);
+            Goruntu(w, "sohbet-liste-ios");
+
+            chat.YeniMesajCommand.Execute(null);
+            Assert.True(chat.KisilerGorunur);
+            chat.GeriCommand.Execute(null);
+            Assert.True(chat.SohbetlerGorunur);
+
+            chat.KisiyiAcCommand.Execute(ali);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(chat.KonusmaGorunur);
+            Assert.Equal("Ali Kaya", chat.AktifKonusma!.Display);
+            Assert.True(chat.PanelAcik);                          // konuşma AYNI panelde (ayrı pencere yok)
+            chat.AktifKonusma.Mesajlar.Clear();
+            chat.AktifKonusma.Mesajlar.Add(new DepoWise.Infrastructure.Chat.ChatMesaj("m1", "u-ali", "ben", "Yarın sabah malzeme gelecek", simdi - 120_000, null, false));
+            chat.AktifKonusma.Mesajlar.Add(new DepoWise.Infrastructure.Chat.ChatMesaj("m2", "ben", "u-ali", "Tamam, depoda karşılarım 👍", simdi - 60_000, null, true));
+            chat.AktifKonusma.Hata = null;
+            for (int i = 0; i < 10; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            var balonlar = panel.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("Balon") && b.IsEffectivelyVisible).ToList();
+            Assert.Equal(2, balonlar.Count);
+            Assert.Single(balonlar, b => b.Classes.Contains("benim"));
+            Goruntu(w, "sohbet-konusma-ios");
+
+            chat.GeriCommand.Execute(null);
+            Assert.True(chat.SohbetlerGorunur);
+            Assert.Null(chat.AktifKonusma);
+            w.Close();
+        }
+        finally { shell.Release(); }
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

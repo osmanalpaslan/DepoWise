@@ -93,8 +93,40 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     public ObservableCollection<ChatKisi> Kisiler { get; } = new();
     /// <summary>Aramaya uyan kişiler — listede bunlar gösterilir.</summary>
     public ObservableCollection<ChatKisi> GorunenKisiler { get; } = new();
-    /// <summary>Açık konuşmalar — alt barda birer sekme, ekranda birer pencere.</summary>
+    /// <summary>Konuşma önbelleği (bu oturumda açılanlar). 2026-10-29: alt bar sekmesi / ayrı pencere YOK — tek panelde
+    /// yalnız <see cref="AktifKonusma"/> görünür ve sık yoklanır.</summary>
     public ObservableCollection<KonusmaVm> Konusmalar { get; } = new();
+
+    // ═══ 2. tur madde 6 (2026-10-29, kullanıcı isteği: "telefonda kullanıyormuş gibi") ═══
+    // Tek panel, üç görünüm: "sohbetler" (mesajlaştığım herkes, son mesaj + saat + okunmamış) → "kisiler" (yeni mesaj: tüm
+    // kişiler) → "konusma" (balonlar). Geri düğmesi bir önceki görünüme döner; kişi seçince konuşma AYNI panelde açılır.
+    [ObservableProperty] private string _gorunum = "sohbetler";
+    [ObservableProperty] private KonusmaVm? _aktifKonusma;
+    public bool SohbetlerGorunur => Gorunum == "sohbetler";
+    public bool KisilerGorunur => Gorunum == "kisiler";
+    public bool KonusmaGorunur => Gorunum == "konusma" && AktifKonusma is not null;
+    partial void OnGorunumChanged(string value)
+    {
+        OnPropertyChanged(nameof(SohbetlerGorunur)); OnPropertyChanged(nameof(KisilerGorunur)); OnPropertyChanged(nameof(KonusmaGorunur));
+    }
+    partial void OnAktifKonusmaChanged(KonusmaVm? value) => OnPropertyChanged(nameof(KonusmaGorunur));
+
+    /// <summary>Sohbetler listesi: mesajlaşılmış (ya da okunmamış mesajı olan / bu oturumda açılmış) kişiler, EN YENİ üstte.</summary>
+    public ObservableCollection<ChatKisi> Sohbetler { get; } = new();
+    public bool SohbetYok => Sohbetler.Count == 0;
+
+    [RelayCommand]
+    private void YeniMesaj() { Arama = ""; Gorunum = "kisiler"; }
+
+    [RelayCommand]
+    private void Geri()
+    {
+        if (Gorunum == "konusma" && AktifKonusma is not null) { AktifKonusma.Acik = false; AktifKonusma = null; }
+        Arama = "";
+        Gorunum = "sohbetler";
+        AraligiAyarla();
+        _ = Yokla();   // listedeki son mesaj/okunmamış hemen tazelensin
+    }
 
     public ChatViewModel(SessionContext session)
     {
@@ -109,6 +141,8 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
 
     partial void OnPanelAcikChanged(bool value)
     {
+        if (!value && AktifKonusma is not null) AktifKonusma.Acik = false;            // kapalı panel = yavaş yoklama
+        if (value && AktifKonusma is not null && Gorunum == "konusma") AktifKonusma.Acik = true;
         AraligiAyarla();
         if (value) _ = Yokla();   // açılışta bekletme: liste hemen gelsin
     }
@@ -203,15 +237,17 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     private void SuzgeciUygula()
     {
         GorunenKisiler.Clear();
+        Sohbetler.Clear();
         var q = (Arama ?? "").Trim();
-        foreach (var k in Kisiler)
-        {
-            if (q.Length > 0 &&
-                k.Display.IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0 &&
-                (k.Title ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0)
-                continue;
-            GorunenKisiler.Add(k);
-        }
+        bool Uyar(ChatKisi k) => q.Length == 0 ||
+            k.Display.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
+            (k.Title ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
+            (k.SonMesaj ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+        foreach (var k in Kisiler.Where(Uyar)) GorunenKisiler.Add(k);
+        foreach (var k in Kisiler.Where(k => (k.MesajVar || k.Unread > 0 || Konusmalar.Any(c => c.UserId == k.UserId)) && Uyar(k))
+                                 .OrderByDescending(k => k.SonMesajAt ?? 0).ThenByDescending(k => k.Unread))
+            Sohbetler.Add(k);
+        OnPropertyChanged(nameof(SohbetYok));
     }
 
     /// <summary>Alt bardaki ana sohbet düğmesi: kişi listesini aç/kapat.</summary>
@@ -229,8 +265,11 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
             mevcut = new KonusmaVm(kisi.UserId, kisi.Display, kisi.Online);
             Konusmalar.Add(mevcut);
         }
+        foreach (var k in Konusmalar) k.Acik = false;   // yalnız aktif konuşma yoklanır
         mevcut.Acik = true;
-        PanelAcik = false;      // kişi listesi kapanır, konuşma penceresi açılır
+        AktifKonusma = mevcut;
+        Gorunum = "konusma";    // 2026-10-29: konuşma AYNI panelde açılır (telefon gibi; ayrı pencere yok)
+        PanelAcik = true;
         AraligiAyarla();
 
         // ⭐ 2026-09-07 — AĞ HATASI SESSİZCE YUTULMAZ, KULLANICIYA SÖYLENİR.

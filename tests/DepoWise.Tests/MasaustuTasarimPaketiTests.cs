@@ -127,7 +127,9 @@ public class MasaustuTasarimPaketiTests
         // 2026-09-06 (SOHBET): 20 → 21. Uygulama içi sohbetin kişi listesine "Kullanıcı ara…" kutusu
         // eklendi. Bu bir SERBEST arama kutusudur (kolon filtresi değil) → hap köşeli kalmalıdır.
         // Sayı BİLİNÇLİ olarak güncellendi — nöbetçi testin amacı zaten bu onayı zorlamaktır.
-        Assert.Equal(21, Say($"Classes={T}Search{T}"));       // serbest arama kutuları — hap köşeli KALIR
+        // 2026-10-29 (2. tur madde 6, kullanıcı isteği "telefon gibi sohbet"): 21 → 22. Sohbet TEK panelde iki görünümde arar:
+        // "Sohbetler" (konuşmalarda) ve "Yeni Mesaj" (kişilerde). Sayı BİLİNÇLİ olarak güncellendi.
+        Assert.Equal(22, Say($"Classes={T}Search{T}"));       // serbest arama kutuları — hap köşeli KALIR
     }
 
     /// <summary>Filtre kutusunun üçlü imzası (Value + Label + Hint) korunmalı: filtre MANTIĞI

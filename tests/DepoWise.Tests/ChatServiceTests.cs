@@ -118,6 +118,36 @@ public class ChatServiceTests : IDisposable
         Assert.Equal("yeni", k[0].Body);
     }
 
+    /// <summary>2026-10-29 (telefon gibi "Sohbetler" listesi): kişi listesi her kişiyle olan EN SON mesajı (metin, zaman,
+    /// kimden) taşır; başka kişiyle olan mesaj karışmaz; hiç mesajlaşılmamış kişide boştur.</summary>
+    [Fact]
+    public void Kisiler_SonMesajiVerir()
+    {
+        var a = Kullanici("ali"); var v = Kullanici("veli"); var c = Kullanici("can");
+        _chat.Gonder(Oturum(a), v, "ilk");
+        _clock.Ilerle(1);
+        _chat.Gonder(Oturum(v), a, "cevap geldi");
+        _clock.Ilerle(1);
+        _chat.Gonder(Oturum(c), v, "can'dan veliye");   // ali'nin listesine karışmamalı
+
+        var kisiler = _chat.Kisiler(Oturum(a));
+        var veli = kisiler.Single(k => k.UserId == v);
+        Assert.Equal("cevap geldi", veli.SonMesaj);
+        Assert.False(veli.SonMesajBenim);
+        Assert.True(veli.MesajVar);
+        Assert.Equal("cevap geldi", veli.SonMesajOzet);
+        var can = kisiler.Single(k => k.UserId == c);
+        Assert.False(can.MesajVar);
+        Assert.Null(can.SonMesaj);
+
+        _clock.Ilerle(1);
+        _chat.Gonder(Oturum(a), v, "benden son");
+        var tekrar = _chat.Kisiler(Oturum(a)).Single(k => k.UserId == v);
+        Assert.True(tekrar.SonMesajBenim);
+        Assert.Equal("Siz: benden son", tekrar.SonMesajOzet);
+        Assert.True(tekrar.SonMesajAt > veli.SonMesajAt);
+    }
+
     // ── Okunmamış / okundu ───────────────────────────────────────────────────────────────
     [Fact]
     public void Kisiler_OkunmamisSayisiniVerir()
