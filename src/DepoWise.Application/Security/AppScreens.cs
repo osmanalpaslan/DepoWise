@@ -460,6 +460,20 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        // ⭐ 2026-10-29 iOS tarzı yeni görünüm yayını (tasarim/ios dalı: 2026-10-28 → 10-29, üç tur kullanıcı isteği).
+        new("2026-10-29-yeni-gorunum", new DateOnly(2026, 10, 29), "1.0.204", "Yeni görünüm: daha sade ve ferah ekranlar", new GuncellemeMaddesi[]
+        {
+            new("Uygulamanın tamamı yenilendi: yuvarlak köşeli kartlar, daha büyük ve rahat alanlar, yumuşak geçişler. Açık mod göz yormayan yumuşak gri tonlara geçti.", Masaustu),
+            new("Ana ekran baştan tasarlandı: tek satır özet, son hareketler, filo durumu halka grafiği, uyarılar, en çok çıkan malzemeler ve uygulama bilgisi aynı ekranda. Kartların üzerine gelince hafifçe yükselir."),
+            new("Tablolar: sütunlar artık uzun veriyle kaymaz; başlık, filtre satırı ve satırlar her zaman aynı hizadadır. Uzun yazı «…» ile kesilir, üzerine gelince tamamı görünür; sütunu sürükleyerek genişletebilirsiniz."),
+            new("Çoklu seçim listelerinde uzun adlar kutuyu büyütmez; üzerinde biraz bekleyince yazı yavaşça kayarak tamamı okunur."),
+            new("Sohbet telefondaki gibi: sohbetler ve kişiler aynı panelde, son mesaj önizlemesi, gönderdiğiniz mesajın altında «Görüldü» ya da «İletildi» yazısı. Sohbet artık giriş yapan herkese açık; yetki gerekmez."),
+            new("Tüm yeni kayıt formları bölümlere ayrıldı; büyük formlarda doldururken önizleme ve eksik alan listesi görünür.", Masaustu),
+            new("Seyrek kullanılan Excel'e Aktar ve Yazdır düğmeleri «•••» menüsüne ve sağ tık menüsüne taşındı; sağ tık menüsü yenilendi, silme ve iptal en altta kırmızı.", Masaustu),
+            new("Malzeme ve araç bilgi paneli genişletildi ve sadeleşti; boş bilgiler «—» olarak görünür, kaydırma çubuğu yazıların üstüne binmez.", Masaustu),
+            new("Giriş-Çıkış ekranının son hareketler listesinde açıklama sütunu artık anlaşılır metin gösterir ve sütun filtreleri eklendi."),
+            new("Açılır listelerde seçenekler sade ve şeffaf; seçili olanın yanında onay işareti görünür.", Masaustu),
+        }),
         // ⭐ 2026-10-27 AR-GE yayını (B1–B9 + M-01): kapsamlı yenileme. Eski masaüstleri ZORUNLU güncellenir (en düşük sürüm 1.0.203).
         new("2026-10-27-buyuk-yenileme", new DateOnly(2026, 10, 27), "1.0.203", "Büyük yenileme: güvenlik, yeni ekranlar ve daha güvenilir eşitleme", new GuncellemeMaddesi[]
         {
