@@ -18,10 +18,15 @@
                     <TextBox Classes="Field" Width="240" Text="{Binding SearchText}" PlaceholderText="Ara: başlık / dosya / tür / kayıt"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
                     <!-- ⭐ M-54: liste ile aynı süzgeç; sunucudan web ile aynı dosya -->
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri Excel olarak kaydeder (sunucudan; internet gerekir)."/>
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri yazdırılabilir PDF olarak kaydeder (sunucudan; internet gerekir)."/>
+                    <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri Excel olarak kaydeder (sunucudan; internet gerekir)."/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri yazdırılabilir PDF olarak kaydeder (sunucudan; internet gerekir)."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -107,7 +112,10 @@
                                     <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     <MenuItem Header="İndir" Command="{Binding DownloadCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     <Separator/>
-                                    <MenuItem Header="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri Excel olarak kaydeder (sunucudan; internet gerekir)."/>
+                                    <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM belgeleri yazdırılabilir PDF olarak kaydeder (sunucudan; internet gerekir)."/>
+                                    <Separator/>
+                                    <MenuItem Classes="tehlike" Header="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 </ContextMenu>
                             </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>

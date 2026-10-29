@@ -30,12 +30,17 @@
                          Aynı tanım: stok <= min stok (min stok > 0). Liste VE Excel bu duruma uyar. -->
                     <CheckBox Content="Yalnız kritik" IsChecked="{Binding CriticalOnly}" VerticalAlignment="Center" Margin="4,0"
                               ToolTip.Tip="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir"/>
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                    <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
-                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <!-- iOS tasarım (2026-10-28): QR Etiketi malzeme kartındaki yuvarlak eylem düğmesinde ve satır sağ tık menüsünde -->
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
@@ -654,7 +659,10 @@
                                 <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 <MenuItem Header="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 <Separator/>
-                                <MenuItem Header="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                                <Separator/>
+                                <MenuItem Classes="tehlike" Header="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>

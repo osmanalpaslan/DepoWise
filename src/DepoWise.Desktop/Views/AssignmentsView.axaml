@@ -20,11 +20,16 @@
                 <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10" VerticalAlignment="Center">
                     <TextBox Classes="Field" Width="230" Text="{Binding SearchText}" PlaceholderText="Ara: personel / varlık / şube"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                    <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir. -->
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <!-- ⭐ M-46: seçili zimmete beklenen iade tarihi + gecikenler ("Kimde ne var" sekmesinde seçilen satır) -->
                     <ctrl:TarihKutusu SelectedDate="{Binding IadeTarihi}" Width="140" IsVisible="{Binding CanEdit}" ToolTip.Tip="Seçili zimmetin beklenen iade tarihi (boş = kaldır)"/>
                     <Button Classes="Secondary" Content="İade Tarihi Ver" Command="{Binding IadeTarihiVerCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"

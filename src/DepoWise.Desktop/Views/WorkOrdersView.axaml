@@ -21,12 +21,17 @@
                     <ListBox Classes="HapSecici" ItemsSource="{Binding FilterStatusOptions}" SelectedItem="{Binding FilterStatus}"
                              AutomationProperties.Name="Durum filtresi" ToolTip.Tip="Durum filtresi — tek tıkla listeyi süzer"/>
                     <Button Classes="Secondary" Content="Ara / Yenile" Command="{Binding LoadCommand}"/>
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                    <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
@@ -152,6 +157,9 @@
                             <ListBox.ContextMenu>
                                 <ContextMenu Classes="SatirMenusu">
                                     <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanAssignNow}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle TÜM sonucu Excel dosyası olarak kaydeder."/>
+                                    <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                                 </ContextMenu>
                             </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>

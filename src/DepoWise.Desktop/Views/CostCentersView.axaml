@@ -70,7 +70,10 @@
                                 <ContextMenu Classes="SatirMenusu">
                                     <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     <Separator/>
-                                    <MenuItem Header="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Sorgulanan aralığın TÜM özetini Excel olarak kaydeder."/>
+                                    <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                                    <Separator/>
+                                    <MenuItem Classes="tehlike" Header="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 </ContextMenu>
                             </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>
@@ -113,12 +116,17 @@
                              düzen belirlenimci yapıldı: alanlar üstte, işlemler altta. -->
                         <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="10">
                             <Button Classes="Primary" Content="Sorgula" Command="{Binding LoadSummaryCommand}"/>
-                            <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}"
-                                    IsVisible="{Binding CanExport}" ToolTip.Tip="Sorgulanan aralığın TÜM özetini Excel olarak kaydeder."/>
+                            <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                            <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Sorgulanan aralığın TÜM özetini Excel olarak kaydeder."/>
+                                        <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
                             <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
                                  başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
-                            <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                                    ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                         </WrapPanel>
                         <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSelection}">
                             <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>

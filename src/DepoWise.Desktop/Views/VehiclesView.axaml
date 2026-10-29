@@ -29,18 +29,17 @@
                              AutomationProperties.Name="Durum" ToolTip.Tip="Durum — tek tıkla listeyi süzer"/>
                     <Button Classes="Secondary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
                     <!-- ⭐ 2026-09-06 (kullanıcı isteği): YAZDIR. Excel ile aynı veriyi PDF üretir;
                          başlıkta firma/şube/kullanıcı/tarih, altta sayısal kolonların toplamı olur. -->
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}"
-                            ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
                     <!-- ⭐ iOS tasarım (2026-10-28, kullanıcı onayı): seyrek kullanılan toplu işlem "…" menüsünde; seçili araca ait
                          QR Etiketi / Arıza Bildir / İş Emri Aç düğmeleri sağdaki ARAÇ KARTINA taşındı. -->
                     <Button Classes="Secondary" Content="•••" Padding="12,8" IsVisible="{Binding CanWrite}"
                             AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                                <Separator/>
                                 <!-- ⭐ FAZ 4.1: geçmişte hatalı-yüksek sayaç yazılmış araçların toplu onarımı. -->
                                 <MenuItem Header="Sayaçları Onar" Command="{Binding RecalcMetersCommand}"
                                           ToolTip.Tip="Araç sayaçlarını geçerli yakıt/bakım kayıtlarından yeniden hesaplar. Yanlış girilip sonradan düzeltilen sayaçlar bu işlemle toparlanır; hiçbir kayıt silinmez."/>
@@ -804,7 +803,10 @@
                                 <MenuItem Header="İş Emri Aç" Command="{Binding AractanIsEmriCommand}" IsVisible="{Binding CanOpenWorkOrder}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 <MenuItem Header="QR Etiketi" Command="{Binding QrLabelCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 <Separator/>
-                                <MenuItem Header="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsEnabled="{Binding !IsExporting}" ToolTip.Tip="Ekrandaki filtrelenmiş listeyi PDF olarak kaydeder (imzalı çıktı için)."/>
+                                <Separator/>
+                                <MenuItem Classes="tehlike" Header="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>

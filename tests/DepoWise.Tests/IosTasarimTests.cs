@@ -221,4 +221,31 @@ public class IosTasarimTests
         Assert.Contains("<WrapPanel Orientation=\"Horizontal\" ItemSpacing=\"14\" LineSpacing=\"12\">",
             File.ReadAllText(Path.Combine(dizin, "EquipmentView.axaml")));
     }
+
+    /// <summary>IOS-MENU1 — 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel'e Aktar, Yazdır) görünür düğme DEĞİL — "•••" ve sağ tık
+    /// menüsünde (Asgari Stok ve Raporlar hariç: orada ana işlem). Sağ tık menüsünde silme/iptal (tehlike) EN ALTTA. Menü stili iOS.</summary>
+    [Fact]
+    public void IOSMENU1_Sade_Cubuk_Menuler()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        var haric = new[] { "AsgariStokView.axaml", "ReportsView.axaml", "ComponentGalleryView.axaml" };
+        int menude = 0;
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+        {
+            var x = File.ReadAllText(f);
+            if (haric.Contains(Path.GetFileName(f))) continue;
+            Assert.DoesNotMatch(@"<Button[^>]*Content=""(Excel'e Aktar|Yazdır)""", x);
+            menude += Regex.Matches(x, @"<MenuItem Header=""Excel'e Aktar""").Count;
+            foreach (Match m in Regex.Matches(x, @"<ContextMenu Classes=""SatirMenusu"">(.*?)</ContextMenu>", RegexOptions.Singleline))
+            {
+                var ogeler = Regex.Matches(m.Groups[1].Value, "<MenuItem[^>]*>").Select(o => o.Value).ToList();
+                var ilkTehlike = ogeler.FindIndex(o => o.Contains("Classes=\"tehlike\""));
+                if (ilkTehlike >= 0) Assert.All(ogeler.Skip(ilkTehlike), o => Assert.Contains("tehlike", o));
+            }
+        }
+        Assert.True(menude >= 30, "menüdeki Excel öğesi: " + menude);
+        var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml"));
+        Assert.Contains("<Style Selector=\"MenuItem.tehlike\">", ios);
+        Assert.Contains("<Style Selector=\"ContextMenu, MenuFlyoutPresenter\">", ios);
+    }
 }

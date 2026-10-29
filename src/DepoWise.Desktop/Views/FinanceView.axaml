@@ -51,10 +51,15 @@
                     </ctrl:FormField>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
                     <!-- ⭐ M-54: filtrelenmiş TÜM sonuç (sayfa değil) — web ile aynı servis ve tablo -->
-                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hesapları (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
-                    <Button Classes="Secondary" Content="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hesapları yazdırılabilir PDF olarak hazırlar (Excel ile aynı satırlar)."/>
+                    <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                    <Button Classes="Secondary" Content="•••" Padding="12,8" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hesapları (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
+                                <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Aktif filtrelerle eşleşen TÜM hesapları yazdırılabilir PDF olarak hazırlar (Excel ile aynı satırlar)."/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </WrapPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

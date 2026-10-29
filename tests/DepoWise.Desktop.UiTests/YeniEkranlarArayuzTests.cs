@@ -1221,6 +1221,40 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-IOS15 — ⭐ 2. tur madde 5 (2026-10-29): araç çubuğu sade — Excel'e Aktar / Yazdır görünür düğme DEĞİL, "•••"
+    /// menüsünde ve satır sağ tık menüsünde; sağ tık menüsü iOS kartı (14 köşe), "Sil" kırmızı. Görüntü sag-tik-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS15_Sade_Cubuk_Ve_Ios_Sag_Tik()
+    {
+        var vm = new EquipmentViewModel(Ortam());
+        var view = new EquipmentView { DataContext = vm };
+        var w = Ac(view, 1300, 900);
+        for (int i = 0; i < 50 && !vm.Items.Any(); i++) { Thread.Sleep(20); Dispatcher.UIThread.RunJobs(); }
+        var toolbar = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.Toolbar>().First();
+        var cubuk = Gorunen<Button>(toolbar).Select(b => b.Content as string).ToList();
+        Assert.DoesNotContain("Excel'e Aktar", cubuk);
+        Assert.DoesNotContain("Yazdır", cubuk);
+        Assert.Contains("•••", cubuk);
+
+        var liste = view.GetVisualDescendants().OfType<ListBox>().First(l => l.Classes.Contains("Table"));
+        var menu = Assert.IsType<ContextMenu>(liste.ContextMenu);
+        Assert.Contains("SatirMenusu", menu.Classes);
+        if (vm.Items.Any()) liste.SelectedIndex = 0;
+        menu.Open(liste);
+        for (int i = 0; i < 10; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+        Assert.Equal(new Avalonia.CornerRadius(14), menu.CornerRadius);
+        var basliklar = menu.Items.OfType<MenuItem>().Select(m => m.Header as string).ToList();
+        Assert.Contains("Excel'e Aktar", basliklar);
+        Assert.Contains("Yazdır", basliklar);
+        var sil = menu.Items.OfType<MenuItem>().First(m => (m.Header as string) == "Sil");
+        Assert.Contains("tehlike", sil.Classes);
+        Assert.Equal(((Avalonia.Media.ISolidColorBrush)Avalonia.Application.Current!.FindResource(Avalonia.Application.Current.ActualThemeVariant, "DangerBrush")!).Color,
+            ((Avalonia.Media.ISolidColorBrush)sil.Foreground!).Color);
+        Goruntu(w, "sag-tik-ios");
+        menu.Close();
+        w.Close();
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

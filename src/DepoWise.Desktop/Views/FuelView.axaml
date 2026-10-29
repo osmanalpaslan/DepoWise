@@ -137,6 +137,9 @@
                                         AutomationProperties.Name="Seçili dağıtım işlemleri" ToolTip.Tip="Seçili dağıtım: düzenle / iptal et">
                                     <Button.Flyout>
                                         <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                            <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
+                                            <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları yazdırılabilir PDF olarak hazırlar."/>
+                                            <Separator/>
                                             <MenuItem Header="Düzenle" IsVisible="{Binding CanEditFuel}" Command="{Binding BeginEditDistributionCommand}"
                                                       ToolTip.Tip="Seçili yakıt dağıtımını düzeltir: eski kayıt iptal edilip düzeltilmiş yeni kayıt oluşturulur; depo bakiyesi ve raporlar buna göre güncellenir."/>
                                             <Separator/>
@@ -208,10 +211,6 @@
                                                 Command="{Binding AramayiTemizleCommand}"
                                                 ToolTip.Tip="Filtreleri temizler ve tüm kayıtlara döner."/>
                                         <!-- ⭐ M-54: filtrelenmiş TÜM dağıtımlar (sayfa değil) — web ile aynı servis ve tablo -->
-                                        <Button Classes="Secondary" Content="Excel'e Aktar" VerticalAlignment="Bottom" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                                                ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
-                                        <Button Classes="Secondary" Content="Yazdır" VerticalAlignment="Bottom" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                                                ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları yazdırılabilir PDF olarak hazırlar."/>
                                     </WrapPanel>
                                 </Border>
 
@@ -288,6 +287,9 @@
                                             <MenuItem Header="Düzenle" Command="{Binding BeginEditDistributionCommand}" IsVisible="{Binding CanEditFuel}" IsEnabled="{Binding SelectedDistribution, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                             <Separator/>
                                             <MenuItem Header="Kaydı İptal Et" Command="{Binding CancelDistributionCommand}" IsVisible="{Binding CanCancelFuel}" IsEnabled="{Binding SelectedDistribution, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları (yalnız bu sayfayı değil) Excel olarak kaydeder."/>
+                                            <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Arama alanlarıyla eşleşen TÜM dağıtımları yazdırılabilir PDF olarak hazırlar."/>
                                         </ContextMenu>
                                     </ListBox.ContextMenu>
                                     <ListBox.ItemTemplate>

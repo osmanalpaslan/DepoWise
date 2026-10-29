@@ -372,10 +372,15 @@
                                             <Button Classes="Secondary" Content="Temizle" VerticalAlignment="Bottom"
                                                     Command="{Binding BakimTemizleCommand}"/>
                                             <!-- ⭐ M-54: filtrelenmiş TÜM bakım kayıtları (sayfa değil) — web ile aynı servis ve tablo -->
-                                            <Button Classes="Secondary" Content="Excel'e Aktar" VerticalAlignment="Bottom" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}"
-                                                    ToolTip.Tip="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını Excel olarak kaydeder."/>
-                                            <Button Classes="Secondary" Content="Yazdır" VerticalAlignment="Bottom" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}"
-                                                    ToolTip.Tip="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını yazdırılabilir PDF olarak hazırlar."/>
+                                            <!-- 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel, Yazdır) "•••" menüsünde + satır sağ tık menüsünde — çubuk sade -->
+                                            <Button Classes="Secondary" Content="•••" Padding="12,8" VerticalAlignment="Bottom" AutomationProperties.Name="Diğer işlemler" ToolTip.Tip="Diğer işlemler">
+                                                <Button.Flyout>
+                                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                        <MenuItem Header="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını Excel olarak kaydeder."/>
+                                                        <MenuItem Header="Yazdır" Command="{Binding YazdirCommand}" IsVisible="{Binding CanExport}" ToolTip.Tip="Filtrele ile uygulanan ölçütlerle eşleşen TÜM bakım kayıtlarını yazdırılabilir PDF olarak hazırlar."/>
+                                                    </MenuFlyout>
+                                                </Button.Flyout>
+                                            </Button>
                                         </StackPanel>
                                     </Border>
                                     <Border Classes="TableHeader" ctrl:TableHeaderSync.Source="{Binding #TabloMaintenances}" DockPanel.Dock="Top">

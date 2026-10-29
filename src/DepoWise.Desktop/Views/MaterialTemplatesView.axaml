@@ -196,7 +196,7 @@
                                 <ContextMenu Classes="SatirMenusu">
                                     <MenuItem Header="Düzenle" Command="{Binding BeginEditCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     <Separator/>
-                                    <MenuItem Header="Sil" Command="{Binding RequestDeleteCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <MenuItem Classes="tehlike" Header="Sil" Command="{Binding RequestDeleteCommand}" IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 </ContextMenu>
                             </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>
