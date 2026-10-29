@@ -37,11 +37,27 @@ async function siradakiKod(gizli) {
 async function ilkSifreyiBelirle(sifre, gizli) {
   const g = await istek("/api/auth/login", { username: KULLANICI, password: sifre, totpCode: await siradakiKod(gizli) });
   if (g.durum !== 200 || !g.j.token) { console.error("HATA: ilk şifre için giriş " + g.durum); process.exit(1); }
+  await ozelKoduKur(g.j.token);
   if (!g.j.mustChangePassword) return sifre;
   const yeni = rastgeleSifre();
   const d = await istek("/api/auth/change-initial-password", { newPassword: yeni }, g.j.token);
   if (d.durum !== 200) { console.error("HATA: ilk şifre değişimi " + d.durum + " " + (d.j.error || "")); process.exit(1); }
   return yeni;
+}
+/** 2026-10-30: web süper admini "Özel Kod Oluşturun" ekranına zorlar (Kalıcı Silme kilidi) → yoksa rastgele 32 karakterlik kod kurulur,
+ *  YALNIZ .env.test.local'a (DEPOWISE_TEST_OZEL_KOD) yazılır. Testler bu kodu kullanmaz; yalnız giriş akışı tamamlansın diye. */
+async function ozelKoduKur(jeton) {
+  const d = await istek("/api/auth/special-code/status", undefined, jeton);
+  if (!d.j.required || d.j.hasCode) return;
+  const kod = rastgeleSifre();
+  const k = await istek("/api/auth/special-code", { code: kod }, jeton);
+  if (k.durum !== 200) { console.error("HATA: özel kod " + k.durum + " " + (k.j.error || "")); process.exit(1); }
+  const m = fs.readFileSync(envYol, "utf8"); const sat = m.includes("\r\n") ? "\r\n" : "\n";
+  const satirlar = m.split(/\r?\n/).filter(l => !l.startsWith("DEPOWISE_TEST_OZEL_KOD="));
+  const i = satirlar.findIndex(l => l.startsWith("DEPOWISE_TEST_KURTARMA="));
+  satirlar.splice(i >= 0 ? i + 1 : satirlar.length, 0, "DEPOWISE_TEST_OZEL_KOD=" + kod);
+  fs.writeFileSync(envYol, satirlar.join(sat));
+  console.log("Özel kod kuruldu (yalnız .env.test.local; yazdırılmadı).");
 }
 function dosyayaYaz(degerler) {
   const m = fs.readFileSync(envYol, "utf8"); const sat = m.includes("\r\n") ? "\r\n" : "\n";
