@@ -210,6 +210,48 @@
 
         <!-- Sağ: Bugünün Takvimi + Aktif Duyurular (PAN-01) + Masaüstü kurulum -->
         <MudItem xs="12" md="5">
+            @* 2026-10-29 (masaüstü ana ekran B düzeniyle eşit): Son hareketler + En çok çıkan malzemeler. Stok yetkisi yoksa
+               uç reddeder → kartlar HİÇ görünmez. Veri: Giriş-Çıkış ekranının AYNI ucu (firma + şube kapsamı sunucuda). *@
+            @if (_sonHareketler is not null)
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4 dw-ana-kart">
+                    <div class="d-flex align-center mb-2">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;flex:1;">Son Hareketler</MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/stock"))">Tümü ›</MudButton>
+                    </div>
+                    @if (_sonHareketler.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Henüz stok hareketi yok.</MudText>
+                    }
+                    @foreach (var h in _sonHareketler)
+                    {
+                        <div class="dw-ana-satir" title="@h.Aciklama" @onclick="@(() => Nav.NavigateTo("/stock"))">
+                            <span class="dw-ana-zaman">@h.Zaman</span>
+                            <span class="dw-ana-tur"><span class="dw-ana-nokta" style="background:@h.Renk"></span>@h.Tur</span>
+                            <span class="dw-ana-ad @(h.Iptal ? "iptal" : "")">@h.Malzeme</span>
+                            <strong class="dw-ana-miktar">@h.Miktar</strong>
+                        </div>
+                    }
+                </MudPaper>
+            }
+            @if (_enCokCikanlar is not null)
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4 dw-ana-kart">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">En Çok Çıkan Malzemeler</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">Son 30 gün · çıkış ve bakım tüketimi</MudText>
+                    @if (_enCokCikanlar.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Son 30 günde çıkış yok.</MudText>
+                    }
+                    @foreach (var c in _enCokCikanlar)
+                    {
+                        <div class="mb-3" title="@c.Kod">
+                            <div class="d-flex" style="gap:8px;"><span class="dw-ana-ad" style="flex:1;font-weight:600;">@c.Ad</span><strong>@c.Miktar</strong></div>
+                            <div class="dw-ana-cubuk"><span style="width:@(c.Oran.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></span></div>
+                        </div>
+                    }
+                </MudPaper>
+            }
             @* PAN-01: Bugünün Takvimi — yalnız takvim yetkisi olanlara (null=gizli); boşsa bilgi satırı. *@
             @if (_todayCal is not null)
             {
@@ -446,6 +488,22 @@
 .dw-alert:hover .mud-button-root { opacity: 1; }
 
 /* ── Masaüstü kurulum kartı ───────────────────────────────────────────────── */
+/* ── 2026-10-29 ana ekran kartları (masaüstü B düzeniyle eşit): fare gelince 2 px yükselir + gölge (160 ms) ── */
+.dw-ana-kart { border-radius: 16px; border: 1px solid var(--mud-palette-lines-default);
+    transition: transform .16s cubic-bezier(.2,.8,.2,1), box-shadow .16s cubic-bezier(.2,.8,.2,1); }
+.dw-ana-kart:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.2); }
+@@media (prefers-reduced-motion: reduce) { .dw-ana-kart, .dw-ana-kart:hover { transition: none; transform: none; } }
+.dw-ana-satir { display: grid; grid-template-columns: 76px 128px minmax(0,1fr) auto; gap: 10px; align-items: center;
+    padding: 8px 6px; border-radius: 10px; cursor: pointer; font-size: .875rem; }
+.dw-ana-satir:hover { background: var(--mud-palette-action-default-hover); }
+.dw-ana-zaman { color: var(--mud-palette-text-secondary); font-size: .8rem; }
+.dw-ana-tur { display: flex; align-items: center; gap: 6px; color: var(--mud-palette-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-ana-nokta { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dw-ana-ad { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dw-ana-ad.iptal { text-decoration: line-through; color: var(--mud-palette-text-secondary); }
+.dw-ana-miktar { white-space: nowrap; }
+.dw-ana-cubuk { height: 6px; border-radius: 999px; background: var(--mud-palette-lines-default); margin-top: 5px; overflow: hidden; }
+.dw-ana-cubuk > span { display: block; height: 100%; border-radius: 999px; background: var(--mud-palette-primary); }
 .dw-hero {
     position: relative;
     overflow: hidden;
@@ -543,6 +601,8 @@
         }
         catch { _alerts = new(); }
 
+        await StokKartlariniYukle();
+
         try
         {
             var arr = await Api.GetArrayAsync("/api/sync/conflicts");
@@ -560,6 +620,57 @@
     // ── PAN-01 (ADR-175) — yeni özet alanları ──
     private int? _openWo, _overdueWo, _openPo;
     private JsonElement[]? _todayCal, _activeAnn;
+
+    // ── 2026-10-29 ana ekran B düzeni (masaüstüyle eşit): null = stok yetkisi yok / yüklenemedi → kart gizli ──
+    private sealed record SonHareket(string Zaman, string Tur, string Renk, string Malzeme, string Aciklama, string Miktar, bool Iptal);
+    private sealed record CikanMalzemeW(string Kod, string Ad, string Miktar, double Oran);
+    private List<SonHareket>? _sonHareketler;
+    private List<CikanMalzemeW>? _enCokCikanlar;
+
+    private static decimal Ondalik(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v)
+            ? (v.ValueKind == JsonValueKind.Number ? v.GetDecimal()
+               : decimal.TryParse(v.GetString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0m)
+            : 0m;
+
+    private async Task StokKartlariniYukle()
+    {
+        try
+        {
+            var satirlar = await Api.GetArrayAsync("/api/stock/movements");   // en yeni üstte, en fazla 1000
+            var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+            var bugun = DateTime.Now.Date;
+            _sonHareketler = satirlar.Take(6).Select(m =>
+            {
+                var yerel = DateTimeOffset.FromUnixTimeMilliseconds(m.GetProperty("createdAt").GetInt64()).LocalDateTime;
+                var tur = Str(m, "movementType");
+                var renk = tur switch
+                {
+                    "in" or "opening" => "#30D158", "out" => "#FF9F0A", "usage" => "#5E5CE6",
+                    "transfer" => "#32ADE6", "adjustment" => "#BF5AF2", _ => "#8E8E93",
+                };
+                var yon = m.TryGetProperty("direction", out var dr) && dr.GetInt32() < 0 ? "−" : "+";
+                return new SonHareket(yerel.Date == bugun ? yerel.ToString("HH:mm") : yerel.ToString("dd.MM HH:mm"),
+                    DepoWise.Application.Ui.MovementTypeOptions.Label(tur), renk, Str(m, "name"), Str(m, "aciklama"),
+                    (yon + Ondalik(m, "quantity").ToString("0.##", tr) + " " + Str(m, "unit")).Trim(),
+                    m.TryGetProperty("isReversed", out var ir) && ir.ValueKind == JsonValueKind.True);
+            }).ToList();
+            // En çok çıkan: son 30 gün, çıkış + bakım tüketimi; iptal edilen/ters kayıt SAYILMAZ (masaüstü CikanMalzeme.Hesapla ile aynı kural).
+            var sinir = DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds();
+            var gruplar = satirlar
+                .Where(m => m.GetProperty("createdAt").GetInt64() >= sinir
+                            && !(m.TryGetProperty("isReversed", out var ir) && ir.ValueKind == JsonValueKind.True)
+                            && Str(m, "movementType") is "out" or "usage")
+                .GroupBy(m => Str(m, "code"))
+                .Select(g => (Kod: g.Key, Ad: Str(g.First(), "name"), Birim: Str(g.First(), "unit"), Toplam: g.Sum(x => Ondalik(x, "quantity"))))
+                .Where(x => x.Toplam > 0).OrderByDescending(x => x.Toplam).Take(5).ToList();
+            var enCok = gruplar.Count > 0 ? gruplar[0].Toplam : 1m;
+            _enCokCikanlar = gruplar.Select(x => new CikanMalzemeW(x.Kod, x.Ad, (x.Toplam.ToString("0.##", tr) + " " + x.Birim).Trim(),
+                Math.Max(4, (double)(x.Toplam / enCok * 100m)))).ToList();
+        }
+        catch { _sonHareketler = null; _enCokCikanlar = null; }   // yetki yok / sunucu hatası → kartlar gizli
+        StateHasChanged();
+    }
     private static int? NumN(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
 
