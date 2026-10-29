@@ -24,8 +24,9 @@ public sealed partial class ColumnFilterItem : ObservableObject
     /// <summary>Açılır listenin seçenekleri (ekrandaki metinle birebir, Türkçe sıralı).</summary>
     public ObservableCollection<string> Options { get; } = new();
     public string Hint => IsNumeric ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması";
-    /// <summary>Kullanıcıyı yönlendiren yer tutucu ("İç Kod girin", "Marka seçin", "Sayaç değeri").</summary>
-    public string Placeholder => IsSelect ? $"{Label} seçin" : IsNumeric ? $"{Label} değeri" : $"{Label} girin";
+    /// <summary>Kısa yer tutucu (2026-10-29): sütun adı hemen üstteki başlıkta yazdığı için tekrarlanmaz — dar sütunda
+    /// "Yön se", "Miktar değe" gibi kırpılıyordu. Web ile aynı dil ("içerir…"); ayrıntı ipucunda (<see cref="Hint"/>).</summary>
+    public string Placeholder => IsSelect ? "Tümü" : IsNumeric ? "5, >5…" : "İçerir…";
     [ObservableProperty] private string _value = "";
 
     /// <summary>M7 — kutuda deger var mi. YALNIZ gorsel vurgu icin (TextBox.CellFilter.filled);
