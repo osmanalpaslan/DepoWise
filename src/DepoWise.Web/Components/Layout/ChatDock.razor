@@ -18,11 +18,11 @@
     Yoklama: pencere açıkken 3 sn, kapalıyken 20 sn (yalnız okunmamış rozeti). Sunucuya
     ulaşılamazsa sohbet "çevrimdışı" gösterir; sahte veri üretmez.
 
-    Yetki: "chat" modülü, deny-by-default. Yetkisi olmayan kullanıcıda BU BİLEŞEN HİÇ ÇİZİLMEZ ve
-    tek bir istek bile atılmaz (UI ile API aynı kapıya bakar).
+    Yetki: KULLANICI KARARI 2026-10-29: sohbet bir işlem değil → yetkiye BAĞLI DEĞİL, giriş yapan her kullanıcıda açık. Firma sınırı servistedir (yalnız aynı firmadaki kişiler).
+    Giriş yapılmamışsa bileşen çizilmez ve istek atılmaz.
 *@
 
-@if (Auth.CanView("chat"))
+@if (Auth.IsAuthenticated)
 {
     <div class="dw-chat-dock">
 
@@ -206,7 +206,7 @@
     /// <summary>Yetki varsa yoklamayı başlatır. Yetkisiz kullanıcıda tek istek bile atılmaz.</summary>
     private void ZamanlayiciyiKurGerekirse()
     {
-        if (_zamanlayici is not null || !Auth.CanView("chat")) return;
+        if (_zamanlayici is not null || !Auth.IsAuthenticated) return;
         // ⭐ 2026-09-07 — ZAMANLAYICI GERI CAGRISI HATA SIZDIRMAZ.
         // Timer geri cagrisi async void'dir; buradan kacan bir hata YAKALANAMAZ ve Blazor
         // devresini (circuit) oldurur. Devre olunce SAYFADAKI HICBIR DUGME calismaz:

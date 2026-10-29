@@ -53,9 +53,7 @@ public class SohbetUctanUcaTests : IAsyncLifetime
         _veliId = _svc.Users.EnsureInitialAdmin(CoA, "veli", Pass, RoleKeys.Staff);
         _yetkisizId = _svc.Users.EnsureInitialAdmin(CoA, "yetkisiz", Pass, RoleKeys.Staff);
 
-        // Sohbet DENY-BY-DEFAULT: iki kullanıcıya AÇIKÇA verilir, üçüncüsüne VERİLMEZ.
-        _svc.Permissions.SaveForUser(SuperAdmin(), _aliId, new[] { Tam("chat") }, Array.Empty<string>());
-        _svc.Permissions.SaveForUser(SuperAdmin(), _veliId, new[] { Tam("chat") }, Array.Empty<string>());
+        // 2026-10-29 (kullanıcı kararı): sohbet yetkiye BAĞLI DEĞİL — hiçbir kullanıcıya özel yetki verilmez.
 
         _ali = await _host.LoginAsync("ali", Pass, CoA, sube);
         _veli = await _host.LoginAsync("veli", Pass, CoA, sube);
@@ -66,9 +64,6 @@ public class SohbetUctanUcaTests : IAsyncLifetime
         var oturumB = new SessionContext(adminB, CoB, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
         var subeB = new BranchService(_svc.Factory).Create(oturumB, new NewBranch("SOHBET-B-Merkez"));
         _digerFirmaId = _svc.Users.EnsureInitialAdmin(CoB, "yabanci", Pass, RoleKeys.Staff);
-        _svc.Permissions.SaveForUser(
-            new SessionContext("sa", CoB, new[] { RoleKeys.SuperAdmin }, PermissionSet.Empty),
-            _digerFirmaId, new[] { Tam("chat") }, Array.Empty<string>());
         _digerFirma = await _host.LoginAsync("yabanci", Pass, CoB, subeB);
     }
 
@@ -167,22 +162,20 @@ public class SohbetUctanUcaTests : IAsyncLifetime
     //  Güvenlik kapıları
     // ─────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Sohbet yetkisi olmayan kullanıcı hiçbir ucu kullanamaz (deny-by-default).</summary>
+    /// <summary>2026-10-29 (kullanıcı kararı: "sohbet yetkiye bağlı olmamalı, login olan her kullanıcıda etkin"): HİÇBİR yetkisi
+    /// olmayan personel de kişileri görür, yazar ve okur. Oturumsuz istek ise reddedilir.</summary>
     [Fact]
-    public async Task Yetkisiz_Kullanici_HicbirUcu_Kullanamaz()
+    public async Task Yetkisi_Olmayan_Personel_De_Sohbet_Eder()
     {
         var kisiler = await _yetkisiz.GetAsync("/api/chat/users");
-        Assert.True(ApiTestHost.IsDenied(kisiler), $"kişi listesi reddedilmeli, gelen: {kisiler.StatusCode}");
-
-        var mesajlar = await _yetkisiz.GetAsync($"/api/chat/messages?withUserId={_aliId}");
-        Assert.True(ApiTestHost.IsDenied(mesajlar), $"mesajlar reddedilmeli, gelen: {mesajlar.StatusCode}");
-
-        var gonder = await Gonder(_yetkisiz, _aliId, "sizmamali");
-        Assert.True(ApiTestHost.IsDenied(gonder), $"gönderim reddedilmeli, gelen: {gonder.StatusCode}");
-
-        // Ve gerçekten hiçbir şey yazılmamış olmalı.
+        Assert.Equal(HttpStatusCode.OK, kisiler.StatusCode);
+        var gonder = await Gonder(_yetkisiz, _aliId, "merhaba ali");
+        Assert.Equal(HttpStatusCode.OK, gonder.StatusCode);
         var aliKutusu = await Dizi(_ali, $"/api/chat/messages?withUserId={_yetkisizId}");
-        Assert.Empty(aliKutusu);
+        Assert.Single(aliKutusu);
+
+        var oturumsuz = await _host.CreateClient().GetAsync("/api/chat/users");
+        Assert.True(ApiTestHost.IsDenied(oturumsuz), $"oturumsuz istek reddedilmeli, gelen: {oturumsuz.StatusCode}");
     }
 
     /// <summary>BAŞKA FİRMADAKİ kullanıcıya mesaj gönderilemez (tenant izolasyonu).</summary>

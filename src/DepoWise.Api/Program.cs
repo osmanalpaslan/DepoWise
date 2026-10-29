@@ -616,38 +616,33 @@ app.MapGet("/api/sync/wait", async (HttpContext c, long? since) =>
 // ═══════════════════ UYGULAMA İÇİ SOHBET (kullanıcı isteği 2026-09-06) ═══════════════════
 //
 // Dört uç: kişiler(+çevrimiçi+okunmamış) · konuşma · gönder · okundu.
-// Yetki: "chat" modülü, DENY-BY-DEFAULT — yetkisi olmayan hiçbir ucu kullanamaz (UI'de düğmeyi
-// de görmez; iki kapı da aynı anahtara bakar). Tenant sınırı servistedir: her sorgu company_id ile
-// süzülür, alıcının aynı firmada olduğu YAZMADAN ÖNCE doğrulanır.
+// Yetki: KULLANICI KARARI 2026-10-29: sohbet bir işlem değil → yetkiye BAĞLI DEĞİL, giriş yapan her kullanıcıda açık. Firma sınırı servistedir (yalnız aynı firmadaki kişiler).
+// Uçlar yalnız oturum ister. Tenant sınırı servistedir: her sorgu company_id ile süzülür, alıcının aynı
+// firmada olduğu YAZMADAN ÖNCE doğrulanır.
 //
 // SENKRON DIŞI: bu uçlar /api/sync akışına dahil DEĞİLDİR; masaüstü doğrudan çağırır ve yerel
 // kopya tutmaz (kullanıcı isteği: "chat i normal eşitleme sürecinin dışında tutalım").
 app.MapGet("/api/chat/users", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
     return Results.Ok(svc.Chat.Kisiler(s));
 }).RequireAuthorization();
 
 app.MapGet("/api/chat/messages", (HttpContext c, string withUserId, long? since) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
     return Results.Ok(svc.Chat.Konusma(s, withUserId, since));
 }).RequireAuthorization();
 
 app.MapPost("/api/chat/messages", (HttpContext c, ChatGonderDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    // Mesaj YAZMAK için Create yetkisi: salt-okunur bir kullanıcı sohbeti izleyip yazamaz.
-    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.Create);
     return Results.Ok(new { id = svc.Chat.Gonder(s, d.ToUserId, d.Body) });
 }).RequireAuthorization();
 
 app.MapPost("/api/chat/seen", (HttpContext c, ChatOkunduDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    AccessControl.Require(s, "chat", DepoWise.Application.Security.PermissionAction.View);
     return Results.Ok(new { count = svc.Chat.OkunduIsaretle(s, d.WithUserId) });
 }).RequireAuthorization();
 

@@ -100,9 +100,7 @@ public static class AppModules
         ("audit", "Sistem Logu / Audit"),
         ("stock_change_log", "Stok Değişiklik Kaydı"),   // madde 1.5: doğrudan stok değişikliği uyarı logu ekranı
         ("sync_conflicts", "Senkron Çakışmaları"),      // FAZ 4.4: cakisma ekrani (kazananin degistirilmesi ayri yetki: btn-conflict-resolve)
-        // ⭐ 2026-09-06 (kullanıcı isteği): uygulama içi sohbet. Deny-by-default — yetki verilmeyen
-        // kullanıcı alt bardaki sohbet düğmesini GÖRMEZ ve API uçları da reddeder (UI + API aynı kapı).
-        ("chat", "Sohbet (Uygulama İçi Mesajlaşma)"),
+        // Sohbet ("chat") 2026-10-29'da katalogdan ÇIKARILDI — KULLANICI KARARI 2026-10-29: sohbet bir işlem değil → yetkiye BAĞLI DEĞİL, giriş yapan her kullanıcıda açık. Firma sınırı servistedir (yalnız aynı firmadaki kişiler).
         ("backup", "Yedekleme"),
         ("server_backups", "Sunucu Yedekleri"),
         ("machines", "Makine Yönetimi"),
@@ -188,7 +186,7 @@ public static class AppModules
         ("Ön Muhasebe", new[] { "parties", "invoices", "finance", "cost_centers" }),
         ("Raporlar", new[] { "reports", "report_vehicle", "report_stock", "report_fuel", "report_maintenance",
             "report_requests", "report_management", "report_material", "report_accounting", "report_daily_activity" }),
-        ("Organizasyon", new[] { "branches", "users", "personnel", "permissions", "permission_templates", "role_permissions", "chat" }),
+        ("Organizasyon", new[] { "branches", "users", "personnel", "permissions", "permission_templates", "role_permissions" }),
         ("Sistem & Yönetim", new[] { "companies", "releases", "quota_monitor", "backup", "server_backups", "machines", "field_settings",
             "machine_backups", "server_status", "purge_company", "local_reset", "screen_visibility", "audit", "sync_conflicts" }),
     };

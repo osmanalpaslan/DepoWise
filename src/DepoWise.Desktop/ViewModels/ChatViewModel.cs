@@ -61,9 +61,7 @@ public sealed partial class KonusmaVm : ObservableObject
 ///   <item><b>Çevrimdışıyken hiç</b> — çağrı bile yapılmaz.</item>
 /// </list></para>
 ///
-/// <para><b>Yetki.</b> Sohbet "chat" modülüne bağlıdır ve deny-by-default'tur: yetkisi olmayan
-/// kullanıcıda <see cref="Kullanilabilir"/> false olur, alt bardaki düğme görünmez ve hiçbir çağrı
-/// yapılmaz. Sunucu uçları da aynı anahtarı arar (UI ile API aynı kapı).</para>
+/// <para><b>Yetki.</b> KULLANICI KARARI 2026-10-29: sohbet bir işlem değil → yetkiye BAĞLI DEĞİL, giriş yapan her kullanıcıda açık. Firma sınırı servistedir (yalnız aynı firmadaki kişiler). <see cref="Kullanilabilir"/> yalnız oturum yoksa false'tur.</para>
 /// </summary>
 public sealed partial class ChatViewModel : ObservableObject, IDisposable
 {
@@ -131,9 +129,10 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     public ChatViewModel(SessionContext session)
     {
         _session = session;
-        Kullanilabilir = AccessControl.Can(session, "chat", PermissionAction.View);
+        // KULLANICI KARARI 2026-10-29: sohbet bir işlem değil → yetkiye BAĞLI DEĞİL, giriş yapan her kullanıcıda açık. Firma sınırı servistedir (yalnız aynı firmadaki kişiler).
+        Kullanilabilir = !string.IsNullOrEmpty(session.UserId);
 
-        // Zamanlayıcı yetki yoksa hiç kurulmaz: yetkisiz kullanıcı sunucuya tek istek bile atmaz.
+        // Zamanlayıcı oturum yoksa hiç kurulmaz.
         _zamanlayici = new Timer(_ => _ = Yokla(), null,
             Kullanilabilir ? TimeSpan.FromSeconds(2) : Timeout.InfiniteTimeSpan,
             TimeSpan.FromSeconds(KapaliYoklamaSaniye));
