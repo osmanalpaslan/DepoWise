@@ -130,6 +130,9 @@ public static class TableHeaderSync
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Border, Durum> Durumlar = new();
 
+    /// <summary>Başlığın satırdan kopyalanmadan ÖNCEKİ kolon tanımları (yoksa null). KolonGenislik esnek (*) kolonu buradan tanır.</summary>
+    internal static GridLength[]? OzgunTanim(Border header) => Durumlar.TryGetValue(header, out var d) ? d.Ozgun : null;
+
     private static void Bagla(Border header, Control liste)
         => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {

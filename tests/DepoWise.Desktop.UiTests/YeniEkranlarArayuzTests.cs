@@ -1327,6 +1327,49 @@ public class YeniEkranlarArayuzTests
         Assert.Equal("2020", tire.Convert(2020, typeof(string), null, tr));
     }
 
+    /// <summary>UIT-TABLO1 — 2026-10-29 KALICI KURAL (kullanıcı isteği): tabloda bir sütunun verisi diğer sütuna TAŞMAZ, sütun
+    /// konumları listelenen veriye göre DEĞİŞMEZ — başlık, filtre satırı ve HER veri satırı aynı sütun genişliklerini kullanır
+    /// (uzun yazı sütun içinde kesilir; kullanıcı başlıktan sürükleyip genişletebilir). Giriş-Çıkış "Son hareketler"de çok uzun
+    /// malzeme adı ve açıklamayla sınanır. Görüntü tablo-uzun-veri.png.</summary>
+    [AvaloniaFact]
+    public void UITTABLO1_Sutunlar_Veriye_Gore_Kaymaz()
+    {
+        var s = Ortam();
+        var kod = "UZN-" + Guid.NewGuid().ToString("N")[..4];
+        var mat = DesktopServices.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(kod,
+            "ÇOK UZUN MALZEME ADI — LASTİK SÖKME TAKMA HİZMETİ VE BALANS AYARI DAHİL KOMPLE İŞÇİLİK"));
+        var belge = DesktopServices.Stock.ReceiveIn(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(mat, 2m, 1m) }, "uittablo1-" + kod,
+            note: "Araç bakımı — KAM-ME 030 (06 FM 0062) · PATLAYAN LASTİKLER DEĞİŞTİRİLDİ FİŞ NO:533 · EK AÇIKLAMA UZUN UZUN").DocumentId;
+        try
+        {
+            var vm = new StockEntryViewModel(s) { SeciliSekme = 1 };
+            var view = new StockEntryView { DataContext = vm };
+            var w = Ac(view, 1400, 900);
+            for (int i = 0; i < 40; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            Assert.Contains(vm.Movements, m => m.Code == kod);
+            var tablo = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("Table") && b.IsEffectivelyVisible);
+            var baslik = tablo.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("TableHeader"))
+                .GetVisualDescendants().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 9);
+            var gridler = tablo.GetVisualDescendants().OfType<Grid>()
+                .Where(g => g.ColumnDefinitions.Count == 9 && !ReferenceEquals(g, baslik) && g.IsEffectivelyVisible).ToList();
+            Assert.True(gridler.Count >= 2, "filtre + en az bir satır: " + gridler.Count);
+            foreach (var g in gridler)
+                for (int k = 0; k < 9; k++)
+                    Assert.True(Math.Abs(baslik.ColumnDefinitions[k].ActualWidth - g.ColumnDefinitions[k].ActualWidth) < 1.5,
+                        $"kolon {k}: başlık {baslik.ColumnDefinitions[k].ActualWidth:0} satır/filtre {g.ColumnDefinitions[k].ActualWidth:0}");
+            // başlangıçta tüm sütunlar GÖRÜNÜR alana sığar (esnek sütunlar görünür genişlikten paylaştırılır; uzun veri genişletmez)
+            var toplam = Enumerable.Range(0, 9).Sum(k => baslik.ColumnDefinitions[k].ActualWidth);
+            Assert.True(toplam <= tablo.Bounds.Width + 2, $"sütunlar görünür alana sığmalı: toplam {toplam:0} tablo {tablo.Bounds.Width:0} · " + string.Join(",", Enumerable.Range(0, 9).Select(k => baslik.ColumnDefinitions[k].ActualWidth.ToString("0"))));
+            Goruntu(w, "tablo-uzun-veri");
+            w.Close();
+        }
+        finally
+        {
+            DesktopServices.Stock.ReverseDocument(s, belge, "UIT-TABLO1 test temizliği");
+            try { DesktopServices.Materials.Delete(s, mat); } catch { }
+        }
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

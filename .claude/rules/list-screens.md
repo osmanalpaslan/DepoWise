@@ -31,3 +31,13 @@ Filtre/sıralama/sayfalama olan HER liste ekranında bir **"Excel'e Aktar"** but
 - Buton üstünde/yanında kısa bir açıklama (tooltip) bulunur: ne işe yaradığını (aktif filtrelerle dışa
   aktarır) belirtir — kullanıcı "bu ne yapıyor" diye tahmin etmek zorunda kalmaz.
 - Yeni bir liste ekranı (bu ADR-087/088/089 deseniyle) eklendiğinde bu buton da eklenir — atlanmaz.
+
+## Kural 3 — Tablo sütunları veriyle kaymaz (KALICI, kullanıcı isteği 2026-10-29)
+Masaüstü + web, rapor dahil TÜM tablolarda:
+- Bir sütunun verisi diğer sütuna **taşmaz**; uzun yazı sütun içinde "…" ile kesilir (tamamı ipucunda/ayrıntıda görülür).
+- Sütun konumları listelenen veriye göre **değişmez**: başlık, başlık altındaki filtre satırı ve her veri satırı AYNI genişlikleri kullanır.
+- Uzun veriyi okumak isteyen kullanıcı sütunu başlıktaki tutamaktan **kendisi genişletir** (genişlik hatırlanır).
+- Masaüstü mekanizması: `Controls/KolonGenislik.cs` (filtre satırı kaydı + `Tohumla`: uzun veri esnek sütunu şişirip tablo görünür
+  alandan taşınca sütunlar görünür alana paylaştırılıp sabitlenir) + `TableHeaderSync.cs`. Yeni tabloda başlık/filtre/satır ızgaraları
+  aynı `ColumnDefinitions` + `ctrl:ColumnRules.Enabled="True"` taşır; filtre satırı başlıkla aynı kapta `Border.TableFilterRow`.
+- Testler: `UITTABLO1` (çok uzun veriyle hizalama + sığma), `G31` (başlık-satır hizası), `TABLO1` (kaynak nöbetçisi).

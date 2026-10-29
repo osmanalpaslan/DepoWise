@@ -270,4 +270,21 @@ public class IosTasarimTests
         Assert.Contains("<Style Selector=\"MenuItem.tehlike\">", ios);
         Assert.Contains("<Style Selector=\"ContextMenu, MenuFlyoutPresenter\">", ios);
     }
+
+    /// <summary>TABLO-KURAL1 — 2026-10-29 KALICI KURAL (kullanıcı isteği; .claude/rules/list-screens.md Kural 3): tabloda bir sütunun verisi
+    /// diğer sütuna TAŞMAZ, sütun konumları listelenen veriye göre DEĞİŞMEZ; başlık + filtre satırı + satırlar aynı genişlik. Davranış
+    /// testi UITTABLO1 (arayüz); bu nöbetçi mekanizmanın sökülmemesini yakalar.</summary>
+    [Fact]
+    public void TABLO1_Sutun_Genislikleri_Veriyle_Kaymaz()
+    {
+        var kg = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Controls", "KolonGenislik.cs"));
+        Assert.Contains("void Tohumla(object? s, EventArgs e)", kg);
+        Assert.Contains("grid.LayoutUpdated += Tohumla;", kg);
+        Assert.Contains("TableHeaderSync.OzgunTanim(baslik)", kg);                       // esnek kolon özgün tanımdan tanınır
+        Assert.Contains("b.Classes.Contains(\"TableFilterRow\")", kg);                  // filtre satırı da aynı genişliği alır
+        Assert.Contains("if (asgari > gorunur) return;", kg);                           // ilk açılıştaki dar çerçeve taşma sanılmaz
+        Assert.Contains("tb.TextTrimming = TextTrimming.CharacterEllipsis", kg);        // uzun yazı sütun içinde "…" ile kesilir
+        var kural = File.ReadAllText(Path.Combine(Kok(), ".claude", "rules", "list-screens.md"));
+        Assert.Contains("## Kural 3", kural);
+    }
 }
