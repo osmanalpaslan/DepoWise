@@ -57,6 +57,11 @@ public class TabloSatirSecimiKapsamTests
                 // Ya da davranış açıkça bağlanmış.
                 if (etiket.Contains("TableRowSelect.Enabled", StringComparison.Ordinal)) continue;
 
+                // Kendiliğinden kapanan etiket (<ListBox … />): satır şablonu YOK → öğeler sade metin, tıklama yutulmaz.
+                // 2026-10-29: eskiden gövde "sonraki </ListBox>"a kadar aranıyordu → sayfadaki BAŞKA listenin yazısı bu listeye
+                // sayılıyordu (durum filtre hapları yanlış alarm verdi).
+                if (etiket.EndsWith("/>", StringComparison.Ordinal)) continue;
+
                 // Satır şablonunda SelectableTextBlock var mı? Yoksa tıklama zaten yutulmuyor demektir.
                 var kalan = metin[m.Index..];
                 var kapanis = kalan.IndexOf("</ListBox>", StringComparison.Ordinal);

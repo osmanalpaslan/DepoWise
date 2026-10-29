@@ -134,7 +134,10 @@ public class MasaustuYeniKayitFormuTests
     public void YKF6_Liste_Gizliyken_Form_Esneyen_Satirda(string gorunum, string satir)
     {
         var x = Kaynak("src", "DepoWise.Desktop", "Views", gorunum);
-        Assert.Contains($"<Border {satir} Classes=\"Panel\" Margin=\"0,16,0,0\" VerticalAlignment=\"Top\" IsVisible=\"{{Binding ShowAdd}}\">", x);
-        Assert.Contains($"{satir} Margin=\"0,16,0,0\" ColumnDefinitions=\"*,360\" IsVisible=\"{{Binding !ShowAdd}}\"", x);   // liste aynı satırda, form açıkken gizli
+        // 2026-10-29: iOS form kutusu ek özellik taşıyabilir (zemin/kenarlık) ve satır bölünebilir → öznitelik SIRASINA değil anlamına bakılır.
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+            "<Border[^>]*" + System.Text.RegularExpressions.Regex.Escape(satir) + "[^>]*Classes=\"Panel\"[^>]*VerticalAlignment=\"Top\"\\s+IsVisible=\"\\{Binding ShowAdd\\}\""), x);
+        // liste aynı satırda, form açıkken gizli. Bilgi paneli 2026-10-29 kullanıcı isteğiyle 360 → 420 px.
+        Assert.Contains($"{satir} Margin=\"0,16,0,0\" ColumnDefinitions=\"*,420\" IsVisible=\"{{Binding !ShowAdd}}\"", x);
     }
 }

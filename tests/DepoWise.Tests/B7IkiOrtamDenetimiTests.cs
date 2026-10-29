@@ -45,7 +45,8 @@ public class B7IkiOrtamDenetimiTests
             Assert.Contains("OnClick=\"Yazdir\"", blok);
         }
         foreach (var gorunum in new[] { "PersonnelView", "CostCentersView" })
-            Assert.Matches(new Regex("Content=\"Yazdır\" Command=\"\\{Binding YazdirCommand\\}\" IsVisible=\"\\{Binding CanExport\\}\""),
+            // 2026-10-29 (2. tur madde 5): Yazdır "•••" ve sağ tık MENÜSÜNDE — yetki kapısı (CanExport) aynen şart.
+            Assert.Matches(new Regex("<MenuItem Header=\"Yazdır\" Command=\"\\{Binding YazdirCommand\\}\" IsVisible=\"\\{Binding CanExport\\}\""),
                 Oku($"src/DepoWise.Desktop/Views/{gorunum}.axaml"));
     }
 

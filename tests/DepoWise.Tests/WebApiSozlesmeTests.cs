@@ -45,7 +45,9 @@ public class WebApiSozlesmeTests : IAsyncLifetime
             .Where(f => (f.EndsWith(".razor") || f.EndsWith(".cs")) && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)
                         && !f.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar))
             .SelectMany(f => desen.Matches(File.ReadAllText(f)).Select(m => m.Groups[1].Value))
-            .Select(y => y.TrimEnd('?', '&').EndsWith("=") ? y + "x" : y.TrimEnd('?', '&'))   // "?q=" gibi açık uçlu sorguya örnek değer
+            // "?q=" gibi açık uçlu sorguya örnek değer; zaman parametresi (from/to/since, ms) gerçekçi sayı ister — "x" 400 döner (2026-10-29)
+            .Select(y => Regex.IsMatch(y, @"[?&](from|to|since)=$") ? y + "1760000000000"
+                       : y.TrimEnd('?', '&').EndsWith("=") ? y + "x" : y.TrimEnd('?', '&'))
             .Select(y => ZorunluSorgu.TryGetValue(y, out var q) ? y + "?" + q : y)
             .Distinct(StringComparer.Ordinal).OrderBy(y => y, StringComparer.Ordinal).ToList();
     }
