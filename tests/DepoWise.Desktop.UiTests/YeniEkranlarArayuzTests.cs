@@ -1146,43 +1146,51 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
-    /// <summary>UIT-IOS13 — ⭐ iOS tasarım madde 7: ana ekranda "Son 6 Ay Yakıt" çubuk grafiği — 6 ay, en yeni üstte "(bu ay)",
-    /// en yoğun ay tam çubuk, litre yazılı; yakıt dağıtımı yoksa kart gizli. Görüntü anaekran-yakit-ios.png.</summary>
+    /// <summary>UIT-ANA1 — 2026-10-29 ana ekran B düzeni (kullanıcı seçimi + revizyon; "Son 6 Ay Yakıt" kartı kullanıcı isteğiyle
+    /// KALDIRILDI, eski UIT-IOS13'ün yerine): Son hareketlerde yeni çıkış görünür; "En çok çıkan malzemeler" çıkışı sayar, İPTAL
+    /// edilmiş çıkışı SAYMAZ; alt sırada soldan sağa Uyarılar · En çok çıkan · Uygulama; yakıt kartı yok. Görüntü anaekran-b.png.</summary>
     [AvaloniaFact]
-    public void UITIOS13_Ana_Ekran_Yakit_Grafigi()
+    public void UITANA1_Ana_Ekran_B_Duzeni()
     {
         var s = Ortam();
-        string Op() => Guid.NewGuid().ToString("N");
-        var fuel = DesktopServices.Fuel;
-        var oncesi = new DashboardViewModel(s);
-        var oncedenVardi = oncesi.YakitGrafigiVar;   // ortak test veritabanında başka test dağıtım yapmış olabilir
-        var depo = fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(500m, 40m), Op());
-        var arac = DesktopServices.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("YKT-" + Guid.NewGuid().ToString("N")[..5], CurrentMeter: 1000m));
-        var dagitim = fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(arac, 120m, 1100m), Op());
+        var kod = "ANA-" + Guid.NewGuid().ToString("N")[..4];
+        var mat = DesktopServices.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(kod, "ANA EKRAN DENEME " + kod));
+        var giris = DesktopServices.Stock.ReceiveIn(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(mat, 100m, 1m) }, "uitana1g-" + kod).DocumentId;
+        var cikis = DesktopServices.Stock.IssueOut(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(mat, 7m, 1m) }, "uitana1c-" + kod).DocumentId;
+        var iptalEdilen = DesktopServices.Stock.IssueOut(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(mat, 50m, 1m) }, "uitana1i-" + kod).DocumentId;
+        DesktopServices.Stock.ReverseDocument(s, iptalEdilen, "UIT-ANA1 iptal edilen çıkış");
         try
         {
             var vm = new DashboardViewModel(s);
-            Assert.True(vm.YakitGrafigiVar);
-            Assert.Equal(6, vm.YakitAylari.Count);
-            Assert.EndsWith("(bu ay)", vm.YakitAylari[0].Ay);
-            Assert.Equal(100, vm.YakitAylari.Max(a => a.Oran));
-            Assert.All(vm.YakitAylari, a => Assert.EndsWith(" L", a.Litre));
+            Assert.True(vm.StokKartlariVar);
+            Assert.InRange(vm.SonHareketler.Count, 4, DashboardViewModel.SonHareketAdedi);   // bu testin 4 hareketi + en fazla 6
+            Assert.Contains(vm.SonHareketler, h => h.Malzeme.Contains(kod) && h.Tur == "Çıkış" && h.Miktar.StartsWith("−7"));
+            var cikan = Assert.Single(vm.EnCokCikanlar, c => c.Kod == kod);
+            Assert.StartsWith("7", cikan.Miktar);                                     // iptal edilen 50 SAYILMADI
+            Assert.InRange(cikan.Oran, 4, 100);
+
             var view = new DashboardView { DataContext = vm };
-            var w = Ac(view, 1400, 1000);
-            Dispatcher.UIThread.RunJobs();
-            var kart = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "YakitGrafigi");
-            Assert.True(kart.IsEffectivelyVisible);
-            Assert.Equal(6, kart.GetVisualDescendants().OfType<ProgressBar>().Count(p => p.Classes.Contains("IosCubuk")));
-            Goruntu(w, "anaekran-yakit-ios");
+            var w = Ac(view, 1500, 1100);
+            for (int i = 0; i < 20; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.Name == "YakitGrafigi");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Son 6 Ay Yakıt");
+            double X(string baslik) => view.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.Text == baslik && t.IsEffectivelyVisible).Select(t => Avalonia.VisualExtensions.TranslatePoint(t, new Avalonia.Point(0, 0), view)).First(p => p is not null)!.Value.X;
+            double Y(string baslik) => view.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.Text == baslik && t.IsEffectivelyVisible).Select(t => Avalonia.VisualExtensions.TranslatePoint(t, new Avalonia.Point(0, 0), view)).First(p => p is not null)!.Value.Y;
+            Assert.True(X("Uyarılar") < X("En Çok Çıkan Malzemeler") && X("En Çok Çıkan Malzemeler") < X("Uygulama"), "alt sıra: Uyarılar · En çok çıkan · Uygulama");
+            Assert.True(Math.Abs(Y("Uyarılar") - Y("Uygulama")) < 2, "alt sıra aynı hizada");
+            Assert.True(X("Son Hareketler") < X("Filo Durumu") && Y("Son Hareketler") < Y("Uyarılar"), "orta sıra: Son hareketler · Filo durumu");
+            Assert.True(view.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("AnaKart") && b.IsEffectivelyVisible) >= 4);
+            Goruntu(w, "anaekran-b");
             w.Close();
         }
         finally
         {
-            fuel.CancelDistribution(s, dagitim, "UIT-IOS13 test temizliği");
-            fuel.CancelDepotEntry(s, depo, "UIT-IOS13 test temizliği");
-            DesktopServices.Vehicles.Delete(s, arac);   // ortak test veritabanı: Kiralık testinin araç listesini kirletme
+            DesktopServices.Stock.ReverseDocument(s, cikis, "UIT-ANA1 test temizliği");
+            DesktopServices.Stock.ReverseDocument(s, giris, "UIT-ANA1 test temizliği");
+            try { DesktopServices.Materials.Delete(s, mat); } catch { }
         }
-        if (!oncedenVardi) Assert.False(new DashboardViewModel(s).YakitGrafigiVar);   // iptal edilen dağıtım sayılmaz → kart gizli
     }
 
     /// <summary>UIT-IOS14 — ⭐ 2. tur madde 2 (2026-10-29): iOS alanlar — metin kutusu ve açılır liste 44 px; açılır listenin
@@ -1453,8 +1461,9 @@ public class YeniEkranlarArayuzTests
         Dispatcher.UIThread.RunJobs();
         Assert.False(vm.HizliIslemVar);
         Assert.DoesNotContain(Gorunen<TextBlock>(view), t => t.Text == "Hızlı İşlemler");
-        // ⭐ iOS tasarım (2026-10-28): "Toplam Araç" kartında durum dağılım çubuğu görünür; parçalar toplamı tutar.
-        Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "Özet");
+        // ⭐ iOS tasarım (2026-10-28): araç kartında durum dağılım çubuğu görünür; parçalar toplamı tutar.
+        // 2026-10-29 B düzeni: "Özet" başlığı kalktı (özet sayıları tek satır), araç kartının adı "Filo Durumu".
+        Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "Filo Durumu");
         var cubuk = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.OranCubugu>().Single();
         Assert.True(cubuk.IsEffectivelyVisible);
         Assert.Equal(vm.AracToplam, vm.AracAktif + vm.AracBakimda + vm.AracArizali + vm.AracPasif);

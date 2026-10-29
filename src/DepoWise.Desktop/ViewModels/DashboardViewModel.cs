@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Application.Theming;
+using DepoWise.Application.Ui;
+using DepoWise.Infrastructure.Materials;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -160,28 +162,36 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
     public int AracPasif { get; private set; }
     public bool AracPasifVar => AracPasif > 0;
 
-    // ⭐ iOS tasarım madde 7 (2026-10-29): "Son 6 Ay Yakıt" — Yakıt Özeti'nin çubuk dili (ay · litre · en yoğun aya göre çubuk).
-    // Veri Yakıt ekranının AYNI servisinden (FuelService.MonthlySummary: yetki + şube kapsamı orada); yakıt yetkisi yoksa ya da
-    // 6 ayda hiç dağıtım yoksa kart HİÇ görünmez (boş grafik gürültüdür).
-    public ObservableCollection<YakitAyCubugu> YakitAylari { get; } = new();
-    public bool YakitGrafigiVar => YakitAylari.Count > 0;
+    // ⭐ Ana ekran B düzeni (kullanıcı seçimi 2026-10-29): "Son 6 Ay Yakıt" kartı KALDIRILDI (kullanıcı: "gerek yok").
+    // Yerine: "Son hareketler" (Giriş-Çıkış ekranının AYNI servisi — yetki + firma + şube kapsamı orada) ve
+    // "En çok çıkan malzemeler" (son 30 gün, iptal edilmiş/ters kayıtlar hariç). Stok yetkisi yoksa ikisi de HİÇ görünmez.
+    public ObservableCollection<SonHareketSatiri> SonHareketler { get; } = new();
+    public ObservableCollection<CikanMalzeme> EnCokCikanlar { get; } = new();
+    public bool SonHareketVar => SonHareketler.Count > 0;
+    public bool EnCokCikanVar => EnCokCikanlar.Count > 0;
+    public bool StokKartlariVar { get; private set; }
+    public const int SonHareketAdedi = 6;
+    public const int EnCokCikanGun = 30;
 
-    private void YakitGrafigiYukle(SessionContext session)
+    private void StokKartlariniYukle(SessionContext session)
     {
-        YakitAylari.Clear();
+        SonHareketler.Clear(); EnCokCikanlar.Clear();
         try
         {
-            if (!AccessControl.Can(session, "fuel", PermissionAction.View)) return;
-            var aylar = DesktopServices.Fuel.MonthlySummary(session, 6).Months;   // en yeni ay üstte
-            if (aylar.All(a => a.Liters <= 0)) return;
-            var enYuksek = aylar.Max(a => a.Liters);
-            foreach (var a in aylar)
-                YakitAylari.Add(new YakitAyCubugu(a.IsCurrentMonth ? a.MonthName + " (bu ay)" : a.MonthName + " " + a.YearText,
-                    a.LitersText, DepoWise.Infrastructure.Operations.FuelMonthSummary.Oran(a.Liters, enYuksek),
-                    a.CountText + " · günlük ort. " + a.DailyAverageText));
+            StokKartlariVar = AccessControl.Can(session, "stock", PermissionAction.View);
+            if (!StokKartlariVar) return;
+            var bugun = DateTime.Now.Date;
+            foreach (var m in DesktopServices.Stock.RecentMovements(session, SonHareketAdedi))
+                SonHareketler.Add(SonHareketSatiri.Olustur(m, bugun));
+            var baslangic = DateTimeOffset.UtcNow.AddDays(-EnCokCikanGun).ToUnixTimeMilliseconds();
+            foreach (var c in CikanMalzeme.Hesapla(DesktopServices.Stock.SearchMovements(session, baslangic, null, null, 5000), 5))
+                EnCokCikanlar.Add(c);
         }
-        catch { YakitAylari.Clear(); }   // grafik ek bilgidir: hata ana ekranı düşürmez
-        finally { OnPropertyChanged(nameof(YakitGrafigiVar)); }
+        catch { SonHareketler.Clear(); EnCokCikanlar.Clear(); }   // ek bilgidir: hata ana ekranı düşürmez
+        finally
+        {
+            OnPropertyChanged(nameof(StokKartlariVar)); OnPropertyChanged(nameof(SonHareketVar)); OnPropertyChanged(nameof(EnCokCikanVar));
+        }
     }
 
     public DashboardViewModel(SessionContext session)
@@ -224,7 +234,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
                 ActiveAnnouncements.Add(a);
             ShowAnnouncements = ActiveAnnouncements.Count > 0;
             OnPropertyChanged(nameof(TodayCalendarEmpty));
-            YakitGrafigiYukle(session);   // iOS madde 7
+            StokKartlariniYukle(session);   // B düzeni: son hareketler + en çok çıkanlar
             foreach (var a in s.Alerts) if (!a.Read) _allAlerts.Add(a); // #18: okunmuşları ana ekranda gösterme
             ApplyAlertFilter();
         }
@@ -425,5 +435,49 @@ public sealed record KpiCard(string Value, string Label, string Kind, bool Prima
     public bool HasCaption => !string.IsNullOrEmpty(Caption);
 }
 
-/// <summary>⭐ iOS madde 7: ana ekran yakıt grafiğinin bir ayı — Oran 0–100 (en yoğun aya göre; dağıtım varsa en az 4, görünsün).</summary>
-public sealed record YakitAyCubugu(string Ay, string Litre, double Oran, string Ayrinti);
+/// <summary>Ana ekran "Son hareketler" satırı. Tür rengi yalnız noktada (yazı her temada okunur renkte kalır).</summary>
+public sealed record SonHareketSatiri(string Zaman, string Tur, string TurRengi, string Malzeme, string Aciklama, string Miktar, bool Iptal)
+{
+    public Avalonia.Media.IBrush TurFirca => Avalonia.Media.Brush.Parse(TurRengi);
+    public bool AciklamaVar => !string.IsNullOrWhiteSpace(Aciklama);
+
+    public static SonHareketSatiri Olustur(StockMovementRow m, DateTime bugun)
+    {
+        var yerel = DateTimeOffset.FromUnixTimeMilliseconds(m.CreatedAt).LocalDateTime;
+        var zaman = yerel.Date == bugun ? yerel.ToString("HH:mm") : yerel.ToString("dd.MM HH:mm");
+        var renk = m.MovementType switch
+        {
+            MovementTypeOptions.In or MovementTypeOptions.Opening => "#30D158",
+            MovementTypeOptions.Out => "#FF9F0A",
+            MovementTypeOptions.Usage => "#5E5CE6",
+            MovementTypeOptions.Transfer => "#32ADE6",
+            MovementTypeOptions.Adjustment => "#BF5AF2",
+            _ => "#8E8E93",   // iptal / ters kayıt
+        };
+        var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+        var miktar = (m.Direction < 0 ? "−" : "+") + m.Quantity.ToString("0.##", tr) + " " + (m.Unit ?? "").Trim();
+        return new SonHareketSatiri(zaman, MovementTypeOptions.Label(m.MovementType), renk, $"{m.Name}",
+            m.Aciklama ?? "", miktar.Trim(), m.IsReversed);
+    }
+}
+
+/// <summary>Ana ekran "En çok çıkan malzemeler" satırı — Oran 0–100 (listenin en çok çıkanına göre).</summary>
+public sealed record CikanMalzeme(string Kod, string Ad, string Miktar, double Oran)
+{
+    /// <summary>Çıkış (out) + bakım tüketimi (usage); iptal edilmiş hareket ve ters kayıtlar SAYILMAZ. Kod başına toplam, büyükten küçüğe.</summary>
+    public static IReadOnlyList<CikanMalzeme> Hesapla(IEnumerable<StockMovementRow> hareketler, int adet)
+    {
+        var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+        var gruplar = hareketler
+            .Where(m => !m.IsReversed && (m.MovementType == MovementTypeOptions.Out || m.MovementType == MovementTypeOptions.Usage))
+            .GroupBy(m => m.Code)
+            .Select(g => (Kod: g.Key, Ad: g.First().Name, Birim: (g.First().Unit ?? "").Trim(), Toplam: g.Sum(x => x.Quantity)))
+            .Where(x => x.Toplam > 0)
+            .OrderByDescending(x => x.Toplam).ThenBy(x => x.Ad, StringComparer.Create(tr, true))
+            .Take(adet).ToList();
+        if (gruplar.Count == 0) return Array.Empty<CikanMalzeme>();
+        var enCok = gruplar[0].Toplam;
+        return gruplar.Select(x => new CikanMalzeme(x.Kod, x.Ad, (x.Toplam.ToString("0.##", tr) + " " + x.Birim).Trim(),
+            Math.Max(4, (double)(x.Toplam / enCok * 100m)))).ToList();
+    }
+}

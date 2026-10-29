@@ -8,32 +8,41 @@
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="760"
              x:Class="DepoWise.Desktop.Views.DashboardView"
              x:DataType="vm:DashboardViewModel">
-    <!-- ⭐ iOS tarzı (2026-10-28, kullanıcı onayı): iki sütun — solda hızlı işlemler / özet / kritik uyarılar,
-         sağda bugünün takvimi / duyurular / uygulama. Bağlamalar ve komutlar önceki sürümle AYNI. -->
     <ScrollViewer Background="{DynamicResource AppBackgroundBrush}" Padding="28,22,28,32">
         <StackPanel Spacing="22">
 
-            <!-- Makine + Şube (hap biçiminde) -->
-            <WrapPanel>
-                <Border Classes="Hap" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource SurfaceBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
-                        <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"
-                                  Data="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-6v2h3v2H7v-2h3v-2H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v8h14V6Z"/>
-                        <SelectableTextBlock Text="Makine" Classes="Helper" VerticalAlignment="Center"/>
-                        <SelectableTextBlock Text="{Binding MachineName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-                <Border Classes="Hap" Padding="12,6" Background="{DynamicResource SurfaceBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
-                        <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"
-                                  Data="M4 21V3h10v6h6v12H4Zm2-2h2v-2H6Zm0-4h2v-2H6Zm0-4h2V9H6Zm0-4h2V5H6Zm4 12h2v-2h-2Zm0-4h2v-2h-2Zm0-4h2V9h-2Zm0-4h2V5h-2Zm6 12h2v-2h-2Zm0-4h2v-2h-2Z"/>
-                        <SelectableTextBlock Text="Şube" Classes="Helper" VerticalAlignment="Center"/>
-                        <SelectableTextBlock Text="{Binding BranchName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-            </WrapPanel>
+            <!-- ⭐ B DÜZENİ (kullanıcı seçimi + revizyon 2026-10-29): başlık · hızlı işlemler · tek satır özet ·
+                 [Son hareketler | Filo durumu] · [Uyarılar | En çok çıkan malzemeler | Uygulama] · (varsa) takvim + duyurular.
+                 "Son 6 Ay Yakıt" kartı kullanıcı isteğiyle KALDIRILDI. Kartlar üzerine gelince hafif yükselir (Ios.axaml AnaKart). -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="Genel Durum" Classes="AnaBaslik"/>
+                    <TextBlock Text="Bugün ilgilenmen gerekenler ve son durum" Classes="Helper" Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+                <Panel Grid.Column="1" VerticalAlignment="Center">
+                <!-- Makine + Şube (hap biçiminde) -->
+                <WrapPanel>
+                    <Border Classes="Hap" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"
+                                      Data="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-6v2h3v2H7v-2h3v-2H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v8h14V6Z"/>
+                            <SelectableTextBlock Text="Makine" Classes="Helper" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="{Binding MachineName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="Hap" Padding="12,6" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"
+                                      Data="M4 21V3h10v6h6v12H4Zm2-2h2v-2H6Zm0-4h2v-2H6Zm0-4h2V9H6Zm0-4h2V5H6Zm4 12h2v-2h-2Zm0-4h2v-2h-2Zm0-4h2V9h-2Zm0-4h2V5h-2Zm6 12h2v-2h-2Zm0-4h2v-2h-2Z"/>
+                            <SelectableTextBlock Text="Şube" Classes="Helper" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="{Binding BranchName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
+                </Panel>
+            </Grid>
 
             <!-- Hata durumu -->
             <Border IsVisible="{Binding HasError}" Background="{DynamicResource SurfaceBrush}"
@@ -42,11 +51,6 @@
                 <SelectableTextBlock Text="{Binding LoadError}" Classes="Body"
                            Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
             </Border>
-
-            <Grid ColumnDefinitions="*,340" ColumnSpacing="24">
-
-                <!-- ═════════════ SOL SÜTUN ═════════════ -->
-                <StackPanel Grid.Column="0" Spacing="26">
 
                     <!-- ⭐ M-65 Hızlı işlemler — yalnız menüde görünen ekranlar (yetki menüyle aynı) -->
                     <StackPanel Spacing="12" IsVisible="{Binding HizliIslemVar}">
@@ -81,20 +85,87 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- Özet -->
-                    <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
-                        <SelectableTextBlock Text="Özet" Classes="IosBaslik"/>
-                        <StackPanel Spacing="14">
+
+            <!-- Özet sayıları -->
+            <StackPanel IsVisible="{Binding IsLoaded}">
+                            <!-- Özet sayıları: TEK satır (B düzeni) -->
+                            <ItemsControl ItemsSource="{Binding Cards}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><UniformGrid Rows="1" ColumnSpacing="14"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:KpiCard">
+                                        <Button Classes="IosKartDugme"
+                                                Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
+                                                CommandParameter="{Binding NavKey}" ToolTip.Tip="İlgili ekranı aç">
+                                            <Border Classes="IosKart" Padding="16,14" MinHeight="118">
+                                                <StackPanel Spacing="8">
+                                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                                        <Border Classes="IkonKutu" Background="{Binding TileBrush}">
+                                                            <PathIcon Data="{Binding Icon}" IsVisible="{Binding HasIcon}"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding Label}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <SelectableTextBlock Text="{Binding Value}" Classes="IosBuyukSayi"/>
+                                                    <TextBlock Classes="KpiAlt" Classes.uyari="{Binding CaptionWarn}"
+                                                               Text="{Binding Caption}" IsVisible="{Binding HasCaption}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+            </StackPanel>
+
+            <!-- Satır 2: Son hareketler (geniş) + Filo durumu -->
+            <Grid ColumnDefinitions="1.6*,*" ColumnSpacing="18" IsVisible="{Binding IsLoaded}">
+                <Border Grid.Column="0" Classes="IosKart AnaKart" Padding="18,16" IsVisible="{Binding StokKartlariVar}">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Son Hareketler" Classes="AnaKartBaslik" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Classes="AnaBag" Content="Tümü ›" Command="{Binding OpenCommand}" CommandParameter="stock"
+                                    ToolTip.Tip="Malzeme Giriş-Çıkış ekranını aç"/>
+                        </Grid>
+                        <TextBlock Text="Henüz stok hareketi yok." Classes="Helper" IsVisible="{Binding !SonHareketVar}"/>
+                        <ItemsControl ItemsSource="{Binding SonHareketler}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SonHareketSatiri">
+                                    <Button Classes="IosSatir AnaSatir" Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
+                                            CommandParameter="stock" ToolTip.Tip="{Binding Aciklama}">
+                                        <Grid ColumnDefinitions="92,150,*,Auto" ColumnSpacing="12" Margin="8,9">
+                                            <TextBlock Grid.Column="0" Text="{Binding Zaman}" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                                <Ellipse Width="8" Height="8" Fill="{Binding TurFirca}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Tur}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Spacing="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Malzeme}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" Classes.iptal="{Binding Iptal}"/>
+                                                <TextBlock Text="{Binding Aciklama}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                                                           TextTrimming="CharacterEllipsis" IsVisible="{Binding AciklamaVar}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="3" Text="{Binding Miktar}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Panel Grid.Column="1">
                             <!-- Toplam Araç: geniş kart + durum dağılım çubuğu (iOS tasarım, kullanıcı onayı) -->
                             <Button Classes="IosKartDugme" Command="{Binding OpenCommand}" CommandParameter="vehicles"
                                     ToolTip.Tip="Araç listesini aç">
-                                <Border Classes="IosKart" Padding="16,14">
+                                <Border Classes="IosKart" Padding="18,16">
                                     <StackPanel Spacing="10">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
                                             <Border Classes="IkonKutu" Background="#F5B000">
                                                 <PathIcon Data="{DynamicResource IconVehicles}"/>
                                             </Border>
-                                            <TextBlock Text="Toplam Araç" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                            <TextBlock Text="Filo Durumu" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         </StackPanel>
                                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
@@ -127,40 +198,14 @@
                                     </StackPanel>
                                 </Border>
                             </Button>
-                            <!-- Diğer özet kartları: üçerli ızgara -->
-                            <ItemsControl ItemsSource="{Binding Cards}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><UniformGrid Columns="3" ColumnSpacing="14" RowSpacing="14"/></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:KpiCard">
-                                        <Button Classes="IosKartDugme"
-                                                Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
-                                                CommandParameter="{Binding NavKey}" ToolTip.Tip="İlgili ekranı aç">
-                                            <Border Classes="IosKart" Padding="16,14" MinHeight="118">
-                                                <StackPanel Spacing="8">
-                                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                                        <Border Classes="IkonKutu" Background="{Binding TileBrush}">
-                                                            <PathIcon Data="{Binding Icon}" IsVisible="{Binding HasIcon}"/>
-                                                        </Border>
-                                                        <TextBlock Text="{Binding Label}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                                    </StackPanel>
-                                                    <SelectableTextBlock Text="{Binding Value}" Classes="IosBuyukSayi"/>
-                                                    <TextBlock Classes="KpiAlt" Classes.uyari="{Binding CaptionWarn}"
-                                                               Text="{Binding Caption}" IsVisible="{Binding HasCaption}"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </StackPanel>
+                </Panel>
+            </Grid>
 
-                    <!-- Kritik Uyarılar -->
-                    <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
-                        <SelectableTextBlock Text="Kritik Uyarılar" Classes="IosBaslik"/>
+            <!-- Satır 3: Uyarılar (en solda) · En çok çıkan malzemeler · Uygulama sürümü ve otomatik güncelleme -->
+            <Grid ColumnDefinitions="1.3*,*,*" ColumnSpacing="18">
+                <Border Grid.Column="0" Classes="IosKart AnaKart" Padding="18,16" IsVisible="{Binding IsLoaded}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Uyarılar" Classes="AnaKartBaslik"/>
                         <!-- Kategori hapları (sayılı) — kullanıcı isteği 2026-07-25. Tıkla → o kategori; tekrar → hiçbiri. -->
                         <WrapPanel>
                             <Button Classes="Cip" Margin="0,0,8,8" Classes.secili="{Binding AlertFilter, Converter={x:Static vm:EsitMi.Instance}, ConverterParameter=material}"
@@ -293,113 +338,39 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                </StackPanel>
+                </Border>
 
-                <!-- ═════════════ SAĞ SÜTUN ═════════════ -->
-                <StackPanel Grid.Column="1" Spacing="20">
-
-                    <!-- PAN-01 (ADR-175, PK-L1): Bugünün Takvimi — yetki yoksa HİÇ görünmez; boş gün bilgidir. -->
-                    <Button Classes="IosKartDugme" IsVisible="{Binding ShowTodayCalendar}"
-                            Command="{Binding OpenCommand}" CommandParameter="calendar" ToolTip.Tip="Takvimi aç">
-                        <Border Classes="IosKart" Padding="16,14">
-                            <StackPanel Spacing="10">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Border Classes="IkonKutu" Background="#FF453A">
-                                        <PathIcon Data="{DynamicResource IconCalendar}"/>
-                                    </Border>
-                                    <TextBlock Text="Bugünün Takvimi" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                </StackPanel>
-                                <SelectableTextBlock Text="Bugün için kayıt yok." Classes="Helper"
-                                                     IsVisible="{Binding TodayCalendarEmpty}"/>
-                                <ItemsControl ItemsSource="{Binding TodayCalendar}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="rep:DashboardCalendarRow">
-                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,4">
-                                                <Border Grid.Column="0" Width="4" CornerRadius="2" Background="{DynamicResource AccentBrush}"/>
-                                                <StackPanel Grid.Column="1" Spacing="1">
-                                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
-                                                    <TextBlock Text="{Binding SourceDisplay}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-                                                </StackPanel>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <!-- Aktif duyurular -->
-                    <Button Classes="IosKartDugme" IsVisible="{Binding ShowAnnouncements}"
-                            Command="{Binding OpenCommand}" CommandParameter="announcements" ToolTip.Tip="Duyuruları aç">
-                        <Border Classes="IosKart" Padding="16,14">
-                            <StackPanel Spacing="10">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Border Classes="IkonKutu" Background="#FF2D55">
-                                        <PathIcon Data="{DynamicResource IconAnnouncements}"/>
-                                    </Border>
-                                    <TextBlock Text="Aktif Duyurular" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                </StackPanel>
-                                <ItemsControl ItemsSource="{Binding ActiveAnnouncements}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="rep:DashboardAnnouncementRow">
-                                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12,9" Margin="0,0,0,6">
-                                                <StackPanel Spacing="4">
-                                                    <Border Classes="Hap tehlike" HorizontalAlignment="Left" IsVisible="{Binding IsImportant}">
-                                                        <TextBlock Text="Önemli"/>
-                                                    </Border>
-                                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <!-- ⭐ iOS madde 7: Son 6 Ay Yakıt — Yakıt Özeti çubuk dili; tek seri, tek renk; her ayın litresi yazılı (renk tek başına
-                         anlam taşımaz); üzerine gelince işlem sayısı + günlük ortalama. Tıklayınca Yakıt ekranı. Yetki/veri yoksa gizli. -->
-                    <Button Classes="IosKartDugme" IsVisible="{Binding YakitGrafigiVar}" x:Name="YakitGrafigi"
-                            Command="{Binding OpenCommand}" CommandParameter="fuel:dist" ToolTip.Tip="Yakıt ekranını aç"
-                            AutomationProperties.Name="Son 6 ay yakıt grafiği">
-                        <Border Classes="IosKart" Padding="16,14">
-                            <StackPanel Spacing="12">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Border Classes="IkonKutu" Background="#FF9F0A">
-                                        <PathIcon Data="{DynamicResource IconFuel}"/>
-                                    </Border>
-                                    <StackPanel VerticalAlignment="Center" Spacing="1">
-                                        <TextBlock Text="Son 6 Ay Yakıt" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="Dağıtılan litre · çubuk en yoğun aya göre" Classes="Helper" Foreground="{DynamicResource TextMutedBrush}"/>
+                <Border Grid.Column="1" Classes="IosKart AnaKart" Padding="18,16" IsVisible="{Binding StokKartlariVar}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="En Çok Çıkan Malzemeler" Classes="AnaKartBaslik"/>
+                            <TextBlock Text="Son 30 gün · çıkış ve bakım tüketimi" Classes="Helper" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                        <TextBlock Text="Son 30 günde çıkış yok." Classes="Helper" IsVisible="{Binding !EnCokCikanVar}"/>
+                        <ItemsControl ItemsSource="{Binding EnCokCikanlar}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CikanMalzeme">
+                                    <StackPanel Spacing="5" Background="Transparent" ToolTip.Tip="{Binding Kod}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <TextBlock Text="{Binding Ad}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Miktar}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                        <ProgressBar Classes="IosCubuk" Minimum="0" Maximum="100" Value="{Binding Oran}"
+                                                     Foreground="{DynamicResource AccentBrush}"/>
                                     </StackPanel>
-                                </StackPanel>
-                                <ItemsControl ItemsSource="{Binding YakitAylari}">
-                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:YakitAyCubugu">
-                                            <StackPanel Spacing="4" Background="Transparent" ToolTip.Tip="{Binding Ayrinti}">
-                                                <Grid ColumnDefinitions="*,Auto">
-                                                    <TextBlock Text="{Binding Ay}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Litre}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                </Grid>
-                                                <ProgressBar Classes="IosCubuk" Minimum="0" Maximum="100" Value="{Binding Oran}"
-                                                             Foreground="{DynamicResource AccentBrush}"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
 
+                <Panel Grid.Column="2">
                     <!-- Uygulama sürümü ve güncelleme (iOS ayar listesi gibi) -->
+                    <Border Classes="IosKart AnaKart" Padding="18,16">
                     <StackPanel>
-                        <TextBlock Text="UYGULAMA" Classes="IosUstBaslik"/>
+                        <TextBlock Text="Uygulama" Classes="AnaKartBaslik" Margin="0,0,0,10"/>
                         <Border Classes="IosGrup">
                             <StackPanel>
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="16,10">
@@ -462,7 +433,78 @@
                             </Expander>
                         </StackPanel>
                     </StackPanel>
-                </StackPanel>
+                    </Border>
+                </Panel>
+            </Grid>
+
+            <!-- Satır 4 (yalnız içerik varsa): bugünün takvimi + aktif duyurular -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+                <Panel Grid.Column="0">
+                    <!-- PAN-01 (ADR-175, PK-L1): Bugünün Takvimi — yetki yoksa HİÇ görünmez; boş gün bilgidir. -->
+                    <Button Classes="IosKartDugme" IsVisible="{Binding ShowTodayCalendar}"
+                            Command="{Binding OpenCommand}" CommandParameter="calendar" ToolTip.Tip="Takvimi aç">
+                        <Border Classes="IosKart" Padding="16,14">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border Classes="IkonKutu" Background="#FF453A">
+                                        <PathIcon Data="{DynamicResource IconCalendar}"/>
+                                    </Border>
+                                    <TextBlock Text="Bugünün Takvimi" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+                                <SelectableTextBlock Text="Bugün için kayıt yok." Classes="Helper"
+                                                     IsVisible="{Binding TodayCalendarEmpty}"/>
+                                <ItemsControl ItemsSource="{Binding TodayCalendar}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="rep:DashboardCalendarRow">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,4">
+                                                <Border Grid.Column="0" Width="4" CornerRadius="2" Background="{DynamicResource AccentBrush}"/>
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+                                                    <TextBlock Text="{Binding SourceDisplay}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </Panel>
+                <Panel Grid.Column="1">
+                    <!-- Aktif duyurular -->
+                    <Button Classes="IosKartDugme" IsVisible="{Binding ShowAnnouncements}"
+                            Command="{Binding OpenCommand}" CommandParameter="announcements" ToolTip.Tip="Duyuruları aç">
+                        <Border Classes="IosKart" Padding="16,14">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border Classes="IkonKutu" Background="#FF2D55">
+                                        <PathIcon Data="{DynamicResource IconAnnouncements}"/>
+                                    </Border>
+                                    <TextBlock Text="Aktif Duyurular" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding ActiveAnnouncements}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="rep:DashboardAnnouncementRow">
+                                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12,9" Margin="0,0,0,6">
+                                                <StackPanel Spacing="4">
+                                                    <Border Classes="Hap tehlike" HorizontalAlignment="Left" IsVisible="{Binding IsImportant}">
+                                                        <TextBlock Text="Önemli"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </Panel>
             </Grid>
         </StackPanel>
     </ScrollViewer>
