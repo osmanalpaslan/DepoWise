@@ -177,14 +177,15 @@ public class StockMovementsSearchFilterTests : IDisposable
         Assert.Contains("acil iade", (string?)satir[K(t, "Açıklama")] ?? "", StringComparison.Ordinal);
     }
 
-    /// <summary>3b — 🔴 MEVCUT DAVRANIŞ KİLİTLENDİ: BELGE notu (`stock_documents.note`) aramada YOK.
-    /// STK-10b-2 semantiği birebir taşıdı, genişletmedi. Bulgu rapora yazıldı — kararı kullanıcının.</summary>
+    /// <summary>3b — KULLANICI KARARI (2026-10-29): BELGE notu (`stock_documents.note`) Açıklama sütununda gösterilir ve aramada
+    /// BULUNUR (gösterilen = aranan). Rapor ve ekran AYNI sonucu verir; ilgisiz metin bulunmaz.</summary>
     [Fact]
-    public void Belge_Notu_Aramada_YOK_Mevcut_Davranis()
+    public void Belge_Notu_Aramada_Bulunur_Ekran_Rapor_Ayni()
     {
-        Assert.Empty(Calistir(Istek(arama: "belge notu satirdaki")).Rows);
-        // Mevcut ekran da aynı sonucu veriyor → semantik kaymadı.
-        Assert.Empty(_stock.SearchMovements(_tumSubeler, Gunes, Batis, "belge notu satirdaki", 5000));
+        var rapor = Calistir(Istek(arama: "belge notu satirdaki")).Rows.Count;
+        Assert.True(rapor > 0, "belge notu aramada bulunmalı");
+        Assert.Equal(rapor, _stock.SearchMovements(_tumSubeler, Gunes, Batis, "belge notu satirdaki", 5000).Count);
+        Assert.Empty(Calistir(Istek(arama: "hiç yazılmamış açıklama")).Rows);
     }
 
     /// <summary>4 — FATURA NO ile arama.</summary>

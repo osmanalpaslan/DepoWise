@@ -28,6 +28,39 @@ namespace DepoWise.Infrastructure.Materials;
 /// </summary>
 public sealed class StockMovementFilterSql
 {
+    // ═══ 2026-10-29 (kullanıcı bildirimi: "açıklama sütununda 54fff1a2… gibi değerler listeleniyor") ═══
+    // Bakım tüketiminde (usage / usage_reverse) hareketin not alanı bakım KAYDININ KİMLİĞİDİR (MaintenanceService/
+    // EquipmentMaintenanceService bağlantı olarak yazar). Kimlik HİÇBİR ekranda gösterilmez: aşağıdaki ifade onu
+    // "Araç bakımı — EKS-01 (34 AB 12) · Yağ değişimi" / "Ekipman bakımı — EKP-01" metnine çevirir; çözülemezse
+    // "Bakım tüketimi". Diğer hareketlerde satır notu, yoksa BELGEDE kullanıcının yazdığı açıklama.
+    // Ekran, Excel/PDF, rapor ve "Açıklama" filtresi/arama AYNI ifadeyi kullanır (gördüğün = aradığın).
+    // Her birleştirmede firma eşleşmesi (başka firmanın bakım kaydı aynı kimlikle çözülmez). Lehçe-bağımsız (|| ve COALESCE).
+
+    /// <summary>Açıklama ifadesinin ihtiyaç duyduğu birleştirmeler (sm + d takma adlarından sonra eklenir).</summary>
+    public const string AciklamaJoinSql = @"
+LEFT JOIN vehicle_maintenances ha_vm ON sm.movement_type IN ('usage','usage_reverse') AND ha_vm.id = sm.note AND ha_vm.company_id = sm.company_id
+LEFT JOIN vehicles ha_v ON ha_v.id = ha_vm.vehicle_id AND ha_v.company_id = sm.company_id
+LEFT JOIN equipment_maintenances ha_em ON sm.movement_type IN ('usage','usage_reverse') AND ha_em.id = sm.note AND ha_em.company_id = sm.company_id
+LEFT JOIN equipment ha_e ON ha_e.id = ha_em.equipment_id AND ha_e.company_id = sm.company_id
+";
+
+    /// <summary>Kullanıcıya gösterilen hareket AÇIKLAMASI (metin; boş olabilir).</summary>
+    public const string AciklamaSql = @"(CASE
+ WHEN sm.movement_type IN ('usage','usage_reverse') THEN
+  (CASE
+    WHEN ha_v.id IS NOT NULL THEN 'Araç bakımı' || (CASE WHEN sm.movement_type = 'usage_reverse' THEN ' iptali' ELSE '' END)
+         || ' — ' || COALESCE(ha_v.internal_code,'')
+         || (CASE WHEN COALESCE(ha_v.plate,'') <> '' THEN ' (' || ha_v.plate || ')' ELSE '' END)
+         || (CASE WHEN COALESCE(ha_vm.description,'') <> '' THEN ' · ' || ha_vm.description ELSE '' END)
+    WHEN ha_e.id IS NOT NULL THEN 'Ekipman bakımı' || (CASE WHEN sm.movement_type = 'usage_reverse' THEN ' iptali' ELSE '' END)
+         || ' — ' || COALESCE(ha_e.code,'')
+         || (CASE WHEN COALESCE(ha_em.description,'') <> '' THEN ' · ' || ha_em.description ELSE '' END)
+    WHEN sm.movement_type = 'usage_reverse' THEN 'Bakım tüketimi iptali'
+    ELSE 'Bakım tüketimi'
+  END)
+ ELSE COALESCE(NULLIF(sm.note,''), d.note, '')
+END)";
+
     /// <summary>
     /// ═══ İŞLEM TARİHİ — EKRAN VE RAPORUN <b>TEK</b> KAYNAĞI ═══ (STK-11, 2026-08-26)
     ///
@@ -116,7 +149,7 @@ public sealed class StockMovementFilterSql
         // ── Serbest metin arama (STK-10b-2) — semantik mevcut ekrandan BİREBİR ──
         var q = string.IsNullOrWhiteSpace(search) ? null : search!.Trim();
         if (q is not null)
-            sql += " AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)";
+            sql += " AND (m.code LIKE @q OR m.name LIKE @q OR " + AciklamaSql + " LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)";   // açıklama: gösterilen metin (AciklamaJoinSql gerekir)
 
         // ── Malzeme (STK-10b-3) ──
         var mats = materialIds is null

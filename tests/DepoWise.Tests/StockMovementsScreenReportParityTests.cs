@@ -476,16 +476,19 @@ public class StockMovementsScreenReportParityTests : IDisposable
 
     // ══════════════ 6. REGRESYON ══════════════
 
-    /// <summary>17 — STK-B2 kararsız: arama semantiği bu artımda da DEĞİŞMEDİ (belge notu aramada yok).</summary>
+    /// <summary>17 — STK-B2 KARARA BAĞLANDI (kullanıcı kararı 2026-10-29): Açıklama sütununda kullanıcının yazdığı BELGE açıklaması
+    /// görünür ve arama GÖSTERİLEN metinde çalışır → belge notu aramada BULUNUR; ekran ve rapor aynı; ilgisiz metin bulunmaz.</summary>
     [Fact]
-    public void Search_Semantigi_Degismedi()
+    public void Search_Belge_Notunu_Bulur_Ekran_Rapor_Ayni()
     {
         _clock.Advance(60_000);
         _stock.ReceiveIn(_tumSubeler, new[] { new StockLine(_yag, 2m) }, Op(),
             branchId: _depoA, note: "belge notu aramada yok");
 
-        Assert.Empty(Ekran(arama: "belge notu aramada yok"));
-        Assert.Empty(RaporTablo(arama: "belge notu aramada yok").Rows);
+        Assert.Single(Ekran(arama: "belge notu aramada"));
+        Assert.Single(RaporTablo(arama: "belge notu aramada").Rows);
+        Assert.Empty(Ekran(arama: "hiç yazılmamış açıklama"));
+        Assert.Empty(RaporTablo(arama: "hiç yazılmamış açıklama").Rows);
         Assert.NotEmpty(Ekran(arama: "EKR-YAG"));   // kod araması çalışmaya devam ediyor
     }
 

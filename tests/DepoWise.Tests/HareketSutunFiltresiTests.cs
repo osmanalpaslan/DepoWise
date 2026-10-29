@@ -51,6 +51,79 @@ public class HareketSutunFiltresiTests : IDisposable
         Senaryo(f, ekstraSirket: sql => { using var c = f.Create(); using var k = c.CreateCommand(); k.CommandText = sql; k.ExecuteNonQuery(); });
     }
 
+    /// <summary>HSF3/HSF4 — 2026-10-29 (kullanıcı bildirimi: Giriş-Çıkış açıklama sütununda "54fff1a2…" gibi değerler): bakım tüketiminde
+    /// hareketin notu bakım KAYDININ KİMLİĞİDİR. Gösterilen açıklama (Aciklama / NoteText / Excel) okunur metindir; ham kimlik
+    /// yalnız Note'ta kalır ("Kaynak" bağlantısı onu kullanır). Başka firmanın bakım kaydı çözülmez. Açıklama filtresi ve arama
+    /// gösterilen metinde çalışır. Belge açıklaması (kullanıcının yazdığı) sütunda görünür.</summary>
+    [Fact]
+    public void HSF3_Aciklama_Okunur_SQLite()
+    {
+        var f = new SqliteConnectionFactory(_dbPath);
+        new MigrationRunner(f).Run();
+        AciklamaSenaryosu(f, sql => { using var c = f.Create(); using var k = c.CreateCommand(); k.CommandText = sql; k.ExecuteNonQuery(); });
+    }
+
+    [SkippableFact]
+    public void HSF4_Aciklama_Okunur_PostgreSQL()
+    {
+        PostgresTestGuard.SkipUnlessSafe();
+        var f = new PostgresMigrationTests.NpgsqlTestFactory(PostgresTestGuard.Url!);
+        PostgresTestGuard.ResetSchema(f);
+        new MigrationRunner(f).Run();
+        AciklamaSenaryosu(f, sql => { using var c = f.Create(); using var k = c.CreateCommand(); k.CommandText = sql; k.ExecuteNonQuery(); });
+    }
+
+    private static void AciklamaSenaryosu(IDbConnectionFactory f, Action<string> exec)
+    {
+        foreach (var id in new[] { "A", "B" })
+            exec("INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted, machine_quota, max_users, max_admins) " +
+                 $"VALUES('{id}', '{id}', 1, 1, 1, 0, 5, 20, 5);");
+        var clock = new TestClock();
+        var users = new UserService(f, clock);
+        var a = new SessionContext(users.EnsureInitialAdmin("A", "hsa_a", "admin123", RoleKeys.CompanyAdmin), "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        var b = new SessionContext(users.EnsureInitialAdmin("B", "hsa_b", "admin123", RoleKeys.CompanyAdmin), "B", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        var depo = new BranchService(f, clock).Create(a, new NewBranch("Merkez"));
+        var mat = new MaterialService(f, clock).Create(a, new NewMaterial("YF-1", "Yağ filtresi"));
+        var vs = new DepoWise.Infrastructure.Vehicles.VehicleService(f, clock);
+        var defs = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(f, clock);
+        var aracA = vs.Create(a, new DepoWise.Infrastructure.Vehicles.NewVehicle("EKS-01", "34 AB 12"));
+        var aracB = vs.Create(b, new DepoWise.Infrastructure.Vehicles.NewVehicle("YAB-09", "06 ZZ 99"));
+        var tanimA = defs.Create(a, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition("Periyodik", 100m, "km"));
+        var tanimB = defs.Create(b, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition("Periyodik", 100m, "km"));
+        exec("INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id,description,operation_id,created_at,updated_at) " +
+             $"VALUES('bk-a','A','{aracA}','{tanimA}','Yağ değişimi','op-bk-a',1,1);");
+        exec("INSERT INTO vehicle_maintenances(id,company_id,vehicle_id,maintenance_def_id,operation_id,created_at,updated_at) " +
+             $"VALUES('bk-b','B','{aracB}','{tanimB}','op-bk-b',1,1);");
+        var st = new StockService(f, clock);
+        st.ReceiveIn(a, new[] { new StockLine(mat, 10m, 1m) }, "hsa-giris", depo, note: "Fatura A-1 girişi", docDate: Simdi - 5 * GunMs);
+        void Hareket(string id, string tur, int yon, string not)
+            => exec("INSERT INTO stock_movements(id,company_id,material_id,branch_id,movement_type,direction,quantity,operation_id,note,created_at) " +
+                    $"VALUES('{id}','A','{mat}','{depo}','{tur}',{yon},'1','{id}','{not}',{Simdi});");
+        Hareket("hsa-u1", "usage", -1, "bk-a");
+        Hareket("hsa-u2", "usage_reverse", 1, "bk-a");
+        Hareket("hsa-u3", "usage", -1, "bk-b");        // B firmasının bakım kimliği — A'da çözülmemeli
+
+        var satirlar = st.SearchMovementsGrid(a, null, null, null, null, null, null, 1, 50).Items;
+        string Aciklama(string tur, string not) => satirlar.Single(r => r.MovementType == tur && r.Note == not).NoteText;
+        Assert.Equal("Araç bakımı — EKS-01 (34 AB 12) · Yağ değişimi", Aciklama("usage", "bk-a"));
+        Assert.Equal("Araç bakımı iptali — EKS-01 (34 AB 12) · Yağ değişimi", Aciklama("usage_reverse", "bk-a"));
+        Assert.Equal("Bakım tüketimi", Aciklama("usage", "bk-b"));
+        Assert.Equal("Fatura A-1 girişi", satirlar.Single(r => r.MovementType == "in").NoteText);   // kullanıcının belge açıklaması
+        Assert.DoesNotContain(satirlar, r => r.NoteText.Contains("bk-"));                          // iç kimlik ASLA görünmez
+        Assert.All(st.SearchMovements(a, null, null, null, null, null, null, 100), r => Assert.DoesNotContain("bk-", r.NoteText));
+        var tablo = StockMovementListeTablosu.ToTableModel(satirlar);                                 // Excel / PDF
+        Assert.DoesNotContain(tablo.Rows.SelectMany(x => x), h => (h?.ToString() ?? "").Contains("bk-"));
+
+        // filtre ve arama GÖSTERİLEN metinde
+        Assert.Equal(2, st.SearchMovementsGrid(a, null, null, null, null, null, null, 1, 50, new HareketSutunFiltresi(Aciklama: "araç bakımı")).TotalCount);
+        Assert.Equal(2, st.SearchMovementsGrid(a, null, null, "34 AB", null, null, null, 1, 50).TotalCount);
+        Assert.Equal(0, st.SearchMovementsGrid(a, null, null, null, null, null, null, 1, 50, new HareketSutunFiltresi(Aciklama: "bk-a")).TotalCount);
+
+        // "Kaynak" bağlantısı ham kimlikle çalışmaya devam eder
+        var u1 = satirlar.Single(r => r.MovementType == "usage" && r.Note == "bk-a");
+        Assert.Equal("arac_bakimi", st.KaynakBul(a, u1.DocumentId, u1.MovementType, u1.Note)?.Tur);
+    }
+
     private static void Senaryo(IDbConnectionFactory f, Action<string> ekstraSirket)
     {
         foreach (var id in new[] { "A", "B" })
@@ -94,7 +167,8 @@ public class HareketSutunFiltresiTests : IDisposable
         Assert.Equal(new[] { 4m }, Satirlar(new HareketSutunFiltresi(Miktar: "4")).Select(x => x.Miktar));       // tam sayı: 4 (14/40 değil)
         Assert.Equal(new[] { 10m, 25m }, Satirlar(new HareketSutunFiltresi(Miktar: ">5")).Select(x => x.Miktar).OrderBy(x => x));
         Assert.Equal(new[] { 5m, 10m }, Satirlar(new HareketSutunFiltresi(Miktar: "5-10")).Select(x => x.Miktar).OrderBy(x => x));
-        Assert.Equal(new[] { "ÇK-3" }, Satirlar(new HareketSutunFiltresi(Aciklama: "şantiye")).Select(x => x.Kod));   // B'nin aynı notu gelmez
+        // satır notu (ÇK-3) + 2026-10-29 kararıyla sütunda görünen BELGE açıklaması (YF-1 çıkışı); B'nin aynı notu gelmez
+        Assert.Equal(new[] { "ÇK-3", "YF-1" }, Satirlar(new HareketSutunFiltresi(Aciklama: "şantiye")).Select(x => x.Kod));
         Assert.Equal(new[] { -1, -1 }, Satirlar(new HareketSutunFiltresi(Yon: -1)).Select(x => x.Yon));
         Assert.Equal(3, Satirlar(new HareketSutunFiltresi(Yon: 1)).Count);
         Assert.Equal(new[] { 10m }, Satirlar(new HareketSutunFiltresi(Kod: "YF", Yon: 1)).Select(x => x.Miktar));   // birlikte = VE

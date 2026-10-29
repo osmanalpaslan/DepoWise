@@ -1304,14 +1304,14 @@ SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, sm.dire
        m.code, m.name, COALESCE(u.name,'') AS unit,
        sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
        COALESCE(d.doc_no,'') AS doc_no, COALESCE(d.invoice_no,'') AS invoice_no,
-       sm.is_reversed, COALESCE(sm.note,'') AS note, COALESCE(pr.full_name,'') AS alan
+       sm.is_reversed, " + StockMovementFilterSql.AciklamaSql + @" AS note, COALESCE(pr.full_name,'') AS alan
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN personnel pr ON pr.id = d.personnel_id AND pr.company_id = sm.company_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
-LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id" + StockMovementFilterSql.AciklamaJoinSql + @"
 WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
             + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)
@@ -1568,7 +1568,7 @@ LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN personnel pr ON pr.id = d.personnel_id AND pr.company_id = sm.company_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
-LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id" + StockMovementFilterSql.AciklamaJoinSql + @"
 WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
             + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)

@@ -295,7 +295,7 @@
     private static string TypeText(string t) => DepoWise.Application.Ui.MovementTypeOptions.Label(t);
     private static string NoteDoc(JsonElement e)
     {
-        var note = Str(e, "note");
+        var note = Str(e, "aciklama");   // 2026-10-29: gösterilen açıklama; "note" ham bağlantı (bakım kimliği) — yalnız Kaynak için
         var inv = Str(e, "invoiceNo");
         return string.Join(" · ", new[] { note, inv }.Where(x => !string.IsNullOrWhiteSpace(x)));
     }

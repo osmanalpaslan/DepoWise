@@ -608,19 +608,18 @@ public class StockMovementsMaterialFilterTests : IDisposable
         Assert.Contains(t.Rows, r => (string?)r[K(t, "Hedef")] == "Depo B");
     }
 
-    /// <summary>25 — 🔒 STK-B2 KARARSIZ: Search semantiği bu artımda DEĞİŞMEDİ. Belge notu
-    /// (<c>stock_documents.note</c>) hâlâ aramada değildir; malzeme filtresi bunu değiştirmez.</summary>
+    /// <summary>25 — STK-B2 KARARA BAĞLANDI (2026-10-29): belge notu (<c>stock_documents.note</c>) gösterilen açıklamadır ve
+    /// aramada BULUNUR; malzeme filtresiyle birlikte de (VE) çalışır, başka malzemede bulunmaz.</summary>
     [Fact]
-    public void Search_Semantigi_Degismedi_Belge_Notu_Hala_Aramada_Yok()
+    public void Search_Belge_Notunu_Bulur_Malzeme_Filtresiyle_Birlikte()
     {
         _clock.Advance(60_000);
         _stock.ReceiveIn(_tumSubeler, new[] { new StockLine(_conta, 3m) }, Op(),
             branchId: _depoB, note: "belge notu aramada yok");
 
-        Assert.Empty(Calistir(Istek(arama: "belge notu aramada yok")).Rows);
-        Assert.Empty(Calistir(Istek(malzemeler: new[] { _conta }, arama: "belge notu aramada yok")).Rows);
-        // Aynı hareket malzeme filtresiyle GÖRÜNÜYOR → boşluk aramadan geliyor, kayıttan değil.
-        Assert.NotEmpty(Calistir(Istek(malzemeler: new[] { _conta })).Rows);
+        Assert.Single(Calistir(Istek(arama: "belge notu aramada")).Rows);
+        Assert.Single(Calistir(Istek(malzemeler: new[] { _conta }, arama: "belge notu aramada")).Rows);
+        Assert.Empty(Calistir(Istek(malzemeler: new[] { _yag }, arama: "belge notu aramada")).Rows);   // VE: başka malzemede yok
     }
 
     public void Dispose() { try { File.Delete(_dbPath); } catch { } }

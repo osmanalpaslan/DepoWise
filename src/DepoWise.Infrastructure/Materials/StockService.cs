@@ -91,7 +91,10 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     // defteri okunamaz. Alanlar SONA eklendi (opsiyonel) → mevcut çağıranlar etkilenmez.
     // FromLocation yalnız TRANSFER'de doludur (kaynak depo); diğer türlerde null.
     string? LocationId = null, string? LocationName = null,
-    string? FromLocationId = null, string? FromLocationName = null)
+    string? FromLocationId = null, string? FromLocationName = null,
+    // 2026-10-29: kullanıcıya GÖSTERİLEN açıklama (StockMovementFilterSql.AciklamaSql). Note ham kalır: bakım tüketiminde
+    // bakım kaydının kimliğidir ve "Kaynak" bağlantısı (KaynakBul) onu kullanır — ekranda ASLA Note gösterilmez.
+    string? Aciklama = null)
 {
     /// <summary>Ekranda gösterilecek lokasyon adı. Lokasyon yoksa (geçmiş kayıt) "Atanmamış".</summary>
     public string LocationText => string.IsNullOrEmpty(LocationId) ? "Atanmamış"
@@ -124,7 +127,7 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     public string TypeText => MovementTypeOptions.Label(MovementType);
     public string QtyText => $"{Quantity:0.##} {Unit}".Trim();
     public string PriceText => UnitPrice is null ? "—" : $"{UnitPrice:0.##}";
-    public string NoteText => string.IsNullOrWhiteSpace(Note) ? "—" : Note!;
+    public string NoteText => string.IsNullOrWhiteSpace(Aciklama) ? "—" : Aciklama!;
 }
 
 /// <summary>
@@ -972,13 +975,13 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
 SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
        d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
-       sm.branch_id, bl.name, sm.branch_from_id, bf.name
+       sm.branch_id, bl.name, sm.branch_from_id, bf.name, " + StockMovementFilterSql.AciklamaSql + @"
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
-LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id" + StockMovementFilterSql.AciklamaJoinSql + @"
 WHERE sm.company_id = @c");
         sb.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
         // STK-11: tarih aralığı da İŞLEM TARİHİNE göre süzer — kullanıcı 25.08 dediğinde
@@ -1008,7 +1011,7 @@ WHERE sm.company_id = @c");
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
                 !fiyatGorunur || r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
                 S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
-                S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
+                S(r, 14), S(r, 15), S(r, 16), S(r, 17), S(r, 18)));
         return list;
     }
 
@@ -1051,7 +1054,7 @@ WHERE sm.company_id = @c");
                 new GridQuery.ColumnFilter("m.code", sutun.Kod),
                 new GridQuery.ColumnFilter("m.name", sutun.Malzeme),
                 new GridQuery.ColumnFilter("sm.quantity", sutun.Miktar, GridQuery.ColumnKind.Numeric),
-                new GridQuery.ColumnFilter("COALESCE(sm.note,'')", sutun.Aciklama),
+                new GridQuery.ColumnFilter(StockMovementFilterSql.AciklamaSql, sutun.Aciklama),   // gösterilen açıklama
             }, "sm.id", sqlite: SqlDialect.IsSqlite(conn));
             if (sw.Trim().Length > 0) where.Append(" AND " + sw.Trim()["WHERE ".Length..]);
             sutunPs = sp;
@@ -1066,7 +1069,7 @@ LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
-";
+" + StockMovementFilterSql.AciklamaJoinSql;
 
         void Baglan(DbCommand c)
         {
@@ -1094,7 +1097,7 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
             cmd.CommandText = "SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
        d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
-       sm.branch_id, bl.name, sm.branch_from_id, bf.name
+       sm.branch_id, bl.name, sm.branch_from_id, bf.name, " + StockMovementFilterSql.AciklamaSql + @"
 " + FromSql + where
                 + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim OFFSET @off;";
             Baglan(cmd);
@@ -1110,7 +1113,7 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
                     r.GetInt32(5), Money.Parse(r.GetString(6)),
                     !fiyatGorunur || r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
                     S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
-                    S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
+                    S(r, 14), S(r, 15), S(r, 16), S(r, 17), S(r, 18)));
         }
         return new GridResult<StockMovementRow>(list, total, page, pageSize);
     }

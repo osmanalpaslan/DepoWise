@@ -13,7 +13,7 @@ public static class StockMovementListeTablosu
             rows.Select(r => (IReadOnlyList<object?>)new object?[]
             {
                 r.DateText, r.TypeText, r.Code, r.Name, r.Direction * r.Quantity, r.Unit, r.LocationFlowText,
-                r.Note ?? "", r.InvoiceNo ?? r.OrderSlipNo ?? r.CreditSlipNo ?? "", r.StatusText,
+                r.Aciklama ?? "", r.InvoiceNo ?? r.OrderSlipNo ?? r.CreditSlipNo ?? "", r.StatusText,
             }).ToList(),
             new[] { false, false, false, false, true, false, false, false, false, false });
 }
