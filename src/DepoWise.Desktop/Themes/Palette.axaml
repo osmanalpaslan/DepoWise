@@ -78,29 +78,32 @@
 
         <!-- ============ AÇIK (Aurora) ============ -->
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F2F2F7"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#FAFAFC"/>
-            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#F2F2F7"/>
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#F4F4F7"/>
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EBEBF0"/>
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E2E2E8"/>
+            <!-- 2026-10-29 (kullanıcı seçimi "Yumuşak Gri"; örnek sayfa claude.ai/artifact/AzZCsbWRrS87HbGv3kbLEJ): eski açık mod büyük
+                 alanlarda saf beyazdı (#FFFFFF kart, #FAFAFC yan menü) → parlak, göz yorucu, bölümler ayrışmıyordu. Zemin orta gri,
+                 kartlar kırık beyaz, metin saf siyah değil; zemin koyulaştığı için soluk yazı ve durum renkleri bir ton koyu (≥4,5:1). -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#E6E8EC"/>
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#DCDFE5"/>
+            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#E6E8EC"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#F5F6F8"/>
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#EAECF0"/>
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#E1E4E9"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#D2D6DD"/>
             <SolidColorBrush x:Key="AccentBrush" Color="#C07C0C"/>
             <SolidColorBrush x:Key="AccentHoverBrush" Color="#A66A08"/>
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14171C"/>
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6474"/>
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#636E7E"/>   <!-- M-59: 4,34 → ≥4,66:1 -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1D2129"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4F5764"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#565E6B"/>   <!-- M-59: 4,34 → ≥4,66:1 -->
             <!-- 2026-10-01: tablo sütun ayırıcısı — soluk yazı renginin %45 saydam hâli (kullanıcı: çizgi belirgin olsun). -->
             <SolidColorBrush x:Key="ColumnRuleBrush" Color="#736B7686"/>
             <!-- ⭐ M-59 (F-061): açık temada durum renkleri yazı/rozet olarak ≥4,5:1 (eski 3,10 / 3,30 / 4,60 / 5,92) -->
-            <SolidColorBrush x:Key="SuccessBrush" Color="#0F7A43"/>
-            <SolidColorBrush x:Key="WarningBrush" Color="#8A6508"/>
-            <SolidColorBrush x:Key="DangerBrush" Color="#B42318"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#0B6B3A"/>
+            <SolidColorBrush x:Key="WarningBrush" Color="#755504"/>
+            <SolidColorBrush x:Key="DangerBrush" Color="#A51F15"/>
             <SolidColorBrush x:Key="InfoBrush" Color="#4338CA"/>
-            <SolidColorBrush x:Key="AccentTextBrush" Color="#8A5A06"/>
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#734B03"/>
             <SolidColorBrush x:Key="OnAccentBrush" Color="#241703"/>
-            <SolidColorBrush x:Key="BorderStrongBrush" Color="#7E879A"/>
-            <SolidColorBrush x:Key="FocusRingBrush" Color="#14171C"/>
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#6F788B"/>
+            <SolidColorBrush x:Key="FocusRingBrush" Color="#1D2129"/>
             <SolidColorBrush x:Key="OverlayHoverBrush" Color="#0D000000"/>
             <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#16000000"/>
             <SolidColorBrush x:Key="AccentSoftBrush" Color="#24C07C0C"/>
@@ -111,14 +114,14 @@
                  Bu alti firca SABIT kehribardir; ThemeService.ApplyAccent onlari ezmez (AmberBar* ile ayni ilke) —
                  kullanicinin sectigi aksan rengi SIRALANAN kolonda ve DOLU filtrede gorunur. -->
             <LinearGradientBrush x:Key="TableHeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#F7F7FA" Offset="0"/>
-                <GradientStop Color="#F3F3F7" Offset="1"/>
+                <GradientStop Color="#F1F2F5" Offset="0"/>
+                <GradientStop Color="#ECEEF2" Offset="1"/>
             </LinearGradientBrush>
-            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#E2E2E8"/>
-            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#5B6170"/>
-            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#FAFAFC"/>
-            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#FFFFFF"/>
-            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#DCE1EA"/>
+            <SolidColorBrush x:Key="TableHeaderEdgeBrush"      Color="#D2D6DD"/>
+            <SolidColorBrush x:Key="TableHeaderTextBrush"      Color="#4F5764"/>
+            <SolidColorBrush x:Key="TableFilterRowBrush"       Color="#EEF0F3"/>
+            <SolidColorBrush x:Key="CellFilterBackgroundBrush" Color="#F5F6F8"/>
+            <SolidColorBrush x:Key="CellFilterBorderBrush"     Color="#CDD2DA"/>
 
             <!-- TRH-01: tarih alanı vurgusu. Sabit kehribar (marka) — ThemeService.ApplyAccent EZMEZ, çünkü
                  amaç "bu alan tarihtir" işaretidir, kullanıcının seçtiği aksan rengi değil. -->
