@@ -483,7 +483,7 @@
                             <th style="@ThStyle(key)" class="@(IsNumeric(key) ? "dw-filter-th dw-num" : "dw-filter-th")">
                                 <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
                                     <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
-                                                  Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
+                                                  Placeholder="@(IsNumeric(key) ? "5, >5…" : "İçerir…")"
                                                   Immediate="false" OnKeyUp="OnFilterKey"
                                                   Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
                                 </MudTooltip>

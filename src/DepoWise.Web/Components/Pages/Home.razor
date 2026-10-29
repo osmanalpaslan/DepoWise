@@ -637,7 +637,7 @@
     {
         try
         {
-            var satirlar = await Api.GetArrayAsync("/api/stock/movements");   // en yeni üstte, en fazla 1000
+            var satirlar = await Api.GetArrayAsync("/api/stock/movements");   // en yeni üstte, en fazla 1000 (son 6 hareket için)
             var tr = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
             var bugun = DateTime.Now.Date;
             _sonHareketler = satirlar.Take(6).Select(m =>
@@ -657,13 +657,15 @@
             }).ToList();
             // En çok çıkan: son 30 gün, çıkış + bakım tüketimi; iptal edilen/ters kayıt SAYILMAZ (masaüstü CikanMalzeme.Hesapla ile aynı kural).
             var sinir = DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds();
-            var gruplar = satirlar
+            // İki ortam denetimi (2026-10-29): 30 gün SUNUCUDA süzülür (masaüstüyle aynı pencere) — en yeni 1000 satıra sığmayan yoğun ayda da doğru.
+            var otuzGun = await Api.GetArrayAsync("/api/stock/movements?from=" + sinir);
+            var gruplar = otuzGun
                 .Where(m => m.GetProperty("createdAt").GetInt64() >= sinir
                             && !(m.TryGetProperty("isReversed", out var ir) && ir.ValueKind == JsonValueKind.True)
                             && Str(m, "movementType") is "out" or "usage")
                 .GroupBy(m => Str(m, "code"))
                 .Select(g => (Kod: g.Key, Ad: Str(g.First(), "name"), Birim: Str(g.First(), "unit"), Toplam: g.Sum(x => Ondalik(x, "quantity"))))
-                .Where(x => x.Toplam > 0).OrderByDescending(x => x.Toplam).Take(5).ToList();
+                .Where(x => x.Toplam > 0).OrderByDescending(x => x.Toplam).ThenBy(x => x.Ad, StringComparer.Create(tr, true)).Take(5).ToList();
             var enCok = gruplar.Count > 0 ? gruplar[0].Toplam : 1m;
             _enCokCikanlar = gruplar.Select(x => new CikanMalzemeW(x.Kod, x.Ad, (x.Toplam.ToString("0.##", tr) + " " + x.Birim).Trim(),
                 Math.Max(4, (double)(x.Toplam / enCok * 100m)))).ToList();
