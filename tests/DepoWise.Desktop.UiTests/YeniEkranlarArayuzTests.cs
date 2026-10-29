@@ -1185,6 +1185,42 @@ public class YeniEkranlarArayuzTests
         if (!oncedenVardi) Assert.False(new DashboardViewModel(s).YakitGrafigiVar);   // iptal edilen dağıtım sayılmaz → kart gizli
     }
 
+    /// <summary>UIT-IOS14 — ⭐ 2. tur madde 2 (2026-10-29): iOS alanlar — metin kutusu ve açılır liste 44 px; açılır listenin
+    /// öğeleri ŞEFFAF (arkada renk/seçim kutusu yok), yalnız SEÇİLİ öğede sağda ✓. Görüntü alan-acilir-ios.png.</summary>
+    [AvaloniaFact]
+    public void UITIOS14_Ios_Alanlar_Ve_Seffaf_Acilir_Liste()
+    {
+        var vm = new EquipmentViewModel(Ortam());
+        vm.NewEquipmentCommand.Execute(null);
+        var view = new EquipmentView { DataContext = vm };
+        var w = Ac(view, 1300, 900);
+        Dispatcher.UIThread.RunJobs();
+        var kod = Gorunen<TextBox>(view).First(t => t.Classes.Contains("Field"));
+        Assert.Equal(44, kod.MinHeight);
+        var durum = Gorunen<ComboBox>(view).First(c => c.Classes.Contains("Field") && c.ItemCount > 1);
+        Assert.Equal(44, durum.MinHeight);
+        durum.SelectedIndex = 1;
+        durum.IsDropDownOpen = true;
+        for (int i = 0; i < 20; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+        var ogeler = Enumerable.Range(0, durum.ItemCount).Select(i => durum.ContainerFromIndex(i)).OfType<ComboBoxItem>().ToList();
+        Assert.True(ogeler.Count > 1, "açılır liste öğeleri oluşmadı");
+        foreach (var o in ogeler)
+        {
+            var arka = o.GetVisualDescendants().OfType<Border>().First(b => b.Name == "IosOgeArka");
+            var tik = o.GetVisualDescendants().OfType<PathIcon>().First(p => p.Name == "IosTik");
+            Assert.Equal(o.IsSelected, tik.IsVisible);                       // ✓ yalnız seçili öğede
+            var sunucu = o.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(p => p.Name == "PART_ContentPresenter");
+            Assert.True(sunucu.Background is null || (sunucu.Background is Avalonia.Media.ISolidColorBrush sb && sb.Color.A == 0),
+                "yazının arkasında zemin olmamalı (seçili: " + o.IsSelected + "): " + o.Content);
+            if (!o.IsPointerOver)
+                Assert.True(arka.Background is null || (arka.Background is Avalonia.Media.ISolidColorBrush b && b.Color.A == 0),
+                    "öğe zemini şeffaf olmalı: " + o.Content);
+        }
+        Goruntu(w, "alan-acilir-ios");
+        durum.IsDropDownOpen = false;
+        w.Close();
+    }
+
     /// <summary>UIT-IOS3 — bakım çubuğu hesabı: gecikti = kırmızı + "Gecikti", ilk bakım = boş çubuk, belge oranı son→sonraki tarih
     /// aralığından; taşma yüzde 100'de kesilir.</summary>
     [Fact]

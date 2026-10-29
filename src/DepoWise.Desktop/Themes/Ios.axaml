@@ -487,6 +487,176 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
+    <!-- ═══ 2. TUR MADDE 2 (2026-10-29, kullanıcı isteği): iOS ALANLAR — tüm ekranlar ═══
+         Alan: 44 px, 12 köşe, DOLGULU zemin, durgunken çerçevesiz (iOS); üzerine gelince zemin açılır, odakta turuncu çerçeve,
+         hata kırmızı. Tarih alanının kehribar vurgusu (TRH-01, kullanıcı isteği) KORUNUR — yalnız ölçü/köşe uyar.
+         Açılır liste öğeleri ŞEFFAF ("arkada renk ya da seçim kutusu olmasın"): üzerine gelince hafif turuncu ton + 3 px kayma
+         (120 ms); seçili = turuncu yazı + sağda ✓. Liste kabı 14 köşeli kart. Bu blok Components.axaml'dan SONRA yüklenir. -->
+    <Style Selector="TextBox.Field, ComboBox.Field, NumericUpDown.Field, DatePicker.Field">
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style Selector="TextBox.Field">
+        <Setter Property="Padding" Value="13,11"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBox.Field /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+    </Style>
+    <Style Selector="TextBox.Field:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="TextBox.Field:focus-within /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+    </Style>
+    <Style Selector="TextBox.Field.error /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
+    </Style>
+    <Style Selector="TextBox.Field:disabled /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+    </Style>
+
+    <Style Selector="ComboBox.Field">
+        <Setter Property="Padding" Value="13,10"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ComboBox.Field /template/ Border#Background">
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ComboBox.Field:pointerover /template/ Border#Background">
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="ComboBox.Field:focus /template/ Border#Background, ComboBox.Field:dropdownopen /template/ Border#Background">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="NumericUpDown.Field">
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="NumericUpDown.Field /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="NumericUpDown.Field:focus-within /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Border.LookupField">
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Padding" Value="13,10"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Transitions">
+            <Transitions><BrushTransition Property="Background" Duration="0:0:0.12"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.LookupField:pointerover">
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+
+    <!-- Açılır liste KABI (ComboBox açılır listesi + aramalı seçim kutusu) -->
+    <Style Selector="ComboBox /template/ Border#PopupBorder">
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="Padding" Value="6"/>
+    </Style>
+    <Style Selector="Border.dw-lookup-popup">
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    </Style>
+
+    <!-- Açılır liste ÖĞESİ (tüm ComboBox'lar): şeffaf; şablon yalnız sağa ✓ eklemek için (içerik sunucusu aynı adla kalır) -->
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="RenderTransform" Value="translateX(0px)"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+                <BrushTransition Property="Background" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="IosOgeArka" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                    <DockPanel>
+                        <PathIcon Name="IosTik" DockPanel.Dock="Right" Width="12" Height="12" Margin="10,0,0,0" IsVisible="False"
+                                  Data="{DynamicResource IconCheck}" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        <ContentPresenter Name="PART_ContentPresenter" Background="Transparent"
+                                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="Center" Foreground="{TemplateBinding Foreground}"/>
+                    </DockPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ComboBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <!-- Fluent seçili/üzerine gelme/basılı/odak durumlarında İÇERİK SUNUCUSUNA zemin verir (yazının arkasında mavi kutu) →
+         her durumda açıkça şeffaf; ton yalnız öğe kabında (IosOgeArka). -->
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:focus /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        <Setter Property="RenderTransform" Value="translateX(3px)"/>
+    </Style>
+    <Style Selector="ComboBoxItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ PathIcon#IosTik">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+
+    <!-- Aramalı seçim kutusu (LookupBox) listesi: aynı dil -->
+    <Style Selector="ListBox.IosSecimListesi">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.IosSecimListesi ListBoxItem">
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="RenderTransform" Value="translateX(0px)"/>
+        <Setter Property="Transitions">
+            <Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.IosSecimListesi ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Transitions">
+            <Transitions><BrushTransition Property="Background" Duration="0:0:0.12"/></Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.IosSecimListesi ListBoxItem:pointerover">
+        <Setter Property="RenderTransform" Value="translateX(3px)"/>
+    </Style>
+    <Style Selector="ListBox.IosSecimListesi ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+    </Style>
+
     <!-- ⭐ Madde 5 (2026-10-29): YUMUŞAK GEÇİŞLER — skill alpnex-arayuz-hareket: hareket yalnız "tıklamam işledi mi?" sorusuna
          cevap; 120 ms ease-out (vurgu süresi), yalnız RenderTransform/fırça (düzen yeniden hesaplanmaz). Tablo/liste SATIRLARINA ve
          ekran geçişine hareket YOK (büyük listede kekemelik). Basılınca iOS'taki gibi hafif küçülme; bırakınca geri döner. -->

@@ -99,6 +99,7 @@ public class LookupBox : UserControl
         _search.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) { _page = 1; Refresh(); } };
 
         _list = new ListBox { MaxHeight = 240, SelectionMode = SelectionMode.Single };
+        _list.Classes.Add("IosSecimListesi");   // 2026-10-29: öğeler şeffaf, üzerine gelince hafif ton + kayma (Themes/Ios.axaml)
         _list.ItemTemplate = new FuncDataTemplate<Row>((r, _) => new TextBlock { Text = r?.Display ?? "", Padding = new Thickness(2) }, true);
         _list.SelectionChanged += OnSelect;
 
