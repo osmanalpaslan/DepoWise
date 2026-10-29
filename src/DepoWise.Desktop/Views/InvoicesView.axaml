@@ -151,126 +151,130 @@
             <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
                 <Border Classes="Panel">
                     <StackPanel Spacing="8">
-                        <SelectableTextBlock Text="Yeni Fatura" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="Yeni Fatura" Classes="IosBaslik"/>
 
-                        <ctrl:FormField Label="Fatura Türü" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding DirectionOptions}"
-                                      SelectedValue="{Binding FDirection}" SelectedValueBinding="{Binding Key}"
-                                      ToolTip.Tip="Alış: stok girer, satıcıya borçlanırsınız. Satış: stok çıkar, müşteri size borçlanır.">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <ctrl:FormField Label="Fatura Türü" IsRequired="True">
+                                <ComboBox Classes="Field" ItemsSource="{Binding DirectionOptions}"
+                                          SelectedValue="{Binding FDirection}" SelectedValueBinding="{Binding Key}"
+                                          ToolTip.Tip="Alış: stok girer, satıcıya borçlanırsınız. Satış: stok çıkar, müşteri size borçlanır.">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
 
-                        <ctrl:FormField Label="Cari" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding PartyOptions}"
-                                      SelectedValue="{Binding FPartyId}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Cari" IsRequired="True">
+                                <ComboBox Classes="Field" ItemsSource="{Binding PartyOptions}"
+                                          SelectedValue="{Binding FPartyId}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
 
-                        <ctrl:FormField Label="Depo / Şantiye">
-                            <ComboBox Classes="Field" ItemsSource="{Binding BranchOptions}"
-                                      SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
-                                      ToolTip.Tip="Stok hareketinin hangi depoda oluşacağını belirler.">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Depo / Şantiye">
+                                <ComboBox Classes="Field" ItemsSource="{Binding BranchOptions}"
+                                          SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
+                                          ToolTip.Tip="Stok hareketinin hangi depoda oluşacağını belirler.">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
 
-                        <ctrl:FormField Label="Karşı Taraf Belge No">
-                            <TextBox Classes="Field" Text="{Binding FExternalNo}" MaxLength="60"
-                                     PlaceholderText="Satıcının kendi fatura numarası"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Fatura Tarihi" IsRequired="True">
-                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding FInvoiceDate}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Vade Tarihi">
-                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDueDate}"/>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Karşı Taraf Belge No">
+                                <TextBox Classes="Field" Text="{Binding FExternalNo}" MaxLength="60"
+                                         PlaceholderText="Satıcının kendi fatura numarası"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Fatura Tarihi" IsRequired="True">
+                                <CalendarDatePicker Classes="Field" SelectedDate="{Binding FInvoiceDate}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Vade Tarihi">
+                                <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDueDate}"/>
+                            </ctrl:FormField>
 
-                        <CheckBox Content="Stoğu etkilesin" IsChecked="{Binding FAffectsStock}" IsEnabled="{Binding StokKutusuAcik}"
-                                  ToolTip.Tip="Kapatılırsa stok hareketi oluşmaz (hizmet/masraf faturası). Cari etkisi yine oluşur."/>
-                        <!-- ⭐ M-25: mal kabulden açılan fatura -->
-                        <SelectableTextBlock Text="{Binding KabulNotu}" Classes="Helper" TextWrapping="Wrap"
-                                             IsVisible="{Binding KabulBagli}"/>
+                            <CheckBox Content="Stoğu etkilesin" IsChecked="{Binding FAffectsStock}" IsEnabled="{Binding StokKutusuAcik}"
+                                      ToolTip.Tip="Kapatılırsa stok hareketi oluşmaz (hizmet/masraf faturası). Cari etkisi yine oluşur."/>
+                            <!-- ⭐ M-25: mal kabulden açılan fatura -->
+                            <SelectableTextBlock Text="{Binding KabulNotu}" Classes="Helper" TextWrapping="Wrap"
+                                                 IsVisible="{Binding KabulBagli}"/>
 
+                        </StackPanel></Border>
                         <!-- ── SATIRLAR ── -->
-                        <SelectableTextBlock Text="Satırlar" Classes="SectionTitle" Margin="0,8,0,0"/>
-                        <ItemsControl ItemsSource="{Binding FormLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:InvoiceLineEditor">
-                                    <Border Classes="Panel" Margin="0,0,0,8">
-                                        <StackPanel Spacing="6">
-                                            <!-- Malzeme seçimi ARANABİLİRDİR: tüm malzemeler listeye doldurulmaz
-                                                 (sayfalama sınırı yüzünden sessizce kesilirdi). Yaz → seç. -->
-                                            <StackPanel Spacing="4">
-                                                <Grid ColumnDefinitions="*,Auto">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding MaterialText}"
-                                                                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="1" Classes="Ghost" Content="Malzemeyi Kaldır"
-                                                            Command="{Binding ClearMaterialCommand}"
-                                                            IsVisible="{Binding MaterialId, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <SelectableTextBlock Text="Satırlar" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <ItemsControl ItemsSource="{Binding FormLines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:InvoiceLineEditor">
+                                        <Border Classes="Panel" Margin="0,0,0,8">
+                                            <StackPanel Spacing="6">
+                                                <!-- Malzeme seçimi ARANABİLİRDİR: tüm malzemeler listeye doldurulmaz
+                                                     (sayfalama sınırı yüzünden sessizce kesilirdi). Yaz → seç. -->
+                                                <StackPanel Spacing="4">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <SelectableTextBlock Grid.Column="0" Text="{Binding MaterialText}"
+                                                                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                        <Button Grid.Column="1" Classes="Ghost" Content="Malzemeyi Kaldır"
+                                                                Command="{Binding ClearMaterialCommand}"
+                                                                IsVisible="{Binding MaterialId, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                    </Grid>
+                                                    <TextBox Classes="Field" Text="{Binding MaterialSearch}"
+                                                             PlaceholderText="Malzeme ara (kod veya ad) — hizmet satırında boş bırakın"/>
+                                                    <ItemsControl ItemsSource="{Binding Results}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:InvoicesViewModel+Option">
+                                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" Content="{Binding Label}"
+                                                                        Command="{Binding $parent[ItemsControl].((vm:InvoiceLineEditor)DataContext).PickMaterialCommand}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                                <TextBox Classes="Field" Text="{Binding Description}"
+                                                         PlaceholderText="Açıklama (malzeme seçilmediyse zorunlu)"/>
+                                                <Grid ColumnDefinitions="*,8,*" >
+                                                    <ctrl:FormField Grid.Column="0" Label="Miktar">
+                                                        <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" Increment="1"/>
+                                                    </ctrl:FormField>
+                                                    <ctrl:FormField Grid.Column="2" Label="Birim Fiyat">
+                                                        <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" Increment="1"/>
+                                                    </ctrl:FormField>
                                                 </Grid>
-                                                <TextBox Classes="Field" Text="{Binding MaterialSearch}"
-                                                         PlaceholderText="Malzeme ara (kod veya ad) — hizmet satırında boş bırakın"/>
-                                                <ItemsControl ItemsSource="{Binding Results}">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate x:DataType="vm:InvoicesViewModel+Option">
-                                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" Content="{Binding Label}"
-                                                                    Command="{Binding $parent[ItemsControl].((vm:InvoiceLineEditor)DataContext).PickMaterialCommand}"
-                                                                    CommandParameter="{Binding}"/>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
+                                                <Grid ColumnDefinitions="*,8,*,8,*">
+                                                    <ctrl:FormField Grid.Column="0" Label="İskonto %">
+                                                        <NumericUpDown Classes="Field" Value="{Binding DiscountRate}" Minimum="0" Maximum="100"/>
+                                                    </ctrl:FormField>
+                                                    <ctrl:FormField Grid.Column="2" Label="KDV %">
+                                                        <NumericUpDown Classes="Field" Value="{Binding VatRate}" Minimum="0" Maximum="100"/>
+                                                    </ctrl:FormField>
+                                                    <ctrl:FormField Grid.Column="4" Label="Tevkifat %">
+                                                        <NumericUpDown Classes="Field" Value="{Binding WithholdingRate}" Minimum="0" Maximum="100"
+                                                                       ToolTip.Tip="KDV üzerinden alınan tevkifat oranı."/>
+                                                    </ctrl:FormField>
+                                                </Grid>
+                                                <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="12">
+                                                    <SelectableTextBlock Text="{Binding LineTotalText}" Classes="Helper" VerticalAlignment="Center"/>
+                                                    <Button Classes="Ghost" Content="Satırı Sil"
+                                                            Command="{Binding $parent[UserControl].((vm:InvoicesViewModel)DataContext).RemoveLineCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </WrapPanel>
                                             </StackPanel>
-                                            <TextBox Classes="Field" Text="{Binding Description}"
-                                                     PlaceholderText="Açıklama (malzeme seçilmediyse zorunlu)"/>
-                                            <Grid ColumnDefinitions="*,8,*" >
-                                                <ctrl:FormField Grid.Column="0" Label="Miktar">
-                                                    <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" Increment="1"/>
-                                                </ctrl:FormField>
-                                                <ctrl:FormField Grid.Column="2" Label="Birim Fiyat">
-                                                    <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" Increment="1"/>
-                                                </ctrl:FormField>
-                                            </Grid>
-                                            <Grid ColumnDefinitions="*,8,*,8,*">
-                                                <ctrl:FormField Grid.Column="0" Label="İskonto %">
-                                                    <NumericUpDown Classes="Field" Value="{Binding DiscountRate}" Minimum="0" Maximum="100"/>
-                                                </ctrl:FormField>
-                                                <ctrl:FormField Grid.Column="2" Label="KDV %">
-                                                    <NumericUpDown Classes="Field" Value="{Binding VatRate}" Minimum="0" Maximum="100"/>
-                                                </ctrl:FormField>
-                                                <ctrl:FormField Grid.Column="4" Label="Tevkifat %">
-                                                    <NumericUpDown Classes="Field" Value="{Binding WithholdingRate}" Minimum="0" Maximum="100"
-                                                                   ToolTip.Tip="KDV üzerinden alınan tevkifat oranı."/>
-                                                </ctrl:FormField>
-                                            </Grid>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <SelectableTextBlock Text="{Binding LineTotalText}" Classes="Helper" VerticalAlignment="Center"/>
-                                                <Button Classes="Ghost" Content="Satırı Sil"
-                                                        Command="{Binding $parent[UserControl].((vm:InvoicesViewModel)DataContext).RemoveLineCommand}"
-                                                        CommandParameter="{Binding}"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
 
-                        <ctrl:FormField Label="Not">
-                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Not">
+                                <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                            </ctrl:FormField>
 
-                        <Border Classes="Panel" Margin="0,6,0,0">
-                            <SelectableTextBlock Text="{Binding FormTotals}" TextWrapping="Wrap"/>
-                        </Border>
+                            <Border Classes="Panel" Margin="0,6,0,0">
+                                <SelectableTextBlock Text="{Binding FormTotals}" TextWrapping="Wrap"/>
+                            </Border>
 
+                        </StackPanel></Border>
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
                             <!-- Busy sürerken düğme kapanır; ayrıca operation_id sabit olduğu için
                                  çift gönderim sunucuda da İKİNCİ fatura oluşturmaz. -->

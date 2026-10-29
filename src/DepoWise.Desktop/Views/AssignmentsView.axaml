@@ -48,7 +48,10 @@
             <TabItem Header="Yeni işlem" IsVisible="{Binding CanWrite}">
                 <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,12,0,0">
                     <!-- Başlık alanları -->
-                    <Border Grid.Row="0" Classes="Panel" Padding="16,12">
+                    <!-- 2. tur madde 3c (2026-10-29): iOS gruplu kutu -->
+                    <StackPanel Grid.Row="0" Spacing="6">
+                        <SelectableTextBlock Text="İşlem" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup">
                         <StackPanel Spacing="10">
                             <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
                                 <ctrl:FormField Label="İşlem" Width="130">
@@ -76,10 +79,14 @@
                                 </ctrl:FormField>
                             </WrapPanel>
                         </StackPanel>
-                    </Border>
+                        </Border>
+                    </StackPanel>
 
                     <!-- Kalem ekleme: varlık → QR → miktar → Listeye Ekle -->
-                    <Border Grid.Row="1" Classes="Panel" Padding="16,12" Margin="0,10,0,0">
+                    <!-- 2. tur madde 3c (2026-10-29): iOS gruplu kutu -->
+                    <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
+                        <SelectableTextBlock Text="Kalem Ekle" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup">
                         <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="10">
                             <ctrl:FormField Label="Varlık Türü" Width="120">
                                 <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding AssetTypeOptions}" SelectedItem="{Binding FormAssetType}"/>
@@ -129,7 +136,8 @@
                                 </Button.Flyout>
                             </Button>
                         </WrapPanel>
-                    </Border>
+                        </Border>
+                    </StackPanel>
 
                     <!-- KALEM TABLOSU — kalan alanın tamamı (eskiden 220 px). Boşken yönlendirme. -->
                     <Panel Grid.Row="2" Margin="0,10,0,0">

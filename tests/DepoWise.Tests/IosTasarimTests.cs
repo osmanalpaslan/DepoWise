@@ -198,7 +198,8 @@ public class IosTasarimTests
         var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
         var formlar = new[] { "Materials", "Equipment", "Personnel", "WorkOrders", "Purchasing", "Documents", "Projects", "Inspection",
             "Users", "MaterialTemplates", "VehicleTemplates", "Requests", "DailyActivity", "Parties", "Announcements", "Calendar",
-            "CostCenters", "Branches", "Companies", "Maintenance", "Finance", "Vehicles" };
+            "CostCenters", "Branches", "Companies", "Maintenance", "Finance", "Vehicles",
+            "Payments", "Invoices", "Fuel", "StockEntry", "Assignments" };   // 3c: yapısı farklı formlar
         foreach (var ad in formlar)
         {
             var x = File.ReadAllText(Path.Combine(dizin, ad + "View.axaml"));

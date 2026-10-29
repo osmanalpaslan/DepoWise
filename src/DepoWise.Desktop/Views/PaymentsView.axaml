@@ -109,98 +109,102 @@
             <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
                 <Border Classes="Panel">
                     <StackPanel Spacing="8">
-                        <SelectableTextBlock Text="Yeni Tahsilat / Ödeme" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="Yeni Tahsilat / Ödeme" Classes="IosBaslik"/>
 
-                        <ctrl:FormField Label="İşlem Türü" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding TypeOptions}"
-                                      SelectedValue="{Binding FType}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <!-- Yön kullanıcıya AÇIKÇA yazılır; tahmin etmesi gerekmez. -->
-                        <Border Classes="Panel">
-                            <SelectableTextBlock Text="{Binding DirectionHint}" TextWrapping="Wrap" Classes="Helper"/>
-                        </Border>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <ctrl:FormField Label="İşlem Türü" IsRequired="True">
+                                <ComboBox Classes="Field" ItemsSource="{Binding TypeOptions}"
+                                          SelectedValue="{Binding FType}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <!-- Yön kullanıcıya AÇIKÇA yazılır; tahmin etmesi gerekmez. -->
+                            <Border Classes="Panel">
+                                <SelectableTextBlock Text="{Binding DirectionHint}" TextWrapping="Wrap" Classes="Helper"/>
+                            </Border>
 
-                        <ctrl:FormField Label="Cari" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding PartyOptions}"
-                                      SelectedValue="{Binding FPartyId}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Kasa / Banka" IsRequired="True">
-                            <ComboBox Classes="Field" ItemsSource="{Binding AccountOptions}"
-                                      SelectedValue="{Binding FAccountId}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Tutar" IsRequired="True">
-                            <NumericUpDown Classes="Field" Value="{Binding FAmount}" Minimum="0" Increment="100"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Tarih" IsRequired="True">
-                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDate}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Ödeme Yöntemi">
-                            <ComboBox Classes="Field" ItemsSource="{Binding PaymentMethods}"
-                                      SelectedValue="{Binding FPaymentMethod}" SelectedValueBinding="{Binding Key}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Belge No">
-                            <TextBox Classes="Field" Text="{Binding FDocNo}" MaxLength="60"
-                                     PlaceholderText="Makbuz / dekont numarası"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Referans">
-                            <TextBox Classes="Field" Text="{Binding FReferenceNo}" MaxLength="60"
-                                     PlaceholderText="Banka referansı, çek no vb."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Açıklama">
-                            <TextBox Classes="Field" Text="{Binding FDescription}" AcceptsReturn="True" MinHeight="60"/>
-                        </ctrl:FormField>
+                            <ctrl:FormField Label="Cari" IsRequired="True">
+                                <ComboBox Classes="Field" ItemsSource="{Binding PartyOptions}"
+                                          SelectedValue="{Binding FPartyId}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Kasa / Banka" IsRequired="True">
+                                <ComboBox Classes="Field" ItemsSource="{Binding AccountOptions}"
+                                          SelectedValue="{Binding FAccountId}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Tutar" IsRequired="True">
+                                <NumericUpDown Classes="Field" Value="{Binding FAmount}" Minimum="0" Increment="100"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Tarih" IsRequired="True">
+                                <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDate}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Ödeme Yöntemi">
+                                <ComboBox Classes="Field" ItemsSource="{Binding PaymentMethods}"
+                                          SelectedValue="{Binding FPaymentMethod}" SelectedValueBinding="{Binding Key}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PaymentsViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Belge No">
+                                <TextBox Classes="Field" Text="{Binding FDocNo}" MaxLength="60"
+                                         PlaceholderText="Makbuz / dekont numarası"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Referans">
+                                <TextBox Classes="Field" Text="{Binding FReferenceNo}" MaxLength="60"
+                                         PlaceholderText="Banka referansı, çek no vb."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Açıklama">
+                                <TextBox Classes="Field" Text="{Binding FDescription}" AcceptsReturn="True" MinHeight="60"/>
+                            </ctrl:FormField>
 
+                        </StackPanel></Border>
                         <!-- ── AÇIK FATURALAR ── -->
-                        <SelectableTextBlock Text="Kapatılacak Faturalar" Classes="SectionTitle" Margin="0,8,0,0"/>
-                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
-                                             Text="Hiçbiri seçilmezse işlem bağımsız cari hareketi olarak kaydedilir (bakiyeyi etkiler, fatura kapatmaz). Kalan tutarlar hesaplanır; saklanmaz."/>
-                        <ItemsControl ItemsSource="{Binding OpenInvoices}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:PaymentsViewModel+OpenInvoiceLine">
-                                    <Border Classes="Panel" Margin="0,0,0,6">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
-                                            <CheckBox Grid.Row="0" Grid.Column="0" IsChecked="{Binding Selected}" VerticalAlignment="Center"/>
-                                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
-                                                <SelectableTextBlock Text="{Binding InvoiceNo}"/>
-                                                <SelectableTextBlock Classes="Helper" Text="{Binding DateText}"/>
-                                            </StackPanel>
-                                            <SelectableTextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center"
-                                                                 Text="{Binding RemainingText}"
-                                                                 ToolTip.Tip="Faturanın kalan tutarı"/>
-                                            <NumericUpDown Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Classes="Field"
-                                                           Margin="8,6,0,0" Minimum="0" Increment="100"
-                                                           Value="{Binding Amount}"
-                                                           IsEnabled="{Binding Selected}"
-                                                           ToolTip.Tip="Bu faturaya sayılacak tutar. Kalanı aşamaz."/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Button Classes="Ghost" Content="Tutarı Faturalardan Doldur" Command="{Binding FillFromInvoicesCommand}"
-                                    ToolTip.Tip="Seçili faturaların toplamını işlem tutarına yazar."/>
-                        </StackPanel>
-                        <Border Classes="Panel">
-                            <SelectableTextBlock Text="{Binding AllocationSummary}" TextWrapping="Wrap"/>
-                        </Border>
+                        <SelectableTextBlock Text="Kapatılacak Faturalar" Classes="IosFormBaslik"/>
+                        <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                                 Text="Hiçbiri seçilmezse işlem bağımsız cari hareketi olarak kaydedilir (bakiyeyi etkiler, fatura kapatmaz). Kalan tutarlar hesaplanır; saklanmaz."/>
+                            <ItemsControl ItemsSource="{Binding OpenInvoices}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PaymentsViewModel+OpenInvoiceLine">
+                                        <Border Classes="Panel" Margin="0,0,0,6">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                                                <CheckBox Grid.Row="0" Grid.Column="0" IsChecked="{Binding Selected}" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
+                                                    <SelectableTextBlock Text="{Binding InvoiceNo}"/>
+                                                    <SelectableTextBlock Classes="Helper" Text="{Binding DateText}"/>
+                                                </StackPanel>
+                                                <SelectableTextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center"
+                                                                     Text="{Binding RemainingText}"
+                                                                     ToolTip.Tip="Faturanın kalan tutarı"/>
+                                                <NumericUpDown Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Classes="Field"
+                                                               Margin="8,6,0,0" Minimum="0" Increment="100"
+                                                               Value="{Binding Amount}"
+                                                               IsEnabled="{Binding Selected}"
+                                                               ToolTip.Tip="Bu faturaya sayılacak tutar. Kalanı aşamaz."/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="12">
+                                <Button Classes="Ghost" Content="Tutarı Faturalardan Doldur" Command="{Binding FillFromInvoicesCommand}"
+                                        ToolTip.Tip="Seçili faturaların toplamını işlem tutarına yazar."/>
+                            </WrapPanel>
+                            <Border Classes="Panel">
+                                <SelectableTextBlock Text="{Binding AllocationSummary}" TextWrapping="Wrap"/>
+                            </Border>
 
+                        </StackPanel></Border>
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
                             <!-- Saving sürerken düğme kapanır; ayrıca operation_id sabit olduğu için
                                  çift gönderim sunucuda da İKİNCİ tahsilat oluşturmaz. -->
