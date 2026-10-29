@@ -42,95 +42,158 @@
         </Border>
 
         <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
-                <SelectableTextBlock Text="Kimlik" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
-                        <ctrl:FormField Label="Ad Soyad" IsRequired="True" Width="240">
-                            <TextBox Classes="Field" Text="{Binding FFullName}"/>
-                        </ctrl:FormField>
-                        <!-- Unvan: sabit tanım listesinden seçilir; "+" ile yeni tanım eklenir -->
-                        <ctrl:FormField Label="Unvan" Width="220">
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="12">
-                                <ComboBox Classes="Field" Width="180" ItemsSource="{Binding Titles}" SelectedItem="{Binding FTitle}"/>
-                                <Button AutomationProperties.Name="Yeni unvan tanımı ekle" Classes="Secondary" Content="+" Width="34" Padding="0" HorizontalContentAlignment="Center" ToolTip.Tip="Yeni unvan tanımı ekle"
-                                        Command="{Binding ToggleAddTitleCommand}" IsVisible="{Binding CanWrite}"/>
-                            </WrapPanel>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowAddTitle}">
-                    <TextBox Classes="Field" Width="200" PlaceholderText="Yeni unvan" Text="{Binding NewTitle}"/>
-                    <Button Classes="Primary" Content="Ekle" Command="{Binding AddTitleCommand}"/>
-                    <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ToggleAddTitleCommand}"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24" HorizontalAlignment="Left">
+                <StackPanel Grid.Column="0" Spacing="14" MaxWidth="640">
+                    <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                    <SelectableTextBlock Text="Kimlik" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <ctrl:FormField Label="Ad Soyad" IsRequired="True" Width="240">
+                                <TextBox Classes="Field" Text="{Binding FFullName}"/>
+                            </ctrl:FormField>
+                            <!-- Unvan: sabit tanım listesinden seçilir; "+" ile yeni tanım eklenir -->
+                            <ctrl:FormField Label="Unvan" Width="220">
+                                <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="12">
+                                    <ComboBox Classes="Field" Width="180" ItemsSource="{Binding Titles}" SelectedItem="{Binding FTitle}"/>
+                                    <Button AutomationProperties.Name="Yeni unvan tanımı ekle" Classes="Secondary" Content="+" Width="34" Padding="0" HorizontalContentAlignment="Center" ToolTip.Tip="Yeni unvan tanımı ekle"
+                                            Command="{Binding ToggleAddTitleCommand}" IsVisible="{Binding CanWrite}"/>
+                                </WrapPanel>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowAddTitle}">
+                        <TextBox Classes="Field" Width="200" PlaceholderText="Yeni unvan" Text="{Binding NewTitle}"/>
+                        <Button Classes="Primary" Content="Ekle" Command="{Binding AddTitleCommand}"/>
+                        <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ToggleAddTitleCommand}"/>
+                    </StackPanel>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <ctrl:FormField Label="Telefon" Width="180">
+                                <TextBox Classes="Field" Text="{Binding FPhone}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Şube / Şantiye" Width="200">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}"
+                                                PlaceholderText="Şube seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Aktif" Width="70">
+                                <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Saha personeli" Width="130">
+                                <CheckBox IsChecked="{Binding FFieldStaff}" VerticalAlignment="Center"
+                                          ToolTip.Tip="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz."/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="İletişim ve Konum" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <!-- Olası aynı kişi uyarısı (#6) -->
+                        <Border Classes="Panel" Padding="10" IsVisible="{Binding FDupWarning, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <SelectableTextBlock Text="{Binding FDupWarning}" Classes="Helper" TextWrapping="Wrap"
+                                                 Foreground="{DynamicResource WarningBrush}"/>
+                        </Border>
+
+                        <!-- Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok) -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding FHasAccount}">
+                            <SelectableTextBlock Text="Bağlı uygulama hesabı:" Classes="Helper" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="{Binding FAccountInfo}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Classes="Secondary" Content="Bağı kaldır" Command="{Binding RemoveAccountCommand}"
+                                    IsVisible="{Binding CanManageAccounts}"/>
+                        </StackPanel>
+
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="Uygulama Erişimi" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <CheckBox Content="Mevcut kullanıcıyı bağla"
+                                  IsChecked="{Binding FGrantAccess}" IsVisible="{Binding ShowGrantToggle}"/>
+                        <StackPanel Spacing="10" IsVisible="{Binding ShowAccountFields}">
+                            <ctrl:FormField HorizontalAlignment="Left" Label="Bağlanacak Kullanıcı" IsRequired="True" Width="360"
+                                            IsVisible="{Binding HasLinkableUsers}">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding LinkableUsers}" SelectedItem="{Binding FLinkUser}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- Yalnız Ad Soyad + şube (kullanıcı adı gizli — kullanıcı isteği) -->
+                                            <TextBlock Text="{Binding Display}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasLinkableUsers}"
+                                                 Text="{Binding LinkableEmptyReason}"/>
+                            <SelectableTextBlock Text="Yalnız henüz bir personele bağlı olmayan kullanıcılar listelenir. Ekran yetkileri 'Yetkiler' ekranından ayarlanır."
+                                                 Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasLinkableUsers}"/>
+                        </StackPanel>
+
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                        <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    </StackPanel>
                 </StackPanel>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
-                        <ctrl:FormField Label="Telefon" Width="180">
-                            <TextBox Classes="Field" Text="{Binding FPhone}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Şube / Şantiye" Width="200">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}"
-                                            PlaceholderText="Şube seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Aktif" Width="70">
-                            <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Saha personeli" Width="130">
-                            <CheckBox IsChecked="{Binding FFieldStaff}" VerticalAlignment="Center"
-                                      ToolTip.Tip="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz."/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="İletişim ve Konum" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <!-- Olası aynı kişi uyarısı (#6) -->
-                    <Border Classes="Panel" Padding="10" IsVisible="{Binding FDupWarning, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <SelectableTextBlock Text="{Binding FDupWarning}" Classes="Helper" TextWrapping="Wrap"
-                                             Foreground="{DynamicResource WarningBrush}"/>
+                <!-- 2. tur madde 3b (2026-10-29): Yeni Araç ile aynı sağ sütun — önizleme + zorunlu alan kontrol listesi (salt gösterim) -->
+                <StackPanel Grid.Column="1" Width="300" Spacing="16" VerticalAlignment="Top" Margin="0,40,0,0">
+                    <Border Classes="IosKart" Padding="16">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Önizleme" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Personel listesinde böyle görünecek" Classes="Helper"/>
+                            </StackPanel>
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#30D158"><PathIcon Data="{DynamicResource IconPersonnel}"/></Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding FFullName}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding FFullName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Ad soyad girilmedi" FontSize="14" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding FFullName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                            <TextBlock Text="{Binding FTitle}" Classes="Helper" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding FTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Unvan seçilmedi" Classes="Helper" IsVisible="{Binding FTitle, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
                     </Border>
-
-                    <!-- Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok) -->
-                    <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding FHasAccount}">
-                        <SelectableTextBlock Text="Bağlı uygulama hesabı:" Classes="Helper" VerticalAlignment="Center"/>
-                        <SelectableTextBlock Text="{Binding FAccountInfo}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Button Classes="Secondary" Content="Bağı kaldır" Command="{Binding RemoveAccountCommand}"
-                                IsVisible="{Binding CanManageAccounts}"/>
-                    </StackPanel>
-
-                </StackPanel></Border>
-                <SelectableTextBlock Text="Uygulama Erişimi" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <CheckBox Content="Mevcut kullanıcıyı bağla"
-                              IsChecked="{Binding FGrantAccess}" IsVisible="{Binding ShowGrantToggle}"/>
-                    <StackPanel Spacing="10" IsVisible="{Binding ShowAccountFields}">
-                        <ctrl:FormField HorizontalAlignment="Left" Label="Bağlanacak Kullanıcı" IsRequired="True" Width="360"
-                                        IsVisible="{Binding HasLinkableUsers}">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding LinkableUsers}" SelectedItem="{Binding FLinkUser}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <!-- Yalnız Ad Soyad + şube (kullanıcı adı gizli — kullanıcı isteği) -->
-                                        <TextBlock Text="{Binding Display}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasLinkableUsers}"
-                                             Text="{Binding LinkableEmptyReason}"/>
-                        <SelectableTextBlock Text="Yalnız henüz bir personele bağlı olmayan kullanıcılar listelenir. Ekran yetkileri 'Yetkiler' ekranından ayarlanır."
-                                             Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasLinkableUsers}"/>
-                    </StackPanel>
-
-                </StackPanel></Border>
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    <Border Classes="IosKart" Padding="16,14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Kontrol listesi" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FFullName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="eksik" IsVisible="{Binding FFullName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Ad Soyad" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="Zorunlu" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FTitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FTitle, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Unvan" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FPhone, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FPhone, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Telefon" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FBranch, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FBranch, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Şube / Şantiye" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
         </Border>
 
         <!-- ⭐ iOS tasarım (2026-10-28): seçili kişi kartı — üstte simge + ad + unvan ve eylemler; altta belgeler, zimmetler ve

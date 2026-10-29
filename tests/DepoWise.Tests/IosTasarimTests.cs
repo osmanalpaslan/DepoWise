@@ -206,6 +206,16 @@ public class IosTasarimTests
             Assert.Contains("Classes=\"IosFormBaslik\"", x);
             Assert.DoesNotContain("Classes=\"FormBolum\"", x);
         }
+        // 3b: büyük formlarda Yeni Araç'taki sağ sütun (Önizleme + Kontrol listesi); grup içinde sabit geniş (≥560 px) alan yok
+        foreach (var ad in new[] { "Materials", "Equipment", "Personnel", "WorkOrders", "Purchasing" })
+        {
+            var x = File.ReadAllText(Path.Combine(dizin, ad + "View.axaml"));
+            Assert.Contains("<TextBlock Text=\"Önizleme\"", x);
+            Assert.Contains("<TextBlock Text=\"Kontrol listesi\"", x);
+            Assert.Contains("Classes=\"KontrolIsaret\"", x);
+        }
+        foreach (var f in Directory.GetFiles(dizin, "*.axaml"))
+            Assert.DoesNotMatch(@"<ctrl:FormField HorizontalAlignment=""Left""[^>]*Width=""(5[6-9]\d|[6-9]\d\d)""", File.ReadAllText(f));
         // grup içi yan yana alanlar sarılır (dar pencerede kutudan taşmaz)
         Assert.Contains("<WrapPanel Orientation=\"Horizontal\" ItemSpacing=\"14\" LineSpacing=\"12\">",
             File.ReadAllText(Path.Combine(dizin, "EquipmentView.axaml")));

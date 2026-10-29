@@ -32,70 +32,117 @@
 
         <!-- Yeni sipariş formu -->
         <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="12" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="Yeni Sipariş" Classes="IosBaslik"/>
-                <SelectableTextBlock Text="Sipariş Bilgileri" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                        <!-- ⭐ M-29: boş bırakılırsa otomatik (SIP-yıl-…) -->
-                        <ctrl:FormField Label="Sipariş No" Width="140" ToolTip.Tip="Boş bırakılırsa otomatik verilir (SIP-yıl-…).">
-                            <TextBox Classes="Field" Text="{Binding FormOrderNo}" PlaceholderText="Otomatik"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24" HorizontalAlignment="Left">
+                <StackPanel Grid.Column="0" Spacing="12">
+                    <SelectableTextBlock Text="Yeni Sipariş" Classes="IosBaslik"/>
+                    <SelectableTextBlock Text="Sipariş Bilgileri" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                            <!-- ⭐ M-29: boş bırakılırsa otomatik (SIP-yıl-…) -->
+                            <ctrl:FormField Label="Sipariş No" Width="140" ToolTip.Tip="Boş bırakılırsa otomatik verilir (SIP-yıl-…).">
+                                <TextBox Classes="Field" Text="{Binding FormOrderNo}" PlaceholderText="Otomatik"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Tedarikçi" Width="200">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}" SelectedItem="{Binding FormSupplier}"
+                                                PlaceholderText="Tedarikçi seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Bağlı Talep" Width="180" HelpText="Opsiyonel; seçilince satırlar talepten kopyalanır.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding RequestOptions}" SelectedItem="{Binding FormRequest}"
+                                                PlaceholderText="Onaylı talep..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Teslim Deposu" Width="190" HelpText="Mal kabulde stok bu depoya girer.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                                PlaceholderText="Depo seç / ara..."/>
+                            </ctrl:FormField>
+                            <!-- Tarih KEHRİBAR temadan; yetki yoksa bugüne kilitli -->
+                            <ctrl:FormField Label="Sipariş Tarihi" Width="150">
+                                <ctrl:TarihKutusu SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"
+                                            HelpText="Kabulde oluşan stok belgesine bağlanır.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
+                                                PlaceholderText="Merkez seç / ara..."/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                        <ctrl:FormField HorizontalAlignment="Stretch" Label="Açıklama">
+                            <TextBox Classes="Field" Text="{Binding FormNote}"/>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Tedarikçi" Width="200">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SupplierOptions}" SelectedItem="{Binding FormSupplier}"
-                                            PlaceholderText="Tedarikçi seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Bağlı Talep" Width="180" HelpText="Opsiyonel; seçilince satırlar talepten kopyalanır.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding RequestOptions}" SelectedItem="{Binding FormRequest}"
-                                            PlaceholderText="Onaylı talep..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Teslim Deposu" Width="190" HelpText="Mal kabulde stok bu depoya girer.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                            PlaceholderText="Depo seç / ara..."/>
-                        </ctrl:FormField>
-                        <!-- Tarih KEHRİBAR temadan; yetki yoksa bugüne kilitli -->
-                        <ctrl:FormField Label="Sipariş Tarihi" Width="150">
-                            <ctrl:TarihKutusu SelectedDate="{Binding FormOrderDate}" IsEnabled="{Binding CanBackDate}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Maliyet Merkezi" Width="180" IsVisible="{Binding CanPickCostCenter}"
-                                        HelpText="Kabulde oluşan stok belgesine bağlanır.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
-                                            PlaceholderText="Merkez seç / ara..."/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                    <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="700">
-                        <TextBox Classes="Field" Text="{Binding FormNote}"/>
-                    </ctrl:FormField>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="Sipariş Satırları" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <ItemsControl ItemsSource="{Binding FormLines}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:PurchaseLineVm">
-                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,3">
-                                    <ctrl:LookupBox Width="300" ItemsSource="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).MaterialOptions}"
-                                                    SelectedItem="{Binding Material}" PlaceholderText="Malzeme seç / ara..."/>
-                                    <NumericUpDown Classes="Field" Width="110" Value="{Binding Quantity}" Minimum="0.0001" FormatString="0.####" ShowButtonSpinner="False"/>
-                                    <NumericUpDown Classes="Field" Width="130" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
-                                                   ToolTip.Tip="Birim fiyat (boş/0 = fiyatsız satır)"/>
-                                    <Button Classes="Danger" Content="Sil"
-                                            Command="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).RemoveLineCommand}"
-                                            CommandParameter="{Binding}"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="12">
-                        <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
-                    <Button Classes="Primary" Content="Sipariş Oluştur" Command="{Binding SaveCommand}"/>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="Sipariş Satırları" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <ItemsControl ItemsSource="{Binding FormLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PurchaseLineVm">
+                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,3">
+                                        <ctrl:LookupBox Width="300" ItemsSource="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).MaterialOptions}"
+                                                        SelectedItem="{Binding Material}" PlaceholderText="Malzeme seç / ara..."/>
+                                        <NumericUpDown Classes="Field" Width="110" Value="{Binding Quantity}" Minimum="0.0001" FormatString="0.####" ShowButtonSpinner="False"/>
+                                        <NumericUpDown Classes="Field" Width="130" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"
+                                                       ToolTip.Tip="Birim fiyat (boş/0 = fiyatsız satır)"/>
+                                        <Button Classes="Danger" Content="Sil"
+                                                Command="{Binding $parent[UserControl].((vm:PurchasingViewModel)DataContext).RemoveLineCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="12">
+                            <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                        <Button Classes="Primary" Content="Sipariş Oluştur" Command="{Binding SaveCommand}"/>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
+                <!-- 2. tur madde 3b (2026-10-29): Yeni Araç ile aynı sağ sütun — önizleme + zorunlu alan kontrol listesi (salt gösterim) -->
+                <StackPanel Grid.Column="1" Width="300" Spacing="16" VerticalAlignment="Top" Margin="0,40,0,0">
+                    <Border Classes="IosKart" Padding="16">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Önizleme" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Sipariş listesinde böyle görünecek" Classes="Helper"/>
+                            </StackPanel>
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#32ADE6"><PathIcon Data="{DynamicResource IconPurchasing}"/></Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding FormOrderNo}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding FormOrderNo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Sipariş no otomatik verilir" FontSize="14" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding FormOrderNo, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                            <TextBlock Text="{Binding FormSupplier.Name}" Classes="Helper" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding FormSupplier.Name, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Tedarikçi seçilmedi" Classes="Helper" IsVisible="{Binding FormSupplier.Name, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="IosKart" Padding="16,14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Kontrol listesi" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormSupplier, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FormSupplier, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Tedarikçi" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Teslim Deposu" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Liste + Detay/Mal Kabul -->

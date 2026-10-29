@@ -34,57 +34,120 @@
 
         <!-- Yeni/Düzenle formu -->
         <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
-                <SelectableTextBlock Text="Tanım" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
-                        <ctrl:FormField Label="Ekipman Kodu" IsRequired="True" Width="150">
-                            <TextBox Classes="Field" Text="{Binding FormCode}"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24" HorizontalAlignment="Left">
+                <StackPanel Grid.Column="0" Spacing="14" MaxWidth="820">
+                    <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                    <SelectableTextBlock Text="Tanım" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <ctrl:FormField Label="Ekipman Kodu" IsRequired="True" Width="150">
+                                <TextBox Classes="Field" Text="{Binding FormCode}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Ad" IsRequired="True" Width="240">
+                                <TextBox Classes="Field" Text="{Binding FormName}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Ekipman Türü" Width="190" HelpText="Yeni tür: Ayarlar → Tanımlar → Ekipman — Türler.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding FormType}"
+                                                PlaceholderText="Tür seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Durum" Width="130">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="Konum ve Durum" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
+                            <ctrl:FormField Label="Şube / Şantiye / Saha" Width="240">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                                PlaceholderText="Şube seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Seri No" Width="180">
+                                <TextBox Classes="Field" Text="{Binding FormSerialNo}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Konum" Width="200">
+                                <TextBox Classes="Field" Text="{Binding FormLocation}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Durum Notu" Width="180">
+                                <TextBox Classes="Field" Text="{Binding FormStatusNote}"/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="Açıklama" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <ctrl:FormField HorizontalAlignment="Stretch" Label="Açıklama">
+                            <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Ad" IsRequired="True" Width="240">
-                            <TextBox Classes="Field" Text="{Binding FormName}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Ekipman Türü" Width="190" HelpText="Yeni tür: Ayarlar → Tanımlar → Ekipman — Türler.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding FormType}"
-                                            PlaceholderText="Tür seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Durum" Width="130">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding FormStatus}"/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="Konum ve Durum" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="12">
-                        <ctrl:FormField Label="Şube / Şantiye / Saha" Width="240">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                            PlaceholderText="Şube seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Seri No" Width="180">
-                            <TextBox Classes="Field" Text="{Binding FormSerialNo}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Konum" Width="200">
-                            <TextBox Classes="Field" Text="{Binding FormLocation}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Durum Notu" Width="180">
-                            <TextBox Classes="Field" Text="{Binding FormStatusNote}"/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="Açıklama" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <ctrl:FormField HorizontalAlignment="Left" Label="Açıklama" Width="800">
-                        <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
-                    </ctrl:FormField>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                        <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
+                <!-- 2. tur madde 3b (2026-10-29): Yeni Araç ile aynı sağ sütun — önizleme + zorunlu alan kontrol listesi (salt gösterim) -->
+                <StackPanel Grid.Column="1" Width="300" Spacing="16" VerticalAlignment="Top" Margin="0,40,0,0">
+                    <Border Classes="IosKart" Padding="16">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Önizleme" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Ekipman listesinde böyle görünecek" Classes="Helper"/>
+                            </StackPanel>
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#FF9F0A"><PathIcon Data="{DynamicResource IconEquipment}"/></Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding FormCode}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding FormCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Kod girilmedi" FontSize="14" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding FormCode, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                            <TextBlock Text="{Binding FormName}" Classes="Helper" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding FormName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Ad girilmedi" Classes="Helper" IsVisible="{Binding FormName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="IosKart" Padding="16,14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Kontrol listesi" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="eksik" IsVisible="{Binding FormCode, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Ekipman Kodu" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="Zorunlu" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="eksik" IsVisible="{Binding FormName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Ad" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="Zorunlu" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormType, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FormType, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Ekipman Türü" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Şube / Şantiye" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Liste + Detay -->

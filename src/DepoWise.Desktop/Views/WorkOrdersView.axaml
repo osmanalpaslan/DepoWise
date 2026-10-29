@@ -33,58 +33,104 @@
 
         <!-- Form -->
         <Border Background="{DynamicResource AppBackgroundBrush}" BorderThickness="0" Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="12" HorizontalAlignment="Left">
-                <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
-                <SelectableTextBlock Text="İş Emri" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                        <!-- ⭐ M-29: yeni iş emrinde boş bırakılırsa otomatik (IE-yıl-…) -->
-                        <ctrl:FormField Label="İş Emri No" Width="130" ToolTip.Tip="Yeni iş emrinde boş bırakılırsa otomatik verilir (IE-yıl-…).">
-                            <TextBox Classes="Field" Text="{Binding FormWoNo}" PlaceholderText="Otomatik"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Başlık" IsRequired="True" Width="260">
-                            <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Öncelik" Width="120">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding FormPriority}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Şantiye / Saha" Width="200" HelpText="Tüketim bu deponun stoğundan düşer.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
-                                            PlaceholderText="Şantiye seç / ara..."/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Sorumlu" Width="190">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormAssignee}"
-                                            PlaceholderText="Personel seç / ara..."/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="Plan ve Maliyet" Classes="IosFormBaslik"/>
-                <Border Classes="IosFormGrup"><StackPanel Spacing="12">
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
-                        <ctrl:FormField Label="Maliyet Merkezi" Width="200" IsVisible="{Binding CanPickCostCenter}"
-                                        HelpText="Tüketim belgeleri bu merkeze bağlanır.">
-                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
-                                            PlaceholderText="Merkez seç / ara..."/>
-                        </ctrl:FormField>
-                        <!-- Plan tarihleri KEHRİBAR temadan; plan bilgisi olduğundan geri-tarih kapısına girmez -->
-                        <ctrl:FormField Label="Plan Başlangıç" Width="150">
-                            <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedStart}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Plan Bitiş" Width="150">
-                            <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedEnd}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Açıklama" Width="320">
-                            <TextBox Classes="Field" Text="{Binding FormDescription}"/>
-                        </ctrl:FormField>
-                    </WrapPanel>
-                </StackPanel></Border>
-                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24" HorizontalAlignment="Left">
+                <StackPanel Grid.Column="0" Spacing="12">
+                    <SelectableTextBlock Text="{Binding FormTitle}" Classes="IosBaslik"/>
+                    <SelectableTextBlock Text="İş Emri" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                            <!-- ⭐ M-29: yeni iş emrinde boş bırakılırsa otomatik (IE-yıl-…) -->
+                            <ctrl:FormField Label="İş Emri No" Width="130" ToolTip.Tip="Yeni iş emrinde boş bırakılırsa otomatik verilir (IE-yıl-…).">
+                                <TextBox Classes="Field" Text="{Binding FormWoNo}" PlaceholderText="Otomatik"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Başlık" IsRequired="True" Width="260">
+                                <TextBox Classes="Field" Text="{Binding FormTitle2}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Öncelik" Width="120">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding FormPriority}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Şantiye / Saha" Width="200" HelpText="Tüketim bu deponun stoğundan düşer.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding BranchOptions}" SelectedItem="{Binding FormBranch}"
+                                                PlaceholderText="Şantiye seç / ara..."/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Sorumlu" Width="190">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding PersonnelOptions}" SelectedItem="{Binding FormAssignee}"
+                                                PlaceholderText="Personel seç / ara..."/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="Plan ve Maliyet" Classes="IosFormBaslik"/>
+                    <Border Classes="IosFormGrup"><StackPanel Spacing="12">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="14">
+                            <ctrl:FormField Label="Maliyet Merkezi" Width="200" IsVisible="{Binding CanPickCostCenter}"
+                                            HelpText="Tüketim belgeleri bu merkeze bağlanır.">
+                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding CostCenterOptions}" SelectedItem="{Binding FormCostCenter}"
+                                                PlaceholderText="Merkez seç / ara..."/>
+                            </ctrl:FormField>
+                            <!-- Plan tarihleri KEHRİBAR temadan; plan bilgisi olduğundan geri-tarih kapısına girmez -->
+                            <ctrl:FormField Label="Plan Başlangıç" Width="150">
+                                <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedStart}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Plan Bitiş" Width="150">
+                                <ctrl:TarihKutusu SelectedDate="{Binding FormPlannedEnd}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Açıklama" Width="320">
+                                <TextBox Classes="Field" Text="{Binding FormDescription}"/>
+                            </ctrl:FormField>
+                        </WrapPanel>
+                    </StackPanel></Border>
+                    <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                        <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
+                <!-- 2. tur madde 3b (2026-10-29): Yeni Araç ile aynı sağ sütun — önizleme + zorunlu alan kontrol listesi (salt gösterim) -->
+                <StackPanel Grid.Column="1" Width="300" Spacing="16" VerticalAlignment="Top" Margin="0,40,0,0">
+                    <Border Classes="IosKart" Padding="16">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Önizleme" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="İş emri listesinde böyle görünecek" Classes="Helper"/>
+                            </StackPanel>
+                            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="12">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Classes="IkonKutu buyuk" Background="#FF453A"><PathIcon Data="{DynamicResource IconWorkOrders}"/></Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding FormTitle2}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding FormTitle2, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="Başlık girilmedi" FontSize="14" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding FormTitle2, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                            <TextBlock Text="{Binding FormPriority}" Classes="Helper" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding FormPriority, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="IosKart" Padding="16,14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Kontrol listesi" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormTitle2, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="eksik" IsVisible="{Binding FormTitle2, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Başlık" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="Zorunlu" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Panel Grid.Column="0" Classes="KontrolIsaret">
+                                    <Border Classes="tamam" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNotNull}}"><PathIcon Data="{DynamicResource IconCheck}"/></Border>
+                                    <Border Classes="istege" IsVisible="{Binding FormBranch, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="Şantiye / Saha" Classes="Body" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="İsteğe bağlı" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Liste + Detay -->
