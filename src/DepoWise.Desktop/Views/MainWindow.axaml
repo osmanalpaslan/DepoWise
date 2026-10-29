@@ -903,6 +903,7 @@
                     </Border>
                     <!-- Mesajlar (eskiden yeniye). AltaKilitli: yeni mesaj gelince dibe kayar; kullanıcı yukarıdaysa dokunulmaz. -->
                     <ScrollViewer Padding="12,8" ctrl:SohbetKaydirma.AltaKilitli="True">
+                        <StackPanel>
                         <ItemsControl ItemsSource="{Binding Mesajlar}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="chat:ChatMesaj">
@@ -916,6 +917,10 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <!-- 2026-10-29 (kullanıcı isteği): son mesaj benimse altında "Görüldü 14:32" / "İletildi" (telefon gibi). -->
+                        <TextBlock Text="{Binding GorulduMetni}" IsVisible="{Binding GorulduVar}" Classes="GorulduYazi"
+                                   HorizontalAlignment="Right" Margin="0,2,4,0"/>
+                        </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
                 </Panel>

@@ -218,4 +218,35 @@ public class SohbetUctanUcaTests : IAsyncLifetime
         Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
         Assert.NotEqual(HttpStatusCode.InternalServerError, r.StatusCode);
     }
+
+    /// <summary>2026-10-29 (kullanıcı isteği "mesaj görüldüğünde görüldü yazısı mesajın altında"): kişi listesi, karşı tarafın BENİM
+    /// mesajlarımı en son okuduğu anı taşır. Okumadan önce boş → "İletildi"; okuduktan sonra dolu → "Görüldü HH:mm". Karşı tarafın
+    /// bana yazdığı mesajları BENİM okumam bu alanı DEĞİŞTİRMEZ (yön karışmaz); başka firmanın kişisi listede hiç yok.</summary>
+    [Fact]
+    public async Task Goruldu_Bilgisi_KarsiTaraf_Okuyunca_Gelir()
+    {
+        Assert.Equal(HttpStatusCode.OK, (await Gonder(_ali, _veliId, "lastikler geldi mi?")).StatusCode);
+
+        JsonElement VeliSatiri(List<JsonElement> l) => l.Single(k => k.GetProperty("userId").GetString() == _veliId);
+        var once = VeliSatiri(await Dizi(_ali, "/api/chat/users"));
+        Assert.True(once.GetProperty("sonMesajBenim").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, once.GetProperty("karsiOkuduAt").ValueKind);
+        Assert.Equal("İletildi", DepoWise.Infrastructure.Chat.ChatKisi.GorulduDurumu(
+            once.GetProperty("sonMesajAt").GetInt64(), true, null));
+
+        // Ali, Veli'nin ona yazdığını okusa bile (ters yön) Ali'nin mesajı "görülmüş" sayılmaz.
+        Assert.Equal(HttpStatusCode.OK, (await _ali.PostAsJsonAsync("/api/chat/seen", new { withUserId = _veliId })).StatusCode);
+        Assert.Equal(JsonValueKind.Null, VeliSatiri(await Dizi(_ali, "/api/chat/users")).GetProperty("karsiOkuduAt").ValueKind);
+
+        Assert.Equal(HttpStatusCode.OK, (await _veli.PostAsJsonAsync("/api/chat/seen", new { withUserId = _aliId })).StatusCode);
+        var sonra = VeliSatiri(await Dizi(_ali, "/api/chat/users"));
+        var okuma = sonra.GetProperty("karsiOkuduAt").GetInt64();
+        Assert.True(okuma >= sonra.GetProperty("sonMesajAt").GetInt64());
+        Assert.StartsWith("Görüldü ", DepoWise.Infrastructure.Chat.ChatKisi.GorulduDurumu(sonra.GetProperty("sonMesajAt").GetInt64(), true, okuma));
+        // Son mesaj karşı tarafınsa durum yazısı yok.
+        Assert.Equal("", DepoWise.Infrastructure.Chat.ChatKisi.GorulduDurumu(sonra.GetProperty("sonMesajAt").GetInt64(), false, okuma));
+
+        // Başka firmanın kullanıcısı Ali'nin kişi listesinde hiç yok (alan firma süzgecinin içinde okunur).
+        Assert.DoesNotContain(await Dizi(_ali, "/api/chat/users"), k => k.GetProperty("userId").GetString() == _digerFirmaId);
+    }
 }

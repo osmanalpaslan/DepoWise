@@ -203,6 +203,13 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
     </Style>
 
+    <!-- Sohbet "Görüldü / İletildi" (2026-10-29): balonun altında küçük, soluk yazı. -->
+    <Style Selector="TextBlock.GorulduYazi">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
     <!-- ⭐ Ana ekran B düzeni (2026-10-29): başlıklar, "Tümü ›" bağlantısı, iptal edilmiş satır. -->
     <Style Selector="TextBlock.AnaBaslik">
         <Setter Property="FontSize" Value="28"/>

@@ -1146,6 +1146,24 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-SOHBET1 — 2026-10-29 (kullanıcı isteği): konuşmada son mesaj BENİMSE altında okunmadan "İletildi", karşı taraf
+    /// okuyunca "Görüldü HH:mm"; son mesaj karşı tarafınsa yazı yok. Kişi listesi yoklaması (KarsiOkuduAt) eski mesajın okunmasını da taşır.</summary>
+    [AvaloniaFact]
+    public void UITSOHBET1_Goruldu_Yazisi()
+    {
+        var simdi = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var kon = new KonusmaVm("u2", "Mustafa", true);
+        Assert.False(kon.GorulduVar);
+        kon.Mesajlar.Add(new DepoWise.Infrastructure.Chat.ChatMesaj("m1", "u2", "u1", "Lastikler geldi mi?", simdi - 60_000, simdi - 50_000, false));
+        Assert.False(kon.GorulduVar);                                   // son mesaj karşı tarafın
+        kon.Mesajlar.Add(new DepoWise.Infrastructure.Chat.ChatMesaj("m2", "u1", "u2", "Geldi, depoda.", simdi - 30_000, null, true));
+        Assert.Equal("İletildi", kon.GorulduMetni);
+        kon.KarsiOkuduAt = simdi - 10_000; kon.GorulduHesapla();       // yoklama: karşı taraf okudu
+        Assert.StartsWith("Görüldü ", kon.GorulduMetni);
+        kon.KarsiOkuduAt = simdi - 40_000; kon.GorulduHesapla();       // daha ESKİ bir mesajı okumuş → son mesaj görülmedi
+        Assert.Equal("İletildi", kon.GorulduMetni);
+    }
+
     /// <summary>UIT-ANA1 — 2026-10-29 ana ekran B düzeni (kullanıcı seçimi + revizyon; "Son 6 Ay Yakıt" kartı kullanıcı isteğiyle
     /// KALDIRILDI, eski UIT-IOS13'ün yerine): Son hareketlerde yeni çıkış görünür; "En çok çıkan malzemeler" çıkışı sayar, İPTAL
     /// edilmiş çıkışı SAYMAZ; alt sırada soldan sağa Uyarılar · En çok çıkan · Uygulama; yakıt kartı yok. Görüntü anaekran-b.png.</summary>

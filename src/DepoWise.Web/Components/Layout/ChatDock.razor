@@ -51,6 +51,11 @@
                             <div class="dw-msg-time">@m.Saat</div>
                         </div>
                     }
+                    @if (k.GorulduMetni is { Length: > 0 } gm)
+                    {
+                        @* 2026-10-29 (kullanıcı isteği): son mesaj benimse altında "Görüldü 14:32" / "İletildi" — masaüstüyle aynı kural. *@
+                        <div class="dw-msg-goruldu">@gm</div>
+                    }
                     @if (k.Mesajlar.Count == 0)
                     {
                         <div class="dw-chat-empty">Henüz mesaj yok. İlk mesajı siz yazın.</div>
@@ -157,6 +162,7 @@
         public string UserId = "", Username = "", Display = "";
         public bool Online;
         public int Unread;
+        public long? KarsiOkuduAt;   // 2026-10-29 "Görüldü": karşı tarafın benim mesajlarımı en son okuduğu an
         public string Initial => string.IsNullOrWhiteSpace(Display) ? "?" : Display.Trim()[..1].ToUpperInvariant();
     }
 
@@ -165,6 +171,7 @@
         public string Id = "", Body = "";
         public bool Mine;
         public long CreatedAt;
+        public long? ReadAt;
         public string Saat => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("HH:mm");
     }
 
@@ -175,7 +182,24 @@
         public int Okunmamis;
         public string Taslak = "", Hata = "";
         public long? SonZaman;
+        public long? KarsiOkuduAt;
         public List<Mesaj> Mesajlar = new();
+        /// <summary>Masaüstü ChatKisi.GorulduDurumu ile AYNI kural: son mesaj benimse okunduysa "Görüldü HH:mm", değilse "İletildi".</summary>
+        public string GorulduMetni
+        {
+            get
+            {
+                var son = Mesajlar.Count > 0 ? Mesajlar[^1] : null;
+                if (son is null || !son.Mine) return "";
+                var okundu = son.ReadAt is { } r && (KarsiOkuduAt is null || r > KarsiOkuduAt) ? r : KarsiOkuduAt;
+                if (okundu is { } o && o >= son.CreatedAt)
+                {
+                    var z = DateTimeOffset.FromUnixTimeMilliseconds(o).LocalDateTime;
+                    return "Görüldü " + (z.Date == DateTime.Today ? z.ToString("HH:mm") : z.ToString("dd.MM HH:mm"));
+                }
+                return "İletildi";
+            }
+        }
         public string Initial => string.IsNullOrWhiteSpace(Display) ? "?" : Display.Trim()[..1].ToUpperInvariant();
     }
 
@@ -266,6 +290,7 @@
                     Display = S(e, "display"),
                     Online = B(e, "online"),
                     Unread = I(e, "unread"),
+                    KarsiOkuduAt = e.TryGetProperty("karsiOkuduAt", out var ko) && ko.ValueKind == System.Text.Json.JsonValueKind.Number ? ko.GetInt64() : null,
                 });
             }
             _kisiler.Sort((a, b) => a.Online == b.Online
@@ -278,6 +303,7 @@
                 var k = _kisiler.FirstOrDefault(x => x.UserId == kon.UserId);
                 if (k is null) continue;
                 kon.Online = k.Online;
+                kon.KarsiOkuduAt = k.KarsiOkuduAt;
                 if (!kon.Acik) kon.Okunmamis = k.Unread;
             }
 
@@ -309,7 +335,8 @@
         {
             var id = S(e, "id");
             if (kon.Mesajlar.Any(m => m.Id == id)) continue;
-            var m = new Mesaj { Id = id, Body = S(e, "body"), Mine = B(e, "mine"), CreatedAt = L(e, "createdAt") };
+            var m = new Mesaj { Id = id, Body = S(e, "body"), Mine = B(e, "mine"), CreatedAt = L(e, "createdAt"),
+                    ReadAt = e.TryGetProperty("readAt", out var ra) && ra.ValueKind == System.Text.Json.JsonValueKind.Number ? ra.GetInt64() : null };
             kon.Mesajlar.Add(m);
             _kaydirilacak.Add(KaydirmaKimligi(kon));   // yeni mesaj eklendi → dibe kaydır
             if (m.CreatedAt > (kon.SonZaman ?? 0)) kon.SonZaman = m.CreatedAt;

@@ -31,6 +31,20 @@ public sealed partial class KonusmaVm : ObservableObject
 
     public ObservableCollection<ChatMesaj> Mesajlar { get; } = new();
 
+    /// <summary>2026-10-29 ("Görüldü"): karşı tarafın BENİM mesajlarımı en son okuduğu an — kişi listesi yoklamasıyla tazelenir.</summary>
+    public long? KarsiOkuduAt { get; set; }
+    /// <summary>Konuşmanın altındaki durum: son mesaj benimse "Görüldü 14:32" / "İletildi"; değilse boş.</summary>
+    [ObservableProperty] private string _gorulduMetni = "";
+    public bool GorulduVar => !string.IsNullOrEmpty(GorulduMetni);
+    partial void OnGorulduMetniChanged(string value) => OnPropertyChanged(nameof(GorulduVar));
+
+    public void GorulduHesapla()
+    {
+        var son = Mesajlar.Count > 0 ? Mesajlar[^1] : null;
+        var okundu = son?.ReadAt is { } r && (KarsiOkuduAt is null || r > KarsiOkuduAt) ? r : KarsiOkuduAt;
+        GorulduMetni = ChatKisi.GorulduDurumu(son?.CreatedAt, son?.Mine == true, okundu);
+    }
+
     /// <summary>En son alınan mesajın zamanı — yoklama bundan sonrasını ister (tüm geçmiş taşınmaz).</summary>
     public long? SonZaman { get; set; }
 
@@ -39,6 +53,7 @@ public sealed partial class KonusmaVm : ObservableObject
         UserId = userId;
         Display = display;
         _online = online;
+        Mesajlar.CollectionChanged += (_, _) => GorulduHesapla();
     }
 }
 
@@ -191,6 +206,8 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
                     if (k is null) continue;
                     kon.Online = k.Online;
                     if (!kon.Acik) kon.Okunmamis = k.Unread;
+                    kon.KarsiOkuduAt = k.KarsiOkuduAt;
+                    kon.GorulduHesapla();
                 }
             });
 
