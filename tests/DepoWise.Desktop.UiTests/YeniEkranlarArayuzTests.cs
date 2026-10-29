@@ -1535,10 +1535,18 @@ public class YeniEkranlarArayuzTests
         // ⭐ iOS tasarım (2026-10-28): araç kartında durum dağılım çubuğu görünür; parçalar toplamı tutar.
         // 2026-10-29 B düzeni: "Özet" başlığı kalktı (özet sayıları tek satır), araç kartının adı "Filo Durumu".
         Assert.Contains(Gorunen<TextBlock>(view), t => t.Text == "Filo Durumu");
-        var cubuk = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.OranCubugu>().Single();
-        Assert.True(cubuk.IsEffectivelyVisible);
+        // 2026-10-29 (kullanıcı: "pasta dilimi grafik şeklinde"): çubuk yerine HALKA grafik; dilimlerin toplamı tam tur (boşluklar hariç).
+        var halka = view.GetVisualDescendants().OfType<DepoWise.Desktop.Controls.OranHalkasi>().Single();
+        Assert.True(halka.IsEffectivelyVisible);
         Assert.Equal(vm.AracToplam, vm.AracAktif + vm.AracBakimda + vm.AracArizali + vm.AracPasif);
-        Assert.Equal(vm.AracAktif, (int)cubuk.Deger1);
+        Assert.Equal(vm.AracAktif, (int)halka.Deger1);
+        var dilim = new DepoWise.Desktop.Controls.OranHalkasi { Deger1 = 42, Deger2 = 3, Deger3 = 1, Deger4 = 2,
+            Renk1 = Avalonia.Media.Brushes.Green, Renk2 = Avalonia.Media.Brushes.Orange, Renk3 = Avalonia.Media.Brushes.Red, Renk4 = Avalonia.Media.Brushes.Gray }.Dilimler();
+        Assert.Equal(4, dilim.Length);
+        Assert.Equal(-90, dilim[0].Bas);                                              // saat 12'den başlar
+        Assert.InRange(dilim[0].Supurme, 360 * 42 / 48.0 - 4, 360 * 42 / 48.0);       // pay − boşluk
+        Assert.InRange(dilim.Sum(d => d.Supurme), 360 - 4 * 3 - 0.01, 360);
+        Assert.Empty(new DepoWise.Desktop.Controls.OranHalkasi().Dilimler());           // araç yoksa dilim yok (yalnız iz)
         Goruntu(w, "ana-ekran-ios");
         w.Close();
         vm.Dispose();

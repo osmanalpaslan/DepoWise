@@ -156,43 +156,46 @@
                     </StackPanel>
                 </Border>
                 <Panel Grid.Column="1">
-                            <!-- Toplam Araç: geniş kart + durum dağılım çubuğu (iOS tasarım, kullanıcı onayı) -->
+                            <!-- Filo Durumu (B düzeni, kullanıcı isteği 2026-10-29: "pasta dilimi grafik şeklinde"): halka grafik — dilimler araç
+                                 durumlarının payı, ortada toplam araç; sağda renkli lejant + sayılar. Tıklayınca araç listesi. -->
                             <Button Classes="IosKartDugme" Command="{Binding OpenCommand}" CommandParameter="vehicles"
                                     ToolTip.Tip="Araç listesini aç">
                                 <Border Classes="IosKart" Padding="18,16">
-                                    <StackPanel Spacing="10">
-                                        <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Classes="IkonKutu" Background="#F5B000">
-                                                <PathIcon Data="{DynamicResource IconVehicles}"/>
-                                            </Border>
-                                            <TextBlock Text="Filo Durumu" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        </StackPanel>
-                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
-                                            <SelectableTextBlock Grid.Column="0" Text="{Binding AracToplam}" Classes="IosBuyukSayi" VerticalAlignment="Bottom"/>
-                                            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Bottom" Margin="0,0,0,3">
-                                                <ctrl:OranCubugu Height="8" Deger1="{Binding AracAktif}" Deger2="{Binding AracBakimda}"
-                                                                 Deger3="{Binding AracArizali}" Deger4="{Binding AracPasif}"
-                                                                 Renk1="#30D158" Renk2="#FF9F0A" Renk3="#FF453A" Renk4="#8E8E93"
-                                                                 IzRengi="{DynamicResource SurfaceHoverBrush}"/>
-                                                <WrapPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,0">
-                                                        <Ellipse Width="7" Height="7" Fill="#30D158" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding AracAktif, StringFormat='Aktif {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,0">
-                                                        <Ellipse Width="7" Height="7" Fill="#FF9F0A" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding AracBakimda, StringFormat='Bakımda {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,0">
-                                                        <Ellipse Width="7" Height="7" Fill="#FF453A" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding AracArizali, StringFormat='Arızalı {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding AracPasifVar}">
-                                                        <Ellipse Width="7" Height="7" Fill="#8E8E93" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding AracPasif, StringFormat='Pasif {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </StackPanel>
-                                                </WrapPanel>
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="Filo Durumu" Classes="AnaKartBaslik"/>
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24">
+                                            <Panel Grid.Column="0" Width="140" Height="140">
+                                                <ctrl:OranHalkasi x:Name="FiloHalkasi" Kalinlik="18"
+                                                                  Deger1="{Binding AracAktif}" Deger2="{Binding AracBakimda}"
+                                                                  Deger3="{Binding AracArizali}" Deger4="{Binding AracPasif}"
+                                                                  Renk1="#30D158" Renk2="#FF9F0A" Renk3="#FF453A" Renk4="#8E8E93"
+                                                                  IzRengi="{DynamicResource SurfaceHoverBrush}"/>
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0">
+                                                    <SelectableTextBlock Text="{Binding AracToplam}" Classes="IosBuyukSayi" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="araç" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </StackPanel>
+                                            </Panel>
+                                            <StackPanel Grid.Column="1" Spacing="11" VerticalAlignment="Center">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Ellipse Width="10" Height="10" Fill="#30D158" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Çalışıyor" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding AracAktif}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Ellipse Width="10" Height="10" Fill="#FF9F0A" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Bakımda" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding AracBakimda}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Ellipse Width="10" Height="10" Fill="#FF453A" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Arızalı" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding AracArizali}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Ellipse Width="10" Height="10" Fill="#8E8E93" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Pasif" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding AracPasif}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>

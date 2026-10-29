@@ -933,6 +933,9 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
             openWorkOrderCount = sum.OpenWorkOrderCount,
             overdueWorkOrderCount = sum.OverdueWorkOrderCount,
             openPurchaseOrderCount = sum.OpenPurchaseOrderCount,
+            // 2026-10-29 (ana ekran B düzeni, web Filo Durumu halkası): araç durum dağılımı — EKLEMELİ alan, aynı GetSummary kapsamı.
+            vehicleStatuses = sum.VehicleStatuses is { } vs
+                ? new { active = vs.Active, maintenance = vs.Maintenance, faulty = vs.Faulty, passive = vs.Passive } : null,
         },
         // PAN-01: ana ekran şeritleri (null = yetki yok → şerit hiç gösterilmez).
         todayCalendar = sum.TodayCalendar?.Select(t => new { sourceDisplay = t.SourceDisplay, title = t.Title }),

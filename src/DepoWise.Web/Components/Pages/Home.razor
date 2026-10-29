@@ -212,6 +212,24 @@
         <MudItem xs="12" md="5">
             @* 2026-10-29 (masaüstü ana ekran B düzeniyle eşit): Son hareketler + En çok çıkan malzemeler. Stok yetkisi yoksa
                uç reddeder → kartlar HİÇ görünmez. Veri: Giriş-Çıkış ekranının AYNI ucu (firma + şube kapsamı sunucuda). *@
+            @* 2026-10-29 (B düzeni, kullanıcı: "pasta dilimi grafik şeklinde"): Filo Durumu halkası — masaüstü OranHalkasi ile aynı renkler. *@
+            @if (_filo is { } fl)
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4 dw-ana-kart" Style="cursor:pointer;" @onclick="@(() => Nav.NavigateTo("/vehicles"))">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Filo Durumu</MudText>
+                    <div class="dw-filo">
+                        <div class="dw-filo-halka" role="img" aria-label="@($"{fl.Toplam} aracın {fl.Aktif} tanesi çalışıyor")" style="background:@FiloGradyan(fl)">
+                            <div class="dw-filo-ic"><strong>@fl.Toplam</strong><span>araç</span></div>
+                        </div>
+                        <div class="dw-filo-lejant">
+                            <div><span class="dw-ana-nokta" style="background:#30D158"></span>Çalışıyor<strong>@fl.Aktif</strong></div>
+                            <div><span class="dw-ana-nokta" style="background:#FF9F0A"></span>Bakımda<strong>@fl.Bakimda</strong></div>
+                            <div><span class="dw-ana-nokta" style="background:#FF453A"></span>Arızalı<strong>@fl.Arizali</strong></div>
+                            <div><span class="dw-ana-nokta" style="background:#8E8E93"></span>Pasif<strong>@fl.Pasif</strong></div>
+                        </div>
+                    </div>
+                </MudPaper>
+            }
             @if (_sonHareketler is not null)
             {
                 <MudPaper Elevation="0" Class="pa-4 mb-4 dw-ana-kart">
@@ -502,6 +520,15 @@
 .dw-ana-ad { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dw-ana-ad.iptal { text-decoration: line-through; color: var(--mud-palette-text-secondary); }
 .dw-ana-miktar { white-space: nowrap; }
+.dw-filo { display: flex; align-items: center; gap: 24px; }
+.dw-filo-halka { width: 132px; height: 132px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; }
+.dw-filo-ic { width: 96px; height: 96px; border-radius: 50%; background: var(--mud-palette-surface); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; }
+.dw-filo-ic strong { font-size: 1.8rem; line-height: 1; }
+.dw-filo-ic span { font-size: .75rem; color: var(--mud-palette-text-secondary); }
+.dw-filo-lejant { flex: 1; display: flex; flex-direction: column; gap: 10px; font-size: .9rem; color: var(--mud-palette-text-secondary); }
+.dw-filo-lejant > div { display: flex; align-items: center; gap: 8px; }
+.dw-filo-lejant strong { margin-left: auto; color: var(--mud-palette-text-primary); }
 .dw-ana-cubuk { height: 6px; border-radius: 999px; background: var(--mud-palette-lines-default); margin-top: 5px; overflow: hidden; }
 .dw-ana-cubuk > span { display: block; height: 100%; border-radius: 999px; background: var(--mud-palette-primary); }
 .dw-hero {
@@ -592,6 +619,11 @@
                 _openWo = NumN(sm, "openWorkOrderCount");
                 _overdueWo = NumN(sm, "overdueWorkOrderCount");
                 _openPo = NumN(sm, "openPurchaseOrderCount");
+                if (sm.TryGetProperty("vehicleStatuses", out var vs) && vs.ValueKind == JsonValueKind.Object)
+                {
+                    int Say(string k) => vs.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
+                    _filo = new Filo(Say("active"), Say("maintenance"), Say("faulty"), Say("passive"));
+                }
             }
             _todayCal = doc.TryGetProperty("todayCalendar", out var tc) && tc.ValueKind == JsonValueKind.Array
                 ? tc.EnumerateArray().ToArray() : null;
@@ -625,6 +657,28 @@
     private sealed record SonHareket(string Zaman, string Tur, string Renk, string Malzeme, string Aciklama, string Miktar, bool Iptal);
     private sealed record CikanMalzemeW(string Kod, string Ad, string Miktar, double Oran);
     private List<SonHareket>? _sonHareketler;
+
+    // Filo halkası: null = sunucu göndermedi (eski sürüm) → kart gizli.
+    private sealed record Filo(int Aktif, int Bakimda, int Arizali, int Pasif) { public int Toplam => Aktif + Bakimda + Arizali + Pasif; }
+    private Filo? _filo;
+    /// <summary>Halka dilimleri (conic-gradient): saat 12'den saat yönünde, dilimler arası 1,2° boşluk; araç yoksa yalnız iz.</summary>
+    private static string FiloGradyan(Filo f)
+    {
+        var iz = "var(--mud-palette-lines-default)";
+        if (f.Toplam <= 0) return iz;
+        var parcalar = new[] { (f.Aktif, "#30D158"), (f.Bakimda, "#FF9F0A"), (f.Arizali, "#FF453A"), (f.Pasif, "#8E8E93") }.Where(p => p.Item1 > 0).ToList();
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        var dilimler = new List<string>(); double bas = 0;
+        foreach (var (adet, renk) in parcalar)
+        {
+            var son = bas + 360.0 * adet / f.Toplam;
+            var bosluk = parcalar.Count > 1 ? 1.2 : 0;
+            dilimler.Add($"{renk} {bas.ToString("0.##", ci)}deg {(son - bosluk).ToString("0.##", ci)}deg");
+            if (bosluk > 0) dilimler.Add($"transparent {(son - bosluk).ToString("0.##", ci)}deg {son.ToString("0.##", ci)}deg");
+            bas = son;
+        }
+        return "conic-gradient(" + string.Join(", ", dilimler) + ")";
+    }
     private List<CikanMalzemeW>? _enCokCikanlar;
 
     private static decimal Ondalik(JsonElement e, string k)

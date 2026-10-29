@@ -34,6 +34,7 @@ public class WebStockLocationContractTests : IAsyncLifetime
 
     private HttpClient _client = null!;
     private string _mat = "", _mat2 = "", _depoA = "", _depoB = "", _personel = "";
+    private SessionContext _yonetici = null!;
 
     public async Task InitializeAsync()
     {
@@ -49,7 +50,7 @@ public class WebStockLocationContractTests : IAsyncLifetime
             cmd.ExecuteNonQuery();
         }
         var uid = svc.Users.EnsureInitialAdmin(Company, User, Pass, RoleKeys.CompanyAdmin);
-        var s = new SessionContext(uid, Company, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        var s = _yonetici = new SessionContext(uid, Company, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
         _mat = svc.Materials.Create(s, new NewMaterial("WEB-M1", "Web malzeme 1"));
         _mat2 = svc.Materials.Create(s, new NewMaterial("WEB-M2", "Web malzeme 2"));
         _depoA = svc.Branches.Create(s, new NewBranch("Depo A"));
@@ -242,6 +243,24 @@ public class WebStockLocationContractTests : IAsyncLifetime
         var lowStock = j.GetProperty("alerts").EnumerateArray()
             .Count(a => a.GetProperty("kind").GetString() == "LowStock" && a.GetProperty("title").GetString() == "Web malzeme 1");
         Assert.True(lowStock <= 1, "Aynı malzeme için birden çok düşük stok uyarısı üretilmemeli.");
+    }
+
+    /// <summary>2026-10-29 (ana ekran B düzeni, web Filo Durumu halkası): /api/dashboard özetinde araç durum dağılımı var ve
+    /// dört durumun toplamı araç sayısına eşit (masaüstüyle AYNI GetSummary kapsamı). Eklemeli alan.</summary>
+    [Fact]
+    public async Task Ana_Ekran_Filo_Durumu_Dagilimi_Doner()
+    {
+        var svc = _host.Services.GetRequiredService<ServerServices>();
+        var s = _yonetici;
+        svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("FILO-1", CurrentMeter: 100m));
+        svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle("FILO-2", CurrentMeter: 200m));
+
+        var summary = (await Get("/api/dashboard")).GetProperty("summary");
+        var vs = summary.GetProperty("vehicleStatuses");
+        var toplam = vs.GetProperty("active").GetInt32() + vs.GetProperty("maintenance").GetInt32()
+                   + vs.GetProperty("faulty").GetInt32() + vs.GetProperty("passive").GetInt32();
+        Assert.Equal(summary.GetProperty("vehicleCount").GetInt32(), toplam);
+        Assert.True(toplam >= 2, "oluşturulan iki araç sayılmalı: " + toplam);
     }
 
     /// <summary>12 — HAREKET LİSTESİ: her satırda lokasyon alanları var; transferde kaynak da dolu
