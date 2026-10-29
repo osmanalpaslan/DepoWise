@@ -37,7 +37,15 @@ Masaüstü + web, rapor dahil TÜM tablolarda:
 - Bir sütunun verisi diğer sütuna **taşmaz**; uzun yazı sütun içinde "…" ile kesilir (tamamı ipucunda/ayrıntıda görülür).
 - Sütun konumları listelenen veriye göre **değişmez**: başlık, başlık altındaki filtre satırı ve her veri satırı AYNI genişlikleri kullanır.
 - Uzun veriyi okumak isteyen kullanıcı sütunu başlıktaki tutamaktan **kendisi genişletir** (genişlik hatırlanır).
-- Masaüstü mekanizması: `Controls/KolonGenislik.cs` (filtre satırı kaydı + `Tohumla`: uzun veri esnek sütunu şişirip tablo görünür
-  alandan taşınca sütunlar görünür alana paylaştırılıp sabitlenir) + `TableHeaderSync.cs`. Yeni tabloda başlık/filtre/satır ızgaraları
+- Masaüstü mekanizması: `Controls/KolonGenislik.cs` (filtre satırı kaydı + `Tohumla`: esnek (*) ve üst sınırsız sütunlar HER ZAMAN
+  tablonun görünür genişliğinden hesaplanıp piksel olarak sabitlenir; pencere/çerçeve genişliği değişince yeniden hesaplanır; kullanıcının
+  sürüklediği sütun hesaba girmez) + `TableHeaderSync.cs`. Kesilen hücre yazısının tamamı ipucunda.
+- **Neden (tekrarlanmasın):** yatay kaydırılabilir listede satırlar SINIRSIZ genişlikte ölçülür → esnek sütun her satırda kendi içeriği
+  kadar olur (aynı tabloda "Malzeme" 200–430 px; işlem düğmesi olmayan satırda kalan alan da esnek sütuna geçer). Yalnız "taşma
+  olunca" düzeltmek YETMEZ (2026-10-29 ilk düzeltme böyleydi, tablo sığarken satırlar yine kaydı). Esneklik başlığın ŞU ANKİ tanımından
+  değil ÖZGÜN tanımdan okunur (TableHeaderSync başlığa satırın piksel genişliğini kopyalar). Asgari genişlik/üst sınır bilgisi
+  Uygula'dan ÖNCE alınır (Uygula hücre MinWidth/MaxWidth'ini ezer). Yeni tabloda başlık/filtre/satır ızgaraları
   aynı `ColumnDefinitions` + `ctrl:ColumnRules.Enabled="True"` taşır; filtre satırı başlıkla aynı kapta `Border.TableFilterRow`.
-- Testler: `UITTABLO1` (çok uzun veriyle hizalama + sığma), `G31` (başlık-satır hizası), `TABLO1` (kaynak nöbetçisi).
+- Testler: `UITTABLO1` (çok uzun veriyle hizalama + sığma), `UITTABLO2` (tablo SIĞARKEN farklı içerikli satırlar + iki pencere
+  genişliği + alanı doldurma), `G31` (başlık-satır hizası), `TABLO1` (kaynak nöbetçisi). Görsel tarama tablo hücresinde "…" ile
+  kesilip ipucu taşıyan yazıyı hata saymaz; başka her yazı denetlenir.

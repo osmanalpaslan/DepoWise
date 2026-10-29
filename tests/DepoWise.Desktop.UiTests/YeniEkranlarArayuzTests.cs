@@ -1327,6 +1327,55 @@ public class YeniEkranlarArayuzTests
         Assert.Equal("2020", tire.Convert(2020, typeof(string), null, tr));
     }
 
+    /// <summary>UIT-TABLO2 — 2026-10-29 (kullanıcı ekran görüntüsü): tablo görünür alana SIĞARKEN de satırlar kaymamalı. Kısa/orta
+    /// uzunlukta, satırdan satıra farklı içerik (biri ters kayıt → işlem düğmesi yok) — eskiden her satırın esnek sütunu kendi içeriği
+    /// kadar oluyordu ("Malzeme" 200–430 px). Her satır + filtre satırı başlıkla aynı genişlikte olmalı; pencere genişleyince de.</summary>
+    [AvaloniaFact]
+    public void UITTABLO2_Sigan_Tabloda_Satirlar_Ayni_Hizada()
+    {
+        var s = Ortam();
+        var ek = Guid.NewGuid().ToString("N")[..4];
+        var m1 = DesktopServices.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial("T2A-" + ek, "LASTİK SÖKME TAKMA"));
+        var m2 = DesktopServices.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial("T2B-" + ek, "ÖN LASTİK"));
+        var b1 = DesktopServices.Stock.ReceiveIn(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(m1, 2m, 1m) }, "uittablo2a-" + ek,
+            note: "Araç bakımı — KAM-ME 030 (06 FM 0062) · PATLAYAN LASTİKLER DEĞİŞTİRİLDİ").DocumentId;
+        var b2 = DesktopServices.Stock.ReceiveIn(s, new[] { new DepoWise.Infrastructure.Materials.StockLine(m2, 3m, 1m) }, "uittablo2b-" + ek,
+            note: "44 NUMARA").DocumentId;
+        DesktopServices.Stock.ReverseDocument(s, b2, "UIT-TABLO2 ters kayıt satırı");
+        try
+        {
+            var vm = new StockEntryViewModel(s) { SeciliSekme = 1 };
+            var view = new StockEntryView { DataContext = vm };
+            var w = Ac(view, 1700, 900);
+            foreach (var genislik in new[] { 1700.0, 1300.0 })
+            {
+                w.Width = genislik;
+                for (int i = 0; i < 40; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+                var tablo = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("Table") && b.IsEffectivelyVisible);
+                var baslik = tablo.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("TableHeader"))
+                    .GetVisualDescendants().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 9);
+                var gridler = tablo.GetVisualDescendants().OfType<Grid>()
+                    .Where(g => g.ColumnDefinitions.Count == 9 && !ReferenceEquals(g, baslik) && g.IsEffectivelyVisible).ToList();
+                Assert.True(gridler.Count >= 4, "filtre + en az üç satır: " + gridler.Count);
+                foreach (var g in gridler)
+                    for (int k = 0; k < 9; k++)
+                        Assert.True(Math.Abs(baslik.ColumnDefinitions[k].ActualWidth - g.ColumnDefinitions[k].ActualWidth) < 1.5,
+                            $"{genislik:0} px · kolon {k}: başlık {baslik.ColumnDefinitions[k].ActualWidth:0} satır/filtre {g.ColumnDefinitions[k].ActualWidth:0}");
+                var toplam = baslik.ColumnDefinitions.Sum(c => c.ActualWidth);
+                Assert.True(toplam <= tablo.Bounds.Width, $"{genislik:0} px · sütunlar sığmalı: {toplam:0} > {tablo.Bounds.Width:0}");
+                // esnek sütunlar görünür alanı doldurur (sağda boşluk bırakmaz)
+                Assert.True(toplam >= tablo.Bounds.Width - 60, $"{genislik:0} px · sütunlar alanı doldurmalı: {toplam:0} / {tablo.Bounds.Width:0}");
+            }
+            Goruntu(w, "tablo-sigan-veri");
+            w.Close();
+        }
+        finally
+        {
+            try { DesktopServices.Stock.ReverseDocument(s, b1, "UIT-TABLO2 test temizliği"); } catch { }
+            foreach (var m in new[] { m1, m2 }) try { DesktopServices.Materials.Delete(s, m); } catch { }
+        }
+    }
+
     /// <summary>UIT-TABLO1 — 2026-10-29 KALICI KURAL (kullanıcı isteği): tabloda bir sütunun verisi diğer sütuna TAŞMAZ, sütun
     /// konumları listelenen veriye göre DEĞİŞMEZ — başlık, filtre satırı ve HER veri satırı aynı sütun genişliklerini kullanır
     /// (uzun yazı sütun içinde kesilir; kullanıcı başlıktan sürükleyip genişletebilir). Giriş-Çıkış "Son hareketler"de çok uzun

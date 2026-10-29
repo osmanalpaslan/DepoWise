@@ -282,7 +282,10 @@ public class IosTasarimTests
         Assert.Contains("grid.LayoutUpdated += Tohumla;", kg);
         Assert.Contains("TableHeaderSync.OzgunTanim(baslik)", kg);                       // esnek kolon özgün tanımdan tanınır
         Assert.Contains("b.Classes.Contains(\"TableFilterRow\")", kg);                  // filtre satırı da aynı genişliği alır
-        Assert.Contains("if (asgari > gorunur) return;", kg);                           // ilk açılıştaki dar çerçeve taşma sanılmaz
+        Assert.Contains("_otomatik[anahtar] = oto;", kg);                              // esnek sütun HER ZAMAN (yalnız taşmada değil) sabitlenir
+        Assert.Contains("if (Math.Abs(gorunurGenislik - sonGenislik) < 1) return;", kg); // çerçeve değişince yeniden hesap
+        Assert.DoesNotContain("if (grid.Bounds.Width <= gorunurGenislik + 1) return;", kg); // 2026-10-29 hatası: yalnız taşmada çalışıyordu
+        Assert.Contains("tb[!ToolTip.TipProperty] = tb[!TextBlock.TextProperty]", kg);   // kesilen yazının tamamı ipucunda
         Assert.Contains("tb.TextTrimming = TextTrimming.CharacterEllipsis", kg);        // uzun yazı sütun içinde "…" ile kesilir
         var kural = File.ReadAllText(Path.Combine(Kok(), ".claude", "rules", "list-screens.md"));
         Assert.Contains("## Kural 3", kural);

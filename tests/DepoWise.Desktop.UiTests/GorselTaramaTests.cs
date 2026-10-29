@@ -98,7 +98,11 @@ public class GorselTaramaTests
         {
             var olcu = new TextBlock { Text = t.Text, FontSize = t.FontSize, FontFamily = t.FontFamily, FontWeight = t.FontWeight, FontStyle = t.FontStyle, LetterSpacing = t.LetterSpacing };
             olcu.Measure(Size.Infinity);
-            if (olcu.DesiredSize.Width > t.Bounds.Width + 2 && t.Bounds.Width < 2000)
+            // Kural 3 (2026-10-29, kullanıcı isteği): TABLO HÜCRESİNDE uzun veri sütunu genişletmez, "…" ile kesilir ve tamamı ipucunda
+            // görünür (kullanıcı isterse sütunu sürükleyip genişletir) → bu bilinçli kesme bulgu değildir. Başka her yazı denetlenir.
+            var tabloHucresi = t.TextTrimming != Avalonia.Media.TextTrimming.None && ToolTip.GetTip(t) is not null
+                               && t.FindAncestorOfType<ListBox>() is { } lb && lb.Classes.Contains("Table");
+            if (olcu.DesiredSize.Width > t.Bounds.Width + 2 && t.Bounds.Width < 2000 && !tabloHucresi)
                 bulgu.Add($"KESİK METİN: \"{Kisalt(t.Text!)}\" ({olcu.DesiredSize.Width:0} px gerek, {t.Bounds.Width:0} px var)");
         }
         // 3) aynı panelde üst üste binen form alanları

@@ -53,6 +53,8 @@ public static class KolonGenislik
         => _oturumDepo ??= Kalici.ToDictionary(x => x.Key, x => new Dictionary<string, double>(x.Value));
 
     private static readonly Dictionary<string, List<WeakReference<Grid>>> _kayit = new();
+    /// <summary>Esnek sütunların görünür genişlikten hesaplanan OTOMATİK genişlikleri (kalıcı kayda yazılmaz; kullanıcının ayarı önce gelir).</summary>
+    private static readonly Dictionary<string, Dictionary<string, double>> _otomatik = new();
     private static readonly ConditionalWeakTable<ListBox, string> _listeAnahtari = new();
     /// <summary>Tablo başlığının kolon sayısı — yalnız aynı düzendeki satır grid'lerine uygulanır.</summary>
     private static readonly Dictionary<string, int> _kolonSayisi = new();
@@ -142,25 +144,33 @@ public static class KolonGenislik
         _listeAnahtari.AddOrUpdate(liste, anahtar);
         _kolonSayisi[anahtar] = grid.ColumnDefinitions.Count;
 
+        // Uygula hücrelerin MinWidth/MaxWidth'ini ezer → tasarımdaki asgari genişlik ve "üst sınırsız" bilgisi ÖNCE alınır.
+        var ilkTanim = grid.ColumnDefinitions.Select(c => c.Width).ToArray();
+        var asgariler = Enumerable.Range(0, grid.ColumnDefinitions.Count).Select(k => grid.Children
+            .Where(c => Grid.GetColumn(c) == k && !ColumnRules.KuralMi(c))
+            .Select(c => c.MinWidth + c.Margin.Left + c.Margin.Right).DefaultIfEmpty(0).Max()).ToArray();
+        var sinirsiz = Enumerable.Range(0, grid.ColumnDefinitions.Count).Select(k => grid.Children
+            .Any(c => Grid.GetColumn(c) == k && !ColumnRules.KuralMi(c) && double.IsInfinity(c.MaxWidth))).ToArray();
         Kaydol(anahtar, grid);
         Tutamaklar(grid, anahtar);
         Uygula(grid, anahtar);
         foreach (var g in liste.GetVisualDescendants().OfType<Grid>().Where(ColumnRules.GetEnabled))
         { Kaydol(anahtar, g); Uygula(g, anahtar); }
 
-        // ═══ 2026-10-29 KALICI KURAL (kullanıcı isteği): bir sütunun verisi diğer sütuna TAŞMAZ, sütun konumları listelenen
-        // veriye göre DEĞİŞMEZ. Neden kayıyordu: ListBox.Table yatayda kaydırılabilir → satır grid'leri SINIRSIZ genişlikte
-        // ölçülür ve esnek (*) / üst sınırsız sütunlar her satırda İÇERİĞE göre farklı genişler; başlık ise ekran genişliğinde
-        // ölçülür → başlık, filtre ve satırlar birbirini tutmaz. Çözüm: başlık ilk yerleştiğinde bu "değişken" sütunların
-        // genişliği BAŞLIKTAN alınıp oturum deposuna yazılır → başlık, filtre satırı ve TÜM satırlar aynı sabit genişliği
-        // kullanır; uzun yazı sütun içinde "…" ile kesilir. Kullanıcı genişliği başlıktaki tutamaktan kendisi değiştirir.
+        // ═══ 2026-10-29 KALICI KURAL (kullanıcı isteği; .claude/rules/list-screens.md Kural 3): bir sütunun verisi diğer sütuna
+        // TAŞMAZ, sütun konumları listelenen veriye göre DEĞİŞMEZ. Neden kayıyordu: ListBox.Table yatayda kaydırılabilir → satır
+        // grid'leri SINIRSIZ genişlikte ölçülür; esnek (*) / üst sınırsız sütunlar HER SATIRDA kendi içeriğine göre genişler
+        // (ölçüldü: aynı tabloda "Malzeme" satıra göre 200–430 px; işlem düğmesi olmayan satırda kalan alan da esnek sütuna geçer).
+        // Çözüm: bu sütunların genişliği TABLONUN GÖRÜNÜR GENİŞLİĞİNDEN hesaplanıp piksel olarak sabitlenir → başlık, filtre satırı
+        // ve TÜM satırlar aynı genişliği kullanır; uzun yazı "…" ile kesilir. Yalnız taşmada değil HER ZAMAN uygulanır (2026-10-29
+        // ilk sürüm yalnız taşmada çalışıyordu → taşmayan tabloda satırlar yine kaydı). Pencere/çerçeve genişliği değişince
+        // yeniden hesaplanır (ilk açılıştaki geçici dar ölçüm de böylece düzelir). Kullanıcının sürüklediği sütun (oturum
+        // deposu) hesaba girmez, onun değeri geçerlidir. Otomatik değerler ayrı depoda: "Kaydet" yalnız kullanıcının ayarını yazar.
         foreach (var fr in ((Panel)baslik.Parent!).Children.OfType<Border>().Where(b => b.Classes.Contains("TableFilterRow")))
             foreach (var g in fr.GetVisualDescendants().OfType<Grid>()
                          .Where(g => ColumnRules.GetEnabled(g) && g.ColumnDefinitions.Count == grid.ColumnDefinitions.Count))
             { Kaydol(anahtar, g); Uygula(g, anahtar); }
-        // TableHeaderSync başlığa satırın (sınırsız ölçülmüş) PİKSEL genişliklerini kopyalar → esnek kolon artık "*" görünmez.
-        // Esnekliği özgün tanımdan okuruz: TableHeaderSync'in sakladığı, yoksa bağlanma anındaki tanım.
-        var ilkTanim = grid.ColumnDefinitions.Select(c => c.Width).ToArray();
+        var sonGenislik = -1.0;
         void Tohumla(object? s, EventArgs e)
         {
             try
@@ -168,63 +178,51 @@ public static class KolonGenislik
                 // görünür genişlik = tablonun ÇERÇEVESİ (Border.Table); liste kutusunun kendisi uzun satırlarla genişleyebilir
                 var cerceve = baslik.GetVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("Table"));
                 var gorunurGenislik = cerceve?.Bounds.Width ?? liste.Bounds.Width;
-                if (grid.Bounds.Width <= 0 || gorunurGenislik <= 0) return;
-                // Satırlar görünür alana sığıyorsa dokunulmaz (bugünkü hizalama düzeni aynen kalır); uzun veri esnek kolonu
-                // şişirip tablo görünür alandan TAŞTIĞI ilk anda kolonlar görünür alana paylaştırılıp sabitlenir.
-                if (grid.Bounds.Width <= gorunurGenislik + 1) return;
-                _oturum.TryGetValue(anahtar, out var harita);
-                harita ??= new();
-                var tanim = TableHeaderSync.OzgunTanim(baslik) ?? ilkTanim;
-                if (tanim.Length != grid.ColumnDefinitions.Count) tanim = ilkTanim;
-                bool Yildiz(int k) => tanim[k].IsStar;
-                double Agirlik(int k) => tanim[k].Value;
-                // Esnek (*) sütunlar başlığın ÖLÇÜLEN genişliğinden DEĞİL (başlık da uzun satırlarla genişlemiş olabilir), listenin
-                // GÖRÜNÜR genişliğinden paylaştırılır: görünür − sabit sütunlar, yıldız oranında; tasarımdaki asgari genişliğin altına inmez.
-                double MinGenislik(int k) => grid.Children.Where(c => Grid.GetColumn(c) == k && !ColumnRules.KuralMi(c) && c.IsVisible)
-                    .Select(c => c.MinWidth + c.Margin.Left + c.Margin.Right).DefaultIfEmpty(0).Max();
-                var gorunur = gorunurGenislik - baslik.Padding.Left - baslik.Padding.Right - 6;   // kenar + yuvarlama payı: toplam asla görünür alanı aşmasın
+                if (gorunurGenislik <= 0 || !baslik.IsEffectivelyVisible) return;
+                if (Math.Abs(gorunurGenislik - sonGenislik) < 1) return;   // çerçeve değişmedi → hesap aynı
+                sonGenislik = gorunurGenislik;
+                _oturum.TryGetValue(anahtar, out var kullanici);
+                // Esneklik ÖZGÜN tanımdan: TableHeaderSync satırdan kopyalamadan önce sakladığı tanım (başlık sekme değişiminde
+                // yeniden bağlanırsa bağlanma anındaki tanım zaten piksele çevrilmiş olabilir — ölçüldü).
+                var oz = TableHeaderSync.OzgunTanim(baslik);
+                if (oz is not null && oz.Length == ilkTanim.Length) ilkTanim = oz;
+                bool Elle(int k) => kullanici is not null && kullanici.ContainsKey(k.ToString());
+                // TableHeaderSync başlığa satırın PİKSEL genişliğini kopyalar → esneklik ÖZGÜN tanımdan okunur.
+                var gorunur = gorunurGenislik - baslik.Padding.Left - baslik.Padding.Right - 6;   // kenar + yuvarlama payı
                 var sabitToplam = 0.0; var yildizToplam = 0.0;
                 for (int k = 0; k < grid.ColumnDefinitions.Count; k++)
                 {
                     var cd = grid.ColumnDefinitions[k];
-                    if (harita.TryGetValue(k.ToString(), out var kayitli)) sabitToplam += kayitli;
-                    else if (Yildiz(k)) yildizToplam += Agirlik(k);
-                    else sabitToplam += Math.Max(cd.ActualWidth, MinGenislik(k));   // ilk turda henüz ölçülmemiş olabilir
+                    if (Elle(k)) sabitToplam += kullanici![k.ToString()];
+                    else if (ilkTanim[k].IsStar) { if (Gorunur(k)) yildizToplam += ilkTanim[k].Value; }
+                    else if (Degisken(k)) sabitToplam += DegiskenGenislik(k);
+                    // sabit kolon: tasarımdaki genişlik (ActualWidth ilk turlarda satırdan kopyalanmış/şişmiş olabilir)
+                    else if (Gorunur(k)) sabitToplam += asgariler[k] > 0 ? asgariler[k] : cd.ActualWidth;
                 }
                 var kalan = Math.Max(0, gorunur - sabitToplam);
-                // Taşma VERİDEN mi? Kolonların asgari toplamı görünür alana sığmıyorsa taşma doğaldır (dar pencere ya da ekran
-                // ilk açılırken çerçeve henüz küçük ölçülmüş — ölçüldü: 152 px) → dokunma, sonraki turu bekle.
-                var asgari = sabitToplam;
-                for (int k = 0; k < grid.ColumnDefinitions.Count; k++)
-                    if (!harita.ContainsKey(k.ToString()) && Yildiz(k)) asgari += MinGenislik(k);
-                if (asgari > gorunur) return;
-                grid.LayoutUpdated -= Tohumla;
-                _oturum[anahtar] = harita;
-                var degisti = false;
+                var oto = new Dictionary<string, double>();
                 for (int k = 0; k < grid.ColumnDefinitions.Count; k++)
                 {
-                    if (harita.ContainsKey(k.ToString())) continue;              // kullanıcının ayarı korunur
-                    var cd = grid.ColumnDefinitions[k];
-                    double w;
-                    if (Yildiz(k))
-                    {
-                        if (MinGenislik(k) <= 0 && cd.ActualWidth < 30) continue;   // gizli kolon dondurulmaz
-                        w = Math.Floor(Math.Max(MinGenislik(k), yildizToplam > 0 ? kalan * Agirlik(k) / yildizToplam : 0));
-                    }
-                    else
-                    {
-                        var degisken = grid.Children.Any(c => Grid.GetColumn(c) == k && !ColumnRules.KuralMi(c)
-                                                               && c.IsVisible && double.IsInfinity(c.MaxWidth));
-                        if (!degisken || cd.ActualWidth < 30) continue;
-                        // Auto ama üst sınırsız: ölçülen genişlik uzun satırdan gelmiş olabilir → görünür alanın üçte birini aşmaz.
-                        w = Math.Min(cd.ActualWidth, Math.Max(MinGenislik(k), gorunur / 3));
-                    }
-                    harita[k.ToString()] = Math.Round(Math.Max(w, 40));
-                    degisti = true;
+                    if (Elle(k) || !Gorunur(k)) continue;                             // kullanıcının ayarı / gizli kolon
+                    if (ilkTanim[k].IsStar)
+                        oto[k.ToString()] = Math.Floor(Math.Max(Math.Max(asgariler[k], 40),
+                            yildizToplam > 0 ? kalan * ilkTanim[k].Value / yildizToplam : 0));
+                    else if (Degisken(k)) oto[k.ToString()] = Math.Round(DegiskenGenislik(k));
                 }
-                if (degisti) TumunuUygula(anahtar);
+                _otomatik[anahtar] = oto;
+                // Bağlanma anında henüz çizilmemiş satırlar da kayda girsin (sanallaştırma / şablon sırası).
+                foreach (var g in liste.GetVisualDescendants().OfType<Grid>()
+                             .Where(g => ColumnRules.GetEnabled(g) && g.ColumnDefinitions.Count == grid.ColumnDefinitions.Count))
+                    Kaydol(anahtar, g);
+                TumunuUygula(anahtar);
             }
             catch { /* yalnız görsel */ }
+
+            // Gizli kolon (ör. fiyat yetkisi kapalı) dondurulmaz: hücresi görünmüyor ve asgari genişliği yok.
+            bool Gorunur(int k) => grid.Children.Any(c => Grid.GetColumn(c) == k && !ColumnRules.KuralMi(c) && c.IsVisible);
+            // Auto ama üst sınırsız: içerikle büyürdü → tasarımdaki asgari genişlikte (en az 120 px) sabitlenir.
+            bool Degisken(int k) => !ilkTanim[k].IsStar && sinirsiz[k];
+            double DegiskenGenislik(int k) => Math.Max(asgariler[k], 120);
         }
         grid.LayoutUpdated += Tohumla;
     }
@@ -285,10 +283,13 @@ public static class KolonGenislik
         foreach (var w in l.ToList()) if (w.TryGetTarget(out var g)) Uygula(g, anahtar);
     }
 
-    /// <summary>Oturum deposundaki genişlikleri grid'e uygular. Hiç sürüklenmemiş tabloya dokunmaz.</summary>
+    /// <summary>Otomatik + oturum (kullanıcı) genişliklerini grid'e uygular; kullanıcının değeri otomatiği ezer.</summary>
     private static void Uygula(Grid grid, string anahtar)
     {
-        if (!_oturum.TryGetValue(anahtar, out var harita) || harita.Count == 0) return;
+        var harita = new Dictionary<string, double>();
+        if (_otomatik.TryGetValue(anahtar, out var oto)) foreach (var (k, w) in oto) harita[k] = w;
+        if (_oturum.TryGetValue(anahtar, out var elle)) foreach (var (k, w) in elle) harita[k] = w;
+        if (harita.Count == 0) return;
         // Başlıkla AYNI kolon düzenine sahip olmayan grid'e uygulanmaz (yanlış kolona genişlik → hiza bozulurdu).
         if (!_kolonSayisi.TryGetValue(anahtar, out var adet) || grid.ColumnDefinitions.Count != adet) return;
         foreach (var (kStr, w) in harita)
@@ -301,7 +302,12 @@ public static class KolonGenislik
             {
                 c.MinWidth = 0;
                 c.MaxWidth = w;
-                if (c is TextBlock tb && tb.TextTrimming == TextTrimming.None) tb.TextTrimming = TextTrimming.CharacterEllipsis;
+                if (c is TextBlock tb)
+                {
+                    if (tb.TextTrimming == TextTrimming.None) tb.TextTrimming = TextTrimming.CharacterEllipsis;
+                    // kesilen yazının tamamı ipucunda (Kural 3): satır yeniden kullanılınca da güncel kalsın diye bağlama
+                    if (ToolTip.GetTip(tb) is null) tb[!ToolTip.TipProperty] = tb[!TextBlock.TextProperty];
+                }
             }
         }
     }
