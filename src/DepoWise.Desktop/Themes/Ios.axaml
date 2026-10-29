@@ -990,4 +990,29 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
+
+    <!-- ═══ FİLTRE SATIRI TEK ÖLÇÜ (2026-10-29, kullanıcı: "başlık ve altındaki filtrelerde kayma ve hatalar var") ═══
+         Filtre satırındaki HER kutu (metin, açılır liste, tarih) 28 px ve satırda dikey ORTALI: açılır listeler yukarı yapışıyordu,
+         tarih kutusu iOS alan kuralıyla 44 px'e büyüyüp "GG.AA.YYYY" yazısını kesiyordu. Bu blok en sonda → iOS 44 px kuralını ezer
+         (yalnız filtre satırında; formlardaki alanlar 44 px kalır). -->
+    <Style Selector="Border.TableFilterRow TextBox, Border.TableFilterRow ComboBox">
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="FontSize" Value="11.5"/>
+    </Style>
+    <Style Selector="Border.TableFilterRow TextBox">
+        <Setter Property="Padding" Value="9,2"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.TableFilterRow ComboBox">
+        <Setter Property="Padding" Value="9,0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.TableFilterRow Button.Ghost">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
 </Styles>

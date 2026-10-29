@@ -1393,6 +1393,31 @@ public class YeniEkranlarArayuzTests
                 Assert.True(toplam >= tablo.Bounds.Width - 60, $"{genislik:0} px · sütunlar alanı doldurmalı: {toplam:0} / {tablo.Bounds.Width:0}");
             }
             Goruntu(w, "tablo-sigan-veri");
+
+            // 2026-10-29 (kullanıcı: "2. satırdaki sütun çizgileri başlıktakiyle aynı konumda olmalı"): fiyat görme yetkisi KAPALI kullanıcıda
+            // B.Fiyat (kolon 6) başlık + filtre + satırlarda gizlenir (FiyatGorunur bağlaması) — aynı durum burada kurulur; başlık, filtre
+            // satırı ve her satır yine birebir aynı sütun genişliklerini ve çizgi konumlarını taşımalı.
+            {
+                var tablo = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("Table") && b.IsEffectivelyVisible);
+                var tumu = tablo.GetVisualDescendants().OfType<Grid>().Where(g => g.ColumnDefinitions.Count == 9).ToList();
+                foreach (var g in tumu)
+                    foreach (var c in g.Children.Where(c => Grid.GetColumn(c) == 6 && c is TextBlock or Panel))   // hücre: başlık/satır yazısı, filtre kabı (çizgiler değil)
+                        c.IsVisible = false;
+                w.Width = 1500;
+                for (int i = 0; i < 40; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+                var baslik = tablo.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("TableHeader"))
+                    .GetVisualDescendants().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 9);
+                foreach (var g in tumu.Where(g => !ReferenceEquals(g, baslik) && g.IsEffectivelyVisible))
+                {
+                    double x = 0, bx = 0;
+                    for (int k = 0; k < 9; k++)
+                    {
+                        x += g.ColumnDefinitions[k].ActualWidth; bx += baslik.ColumnDefinitions[k].ActualWidth;
+                        Assert.True(Math.Abs(x - bx) < 1.5, $"fiyat gizli · kolon {k} sağ çizgi: başlık {bx:0} satır/filtre {x:0}");
+                    }
+                }
+                Goruntu(w, "tablo-fiyat-gizli");
+            }
             w.Close();
         }
         finally
