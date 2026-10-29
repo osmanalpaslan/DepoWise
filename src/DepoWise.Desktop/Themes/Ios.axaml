@@ -879,4 +879,58 @@
     <Style Selector="Border.Balon.benim TextBlock.BalonSaat">
         <Setter Property="Opacity" Value="0.75"/>
     </Style>
+
+    <!-- ═══ 2026-10-29 (kullanıcı isteği): BİLGİ PANELİ (Araç + Malzeme sağ kart) ═══
+         Modern ayrıntı paneli dili (macOS "Bilgi Al" / iOS ayar listesi): üstte kapak + ad + eylemler; altta küçük gri bölüm
+         başlıkları ve ÖZELLİK SATIRLARI — etiket solda soluk, değer sağda; satırları yalnız ince çizgi ayırır, ZEMİN YOK.
+         Açılır bölümler ve listeler zeminsiz. Kaydırma alanına sağ boşluk → çubuk içeriğin üstüne binmez. -->
+    <Style Selector="Border.BilgiPaneli">
+        <Setter Property="Padding" Value="20,18,8,16"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli ScrollViewer">
+        <Setter Property="Padding" Value="0,0,14,0"/>
+    </Style>
+    <Style Selector="Border.OzellikSatir">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0,9"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+    <Style Selector="SelectableTextBlock.OzellikEtiket">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="SelectableTextBlock.OzellikDeger">
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="TextAlignment" Value="Right"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli Expander.IosAcilir">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Padding" Value="0,6,0,10"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli Expander.IosAcilir /template/ ToggleButton#ExpanderHeader">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="MinHeight" Value="42"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli Expander.IosAcilir /template/ ToggleButton#ExpanderHeader:pointerover /template/ Border#ToggleButtonBackground">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli Expander.IosAcilir /template/ Border#ExpanderContent">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0,4,0,0"/>
+    </Style>
+    <Style Selector="Border.BilgiPaneli ListBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
 </Styles>

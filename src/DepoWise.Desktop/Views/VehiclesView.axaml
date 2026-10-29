@@ -497,7 +497,7 @@
         </Grid>
 
         <!-- Liste + Detay -->
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360" IsVisible="{Binding !ShowAdd}">
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,420" IsVisible="{Binding !ShowAdd}">
           <Panel Grid.Column="0">
             <!-- Excel-benzeri: pencere küçülünce taşma/kayma OLMAZ; sığmazsa yatay kaydırma çıkar
                  (kullanıcı isteği 2026-07-18, madde 3). -->
@@ -955,7 +955,8 @@
           </Panel>
 
           <!-- Detay (salt okuma) / Düzenle / Sil -->
-          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+          <!-- 2026-10-29 (kullanıcı isteği): BİLGİ PANELİ — 420 px; veri alanları zeminsiz (özellik satırları); kaydırma çubuğu içerikle çakışmaz -->
+          <Border Grid.Column="1" Classes="Panel BilgiPaneli" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
             <DockPanel>
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
                 <!-- ⭐ iOS tasarım (2026-10-28): ilk fotoğraf kart başında; tümü açılır bölümde (varsayılan kapalı) → kart ferahlar -->
@@ -1078,31 +1079,49 @@
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
                         </StackPanel>
-                        <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
-                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-                              DataContext="{Binding Detail}">
-                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Plaka" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Plate}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Makine Tipi" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Model" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding VehicleModelName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="5" Grid.Column="0" Text="Şantiye" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="5" Grid.Column="1" Text="{Binding BranchName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="6" Grid.Column="0" Text="Sürücü" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="6" Grid.Column="1" Text="{Binding DriverName}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="7" Grid.Column="0" Text="Üretim Yılı" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ProductionYear}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="8" Grid.Column="0" Text="Şasi No" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ChassisNo}" Classes="Body"/>
-                          <SelectableTextBlock Grid.Row="9" Grid.Column="0" Text="Motor No" Classes="Helper" Margin="0,2,12,2"/>
-                          <SelectableTextBlock Grid.Row="9" Grid.Column="1" Text="{Binding EngineNo}" Classes="Body"/>
-                        </Grid>
-                        </Border>
+                        <TextBlock Text="BİLGİLER" Classes="IosUstBaslik" Margin="0,6,0,0"/>
+                        <StackPanel DataContext="{Binding Detail}">
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Plaka" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Plate}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Makine tipi" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Kategori" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding CategoryName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Marka" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding BrandName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Model" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleModelName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Şantiye" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding BranchName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Sürücü" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding DriverName}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Üretim yılı" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding ProductionYear}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Şasi no" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding ChassisNo}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                            <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <SelectableTextBlock Grid.Column="0" Text="Motor no" Classes="OzellikEtiket"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding EngineNo}" Classes="OzellikDeger"/>
+                            </Grid></Border>
+                        </StackPanel>
                         <StackPanel Spacing="2">
                           <SelectableTextBlock Text="Sayaç" Classes="Helper"/>
                           <SelectableTextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>

@@ -401,7 +401,7 @@
         </Grid>
 
         <!-- ===== Liste + Detay ===== -->
-        <Grid Grid.Row="3" Margin="0,16,0,0" ColumnDefinitions="*,360" IsVisible="{Binding !ShowAdd}">
+        <Grid Grid.Row="3" Margin="0,16,0,0" ColumnDefinitions="*,420" IsVisible="{Binding !ShowAdd}">
           <Panel Grid.Column="0">
             <!-- Tablo (satır varsa) — Excel-benzeri: pencere küçülünce taşma/kayma OLMAZ; sığmazsa yatay
                  kaydırma çıkar (kullanıcı isteği 2026-07-18, madde 3). -->
@@ -792,7 +792,8 @@
           </Panel>
 
           <!-- Detay (satır seçince tüm alanlar) -->
-          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+          <!-- 2026-10-29 (kullanıcı isteği): BİLGİ PANELİ — 420 px; veri alanları zeminsiz (özellik satırları); kaydırma çubuğu içerikle çakışmaz -->
+          <Border Grid.Column="1" Classes="Panel BilgiPaneli" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
             <DockPanel>
               <!-- Eylemler (VM bağlamı) -->
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
@@ -866,31 +867,42 @@
                     </Button>
                 </UniformGrid>
               <StackPanel Spacing="10" DataContext="{Binding Detail}">
-                <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,10">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <SelectableTextBlock Grid.Column="0" Text="Mevcut stok" Classes="Helper" VerticalAlignment="Center"/>
-                        <SelectableTextBlock Grid.Column="1" Text="{Binding Stock}" FontSize="24" FontWeight="ExtraBold"
-                                             Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </Grid>
-                </Border>
-                <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="12" Padding="14,8">
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" >
-                  <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Tür" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Type}" Classes="Body"/>
-                  <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
-                  <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Birim" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UnitName}" Classes="Body"/>
-                  <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
-                  <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Tedarikçi" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SupplierName}" Classes="Body"/>
-                  <SelectableTextBlock Grid.Row="5" Grid.Column="0" Text="Min / Stok" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="5" Grid.Column="1" Classes="Body" Text="{Binding MinStock, StringFormat='{}{0} (min)'}"/>
-                  <SelectableTextBlock Grid.Row="6" Grid.Column="0" Text="Birim Fiyat" Classes="Helper" Margin="0,2,12,2"/>
-                  <SelectableTextBlock Grid.Row="6" Grid.Column="1" Classes="Body" Text="{Binding UnitPrice}"/>
+                <!-- stok: zeminsiz büyük sayı; bilgiler özellik satırlarında -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,2">
+                    <SelectableTextBlock Grid.Column="0" Text="Mevcut stok" Classes="OzellikEtiket" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Grid.Column="1" Text="{Binding Stock}" Classes="IosBuyukSayi"/>
                 </Grid>
-                </Border>
+                <TextBlock Text="BİLGİLER" Classes="IosUstBaslik" Margin="0,6,0,0"/>
+                <StackPanel>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Tür" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding Type}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Kategori" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding CategoryName}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Birim" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding UnitName}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Marka" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding BrandName}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Tedarikçi" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding SupplierName}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Asgari stok" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding MinStock}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                    <Border Classes="OzellikSatir"><Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <SelectableTextBlock Grid.Column="0" Text="Birim fiyat" Classes="OzellikEtiket"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding UnitPrice}" Classes="OzellikDeger"/>
+                    </Grid></Border>
+                </StackPanel>
 
                 <StackPanel IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="2">
                     <SelectableTextBlock Text="Açıklama" Classes="Helper"/>

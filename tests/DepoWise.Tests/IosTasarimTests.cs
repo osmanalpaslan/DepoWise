@@ -222,6 +222,26 @@ public class IosTasarimTests
             File.ReadAllText(Path.Combine(dizin, "EquipmentView.axaml")));
     }
 
+    /// <summary>IOS-PANEL1 — 2026-10-29 (kullanıcı isteği): Araç + Malzeme bilgi paneli 420 px, BilgiPaneli sınıfı; veri alanları
+    /// ZEMİNSİZ özellik satırlarında (eski SurfaceElevated gri kutular yok); kaydırma alanında sağ boşluk (çubuk içerikle çakışmaz).</summary>
+    [Fact]
+    public void IOSPANEL1_Bilgi_Paneli_Zeminsiz_Genis()
+    {
+        var dizin = Path.Combine(Kok(), "src", "DepoWise.Desktop", "Views");
+        foreach (var (ad, enAz) in new[] { ("MaterialsView", 7), ("VehiclesView", 10) })
+        {
+            var x = File.ReadAllText(Path.Combine(dizin, ad + ".axaml"));
+            Assert.Contains("ColumnDefinitions=\"*,420\" IsVisible=\"{Binding !ShowAdd}\"", x);
+            Assert.Contains("Classes=\"Panel BilgiPaneli\"", x);
+            var panel = x[x.IndexOf("Classes=\"Panel BilgiPaneli\"", StringComparison.Ordinal)..];
+            Assert.True(Regex.Matches(panel, "<Border Classes=\"OzellikSatir\">").Count >= enAz, ad + " özellik satırı");
+            Assert.DoesNotContain("<Border Background=\"{DynamicResource SurfaceElevatedBrush}\" CornerRadius=\"12\" Padding=\"14,", panel);
+        }
+        var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml"));
+        Assert.Contains("<Style Selector=\"Border.BilgiPaneli ScrollViewer\">\n        <Setter Property=\"Padding\" Value=\"0,0,14,0\"/>", ios.Replace("\r\n", "\n"));
+        Assert.Contains("<Style Selector=\"Border.OzellikSatir\">\n        <Setter Property=\"Background\" Value=\"Transparent\"/>", ios.Replace("\r\n", "\n"));
+    }
+
     /// <summary>IOS-MENU1 — 2. tur madde 5 (2026-10-29): seyrek işlemler (Excel'e Aktar, Yazdır) görünür düğme DEĞİL — "•••" ve sağ tık
     /// menüsünde (Asgari Stok ve Raporlar hariç: orada ana işlem). Sağ tık menüsünde silme/iptal (tehlike) EN ALTTA. Menü stili iOS.</summary>
     [Fact]
