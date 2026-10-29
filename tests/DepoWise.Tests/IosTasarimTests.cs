@@ -290,4 +290,19 @@ public class IosTasarimTests
         var kural = File.ReadAllText(Path.Combine(Kok(), ".claude", "rules", "list-screens.md"));
         Assert.Contains("## Kural 3", kural);
     }
+
+    /// <summary>KAYAN1 — 2026-10-29 (kullanıcı isteği): çoklu seçim listelerinde (rapor filtreleri, Finans/Fatura şube seçimi) seçenek yazısı
+    /// ctrl:KayanMetin ile çizilir — uzun ad kutuyu büyütmez, "…" + üzerinde bekleyince sola kayar. Düz CheckBox Content geri gelmesin.</summary>
+    [Fact]
+    public void KAYAN1_Coklu_Secimlerde_Kayan_Metin()
+    {
+        foreach (var (ad, adet) in new[] { ("ReportsView", 12), ("FinanceView", 1), ("InvoicesView", 1) })
+        {
+            var x = Ekran(ad);
+            Assert.True(Regex.Matches(x, "<ctrl:KayanMetin Text=").Count >= adet, ad);
+            Assert.DoesNotMatch(@"<CheckBox Content=""\{Binding (Name|Display|Label)\}""", x);
+        }
+        var ios = File.ReadAllText(Path.Combine(Kok(), "src", "DepoWise.Desktop", "Themes", "Ios.axaml")).Replace("\r\n", "\n");
+        Assert.Contains("<Style Selector=\"Border.Field > ScrollViewer\">\n        <Setter Property=\"Padding\" Value=\"0,0,12,0\"/>", ios);
+    }
 }

@@ -102,6 +102,9 @@ public class GorselTaramaTests
             // görünür (kullanıcı isterse sütunu sürükleyip genişletir) → bu bilinçli kesme bulgu değildir. Başka her yazı denetlenir.
             var tabloHucresi = t.TextTrimming != Avalonia.Media.TextTrimming.None && ToolTip.GetTip(t) is not null
                                && t.FindAncestorOfType<ListBox>() is { } lb && lb.Classes.Contains("Table");
+            // 2026-10-29: çoklu seçim seçeneği (ctrl:KayanMetin) — kutuyu büyütmez, "…" ile kesilir ve üzerine gelince sola KAYARAK
+            // tamamı okunur (kullanıcı isteği). Bilinçli kesme; yalnız bu denetimin kendi yazısı için.
+            tabloHucresi |= t.TextTrimming != Avalonia.Media.TextTrimming.None && t.Parent is DepoWise.Desktop.Controls.KayanMetin;
             if (olcu.DesiredSize.Width > t.Bounds.Width + 2 && t.Bounds.Width < 2000 && !tabloHucresi)
                 bulgu.Add($"KESİK METİN: \"{Kisalt(t.Text!)}\" ({olcu.DesiredSize.Width:0} px gerek, {t.Bounds.Width:0} px var)");
         }

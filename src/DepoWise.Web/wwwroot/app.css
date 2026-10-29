@@ -1734,6 +1734,23 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .mud-navmenu .mud-nav-link.active, .mud-navmenu .mud-nav-link.mud-nav-link-active { font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .mud-navmenu .mud-nav-link:hover { transform: none; } }
 
+/* ═══ KAYAN SEÇENEK YAZISI (2026-10-29, kullanıcı isteği; masaüstü ctrl:KayanMetin ile aynı davranış) ═══
+   Açılır listelerdeki (rapor filtreleri vb.) uzun seçenek listeyi GENİŞLETMEZ: tek satır "…". Üzerinde 0,5 sn bekleyince yazı,
+   taşan kısmı kadar yavaşça sola kayar (container sorgu birimi: 100cqw = kutunun genişliği); fare çekilince hızla geri döner. */
+.mud-popover .mud-list-item-text { container-type: inline-size; overflow: hidden; min-width: 0; }
+.mud-popover .mud-list-item-text > * {
+    display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.mud-popover .mud-list-item:hover .mud-list-item-text > * {
+    width: max-content; overflow: visible; text-overflow: clip;
+    transform: translateX(min(0px, calc(100cqw - 100%)));
+    transition: transform 3.5s ease-in-out .5s;
+}
+@media (prefers-reduced-motion: reduce) {
+    .mud-popover .mud-list-item:hover .mud-list-item-text > * { transform: none; transition: none; width: auto; overflow: hidden; text-overflow: ellipsis; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    18) MOB-W — MOBİL TARAYICI KATMANI (kullanıcı kararı 2026-09-04)
 

@@ -49,7 +49,7 @@
                                     <ItemsControl ItemsSource="{Binding BranchScope.Picks}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:BranchScopeSelector+Pick">
-                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding Selected, Mode=TwoWay}"/>
+                                                <CheckBox Classes="KayanSecim" IsChecked="{Binding Selected, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Label}"/></CheckBox>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>

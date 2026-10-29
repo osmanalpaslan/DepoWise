@@ -1015,4 +1015,16 @@
         <Setter Property="MinHeight" Value="28"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
+
+    <!-- ═══ ÇOKLU SEÇİM LİSTELERİ (2026-10-29, kullanıcı: "fare tekerleğiyle kaydırırken uzun veri alanı büyütüyor" — rapor Kayıt Tipi) ═══
+         Seçim satırı kutunun genişliğini AŞMAZ: yazı ctrl:KayanMetin ("…" + üzerinde bekleyince sola kayar). Kaydırma çubuğu içeriğin
+         ÜSTÜNE binmesin ve görünüp kaybolurken içerik genişliği değişmesin diye sağda kalıcı boşluk. -->
+    <Style Selector="CheckBox.KayanSecim">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Border.Field > ScrollViewer">
+        <Setter Property="Padding" Value="0,0,12,0"/>
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+    </Style>
 </Styles>

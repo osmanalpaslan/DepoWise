@@ -55,7 +55,7 @@
                             <ItemsControl ItemsSource="{Binding Branches}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -69,7 +69,7 @@
                             <ItemsControl ItemsSource="{Binding VehicleTypes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -91,7 +91,7 @@
                                 <ItemsControl ItemsSource="{Binding FilteredVehiclePicks}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:VehiclePick">
-                                            <CheckBox Content="{Binding Display}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                                            <CheckBox Classes="KayanSecim" IsChecked="{Binding IsSelected, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Display}"/></CheckBox>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -106,7 +106,7 @@
                             <ItemsControl ItemsSource="{Binding MaintenanceDefs}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -120,7 +120,7 @@
                             <ItemsControl ItemsSource="{Binding Technicians}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -134,7 +134,7 @@
                             <ItemsControl ItemsSource="{Binding Suppliers}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -148,7 +148,7 @@
                             <ItemsControl ItemsSource="{Binding Requesters}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -163,7 +163,7 @@
                             <ItemsControl ItemsSource="{Binding Recipients}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -179,7 +179,7 @@
                             <ItemsControl ItemsSource="{Binding Locations}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -202,7 +202,7 @@
                             <ItemsControl ItemsSource="{Binding MovementTypes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -232,7 +232,7 @@
                             <ItemsControl ItemsSource="{Binding ActivityTypes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -323,7 +323,7 @@
                             <ItemsControl ItemsSource="{Binding Statuses}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BranchPick">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        <CheckBox Classes="KayanSecim" IsChecked="{Binding IsChecked, Mode=TwoWay}"><ctrl:KayanMetin Text="{Binding Name}"/></CheckBox>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

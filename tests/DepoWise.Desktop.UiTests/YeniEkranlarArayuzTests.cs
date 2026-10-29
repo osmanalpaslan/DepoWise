@@ -1146,6 +1146,34 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-KAYAN1 — 2026-10-29 (kullanıcı: rapor "Kayıt Tipi" listesinde kaydırırken uzun veri alanı büyütüyor; üzerinde bekleyince
+    /// sola kayarak okunsun): uzun yazı kutuyu GENİŞLETMEZ ve "…" ile kesilir; Kaydir → kesme kalkar, taşan kadar sola kayar; Geri → başa
+    /// döner, kesme geri gelir. Sığan yazı hiç kaymaz. Görüntü kayan-metin.png.</summary>
+    [AvaloniaFact]
+    public void UITKAYAN1_Kayan_Metin()
+    {
+        var uzun = new DepoWise.Desktop.Controls.KayanMetin { Text = "Araç bakımı — lastik değişimi ve balans ayarı (uzun kayıt tipi adı)" };
+        var kisa = new DepoWise.Desktop.Controls.KayanMetin { Text = "Yakıt" };
+        var kutu = new StackPanel { Width = 180, Spacing = 6, Children = { new CheckBox { Classes = { "KayanSecim" }, Content = uzun }, new CheckBox { Classes = { "KayanSecim" }, Content = kisa } } };
+        var w = Ac(new Border { Padding = new Avalonia.Thickness(12), Child = kutu }, 320, 160);
+        for (int i = 0; i < 10; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+        Assert.True(kutu.Bounds.Width <= 180.5, "kutu uzun yazıyla genişlememeli: " + kutu.Bounds.Width);
+        Assert.True(uzun.Tasma > 20, "uzun yazı taşmalı: " + uzun.Tasma);
+        Assert.True(uzun.KesmeAcik);
+        Assert.Equal(0, kisa.Tasma);
+        kisa.Kaydir();
+        Assert.False(kisa.Kaydirildi);                                   // sığan yazı kaymaz
+
+        uzun.Kaydir();
+        Assert.True(uzun.Kaydirildi);
+        Assert.False(uzun.KesmeAcik);                                    // kayarken yazının tamamı çizilir
+        Assert.True(uzun.KaymaHedefi < -20);
+        Goruntu(w, "kayan-metin");
+        uzun.Geri();
+        Assert.False(uzun.Kaydirildi);
+        w.Close();
+    }
+
     /// <summary>UIT-SOHBET1 — 2026-10-29 (kullanıcı isteği): konuşmada son mesaj BENİMSE altında okunmadan "İletildi", karşı taraf
     /// okuyunca "Görüldü HH:mm"; son mesaj karşı tarafınsa yazı yok. Kişi listesi yoklaması (KarsiOkuduAt) eski mesajın okunmasını da taşır.</summary>
     [AvaloniaFact]
