@@ -637,13 +637,30 @@ app.MapGet("/api/chat/messages", (HttpContext c, string withUserId, long? since)
 app.MapPost("/api/chat/messages", (HttpContext c, ChatGonderDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    return Results.Ok(new { id = svc.Chat.Gonder(s, d.ToUserId, d.Body) });
+    var id = svc.Chat.Gonder(s, d.ToUserId, d.Body);   // alıcının AYNI firmada olduğu yazmadan önce serviste doğrulanır
+    ChatNotifier.Bildir(s.CompanyId, d.ToUserId);       // ⭐ anlık: alıcı uyanır
+    ChatNotifier.Bildir(s.CompanyId, s.UserId);         // gönderenin diğer cihazları da (ör. web + masaüstü)
+    return Results.Ok(new { id });
 }).RequireAuthorization();
 
 app.MapPost("/api/chat/seen", (HttpContext c, ChatOkunduDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    return Results.Ok(new { count = svc.Chat.OkunduIsaretle(s, d.WithUserId) });
+    var count = svc.Chat.OkunduIsaretle(s, d.WithUserId);
+    if (count > 0) ChatNotifier.Bildir(s.CompanyId, d.WithUserId);   // ⭐ karşı tarafta "Görüldü" anında
+    return Results.Ok(new { count });
+}).RequireAuthorization();
+
+// ⭐ 2026-10-30 — ANLIK SOHBET (kullanıcı isteği). /api/sync/wait ile AYNI uzun-bekleme deseni: istemci elindeki sürümü verir; daha
+// yenisi varsa hemen, yoksa olay gelince ya da süre sonunda (en fazla 25 sn) döner. Yalnız ÇAĞIRANIN kendi işareti beklenir (firma +
+// kullanıcı anahtarı) → başka kişinin/firmanın olayı uyandırmaz. İçerik taşımaz; istemci normal uçlardan çeker. Veritabanına dokunmaz.
+app.MapGet("/api/chat/wait", async (HttpContext c, long? since, int? sure) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var onceki = since ?? 0;
+    var v = await ChatNotifier.BekleAsync(s.CompanyId, s.UserId, onceki,
+        TimeSpan.FromSeconds(Math.Clamp(sure ?? 25, 1, 25)), c.RequestAborted);
+    return Results.Ok(new { version = v, changed = v > onceki });
 }).RequireAuthorization();
 
 app.MapGet("/api/sync/conflicts", (HttpContext c) =>

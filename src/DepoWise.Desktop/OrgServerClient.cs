@@ -571,6 +571,30 @@ public static class OrgServerClient
     public static Task<Result> ChatOkunduAsync(string karsiUserId)
         => SendOkAsync(HttpMethod.Post, "/api/chat/seen", new { withUserId = karsiUserId });
 
+    /// <summary>Anlık sohbet bekleme ucu için ayrı istemci: sunucu en fazla 25 sn bekletir (genel istemcinin süresi 20 sn).</summary>
+    private static readonly HttpClient _bekleHttp = DepoWise.Infrastructure.Net.HttpIstemci.Yeni(TimeSpan.FromSeconds(60));
+
+    /// <summary>
+    /// ⭐ 2026-10-30 — ANLIK SOHBET: sunucuda bu kullanıcı için <paramref name="since"/>'ten yeni bir sohbet olayı (yeni mesaj, okundu)
+    /// olana kadar bekler (en fazla ~25 sn). null = ulaşılamadı / eski sunucu (uç yok) → çağıran yedek yoklamaya güvenir.
+    /// </summary>
+    public static async Task<(long Surum, bool Degisti)?> ChatBekleAsync(long since, System.Threading.CancellationToken ct)
+    {
+        var (url, token) = await ResolveAsync();
+        if (url is null || token is null) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url + "/api/chat/wait?since=" + (since < 0 ? 0 : since));
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _bekleHttp.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            var r = doc.RootElement;
+            return (Long(r, "version"), Bool(r, "changed"));
+        }
+        catch { return null; }
+    }
+
     private static async Task<JsonDocument?> GetJsonAsync(string path)
     {
         var (url, token) = await ResolveAsync();

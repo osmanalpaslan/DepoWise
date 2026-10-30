@@ -80,11 +80,25 @@ public sealed partial class KonusmaVm : ObservableObject
 /// </summary>
 public sealed partial class ChatViewModel : ObservableObject, IDisposable
 {
-    /// <summary>Sohbet penceresi AÇIKKEN yoklama aralığı (saniye). Kullanıcı kararı; geçici.</summary>
-    public const int AcikYoklamaSaniye = 3;
+    // ⭐ 2026-10-30 — ANLIK SOHBET (kullanıcı isteği "anlık olsun"): yeni mesaj / okundu olayı sunucunun /api/chat/wait ucundan ANINDA
+    // gelir (<see cref="AnlikDinle"/>; masaüstünün anlık eşitlemesiyle aynı uzun-bekleme deseni). Aşağıdaki aralıklı yoklama artık
+    // YEDEKTİR (bekleme ucuna ulaşılamazsa, ör. ağ uzun bağlantıyı keser ya da eski sunucu) — eskiden açıkken 3 sn / kapalıyken 20 sn idi.
 
-    /// <summary>Sohbet KAPALIYKEN yoklama aralığı (saniye) — yalnız okunmamış rozeti içindir.</summary>
-    public const int KapaliYoklamaSaniye = 20;
+    /// <summary>Sohbet AÇIKKEN yedek yoklama aralığı (saniye).</summary>
+    public const int AcikYoklamaSaniye = 15;
+
+    /// <summary>Sohbet KAPALIYKEN yedek yoklama aralığı (saniye) — yalnız okunmamış rozeti içindir.</summary>
+    public const int KapaliYoklamaSaniye = 60;
+
+    /// <summary>Bekleme ucuna ulaşılamayınca yeniden deneme aralığı (saniye).</summary>
+    public const int AnlikYenidenDeneSaniye = 10;
+
+    private readonly CancellationTokenSource _anlikIptal = new();
+    private long _anlikSurum;
+    private bool _bekleyenYoklama;
+
+    /// <summary>Son bekleme sunucuya ulaştı mı (anlık kanal çalışıyor mu).</summary>
+    public bool AnlikBagli { get; private set; }
 
     private readonly SessionContext _session;
     private readonly Timer _zamanlayici;
@@ -151,6 +165,30 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
         _zamanlayici = new Timer(_ => _ = Yokla(), null,
             Kullanilabilir ? TimeSpan.FromSeconds(2) : Timeout.InfiniteTimeSpan,
             TimeSpan.FromSeconds(KapaliYoklamaSaniye));
+        if (Kullanilabilir) _ = Task.Run(AnlikDinle);
+    }
+
+    /// <summary>
+    /// Anlık dinleyici: sunucu "bu kullanıcı için yeni olay var" deyince HEMEN bir yoklama turu atar (kişiler + açık konuşmalar).
+    /// Ulaşılamazsa <see cref="AnlikYenidenDeneSaniye"/> sonra yeniden dener; o arada yedek yoklama işini görür.
+    /// </summary>
+    private async Task AnlikDinle()
+    {
+        var ct = _anlikIptal.Token;
+        while (!ct.IsCancellationRequested && !_birakildi)
+        {
+            var r = await OrgServerClient.ChatBekleAsync(_anlikSurum, ct);
+            if (ct.IsCancellationRequested || _birakildi) return;
+            if (r is null)
+            {
+                AnlikBagli = false;
+                try { await Task.Delay(TimeSpan.FromSeconds(AnlikYenidenDeneSaniye), ct); } catch { return; }
+                continue;
+            }
+            AnlikBagli = true;
+            _anlikSurum = r.Value.Surum;
+            if (r.Value.Degisti) await Yokla();
+        }
     }
 
     partial void OnPanelAcikChanged(bool value)
@@ -178,7 +216,9 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     /// </summary>
     private async Task Yokla()
     {
-        if (_birakildi || !Kullanilabilir || _yoklamaCalisiyor) return;
+        if (_birakildi || !Kullanilabilir) return;
+        // Tur sürerken gelen anlık işaret KAYBOLMASIN: tur bitince bir tur daha atılır (sürmekte olan tur olaydan önce başlamış olabilir).
+        if (_yoklamaCalisiyor) { _bekleyenYoklama = true; return; }
         _yoklamaCalisiyor = true;
         try
         {
@@ -216,7 +256,11 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
                 await KonusmayiTazele(kon);
         }
         catch { /* yoklama sessiz olmalı: ağ dalgalanması ekranda hata kutusu açmaz */ }
-        finally { _yoklamaCalisiyor = false; }
+        finally
+        {
+            _yoklamaCalisiyor = false;
+            if (_bekleyenYoklama && !_birakildi) { _bekleyenYoklama = false; _ = Yokla(); }
+        }
     }
 
     private async Task KonusmayiTazele(KonusmaVm kon)
@@ -369,6 +413,7 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _birakildi = true;
+        try { _anlikIptal.Cancel(); _anlikIptal.Dispose(); } catch { }
         try { _zamanlayici.Dispose(); } catch { }
     }
 }

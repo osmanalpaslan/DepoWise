@@ -249,4 +249,101 @@ public class SohbetUctanUcaTests : IAsyncLifetime
         // Başka firmanın kullanıcısı Ali'nin kişi listesinde hiç yok (alan firma süzgecinin içinde okunur).
         Assert.DoesNotContain(await Dizi(_ali, "/api/chat/users"), k => k.GetProperty("userId").GetString() == _digerFirmaId);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    //  ⭐ 2026-10-30 — ANLIK SOHBET (/api/chat/wait, kullanıcı isteği "sohbet anlık olsun")
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+
+    private static async Task<(long Surum, bool Degisti)> Bekle(HttpClient c, long since, int sure)
+    {
+        var j = await Json(await c.GetAsync($"/api/chat/wait?since={since}&sure={sure}"));
+        return (j.GetProperty("version").GetInt64(), j.GetProperty("changed").GetBoolean());
+    }
+
+    /// <summary>Alıcı beklerken mesaj gelince bekleme HEMEN döner (25 sn'yi beklemez) ve "değişti" der.</summary>
+    [Fact]
+    public async Task Anlik_Mesaj_Gelince_Bekleyen_Alici_Hemen_Uyanir()
+    {
+        var (v0, _) = await Bekle(_veli, 0, 1);
+        var bekleme = Bekle(_veli, v0, 25);
+        await Task.Delay(300);
+        var sayac = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal(HttpStatusCode.OK, (await Gonder(_ali, _veliId, "anlık mı?")).StatusCode);
+        var (v1, degisti) = await bekleme;
+        Assert.True(degisti);
+        Assert.True(v1 > v0);
+        Assert.True(sayac.Elapsed < TimeSpan.FromSeconds(5), "bekleme hemen dönmeliydi: " + sayac.Elapsed);
+        // Elindeki sürüm güncelken yeni olay yoksa "değişmedi" der (süre sonunda).
+        Assert.False((await Bekle(_veli, v1, 1)).Degisti);
+    }
+
+    /// <summary>Başka kişiye giden mesaj beni UYANDIRMAZ; başka firmanın kullanıcısı da hiçbir olayla uyanmaz (işaret firma + kullanıcı).</summary>
+    [Fact]
+    public async Task Anlik_Baskasinin_Mesaji_Ve_Baska_Firma_Uyandirmaz()
+    {
+        var (vVeli, _) = await Bekle(_veli, 0, 1);
+        var (vYabanci, _) = await Bekle(_digerFirma, 0, 1);
+        var veliBekleme = Bekle(_veli, vVeli, 2);
+        var yabanciBekleme = Bekle(_digerFirma, vYabanci, 2);
+        await Task.Delay(200);
+        Assert.Equal(HttpStatusCode.OK, (await Gonder(_ali, _yetkisizId, "veli'ye değil")).StatusCode);
+        Assert.False((await veliBekleme).Degisti);
+        Assert.False((await yabanciBekleme).Degisti);
+    }
+
+    /// <summary>Mesajım okununca BEN uyanırım ("Görüldü" anında); okunacak mesaj yoksa uyandırma olmaz.</summary>
+    [Fact]
+    public async Task Anlik_Okundu_Gondereni_Uyandirir()
+    {
+        Assert.Equal(HttpStatusCode.OK, (await Gonder(_ali, _veliId, "okuyunca haber ver")).StatusCode);
+        var (vAli, _) = await Bekle(_ali, 0, 1);
+        var bekleme = Bekle(_ali, vAli, 25);
+        await Task.Delay(200);
+        Assert.Equal(HttpStatusCode.OK, (await _veli.PostAsJsonAsync("/api/chat/seen", new { withUserId = _aliId })).StatusCode);
+        Assert.True((await bekleme).Degisti);
+
+        var (vAli2, _) = await Bekle(_ali, 0, 1);
+        var ikinci = Bekle(_ali, vAli2, 2);
+        Assert.Equal(HttpStatusCode.OK, (await _veli.PostAsJsonAsync("/api/chat/seen", new { withUserId = _aliId })).StatusCode);   // okunacak yok
+        Assert.False((await ikinci).Degisti);
+    }
+
+    /// <summary>Oturumsuz bekleme reddedilir.</summary>
+    [Fact]
+    public async Task Anlik_Oturumsuz_Bekleme_Reddedilir()
+        => Assert.True(ApiTestHost.IsDenied(await _host.CreateClient().GetAsync("/api/chat/wait?since=0&sure=1")));
+
+    /// <summary>Sürüm geriye gitmez ve sunucu yeniden başlasa da (sayaç sıfır) ilk yeni olay eski sürümü geçer (şimdiki zaman, ms).</summary>
+    [Fact]
+    public void Anlik_Surum_Artar_Ve_Zamani_Gecer()
+    {
+        var kullanici = "anlik-" + Guid.NewGuid().ToString("N");
+        var once = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        DepoWise.Api.ChatNotifier.Bildir("FIRMA-X", kullanici);
+        var v1 = DepoWise.Api.ChatNotifier.Surum("FIRMA-X", kullanici);
+        DepoWise.Api.ChatNotifier.Bildir("FIRMA-X", kullanici);
+        var v2 = DepoWise.Api.ChatNotifier.Surum("FIRMA-X", kullanici);
+        Assert.True(v1 >= once);
+        Assert.True(v2 > v1);
+        Assert.Equal(0, DepoWise.Api.ChatNotifier.Surum("FIRMA-Y", kullanici));   // aynı kişi kimliği başka firmada AYRI
+    }
+
+    /// <summary>Masaüstü ve web istemcisi anlık dinleyiciyi taşır; aralıklı yoklama YEDEK olarak seyrekleşti.</summary>
+    [Fact]
+    public void Anlik_Istemciler_Dinleyiciyi_Tasir()
+    {
+        var kok = new DirectoryInfo(AppContext.BaseDirectory);
+        while (kok is not null && !File.Exists(Path.Combine(kok.FullName, "DepoWise.sln"))) kok = kok.Parent;
+        var masa = File.ReadAllText(Path.Combine(kok!.FullName, "src", "DepoWise.Desktop", "ViewModels", "ChatViewModel.cs"));
+        var istemci = File.ReadAllText(Path.Combine(kok.FullName, "src", "DepoWise.Desktop", "OrgServerClient.cs"));
+        var web = File.ReadAllText(Path.Combine(kok.FullName, "src", "DepoWise.Web", "Components", "Layout", "ChatDock.razor"));
+        Assert.Contains("if (Kullanilabilir) _ = Task.Run(AnlikDinle);", masa);
+        Assert.Contains("if (r.Value.Degisti) await Yokla();", masa);
+        Assert.Contains("_bekleyenYoklama = true; return;", masa);                 // tur sürerken gelen işaret kaybolmaz
+        Assert.Contains("\"/api/chat/wait?since=\"", istemci);
+        Assert.Contains("/api/chat/wait?since={_anlikSurum}&sure={AnlikBekleSaniye}", web);
+        Assert.Contains("_bekleyenYoklama = true; return;", web);
+        Assert.Contains("public const int AcikYoklamaSaniye = 15;", masa);
+        Assert.Contains("private const int AcikSaniye = 15;", web);
+    }
 }

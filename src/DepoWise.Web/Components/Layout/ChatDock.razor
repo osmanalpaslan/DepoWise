@@ -152,10 +152,19 @@
 }
 
 @code {
-    /// <summary>Pencere açıkken yoklama (sn). Kullanıcı kararı; geçici — gerçek sunucuda yeniden ele alınacak.</summary>
-    private const int AcikSaniye = 3;
-    /// <summary>Kapalıyken yoklama (sn) — yalnız okunmamış rozeti için.</summary>
-    private const int KapaliSaniye = 20;
+    // ⭐ 2026-10-30 — ANLIK SOHBET (kullanıcı isteği; masaüstü ChatViewModel.AnlikDinle ile AYNI): yeni mesaj / okundu olayı sunucunun
+    // /api/chat/wait ucundan ANINDA gelir. Aşağıdaki aralıklı yoklama artık YEDEKTİR (eskiden açıkken 3 sn / kapalıyken 20 sn).
+    /// <summary>Pencere açıkken yedek yoklama (sn).</summary>
+    private const int AcikSaniye = 15;
+    /// <summary>Kapalıyken yedek yoklama (sn) — yalnız okunmamış rozeti için.</summary>
+    private const int KapaliSaniye = 60;
+    /// <summary>Bekleme ucunda en fazla bekleme (sn) — web'in API istemci süresi 30 sn olduğu için 25 değil 20.</summary>
+    private const int AnlikBekleSaniye = 20;
+    /// <summary>Bekleme ucuna ulaşılamayınca yeniden deneme (sn).</summary>
+    private const int AnlikYenidenDeneSaniye = 10;
+
+    private long _anlikSurum;
+    private bool _anlikCalisiyor, _birakildi, _bekleyenYoklama;
 
     private sealed class Kisi
     {
@@ -238,6 +247,28 @@
         // bildirdigi uc belirti de tam olarak budur. Bu yuzden geri cagri komple sarilir.
         _zamanlayici = new Timer(async _ => { try { await Yokla(); } catch { } }, null,
             TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(KapaliSaniye));
+        if (!_anlikCalisiyor) { _anlikCalisiyor = true; _ = AnlikDinle(); }
+    }
+
+    /// <summary>Anlık dinleyici: sunucu "yeni sohbet olayı var" deyince HEMEN bir yoklama turu. Hata sızdırmaz (devreyi öldürmesin).</summary>
+    private async Task AnlikDinle()
+    {
+        while (!_birakildi && Auth.IsAuthenticated)
+        {
+            try
+            {
+                var e = await Api.GetObjectAsync($"/api/chat/wait?since={_anlikSurum}&sure={AnlikBekleSaniye}");
+                if (_birakildi) return;
+                _anlikSurum = L(e, "version");
+                if (B(e, "changed")) await Yokla();
+            }
+            catch
+            {
+                if (_birakildi) return;
+                try { await Task.Delay(TimeSpan.FromSeconds(AnlikYenidenDeneSaniye)); } catch { return; }
+            }
+        }
+        _anlikCalisiyor = false;
     }
 
     private IEnumerable<Kisi> Gorunenler()
@@ -274,7 +305,8 @@
 
     private async Task Yokla()
     {
-        if (_yoklamaCalisiyor) return;
+        // Tur sürerken gelen anlık işaret KAYBOLMASIN: tur bitince bir tur daha atılır.
+        if (_yoklamaCalisiyor) { _bekleyenYoklama = true; return; }
         _yoklamaCalisiyor = true;
         try
         {
@@ -314,6 +346,7 @@
         finally
         {
             _yoklamaCalisiyor = false;
+            if (_bekleyenYoklama && !_birakildi) { _bekleyenYoklama = false; _ = Yokla(); }
             // Devre kapandiysa StateHasChanged FIRLATIR; bu hata catch'in DISINDAYDI ve disari
             // sizip devreyi olduruyordu. Artik burada da yutulur (yenileme yapilamamasi olumcul degil).
             try { await InvokeAsync(StateHasChanged); } catch { }
@@ -466,6 +499,7 @@
     public async ValueTask DisposeAsync()
     {
         // Kapanış da hata sızdırmamalı: burada fırlayan bir hata sayfadan çıkışı bozar.
+        _birakildi = true;   // anlık dinleyici bir sonraki dönüşte durur
         try { Auth.Changed -= YetkiDegisti; } catch { }
         try { if (_zamanlayici is not null) await _zamanlayici.DisposeAsync(); } catch { }
     }
