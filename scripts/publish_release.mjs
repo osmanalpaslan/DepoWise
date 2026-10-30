@@ -9,27 +9,39 @@
 // ⭐ M-01 (2026-10-27): paket IMZALANIR (gizli anahtar: scripts/lib/yayin_ortak.mjs) — sunucu ve masaustu imzasizi reddeder.
 //   Imza ayrica "<zip>.imza" dosyasina yazilir (web "Guncelleme Yonetimi" formuna yapistirmak icin).
 //   Hesapta iki adimli giris aciksa kod DEPOWISE_ADMIN_TOTP / DEPOWISE_ADMIN_KOD ile verilir.
-//   --min X.Y.Z : en dusuk desteklenen surum (eski masaustleri ZORUNLU guncellemeye girer; varsayilan 0.0.0).
+//   --min X.Y.Z : en dusuk desteklenen surum (eski masaustleri ZORUNLU guncellemeye girer). Verilmezse sunucudaki
+//                 MEVCUT deger korunur (2026-10-30; eskiden 0.0.0'a dusuyordu). Mevcuttan dusuge yalniz --min-dusur ile.
 //
 // Kullanim:
-//   node scripts/publish_release.mjs <zipYolu> <surum> "<notlar>" [--min X.Y.Z]
+//   node scripts/publish_release.mjs <zipYolu> <surum> "<notlar>" [--min X.Y.Z [--min-dusur]]
 // Ornek:
 //   node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.35.zip 1.0.35 "foto opt + guvenlik + login/sube"
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { superAdminGiris, imzala } from "./lib/yayin_ortak.mjs";
+import { superAdminGiris, imzala, enDusukSurumSec } from "./lib/yayin_ortak.mjs";
 
 const API = process.env.DEPOWISE_API || "https://depowise-erp.fly.dev";
 const argv = process.argv.slice(2);
+const dusurIdx = argv.indexOf("--min-dusur");
+const dusurIzni = dusurIdx >= 0;
+if (dusurIzni) argv.splice(dusurIdx, 1);
 const minIdx = argv.indexOf("--min");
-const minSupported = minIdx >= 0 ? argv[minIdx + 1] : "0.0.0";
+const minVerilen = minIdx >= 0 ? (argv[minIdx + 1] ?? "") : null;
 if (minIdx >= 0) argv.splice(minIdx, 2);
 const [zipPath, version, notes = ""] = argv;
 
-if (!zipPath || !version) { console.error("HATA: kullanim: node scripts/publish_release.mjs <zipYolu> <surum> \"<notlar>\" [--min X.Y.Z]"); process.exit(1); }
+if (!zipPath || !version) { console.error("HATA: kullanim: node scripts/publish_release.mjs <zipYolu> <surum> \"<notlar>\" [--min X.Y.Z [--min-dusur]]"); process.exit(1); }
 if (!fs.existsSync(zipPath)) { console.error("HATA: zip bulunamadi: " + zipPath); process.exit(1); }
-if (!/^\d+\.\d+\.\d+$/.test(minSupported || "")) { console.error("HATA: --min X.Y.Z biciminde olmali."); process.exit(1); }
+
+// 0) En dusuk surum: sunucudaki mevcut deger okunamazsa yayin YAPILMAZ (korunamayacak degeri sifirlamamak icin).
+let minSupported;
+try {
+  const r = await fetch(`${API}/api/releases/latest`);
+  if (!r.ok && r.status !== 404) throw new Error(`sunucu ${r.status}`);
+  const onceki = r.ok ? await r.json() : null;
+  minSupported = enDusukSurumSec(minVerilen, onceki?.minSupportedVersion, dusurIzni);
+} catch (e) { console.error("HATA: en dusuk surum belirlenemedi: " + e.message); process.exit(1); }
 
 // 1) Checksum + boyut + IMZA (girişten önce: anahtar yoksa sunucuya hiç gidilmez)
 const buf = fs.readFileSync(zipPath);

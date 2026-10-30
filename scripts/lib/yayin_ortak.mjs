@@ -19,6 +19,24 @@ export function imzaMetni(surum, sha256Hex) {
 /** C# PaketImzasi.KurulumAraciEtiketi */
 export const KURULUM_ARACI_ETIKETI = "kurulum-araci";
 
+const SURUM = /^\d+\.\d+\.\d+$/;
+function surumKarsilastir(a, b) {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
+}
+
+/** En düşük desteklenen sürümü seçer (2026-10-30: 1.0.204'te --min unutulup 0.0.0'a düşmüştü).
+ *  --min verilmezse sunucudaki MEVCUT değer korunur; mevcuttan düşüğe ancak dusurIzni (--min-dusur) ile inilir. */
+export function enDusukSurumSec(verilen, mevcut, dusurIzni = false) {
+  const m = mevcut && SURUM.test(mevcut) ? mevcut : "0.0.0";
+  if (verilen == null) return m;
+  if (!SURUM.test(verilen)) throw new Error("--min X.Y.Z biciminde olmali.");
+  if (surumKarsilastir(verilen, m) < 0 && !dusurIzni)
+    throw new Error(`--min ${verilen} sunucudaki en dusuk surumden (${m}) kucuk; bilerek dusurmek icin --min-dusur ekleyin.`);
+  return verilen;
+}
+
 export function imzala(surum, sha256Hex) {
   const yol = process.env.DEPOWISE_IMZA_ANAHTARI
     || path.join(os.homedir(), ".claude-yedek", "anahtarlar", "DepoWise_paket_imza_ozel.pem");

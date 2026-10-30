@@ -55,13 +55,14 @@ dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x6
 Compress-Archive artifacts/rc/desktop-X.Y.Z/* artifacts/rc/DepoWise-desktop-X.Y.Z.zip
 $env:DEPOWISE_ADMIN_USER=[Environment]::GetEnvironmentVariable("DEPOWISE_ADMIN_USER","User")
 $env:DEPOWISE_ADMIN_PASS=[Environment]::GetEnvironmentVariable("DEPOWISE_ADMIN_PASS","User")
-node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-X.Y.Z.zip X.Y.Z "<NOT>" --min <MEVCUT en düşük sürüm>
+node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-X.Y.Z.zip X.Y.Z "<NOT>"
 ```
 - `<NOT>` = `GuncellemeNotlari.MasaustuMetni(not)` ile AYNI metin ("• madde" satırları). Masaüstündeki "Güncelleme
   Mevcut / Hazır" pencereleri bu sunucu notunu gösterir. Metni üretmek için katalogdaki masaüstü/ortak maddeleri
   "• " önekiyle satır satır birleştir (web'e özel maddeler HARİÇ).
-- **`--min` ŞART (2026-10-30 dersi):** verilmezse en düşük desteklenen sürüm **0.0.0**'a SIFIRLANIR (zorunlu güncelleme kuralı
-  sessizce gevşer). Önce `curl -s .../api/releases/latest` → `minSupportedVersion`'ı oku, aynısını ver (kullanıcı aksini istemedikçe).
+- **En düşük sürüm (2026-10-30):** `--min` verilmezse betik sunucudaki MEVCUT değeri okuyup korur (eskiden 0.0.0'a sıfırlanıyordu);
+  okuyamazsa yayın yapmaz. Mevcuttan düşük `--min` reddedilir, bilerek düşürmek yalnız `--min-dusur` ile (YayinBetigiTests).
+  Çıktıdaki "en dusuk=" değerini doğrula.
 - Zip'i yalnız `artifacts/rc/` içine koy (betik o klasörde eski paketleri temizler). Şifreyi ASLA ekrana yazma.
 - Doğrula: `curl -s https://depowise-erp.fly.dev/api/releases/latest` → version X.Y.Z, releaseNotes dolu.
 
