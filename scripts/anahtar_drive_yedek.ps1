@@ -20,6 +20,9 @@ try {
         $kaynak = Join-Path $kok $ad
         if (Test-Path $kaynak) { Copy-Item $kaynak (Join-Path $gecici ($ad.TrimStart('.') + ".txt")) }
     }
+    # 2026-10-30: Drive bağlantı ayarı (kendi Google kimliğimiz + jeton) — yeni bilgisayarda yeniden giriş gerekmeden kurulur
+    $rcloneConf = Join-Path $env:APPDATA "rclone\rclone.conf"
+    if (Test-Path $rcloneConf) { Copy-Item $rcloneConf (Join-Path $gecici "rclone.conf.txt") }
     $anahtarKlasoru = Join-Path $env:USERPROFILE ".claude-yedek\anahtarlar"
     if (Test-Path $anahtarKlasoru) { Get-ChildItem $anahtarKlasoru -File | ForEach-Object { Copy-Item $_.FullName (Join-Path $gecici $_.Name) } }
 
@@ -41,6 +44,9 @@ Dosyalar:
                                   (bilgisayarlar imzasız güncellemeyi kurmaz). Yeni bilgisayarda %USERPROFILE%\.claude-yedek\anahtarlar\ altına konur.
 - DepoWise_MFA_ANAHTARI.txt     : Sunucunun iki adımlı giriş bilgilerini şifreleyen anahtar (Fly.io sunucu ayarında da kayıtlı).
                                   Kaybolursa iki adımlı girişler yeniden kurulmak zorunda kalır.
+- rclone.conf.txt               : Drive bağlantı ayarı (kendi Google Cloud kimliğimiz "DepoWise Yedek" + izin jetonu). Yeni bilgisayarda
+                                  %APPDATA%\rclone\rclone.conf adıyla konur → yedekler yeniden girişsiz çalışır.
+- client_secret_*.json          : Google Cloud "DepoWise Yedek" projesinin masaüstü kimliği (jeton yenilemek gerekirse).
 - DepoWise_ISTEMCI_IP_ANAHTARI.txt : Sunucu ile web arasındaki istemci adresi doğrulama anahtarı (Fly.io sunucu ayarında da kayıtlı).
 
 Not: Fly.io, GitHub ve Supabase hesaplarınıza tarayıcıdan kendi Google/GitHub girişinizle girersiniz; onların ayrı şifresi burada yok.
