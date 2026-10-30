@@ -14,7 +14,10 @@ $ErrorActionPreference = "Stop"
 $kok = Join-Path $env:LOCALAPPDATA "DepoWiseTest"
 $apiKlasor = Join-Path $kok "api"; $webKlasor = Join-Path $kok "web"; $veri = Join-Path $kok "sunucu-veri"
 $apiAdres = "http://localhost:5491"; $webAdres = "http://localhost:5492"
-$tohumSifre = "TestOrtami!2026"; $denemeSifre = "Deneme2026!"
+$tohumSifre = "TestOrtami!2026"
+# Kullanıcı isteği (2026-10-30): "masaüstü test ortamının id ve şifresi 'deneme' olsun" — yalnız yerel test sunucusunda.
+$denemeSifre = "deneme"
+$denemeKullanicilar = @(@("deneme", "Deneme Masaüstü"), @("deneme2", "Deneme Web"))
 New-Item -ItemType Directory -Force $kok, $veri | Out-Null
 $gunluk = Join-Path $kok "test_ortami.log"
 function Yaz($m) { $s = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $m"; Add-Content -Path $gunluk -Value $s -Encoding utf8; Write-Output $m }
@@ -62,8 +65,10 @@ function Istek($yol, $govde, $jeton) {
 }
 
 function DenemeKullanicilari {
-    # Kurulu mu? deneme1 şifresiyle giriş deneyerek bak.
-    try { $null = Istek "/api/auth/login" @{ username = "deneme1"; password = $denemeSifre; companyId = "DEPOWISE" }; return } catch { }
+    # Kurulu mu? Her deneme kullanıcısı "deneme" şifresiyle girebiliyorsa iş yok.
+    $eksik = @($denemeKullanicilar | Where-Object {
+        try { $g = Istek "/api/auth/login" @{ username = $_[0]; password = $denemeSifre; companyId = "DEPOWISE" }; [bool]$g.mustChangePassword } catch { $true } })
+    if ($eksik.Count -eq 0) { return }
     $admin = (Istek "/api/auth/login" @{ username = "admin"; password = $tohumSifre; companyId = "DEPOWISE" }).token
     # Şube listesi düz dizi ya da { items: [...] } olarak gelebilir.
     function Subeler { $r = Istek "/api/branches" $null $admin; if ($r.items) { @($r.items) } else { @($r) | Where-Object { $_.id } } }
@@ -71,12 +76,22 @@ function DenemeKullanicilari {
     if ($subeler.Count -eq 0) { $null = Istek "/api/branches" @{ name = "Merkez" } $admin; $subeler = @(Subeler) }
     $sube = $subeler[0].id
     if (-not $sube) { throw "Test ortamında şube bulunamadı" }
-    foreach ($k in @(@("deneme1", "Deneme Masaüstü"), @("deneme2", "Deneme Web"))) {
+    $mevcut = Istek "/api/users" $null $admin
+    $mevcut = if ($mevcut.items) { @($mevcut.items) } else { @($mevcut) | Where-Object { $_.id } }
+    foreach ($k in $eksik) {
+        $var = $mevcut | Where-Object { $_.username -eq $k[0] } | Select-Object -First 1
+        # Varsa: firma yöneticisi başka bir yöneticinin şifresini değiştiremez (kural) → kullanıcı eski şifresiyle girip kendisi değiştirir.
+        if ($var) {
+            $g = Istek "/api/auth/login" @{ username = $k[0]; password = "Deneme2026!"; companyId = "DEPOWISE" }
+            $null = Istek "/api/users/$($var.id)/password" @{ password = $denemeSifre } $g.token
+            continue
+        }
+        # Yoksa geçici şifreyle açılır; ilk girişte "deneme" belirlenir.
         $null = Istek "/api/users" @{ username = $k[0]; password = "Gecici2026!"; fullName = $k[1]; roleKeys = @("role-company-admin"); branchId = $sube } $admin
         $g = Istek "/api/auth/login" @{ username = $k[0]; password = "Gecici2026!"; companyId = "DEPOWISE" }
         if ($g.mustChangePassword) { $null = Istek "/api/auth/change-initial-password" @{ newPassword = $denemeSifre } $g.token }
     }
-    Yaz "Deneme kullanıcıları kuruldu (deneme1, deneme2)"
+    Yaz ("Deneme kullanıcıları hazır: " + (($denemeKullanicilar | ForEach-Object { $_[0] }) -join ", ") + " (şifre: $denemeSifre)")
 }
 
 function EnYeniMasaustu {
@@ -116,7 +131,8 @@ if ($Derle) {
         if ($LASTEXITCODE -ne 0) { Yaz "HATA: $($p[0]) derlenemedi"; exit 2 }
     }
     SunuculariBaslat
-    DenemeKullanicilari
+    # Derleme bitti; kullanıcı kurulumu düşerse sessizce ölmesin, günlüğe yazılsın (simge yine kurulur).
+    try { DenemeKullanicilari } catch { Yaz "HATA: deneme kullanıcıları kurulamadı: $($_.Exception.Message)" }
     # Eski masaüstü sürümlerini temizle (en yeni 2 kalır; açık olan kilitliyse silinemez, sonra silinir).
     Get-ChildItem $kok -Directory -Filter "masaustu_*" | Sort-Object Name -Descending | Select-Object -Skip 2 |
         ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
