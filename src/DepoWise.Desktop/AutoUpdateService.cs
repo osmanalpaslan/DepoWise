@@ -214,10 +214,14 @@ public static class AutoUpdateService
         if (!HasPending) return false;
         try
         {
+            // ⭐ 2026-10-30: güncellemeden sonra yeniden giriş istenmesin — açık oturumun tek kullanımlık, 10 dk'lık bileti (yalnız
+            // bu sürüm kurulursa geçerli). Bkz. GuncellemeOturumu.
+            GuncellemeOturumu.Birak(PendingVersion!);
             UpdateInstaller.InstallAndRestart(PendingBytes!, PendingVersion!, PendingChecksum!, PendingSignature);
         }
         catch (Exception ex)
         {
+            GuncellemeOturumu.Sil();   // kurulum başlamadı → bilet geçersiz
             SonKurulumHatasi = ex.Message;
             // Bozuk/doğrulanamayan paketi elde tutma: aynı oturumda tekrar tekrar denenip
             // kullanıcıyı kilitlemesin. Bir sonraki girişte yeniden indirilir.

@@ -165,6 +165,16 @@ public static class ServerAuthClient
         try { SessionExpiredRaised?.Invoke(); } catch { }
     }
 
+    /// <summary>⭐ 2026-10-30: güncelleme sonrası otomatik girişte (GuncellemeOturumu) önceki sürümün sunucu jetonu geri yüklenir —
+    /// parola yeniden istenmez; süresi yakınsa <see cref="EnsureFreshTokenAsync"/> tazeler, geçersizse oturum düşmüş sayılır.</summary>
+    public static void OturumuGeriYukle(string? token, string? baseUrl)
+    {
+        Token = token;
+        BaseUrl = baseUrl;
+        TokenExpiresUtc = token is null ? null : ReadJwtExpiry(token);
+        SessionExpired = false;
+    }
+
     /// <summary>Token süresinin dolmasına bu süreden az kaldıysa proaktif yenilenir.</summary>
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromHours(2);
 

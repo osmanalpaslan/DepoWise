@@ -518,7 +518,18 @@ public sealed partial class LoginViewModel : ViewModelBase
         //   2) TANIMLAR/lookup → şube, birim, kategori… (iş kayıtlarının FK ebeveynleri)
         //   3) İŞ VERİSİ       → push (BusinessSyncService.Tables zaten FK-güvenli sırada), sonra pull
         // Paralel çalıştırılırsa iş kaydı, ebeveyn tanımı gelmeden gidip hata verebilir → SIRAYLA await edilir.
-        var u = Username.Trim(); var p = Password;
+        GirisSonrasiEsitlemeyiBaslat(Username.Trim(), Password);
+        RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
+        if (RememberMe) RememberMeService.Save(_authedSession);
+        else RememberMeService.Clear();
+        OnLoggedIn?.Invoke(_authedSession);
+        return true;
+    }
+
+    /// <summary>Giriş sonrası arka plan eşitlemesi (sıra aşağıda). 2026-10-30: güncelleme sonrası otomatik girişte de (App) çağrılır —
+    /// orada parola yoktur; tanım eşitlemesi girişte alınmış sunucu jetonunu kullanır (ServerAuthClient.JetonFor).</summary>
+    public static void GirisSonrasiEsitlemeyiBaslat(string u, string p)
+    {
         _ = System.Threading.Tasks.Task.Run(async () =>
         {
             // Z1: tek eşitleme kapısı — giriş senkronu, kabuğun periyodik tick'iyle çakışmasın.
@@ -536,11 +547,6 @@ public sealed partial class LoginViewModel : ViewModelBase
             }
             finally { SyncGate.Exit(); }
         });
-        RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
-        if (RememberMe) RememberMeService.Save(_authedSession);
-        else RememberMeService.Clear();
-        OnLoggedIn?.Invoke(_authedSession);
-        return true;
     }
 
     /// <summary>

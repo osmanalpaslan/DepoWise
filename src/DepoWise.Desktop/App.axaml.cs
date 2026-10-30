@@ -44,12 +44,32 @@ public partial class App : Avalonia.Application
             KisayolSimgesi.ArkaPlandaDuzelt();
             // ⭐ 2026-10-11 (kullanıcı isteği): AÇILIŞ ANİMASYONU — giriş penceresinden önce bir kez; tıklayınca geçer.
             // Yüklenemezse null döner ve doğrudan giriş açılır (açılış asla engellenmez).
+            // ⭐ 2026-10-30: GÜNCELLEME SONRASI OTOMATİK GİRİŞ — az önce güncelleme için kapanan oturumun bileti varsa ve geçerliyse
+            // giriş ekranı ATLANIR (kullanıcı: "güncelleme sonrası tekrar login olmamı istememeli"). Bkz. GuncellemeOturumu.
+            if (GuncellemeSonrasiDevam()) { base.OnFrameworkInitializationCompleted(); return; }
             var acilis = AcilisAnimasyonu.Goster(() => Avalonia.Threading.Dispatcher.UIThread.Post(ShowLogin));
             if (acilis is not null) desktop.MainWindow = acilis;
             else ShowLogin();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>Güncelleme biletiyle oturumu kurar (çalışma şubesi + sunucu jetonu + girişteki arka plan eşitlemesi) ve eşitleme
+    /// ekranından ana pencereye geçer. Bilet yok/geçersizse false → normal giriş.</summary>
+    private bool GuncellemeSonrasiDevam()
+    {
+        string surum;
+        try { surum = DesktopServices.Update.CurrentVersion(); } catch { return false; }
+        var sonuc = GuncellemeOturumu.Al(surum);
+        if (sonuc is null) return false;
+        DesktopServices.CurrentBranchId = sonuc.TumSubeler ? null : sonuc.SubeId;
+        DesktopServices.CurrentBranchName = sonuc.TumSubeler ? "Tüm Şubeler" : sonuc.SubeAdi;
+        DesktopServices.CurrentAllBranches = sonuc.TumSubeler;
+        DesktopServices.Session = sonuc.Oturum;
+        ViewModels.LoginViewModel.GirisSonrasiEsitlemeyiBaslat(sonuc.Kullanici, "");   // jetonla; parola gerekmez
+        ShowSyncThenMain(sonuc.Oturum, null);
+        return true;
     }
 
     /// <summary>Giriş penceresini gösterir; başarılı girişte MainWindow açılır. Açılışta ve çıkış sonrasında kullanılır.</summary>

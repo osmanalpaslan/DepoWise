@@ -1230,6 +1230,55 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-GUNC1 — 2026-10-30 (kullanıcı isteği: "güncelleme sonrası tekrar login olmamı istememeli"): güncelleme kurulmadan önce
+    /// bırakılan bilet yeni sürümde AYNI kullanıcı + çalışma şubesiyle oturumu kurar ve sunucu jetonunu geri yükler; TEK kullanımlıktır,
+    /// BAŞKA sürümde (kurulum geri alındı) ve süresi dolunca kullanılamaz.</summary>
+    [AvaloniaFact]
+    public void UITGUNC1_Guncelleme_Sonrasi_Otomatik_Giris()
+    {
+        var s = Ortam();
+        var oncekiOturum = DesktopServices.Session; var oncekiSube = DesktopServices.CurrentBranchId;
+        var oncekiSubeAdi = DesktopServices.CurrentBranchName; var oncekiTum = DesktopServices.CurrentAllBranches;
+        var oncekiJeton = DepoWise.Desktop.ServerAuthClient.Token; var oncekiAdres = DepoWise.Desktop.ServerAuthClient.BaseUrl;
+        try
+        {
+            DesktopServices.Session = s;
+            DesktopServices.CurrentBranchId = "sube-x"; DesktopServices.CurrentBranchName = "Merkez Şantiye"; DesktopServices.CurrentAllBranches = false;
+            var jeton = "aaa." + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"sub\":\"" + s.UserId + "\",\"exp\":4102444800}")).TrimEnd('=') + ".imza";
+            DepoWise.Desktop.ServerAuthClient.OturumuGeriYukle(jeton, "http://localhost:9");
+
+            DepoWise.Desktop.GuncellemeOturumu.Birak("9.9.9");
+            DepoWise.Desktop.ServerAuthClient.OturumuGeriYukle("baska", "http://baska");      // "yeniden başladı": bellek boş sayılır
+            var sonuc = DepoWise.Desktop.GuncellemeOturumu.Al("9.9.9");
+            Assert.NotNull(sonuc);
+            Assert.Equal(s.UserId, sonuc!.Oturum.UserId);
+            Assert.Equal(s.CompanyId, sonuc.Oturum.CompanyId);
+            Assert.Equal("sube-x", sonuc.SubeId);
+            Assert.Equal("Merkez Şantiye", sonuc.SubeAdi);
+            Assert.Equal("sube-x", sonuc.Oturum.OperatingBranchId);
+            Assert.Equal(jeton, DepoWise.Desktop.ServerAuthClient.Token);                 // sunucu oturumu geri geldi (parola yok)
+            Assert.Null(DepoWise.Desktop.GuncellemeOturumu.Al("9.9.9"));                  // TEK kullanımlık
+
+            DepoWise.Desktop.GuncellemeOturumu.Birak("9.9.9");
+            Assert.Null(DepoWise.Desktop.GuncellemeOturumu.Al("1.0.0"));                  // kurulum geri alındı → eski sürüm kullanamaz
+            Assert.Null(DepoWise.Desktop.GuncellemeOturumu.Al("9.9.9"));                  // ve bilet yine silindi
+
+            DepoWise.Desktop.GuncellemeOturumu.Birak("9.9.9", TimeSpan.FromSeconds(-1));
+            Assert.Null(DepoWise.Desktop.GuncellemeOturumu.Al("9.9.9"));                  // süresi dolmuş
+
+            DesktopServices.Session = null;
+            DepoWise.Desktop.GuncellemeOturumu.Birak("9.9.9");                             // açık oturum yoksa bilet bırakılmaz
+            Assert.Null(DepoWise.Desktop.GuncellemeOturumu.Al("9.9.9"));
+        }
+        finally
+        {
+            DepoWise.Desktop.GuncellemeOturumu.Sil();
+            DepoWise.Desktop.ServerAuthClient.OturumuGeriYukle(oncekiJeton, oncekiAdres);   // ortak durum: sonraki testler sahte sunucuya gitmesin
+            DesktopServices.Session = oncekiOturum; DesktopServices.CurrentBranchId = oncekiSube;
+            DesktopServices.CurrentBranchName = oncekiSubeAdi; DesktopServices.CurrentAllBranches = oncekiTum;
+        }
+    }
+
     /// <summary>UIT-SOHBET1 — 2026-10-29 (kullanıcı isteği): konuşmada son mesaj BENİMSE altında okunmadan "İletildi", karşı taraf
     /// okuyunca "Görüldü HH:mm"; son mesaj karşı tarafınsa yazı yok. Kişi listesi yoklaması (KarsiOkuduAt) eski mesajın okunmasını da taşır.</summary>
     [AvaloniaFact]
