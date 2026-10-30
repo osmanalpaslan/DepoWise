@@ -32,11 +32,17 @@ public sealed partial class KonusmaVm : ObservableObject
 
     // ═══ 2026-10-30 EMOJİ (kullanıcı isteği "mesaj kısmına emoji ve global emoji kısayolları") — kural ve liste EmojiKatalogu'nda (web ile ortak) ═══
 
-    /// <summary>Yazarken BİTEN kısayol (arkasından boşluk gelmiş) anında emojiye döner: ":) " → "🙂 ".</summary>
+    /// <summary>Yazarken BİTEN kısayol (arkasından boşluk gelmiş) anında emojiye döner: ":) " → "🙂 ".
+    /// 2026-10-30 düzeltmesi (kullanıcı: "emoji birkaç saniye sonra beliriyor"): değişiklik yazı kutusunun KENDİ güncellemesinin içinden
+    /// gelir; o anda modeli değiştirmek kutu tarafından geri eziliyordu (emoji ancak sonraki tazelemede görünüyordu). Dönüşüm kutunun işi
+    /// bitince, AYNI kare içinde yapılır (Post) → kutu yeni metni hemen alır, imleç sonda kalır.</summary>
     partial void OnTaslakChanged(string value)
     {
         var d = EmojiKatalogu.Donustur(value, sonDahil: false);
-        if (d != value) Taslak = d;
+        if (d == value) return;
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (Taslak == value) Taslak = d; });
+        else Taslak = d;
     }
 
     [ObservableProperty] private string _emojiArama = "";

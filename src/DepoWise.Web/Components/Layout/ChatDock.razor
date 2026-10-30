@@ -95,9 +95,11 @@
                         <button type="button" class="dw-emoji-dugme" aria-label="Emoji ekle" aria-expanded="@k.EmojiAcik"
                                 title="Emoji ekle — kısayollar da çalışır: :)  :D  <3  (y)  :kamyon:  :tamam:"
                                 @onclick="@(() => k.EmojiAcik = !k.EmojiAcik)">🙂</button>
-                        <MudTextField Value="k.Taslak" ValueChanged="@((string v) => TaslakDegisti(k, v))" Placeholder="Mesaj yazın…" Margin="Margin.Dense"
-                                      Variant="Variant.Outlined" Immediate="true"
-                                      OnKeyDown="@(e => EnterIleGonder(e, k))" />
+                        @* 2026-10-30 (kullanıcı: "emoji birkaç saniye sonra beliriyor"): MudTextField odaktayken dışarıdan gelen değeri yazıya
+                           geçirmeyi ERTELİYOR → kısayol dönüşümü geç görünüyordu. Sade kutu: değer her çizimde hemen kutuya yazılır. *@
+                        <input class="dw-chat-yaz" type="text" placeholder="Mesaj yazın…" aria-label="Mesaj" autocomplete="off"
+                               value="@k.Taslak" @oninput="@(e => TaslakDegisti(k, e.Value?.ToString() ?? ""))"
+                               @onkeydown="@(e => EnterIleGonder(e, k))" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                                    OnClick="@(() => Gonder(k))">Gönder</MudButton>
                     </div>

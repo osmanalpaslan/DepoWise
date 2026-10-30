@@ -1181,6 +1181,7 @@ public class YeniEkranlarArayuzTests
     {
         var kon = new KonusmaVm("u2", "Mustafa", true);
         kon.Taslak = "selam :) ";
+        Dispatcher.UIThread.RunJobs();   // dönüşüm aynı karede, kutunun işi bitince (UITEMOJI2)
         Assert.Equal("selam 🙂 ", kon.Taslak);
         kon.Taslak = "selam 🙂 :)";                       // bitmemiş kısayol yazarken dönmez
         Assert.Equal("selam 🙂 :)", kon.Taslak);
@@ -1201,6 +1202,31 @@ public class YeniEkranlarArayuzTests
         for (int i = 0; i < 5; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
         Assert.All(panel.Children.OfType<Button>(), b => Assert.True(b.Bounds.Width >= 30));
         Goruntu(w, "emoji-secici");
+        w.Close();
+    }
+
+    /// <summary>UIT-EMOJI2 — 2026-10-30 (kullanıcı bildirimi: "kısayolu yazıp boşluk bıraktıktan sonra emoji birkaç saniye sonra beliriyor"):
+    /// GERÇEK yazı kutusuna klavyeden ":) " yazılınca emoji AYNI ANDA kutuda görünür (bir sonraki tazelemeyi beklemez) ve imleç sonda kalır.</summary>
+    [AvaloniaFact]
+    public void UITEMOJI2_Kisayol_Kutuda_Hemen_Doner()
+    {
+        var kon = new KonusmaVm("u2", "Mustafa", true);
+        var kutu = new TextBox { Width = 300, [!TextBox.TextProperty] = new Avalonia.Data.Binding(nameof(KonusmaVm.Taslak)) { Mode = Avalonia.Data.BindingMode.TwoWay } };
+        kutu.DataContext = kon;
+        var w = Ac(new Border { Padding = new Avalonia.Thickness(10), Child = kutu }, 340, 80);
+        kutu.Focus();
+        Dispatcher.UIThread.RunJobs();
+        foreach (var harf in "selam :) ")
+        {
+            w.KeyTextInput(harf.ToString());
+            Dispatcher.UIThread.RunJobs();
+        }
+        Assert.Equal("selam 🙂 ", kon.Taslak);
+        Assert.Equal("selam 🙂 ", kutu.Text);                   // ekranda da HEMEN
+        Assert.Equal(kutu.Text!.Length, kutu.CaretIndex);       // imleç sonda: yazmaya devam edilebilir
+        w.KeyTextInput("t");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("selam 🙂 t", kutu.Text);
         w.Close();
     }
 

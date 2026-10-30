@@ -1601,6 +1601,9 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 .dw-emoji-sec { width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
 .dw-emoji-sec:hover { background: var(--mud-palette-action-default-hover); }
 .dw-chat-input .mud-input-control { flex: 1; }
+.dw-chat-yaz { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; font: inherit; font-size: .9rem;
+    border: 1px solid var(--mud-palette-lines-inputs); background: transparent; color: var(--mud-palette-text-primary); outline: none; }
+.dw-chat-yaz:focus { border-color: var(--mud-palette-primary); }
 
 .dw-chat-person {
     display: flex;
