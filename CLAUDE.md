@@ -59,6 +59,8 @@
   söylenir (ölçümler hafızadaki `depowise-test-suresi` notunda: tam ~170 dk, senkron paketi ~22 dk…). **Ortalamaya ulaşıldığı AN**
   (pay yok; sıkılaştırma 2026-10-25) sormadan durum kontrol edilir ve bildirilir, sonra her +15 dk'da tekrar; hatırlatıcı tam
   ortalama süreye kurulur. Koşu sırasında boş bekleme yok: sıradaki işin kodu/yaması derlemeden hazırlanır (genel kural). `*>` günlüğü UTF-16'dır → sonuç için `artifacts/test-sonuc.trx`'e de bak.
+- **Kalıcı test ortamı (kullanıcı kuralı 2026-10-30):** görünür her işin commit+push'undan sonra SORMADAN `scripts/test_ortami.ps1 -Derle`
+  (Start-Process, -Wait YOK; günlükte TAMAM/HATA). Kullanıcı masaüstündeki "DepoWise Test" simgesiyle yayından önce bakar. Tam koşu sırasında derleme yok.
 - **QA araçları** (varsayılan kapalı, açma kararı Claude'da, sonrasında kapatılır):
   masaüstü `scripts/run_ui_tests.ps1` (Avalonia Headless + Skia, görüntü `artifacts/ui-ekran/`);
   web `cd tests/web-e2e && npx playwright test --workers=1` (canlıda yalnız okur; tek koşu, art arda yükleme yapma);
