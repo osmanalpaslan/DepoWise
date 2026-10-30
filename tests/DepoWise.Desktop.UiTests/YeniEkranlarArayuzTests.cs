@@ -1174,6 +1174,36 @@ public class YeniEkranlarArayuzTests
         w.Close();
     }
 
+    /// <summary>UIT-EMOJI1 — 2026-10-30 (kullanıcı isteği): sohbet yazarken biten kısayol emojiye döner (":) " → "🙂 "), seçiciden emoji eklenir
+    /// ve "Son kullanılanlar"a girer; seçici düğmeleri emojiyi gerçekten çizer (görüntü emoji-secici.png).</summary>
+    [AvaloniaFact]
+    public void UITEMOJI1_Sohbet_Emoji()
+    {
+        var kon = new KonusmaVm("u2", "Mustafa", true);
+        kon.Taslak = "selam :) ";
+        Assert.Equal("selam 🙂 ", kon.Taslak);
+        kon.Taslak = "selam 🙂 :)";                       // bitmemiş kısayol yazarken dönmez
+        Assert.Equal("selam 🙂 :)", kon.Taslak);
+        kon.Taslak = "";
+        kon.EmojiEkleCommand.Execute("🚚");
+        kon.EmojiEkleCommand.Execute("✅");
+        Assert.Equal("🚚 ✅", kon.Taslak);
+        kon.EmojileriTazele();
+        Assert.Equal("Son kullanılanlar", kon.GorunenEmojiler[0].Ad);
+        Assert.Equal("✅", kon.GorunenEmojiler[0].Ogeler[0].Emoji);
+        kon.EmojiArama = "kamyon";
+        Assert.Contains(kon.GorunenEmojiler.Single().Ogeler, o => o.Emoji == "🚚");
+
+        var panel = new WrapPanel { Width = 320 };
+        foreach (var o in DepoWise.Application.Ui.EmojiKatalogu.Tumu.Take(40))
+            panel.Children.Add(new Button { Classes = { "EmojiSec" }, Content = o.Emoji });
+        var w = Ac(new Border { Padding = new Avalonia.Thickness(10), Child = panel }, 360, 220);
+        for (int i = 0; i < 5; i++) { AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+        Assert.All(panel.Children.OfType<Button>(), b => Assert.True(b.Bounds.Width >= 30));
+        Goruntu(w, "emoji-secici");
+        w.Close();
+    }
+
     /// <summary>UIT-SOHBET1 — 2026-10-29 (kullanıcı isteği): konuşmada son mesaj BENİMSE altında okunmadan "İletildi", karşı taraf
     /// okuyunca "Görüldü HH:mm"; son mesaj karşı tarafınsa yazı yok. Kişi listesi yoklaması (KarsiOkuduAt) eski mesajın okunmasını da taşır.</summary>
     [AvaloniaFact]

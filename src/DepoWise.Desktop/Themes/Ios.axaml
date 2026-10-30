@@ -203,6 +203,35 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
     </Style>
 
+    <!-- Sohbet emoji seçici (2026-10-30): 300 px panel, arama, kategori başlığı, 36 px emoji düğmeleri (üzerine gelince hafif zemin). -->
+    <Style Selector="Border.EmojiPanel">
+        <Setter Property="Width" Value="312"/>
+        <Setter Property="Padding" Value="10"/>
+    </Style>
+    <Style Selector="TextBlock.EmojiKategoriAd">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="Margin" Value="4,2,0,2"/>
+    </Style>
+    <Style Selector="Button.EmojiSec">
+        <Setter Property="Width" Value="36"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="20"/>
+        <!-- Uygulama yazı tipi Inter bazı simgelerin (❤) TEK RENKLİ karşılığını taşıyor → seçicide Windows'un renkli emoji yazı tipi önce. -->
+        <Setter Property="FontFamily" Value="Segoe UI Emoji, avares://Avalonia.Fonts.Inter/Assets#Inter"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.EmojiSec:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+    </Style>
+
     <!-- Sohbet "Görüldü / İletildi" (2026-10-29): balonun altında küçük, soluk yazı. -->
     <Style Selector="TextBlock.GorulduYazi">
         <Setter Property="FontSize" Value="11"/>

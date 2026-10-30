@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:ui="using:DepoWise.Application.Ui"
         xmlns:search="using:DepoWise.Infrastructure.Search"
         xmlns:ctrl="using:DepoWise.Desktop.Controls"
         xmlns:local="using:DepoWise.Desktop"
@@ -888,13 +889,51 @@
                         <StackPanel Spacing="6">
                             <SelectableTextBlock Text="{Binding Hata}" Classes="Helper" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
                                                  IsVisible="{Binding Hata, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <TextBox Grid.Column="0" Classes="SohbetYaz" Text="{Binding Taslak}" PlaceholderText="Mesaj" AcceptsReturn="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <!-- 2026-10-30 (kullanıcı isteği): EMOJİ seçici — arama + son kullanılanlar + kategoriler. Kısayollar (:) <3 (y) :kamyon:)
+                                     yazarken kendiliğinden emojiye döner (EmojiKatalogu, web ile ortak). Windows'un Win+. paneli de çalışır. -->
+                                <Button Grid.Column="0" Classes="SohbetIkon EmojiDugme" AutomationProperties.Name="Emoji ekle"
+                                        ToolTip.Tip="Emoji ekle — kısayollar da çalışır: :)  :D  &lt;3  (y)  :kamyon:  :tamam:">
+                                    <TextBlock Text="🙂" FontSize="18"/>
+                                    <Button.Flyout>
+                                        <Flyout Placement="TopEdgeAlignedLeft">
+                                            <Border Classes="EmojiPanel" x:DataType="vm:KonusmaVm">
+                                                <DockPanel>
+                                                    <TextBox DockPanel.Dock="Top" Classes="EmojiAra" Text="{Binding EmojiArama}" PlaceholderText="Emoji ara (ör. kamyon, tamam)"
+                                                             AutomationProperties.Name="Emoji ara"/>
+                                                    <ScrollViewer MaxHeight="260" Margin="0,8,0,0">
+                                                        <ItemsControl ItemsSource="{Binding GorunenEmojiler}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="ui:EmojiKategori">
+                                                                    <StackPanel Spacing="2" Margin="0,0,0,8">
+                                                                        <TextBlock Text="{Binding Ad}" Classes="EmojiKategoriAd"/>
+                                                                        <ItemsControl ItemsSource="{Binding Ogeler}">
+                                                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                            <ItemsControl.ItemTemplate>
+                                                                                <DataTemplate x:DataType="ui:EmojiOgesi">
+                                                                                    <Button Classes="EmojiSec" Content="{Binding Emoji}" ToolTip.Tip="{Binding Ipucu}"
+                                                                                            AutomationProperties.Name="{Binding Ad}"
+                                                                                            Command="{Binding $parent[ItemsControl;1].((vm:KonusmaVm)DataContext).EmojiEkleCommand}"
+                                                                                            CommandParameter="{Binding Emoji}"/>
+                                                                                </DataTemplate>
+                                                                            </ItemsControl.ItemTemplate>
+                                                                        </ItemsControl>
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </DockPanel>
+                                            </Border>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                                <TextBox Grid.Column="1" Classes="SohbetYaz" Text="{Binding Taslak}" PlaceholderText="Mesaj" AcceptsReturn="False">
                                     <TextBox.KeyBindings>
                                         <KeyBinding Gesture="Enter" Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}" CommandParameter="{Binding}"/>
                                     </TextBox.KeyBindings>
                                 </TextBox>
-                                <Button Grid.Column="1" Classes="SohbetGonder" Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}" CommandParameter="{Binding}"
+                                <Button Grid.Column="2" Classes="SohbetGonder" Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Chat.GonderCommand}" CommandParameter="{Binding}"
                                         AutomationProperties.Name="Gönder" ToolTip.Tip="Gönder (Enter)">
                                     <PathIcon Data="M12 4 4 12l1.4 1.4L11 7.8V20h2V7.8l5.6 5.6L20 12l-8-8Z"/>
                                 </Button>

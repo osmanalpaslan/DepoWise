@@ -67,8 +67,35 @@
                     {
                         <MudText Typo="Typo.caption" Color="Color.Error">@k.Hata</MudText>
                     }
+                    @* 2026-10-30 (kullanıcı isteği): EMOJİ seçici + kısayollar (:) <3 (y) :kamyon:) — masaüstüyle aynı EmojiKatalogu. *@
+                    @if (k.EmojiAcik)
+                    {
+                        <div class="dw-emoji-panel" role="dialog" aria-label="Emoji seç">
+                            <input class="dw-emoji-ara" type="search" placeholder="Emoji ara (ör. kamyon, tamam)" aria-label="Emoji ara"
+                                   value="@k.EmojiArama" @oninput="@(e => k.EmojiArama = e.Value?.ToString() ?? "")" />
+                            <div class="dw-emoji-liste">
+                                @foreach (var kat in EmojiKategorileri(k))
+                                {
+                                    <div class="dw-emoji-kat">@kat.Ad</div>
+                                    <div class="dw-emoji-izgara">
+                                        @foreach (var o in kat.Ogeler)
+                                        {
+                                            <button type="button" class="dw-emoji-sec" title="@o.Ipucu" aria-label="@o.Ad" @onclick="@(() => EmojiEkle(k, o))">@o.Emoji</button>
+                                        }
+                                    </div>
+                                }
+                                @if (!EmojiKategorileri(k).Any())
+                                {
+                                    <div class="dw-emoji-kat">Sonuç yok</div>
+                                }
+                            </div>
+                        </div>
+                    }
                     <div class="dw-chat-input">
-                        <MudTextField @bind-Value="k.Taslak" Placeholder="Mesaj yazın…" Margin="Margin.Dense"
+                        <button type="button" class="dw-emoji-dugme" aria-label="Emoji ekle" aria-expanded="@k.EmojiAcik"
+                                title="Emoji ekle — kısayollar da çalışır: :)  :D  <3  (y)  :kamyon:  :tamam:"
+                                @onclick="@(() => k.EmojiAcik = !k.EmojiAcik)">🙂</button>
+                        <MudTextField Value="k.Taslak" ValueChanged="@((string v) => TaslakDegisti(k, v))" Placeholder="Mesaj yazın…" Margin="Margin.Dense"
                                       Variant="Variant.Outlined" Immediate="true"
                                       OnKeyDown="@(e => EnterIleGonder(e, k))" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
@@ -190,6 +217,8 @@
         public bool Online, Acik = true;
         public int Okunmamis;
         public string Taslak = "", Hata = "";
+        public bool EmojiAcik;
+        public string EmojiArama = "";
         public long? SonZaman;
         public long? KarsiOkuduAt;
         public List<Mesaj> Mesajlar = new();
@@ -450,9 +479,36 @@
         if (e.Key == "Enter") await Gonder(kon);
     }
 
+    // ═══ 2026-10-30 EMOJİ — kural ve liste DepoWise.Application.Ui.EmojiKatalogu (masaüstüyle ortak) ═══
+
+    /// <summary>Son seçilen emojiler — BU OTURUMA özel (bileşen alanı; web tek süreçte tüm kullanıcılara hizmet ettiği için static DEĞİL).</summary>
+    private readonly List<DepoWise.Application.Ui.EmojiOgesi> _sonEmojiler = new();
+
+    private IReadOnlyList<DepoWise.Application.Ui.EmojiKategori> EmojiKategorileri(Konusma k)
+    {
+        var bulunan = DepoWise.Application.Ui.EmojiKatalogu.Ara(k.EmojiArama);
+        if (!string.IsNullOrWhiteSpace(k.EmojiArama) || _sonEmojiler.Count == 0) return bulunan;
+        return new[] { new DepoWise.Application.Ui.EmojiKategori("Son kullanılanlar", _sonEmojiler.ToList()) }.Concat(bulunan).ToList();
+    }
+
+    /// <summary>Yazarken BİTEN kısayol (arkasından boşluk) anında emojiye döner.</summary>
+    private void TaslakDegisti(Konusma k, string v)
+        => k.Taslak = DepoWise.Application.Ui.EmojiKatalogu.Donustur(v ?? "", sonDahil: false);
+
+    private void EmojiEkle(Konusma k, DepoWise.Application.Ui.EmojiOgesi o)
+    {
+        var t = k.Taslak ?? "";
+        k.Taslak = t + (t.Length > 0 && !char.IsWhiteSpace(t[^1]) ? " " : "") + o.Emoji;
+        _sonEmojiler.Remove(o);
+        _sonEmojiler.Insert(0, o);
+        if (_sonEmojiler.Count > 12) _sonEmojiler.RemoveAt(12);
+    }
+
     private async Task Gonder(Konusma kon)
     {
-        var metin = (kon.Taslak ?? "").Trim();
+        // Gönderirken metnin SONUNDAKİ kısayol da döner ("tamam :)" + Enter → "tamam 🙂").
+        var metin = DepoWise.Application.Ui.EmojiKatalogu.Donustur((kon.Taslak ?? "").Trim(), sonDahil: true);
+        kon.EmojiAcik = false;
         if (metin.Length == 0) return;
         kon.Hata = "";
         try

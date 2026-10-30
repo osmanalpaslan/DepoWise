@@ -44,6 +44,8 @@
       web'in "her şeyi API'den al" sınırını gevşetmez.
     -->
     <Compile Include="..\DepoWise.Application\Ui\MovementTypeOptions.cs" Link="Services\MovementTypeOptions.cs" />
+    <!-- 2026-10-30: sohbet emoji listesi + kısayol kuralı — masaüstüyle TEK kaynak (iki ortam aynı dönüşümü yapar). -->
+    <Compile Include="..\DepoWise.Application\Ui\EmojiKatalogu.cs" Link="Services\EmojiKatalogu.cs" />
     <!--
       G2/G6 (2026-08-12): MERKEZİ EKRAN KATALOĞU (AppScreens) — yukarıdakilerle AYNI gerekçe ve AYNI desen.
       Eskiden web menüsü (46 bağlantı) masaüstü menüsünün (40 bağlantı) ELLE tutulan aynasıydı; dosyanın

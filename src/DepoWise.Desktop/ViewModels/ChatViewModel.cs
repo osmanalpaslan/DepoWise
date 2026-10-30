@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Chat;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -28,6 +29,47 @@ public sealed partial class KonusmaVm : ObservableObject
 
     public bool OkunmamisVar => Okunmamis > 0;
     partial void OnOkunmamisChanged(int value) => OnPropertyChanged(nameof(OkunmamisVar));
+
+    // ═══ 2026-10-30 EMOJİ (kullanıcı isteği "mesaj kısmına emoji ve global emoji kısayolları") — kural ve liste EmojiKatalogu'nda (web ile ortak) ═══
+
+    /// <summary>Yazarken BİTEN kısayol (arkasından boşluk gelmiş) anında emojiye döner: ":) " → "🙂 ".</summary>
+    partial void OnTaslakChanged(string value)
+    {
+        var d = EmojiKatalogu.Donustur(value, sonDahil: false);
+        if (d != value) Taslak = d;
+    }
+
+    [ObservableProperty] private string _emojiArama = "";
+    /// <summary>Seçicide görünen kategoriler: aramasızken önce "Son kullanılanlar", sonra tüm kategoriler; aramada sonuçlar.</summary>
+    public ObservableCollection<EmojiKategori> GorunenEmojiler { get; } = new();
+    partial void OnEmojiAramaChanged(string value) => EmojileriTazele();
+
+    /// <summary>Bu oturumda son seçilen emojiler (tüm konuşmalarda ortak, en yeni başta, en fazla 12).</summary>
+    private static readonly System.Collections.Generic.List<EmojiOgesi> _sonKullanilanlar = new();
+
+    public void EmojileriTazele()
+    {
+        GorunenEmojiler.Clear();
+        if (string.IsNullOrWhiteSpace(EmojiArama) && _sonKullanilanlar.Count > 0)
+            GorunenEmojiler.Add(new EmojiKategori("Son kullanılanlar", _sonKullanilanlar.ToList()));
+        foreach (var k in EmojiKatalogu.Ara(EmojiArama)) GorunenEmojiler.Add(k);
+    }
+
+    /// <summary>Seçilen emojiyi mesajın sonuna ekler (gerekirse önüne boşluk koyar) ve son kullanılanlara yazar.</summary>
+    [RelayCommand]
+    private void EmojiEkle(string? emoji)
+    {
+        if (string.IsNullOrEmpty(emoji)) return;
+        var t = Taslak ?? "";
+        Taslak = t + (t.Length > 0 && !char.IsWhiteSpace(t[^1]) ? " " : "") + emoji;
+        var oge = EmojiKatalogu.Tumu.FirstOrDefault(o => o.Emoji == emoji);
+        if (oge is not null)
+        {
+            _sonKullanilanlar.Remove(oge);
+            _sonKullanilanlar.Insert(0, oge);
+            if (_sonKullanilanlar.Count > 12) _sonKullanilanlar.RemoveAt(12);
+        }
+    }
 
     public ObservableCollection<ChatMesaj> Mesajlar { get; } = new();
 
@@ -54,6 +96,7 @@ public sealed partial class KonusmaVm : ObservableObject
         Display = display;
         _online = online;
         Mesajlar.CollectionChanged += (_, _) => GorulduHesapla();
+        EmojileriTazele();
     }
 }
 
@@ -391,7 +434,8 @@ public sealed partial class ChatViewModel : ObservableObject, IDisposable
     private async Task Gonder(KonusmaVm? kon)
     {
         if (kon is null) return;
-        var metin = (kon.Taslak ?? "").Trim();
+        // Gönderirken metnin SONUNDAKİ kısayol da döner ("tamam :)" + Enter → "tamam 🙂").
+        var metin = EmojiKatalogu.Donustur((kon.Taslak ?? "").Trim(), sonDahil: true);
         if (metin.Length == 0) return;
 
         kon.Hata = null;

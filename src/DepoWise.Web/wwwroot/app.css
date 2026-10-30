@@ -1589,6 +1589,17 @@ body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #2417
 
 .dw-chat-foot { padding: 8px; border-top: 1px solid var(--mud-palette-lines-default); }
 .dw-chat-input { display: flex; gap: 6px; align-items: center; }
+/* 2026-10-30 sohbet emoji seçici — masaüstü EmojiPanel ile aynı dil (arama, kategori başlığı, 34 px düğmeler) */
+.dw-emoji-dugme { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; font-size: 18px; cursor: pointer; line-height: 1; }
+.dw-emoji-dugme:hover, .dw-emoji-dugme[aria-expanded="true"] { background: var(--mud-palette-action-default-hover); }
+.dw-emoji-panel { margin: 0 0 6px; padding: 8px; border-radius: 12px; border: 1px solid var(--mud-palette-lines-default); background: var(--mud-palette-surface); }
+.dw-emoji-ara { width: 100%; box-sizing: border-box; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--mud-palette-lines-default);
+    background: transparent; color: var(--mud-palette-text-primary); font: inherit; font-size: .85rem; }
+.dw-emoji-liste { max-height: 200px; overflow-y: auto; margin-top: 6px; }
+.dw-emoji-kat { font-size: .72rem; font-weight: 600; color: var(--mud-palette-text-secondary); margin: 6px 2px 2px; }
+.dw-emoji-izgara { display: flex; flex-wrap: wrap; }
+.dw-emoji-sec { width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.dw-emoji-sec:hover { background: var(--mud-palette-action-default-hover); }
 .dw-chat-input .mud-input-control { flex: 1; }
 
 .dw-chat-person {
