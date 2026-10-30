@@ -1,4 +1,4 @@
-# Kullanim: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\anahtar_drive_yedek.ps1  (yeni sifre/anahtar olusunca CALISTIR)
+﻿# Kullanim: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\anahtar_drive_yedek.ps1  (yeni sifre/anahtar olusunca CALISTIR)
 # 2026-10-29 (kullanıcı isteği: "ileride saklamam gereken bir şifre/anahtar var ise google drive hesabıma kaydet. bu bilgisayara
 # ileride erişimim olmayabilir"). Gizli dosyalar geçici klasörde toplanır → rclone ile Drive "DepoWise_Anahtarlar" klasörüne kopyalanır →
 # geçici klasör silinir. HİÇBİR değer ekrana yazılmaz; yalnız dosya adları ve sonuç yazılır.
@@ -15,6 +15,14 @@ try {
                   "DEPOWISE_ADMIN_USER=$u", "DEPOWISE_ADMIN_PASS=$p")
     if ($t) { $satirlar += "DEPOWISE_ADMIN_TOTP=$t" }
     Set-Content -Path (Join-Path $gecici "yayin_yonetici_hesabi.txt") -Value $satirlar -Encoding utf8
+    # 2026-10-30: Fly.io kalıcı yayın anahtarı (1 yıllık org jetonu) — tarayıcı oturumu düşse de yayın sürer
+    $fly = [Environment]::GetEnvironmentVariable("FLY_API_TOKEN", "User")
+    if ($fly) {
+        Set-Content -Path (Join-Path $gecici "fly_yayin_anahtari.txt") -Encoding utf8 -Value @(
+            "# Fly.io yayın anahtarı (org 'personal', 2026-10-30'da 1 yıllık oluşturuldu → 2027-10-30'da yenilenmeli)",
+            "# Yeni bilgisayarda Windows kullanıcı ortam değişkeni olarak tanımlayın: setx FLY_API_TOKEN ""<aşağıdaki değer>""",
+            "FLY_API_TOKEN=$fly")
+    }
 
     foreach ($ad in ".env.test.local", ".env.supabase.local", ".env.pgtest.local") {
         $kaynak = Join-Path $kok $ad
@@ -48,6 +56,8 @@ Dosyalar:
                                   %APPDATA%\rclone\rclone.conf adıyla konur → yedekler yeniden girişsiz çalışır.
 - client_secret_*.json          : Google Cloud "DepoWise Yedek" projesinin masaüstü kimliği (jeton yenilemek gerekirse).
 - DepoWise_ISTEMCI_IP_ANAHTARI.txt : Sunucu ile web arasındaki istemci adresi doğrulama anahtarı (Fly.io sunucu ayarında da kayıtlı).
+
+- fly_yayin_anahtari.txt        : Fly.io'ya tarayıcı girişi olmadan yayın yapma anahtarı (1 yıllık; bitiş 2027-10-30).
 
 Not: Fly.io, GitHub ve Supabase hesaplarınıza tarayıcıdan kendi Google/GitHub girişinizle girersiniz; onların ayrı şifresi burada yok.
 "@

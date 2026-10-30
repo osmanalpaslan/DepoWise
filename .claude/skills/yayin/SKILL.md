@@ -37,6 +37,10 @@ cd "$D" && flyctl deploy --config fly.toml --remote-only        # depowise-erp
 curl -s https://depowise-erp.fly.dev/api/releases/latest         # API ayakta mı
 cd "$D" && flyctl deploy --config fly.web.toml --remote-only    # depowise-web (512 MB + swap; [[vm]] korunur)
 ```
+Fly girişi: kullanıcı ortam değişkeni `FLY_API_TOKEN` (org "personal" jetonu, 2026-10-30'da 1 yıllık; Drive
+`DepoWise_Anahtarlar/fly_yayin_anahtari.txt`) — tarayıcı oturumu gerekmez. Yeni PowerShell'de yoksa
+`$env:FLY_API_TOKEN=[Environment]::GetEnvironmentVariable("FLY_API_TOKEN","User")`. "unauthorized/expired" → `flyctl tokens create org
+personal --expiry 8760h` ile yenile, ortam değişkenine yaz, `scripts/anahtar_drive_yedek.ps1` çalıştır (bitiş: 2027-10-30).
 Deploy hatasında: log oku (`flyctl logs -a <app>`), düzelt, commit, YENİ temiz kopyadan tekrar. Bellek/swap ayarını
 fly.web.toml'da ÜST düzeyde tut (bir `[bölüm]` altına yazılırsa yok sayılır).
 
