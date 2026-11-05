@@ -39,4 +39,17 @@ public class TestGuvenilirligiTests
         Assert.Contains("exit 3", s[eksik..gecti]);
         Assert.Contains("if ($PostgresAtla)", s[..gecti]);
     }
+
+    /// <summary>⭐ 2026-11-05: betik BOM'suz UTF-8; Windows PowerShell 5.1 onu ANSI okur. Yorum dışı satırdaki «—» bozulup
+    /// tırnak sayıldı ve «atlanan test → EKSİK KOŞU» kapısı HİÇ çalışmadı (65 PG testi atlanmışken «geçti» yazdı).
+    /// Yorum dışı satırlar yalnız ASCII olmalı.</summary>
+    [Fact]
+    public void RunTests_Kod_Satirlari_Yalniz_Ascii()
+    {
+        var kotu = Oku("scripts/run_tests.ps1").Split('\n')
+            .Select((l, i) => (l, i: i + 1))
+            .Where(x => !x.l.TrimStart().StartsWith("#") && x.l.Any(c => c > 127))
+            .Select(x => $"{x.i}: {x.l.Trim()}").ToList();
+        Assert.True(kotu.Count == 0, "run_tests.ps1 yorum dışı ASCII olmayan satır:\n" + string.Join("\n", kotu));
+    }
 }
