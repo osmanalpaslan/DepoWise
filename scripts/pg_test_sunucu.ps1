@@ -70,7 +70,9 @@ $hedef = "DEPOWISE_PG_URL=Host=localhost;Port=$port;Database=depowise_test;Usern
 foreach ($envDosya in $envDosyalari) { if (-not (Test-Path $envDosya)) { Set-Content -Path $envDosya -Value "# Yerel PG test sunucusu (scripts/pg_test_sunucu.ps1)" -Encoding utf8 }
     $satirlar = Get-Content $envDosya -Encoding UTF8   # 2026-10-10: kodlama verilmezse PS 5.1 ANSI okur → Türkçe değerler (ör. "Oze İnşaat") bozuluyordu
     if (-not ($satirlar -contains $hedef)) {
-        $yeni = $satirlar | Where-Object { $_ -notlike "DEPOWISE_PG_URL=*" }
+        # @(): tek satırlı dosyada Get-Content dizi değil METİN döner; += o zaman satırı aynı satıra YAPIŞTIRIYORDU
+        # (2026-11-05: yeni çalışma kopyasında PG testleri "adres yok" diye 63 test atlandı).
+        $yeni = @($satirlar | Where-Object { $_ -notlike "DEPOWISE_PG_URL=*" })
         $yeni += $hedef
         Set-Content -Path $envDosya -Value $yeni -Encoding utf8
         Write-Output "[pg] $(Split-Path $envDosya -Leaf) yerel test sunucusuna yonlendirildi."
