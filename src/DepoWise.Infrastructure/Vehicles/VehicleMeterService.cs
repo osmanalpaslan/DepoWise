@@ -91,8 +91,13 @@ internal static class VehicleMeterService
     /// (iz kaybolmaz; kullanıcı neyin neden değiştiğini görebilir).
     /// </summary>
     /// <returns>Sayaç değiştiyse true.</returns>
+    /// <param name="dayanaksizsaDokunma">
+    /// ⭐ SAY-01 (2026-11-05): true ise hiçbir dayanak kaydı olmayan (hesap 0) aracın sayacı DÜŞÜRÜLMEZ. Sunucu tarafı
+    /// eşitleme onarımı bunu kullanır: içe aktarmayla sayacı gelen ama hiç yakıt/bakım/elle beyan kaydı olmayan araçların
+    /// (canlıda 94 araç) sayacı sıfırlanmasın.
+    /// </param>
     internal static bool Tazele(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId,
-        string kaynak, long now)
+        string kaynak, long now, bool dayanaksizsaDokunma = false)
     {
         if (string.IsNullOrWhiteSpace(vehicleId)) return false;
 
@@ -100,6 +105,7 @@ internal static class VehicleMeterService
         if (mevcut is null) return false;                    // araç yok / başka firma → dokunma
         var gercek = Hesapla(conn, tx, companyId, vehicleId);
         if (gercek == mevcut.Value) return false;
+        if (dayanaksizsaDokunma && gercek <= 0m) return false;
 
         using (var upd = conn.CreateCommand())
         {
