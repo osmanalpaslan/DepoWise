@@ -121,8 +121,8 @@ try {
     } catch { Write-Output "(TRX okunamadi: $_)"; $testKodu = 3 }
   }
   if ($testKodu -eq 0 -and $atlanan -gt 0) {
-    if ($PostgresAtla) { Write-Output "UYARI: $atlanan test ATLANDI (-PostgresAtla istendi) — bu kosu yayin karari icin TAM SAYILMAZ." }
-    else { Write-Output "SONUC: EKSIK KOSU — $atlanan test ATLANDI (calistirilmadi). PG sunucusu acik mi? (scripts/pg_test_sunucu.ps1)"; exit 3 }
+    if ($PostgresAtla) { Write-Output "UYARI: $atlanan test ATLANDI (-PostgresAtla istendi) - bu kosu yayin karari icin TAM SAYILMAZ." }
+    else { Write-Output "SONUC: EKSIK KOSU - $atlanan test ATLANDI (calistirilmadi). PG sunucusu acik mi? (scripts/pg_test_sunucu.ps1)"; exit 3 }
   }
   if ($testKodu -eq 0) { Write-Output "SONUC: TUM TESTLER GECTI" }
   else {
