@@ -5,6 +5,12 @@
 
 **Özet (2026-10-28):** YAYINDA — AR-GE büyük yenileme (master = ddfc38e0): API + web + masaüstü **1.0.203** (imzalı, ZORUNLU güncelleme: en düşük 1.0.203) + imzalı kurulum aracı. Şema 125. Sıradaki: kullanıcı web'de süper admin iki adımlı girişini kurar; duman testi hesabının iki adımlı girişi (kullanıcı onayı bekliyor).
 
+## 🚑 2026-11-05 ACİL YAYIN — SAY-01 sayaç düzeltmesi (yalnız API; dal hotfix/sayac-geri-donus → master)
+- Olay: hatalı km yakıt kaydı düzeltildi ama araç sayacı/yeni fişin «Önceki» değeri eski kaldı (06 FZ 4147 + 8 araç, Oze). Kök neden: masaüstü yerelde yeniden hesaplıyor, sunucu SNK-01 ile düşük değeri reddediyor, çekmede hatalı değer geri iniyordu.
+- 2a194497 sunucu gönderim sonrası paketteki yakıt/bakım/sayaç günlüğü/araç satırlarının araç sayacını Hesapla ile yeniden hesaplar (dayanaksız araç sıfırlanmaz) · be8c5d1b pg_test_sunucu tek satır env hatası · 472d4eff güncelleme notu.
+- Testler (kullanıcı kararı 2026-11-05: tam koşu + uçtan uca YOK, hızlı yayın): hedefli 39/39 + mutasyon 2 nokta · riskli alan paketi (senkron/yakıt/araç/bakım/sayaç/PG/tenant) 1009 (944 + 65 PG atlandı → env düzeltilip PG 87/87) · PG PSAY1-2 · arayüz 92/92.
+- YAYIN ~21:17: API (Fly, temiz kopya). Web/masaüstü değişmedi (1.0.204 kalır). Veri onarımı (yedek Documents/DepoWise_Yedekler/sayac_onarim_SAY01_2026-11-05_211838.json): 9 araç kart sayacı + 83 yakıt kaydının prev_meter (yalnız geçmişle tutarlı kayıtlar). Kullanıcıya bildirilen gerçek yazım hataları: KAM-FO 016 (54.435 değerli kayıt), KAMY 007 (412.144), KAM-ME 030, LODR 011/014, KAMY 002, KAM-ME 038, TOP-S 001, KONTRL 001.
+
 ## 🎨 2026-10-28 iOS TARZI TASARIM — dal `tasarim/ios` (YALNIZ masaüstü, yayın yok)
 - Kullanıcı örnekleri onayladı (Alpnex turuncusu, 4 yeni parça, önce 3 ekran → onay → tümü). Örnek + gerçek ekran görüntüleri: claude.ai/artifact/V2VJyFZTCZoH3RAaPjPeEw.
 - Bitti: e528c89c ortak görünüm (palet/köşe/düğme/tablo başlığı/menü) · 7e0f04d5 Ana Ekran (+ araç dağılım çubuğu, Themes/Ios.axaml) · b3ca785f Araç Listesi (eylemler kartta, "•••" menü, bakım çubukları) · 88cdcde5 Yeni Araç formu (grup kutuları, önizleme, kontrol listesi). Arayüz 74/74.

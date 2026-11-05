@@ -1695,6 +1695,9 @@ public sealed class BusinessSyncService
         // (silme yayılımı). Tüm tablolar uygulandıktan SONRA çalışır ki yeni gelen çocuklar zaten yazılmış olsun.
         ReconcileParentReplacedChildren(conn, tablesEl, companyId, errors);
 
+        // ⭐ SAY-01 (2026-11-05): gelen yakıt/bakım/sayaç kayıtlarından sonra araç sayacını SUNUCU kendi kayıtlarından yeniden hesaplar.
+        if (!serverAuthoritativeDeletes) SayaclariYenidenHesapla(conn, isPg, tablesEl, companyId, now, errors);
+
         // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı).
         // ⭐ Sayfalı gönderimde (paket "pushPage": { "last": false }) yalnız SON sayfadan sonra ilerler — aksi hâlde 2. sayfadaki
         // kayıtların çakışma tabanı ilk sayfanın anına kayar, eşzamanlı düzenlemeler (M-18) kaçardı. Alan yoksa eskisi gibi.
@@ -2097,6 +2100,55 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
 
     /// <summary>SNK-01 — sunucudaki mevcut araç sayacı (ham metin); araç yoksa <c>null</c>.
     /// Aynı bağlantı üzerinden okunur → açık transaction içinde çalışır.</summary>
+    /// <summary>Sayaca dayanak olan (iptal/düzeltme sayacı değiştirebilen) tablolar ve araç kolonları. <c>vehicles</c> da
+    /// listededir: bayat sayaçlı bir cihaz yalnız araç kartını (ör. ad düzeltmesi) gönderirse SNK-01 onu "ileri" sayıp
+    /// hatalı değeri geri yükseltebilirdi; yeniden hesap bunu da gerçeğe çeker.</summary>
+    private static readonly (string Tablo, string Kolon)[] SayacDayanaklari =
+    {
+        ("fuel_distributions", "vehicle_id"), ("vehicle_maintenances", "vehicle_id"), ("vehicle_meter_logs", "vehicle_id"),
+        ("vehicles", "id"),
+    };
+
+    /// <summary>
+    /// ⭐ SAY-01 (gerçek olay 2026-11-05, 06 FZ 4147 + 8 araç): hatalı-yüksek km'li yakıt kaydı düzeltildi; masaüstü sayacı
+    /// yerelde doğru değere indirdi ama SNK-01 koruması (aşağıda, UpsertRow) gelen düşük değeri reddetti ve sunucu eski hatalı
+    /// değeri tuttu → sonraki çekmede hatalı değer masaüstüne GERİ indi, yeni fişin "önceki sayacı" hep yanlış geldi (döngü).
+    /// Çözüm: SNK-01 aynen durur (bayat cihaz değeri sayacı düşüremez); ama gönderim uygulandıktan SONRA, paketteki
+    /// yakıt/bakım/sayaç-günlüğü satırlarının araçları için sayaç sunucunun KENDİ geçerli kayıtlarından yeniden hesaplanır
+    /// (<see cref="Vehicles.VehicleMeterService.Hesapla"/> — masaüstü/web ile aynı kural). Firma kapısı: Tazele yalnız bu
+    /// firmanın aracına dokunur. Hiç dayanak kaydı olmayan araç (içe aktarılmış sayaç) sıfırlanmaz.
+    /// Hata eşitlemeyi KIRMAZ: PG'de savepoint ile geri alınır, hata listesine not düşülür.
+    /// </summary>
+    private static void SayaclariYenidenHesapla(DbConnection conn, bool isPg, JsonElement tablesEl, string companyId,
+        long now, List<string> errors)
+    {
+        var araclar = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (tablo, kolon) in SayacDayanaklari)
+        {
+            if (!tablesEl.TryGetProperty(tablo, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
+            foreach (var r in rows.EnumerateArray())
+                if (r.ValueKind == JsonValueKind.Object && r.TryGetProperty(kolon, out var v) && v.ValueKind == JsonValueKind.String
+                    && v.GetString() is { Length: > 0 } id)
+                    araclar.Add(id);
+        }
+        if (araclar.Count == 0 || !TableExists(conn, "vehicles")) return;
+
+        foreach (var arac in araclar)
+        {
+            if (isPg) ExecRaw(conn, "SAVEPOINT dw_sayac;");
+            try
+            {
+                Vehicles.VehicleMeterService.Tazele(conn, null, companyId, arac, "sync", now, dayanaksizsaDokunma: true);
+                if (isPg) ExecRaw(conn, "RELEASE SAVEPOINT dw_sayac;");
+            }
+            catch (Exception ex)
+            {
+                if (isPg) { ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_sayac;"); ExecRaw(conn, "RELEASE SAVEPOINT dw_sayac;"); }
+                if (errors.Count < 20) errors.Add($"vehicles: sayaç yeniden hesaplanamadı ({ex.Message}).");
+            }
+        }
+    }
+
     private static string? MevcutSayac(DbConnection conn, string companyId, string vehicleId)
     {
         if (string.IsNullOrWhiteSpace(vehicleId)) return null;

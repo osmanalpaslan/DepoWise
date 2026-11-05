@@ -460,6 +460,11 @@ public static class GuncellemeNotlari
     /// <summary>En yeni EN ÜSTTE.</summary>
     public static readonly IReadOnlyList<GuncellemeNotu> Tumu = new GuncellemeNotu[]
     {
+        // ⭐ 2026-11-05 acil düzeltme (yalnız sunucu): düzeltilen hatalı km sayacı araç kartında kalıyordu (SAY-01).
+        new("2026-11-05-sayac-duzeltme", new DateOnly(2026, 11, 5), null, "Sayaç düzeltmesi", new GuncellemeMaddesi[]
+        {
+            new("Yanlış girilen km/saat yakıt kaydını düzelttiğinizde aracın sayacı artık her bilgisayarda doğru değere iner; yeni yakıt kaydındaki «Önceki» sayaç doğru gelir. Etkilenen araçların sayaçları ve eski kayıtlardaki önceki sayaçlar düzeltildi."),
+        }),
         // ⭐ 2026-10-29 iOS tarzı yeni görünüm yayını (tasarim/ios dalı: 2026-10-28 → 10-29, üç tur kullanıcı isteği).
         new("2026-10-29-yeni-gorunum", new DateOnly(2026, 10, 29), "1.0.204", "Yeni görünüm: daha sade ve ferah ekranlar", new GuncellemeMaddesi[]
         {
